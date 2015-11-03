@@ -206,7 +206,7 @@ if __name__ == '__main__':
 		fout = '%d_temp.out' % rid
 		r = run(run_conf, fin, fout, trace_calls, trace_files)
 
-		while sub['language'] == 3 && r['result'] == 5 && r.has_key('re_file'):
+		while sub['language'] == 3 and r['result'] == 5 and r.has_key('re_file'):
 			trace_files[r['re_file']] = r['re_file_flag']
 			r = run(run_conf, fin, fout, trace_calls, trace_files)
 
