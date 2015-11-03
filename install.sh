@@ -17,7 +17,6 @@ sudo python setConf.py
 
 sudo cp core/doj /etc/init.d/
 sudo chmod +x /etc/init.d/doj
-sudo echo "\n\n\n#DOJ Service Start\nsudo service doj start\n\n\n" >> "/etc/rc.local"
 
 sudo cp core/dojudge /usr/bin
 sudo chmod +x /usr/bin/dojudge
