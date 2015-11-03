@@ -57,9 +57,12 @@
 
 ```bash
 dojudge %d config
+sudo service doj start
+```
 
 如果你看到 `#0 {res: 1, ...}` 代表该语言已经被成功配置。
 
+# 反馈
 
 如有任何问题请通过以下邮箱反馈：
 
