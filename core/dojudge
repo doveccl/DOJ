@@ -158,8 +158,8 @@ if __name__ == '__main__':
 				key, val = i.strip().split(' ')
 				trace_files[key] = int(val)
 		trace_calls = [ int(x) for x in trace_calls ]
-	except:
-		sys.stderr.write('%sWrong language config file, please reconfig !' % f_fail)
+	except Exception, e:
+		sys.stderr.write('%sWrong language config file, please reconfig !\n' % f_fail)
 		sys.exit(1)
 
 	run_conf = {
