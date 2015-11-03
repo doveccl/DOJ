@@ -1,0 +1,362 @@
+body
+{
+	overflow: hidden;
+	height:100%;
+	margin:0;
+
+	-webkit-user-select:none;
+	-moz-user-select:none;
+	-ms-user-select:none;
+	user-select:none;
+}
+
+label
+{
+	display: inline-block;
+	padding: 0 10px;
+	vertical-align: middle;
+}
+
+code
+{
+	color: #C7254E;
+	background-color: #F9F2F4;
+	border-radius: 4px;
+	padding: 2px 8px;
+}
+
+pre> code
+{
+	display: block;
+	overflow-x: auto;
+	padding: 0.5em;
+	color: #333;
+	background: #f8f8f8;
+	font: 16px Consolas, "Liberation Mono", Menlo, Courier, monospace;
+	line-height: 1.6;
+}
+
+blockquote
+{
+	border-left: 10px solid rgba(102,128,153,0.075);
+	background-color: rgba(102,128,153,0.05);
+	border-top-right-radius: 5px;
+	border-bottom-right-radius: 5px;
+	padding: 10px;
+}
+
+th
+{
+	font-family: SimHei;
+}
+th, td
+{
+	cursor: default;
+	border: rgba(255,255,255,0) 3px solid; 
+}
+
+hr
+{
+	height: 1px;
+	background-color: #EEEEEE;
+}
+
+.tile-area-controls
+{
+	position: fixed;
+	right: 40px;
+	top: 40px;
+}
+
+.MathJax_Menu, #MathJax_MenuFrame
+{
+	display: none
+}
+
+.tile-group
+{
+	left: 100px;
+}
+
+.tile, .tile-small, .tile-sqaure, .tile-wide, .tile-large, .tile-big, .tile-super
+{
+	opacity: 0;
+	-webkit-transform: scale(.8);
+	transform: scale(.8);
+}
+
+.charm.right-side
+{
+	width: 300px;
+	right: -300px;
+}
+
+.tile-head
+{
+	position: relative;
+	z-Index: 1024;
+}
+
+.run_id, .go_pro
+{
+	color: #4390DF;
+	cursor: pointer;
+}
+.run_id:hover, .go_pro:hover
+{
+	background-color: #CCCCCC;
+	border-radius: 5px;
+	color: #DA5A53;
+}
+
+.Pending {color:#666666;}
+.AC {color:#66CC66;}
+.WA {color:#FF6666;}
+.TLE {color:#FFFF66;}
+.MLE {color:#66CCFF;}
+.RE {color:#FF9900;}
+.CE {color:#CCCCCC;}
+
+.bg-img
+{
+	margin-left: 10px;
+}
+
+.day-of-week
+{
+	color:black;
+}
+
+.side-list
+{
+	width: 100%;
+}
+
+.gravatar
+{
+	border-radius: 50px;
+}
+
+.quote
+{
+	color: black;
+	padding: 10px;
+	margin: 20px;
+	background-color: white;
+	border-left: 10px solid;
+	border-radius: 7px;
+	box-shadow: 0 0 3px gray;
+}
+
+.gohome
+{
+	color: black;
+	display: inline-block;
+	font-size: 110%;
+	padding: .3rem 2rem .3rem .1rem;
+	text-decoration: none;
+}
+
+.quote, #run_code
+{
+	-webkit-user-select:auto;
+	-moz-user-select:-moz-all;
+	-ms-user-select:text;
+	user-select:auto;
+}
+
+.ptag
+{
+	margin: 3px;
+	padding: 1px 4px 2px;
+	text-decoration: none;
+	background-color: #DCDCDC;
+	border-radius: 7px;
+	display: inline-block;
+	cursor: pointer;
+	font-size: 90%;
+	color: #FF6699;
+}
+
+.ptag:hover
+{
+	text-shadow: 0px 0px 3px #FF0000;
+}
+
+.taged
+{
+	background-color: #FFFF99;
+}
+
+.full-height
+{
+	height: 100%;
+}
+
+.overflow-down
+{
+	overflow-y: auto;
+	overflow-x: hidden;
+	height: 100%;
+}
+
+.zIndex2k
+{
+	z-Index: 2000;
+}
+
+.panel > .content
+{
+	background-color: #FCFCFC;
+}
+
+#problem
+{
+	float: left;
+	display: inline;
+	position: fixed;
+	font-size: .95rem;
+}
+
+#problems, #records
+{
+	background: url(../bg/bg.jpg) repeat;
+}
+
+#tagHead
+{
+	width:100%;
+	padding: 20px 20px 10px 20px;
+	font-weight: bold;
+	background-color: #EEEEEE;
+}
+
+#tagResNum
+{
+	background-color: #FFCC66;
+	text-decoration: none;
+	padding: 1px 4px 2px;
+	border-radius: 7px;
+	cursor: pointer;
+	color: #FFFFFF;
+}
+
+#noRecord
+{
+	padding: 7px;
+	text-align: center;
+	background-color: #EEE;
+	border-bottom: 5px solid #CCC;
+	cursor: default;
+}
+
+#moreRecord
+{
+	padding: 7px;
+	text-align: center;
+	background-color: #EEE;
+	border-bottom: 5px solid #CCC;
+	cursor: pointer;
+}
+
+#moreRecord:hover
+{
+	background-color: #DDFFFF;
+}
+
+#noTopic, #noTop
+{
+	padding: 7px;
+	margin-bottom: 10px;
+	text-align: center;
+	background-color: #FFFFCC;
+	border-bottom: 5px solid #FFFF99;
+	cursor: default;
+}
+
+#replyText, #topicText, #rep_view, #topic_view, #subCode
+{
+	margin: 0;
+	font-size: 16px;
+	height: 400px;
+}
+
+#moreTopic
+{
+	padding: 7px;
+	text-align: center;
+	background-color: #FFFFCC;
+	border-bottom: 5px solid #FFFF99;
+	cursor: pointer;
+}
+#moreTopic:hover
+{
+	background-color: #DDFFFF;
+}
+
+#result
+{
+	max-height: 80%;
+	overflow-y: scroll;
+}
+
+#user-dropdown:before
+{
+	display: none;
+}
+
+#charmSettings .button 
+{
+	margin: 5px;
+}
+
+::-webkit-scrollbar
+{
+	width: 5px;
+	height: 8px;
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb
+{
+	border-radius: 3px;
+	background-color: #999999;
+	background-size: 100%;
+}
+
+::selection
+{
+	text-shadow: 0px 0px 5px #FF9966;
+	background: #CCFFFF;
+}
+
+::-moz-selection
+{
+	text-shadow: 0px 0px 5px #FF9966;
+	background: #CCFFFF;
+}
+
+@media screen and (max-width: 640px) 
+{
+	.tile-area
+	{
+		overflow-y: scroll;
+	}
+	.tile-area-controls
+	{
+		display: none;
+	}
+}
+
+@media screen and (max-width: 320px)
+{
+	.tile-area 
+	{
+		overflow-y: scroll;
+	}
+
+	.tile-area-controls 
+	{
+		display: none;
+	}
+}

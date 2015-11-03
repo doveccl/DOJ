@@ -1,0 +1,6 @@
+c
+gcc %s -o %s -fno-asm -O2 -lm -DONLINE_JUDGE
+./main
+0 1 2 3 5 9 10 11 12 21 158 231
+/lib/x86_64-linux-gnu/libc.so.6 524288
+/etc/ld.so.cache 524288

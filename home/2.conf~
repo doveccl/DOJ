@@ -1,0 +1,4 @@
+pas
+fpc main.pas -O2
+./main
+0 1 13 16 89 97 231

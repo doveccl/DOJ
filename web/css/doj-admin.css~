@@ -1,0 +1,52 @@
+code {
+	color: #C7254E;
+	background-color: #F9F2F4;
+	border-radius: 4px;
+	padding: 2px 8px;
+}
+pre> code {
+	display: block;
+	overflow-x: auto;
+	padding: 0.5em;
+	color: #333;
+	background: #f8f8f8;
+	font: 16px Consolas, "Liberation Mono", Menlo, Courier, monospace;
+	line-height: 1.6;
+}
+blockquote {
+	border-left: 10px solid rgba(102,128,153,0.075);
+	background-color: rgba(102,128,153,0.05);
+	border-top-right-radius: 5px;
+	border-bottom-right-radius: 5px;
+	padding: 10px;
+}
+th, td {
+	cursor: default;
+	padding: 8px;
+	font-size: 16px;
+}
+hr {
+	height: 1px;
+	background-color: #EEEEEE;
+}
+
+.overflow-down {
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+.overflow-down, .ace {
+	height: 300px;
+}
+
+
+#pchange {
+	padding: 40px;
+}
+#mail-input {
+	width: 400px;
+}
+#key {
+	width: 400px;
+	height: 200px;
+}
+
