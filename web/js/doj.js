@@ -251,7 +251,7 @@ function showProblem(pid, tags)
 			$("#memory_limit").html(p.memory);
 
 			var pMsg = $("#problemMsg");
-			pMsg.css('height', pMsg.css('width'));
+			pMsg.height(pMsg.width());
 			pMsg.highcharts({
 				chart: {
 					type: 'pie',
