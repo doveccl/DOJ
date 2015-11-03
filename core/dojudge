@@ -194,6 +194,9 @@ if __name__ == '__main__':
 			lan_conf.write('%s %s\n' % (key, trace_files[key]))
 		lan_conf.close()
 
+	if os.path.exists('temp.out'):
+		os.remove('temp.out')
+
 	i = 0
 	res = 1
 	result = []
@@ -202,6 +205,11 @@ if __name__ == '__main__':
 		fans = '%d.out' % i
 		fout = '%d_temp.out' % rid
 		r = run(run_conf, fin, fout, trace_calls, trace_files)
+
+		while sub['language'] == 3 && r['result'] == 5 && r.has_key('re_file'):
+			trace_files[r['re_file']] = r['re_file_flag']
+			r = run(run_conf, fin, fout, trace_calls, trace_files)
+
 		if r['result'] == 0:
 			sres = ansCmp(fout, fans)
 		else:
