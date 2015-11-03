@@ -29,7 +29,7 @@
 4. 运行安装脚本：
 
 	```bash
-	cd doj
+	cd DOJ
 	bash ./install.sh
 	```
 
@@ -57,7 +57,6 @@
 
 ```bash
 dojudge %d config
-sudo service doj start
 ```
 
 如果你看到 `#0 {res: 1, ...}` 代表该语言已经被成功配置。
