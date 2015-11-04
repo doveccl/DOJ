@@ -34,4 +34,4 @@ sudo cp -R web/* /var/www/html/
 sudo chmod -R 777 /var/www
 
 echo "Finished. Old web files have been saved in /var/www/backup"
-echo "Use: 'sudo service doj start' to start judger"
+echo "Use: 'sudo /etc/init.d/doj start' to start judger"

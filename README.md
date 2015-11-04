@@ -37,7 +37,13 @@
 
 6. 安装脚本会提示你输入 mysql 用户名（默认为 root），然后你需要输入你设定的密码，安装脚本会自动检查用户名密码的正确性。
 
-7. 等待安装脚本运行完成。如果你需要评测服务开机启动，请使用 root 权限编辑 /etc/rc.local 脚本：
+7. 等待安装脚本运行完成，使用以下命令即可启动评测服务：
+	
+	```bash
+	sudo /etc/init.d/doj start
+	```
+	
+	如果你需要评测服务开机启动，请使用 root 权限编辑 /etc/rc.local 脚本：
 	
 	```bash
 	sudo gedit /etc/rc.local
@@ -46,7 +52,7 @@
 	在该文件 `exit 0` 之前加入一行代码并保存：
 
 	```bash
-	sudo service doj start
+	sudo /etc/init.d/doj start
 	```
 
 8. 在浏览器中输入 localhost 来测试 OJ 搭建情况（初始用户为管理员，用户名为 `admin`，密码为 `oj_admin`），并及时修改密码。
