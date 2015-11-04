@@ -148,7 +148,13 @@ if __name__ == '__main__':
 		comp_return = comp.wait()
 		if comp_return != 0:
 			re_out, re_err = comp.communicate()
-			updateRes(sub['id'], 6, re_out + re_err)
+			re_msg = list(re_out + re_err)
+			re_msg_len = len(re_msg)
+			for i in range(0, re_msg_len):
+				if ord(re_msg[i]) > 127:
+					re_msg[i] = ''
+			re_msg = ''.join(re_msg)
+			updateRes(sub['id'], 6, re_msg)
 			os.remove(source)
 			sys.exit(0)
 		os.remove(source)
