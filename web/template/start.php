@@ -235,7 +235,7 @@
 			</div><br><br>
 			<div class="input-control text full-size" data-role="input">
 				<label for="user_name">新的用户名</label>
-				<input type="text" name="user_name" id="user_name" maxlength="16" data-wrong="用户名长度应大于5！" value="<?php echo $user_name;?>">
+				<input type="text" name="user_name" id="user_name" maxlength="16" data-wrong="用户名长度应大于5！" value="<?php echo $uname;?>">
 				<button class="button helper-button clear"><span class="mif-cross"></span></button>
 			</div>
 			<div class="form-actions">
