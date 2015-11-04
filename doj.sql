@@ -3,8 +3,8 @@ SET foreign_key_checks = 0;
 SET time_zone = '+08:00';
 SET sql_mode = 'NO_AUTO_VALUE_ON_ZERO';
 
-DROP DATABASE IF EXISTS `doj`;
-CREATE DATABASE `doj` /*!40100 DEFAULT CHARACTER SET utf8 */;
+/* DROP DATABASE IF EXISTS `doj`; */
+CREATE DATABASE IF NOT EXISTS `doj` /*!40100 DEFAULT CHARACTER SET utf8 */;
 USE `doj`;
 
 DROP TABLE IF EXISTS `contest`;
