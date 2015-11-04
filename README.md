@@ -14,22 +14,22 @@
 
 1. 建议使用Ubuntu 14.04或以上版本的操作系统作为OJ服务器
 
-2. 如果你还没有安装git，请通过以下命令在终端中安装git：
+2. 下载最新版本的 DOJ：
 
 	```bash
-	sudo apt-get install git git-core
+	wget https://github.com/doveccl/DOJ/archive/master.zip
 	```
 
-3. 通过git命令克隆项目到本地：
+3. 解压压缩文件并进入 DOJ 目录：
 
 	```bash
-	git clone https://github.com/doveccl/DOJ.git
+	unzip master.zip
+	cd DOJ-master
 	```
 
 4. 运行安装脚本：
 
 	```bash
-	cd DOJ
 	bash ./install.sh
 	```
 
