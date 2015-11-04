@@ -143,8 +143,13 @@ if __name__ == '__main__':
 		else:
 			lan_comp_cmd = lan_comp % source
 
-		if os.system(lan_comp_cmd) != 0:
-			updateRes(sub['id'], 6, '')
+		from subprocess import Popen, PIPE
+		comp = Popen(lan_comp_cmd.split(' '), stdout = PIPE, stderr = PIPE)
+		comp_return = comp.wait()
+		if comp_return != 0:
+			re_out, re_err = comp.communicate()
+			updateRes(sub['id'], 6, re_out + re_err)
+			os.remove(source)
 			sys.exit(0)
 		os.remove(source)
 
@@ -206,7 +211,7 @@ if __name__ == '__main__':
 		fout = '%d_temp.out' % rid
 		r = run(run_conf, fin, fout, trace_calls, trace_files)
 
-		while sub['language'] == 3 and r['result'] == 5 and r.has_key('re_file'):
+		while sub['language'] >= 3 and r['result'] == 5 and r.has_key('re_file'):
 			trace_files[r['re_file']] = r['re_file_flag']
 			r = run(run_conf, fin, fout, trace_calls, trace_files)
 

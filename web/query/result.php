@@ -18,6 +18,7 @@
 		if ($user->admin > $u->admin || $user->id == $u->id)
 			$msg->code = $r->code;
 		$msg->pid = $r->pid;
+		$msg->res = $r->res;
 		$msg->result = $r->result;
 
 		send(0, $msg);

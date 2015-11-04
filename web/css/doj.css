@@ -132,6 +132,14 @@ hr
 	width: 100%;
 }
 
+.ce_msg
+{
+	font-size: 16px;
+	color: red;
+	overflow-x: auto;
+	overflow-y: hidden;
+}
+
 .gravatar
 {
 	border-radius: 50px;
