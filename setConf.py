@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #coding: utf-8
 
-import MySQLdb, os
+import pymysql, os
 
 db_user = ''
 db_pwd = ''
@@ -10,9 +10,10 @@ def tryConn():
 	global db_user, db_pwd
 
 	try:
-		conn = MySQLdb.connect(host='localhost', user=db_user, passwd=db_pwd)
+		conn = pymysql.connect(host='localhost', user=db_user, passwd=db_pwd)
+		conn.close()
 		return True
-	except MySQLdb.Error, e:
+	except pymysql.Error, e:
 		print 'Mysql Error %d: %s' % (e.args[0], e.args[1])
 		return False
 
