@@ -21,10 +21,10 @@
 
 			if ($p->sampleIn == '')
 				$p->sampleIn = "`N/A`";
-			else $p->sampleIn = '>' . $p->sampleIn;
+			else $p->sampleIn = '>' . nl2br($p->sampleIn);
 			if ($p->sampleOut == '')
 				$p->sampleOut = "`N/A`";
-			else $p->sampleOut = '>' . $p->sampleOut;
+			else $p->sampleOut = '>' . nl2br($p->sampleOut);
 			
 			$pid = $p->id;
 			$situ = ["", "AC", "WA", "TLE", "MLE", "RE", "CE"];
