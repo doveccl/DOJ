@@ -299,7 +299,7 @@
 		<div id="pcontent" class="grid condensed full-height no-margin">
 
 			<div class="row cells12 full-height">
-				<div class="cell colspan2 full-height">
+				<div class="cell colspan3 full-height">
 					<ul class="v-menu subdown overflow-down side-list">
 						<li><a href="javascript:window.location.hash='',$('#problems').data('dialog').close();"><span class="mif-home icon"></span>回到主页</a></li>
 						<li class="divider"></li>
@@ -321,7 +321,7 @@
 						<div id="problemIndex"></div>
 					</ul>
 				</div>
-				<div class="cell colspan10 overflow-down" id="problem">
+				<div class="cell colspan9 overflow-down" id="problem">
 
 					<div class="quote" style="border-color:#CE352C;">
 						<h3 class="no-margin-top">题目描述</h3>

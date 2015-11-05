@@ -129,7 +129,13 @@ hr
 
 .side-list
 {
+	max-width: 100%;
 	width: 100%;
+}
+
+.d-menu
+{
+	max-width: 100%;
 }
 
 .ce_msg
