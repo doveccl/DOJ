@@ -81,7 +81,7 @@
 			<br><br>
 			<label for="user_key">邀请码：</label>
 			<div class="input-control textarea full-size">
-				<textarea name="key" id="user_key" data-role="popover" data-popover-position="right" data-popover-text="邀请码需由管理员发放<br>原OJ用户可<a href='//oj.doveccl.com/?key'><b>点这里</b></a> 获取" data-popover-background="bg-blue" data-popover-color="fg-white" data-popover-mode="focus" data-validate-func="required" data-validate-hint="邀请码不可为空！"><?php if (isset($key)) echo $key;?></textarea>
+				<textarea name="key" id="user_key" data-role="popover" data-popover-position="right" data-popover-text="邀请码需由管理员发放" data-popover-background="bg-blue" data-popover-color="fg-white" data-popover-mode="focus" data-validate-func="required" data-validate-hint="邀请码不可为空！"><?php if (isset($key)) echo $key;?></textarea>
 				<span class="input-state-error mif-warning" style="right:8px;"></span>
 				<span class="input-state-success mif-checkmark" style="right: 8px;"></span>
 			</div><br><br>
