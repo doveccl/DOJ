@@ -63,11 +63,25 @@ function stripTags(str)
 	return str;
 }
 
+function md(s)
+{
+	s = s.replace(/(\${1,2})[^\$\n]+\1/g, function(t) {
+		t = t.replace(/_/g, '\\sub');
+		return t.replace(/\*/g, '\\mul');
+	});
+	s = marked(s);
+	s = s.replace(/(\${1,2})[^\$\n]+\1/g, function(t) {
+		t = t.replace(/\\sub/g, '_');
+		return t.replace(/\\mul/g, '*');
+	});
+	return s;
+}
+
 function markdown(str)
 {
 	str = stripTags(str);
 //	str = htmlspecialchars(str);
-	return marked(str);
+	return md(str);
 }
 
 function showSearch()
@@ -241,12 +255,12 @@ function showProblem(pid, tags)
 			showNote(d);
 		else {
 			var p = d.msg;
-			$("#description").html(markdown(p.description));
-			$("#inFormat").html(markdown(p.input));
-			$("#outFormat").html(markdown(p.output));
-			$("#sampleIn").html(markdown(p.sampleIn));
-			$("#sampleOut").html(markdown(p.sampleOut));
-			$("#hint").html(markdown(p.hint));
+			$("#description").html(md(p.description));
+			$("#inFormat").html(md(p.input));
+			$("#outFormat").html(md(p.output));
+			$("#sampleIn").html(md(p.sampleIn));
+			$("#sampleOut").html(md(p.sampleOut));
+			$("#hint").html(md(p.hint));
 			$("#time_limit").html(p.time);
 			$("#memory_limit").html(p.memory);
 

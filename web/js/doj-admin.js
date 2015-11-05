@@ -4,6 +4,20 @@ var n = [null ,null, null, null];
 var frame_first_load = true;
 var pindex = 1000;
 
+function md(s)
+{
+	s = s.replace(/(\${1,2})[^\$\n]+\1/g, function(t) {
+		t = t.replace(/_/g, '\\sub');
+		return t.replace(/\*/g, '\\mul');
+	});
+	s = marked(s);
+	s = s.replace(/(\${1,2})[^\$\n]+\1/g, function(t) {
+		t = t.replace(/\\sub/g, '_');
+		return t.replace(/\\mul/g, '*');
+	});
+	return s;
+}
+
 function showNote(d) {
 	if (d.res == 0)
 		$.Notify({
@@ -32,10 +46,10 @@ function showNote(d) {
 
 function preview(type, id) {
 	if (type == 1)
-		$("#p" + pi[id] + "view").html(marked(p[id].getValue()));
+		$("#p" + pi[id] + "view").html(md(p[id].getValue()));
 	else
-		$("#n" + pi[id] + "view").html(marked(n[id].getValue()));
-	MathJax.Hub.Queue(["Typeset",MathJax.Hub]);
+		$("#n" + pi[id] + "view").html(md(n[id].getValue()));
+	MathJax.Hub.Queue(["Typeset", MathJax.Hub]);
 }
 
 function changeProblem(pid) {
