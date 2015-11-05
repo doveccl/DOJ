@@ -32,7 +32,8 @@
 		'submitSuccess' => '提交成功，在我的提交记录中可查看结果！',
 		'changedProblem' => '新的题目信息已经成功保存！',
 		'addedProblem' => '新的题目已经成功添加！',
-		'finishedJudge' => '评测结果：res_flag[%d]<br>详细信息请查看提交记录'
+		'finishedJudge' => '评测结果：res_flag[%d]<br>详细信息请查看提交记录',
+		'reJudged' => '重评开始，请到前台查看重评结果'
 	];
 
 	static $warning = [

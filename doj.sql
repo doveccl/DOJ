@@ -113,4 +113,4 @@ CREATE TABLE `users` (
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 
 INSERT INTO `users` (`id`, `name`, `mail`, `password`, `reg_time`, `bg`, `sex`, `sign`, `school`, `birth`, `admin`) VALUES
-(1,	'Admin',	'admin@doj.com',	'kethkrswkocljrspkntnkcsyjetujhsdkgytkdypkppcjizrjqtwjfkljpasjjevkhdlklcyjlrvjdxnkmsykfwbkqaojnxnkiwpkkjq',	'2000-01-01 00:00:00',	1,	1,	'',	'',	'2000-01-01',	1);
+(1,	'Admin',	'admin@doj.com',	'kethkrswkocljrspkntnkcsyjetujhsdkgytkdypkppcjizrjqtwjfkljpasjjevkhdlklcyjlrvjdxnkmsykfwbkqaojnxnkiwpkkjq',	'2000-01-01 00:00:00',	1,	1,	'',	'',	'2000-01-01',	2);

@@ -47,6 +47,8 @@
 		require_once('template/lostpwd.php');
 	else if (isset($_GET['key']))
 		require_once('query/key.php');
+	else if (isset($_GET['reJudge']))
+		require_once('query/reJudge.php');
 	else if (isset($_GET['register']))
 		require_once('template/register.php');
 	else if (isset($_GET['submitregister']))

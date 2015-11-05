@@ -45,6 +45,7 @@
 				<li><a href="#addProblem">添加题目</a></li>
 				<li><a href="#datas">数据管理</a></li>
 				<li><a href="#getKey">生成邀请码</a></li>
+				<li><a href="#reJudge">代码重判</a></li>
 			</ul>
 			<div class="frames">
 				<div class="frame" id="home">
@@ -248,7 +249,24 @@
 						<input type="text" id="mail">
 						<button class="button" onclick="getKey()"><span class="mif-key"></span></button>
 					</div><br>
+					<label class="input-control checkbox small-check">
+					    <input type="checkbox" id="setAdmin">
+					    <span class="check"></span>
+					    <span class="caption">设为管理员（拥有后台管理权限）</span>
+					</label><br><br>
 					<textarea id="key"></textarea>
+				</div>
+				<div class="frame" id="reJudge">
+					<div class="input-control text" data-role="input">
+						<label fpr="mail">运行ID：</label>
+						<input type="text" id="run_id">
+						<button class="button" onclick="reJudge(1,'#run_id')"><span class="mif-loop2"></span></button>
+					</div>
+					<div class="input-control text" data-role="input">
+						<label fpr="mail">题目ID：</label>
+						<input type="text" id="pro_id">
+						<button class="button" onclick="reJudge(2,'#pro_id')"><span class="mif-loop2"></span></button>
+					</div>
 				</div>
 			</div>
 		</div>

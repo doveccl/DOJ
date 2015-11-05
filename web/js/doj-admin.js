@@ -108,11 +108,23 @@ function addProblem()
 
 function getKey()
 {
-	$.get("?key", {mail: $("#mail").val()}, function(d) {
+	var flag = 0;
+	if ($("#setAdmin").is(":checked"))
+		flag = 1;
+
+	$.get("?key", {
+			mail: $("#mail").val(),
+			admin: flag
+	}, function(d) {
 		if (d.res)
 			showNote(d);
 		else $("#key").val(d.msg);
 	}, "json");
+}
+
+function reJudge(w, s)
+{
+	$.get("?reJudge", {way: w, id: $(s).val()}, showNote, "json");
 }
 
 $(function() {

@@ -67,10 +67,10 @@
 		return preg_match($exp, $email);
 	}
 	
-	function checkKey($k, $m)
+	function checkKey($k)
 	{
 		global $key_reg;
-		return dc_decrypt($k, $key_reg) == $m;
+		return dc_decrypt($k, $key_reg);
 	}
 	
 	function checkUserPwd($user, $pwd)
