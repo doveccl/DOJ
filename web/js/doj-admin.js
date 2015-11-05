@@ -193,7 +193,7 @@ $(function() {
 		$("#data-iframe").hide();
 		var h = $(window).height() - 70;
 		$('#data-iframe').height(h);
-		$('#data-iframe').attr('src', 'file');
+		$('#data-iframe').attr('src', document.location.protocol + '//' + window.location.host + '/file/');
 		$("#data-iframe").show();
 	});
 	$("a[href!=#datas]").click(function() {
