@@ -540,12 +540,11 @@ function rowRecord(r)
 {
 	var row = "<tr>"
 	r.res = parseInt(r.res);
-	var deres = r.result;
-	if (r.res !=6)
-		deres = eval(deres);
+	var deres = eval('(' + r.result + ')');
+
 	var utime = 0, umemory = 0;
 	var s_res = res_flag[r.res];
-	if (typeof deres != 'undefined' && r.res != 6)
+	if (deres && !deres.ce)
 		for (var i = 0; i < deres.length; i++) {
 			utime = Math.max(utime, deres[i].time),
 			umemory = Math.max(umemory, deres[i].memory);
@@ -583,6 +582,7 @@ function refreshRecord()
 			var msg = eval(d.msg), rs = '';
 			var x = eval(msg.list);
 
+			console.log(x);
 			for (var i = 0; i < x.length; i++)
 				rs += rowRecord(x[i]);
 
@@ -936,9 +936,7 @@ $(function() {
 			if (d.res)
 				showNote(d);
 			else {
-				var res = d.msg, r = res.result;
-				if (res.res != 6)
-					r = eval(r);
+				var res = d.msg, r = eval('(' + res.result + ')');
 
 				$("#run_id").html(rid);
 				$("#run_pid").html(res.pid);
@@ -948,16 +946,17 @@ $(function() {
 				else res.code = '';
 				$("#run_code").html(marked(res.code));
 
-				if (res.res != 6) {
-					var p_res = '#### Points:\n\n|数据点|结果|时间(ms)|内存(KB)|\n|:---|:---:|:---:|:---:|\n';
+				var p_res;
+				if (r.ce) {
+					p_res = "<h4>Compile Error</h4>";
+					p_res += "<pre class='ce_msg'>" + r.ce + "</pre>";
+				} else {
+					p_res = '#### Points:\n\n|数据点|结果|时间(ms)|内存(KB)|\n|:---|:---:|:---:|:---:|\n';
 					for (var i = 0; i < r.length; i++)
 						p_res += '|#' + i + '|' + res_flag[r[i].res] + '|' + r[i].time + '|' + r[i].memory + '|\n';
-					$("#points_res").html(marked(p_res));
-				} else {
-					var p_res = "<h4>Compile Message</h4>";
-					p_res += "<pre class='ce_msg'>" + r + "</pre>";
-					$("#points_res").html(p_res);
+					p_res = marked(p_res);
 				}
+				$("#points_res").html(p_res);
 
 				showDialog("#result");
 			}
