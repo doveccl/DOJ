@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #coding: utf-8
 
-import MySQLdb, json, sys, os, lorun, re
+import pymysql, json, sys, os, lorun, re
 
 f_succ = "\033[1;32m * \033[0m" #Green
 f_warn = "\033[1;33m * \033[0m" #Yellow
@@ -27,10 +27,10 @@ def setConfig():
 def getSubmitMsg(rid):
 	global host, name, user, pwd
 	try:
-		conn = MySQLdb.connect(host=host, user=user, passwd=pwd, db=name)
-		doj = conn.cursor(cursorclass = MySQLdb.cursors.DictCursor)
+		conn = pymysql.connect(host=host, user=user, passwd=pwd, db=name)
+		doj = conn.cursor(cursor = pymysql.cursors.DictCursor)
 		doj.execute('SELECT * FROM submit WHERE id = %d' % rid)
-		res = doj.fetchoneDict()
+		res = doj.fetchone()
 		if not res:
 			sys.stderr.write('%sNot a correct runid !\n' % f_fail)
 			sys.exit(1)
@@ -41,7 +41,7 @@ def getSubmitMsg(rid):
 		conn.commit()
 		doj.close()
 		conn.close()
-	except MySQLdb.Error, e:
+	except pymysql.Error, e:
 		sys.stderr.write("Mysql Error %d: %s\n" % (e.args[0], e.args[1]))
 		sys.exit(1)
 	return res
@@ -49,16 +49,16 @@ def getSubmitMsg(rid):
 def getProblemMsg(pid):
 	global host, name, user, pwd
 	try:
-		conn = MySQLdb.connect(host=host, user=user, passwd=pwd, db=name)
-		doj = conn.cursor(cursorclass = MySQLdb.cursors.DictCursor)
+		conn = pymysql.connect(host=host, user=user, passwd=pwd, db=name)
+		doj = conn.cursor(cursor = pymysql.cursors.DictCursor)
 		doj.execute('SELECT * FROM problems WHERE id = %d' % pid)
-		res = doj.fetchoneDict()
+		res = doj.fetchone()
 		if not res:
 			sys.stderr.write('%sCannot read get the problem !\n' % f_fail)
 			sys.exit(1)
 		doj.close()
 		conn.close()
-	except MySQLdb.Error, e:
+	except pymysql.Error, e:
 		sys.stderr.write("Mysql Error %d: %s\n" % (e.args[0], e.args[1]))
 		sys.exit(1)
 	return res
@@ -66,13 +66,13 @@ def getProblemMsg(pid):
 def updateRes(rid, flag, res):
 	global host, name, user, pwd
 	try:
-		conn = MySQLdb.connect(host=host, user=user, passwd=pwd, db=name)
+		conn = pymysql.connect(host=host, user=user, passwd=pwd, db=name)
 		doj = conn.cursor()
-		doj.execute('UPDATE submit SET res = %d, result = \'%s\' WHERE id = %d' % (flag, res, rid))
+		doj.execute('UPDATE submit SET res = %s, result = %s WHERE id = %s' , (flag, res, rid))
 		conn.commit()
 		doj.close()
 		conn.close()
-	except MySQLdb.Error, e:
+	except pymysql.Error, e:
 		sys.stderr.write("Mysql Error %d: %s\n" % (e.args[0], e.args[1]))
 		sys.exit(1)
 
@@ -148,12 +148,8 @@ if __name__ == '__main__':
 		comp_return = comp.wait()
 		if comp_return != 0:
 			re_out, re_err = comp.communicate()
-			re_msg = list(re_out + re_err)
-			re_msg_len = len(re_msg)
-			for i in range(0, re_msg_len):
-				if ord(re_msg[i]) > 127:
-					re_msg[i] = ''
-			re_msg = ''.join(re_msg)
+			re_msg = json.dumps({"ce" : re_out + re_err})
+			print re_msg
 			updateRes(sub['id'], 6, re_msg)
 			os.remove(source)
 			sys.exit(0)

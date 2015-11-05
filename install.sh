@@ -1,6 +1,6 @@
 #!/bin/bash
 sudo apt-get -y --force-yes install python g++ fpc
-sudo apt-get -y --force-yes install python-dev python-mysqldb
+sudo apt-get -y --force-yes install python-dev python-pymysql
 sudo apt-get -y --force-yes install apache2 php5 mysql-server php5-mysql
 sudo apt-get -y --force-yes install git
 

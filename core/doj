@@ -110,7 +110,7 @@ class Daemon:
 		self.conn.close()
 
 	def _run(self):
-		import MySQLdb, json
+		import pymysql, json
 		import subprocess as sp
 
 		try:
@@ -126,10 +126,10 @@ class Daemon:
 			sys.exit(1)
 
 		try:
-			self.conn = MySQLdb.connect(host=host, user=user, passwd=pwd, db=name)
+			self.conn = pymysql.connect(host=host, user=user, passwd=pwd, db=name)
 			self.cursor = self.conn.cursor()
 			doj = self.cursor
-		except MySQLdb.Error, e:
+		except pymysql.Error, e:
 			sys.stderr.write("Mysql Error %d: %s" % (e.args[0], e.args[1]))
 			sys.exit(1)
 		atexit.register(self._closeDB)
