@@ -37,9 +37,9 @@
 	$db_name = $conf->db_name;
 	$db_user = $conf->db_user;
 	$db_pwd = $conf->db_pwd;
-	static $key_reg = 231; // 1110 0111 todo: enc invite key
-	static $key_pwd = 113; // 0111 0001 todo: enc password
-	static $key_log = 111; // 0110 1111 todo: enc DOJSS
+	static $key_reg = 0; // todo: enc invite key
+	static $key_pwd = 0; // todo: enc password
+	static $key_log = 0; // todo: enc DOJSS
 
 	static $flag = ["WAIT", "AC", "WA", "TLE", "MLE", "RE", "CE", "TESTING"];
 	static $language = ["c", "cpp", "pascal", "python"];
