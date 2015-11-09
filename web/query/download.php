@@ -36,11 +36,9 @@
 
 			$zip->close();
 			
-			header("Content-Type: application/force-download");
-			header("Content-Transfer-Encoding: binary");
+			header("Accept-Ranges: bytes");
 			header("Content-Type: application/zip");
 			header("Content-Disposition: attachment; filename=code.zip");
-			header("Content-Length: ".filesize("code.zip"));
 			readfile('code.zip');
 			
 			delDirAndFile('../temp');
