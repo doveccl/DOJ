@@ -258,8 +258,8 @@ function showProblem(pid, tags)
 			$("#description").html(md(p.description));
 			$("#inFormat").html(md(p.input));
 			$("#outFormat").html(md(p.output));
-			$("#sampleIn").html(md(p.sampleIn));
-			$("#sampleOut").html(md(p.sampleOut));
+			$("#sampleIn").html(p.sampleIn);
+			$("#sampleOut").html(p.sampleOut);
 			$("#hint").html(md(p.hint));
 			$("#time_limit").html(p.time);
 			$("#memory_limit").html(p.memory);

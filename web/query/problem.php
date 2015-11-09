@@ -20,11 +20,11 @@
 				$p->sampleOut = file_get_contents("$oj_data/$pid/0.out");
 
 			if ($p->sampleIn == '')
-				$p->sampleIn = "`N/A`";
-			else $p->sampleIn = '>' . nl2br($p->sampleIn);
+				$p->sampleIn = "<code>N/A</code>";
+			else $p->sampleIn = '<blockquote>' . nl2br($p->sampleIn) . '</blockquote>';
 			if ($p->sampleOut == '')
-				$p->sampleOut = "`N/A`";
-			else $p->sampleOut = '>' . nl2br($p->sampleOut);
+				$p->sampleOut = "<code>N/A</code>";
+			else $p->sampleOut = '<blockquote>' . nl2br($p->sampleOut)  . '</blockquote>';
 			
 			$pid = $p->id;
 			$situ = ["", "AC", "WA", "TLE", "MLE", "RE", "CE"];
