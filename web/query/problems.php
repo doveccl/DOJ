@@ -35,7 +35,7 @@
 						$flag = false;
 						break;
 					}
-				if ($flag)
+				if ($flag && ($p->name[0] != '$' || $user->admin))
 					$list []= ['id' => $p->id, 'name' => $p->name];
 			}
 			
@@ -49,7 +49,8 @@
 
 			$res = mysql_query("SELECT * FROM `problems` WHERE `id` >= $l AND `id` < $r");
 			while ($p = mysql_fetch_object($res))
-				$list []= ["id" => $p->id, "name" => $p->name];
+				if ($p->name[0] != '$' || $user->admin)
+					$list []= ["id" => $p->id, "name" => $p->name];
 			mysql_free_result($res);
 			send(0, json_encode($list));
 		}

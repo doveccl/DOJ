@@ -56,7 +56,7 @@
 					</div>
 				</div>
 				<div class="frame" id="problems">
-					题目索引：<div class="pagination rounded" id="pindex"></div>
+					题目索引（<b>需要隐藏题目请在题目的标题前加上一个</b><code>$</code>）：<div class="pagination rounded" id="pindex"></div>
 					<div id="plist"></div>
 					<div id="pchange" style="display:none;">
 						<h4>

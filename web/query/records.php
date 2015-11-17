@@ -35,7 +35,8 @@
 			unset($r->code);
 			$r->uname = getUserByID($r->uid)->name;
 			$r->pname = getProblemByID($r->pid)->name;
-			$list []= $r;
+			if ($r->pname[0] != '$' || $user->admin)
+				$list []= $r;
 		}
 
 		mysql_free_result($res);

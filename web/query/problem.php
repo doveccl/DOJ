@@ -11,7 +11,7 @@
 	if ($user)
 	{
 		$p = getProblemByID($pid);
-		if ($p)
+		if ($p  && ($p->name[0] != '$' || $user->admin))
 		{
 			$p->sampleIn = $p->sampleOut = '';
 			if (file_exists("$oj_data/$pid/0.in"))
