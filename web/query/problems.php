@@ -1,59 +1,80 @@
 <?php
-	require_once("query/message.php");
+	function send_error($error) {
+		$res = new stdClass();
+		$res->success = false;
+		$res->error = $error;
+		DOJ::response($res);
+	}
 
-	if (!isset($_GET['type']))
-		send(1, '');
+	if (isset($_GET['max'])) {
+		$sql = "SELECT MAX(id) AS max FROM problems WHERE hide = 0";
+		$args = array();
+		$r = DOJ::db_execute($sql, $args);
+
+		if (!$r) send_error(str::$db_failed);
+
+		$res = new stdClass();
+		$res->success = true;
+		$res->max = $r[0]->max;
+		DOJ::response($res);
+	}
+
+	if (isset($_GET['tags'])) {
+		$sql = "SELECT * FROM tags";
+		$args = array();
+		$r = DOJ::db_execute($sql, $args);
+
+		if (!$r) send_error(str::$db_failed);
+
+		$len = count($r);
+		for ($i = 0; $i < $len; $i++)
+			$r[$i]->set = explode("|", $r[$i]->set);
+
+		$res = new stdClass();
+		$res->success = true;
+		$res->data = $r;
+		DOJ::response($res);
+	}
+
+	$limits = array();
+	$args = array();
+	if (isset($_GET['t'])) {
+		$ts = explode("|", $_GET["t"]);
+		$len = count($ts);
+		for ($i = 0; $i < $len; $i++) {
+			$limits []= "LOCATE(?, tags) > 0";
+			$args []= $ts[$i];
+		}
+	}
+
+	if (isset($_GET['o']))
+		if (is_numeric($_GET['o']))
+			$offset = " OFFSET " . $_GET['o'];
+		else
+			send_error(str::$wrong_args);
+	else
+		$offset = "";
+
+	$limits = implode(" AND ", $limits);
+	if ($limits != "")
+		$limits = "WHERE " . $limits;
+
+	$sql = "SELECT id, name, tags, hide FROM problems $limits ORDER BY id LIMIT 51 $offset";
+	$r = DOJ::db_execute($sql, $args);
 	
-	$DOJSS = $_COOKIE['DOJSS'];
-	$user = checkDOJSS($DOJSS);
+	if (!$r) send_error(str::$no_data);
 
-	if ($user)
-	{
-		$type = $_GET['type'];
-		if ($type == "num")
-		{
-			$res = mysql_query("SELECT COUNT(*) FROM `problems`");
-			$num = mysql_fetch_array($res)[0];
-			mysql_free_result($res);
-			send(0, $num);
-		}
-		else if ($type == "tag")
-		{
-			if (!isset($_GET['tags']))
-				send(1, '');
+	$len = count($r);
+	for ($i = 0; $i < $len; $i++) {
+		$sql = "SELECT MIN(res) AS min FROM submit WHERE uid = ? AND pid = ? AND res > 0";
+		$args = array($me->id, $r[$i]->id);
+		$min = DOJ::db_execute($sql, $args)[0]->min;
+		if ($min <= 6)
+			$r[$i]->flag = $min;
+	}
 
-			$res = mysql_query("SELECT * FROM `problems`");
-			$qt = explode('|', $_GET['tags']);
-			$list = [];
-			while ($p = mysql_fetch_object($res))
-			{
-				$flag = true;
-				$at = explode('|', $p->tags);
-				foreach ($qt as $t)
-					if (!in_array($t, $at))
-					{
-						$flag = false;
-						break;
-					}
-				if ($flag && ($p->name[0] != '$' || $user->admin))
-					$list []= ['id' => $p->id, 'name' => $p->name];
-			}
-			
-			send(0, $list);
-		}
-		else if (is_numeric($type))
-		{
-			$l = (int)$type;
-			$r = $l + 100;
-			$list = [];
-
-			$res = mysql_query("SELECT * FROM `problems` WHERE `id` >= $l AND `id` < $r");
-			while ($p = mysql_fetch_object($res))
-				if ($p->name[0] != '$' || $user->admin)
-					$list []= ["id" => $p->id, "name" => $p->name];
-			mysql_free_result($res);
-			send(0, json_encode($list));
-		}
-		else send(1, '');
-	} else send(1, $err['wrongDOJSS']);
+	$res = new stdClass();
+	$res->success = true;
+	$res->data = $r;
+	DOJ::response($res);
 ?>

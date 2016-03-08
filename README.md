@@ -40,7 +40,7 @@
 7. 等待安装脚本运行完成，使用以下命令即可启动评测服务：
 	
 	```bash
-	sudo /etc/init.d/doj start
+	sudo doj start
 	```
 	
 	如果你需要评测服务开机启动，请使用 root 权限编辑 /etc/rc.local 脚本：
@@ -55,7 +55,7 @@
 	sudo /etc/init.d/doj start
 	```
 
-8. 在浏览器中输入 localhost 来测试 OJ 搭建情况（初始用户为管理员，用户名为 `admin`，密码为 `oj_admin`），并及时修改密码。
+8. 在浏览器中输入 localhost 来测试 OJ 搭建情况（初始用户为管理员，用户名为 `admin`，密码为 `doj-admin`），并及时修改密码。
 
 # 评测
 

@@ -17,8 +17,8 @@ sudo rm -R Lo-runner
 sudo mkdir /home/doj
 sudo python setConf.py
 
-sudo cp core/doj /etc/init.d/
-sudo chmod +x /etc/init.d/doj
+sudo cp core/doj /usr/bin
+sudo chmod +x /usr/bin/doj
 
 sudo cp core/dojudge /usr/bin
 sudo chmod +x /usr/bin/dojudge
@@ -35,4 +35,4 @@ sudo cp -R web/* /var/www/html/
 sudo chmod -R 777 /var/www
 
 echo "Finished. Old web files have been saved in /var/www/backup"
-echo "Use: 'sudo /etc/init.d/doj start' to start judger"
+echo "Use: 'sudo doj start' to start judger"

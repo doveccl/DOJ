@@ -1,14 +1,14 @@
 <?php
 /**
 	*This code is about an encryption algorithm created by Doveccl.
-	*You have free access to use this code.
-	*This file has no copyright assigned.
+	*Email: i@doveccl.com
+	*This code is under the license of GPL v2.0
 	*/
 
 static $enc_bin = array(1, 2, 4, 8, 16, 32, 64, 128);
 
 /*two base chars of mapping*/
-static $enc_a = 'd', $enc_b = 'c';
+static $enc_a = 'a', $enc_b = 'b';
 
 /*opnions for enc_seed */
 static
@@ -20,7 +20,7 @@ static
 	$enc_swa = 32,
 	$enc_flo = 64,
 	$enc_non = 128;
-	
+
 static $enc_clr = 15; // 00001111
 
 /*
