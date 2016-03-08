@@ -52,7 +52,7 @@
 	在该文件 `exit 0` 之前加入一行代码并保存：
 
 	```bash
-	sudo /etc/init.d/doj start
+	sudo doj start
 	```
 
 8. 在浏览器中输入 localhost 来测试 OJ 搭建情况（初始用户为管理员，用户名为 `admin`，密码为 `doj-admin`），并及时修改密码。
