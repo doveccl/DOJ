@@ -138,7 +138,7 @@ if __name__ == '__main__':
 		code.write(sub['code'])
 		code.close()
 
-		if sub['language'] < 2:
+		if sub['language'] < 2  or sub['language'] == 4:
 			lan_comp_cmd = lan_comp % (source, rid)
 		else:
 			lan_comp_cmd = lan_comp % source
