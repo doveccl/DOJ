@@ -149,7 +149,7 @@ if __name__ == '__main__':
 		if comp_return != 0:
 			re_out, re_err = comp.communicate()
 			re_msg = json.dumps({"ce" : re_out + re_err})
-			print re_msg
+			# print re_msg
 			updateRes(sub['id'], 6, re_msg)
 			os.remove(source)
 			sys.exit(0)
