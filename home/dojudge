@@ -114,7 +114,9 @@ if __name__ == '__main__':
 	else:
 		conf_lan = False
 
-	os.chdir('/home/doj')
+	print 'Recive signal to judge #%d' % rid
+
+	os.chdir('/home/ez_doj')
 	setConfig()
 	sub = getSubmitMsg(rid)
 	pro = getProblemMsg(sub['pid'])
@@ -138,7 +140,7 @@ if __name__ == '__main__':
 		code.write(sub['code'])
 		code.close()
 
-		if sub['language'] < 2  or sub['language'] == 4:
+		if sub['language'] < 2 or sub['language'] == 4:
 			lan_comp_cmd = lan_comp % (source, rid)
 		else:
 			lan_comp_cmd = lan_comp % source
@@ -149,7 +151,7 @@ if __name__ == '__main__':
 		if comp_return != 0:
 			re_out, re_err = comp.communicate()
 			re_msg = json.dumps({"ce" : re_out + re_err})
-			# print re_msg
+			print re_msg + '\n'
 			updateRes(sub['id'], 6, re_msg)
 			os.remove(source)
 			sys.exit(0)
@@ -231,6 +233,8 @@ if __name__ == '__main__':
 		print '#%d:' % i, result[-1]
 		os.remove(fout)
 		i = i + 1
+
+	print '\n'
 
 	if os.path.exists('%d' %rid):
 		os.remove('%d' %rid)

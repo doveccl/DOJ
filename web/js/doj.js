@@ -601,9 +601,10 @@ function update_records_list(data, callback) {
 				}
 				$('.collapsible').collapsible();
 				bind_record_click();
-
+                
+                data.o = page_num;
 				if (rs.length > page_num)
-					bind_more_records({o: page_num}, $("#rlist .more"));
+					bind_more_records(data, $("#rlist .more"));
 			} else
 				makeToast(d.error);
 			if (typeof callback == "function")

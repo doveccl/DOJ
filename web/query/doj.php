@@ -37,6 +37,7 @@
 			}
 			self::db_exec("set names utf8");
 			self::db_exec("set time_zone ='+8:00'");
+			self::db_exec("set @@sql_mode = ''");
 		}
 		
 		public static function db_execute($sql, $args) {

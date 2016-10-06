@@ -25,16 +25,16 @@
 	if (is_null($p))
 		send_error(str::$wrong_args);
 	$cid = $p->cid;
+
 	if ($cid != 0) {
 		$c = new contest($cid);
 		if (time() < strtotime($c->start_time))
 			send_error(str::$wait_for_start);
 		if (time() <= strtotime($c->start_time) + 60 * $c->time) {
-			$sql = "SELECT COUNT(*) AS n FROM submit WHERE uid = ? AND cid = ?";
-			$args = array($me->id, $cid);
+			$sql = "SELECT COUNT(*) AS n FROM submit WHERE uid = ? AND cid = ? AND pid = ?";
+			$args = array($me->id, $cid, $_POST['pid']);
 			if (DOJ::db_execute($sql, $args)[0]->n > 0)
 				send_error(str::$can_submit_once);
-
 			$lim = ", res, cid";
 			$arg = ", ?, ?";
 		}
@@ -46,7 +46,6 @@
 		$args []= 10;
 		$args []= $cid;
 	}
-
 	DOJ::db_execute($sql, $args);
 
 	$rid = DOJ::$db->lastInsertId();

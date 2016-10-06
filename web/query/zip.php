@@ -1,8 +1,8 @@
-<?php	
+<?php
 	function zipData($pid, $name) {
 		$path = DOJ::$oj_data . "/$pid";
 		$zip = new ZipArchive();
-		if ($zip->open("$name", ZipArchive::OVERWRITE) === TRUE) {
+		if ($zip->open($name, ZIPARCHIVE::CREATE)) {
 			if (!is_dir($path))
 				return false;
 			$dir = dir($path);

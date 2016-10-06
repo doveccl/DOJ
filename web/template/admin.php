@@ -131,7 +131,7 @@
 				filters: {
 					mime_types : [{
 						title: "Image files",
-						extensions: "jpg,gif,png,bmp"
+						extensions: "jpeg,jpg,gif,png,bmp"
 					}],
 					prevent_duplicates : false
 				},

@@ -5,6 +5,13 @@ sudo apt-get -y --force-yes install apache2 php5 mysql-server php5-mysql
 sudo apt-get -y --force-yes install git
 sudo pip install pymysql
 
+echo "Creating config files and data ..."
+sudo mkdir /home/doj
+sudo python setConf.py
+
+sudo cp -R home/* /home/doj
+sudo chmod -R 777 /home/doj
+
 echo "Installing doj core ..."
 
 git clone https://github.com/lodevil/Lo-runner.git
@@ -14,18 +21,11 @@ sudo rm -R build
 cd ..
 sudo rm -R Lo-runner
 
-sudo mkdir /home/doj
-sudo python setConf.py
+sudo ln -s /home/doj/doj /usr/bin/doj
+sudo chmod +x /home/doj/doj
 
-sudo cp core/doj /usr/bin
-sudo chmod +x /usr/bin/doj
-
-sudo cp core/dojudge /usr/bin
-sudo chmod +x /usr/bin/dojudge
-
-echo "Creating config files and data ..."
-sudo cp -R home/* /home/doj
-sudo chmod -R 777 /home/doj
+sudo ln -s /home/doj/dojudge /usr/bin/dojudge
+sudo chmod +x /home/doj/dojudge
 
 echo "Installing Web UI ..."
 sudo mkdir -p /var/www/backup

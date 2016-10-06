@@ -191,7 +191,7 @@ blockquote.tags-set {
 }
 
 .card-content img {
-    width: 100%;
+    max-width: 100%;
     height: auto;
 }
 
@@ -255,4 +255,11 @@ blockquote.tags-set {
 	display: inline-block;
 	margin-left: 1rem;
 	width: 6rem;
+}
+
+#Problem .card :not(pre)>code {
+    background-color: #FEE;
+    border-radius: 5px;
+    padding: 3px 5px;
+    color: #F00;
 }
