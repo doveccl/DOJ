@@ -1,0 +1,9 @@
+{
+    "server": {
+        "port": 20110,
+        "database": {
+            "url": "mongodb://localhost",
+            "name": "doj"
+        }
+    }
+}

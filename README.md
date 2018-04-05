@@ -1,3 +1,4 @@
 # DOJ
 
-An online judge system for OI & ACM/ICPC 
+Online Judge for OI & ACM/ICPC
+

@@ -1,0 +1,26 @@
+{
+  "name": "doj",
+  "version": "3.0.0",
+  "description": "Online Judge for OI & ACM/ICPC",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/doveccl/DOJ.git"
+  },
+  "keywords": [
+    "oj",
+    "oi",
+    "icpc"
+  ],
+  "author": "Doveccl",
+  "license": "MIT",
+  "dependencies": {
+    "koa": "^2.5.0",
+    "koa-body": "^2.5.0",
+    "koa-router": "^7.4.0",
+    "mongodb": "^3.0.5"
+  }
+}
