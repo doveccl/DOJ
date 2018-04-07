@@ -32,15 +32,15 @@
 							<Icon type="person"></Icon>
 							Login
 						</p>
-						<Form :model="form" :rules="rule" :label-width="100">
-							<FormItem label="User" prop="user">
+						<Form :model="form" :label-width="80">
+							<FormItem label="User">
 								<Input type="text" v-model="form.user"></Input>
 							</FormItem>
-							<FormItem label="Password" prop="password">
+							<FormItem label="Password">
 								<Input type="password" v-model="form.password"></Input>
 							</FormItem>
 							<FormItem label="Auto Login">
-								<i-switch v-model="form.auto" size="large">
+								<i-switch v-model="form.remember" size="large">
 									<span slot="open">On</span>
 									<span slot="close">Off</span>
 								</i-switch>
@@ -77,15 +77,7 @@ export default {
 			form: {
 				user: '',
 				password: '',
-				auto: true
-			},
-			rule: {
-				user: [
-					{ required: true, message: 'User cannot be empty', trigger: 'blur' }
-				],
-				password: [
-					{ required: true, message: 'Password cannot be empty', trigger: 'blur' }
-				]
+				remember: true
 			},
 			log_load: false
 		}
