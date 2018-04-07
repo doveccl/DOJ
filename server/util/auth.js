@@ -25,7 +25,6 @@ module.exports = async (ctx, next) => {
 			if (u.pwd === h) {
 				ctx.user = u
 				ctx.valid = true
-				ctx.admin = u.admin
 				ctx.cookies.set('id', u._id)
 				ctx.cookies.set('token', t)
 			}
@@ -38,7 +37,6 @@ module.exports = async (ctx, next) => {
 			if (token === h) {
 				ctx.user = u
 				ctx.valid = true
-				ctx.admin = u.admin
 			}
 		}
 	}
