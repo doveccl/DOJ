@@ -6,9 +6,7 @@
   "scripts": {
     "dev:api": "node index.js",
     "dev:web": "webpack-dev-server --mode development",
-    "dev": "npm run dev:web & npm run dev:api",
-    "build": "webpack --mode production",
-    "stop": "pkill -7 node"
+    "build": "webpack --mode production"
   },
   "repository": {
     "type": "git",

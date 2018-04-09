@@ -36,7 +36,7 @@ module.exports = async (ctx, next) => {
 			}
 		}
 	} else 	if (id && token) { // verify token
-		let cur = ctx.db.db('usr').find(
+		let cur = ctx.db('usr').find(
 			{ _id: ObjectID(id) }
 		)
 		if (await cur.hasNext()) {
