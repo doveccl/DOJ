@@ -8,37 +8,35 @@ module.exports = async (ctx, next) => {
 	ctx.breq = ctx.request.body || {}
 	ctx.freq = ctx.request.field || {}
 
-	let id = ctx.cookies.get('id')
 	let token = ctx.cookies.get('token')
 	let ua = ctx.headers['user-agent']
-	let usr = ctx.request.body.user
-	let pwd = ctx.request.body.password
+	let usr = ctx.breq.user
+	let pwd = ctx.breq.password
 	let cok = {
-		maxAge: ctx.request.body.remember ?
-			365 * 24 * 60 * 60 * 1000 : -1
+		maxAge: ctx.breq.remember ?
+			365 * 24 * 3600000 : -1
 	}
 
 	ctx.user = ctx.valid = false
 
 	if (usr && pwd) { // verify password
-		let cur = ctx.db('usr').find(
-			{ uid: usr }
-		)
+		let cur = ctx.db('usr').find({
+			$or: [{ id: usr }, { mail: usr }]
+		})
 		if (await cur.hasNext()) {
 			let u = await cur.next()
-			let t = md5(`${ua}-${u.pwd}`)
+			let v = md5(`${ua}-${u.pwd}`)
+			let t = `${u.id}-${v}`
 			let h = sha1(pwd)
 			if (u.pwd === h) {
 				ctx.user = u
 				ctx.valid = true
-				ctx.cookies.set('id', u._id, cok)
 				ctx.cookies.set('token', t, cok)
 			}
 		}
-	} else 	if (id && token) { // verify token
-		let cur = ctx.db('usr').find(
-			{ _id: ObjectID(id) }
-		)
+	} else 	if (token) { // verify token
+		let [i, v] = token.split('-')
+		let cur = ctx.db('usr').find({ id: i })
 		if (await cur.hasNext()) {
 			let u = await cur.next()
 			let h = md5(`${ua}-${u.pwd}`)
