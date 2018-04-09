@@ -51,7 +51,6 @@ let config = {
 		]
 	},
 	plugins: [
-		new CleanWebpackPlugin(['dist']),
 		new MiniCssExtractPlugin({
 			filename: '[name].[hash].css',
 			chunkFilename: '[id].[chunkhash].css'
@@ -100,6 +99,7 @@ if (DEV_MODE) {
 		'iview/dist/styles/iview.css': 'null'
 	}
 	config.plugins.push(
+		new CleanWebpackPlugin(['dist']),
 		new WebpackCdnPlugin({
 			modules: [
 				{
