@@ -1,4 +1,3 @@
-const { ObjectID } = require('mongodb')
 const { createHash } = require('crypto')
 
 const md5 = str => createHash('md5').update(str).digest('hex')
@@ -40,7 +39,7 @@ module.exports = async (ctx, next) => {
 		if (await cur.hasNext()) {
 			let u = await cur.next()
 			let h = md5(`${ua}-${u.pwd}`)
-			if (token === h) {
+			if (v === h) {
 				ctx.user = u
 				ctx.valid = true
 			}
