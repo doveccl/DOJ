@@ -1,7 +1,6 @@
 <style lang="stylus" scoped>
 .content
 	padding 0px 50px
-	background-color #FFF
 .headtitle
 	color #FFF
 	font-size 30px
@@ -10,7 +9,6 @@
 	margin: 20px 0
 .footer
 	text-align center
-	background-color #FFF
 </style>
 
 <template>
@@ -32,12 +30,16 @@
 							<Icon type="person"></Icon>
 							Login
 						</p>
-						<Form :model="form" :label-width="80">
-							<FormItem label="User">
-								<Input type="text" v-model="form.user"></Input>
+						<Form :model="form">
+							<FormItem>
+								<Input type="text" v-model="form.user" placeholder="Username">
+									<Icon type="ios-person" slot="prepend"></Icon>
+								</Input>
 							</FormItem>
-							<FormItem label="Password">
-								<Input type="password" v-model="form.password"></Input>
+							<FormItem>
+								<Input type="password" v-model="form.password" placeholder="Password">
+									<Icon type="ios-locked" slot="prepend"></Icon>
+								</Input>
 							</FormItem>
 							<FormItem label="Auto Login">
 								<i-switch v-model="form.remember" size="large">
