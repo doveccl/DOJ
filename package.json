@@ -8,9 +8,10 @@
     "dev:web": "webpack-dev-server --mode development",
     "build": "webpack --mode production"
   },
+  "private": true,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/doveccl/DOJ.git"
+    "url": "https://github.com/doveccl/DOJ.git"
   },
   "keywords": [
     "oj",
