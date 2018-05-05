@@ -1,16 +1,14 @@
 # macOS
 .DS_Store
 
-# VS Code
-.vscode/
-
 # Logs
 logs
 *.log
 npm-debug.log*
 
+# Temporary files
+*.tmp
+*.temp
+
 # Dependency directories
 node_modules/
-
-# Build files
-dist/
