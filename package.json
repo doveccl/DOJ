@@ -1,0 +1,17 @@
+{
+  "name": "doj",
+  "version": "3.0.0",
+  "description": "Online Judge for OI & ICPC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/doveccl/DOJ.git"
+  },
+  "author": "Doveccl <doveccl@live.com>",
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "bcrypt": "^2.0.1",
+    "dcrypto": "^1.0.8",
+    "mysql": "^2.15.0"
+  }
+}
