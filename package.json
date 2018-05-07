@@ -10,8 +10,11 @@
   "license": "MIT",
   "private": true,
   "dependencies": {
-    "bcrypt": "^2.0.1",
-    "dcrypto": "^1.0.8",
+    "bcryptjs": "^2.4.3",
+    "mongoose": "^5.0.17"
+  },
+  "optionalDependencies": {
+    "dcrypto": "^1.1.0",
     "mysql": "^2.15.0"
   }
 }
