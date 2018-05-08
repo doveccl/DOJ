@@ -17,6 +17,11 @@ exports.end = () => rl.close()
 const bcrypt = require('bcryptjs')
 const dcrypto = require('dcrypto')
 exports.pwd2to3 = (pwd2, s = 0, e = 'ab') => {
-  let pwd = dcrypto.decrypt(pwd2, s, e)
+  let pwd = '123456'
+  try {
+    pwd = dcrypto.decrypt(pwd2, s, e)
+  } catch (e) {
+    console.warn('password error, use default password')
+  }
   return bcrypt.hashSync(pwd)
 }

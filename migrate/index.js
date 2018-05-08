@@ -31,18 +31,40 @@ const main = async () => {
     config.dd = await utils.input(
       'Data directory', config.dd || ''
     )
-    console.log('Saving config:', config)
-    writeFileSync(confile, JSON.stringify(config))
+    config.seed = parseInt(await utils.input(
+      'Password seed', config.seed || '0'
+    ))
+    config.ab = await utils.input(
+      'Password salt', config.ab || 'ab'
+    )
+    console.log('Saving config to tmp file ...')
+    writeFileSync(confile, JSON.stringify(config, null, 2))
   }
 
-  try {
-    db.mysql_connect(config.mh, config.mu, config.mp, config.md)
-    db.mongo_connect(config.uri)
-  } catch (e) {
-    return console.error(e)
-  }
+  await db.mysql_connect(config.mh, config.mu, config.mp, config.md)
+  await db.mongo_connect(config.uri)
 
-  // start migrate
+  let users = await db.mysql_query('SELECT * FROM users')
+  let modelUser = db.model('User')
+  let uidx = []
+  for (let user of users) {
+    console.log('Add user:', user.name)
+    uidx[user.id] = user
+    await modelUser.create({
+      name: user.name,
+      mail: user.mail,
+      admin: user.admin,
+      password: utils.pwd2to3(
+        user.password,
+        config.seed, config.ab
+      )
+    })
+  }
 }
 
-main().then(() => utils.end()).catch(e => console.error(e))
+const end = err => {
+  utils.end()
+  db.close()
+  if (err) { console.error(err) }
+}
+main().then(end).catch(e => end(e))

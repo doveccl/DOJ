@@ -1,18 +1,18 @@
 const mysql = require('mysql')
-exports.mysql_connection = null
+let mysql_connection = null
 exports.mysql_connect = (h, u, p, d) => {
   return new Promise((res, rej) => {
-    exports.mysql_connection = mysql.createConnection({
+    mysql_connection = mysql.createConnection({
       host: h, user: u, password: p, database: d
     })
-    exports.mysql_connection.connect(err => {
+    mysql_connection.connect(err => {
       if (err) { rej(err) } else { res() } 
     })
   })
 }
 exports.mysql_query = sql => {
   return new Promise((res, rej) => {
-    exports.mysql_connection.query(sql, (err, ans) => {
+    mysql_connection.query(sql, (err, ans) => {
       if (err) { rej(err) } else { res(ans) }
     })
   })
@@ -20,11 +20,14 @@ exports.mysql_query = sql => {
 
 const mongoose = require('mongoose')
 const schema = require('./schema')
-exports.mongo_connection = null
-exports.model = {
-  user: null
+exports.model = name => mongoose.model(name)
+exports.mongo_connect = async uri => {
+  await mongoose.connect(uri, { reconnectTries: 0 })
+  await mongoose.connection.db.dropDatabase()
+  mongoose.model('User', schema.user)
 }
-exports.mongo_connect = uri => {
-  exports.mongo_connection = mongoose.createConnection(uri)
-  exports.model.user = exports.mongo_connection.model('User', schema.user)
+
+exports.close = () => {
+  mongoose.disconnect()
+  mysql_connection.end()
 }
