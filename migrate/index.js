@@ -40,26 +40,31 @@ const main = async () => {
     console.log('Saving config to tmp file ...')
     writeFileSync(confile, JSON.stringify(config, null, 2))
   }
+  console.log('Config:', config)
 
+  console.log('Connecting to MySQL ...')
   await db.mysql_connect(config.mh, config.mu, config.mp, config.md)
+  console.log('Connecting to MongoDB ...')
   await db.mongo_connect(config.uri)
 
   let users = await db.mysql_query('SELECT * FROM users')
   let modelUser = db.model('User')
-  let uidx = []
+  let uidx = {}
   for (let user of users) {
     console.log('Add user:', user.name)
-    uidx[user.id] = user
-    await modelUser.create({
+    uidx[user.id] = (await modelUser.create({
       name: user.name,
       mail: user.mail,
       admin: user.admin,
       password: utils.pwd2to3(
         user.password,
         config.seed, config.ab
-      )
-    })
+      ),
+      introduction: user.sign,
+      join_time: user.reg_time
+    }))._id
   }
+  console.log('Id to ObjectId', uidx)
 }
 
 const end = err => {

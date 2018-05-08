@@ -21,7 +21,7 @@ exports.pwd2to3 = (pwd2, s = 0, e = 'ab') => {
   try {
     pwd = dcrypto.decrypt(pwd2, s, e)
   } catch (e) {
-    console.warn('password error, use default password')
+    console.warn(`password error, use '${pwd}'`)
   }
   return bcrypt.hashSync(pwd)
 }
