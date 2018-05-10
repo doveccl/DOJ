@@ -29,5 +29,7 @@ exports.mongo_connect = async uri => {
 
 exports.close = () => {
   mongoose.disconnect()
-  mysql_connection.end()
+  if (mysql_connection) {
+    mysql_connection.end()
+  }
 }
