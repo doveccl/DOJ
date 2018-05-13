@@ -33,6 +33,7 @@ exports.problem = new Schema({
 
 exports.contest = new Schema({
   name: String,
+  instruction: String,
   start_time: Date,
   end_time: Date,
   problems: [ObjectId],
@@ -42,6 +43,11 @@ exports.contest = new Schema({
   }
 })
 
+const point = new Schema({
+  status: String,
+  time: Number,
+  memory: Number
+})
 exports.submission = new Schema({
   user_id: ObjectId,
   problem_id: ObjectId,
@@ -55,5 +61,16 @@ exports.submission = new Schema({
   },
   language: ObjectId,
   code: String,
-  result: [Object]
+  result: {
+    status: String,
+    time: Number,
+    memory: Number,
+    points: [point]
+  }
+})
+
+exports.language = new Schema({
+  name: String,
+  subfix: String,
+  config: Object
 })

@@ -11,6 +11,9 @@
   "private": true,
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "gridfs-stream": "^1.1.1",
+    "js-yaml": "^3.11.0",
+    "jszip": "^3.1.5",
     "log4js": "^2.5.3",
     "mongoose": "^5.0.17",
     "nodemailer": "^4.6.4"

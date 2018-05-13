@@ -18,13 +18,31 @@ exports.mysql_query = sql => {
   })
 }
 
+const grid = require('gridfs-stream')
 const mongoose = require('mongoose')
 const schema = require('./schema')
+let gridfs = null
+exports.get_grid = () => gridfs
 exports.model = name => mongoose.model(name)
 exports.mongo_connect = async uri => {
   await mongoose.connect(uri, { reconnectTries: 0 })
   await mongoose.connection.db.dropDatabase()
+  gridfs = new grid(mongoose.connection.db, mongoose.mongo)
   mongoose.model('User', schema.user)
+  mongoose.model('Problem', schema.problem)
+}
+exports.put_zip = async (zip, name) => {
+  return new Promise((res,rej) => {
+    let stream = gridfs.createWriteStream({
+      filename: name,
+      content_type: 'application/zip'
+    })
+    stream.on('close', res)
+    stream.on('error', rej)
+    zip.generateNodeStream({
+      type: 'nodebuffer', streamFiles: true
+    }).pipe(stream)
+  })
 }
 
 exports.close = () => {
