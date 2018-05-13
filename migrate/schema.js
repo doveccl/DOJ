@@ -32,7 +32,7 @@ exports.problem = new Schema({
 })
 
 exports.contest = new Schema({
-  name: String,
+  title: String,
   instruction: String,
   start_time: Date,
   end_time: Date,
@@ -43,11 +43,6 @@ exports.contest = new Schema({
   }
 })
 
-const point = new Schema({
-  status: String,
-  time: Number,
-  memory: Number
-})
 exports.submission = new Schema({
   user_id: ObjectId,
   problem_id: ObjectId,
@@ -55,22 +50,30 @@ exports.submission = new Schema({
     type: ObjectId,
     default: null
   },
-  submit_time: {
+  time: {
     type: Date,
     default: Date.now
   },
   language: ObjectId,
   code: String,
   result: {
-    status: String,
-    time: Number,
-    memory: Number,
-    points: [point]
-  }
+    status: {
+      type: String,
+      default: 'wait'
+    },
+    time: {
+      type: Number,
+      default: 0
+    },
+    memory: {
+      type: Number,
+      default: 0
+    }
+  },
+  cases: []
 })
 
 exports.language = new Schema({
   name: String,
-  subfix: String,
   config: Object
 })

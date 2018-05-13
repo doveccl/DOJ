@@ -30,6 +30,9 @@ exports.mongo_connect = async uri => {
   gridfs = new grid(mongoose.connection.db, mongoose.mongo)
   mongoose.model('User', schema.user)
   mongoose.model('Problem', schema.problem)
+  mongoose.model('Contest', schema.contest)
+  mongoose.model('Submission', schema.submission)
+  mongoose.model('Language', schema.language)
 }
 exports.put_zip = async (zip, name) => {
   return new Promise((res,rej) => {

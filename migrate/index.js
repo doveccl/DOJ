@@ -101,12 +101,6 @@ const main = async () => {
     }
     con.count = i
     zip.file('config.yml', yaml.dump(con))
-    if (problems.cid != 0) {
-      if (contest_problems[problems.cid] === undefined) {
-        contest_problems[problem.cid] = []
-      }
-      contest_problems[problem.cid].push(problem.id)
-    }
     let text = '#Description\n\n' + problem.description + '\n\n'
     if (problem.input) {
       text += `#Input Format\n\n${problem.input}\n\n`
@@ -132,10 +126,94 @@ ${readFileSync(join(pd, 's.out'))}
       content: text,
       enable: problem.hide ? false : true
     }))._id
+    if (problems.cid != 0) {
+      if (contest_problems[problem.cid] === undefined) {
+        contest_problems[problem.cid] = []
+      }
+      contest_problems[problem.cid].push(pidx[problem.id])
+    }
     let d = await db.put_zip(zip, `${pidx[problem.id]}`)
     await modelProblem.findById(pidx[problem.id]).update({
       data: d._id
     }).exec()
+  }
+
+  let contests = await db.mysql_query('SELECT * FROM contests')
+  let modelContest = db.model('Contest')
+  let cidx = {}
+  for (let contest of contests) {
+    console.log('Add contest:', contest.id)
+    cidx[contest.id] = (await modelContest.create({
+      title: contest.name,
+      instruction: '',
+      problems: contest_problems[contest.id],
+      start_time: contest.start_time,
+      end_time: new Date(
+        contest.start_time.getTime() +
+        1000 * 60 * contest.time
+      ),
+      type: 'oi'
+    }))._id
+  }
+
+  let modelLanguage = db.model('Language')
+  let lidx =  []
+  lidx.push((await modelLanguage.create({
+    name: 'C',
+    config: {}
+  }))._id)
+  lidx.push((await modelLanguage.create({
+    name: 'C++',
+    config: {}
+  }))._id)
+  lidx.push((await modelLanguage.create({
+    name: 'Pascal',
+    config: {}
+  }))._id)
+  lidx.push((await modelLanguage.create({
+    name: 'Python2',
+    config: {}
+  }))._id)
+
+  const status = [
+    'wait',
+    'ac', 'wa', 'tle', 'mle', 're', 'ce',
+    'se', 'se', 'se', 'se', 'se', 'se'
+  ]
+
+  let submissions = await db.mysql_query('SELECT * FROM submit')
+  let modelSubmission = db.model('Submission')
+  for (let submission of submissions) {
+    console.log('Add record:', submission.id)
+    let res = {
+      status: status[submission.res],
+      time: 0, memory: 0
+    }, cases = []
+    try {
+      let arr = JSON.parse(submission.result)
+      for (let i of arr) {
+        res.time = Math.max(res.time, i.time)
+        res.memory = Math.max(res.memory, i.memory)
+        cases.push({
+          status: status[i.res],
+          time: i.time, memory: i.memory
+        })
+      }
+    } catch(e) {
+      console.log('Analyze result error')
+    }
+    await modelSubmission.create({
+      user_id: uidx[submission.uid],
+      problem_id: pidx[submission.pid],
+      contest_id: submission.cid ? cidx[submission.cid] : null,
+      time: submission.submit_time,
+      language: lidx[
+        submission.language == 4 ? 1 : submission.language
+      ],
+      code: submission.code,
+      result: res,
+      cases: cases
+    })
   }
 }
 
