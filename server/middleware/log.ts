@@ -1,8 +1,9 @@
 import { Middleware } from 'koa'
-import { Logger } from 'log4js'
+import { logHttp } from '../util/log'
 
-export default (logger: Logger): Middleware => async (ctx, next) => {
-	const stime = Date.now()
-	await next()
-	logger.info(ctx.method, ctx.url, `${Date.now() - stime}ms`)
-}
+export default (): Middleware =>
+	async (ctx, next) => {
+		const stime = Date.now()
+		await next()
+		logHttp.info(ctx.method, ctx.url, `${Date.now() - stime}ms`)
+	}

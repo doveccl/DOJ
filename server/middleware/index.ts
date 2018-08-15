@@ -1,10 +1,9 @@
-import * as compose from 'koa-compose'
-import * as body from 'koa-body'
-import { Logger } from 'log4js'
+import * as Compose from 'koa-compose'
+import * as Body from 'koa-body'
 
 import log from './log'
 
-export default (logger: Logger) => compose([
-	log(logger),
-	body({ multipart: true })
+export default () => Compose([
+	log(),
+	Body({ multipart: true })
 ])

@@ -10,14 +10,14 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "dev:server": "nodemon --watch server/ -e ts --exec 'ts-node server'",
-    "dev:web": "",
-    "build:server": "tsc",
-    "build:web": "",
-    "lint": "tslint -p tsconfig.json -c tslint.json",
-    "clean": "rm -rf build dist",
-    "build": "npm run clean && npm run build:server && npm run build:web",
-    "migrate": "node migrate"
+    "dev:server": "tsc-watch --onSuccess 'node build'",
+    "dev:web": "exit 0",
+    "build:server": "rm -rf build && tsc",
+    "build:web": "rm -rf dist && exit 0",
+    "lint:server": "tslint -p tsconfig.json -c tslint.json",
+    "lint:web": "exit 0",
+    "lint": "npm run lint:server && npm run lint:web",
+    "build": "npm run build:server && npm run build:web"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -41,14 +41,12 @@
     "@types/koa-compose": "^3.2.2",
     "@types/koa-router": "^7.0.31",
     "@types/mongoose": "^5.2.5",
-    "nodemon": "^1.18.3",
-    "ts-node": "^7.0.1",
+    "tsc-watch": "^1.0.26",
     "tslint": "^5.11.0",
     "typescript": "^3.0.1"
   },
   "optionalDependencies": {
     "dcrypto": "^1.1.0",
-    "js-yaml": "^3.12.0",
     "mysql": "^2.16.0"
   }
 }

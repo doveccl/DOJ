@@ -1,36 +1,43 @@
 import { Schema, Document, model } from 'mongoose'
-import * as bcrypt from 'bcryptjs'
 
-export interface User {
+export interface IUser extends Document {
 	name: String;
 	mail: String;
 	admin: Number;
 	password: String;
 	introduction?: String;
-	join_time: Date;
 }
 
-export interface UserModel extends User, Document {
-	checkPassword(pwd: String): Boolean;
-	checkToken(tkn: String): Boolean;
-	getToken(): String;
-}
-
-const userSchema = new Schema({
-	name: String,
-	mail: String,
-	admin: Number,
-	password: String,
-	introduction: String,
-  join_time: { type: Date, default: Date.now }
+const schema = new Schema({
+  name: {
+    type: String,
+		unique: true,
+		required: true,
+    match: /^[a-zA-Z0-9][a-zA-Z0-9_]{2,14}$/
+  },
+  mail: {
+    type: String,
+		unique: true,
+		required: true,
+    match: /^[\w.]+@(?:[a-z0-9]+(?:-[a-z0-9]+)*\.)+[a-z]{2,}$/
+  },
+  admin: {
+		type: Number,
+		required: true,
+		min: 0, default: 0
+	},
+  password: {
+		type: String,
+		required: true
+	},
+  introduction: {
+		type: String,
+		maxlength: 200,
+		required: false
+	}
 }, {
-  versionKey: false
+	versionKey: false,
+	timestamps: true
 })
 
-userSchema.methods = class {
-	public checkPassword(pwd: String) {
-		return false
-	}
-}
-
-export default model<UserModel>('User', userSchema)
+export default model<IUser>('User', schema)
