@@ -4,7 +4,7 @@
   "description": "Online Judge for OI & ACM/ICPC",
   "repository": {
     "type": "git",
-    "url": "git@github.com:doveccl/DOJ.git"
+    "url": "https://github.com/doveccl/DOJ.git"
   },
   "author": "Doveccl <doveccl@live.com>",
   "license": "MIT",

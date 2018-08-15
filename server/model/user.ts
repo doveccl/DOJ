@@ -9,28 +9,28 @@ export interface IUser extends Document {
 }
 
 const schema = new Schema({
-  name: {
-    type: String,
+	name: {
+		type: String,
 		unique: true,
 		required: true,
-    match: /^[a-zA-Z0-9][a-zA-Z0-9_]{2,14}$/
-  },
-  mail: {
-    type: String,
+		match: /^[a-zA-Z0-9][a-zA-Z0-9_]{2,14}$/
+	},
+	mail: {
+		type: String,
 		unique: true,
 		required: true,
-    match: /^[\w.]+@(?:[a-z0-9]+(?:-[a-z0-9]+)*\.)+[a-z]{2,}$/
-  },
-  admin: {
+		match: /^[\w.]+@(?:[a-z0-9]+(?:-[a-z0-9]+)*\.)+[a-z]{2,}$/
+	},
+	admin: {
 		type: Number,
 		required: true,
 		min: 0, default: 0
 	},
-  password: {
+	password: {
 		type: String,
 		required: true
 	},
-  introduction: {
+	introduction: {
 		type: String,
 		maxlength: 200,
 		required: false
