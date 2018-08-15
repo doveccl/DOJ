@@ -1,25 +1,29 @@
 import * as Koa from 'koa'
+import * as log4js from 'log4js'
 
-class DataBase {
-  public user = {
-    get(id: number) {
-      return `${id}`
-    }
-  }
-}
+import { get } from 'config'
+import { connect } from 'mongoose'
 
-declare module 'Koa' {
-  interface BaseContext {
-    db: DataBase;
-  }
-}
+import middleware from './middleware'
+import router from './router'
 
 const app = new Koa()
+const logger = log4js.getLogger('server')
 
-app.use(async (ctx, next) => {
-  ctx.body = '233'
-  console.log(ctx.db.user)
+const port = get<number>('port')
+const dbUri = get<string>('dbUri')
+const logLevel = get<string>('logLevel')
+
+logger.level = logLevel
+app.use(middleware(logger))
+app.use(router())
+
+connect(dbUri, { useNewUrlParser: true }, err => {
+	if (err) { throw err }
+	app.listen(port, () => {
+		logger.info(
+			'Server is running on:',
+			`http://127.0.0.1:${port}`
+		)
+	})
 })
-
-app.listen(8080)
-console.log('server running ...')

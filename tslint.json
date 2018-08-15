@@ -4,7 +4,6 @@
     "no-empty-interface": true,
     "no-parameter-reassignment": true,
 
-    "await-promise": true,
     "curly": true,
     "forin": true,
     "no-arg": true,
@@ -13,7 +12,6 @@
     "no-duplicate-super": true,
     "no-empty": true,
     "no-eval": true,
-    "no-for-in-array": true,
     "no-invalid-template-strings": true,
     "no-invalid-this": true,
     "no-null-keyword": true,
@@ -22,7 +20,6 @@
     "no-switch-case-fall-through": true,
     "no-unsafe-finally": true,
     "no-unused-expression": true,
-    "no-use-before-declare": true,
     "no-var-keyword": true,
     "triple-equals": true,
     "use-isnan": true,
