@@ -14,7 +14,15 @@ const app = new Koa()
 app.use(middleware())
 app.use(router())
 
-connect(dbUri, { useNewUrlParser: true }, err => {
-	if (err) { throw err }
-	app.listen(port, () => logServer.info(`listening on port ${port}`))
+connect(dbUri, {
+	useNewUrlParser: true,
+	reconnectTries: 0
+}, error => {
+	if (error) {
+		logServer.fatal(error)
+		process.exit(1)
+	}
+	app.listen(port, () => {
+		logServer.info(`listening on port ${port}`)
+	})
 })
