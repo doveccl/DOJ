@@ -1,8 +1,8 @@
 import { Middleware } from 'koa'
 import { compareSync } from 'bcryptjs'
 
-import { verify } from '../util/jwt'
 import User, { IUser } from '../model/user'
+import { verify } from '../util/jwt'
 
 declare module "koa" {
 	interface Context {

@@ -21,6 +21,9 @@ router.post('/register', async ctx => {
 	if (!get<boolean>('openRegistration') && !invitation) {
 		throw new Error('invitation code is required')
 	}
+	if (!/^.{6,20}$/.test(password)) {
+		throw new Error('invitation password')
+	}
 	let admin: number = 0
 	if (invitation) {
 		const data: any = await verify(invitation)
@@ -29,7 +32,12 @@ router.post('/register', async ctx => {
 		if (m !== mail) { throw new Error('invalid invitation code') }
 	}
 	password = hashSync(password)
-	ctx.body = await User.create({ name, mail, password, introduction, admin })
+	ctx.user = await User.create({ name, mail, password, introduction, admin })
+	ctx.body = {
+		name: ctx.user.name,
+		mail: ctx.user.mail,
+		token: await sign({ id: ctx.user._id })
+	}
 })
 
 export default router
