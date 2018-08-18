@@ -3,5 +3,13 @@
 	"dbUri": "mongodb://127.0.0.1:27017/doj",
 	"logLevel": "debug",
 	"jwtSecret": "doj_secret",
-	"openRegistration": true
+	"openRegistration": false,
+	"mail": {
+		"host": "smtp.mailtrap.io",
+		"port": 2525,
+		"auth": {
+			"user": "2e35494e193977",
+			"pass": "1a2a2128eb634e"
+		}
+	}
 }

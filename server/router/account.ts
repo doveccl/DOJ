@@ -22,7 +22,7 @@ router.post('/register', async ctx => {
 		throw new Error('invitation code is required')
 	}
 	if (!/^.{6,20}$/.test(password)) {
-		throw new Error('invitation password')
+		throw new Error('invalid password')
 	}
 	let admin: number = 0
 	if (invitation) {
