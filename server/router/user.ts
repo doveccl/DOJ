@@ -1,8 +1,10 @@
 import * as Route from 'koa-router'
-import { hashSync } from 'bcryptjs'
+import { hashSync, compareSync } from 'bcryptjs'
 
 import Auth from '../middleware/auth'
 import User from '../model/user'
+
+const EXCLUDE_LIST = ['solve', 'submit', 'createdAt', 'updatedAt']
 
 const router = new Route()
 
@@ -22,19 +24,57 @@ router.get('/user', async ctx => {
 })
 
 router.post('/user', Auth({ type: 'admin' }), async ctx => {
-	const p = ctx.request.body.password
-	if (p) { ctx.request.body.password = hashSync(p) }
-	ctx.body = await User.create(ctx.request.body)
+	const self = ctx.user, body = ctx.request.body
+	if (self.admin <= body.admin) {
+		throw new Error('invalid admin level')
+	}
+	if (body.password === undefined) {
+		throw new Error('password is required')
+	}
+	if (!/^.{6,20}$/.test(body.password)) {
+		throw new Error('invalid password (length 6-20)')
+	}
+	for (let item of EXCLUDE_LIST) {
+		body[item] = undefined
+	}
+	ctx.body = await User.create(body)
 })
 
-router.put('/user/:id', Auth({ type: 'admin' }), async ctx => {
-	const p = ctx.request.body.password
-	if (p) { ctx.request.body.password = hashSync(p) }
-	ctx.body = await User.findByIdAndUpdate(ctx.params.id, ctx.request.body)
+router.put('/user/:id', async ctx => {
+	const self = ctx.user, body = ctx.request.body
+	const it = await User.findById(ctx.params.id)
+	if (self._id !== it._id) {
+		if (self.admin <= it.admin) {
+			throw new Error('permission denied')
+		}
+		if (body.password !== undefined) {
+			throw new Error('unable to change others password')
+		}
+	} else if (body.admin !== undefined) {
+		throw new Error('unable to change self-level')
+	}
+	if (body.password !== undefined) {
+		if (!/^.{6,20}$/.test(body.password)) {
+			throw new Error('invalid password (length 6-20)')
+		}
+		if (!compareSync(body.oldPassword, self.password)) {
+			throw new Error('correct old password is required')
+		}
+		body.password = hashSync(body.password)
+	}
+	for (let item of EXCLUDE_LIST) {
+		body[item] = undefined
+	}
+	ctx.body = await it.update(body)
 })
 
 router.del('/user/:id', Auth({ type: 'admin' }), async ctx => {
-	ctx.body = await User.findByIdAndRemove(ctx.params.id)
+	const self = ctx.user
+	const it = await User.findById(ctx.params.id)
+	if (self.admin <= it.admin) {
+		throw new Error('permission denied')
+	}
+	ctx.body = await it.remove()
 })
 
 export default router
