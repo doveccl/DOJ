@@ -10,7 +10,7 @@ const router = new Route({ prefix: '/api' })
 router.use(
 	Auth({
 		type: 'token',
-		exclude: /^\/api\/(login|reset|register)$/
+		exclude: /^\/api\/(login|register|reset)$/
 	}),
 	Account.routes(), Account.allowedMethods(),
 	User.routes(), User.allowedMethods(),

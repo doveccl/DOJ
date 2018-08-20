@@ -27,13 +27,14 @@ export default ({ exclude, type }: IAuthProps): Middleware =>
 				if (!ctx.user || !compareSync(password, ctx.user.password)) {
 					throw new Error('invalid user or password')
 				}
+			} else if (type === 'admin') {
+				if (!ctx.user || ctx.user.admin === 0) {
+					throw new Error('permission denied')
+				}
 			} else {
 				const token: string = ctx.get('token')
 				const data: any = await verify(token)
 				ctx.user = await User.findById(data.id)
-				if (!ctx.user || type === 'admin' && ctx.user.admin === 0) {
-					throw new Error('permission denied')
-				}
 			}
 		}
 		await next()
