@@ -23,7 +23,7 @@ router.post('/register', async ctx => {
 	if (!get<boolean>('openRegistration') && !invitation) {
 		throw new Error('invitation code is required')
 	}
-	if (!/^.{6,20}$/.test(password)) {
+	if (!password || !/^.{6,20}$/.test(password)) {
 		throw new Error('invalid password (length 6-20)')
 	}
 	let admin: number = 0
@@ -67,7 +67,7 @@ router.put('/reset', async ctx => {
 	if (!/^.{6,20}$/.test(password)) {
 		throw new Error('invalid password (length 6-20)')
 	}
-	ctx.body = await ctx.user.update({ password: hashSync(password) }).exec()
+	ctx.body = await ctx.user.update({ password: hashSync(password) })
 })
 
 export default router

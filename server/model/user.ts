@@ -5,6 +5,8 @@ export interface IUser extends Document {
 	mail: string;
 	admin: number;
 	password: string;
+	solve: number;
+	submit: number;
 	introduction?: string;
 }
 
@@ -29,6 +31,16 @@ const schema = new Schema({
 	password: {
 		type: String,
 		required: true
+	},
+	solve: {
+		type: Number,
+		required: true,
+		min: 0, default: 0
+	},
+	submit: {
+		type: Number,
+		required: true,
+		min: 0, default: 0
 	},
 	introduction: {
 		type: String,

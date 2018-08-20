@@ -35,6 +35,7 @@ export default ({ exclude, type }: IAuthProps): Middleware =>
 				const token: string = ctx.get('token')
 				const data: any = await verify(token)
 				ctx.user = await User.findById(data.id)
+				if (!ctx.user) { throw new Error('login required') }
 			}
 		}
 		await next()
