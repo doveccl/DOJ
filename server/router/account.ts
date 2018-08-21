@@ -1,4 +1,4 @@
-import * as Route from 'koa-router'
+import * as Router from 'koa-router'
 import { hashSync, compareSync } from 'bcryptjs'
 import { get } from 'config'
 
@@ -8,7 +8,7 @@ import { sign, verify } from '../util/jwt'
 import { has, put } from '../util/timeset'
 import { send } from '../util/mail'
 
-const router = new Route()
+const router = new Router()
 
 router.get('/login', Auth({ type: 'password' }), async ctx => {
 	ctx.body = {

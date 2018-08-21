@@ -4,6 +4,7 @@ import * as Compose from 'koa-compose'
 import Auth from '../middleware/auth'
 import Account from './account'
 import User from './user'
+import Problem from './Problem'
 
 const router = new Route({ prefix: '/api' })
 
@@ -14,6 +15,7 @@ router.use(
 	}),
 	Account.routes(), Account.allowedMethods(),
 	User.routes(), User.allowedMethods(),
+	Problem.routes(), Problem.allowedMethods(),
 )
 
 export default () => Compose([

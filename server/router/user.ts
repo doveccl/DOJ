@@ -1,4 +1,4 @@
-import * as Route from 'koa-router'
+import * as Router from 'koa-router'
 import { hashSync, compareSync } from 'bcryptjs'
 
 import Auth from '../middleware/auth'
@@ -6,7 +6,7 @@ import User from '../model/user'
 
 const EXCLUDE_LIST = ['solve', 'submit', 'createdAt', 'updatedAt']
 
-const router = new Route()
+const router = new Router()
 
 router.get('/user', async ctx => {
 	let { rank, page, size } = ctx.query
@@ -14,7 +14,7 @@ router.get('/user', async ctx => {
 		throw new Error('permission denied')
 	}
 	page = parseInt(page) || 1
-	size = parseInt(size) || 10
+	size = parseInt(size) || 50
 	const total = await User.countDocuments()
 	const list = await User.find()
 		.select(rank ? '-password -admin' : '')
@@ -34,9 +34,7 @@ router.post('/user', Auth({ type: 'admin' }), async ctx => {
 	if (!/^.{6,20}$/.test(body.password)) {
 		throw new Error('invalid password (length 6-20)')
 	}
-	for (let item of EXCLUDE_LIST) {
-		body[item] = undefined
-	}
+	for (let item of EXCLUDE_LIST) { delete body[item] }
 	ctx.body = await User.create(body)
 })
 
@@ -62,9 +60,7 @@ router.put('/user/:id', async ctx => {
 		}
 		body.password = hashSync(body.password)
 	}
-	for (let item of EXCLUDE_LIST) {
-		body[item] = undefined
-	}
+	for (let item of EXCLUDE_LIST) { delete body[item] }
 	ctx.body = await it.update(body)
 })
 
