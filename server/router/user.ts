@@ -41,7 +41,7 @@ router.post('/user', Auth({ type: 'admin' }), async ctx => {
 router.put('/user/:id', async ctx => {
 	const self = ctx.user, body = ctx.request.body
 	const it = await User.findById(ctx.params.id)
-	if (self._id !== it._id) {
+	if (String(self._id) !== String(it._id)) {
 		if (self.admin <= it.admin) {
 			throw new Error('permission denied')
 		}
@@ -52,16 +52,19 @@ router.put('/user/:id', async ctx => {
 		throw new Error('unable to change self-level')
 	}
 	if (body.password !== undefined) {
+		if (!body.oldPassword) {
+			throw new Error('old password is required')
+		}
 		if (!/^.{6,20}$/.test(body.password)) {
 			throw new Error('invalid password (length 6-20)')
 		}
 		if (!compareSync(body.oldPassword, self.password)) {
-			throw new Error('correct old password is required')
+			throw new Error('invalid old password')
 		}
 		body.password = hashSync(body.password)
 	}
 	for (let item of EXCLUDE_LIST) { delete body[item] }
-	ctx.body = await it.update(body)
+	ctx.body = await it.update(body, { runValidators: true })
 })
 
 router.del('/user/:id', Auth({ type: 'admin' }), async ctx => {

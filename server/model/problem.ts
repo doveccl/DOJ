@@ -49,11 +49,12 @@ const schema = new Schema({
 	},
 	data: {
 		type: Schema.Types.ObjectId,
+		ref: 'fs.file',
 		required: false
 	},
 	contest: {
 		type: Schema.Types.ObjectId,
-		ref: 'Contest',
+		ref: 'contest',
 		required: false
 	}
 }, {

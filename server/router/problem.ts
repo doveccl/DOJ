@@ -2,6 +2,7 @@ import * as Router from 'koa-router'
 
 import Auth from '../middleware/auth'
 import Problem from '../model/problem'
+import File from '../model/file'
 
 const EXCLUDE_LIST = ['solve', 'submit', 'createdAt', 'updatedAt']
 
@@ -35,21 +36,47 @@ router.get('/problem', async ctx => {
 })
 
 router.get('/problem/:id', async ctx => {
-	ctx.body = await Problem.findById(ctx.params.id).select('-data')
+	let query = Problem.findById(ctx.params.id)
+	if (ctx.user.admin) {
+		query = query.populate('data', 'md5')
+	} else {
+		query = query.select('-data')
+	}
+	ctx.body = await query.exec()
 })
 
 router.post('/problem', Auth({ type: 'admin' }), async ctx => {
-	for (let item of EXCLUDE_LIST) { delete ctx.request.body[item] }
-	ctx.body = await Problem.create(ctx.request.body)
+	let { body, files } = ctx.request
+	if (files.data) {
+		const { path, name: filename } = files.data
+		const opts = { filename, metadata: { type: 'data' } }
+		const data =  await File.create(path, opts)
+		body.data = data._id
+	}
+	for (let item of EXCLUDE_LIST) { delete body[item] }
+	ctx.body = await Problem.create(body)
 })
 
 router.put('/problem/:id', Auth({ type: 'admin' }), async ctx => {
-	for (let item of EXCLUDE_LIST) { delete ctx.request.body[item] }
-	ctx.body = await Problem.findByIdAndUpdate(ctx.params.id, ctx.request.body)
+	const problem = await Problem.findById(ctx.params.id)
+	let { body, files } = ctx.request, originData: any = false
+	if (files.data) {
+		originData = problem.data
+		const { path, name: filename } = files.data
+		const opts = { filename, metadata: { type: 'data' } }
+		const data =  await File.create(path, opts)
+		body.data = data._id
+	}
+	for (let item of EXCLUDE_LIST) { delete body[item] }
+	ctx.body = await problem.update(body, { runValidators: true })
+	if (originData) { await File.findByIdAndRemove(originData) }
 })
 
 router.del('/problem/:id', Auth({ type: 'admin' }), async ctx => {
-	ctx.body = await Problem.findByIdAndRemove(ctx.params.id)
+	const problem = await Problem.findById(ctx.params.id)
+	const { data } = problem
+	if (data) { await File.findByIdAndRemove(data) }
+	ctx.body = await problem.remove()
 })
 
 export default router
