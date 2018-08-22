@@ -5,9 +5,8 @@ export default (): Middleware =>
 	async (ctx, next) => {
 		try {
 			await next()
-			if (ctx.body instanceof Object) {
-				ctx.body = { success: true, data: ctx.body }
-			}
+			if (ctx.type) { return }
+			ctx.body = { success: true, data: ctx.body }
 		} catch(e) {
 			logServer.error(e.message)
 			logServer.debug(e.stack)

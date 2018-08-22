@@ -2,6 +2,11 @@ import * as G from 'gridfs-stream'
 import { createReadStream } from 'fs'
 import { Schema, model, connection, mongo } from 'mongoose'
 
+// patch for gridfs-stream
+eval(`G.prototype.findOne = ${
+	G.prototype.findOne.toString().replace('nextObject', 'next')
+}`)
+
 interface IFile {
 	_id: Schema.Types.ObjectId;
 	filename: string;
@@ -21,9 +26,10 @@ interface IFileOption {
 
 /**
  * Create schema for GridFS
- * In order to populate problem.data with file
+ * 1. populate problem.data with file
+ * 2. list files for management
  */
-model('fs.file', new Schema())
+export const FS = model('fs.file', new Schema())
 
 export default class {
 	private static grid: G.Grid
@@ -38,7 +44,7 @@ export default class {
 			stream.on('close', data => resolve(data))
 		})
 	}
-	public static readStream(id: any) {
+	public static createReadStream(id: any) {
 		return this.grid.createReadStream({ _id: id })
 	}
 	public static findById(id: any) {
