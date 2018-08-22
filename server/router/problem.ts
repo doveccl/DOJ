@@ -42,16 +42,21 @@ router.get('/problem/:id', async ctx => {
 	} else {
 		query = query.select('-data')
 	}
-	ctx.body = await query.exec()
+	const problem = await query.exec()
+	if (!problem) { throw new Error('problem not found') }
+	ctx.body = problem
 })
 
 router.post('/problem', Auth({ type: 'admin' }), async ctx => {
 	let { body, files } = ctx.request
 	if (files.data) {
-		const { path, name: filename } = files.data
-		const opts = { filename, metadata: { type: 'data' } }
-		const data =  await File.create(path, opts)
-		body.data = data._id
+		const { path, name, type } = files.data
+		if (type !== 'application/zip') {
+			throw new Error('invalid data type')
+		}
+		body.data = await File.create(path, name, {
+			contentType: type, metadata: { type: 'data' }
+		})
 	}
 	for (let item of EXCLUDE_LIST) { delete body[item] }
 	ctx.body = await Problem.create(body)
@@ -59,24 +64,29 @@ router.post('/problem', Auth({ type: 'admin' }), async ctx => {
 
 router.put('/problem/:id', Auth({ type: 'admin' }), async ctx => {
 	const problem = await Problem.findById(ctx.params.id)
-	let { body, files } = ctx.request, originData: any = false
+	if (!problem) { throw new Error('problem not found') }
+	let { body, files } = ctx.request, originData: string
 	if (files.data) {
-		originData = problem.data
-		const { path, name: filename } = files.data
-		const opts = { filename, metadata: { type: 'data' } }
-		const data =  await File.create(path, opts)
-		body.data = data._id
+		originData = String(problem.data)
+		const { path, name, type } = files.data
+		if (type !== 'application/zip') {
+			throw new Error('invalid data type')
+		}
+		body.data = await File.create(path, name, {
+			contentType: type, metadata: { type: 'data' }
+		})
 	}
 	for (let item of EXCLUDE_LIST) { delete body[item] }
 	ctx.body = await problem.update(body, { runValidators: true })
-	if (originData) { await File.findByIdAndRemove(originData) }
+	if (problem.data) { await File.findByIdAndRemove(originData) }
 })
 
 router.del('/problem/:id', Auth({ type: 'admin' }), async ctx => {
 	const problem = await Problem.findById(ctx.params.id)
-	const { data } = problem
-	if (data) { await File.findByIdAndRemove(data) }
+	if (!problem) { throw new Error('problem not found') }
+	const data = String(problem.data)
 	ctx.body = await problem.remove()
+	if (problem.data) { await File.findByIdAndRemove(data) }
 })
 
 export default router

@@ -1,63 +1,71 @@
-import * as G from 'gridfs-stream'
-import { createReadStream } from 'fs'
-import { Schema, model, connection, mongo } from 'mongoose'
+import * as fs from 'fs'
+import { Schema, Document, model, connection } from 'mongoose'
+import { ObjectID, GridFSBucket, GridFSBucketOpenUploadStreamOptions } from 'mongodb'
 
-// patch for gridfs-stream
-eval(`G.prototype.findOne = ${
-	G.prototype.findOne.toString().replace('nextObject', 'next')
-}`)
+export const TYPE_REG = /(:?image|pdf|zip)/
 
-interface IFile {
-	_id: Schema.Types.ObjectId;
+interface IFile extends Document {
 	filename: string;
 	contentType: string;
 	length: number;
 	chunkSize: number;
 	uploadDate: Date;
 	metadata: any;
+	aliases: string[];
 	md5: string;
 }
 
-interface IFileOption {
-	filename?: string;
-	content_type?: string;
-	metadata?: any;
-}
+const schema = new Schema({
+	filename: String,
+	contentType: String,
+	length: Number,
+	chunkSize: Number,
+	uploadDate: Date,
+	metadata: Schema.Types.Mixed,
+	aliases: [String],
+	md5: String
+})
 
 /**
- * Create schema for GridFS
- * 1. populate problem.data with file
- * 2. list files for management
+ * mongoose model for GridFS
+ * do not creat/delete file with this model
+ * do not update file content with this model
  */
-export const FS = model('fs.file', new Schema())
+const FS = model<IFile>('fs.file', schema)
+
+/**
+ * mongodb GridFS Bucket
+ */
+let bucket: GridFSBucket
+connection.on('open', () => bucket = new GridFSBucket(connection.db))
 
 export default class {
-	private static grid: G.Grid
-	public static init() {
-		this.grid = G(connection.db, mongo)
-	}
-	public static create(path: string, opts?: IFileOption) {
-		return new Promise<IFile>((resolve, reject) => {
-			const stream = this.grid.createWriteStream(opts)
-			createReadStream(path).pipe(stream)
-			stream.on('error', error => reject(error))
-			stream.on('close', data => resolve(data))
+	public static create(
+		path: string, filename: string,
+		opts?: GridFSBucketOpenUploadStreamOptions
+	) {
+		return new Promise<any>((resolve, reject) => {
+			const stream = bucket.openUploadStream(filename, opts)
+			fs.createReadStream(path).pipe(stream)
+				.on('error', error => reject(error))
+				.on('finish', () => resolve(stream.id))
 		})
 	}
-	public static createReadStream(id: any) {
-		return this.grid.createReadStream({ _id: id })
+	public static creatReadStream(id: any) {
+		return bucket.openDownloadStream(new ObjectID(id))
+	}
+	public static countDocuments(conditions?: any) {
+		return FS.countDocuments(conditions)
+	}
+	public static find(conditions?: any) {
+		return FS.find(conditions)
 	}
 	public static findById(id: any) {
-		return new Promise<IFile>((resolve, reject) => {
-			this.grid.findOne({ _id: id }, (error, file) => {
-				if (error) { reject(error) }
-				resolve(file)
-			})
-		})
+		return FS.findById(id)
 	}
 	public static findByIdAndRemove(id: any) {
 		return new Promise<any>((resolve, reject) => {
-			this.grid.remove({ _id: id }, error => {
+			bucket.delete(new ObjectID(id), error => {
 				if (error) { reject(error) }
 				resolve({ id })
 			})

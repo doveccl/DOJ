@@ -71,13 +71,6 @@
     "@types/events" "*"
     "@types/node" "*"
 
-"@types/gridfs-stream@^0.5.30":
-  version "0.5.30"
-  resolved "https://registry.yarnpkg.com/@types/gridfs-stream/-/gridfs-stream-0.5.30.tgz#665dea97398182505de019717fb6d2b63ce76259"
-  dependencies:
-    "@types/mongodb" "*"
-    "@types/node" "*"
-
 "@types/http-assert@*":
   version "1.3.0"
   resolved "https://registry.yarnpkg.com/@types/http-assert/-/http-assert-1.3.0.tgz#5e932606153da28e1d04f9043f4912cf61fd55dd"
@@ -85,6 +78,12 @@
 "@types/jsonwebtoken@^7.2.8":
   version "7.2.8"
   resolved "https://registry.yarnpkg.com/@types/jsonwebtoken/-/jsonwebtoken-7.2.8.tgz#8d199dab4ddb5bba3234f8311b804d2027af2b3a"
+  dependencies:
+    "@types/node" "*"
+
+"@types/jszip@^3.1.4":
+  version "3.1.4"
+  resolved "https://registry.yarnpkg.com/@types/jszip/-/jszip-3.1.4.tgz#9b81e3901a6988e9459ac27abf483e6b892251af"
   dependencies:
     "@types/node" "*"
 
@@ -118,7 +117,7 @@
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/@types/mime/-/mime-2.0.0.tgz#5a7306e367c539b9f6543499de8dd519fac37a8b"
 
-"@types/mongodb@*":
+"@types/mongodb@*", "@types/mongodb@^3.1.4":
   version "3.1.4"
   resolved "https://registry.yarnpkg.com/@types/mongodb/-/mongodb-3.1.4.tgz#f0f6dc8d509500c4a8213238066b68f0c8cb25a9"
   dependencies:
@@ -126,7 +125,7 @@
     "@types/events" "*"
     "@types/node" "*"
 
-"@types/mongoose@^5.2.5":
+"@types/mongoose@^5.2.6":
   version "5.2.6"
   resolved "https://registry.yarnpkg.com/@types/mongoose/-/mongoose-5.2.6.tgz#96b89f8a35b37b3beb5bf50572ac6cf7f7d52453"
   dependencies:
@@ -429,10 +428,6 @@ event-stream@~3.3.0:
     stream-combiner "~0.0.4"
     through "~2.3.1"
 
-flushwritable@^1.0.0:
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/flushwritable/-/flushwritable-1.0.0.tgz#3e328d8fde412ad47e738e3be750b4d290043498"
-
 formidable@^1.1.1:
   version "1.2.1"
   resolved "https://registry.yarnpkg.com/formidable/-/formidable-1.2.1.tgz#70fb7ca0290ee6ff961090415f4b3df3d2082659"
@@ -459,12 +454,6 @@ glob@^7.1.1:
     minimatch "^3.0.4"
     once "^1.3.0"
     path-is-absolute "^1.0.0"
-
-gridfs-stream@^1.1.1:
-  version "1.1.1"
-  resolved "https://registry.yarnpkg.com/gridfs-stream/-/gridfs-stream-1.1.1.tgz#3dd3a100ec2021a181282f6eb46709636074df89"
-  dependencies:
-    flushwritable "^1.0.0"
 
 has-ansi@^2.0.0:
   version "2.0.0"
@@ -786,7 +775,7 @@ mongodb-core@3.1.2:
   optionalDependencies:
     saslprep "^1.0.0"
 
-mongodb@3.1.3:
+mongodb@3.1.3, mongodb@^3.1.3:
   version "3.1.3"
   resolved "https://registry.yarnpkg.com/mongodb/-/mongodb-3.1.3.tgz#7523d438d190e80a757c5947dbc226768cb7b1d5"
   dependencies:
@@ -796,7 +785,7 @@ mongoose-legacy-pluralize@1.0.2:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/mongoose-legacy-pluralize/-/mongoose-legacy-pluralize-1.0.2.tgz#3ba9f91fa507b5186d399fb40854bff18fb563e4"
 
-mongoose@^5.2.7:
+mongoose@^5.2.9:
   version "5.2.9"
   resolved "https://registry.yarnpkg.com/mongoose/-/mongoose-5.2.9.tgz#1b4a01de776504193ecdeda87c0c7d1962c2d632"
   dependencies:
@@ -848,7 +837,7 @@ negotiator@0.6.1:
   version "0.6.1"
   resolved "https://registry.yarnpkg.com/negotiator/-/negotiator-0.6.1.tgz#2b327184e8992101177b28563fb5e7102acd0ca9"
 
-nodemailer@^4.6.7:
+nodemailer@^4.6.8:
   version "4.6.8"
   resolved "https://registry.yarnpkg.com/nodemailer/-/nodemailer-4.6.8.tgz#f82fb407828bf2e76d92acc34b823d83e774f89c"
 

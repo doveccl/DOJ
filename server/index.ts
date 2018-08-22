@@ -23,7 +23,6 @@ connect(dbUri, {
 		logServer.fatal(error)
 		process.exit(1)
 	}
-	File.init()
 	app.listen(port, () => {
 		logServer.info(`listening on port ${port}`)
 	})
