@@ -4,7 +4,7 @@ import { hashSync, compareSync } from 'bcryptjs'
 import User, { UserGroup as G } from '../model/user'
 
 import fetch from '../middleware/fetch'
-import { token, group, guard, password } from '../middleware/auth'
+import { token, group, guard } from '../middleware/auth'
 import { toStringCompare, validatePassword } from '../util/function'
 
 const EXCLUDE_LIST = ['solve', 'submit', 'createdAt', 'updatedAt']
@@ -28,8 +28,8 @@ router.get('/user', async ctx => {
 })
 
 router.post('/user', group(G.admin), async ctx => {
-	const body = ctx.request.body
-	guard(ctx.self, body.group, 1)
+	const { body } = ctx.request, { group } = body
+	if (group) { guard(ctx.self, group, 1) }
 	validatePassword(body.password)
 
 	for (let item of EXCLUDE_LIST) { delete body[item] }
