@@ -52,4 +52,4 @@ const schema = new Schema({
 	timestamps: true
 })
 
-export default model<IUser>('User', schema)
+export default model<IUser>('user', schema)

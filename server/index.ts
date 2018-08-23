@@ -1,10 +1,13 @@
 import * as Koa from 'koa'
+import * as Compose from 'koa-compose'
+
 import { get } from 'config'
 import { connect } from 'mongoose'
 
-import Middleware from './middleware'
+import Log from './middleware/log'
+import Wrap from './middleware/wrap'
 import Router from './router'
-import File from './model/file'
+
 import { logServer } from './util/log'
 
 const port = get<number>('port')
@@ -12,13 +15,9 @@ const dbUri = get<string>('dbUri')
 
 const app = new Koa()
 
-app.use(Middleware())
-app.use(Router())
+app.use(Compose([ Log(), Wrap(), Router() ]))
 
-connect(dbUri, {
-	useNewUrlParser: true,
-	reconnectTries: 0
-}, error => {
+connect(dbUri, { useNewUrlParser: true }, error => {
 	if (error) {
 		logServer.fatal(error)
 		process.exit(1)

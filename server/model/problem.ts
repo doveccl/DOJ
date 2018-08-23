@@ -62,4 +62,4 @@ const schema = new Schema({
 	timestamps: true
 })
 
-export default model<IProblem>('Problem', schema)
+export default model<IProblem>('problem', schema)

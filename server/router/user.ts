@@ -3,6 +3,7 @@ import { hashSync, compareSync } from 'bcryptjs'
 
 import Auth from '../middleware/auth'
 import User from '../model/user'
+import { toStringCompare } from '../util/function'
 
 const EXCLUDE_LIST = ['solve', 'submit', 'createdAt', 'updatedAt']
 
@@ -41,7 +42,8 @@ router.post('/user', Auth({ type: 'admin' }), async ctx => {
 router.put('/user/:id', async ctx => {
 	const self = ctx.user, body = ctx.request.body
 	const it = await User.findById(ctx.params.id)
-	if (String(self._id) !== String(it._id)) {
+	if (!it) { throw new Error('user not found') }
+	if (!toStringCompare(self._id, it._id)) {
 		if (self.admin <= it.admin) {
 			throw new Error('permission denied')
 		}
@@ -70,6 +72,7 @@ router.put('/user/:id', async ctx => {
 router.del('/user/:id', Auth({ type: 'admin' }), async ctx => {
 	const self = ctx.user
 	const it = await User.findById(ctx.params.id)
+	if (!it) { throw new Error('user not found') }
 	if (self.admin <= it.admin) {
 		throw new Error('permission denied')
 	}

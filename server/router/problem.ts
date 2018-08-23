@@ -67,7 +67,7 @@ router.put('/problem/:id', Auth({ type: 'admin' }), async ctx => {
 	if (!problem) { throw new Error('problem not found') }
 	let { body, files } = ctx.request, originData: string
 	if (files.data) {
-		originData = String(problem.data)
+		originData = String(problem.data || '')
 		const { path, name, type } = files.data
 		if (type !== 'application/zip') {
 			throw new Error('invalid data type')
@@ -78,15 +78,15 @@ router.put('/problem/:id', Auth({ type: 'admin' }), async ctx => {
 	}
 	for (let item of EXCLUDE_LIST) { delete body[item] }
 	ctx.body = await problem.update(body, { runValidators: true })
-	if (problem.data) { await File.findByIdAndRemove(originData) }
+	if (originData) { await File.findByIdAndRemove(originData) }
 })
 
 router.del('/problem/:id', Auth({ type: 'admin' }), async ctx => {
 	const problem = await Problem.findById(ctx.params.id)
 	if (!problem) { throw new Error('problem not found') }
-	const data = String(problem.data)
+	const data = String(problem.data || '')
 	ctx.body = await problem.remove()
-	if (problem.data) { await File.findByIdAndRemove(data) }
+	if (data) { await File.findByIdAndRemove(data) }
 })
 
 export default router
