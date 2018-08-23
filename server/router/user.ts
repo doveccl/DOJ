@@ -21,7 +21,7 @@ router.get('/user', async ctx => {
 	size = parseInt(size) || 50
 	const total = await User.countDocuments()
 	const list = await User.find()
-		.select(rank ? '-password -admin' : '')
+		.select(rank ? '-password -group' : '')
 		.sort(rank ? '-solve submit name' : '')
 		.skip(size * (page - 1)).limit(size)
 	ctx.body = { total, list }
