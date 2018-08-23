@@ -1,11 +1,16 @@
 import * as Router from 'koa-router'
 
-import Auth from '../middleware/auth'
 import File, { TYPE_REG } from '../model/file'
+import { UserGroup as G } from '../model/user'
+
+import fetch from '../middleware/fetch'
+import { token, group, guard } from '../middleware/auth'
 
 const router = new Router()
 
-router.get('/file', Auth({ type: 'admin' }), async ctx => {
+router.use(token(), fetch({ type: 'file' }))
+
+router.get('/file', group(G.admin), async ctx => {
 	let { page, size } = ctx.query
 	page = parseInt(page) || 1
 	size = parseInt(size) || 50
@@ -16,16 +21,15 @@ router.get('/file', Auth({ type: 'admin' }), async ctx => {
 })
 
 router.get('/file/:id', async ctx => {
-	const file = await File.findById(ctx.params.id)
-	if (file.metadata.type === 'data' && !ctx.user.admin) {
-		throw new Error('permission denied')
-	}
-	ctx.type = file.contentType
-	ctx.attachment(file.filename)
+	const { type: t } = ctx.file.metadata
+	if (t === 'data') { guard(ctx.self, G.admin) }
+
+	ctx.type = ctx.file.contentType
+	ctx.attachment(ctx.file.filename)
 	ctx.body = File.creatReadStream(ctx.params.id)
 })
 
-router.post('/file', Auth({ type: 'admin' }), async ctx => {
+router.post('/file', group(G.admin), async ctx => {
 	const keys = Object.keys(ctx.request.files)
 	ctx.body = <any[]>[]
 	for (let key of keys) {
@@ -39,7 +43,12 @@ router.post('/file', Auth({ type: 'admin' }), async ctx => {
 	}
 })
 
-router.del('/file/:id', Auth({ type: 'admin' }), async ctx => {
+router.put('/file/:id', group(G.admin), async ctx => {
+	const { filename } = ctx.request.body
+	ctx.body = await ctx.file.update({ filename })
+})
+
+router.del('/file/:id', group(G.admin), async ctx => {
 	ctx.body = await File.findByIdAndRemove(ctx.params.id)
 })
 

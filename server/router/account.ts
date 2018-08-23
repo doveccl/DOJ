@@ -2,49 +2,47 @@ import * as Router from 'koa-router'
 import { hashSync, compareSync } from 'bcryptjs'
 import { get } from 'config'
 
-import Auth from '../middleware/auth'
-import User from '../model/user'
+import User, { UserGroup } from '../model/user'
+import { password } from '../middleware/auth'
+import { validatePassword } from '../util/function'
 import { sign, verify } from '../util/jwt'
 import { has, put } from '../util/timeset'
 import { send } from '../util/mail'
 
 const router = new Router()
 
-router.get('/login', Auth({ type: 'password' }), async ctx => {
+router.get('/login', password(), async ctx => {
 	ctx.body = {
-		name: ctx.user.name,
-		mail: ctx.user.mail,
-		token: await sign({ id: ctx.user._id })
+		name: ctx.self.name,
+		mail: ctx.self.mail,
+		token: await sign({ id: ctx.self._id })
 	}
 })
 
 router.post('/register', async ctx => {
-	let { name, mail, password, introduction, invitation } = ctx.request.body
+	const { name, mail, password, invitation } = ctx.request.body
 	if (!get<boolean>('openRegistration') && !invitation) {
 		throw new Error('invitation code is required')
 	}
-	if (!password || !/^.{6,20}$/.test(password)) {
-		throw new Error('invalid password (length 6-20)')
-	}
-	let admin: number = 0
+
+	validatePassword(password)
+	let group = UserGroup.common
 	if (invitation) {
 		const data: any = await verify(invitation)
-		const { mail: m, admin: a } = data
-		if (typeof a === 'number') { admin = a }
+		const { mail: m, group: g } = data
+		if (typeof g === 'number') { group = g }
 		if (m !== mail) { throw new Error('invalid invitation code') }
 	}
-	password = hashSync(password)
-	ctx.user = await User.create({ name, mail, password, introduction, admin })
-	ctx.body = {
-		name: ctx.user.name,
-		mail: ctx.user.mail,
-		token: await sign({ id: ctx.user._id })
-	}
+
+	const { _id: id } = await User.create({
+		name, mail, group, password: hashSync(password)
+	})
+	ctx.body = { name, mail, token: await sign({ id }) }
 })
 
 router.get('/reset', async ctx => {
-	const user: string = ctx.query.user
-	const u = await User.findOne({ $or: [{ name: user }, { mail: user }] })
+	const user: string = ctx.query.user, name = user, mail = user
+	const u = await User.findOne({ $or: [{ name }, { mail }] })
 	if (!u) { throw new Error('invalid user name or mail') }
 	if (has(u.mail)) { throw new Error('please try later') } else { put(u.mail) }
 
@@ -57,17 +55,17 @@ router.get('/reset', async ctx => {
 router.put('/reset', async ctx => {
 	let { code, password } = ctx.request.body
 	const data: any = await verify(code)
-	ctx.user = await User.findById(data.id)
-	if (!compareSync(ctx.user.password, data.hash)) {
+	const user = await User.findById(data.id)
+
+	validatePassword(password)
+	if (!compareSync(user.password, data.hash)) {
 		throw new Error('invalid verify code')
 	}
-	if (compareSync(password, ctx.user.password)) {
+	if (compareSync(password, user.password)) {
 		throw new Error('new password should be different from the old one')
 	}
-	if (!/^.{6,20}$/.test(password)) {
-		throw new Error('invalid password (length 6-20)')
-	}
-	ctx.body = await ctx.user.update({ password: hashSync(password) })
+
+	ctx.body = await user.update({ password: hashSync(password) })
 })
 
 export default router

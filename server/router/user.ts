@@ -1,19 +1,22 @@
 import * as Router from 'koa-router'
 import { hashSync, compareSync } from 'bcryptjs'
 
-import Auth from '../middleware/auth'
-import User from '../model/user'
-import { toStringCompare } from '../util/function'
+import User, { UserGroup as G } from '../model/user'
+
+import fetch from '../middleware/fetch'
+import { token, group, guard, password } from '../middleware/auth'
+import { toStringCompare, validatePassword } from '../util/function'
 
 const EXCLUDE_LIST = ['solve', 'submit', 'createdAt', 'updatedAt']
 
 const router = new Router()
 
+router.use(token(), fetch({ type: 'user' }))
+
 router.get('/user', async ctx => {
 	let { rank, page, size } = ctx.query
-	if (!rank && !ctx.user.admin) {
-		throw new Error('permission denied')
-	}
+	if (!rank) { guard(ctx.self, G.admin) }
+
 	page = parseInt(page) || 1
 	size = parseInt(size) || 50
 	const total = await User.countDocuments()
@@ -24,59 +27,42 @@ router.get('/user', async ctx => {
 	ctx.body = { total, list }
 })
 
-router.post('/user', Auth({ type: 'admin' }), async ctx => {
-	const self = ctx.user, body = ctx.request.body
-	if (self.admin <= body.admin) {
-		throw new Error('invalid admin level')
-	}
-	if (body.password === undefined) {
-		throw new Error('password is required')
-	}
-	if (!/^.{6,20}$/.test(body.password)) {
-		throw new Error('invalid password (length 6-20)')
-	}
+router.post('/user', group(G.admin), async ctx => {
+	const body = ctx.request.body
+	guard(ctx.self, body.group, 1)
+	validatePassword(body.password)
+
 	for (let item of EXCLUDE_LIST) { delete body[item] }
+	body.password = hashSync(body.password)
 	ctx.body = await User.create(body)
 })
 
 router.put('/user/:id', async ctx => {
-	const self = ctx.user, body = ctx.request.body
-	const it = await User.findById(ctx.params.id)
-	if (!it) { throw new Error('user not found') }
-	if (!toStringCompare(self._id, it._id)) {
-		if (self.admin <= it.admin) {
-			throw new Error('permission denied')
-		}
-		if (body.password !== undefined) {
-			throw new Error('unable to change others password')
-		}
-	} else if (body.admin !== undefined) {
-		throw new Error('unable to change self-level')
-	}
+	const { self, user } = ctx
+	const { body } = ctx.request
+
+	if (!toStringCompare(self._id, user._id)) {
+		guard(self, user.group, 1)
+		delete body.password
+	} else { delete body.group }
+
 	if (body.password !== undefined) {
-		if (!body.oldPassword) {
-			throw new Error('old password is required')
-		}
-		if (!/^.{6,20}$/.test(body.password)) {
-			throw new Error('invalid password (length 6-20)')
-		}
+		validatePassword(body.oldPassword)
 		if (!compareSync(body.oldPassword, self.password)) {
 			throw new Error('invalid old password')
 		}
+		validatePassword(body.password)
 		body.password = hashSync(body.password)
 	}
+
 	for (let item of EXCLUDE_LIST) { delete body[item] }
-	ctx.body = await it.update(body, { runValidators: true })
+	ctx.body = await user.update(body, { runValidators: true })
 })
 
-router.del('/user/:id', Auth({ type: 'admin' }), async ctx => {
-	const self = ctx.user
-	const it = await User.findById(ctx.params.id)
-	if (!it) { throw new Error('user not found') }
-	if (self.admin <= it.admin) {
-		throw new Error('permission denied')
-	}
-	ctx.body = await it.remove()
+router.del('/user/:id', group(G.admin), async ctx => {
+	const { self, user } = ctx
+	guard(self, user.group, 1)
+	ctx.body = await user.remove()
 })
 
 export default router

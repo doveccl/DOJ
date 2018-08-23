@@ -1,13 +1,15 @@
 import { Schema, Document, model } from 'mongoose'
 
+export enum UserGroup { common, admin, root }
+
 export interface IUser extends Document {
 	name: string;
 	mail: string;
-	admin: number;
+	group: UserGroup;
 	password: string;
 	solve: number;
 	submit: number;
-	introduction?: string;
+	introduction: string;
 }
 
 const schema = new Schema({
@@ -23,10 +25,11 @@ const schema = new Schema({
 		required: true,
 		match: /^[\w.]+@(?:[a-z0-9]+(?:-[a-z0-9]+)*\.)+[a-z]{2,}$/
 	},
-	admin: {
+	group: {
 		type: Number,
 		required: true,
-		min: 0, default: 0
+		min: 0, max: 2,
+		default: 0
 	},
 	password: {
 		type: String,
@@ -45,7 +48,8 @@ const schema = new Schema({
 	introduction: {
 		type: String,
 		maxlength: 200,
-		required: false
+		required: true,
+		default: ''
 	}
 }, {
 	versionKey: false,

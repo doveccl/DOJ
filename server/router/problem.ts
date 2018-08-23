@@ -1,12 +1,17 @@
 import * as Router from 'koa-router'
 
-import Auth from '../middleware/auth'
 import Problem from '../model/problem'
 import File from '../model/file'
+import { UserGroup as G } from '../model/user'
+
+import fetch from '../middleware/fetch'
+import { token, check, group, guard } from '../middleware/auth'
 
 const EXCLUDE_LIST = ['solve', 'submit', 'createdAt', 'updatedAt']
 
 const router = new Router()
+
+router.use(token(), fetch({ type: 'problem' }))
 
 router.get('/problem', async ctx => {
 	let { all, page, size, search } = ctx.query
@@ -23,9 +28,8 @@ router.get('/problem', async ctx => {
 			data: { $exists: true },
 			contest: { $exists: false },
 		}
-	} else if (!ctx.user.admin) {
-		throw new Error('permission denied')
-	}
+	} else { guard(ctx.self, G.admin) }
+
 	page = parseInt(page) || 1
 	size = parseInt(size) || 50
 	const total = await Problem.countDocuments(condition)
@@ -36,18 +40,13 @@ router.get('/problem', async ctx => {
 })
 
 router.get('/problem/:id', async ctx => {
-	let query = Problem.findById(ctx.params.id)
-	if (ctx.user.admin) {
-		query = query.populate('data', 'md5')
-	} else {
-		query = query.select('-data')
+	if (!check(ctx.self, G.admin)) {
+		delete ctx.problem.data
 	}
-	const problem = await query.exec()
-	if (!problem) { throw new Error('problem not found') }
-	ctx.body = problem
+	ctx.body = ctx.problem
 })
 
-router.post('/problem', Auth({ type: 'admin' }), async ctx => {
+router.post('/problem', group(G.admin), async ctx => {
 	let { body, files } = ctx.request
 	if (files.data) {
 		const { path, name, type } = files.data
@@ -62,12 +61,10 @@ router.post('/problem', Auth({ type: 'admin' }), async ctx => {
 	ctx.body = await Problem.create(body)
 })
 
-router.put('/problem/:id', Auth({ type: 'admin' }), async ctx => {
-	const problem = await Problem.findById(ctx.params.id)
-	if (!problem) { throw new Error('problem not found') }
+router.put('/problem/:id', group(G.admin), async ctx => {
 	let { body, files } = ctx.request, originData: string
 	if (files.data) {
-		originData = String(problem.data || '')
+		originData = String(ctx.problem.data || '')
 		const { path, name, type } = files.data
 		if (type !== 'application/zip') {
 			throw new Error('invalid data type')
@@ -77,15 +74,13 @@ router.put('/problem/:id', Auth({ type: 'admin' }), async ctx => {
 		})
 	}
 	for (let item of EXCLUDE_LIST) { delete body[item] }
-	ctx.body = await problem.update(body, { runValidators: true })
+	ctx.body = await ctx.problem.update(body, { runValidators: true })
 	if (originData) { await File.findByIdAndRemove(originData) }
 })
 
-router.del('/problem/:id', Auth({ type: 'admin' }), async ctx => {
-	const problem = await Problem.findById(ctx.params.id)
-	if (!problem) { throw new Error('problem not found') }
-	const data = String(problem.data || '')
-	ctx.body = await problem.remove()
+router.del('/problem/:id', group(G.admin), async ctx => {
+	const data = String(ctx.problem.data || '')
+	ctx.body = await ctx.problem.remove()
 	if (data) { await File.findByIdAndRemove(data) }
 })
 

@@ -4,7 +4,7 @@ import { ObjectID, GridFSBucket, GridFSBucketOpenUploadStreamOptions } from 'mon
 
 export const TYPE_REG = /(:?image|pdf|zip)/
 
-interface IFile extends Document {
+export interface IFile extends Document {
 	filename: string;
 	contentType: string;
 	length: number;
@@ -24,6 +24,8 @@ const schema = new Schema({
 	metadata: Schema.Types.Mixed,
 	aliases: [String],
 	md5: String
+}, {
+	versionKey: false
 })
 
 /**

@@ -1,11 +1,16 @@
 import * as Router from 'koa-router'
 
-import Auth from '../middleware/auth'
 import Problem from '../model/problem'
 import Submission from '../model/submission'
+
+import fetch from '../middleware/fetch'
+import { UserGroup as G } from '../model/user'
+import { token, check, group } from '../middleware/auth'
 import { toStringCompare } from '../util/function'
 
 const router = new Router()
+
+router.use(token(), fetch({ type: 'submission' }))
 
 router.get('/submission', async ctx => {
 	let { page, size } = ctx.query
@@ -22,17 +27,14 @@ router.get('/submission', async ctx => {
 })
 
 router.get('/submission/:id', async ctx => {
-	ctx.body = await Submission.findById(ctx.params.id)
-		.populate('user', 'name')
-		.populate('problem', 'title')
-		.populate('contest', 'title endAt')
+	let { code, cases } = ctx.submission
 	if (
-		!ctx.body.open && !ctx.user.admin &&
-		Date.now() <= ctx.body.contest.endAt &&
-		!toStringCompare(ctx.body.user._id, ctx.user._id)
+		!ctx.body.open && !check(ctx.self, G.admin) &&
+		!toStringCompare(ctx.body.user._id, ctx.self._id)
 	) {
-		delete ctx.body.code
+		code = undefined
 	}
+	ctx.body = { code, cases }
 })
 
 router.post('/submission', async ctx => {
@@ -40,16 +42,14 @@ router.post('/submission', async ctx => {
 	const p = await Problem.findById(problem)
 	if (!p) { throw new Error('problem not found') }
 	ctx.body = await Submission.create({
-		user: ctx.user._id,
+		user: ctx.self._id,
 		problem, contest,
 		code, language, open
 	})
 })
 
-router.del('/submission/:id', Auth({ type: 'admin' }), async ctx => {
-	const submission = await Submission.findById(ctx.params.id)
-	if (!submission) { throw new Error('submission not found') }
-	ctx.body = await submission.remove()
+router.del('/submission/:id', group(G.admin), async ctx => {
+	ctx.body = await ctx.submission.remove()
 })
 
 export default router
