@@ -13,20 +13,20 @@ export enum Status {
 }
 
 export interface IResult {
-	time: number;
-	memory: number;
-	status: Status;
+	time: number
+	memory: number
+	status: Status
 }
 
 export interface ISubmission extends Document {
-	user: Schema.Types.ObjectId;
-	problem: Schema.Types.ObjectId;
-	contest?: Schema.Types.ObjectId;
-	code: string;
-	language: number;
-	open: boolean;
-	result: IResult;
-	cases: IResult[];
+	user: Schema.Types.ObjectId
+	problem: Schema.Types.ObjectId
+	contest?: Schema.Types.ObjectId
+	code: string
+	language: number
+	open: boolean
+	result: IResult
+	cases: IResult[]
 }
 
 const result = {

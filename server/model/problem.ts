@@ -1,15 +1,15 @@
 import { Schema, Document, model } from 'mongoose'
 
 export interface IProblem extends Document {
-	title: string;
-	content: string;
-	tags: string[];
-	timeLimit: number;
-	memoryLimit: number;
-	solve: number;
-	submit: number;
-	data?: Schema.Types.ObjectId;
-	contest?: Schema.Types.ObjectId;
+	title: string
+	content: string
+	tags: string[]
+	timeLimit: number
+	memoryLimit: number
+	solve: number
+	submit: number
+	data?: Schema.Types.ObjectId
+	contest?: Schema.Types.ObjectId
 }
 
 const schema = new Schema({
@@ -24,38 +24,31 @@ const schema = new Schema({
 	},
 	tags: {
 		type: [String],
-		required: false,
 		default: <string[]>[]
 	},
 	timeLimit: {
 		type: Number,
-		required: false,
 		min: 0, default: 1000
 	},
 	memoryLimit: {
 		type: Number,
-		required: false,
 		min: 0, default: 64000
 	},
 	solve: {
 		type: Number,
-		required: false,
 		min: 0, default: 0
 	},
 	submit: {
 		type: Number,
-		required: false,
 		min: 0, default: 0
 	},
 	data: {
 		type: Schema.Types.ObjectId,
-		ref: 'fs.file',
-		required: false
+		ref: 'fs.file'
 	},
 	contest: {
 		type: Schema.Types.ObjectId,
-		ref: 'contest',
-		required: false
+		ref: 'contest'
 	}
 }, {
 	versionKey: false,

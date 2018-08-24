@@ -1,19 +1,19 @@
 {
-  "compilerOptions": {
-    "module": "commonjs",
-    "outDir" : "build",
+	"compilerOptions": {
+		"module": "commonjs",
+		"outDir" : "build",
 		"target": "es2017",
-    "removeComments": true,
+		"removeComments": true,
 		"noImplicitAny": true,
 		"typeRoots": [
 			"./node_modules/@types",
 			"./typings"
 		]
-  },
-  "include": [
-    "server/**/*"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+	},
+	"include": [
+		"server/**/*"
+	],
+	"exclude": [
+		"node_modules"
+	]
 }

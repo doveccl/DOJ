@@ -5,14 +5,14 @@ import { ObjectID, GridFSBucket, GridFSBucketOpenUploadStreamOptions } from 'mon
 export const TYPE_REG = /(:?image|pdf|zip)/
 
 export interface IFile extends Document {
-	filename: string;
-	contentType: string;
-	length: number;
-	chunkSize: number;
-	uploadDate: Date;
-	metadata: any;
-	aliases: string[];
-	md5: string;
+	filename: string
+	contentType: string
+	length: number
+	chunkSize: number
+	uploadDate: Date
+	metadata: any
+	aliases: string[]
+	md5: string
 }
 
 const schema = new Schema({

@@ -3,13 +3,13 @@ import { Schema, Document, model } from 'mongoose'
 export enum UserGroup { common, admin, root }
 
 export interface IUser extends Document {
-	name: string;
-	mail: string;
-	group: UserGroup;
-	password: string;
-	solve: number;
-	submit: number;
-	introduction: string;
+	name: string
+	mail: string
+	group: UserGroup
+	password: string
+	solve: number
+	submit: number
+	introduction: string
 }
 
 const schema = new Schema({
@@ -27,7 +27,6 @@ const schema = new Schema({
 	},
 	group: {
 		type: Number,
-		required: false,
 		min: 0, max: 2,
 		default: 0
 	},
@@ -37,18 +36,15 @@ const schema = new Schema({
 	},
 	solve: {
 		type: Number,
-		required: false,
 		min: 0, default: 0
 	},
 	submit: {
 		type: Number,
-		required: false,
 		min: 0, default: 0
 	},
 	introduction: {
 		type: String,
 		maxlength: 200,
-		required: false,
 		default: ''
 	}
 }, {
