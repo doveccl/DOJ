@@ -4,14 +4,14 @@ import { hashSync, compareSync } from 'bcryptjs'
 import User, { UserGroup as G } from '../model/user'
 
 import fetch from '../middleware/fetch'
-import { token, group, guard } from '../middleware/auth'
+import { group, guard } from '../middleware/auth'
 import { toStringCompare, validatePassword } from '../util/function'
 
 const EXCLUDE_LIST = ['solve', 'submit', 'createdAt', 'updatedAt']
 
 const router = new Router()
 
-router.use(token(), fetch({ type: 'user' }))
+router.use('/user/:id', fetch(User))
 
 router.get('/user', async ctx => {
 	let { rank, page, size } = ctx.query

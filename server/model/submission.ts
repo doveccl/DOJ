@@ -71,12 +71,12 @@ const schema = new Schema({
 	},
 	open: {
 		type: Boolean,
-		required: true,
+		required: false,
 		default: false
 	},
 	result: {
 		type: result,
-		required: true,
+		required: false,
 		default: {
 			time: 0,
 			memory: 0,
@@ -85,7 +85,7 @@ const schema = new Schema({
 	},
 	cases: {
 		type: [result],
-		required: true,
+		required: false,
 		default: <IResult[]>[]
 	}
 }, {

@@ -1,9 +1,9 @@
 import { Middleware } from 'koa'
 
-import user, { IUser } from '../model/user'
-import problem, { IProblem } from '../model/problem'
-import submission, { ISubmission } from '../model/submission'
-import file, { IFile } from '../model/file'
+import { IUser } from '../model/user'
+import { IProblem } from '../model/problem'
+import { ISubmission } from '../model/submission'
+import { IFile } from '../model/file'
 
 declare module "koa" {
 	interface Context {
@@ -11,23 +11,16 @@ declare module "koa" {
 		problem?: IProblem
 		submission?: ISubmission
 		file?: IFile
+		[index: string]: any
 	}
 }
 
-const models = { user, problem, submission, file }
-
-interface IFetchProps {
-	type: 'user' | 'problem' | 'submission' | 'file'
-	check?: boolean
-}
-
-export default ({ type, check = true }: IFetchProps): Middleware =>
+export default (model: any): Middleware =>
 	async (ctx, next) => {
 		if (ctx.params.id) {
-			ctx[type] = await models[type].findById(ctx.params.id)
-			if (check && !ctx[type]) {
-				throw new Error(`${type} not found`)
-			}
+			const type = ctx.url.match(/^\/api\/([^/]+)/)[1]
+			ctx[type] = await model.findById(ctx.params.id)
+			if (!ctx[type]) { throw new Error(`${type} not found`) }
 		}
 		await next()
 	}

@@ -24,27 +24,27 @@ const schema = new Schema({
 	},
 	tags: {
 		type: [String],
-		required: true,
+		required: false,
 		default: <string[]>[]
 	},
 	timeLimit: {
 		type: Number,
-		required: true,
-		min: 0, default: 1
+		required: false,
+		min: 0, default: 1000
 	},
 	memoryLimit: {
 		type: Number,
-		required: true,
-		min: 0, default: 64
+		required: false,
+		min: 0, default: 64000
 	},
 	solve: {
 		type: Number,
-		required: true,
+		required: false,
 		min: 0, default: 0
 	},
 	submit: {
 		type: Number,
-		required: true,
+		required: false,
 		min: 0, default: 0
 	},
 	data: {

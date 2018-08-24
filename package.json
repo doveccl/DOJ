@@ -10,7 +10,7 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "dev:server": "nodemon -e ts -w server -x ts-node server",
+    "dev:server": "ts-node-dev --no-notify server",
     "dev:web": "exit 0",
     "build:server": "rm -rf build && tsc",
     "build:web": "rm -rf dist && exit 0",
@@ -44,8 +44,7 @@
     "@types/mongodb": "^3.1.4",
     "@types/mongoose": "^5.2.6",
     "@types/nodemailer": "^4.6.2",
-    "nodemon": "^1.18.3",
-    "ts-node": "^7.0.1",
+    "ts-node-dev": "latest",
     "tslint": "^5.11.0",
     "typescript": "^3.0.1"
   },

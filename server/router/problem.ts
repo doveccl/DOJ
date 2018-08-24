@@ -5,13 +5,13 @@ import File from '../model/file'
 import { UserGroup as G } from '../model/user'
 
 import fetch from '../middleware/fetch'
-import { token, check, group, guard } from '../middleware/auth'
+import { check, group, guard } from '../middleware/auth'
 
 const EXCLUDE_LIST = ['solve', 'submit', 'createdAt', 'updatedAt']
 
 const router = new Router()
 
-router.use(token(), fetch({ type: 'problem' }))
+router.use('/problem/:id', fetch(Problem))
 
 router.get('/problem', async ctx => {
 	let { all, page, size, search } = ctx.query

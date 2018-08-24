@@ -1,4 +1,3 @@
 # DOJ
 
-Online Judge for OI & ICPC
-
+Online Judge for OI & ACM/ICPC

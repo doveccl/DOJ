@@ -5,12 +5,12 @@ import Submission from '../model/submission'
 
 import fetch from '../middleware/fetch'
 import { UserGroup as G } from '../model/user'
-import { token, check, group } from '../middleware/auth'
+import { check, group } from '../middleware/auth'
 import { toStringCompare } from '../util/function'
 
 const router = new Router()
 
-router.use(token(), fetch({ type: 'submission' }))
+router.use('/submission/:id', fetch(Submission))
 
 router.get('/submission', async ctx => {
 	let { page, size } = ctx.query

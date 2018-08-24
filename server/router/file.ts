@@ -4,11 +4,11 @@ import File, { TYPE_REG } from '../model/file'
 import { UserGroup as G } from '../model/user'
 
 import fetch from '../middleware/fetch'
-import { token, group, guard } from '../middleware/auth'
+import { group, guard } from '../middleware/auth'
 
 const router = new Router()
 
-router.use(token(), fetch({ type: 'file' }))
+router.use('/file/:id', fetch(File))
 
 router.get('/file', group(G.admin), async ctx => {
 	let { page, size } = ctx.query
@@ -21,8 +21,9 @@ router.get('/file', group(G.admin), async ctx => {
 })
 
 router.get('/file/:id', async ctx => {
-	const { type: t } = ctx.file.metadata
-	if (t === 'data') { guard(ctx.self, G.admin) }
+	if (ctx.file.metadata === 'data') {
+		guard(ctx.self, G.admin)
+	}
 
 	ctx.type = ctx.file.contentType
 	ctx.attachment(ctx.file.filename)

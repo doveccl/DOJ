@@ -27,7 +27,7 @@ const schema = new Schema({
 	},
 	group: {
 		type: Number,
-		required: true,
+		required: false,
 		min: 0, max: 2,
 		default: 0
 	},
@@ -37,18 +37,18 @@ const schema = new Schema({
 	},
 	solve: {
 		type: Number,
-		required: true,
+		required: false,
 		min: 0, default: 0
 	},
 	submit: {
 		type: Number,
-		required: true,
+		required: false,
 		min: 0, default: 0
 	},
 	introduction: {
 		type: String,
 		maxlength: 200,
-		required: true,
+		required: false,
 		default: ''
 	}
 }, {
