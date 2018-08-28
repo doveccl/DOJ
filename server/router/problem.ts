@@ -36,7 +36,7 @@ router.get('/problem', async ctx => {
 	const arr = await Problem.find(condition)
 		.select(all ? '-content' : '-content -data')
 		.skip(size * (page - 1)).limit(size)
-	let list: any[] = []
+	const list: any[] = []
 	for (let item of arr) {
 		if (!all && item.contest) {
 			const c = await contest(item.contest.id)
