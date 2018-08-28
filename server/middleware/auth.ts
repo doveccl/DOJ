@@ -10,16 +10,6 @@ declare module "koa" {
 	}
 }
 
-export function check(user: IUser, group: UserGroup, diff = 0) {
-	return user && (user.group - group >= diff)
-}
-
-export function guard(user: IUser, group: UserGroup, diff = 0) {
-	if (!check(user, group, diff)) {
-		throw new Error('permission denied')
-	}
-}
-
 export function password(): Middleware {
 	return async (ctx, next) => {
 		const user = ctx.get('user')
@@ -45,9 +35,29 @@ export function token(exclude?: RegExp): Middleware {
 	}
 }
 
-export function group(type = UserGroup.admin): Middleware {
+export function checkGroup(user: IUser, type: string | number, diff = 0) {
+	let group: UserGroup
+	switch (type) {
+		case 'root':
+		case 'admin':
+		case 'common':
+			group = UserGroup[type]
+			break
+		default:
+			group = +new Number(type)
+	}
+	return user && user.group - group >= diff
+}
+
+export function ensureGroup(user: IUser, type: string | number, diff = 0) {
+	if (!checkGroup(user, type, diff)) {
+		throw new Error('permission denied')
+	}
+}
+
+export function forGroup(type: 'root' | 'admin' | 'common'): Middleware {
 	return async (ctx, next) => {
-		guard(ctx.self, type)
+		ensureGroup(ctx.self, type)
 		await next()
 	}
 }

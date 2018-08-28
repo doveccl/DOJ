@@ -9,8 +9,16 @@ export interface IProblem extends Document {
 	solve: number
 	submit: number
 	data?: Schema.Types.ObjectId
-	contest?: Schema.Types.ObjectId
+	contest?: {
+		id: Schema.Types.ObjectId
+		key: string
+	}
 }
+
+const belong = new Schema({
+	id: Schema.Types.ObjectId,
+	key: String
+}, { _id: false })
 
 const schema = new Schema({
 	title: {
@@ -43,12 +51,11 @@ const schema = new Schema({
 		min: 0, default: 0
 	},
 	data: {
-		type: Schema.Types.ObjectId,
-		ref: 'fs.file'
+		type: Schema.Types.ObjectId
 	},
 	contest: {
-		type: Schema.Types.ObjectId,
-		ref: 'contest'
+		type: belong,
+		unique: true
 	}
 }, {
 	versionKey: false,

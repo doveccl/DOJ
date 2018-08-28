@@ -2,86 +2,80 @@ import * as Router from 'koa-router'
 
 import Problem from '../model/problem'
 import File from '../model/file'
-import { UserGroup as G } from '../model/user'
 
-import fetch from '../middleware/fetch'
-import { check, group, guard } from '../middleware/auth'
-
-const EXCLUDE_LIST = ['solve', 'submit', 'createdAt', 'updatedAt']
+import { contest, urlFetch } from '../middleware/fetch'
+import { ensureGroup, forGroup } from '../middleware/auth'
 
 const router = new Router()
 
-router.use('/problem/:id', fetch(Problem))
+async function addData(file: any, problem?: any) {
+	const { path, name, type } = file
+	if (type !== 'application/zip') {
+		throw new Error('invalid data type')
+	}
+	return await File.create(path, name, {
+		contentType: type, metadata: { type: 'data', problem }
+	})
+}
 
 router.get('/problem', async ctx => {
-	let { all, page, size, search } = ctx.query
+	let { all, page, size, search, cid } = ctx.query
 	let searchRegExp = new RegExp(search)
-	let condition: any = { $or: [
+	const condition = { $or: [
 		{ tags: search },
 		{ title: searchRegExp },
 		{ content: searchRegExp }
-	] }
+	], 'contest.id': cid }
 	if (!search) { delete condition.$or }
-	if (all === undefined || !all) {
-		condition = {
-			...condition,
-			data: { $exists: true },
-			contest: { $exists: false },
-		}
-	} else { guard(ctx.self, G.admin) }
+	if (!cid) { delete condition['contest.id'] }
+	if (all) { ensureGroup(ctx.self, 'admin') }
 
 	page = parseInt(page) || 1
 	size = parseInt(size) || 50
 	const total = await Problem.countDocuments(condition)
-	const list = await Problem.find(condition)
-		.select(all ? '-content' : 'title tags solve submit')
+	const arr = await Problem.find(condition)
+		.select(all ? '-content' : '-content -data')
 		.skip(size * (page - 1)).limit(size)
+	let list: any[] = []
+	for (let item of arr) {
+		if (!all && item.contest) {
+			const c = await contest(item.contest.id)
+			const enableAt = cid ? c.startAt : c.endAt
+			if (new Date() < enableAt) { continue }
+		}
+		list.push(item.toJSON())
+	}
 	ctx.body = { total, list }
 })
 
-router.get('/problem/:id', async ctx => {
-	if (!check(ctx.self, G.admin)) {
-		delete ctx.problem.data
+router.get('/problem/:id', urlFetch('problem'), async ctx => {
+	if (ctx.problem.contest) {
+		const c = await contest(ctx.problem.contest.id)
+		if (new Date() < c.startAt) { ensureGroup(ctx.self, 'admin') }
 	}
-	ctx.body = ctx.problem
+	ctx.body = ctx.problem.toJSON()
+	delete ctx.body.data
 })
 
-router.post('/problem', group(G.admin), async ctx => {
-	let { body, files } = ctx.request
-	if (files.data) {
-		const { path, name, type } = files.data
-		if (type !== 'application/zip') {
-			throw new Error('invalid data type')
-		}
-		body.data = await File.create(path, name, {
-			contentType: type, metadata: { type: 'data' }
-		})
-	}
-	for (let item of EXCLUDE_LIST) { delete body[item] }
+router.post('/problem', forGroup('admin'), async ctx => {
+	const { body, files } = ctx.request, { data } = files
+	if (data) { body.data = await addData(data) }
 	ctx.body = await Problem.create(body)
+	if (!data) { return }
+	await File.findByIdAndUpdate(body.data, {
+		'metadata.problem': ctx.body._id
+	})
 })
 
-router.put('/problem/:id', group(G.admin), async ctx => {
-	let { body, files } = ctx.request, originData: string
-	if (files.data) {
-		originData = String(ctx.problem.data || '')
-		const { path, name, type } = files.data
-		if (type !== 'application/zip') {
-			throw new Error('invalid data type')
-		}
-		body.data = await File.create(path, name, {
-			contentType: type, metadata: { type: 'data' }
-		})
-	}
-	for (let item of EXCLUDE_LIST) { delete body[item] }
+router.put('/problem/:id', forGroup('admin'), urlFetch('problem'), async ctx => {
+	let { body, files } = ctx.request, { data } = files
+	if (data) { body.data = await addData(data, ctx.problem._id) }
 	ctx.body = await ctx.problem.update(body, { runValidators: true })
-	if (originData) { await File.findByIdAndRemove(originData) }
+	ctx.problem.set(body)
 })
 
-router.del('/problem/:id', group(G.admin), async ctx => {
-	const data = String(ctx.problem.data || '')
+router.del('/problem/:id', forGroup('admin'), urlFetch('problem'), async ctx => {
 	ctx.body = await ctx.problem.remove()
-	if (data) { await File.findByIdAndRemove(data) }
 })
 
 export default router

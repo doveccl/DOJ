@@ -1,21 +1,19 @@
 import * as Router from 'koa-router'
 import { hashSync, compareSync } from 'bcryptjs'
 
-import User, { UserGroup as G } from '../model/user'
+import User from '../model/user'
 
-import fetch from '../middleware/fetch'
-import { group, guard } from '../middleware/auth'
+import { urlFetch } from '../middleware/fetch'
+import { ensureGroup, forGroup } from '../middleware/auth'
 import { toStringCompare, validatePassword } from '../util/function'
 
-const EXCLUDE_LIST = ['solve', 'submit', 'createdAt', 'updatedAt']
+const EXCLUDE_LIST = [ 'solve', 'submit' ]
 
 const router = new Router()
 
-router.use('/user/:id', fetch(User))
-
 router.get('/user', async ctx => {
 	let { rank, page, size } = ctx.query
-	if (!rank) { guard(ctx.self, G.admin) }
+	if (!rank) { ensureGroup(ctx.self, 'admin') }
 
 	page = parseInt(page) || 1
 	size = parseInt(size) || 50
@@ -27,9 +25,9 @@ router.get('/user', async ctx => {
 	ctx.body = { total, list }
 })
 
-router.post('/user', group(G.admin), async ctx => {
+router.post('/user', forGroup('admin'), async ctx => {
 	const { body } = ctx.request, { group } = body
-	if (group) { guard(ctx.self, group, 1) }
+	if (group) { ensureGroup(ctx.self, group, 1) }
 	validatePassword(body.password)
 
 	for (let item of EXCLUDE_LIST) { delete body[item] }
@@ -37,12 +35,12 @@ router.post('/user', group(G.admin), async ctx => {
 	ctx.body = await User.create(body)
 })
 
-router.put('/user/:id', async ctx => {
+router.put('/user/:id', urlFetch('user'), async ctx => {
 	const { self, user } = ctx
 	const { body } = ctx.request
 
 	if (!toStringCompare(self._id, user._id)) {
-		guard(self, user.group, 1)
+		ensureGroup(self, user.group, 1)
 		delete body.password
 	} else { delete body.group }
 
@@ -57,12 +55,12 @@ router.put('/user/:id', async ctx => {
 
 	for (let item of EXCLUDE_LIST) { delete body[item] }
 	ctx.body = await user.update(body, { runValidators: true })
+	user.set(body)
 })
 
-router.del('/user/:id', group(G.admin), async ctx => {
-	const { self, user } = ctx
-	guard(self, user.group, 1)
-	ctx.body = await user.remove()
+router.del('/user/:id', urlFetch('user'), async ctx => {
+	ensureGroup(ctx.self, ctx.user.group, 1)
+	ctx.body = await ctx.user.remove()
 })
 
 export default router

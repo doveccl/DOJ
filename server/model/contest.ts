@@ -1,28 +1,6 @@
 import { Schema, Document, model } from 'mongoose'
 
 export enum ContestType { OI, ICPC }
-export enum Status { NONE, OK, FAIL }
-
-export class PResult {
-	public score = 0
-	public count = 0
-	public status = Status.NONE
-}
-
-export class UResult {
-	public name: string
-	public score = 0
-	public solve = 0
-	public penalty = 0
-	public result: PResult[]
-	constructor(name: string, count: number) {
-		this.name = name
-		this.result = []
-		for (let cnt = count; cnt--; ) {
-			this.result.push(new PResult())
-		}
-	}
-}
 
 export interface IContest extends Document {
 	title: string
@@ -30,13 +8,13 @@ export interface IContest extends Document {
 	type: ContestType
 	startAt: Date
 	endAt: Date
-	problems: Schema.Types.ObjectId[]
-	result: UResult[]
+	freezeAt?: Date
 }
 
 const schema = new Schema({
 	title: {
 		type: String,
+		unique: true,
 		required: true,
 		maxlength: 30
 	},
@@ -55,15 +33,11 @@ const schema = new Schema({
 	},
 	endAt: {
 		type: Date,
-		require: true
+		required: true
 	},
-	problems: [{
-		type: Schema.Types.ObjectId,
-		ref: 'problem'
-	}],
-	result: {
-		type: [UResult],
-		default: []
+	freezeAt: {
+		type: Date,
+		default: new Date(0)
 	}
 }, {
 	versionKey: false,

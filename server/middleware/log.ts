@@ -5,7 +5,8 @@ export default (): Middleware =>
 	async (ctx, next) => {
 		const stime = Date.now()
 		await next()
-		logHttp.info(ctx.method, ctx.url, `${Date.now() - stime}ms`)
+		const cost = Date.now() - stime
+		logHttp.info(ctx.method, ctx.url, `STATUS ${ctx.status}`, `${cost}ms`)
 		logHttp.debug('request headers:', ctx.request.headers)
 		logHttp.debug('request body:', ctx.request.body)
 		logHttp.debug('response:', ctx.body)

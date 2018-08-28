@@ -3,14 +3,12 @@ import * as Router from 'koa-router'
 import Problem from '../model/problem'
 import Submission from '../model/submission'
 
-import fetch from '../middleware/fetch'
+import { urlFetch } from '../middleware/fetch'
 import { UserGroup as G } from '../model/user'
-import { check, group } from '../middleware/auth'
+import { checkGroup } from '../middleware/auth'
 import { toStringCompare } from '../util/function'
 
 const router = new Router()
-
-router.use('/submission/:id', fetch(Submission))
 
 router.get('/submission', async ctx => {
 	let { page, size } = ctx.query
@@ -19,22 +17,17 @@ router.get('/submission', async ctx => {
 	const total = await Submission.countDocuments()
 	const list = await Submission.find()
 		.select('-cases -code')
-		.populate('user', 'name')
-		.populate('problem', 'title')
-		.populate('contest', 'title')
 		.skip(size * (page - 1)).limit(size)
 	ctx.body = { total, list }
 })
 
 router.get('/submission/:id', async ctx => {
-	let { code, cases } = ctx.submission
 	if (
-		!ctx.body.open && !check(ctx.self, G.admin) &&
+		!ctx.body.open && !checkGroup(ctx.self, G.admin) &&
 		!toStringCompare(ctx.body.user._id, ctx.self._id)
 	) {
-		code = undefined
+		// can not get code
 	}
-	ctx.body = { code, cases }
 })
 
 router.post('/submission', async ctx => {
@@ -46,10 +39,6 @@ router.post('/submission', async ctx => {
 		problem, contest,
 		code, language, open
 	})
-})
-
-router.del('/submission/:id', group(G.admin), async ctx => {
-	ctx.body = await ctx.submission.remove()
 })
 
 export default router

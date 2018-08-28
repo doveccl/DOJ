@@ -1,16 +1,13 @@
 import * as Router from 'koa-router'
 
 import File, { TYPE_REG } from '../model/file'
-import { UserGroup as G } from '../model/user'
 
-import fetch from '../middleware/fetch'
-import { group, guard } from '../middleware/auth'
+import { urlFetch } from '../middleware/fetch'
+import { ensureGroup, forGroup } from '../middleware/auth'
 
 const router = new Router()
 
-router.use('/file/:id', fetch(File))
-
-router.get('/file', group(G.admin), async ctx => {
+router.get('/file', forGroup('admin'), async ctx => {
 	let { page, size } = ctx.query
 	page = parseInt(page) || 1
 	size = parseInt(size) || 50
@@ -20,9 +17,9 @@ router.get('/file', group(G.admin), async ctx => {
 	ctx.body = { total, list }
 })
 
-router.get('/file/:id', async ctx => {
+router.get('/file/:id', urlFetch('file'), async ctx => {
 	if (ctx.file.metadata === 'data') {
-		guard(ctx.self, G.admin)
+		ensureGroup(ctx.self, 'admin')
 	}
 
 	ctx.type = ctx.file.contentType
@@ -30,7 +27,7 @@ router.get('/file/:id', async ctx => {
 	ctx.body = File.creatReadStream(ctx.params.id)
 })
 
-router.post('/file', group(G.admin), async ctx => {
+router.post('/file', forGroup('admin'), async ctx => {
 	const keys = Object.keys(ctx.request.files)
 	ctx.body = <any[]>[]
 	for (let key of keys) {
@@ -44,12 +41,12 @@ router.post('/file', group(G.admin), async ctx => {
 	}
 })
 
-router.put('/file/:id', group(G.admin), async ctx => {
+router.put('/file/:id', forGroup('admin'), urlFetch('file'), async ctx => {
 	const { filename } = ctx.request.body
 	ctx.body = await ctx.file.update({ filename })
 })
 
-router.del('/file/:id', group(G.admin), async ctx => {
+router.del('/file/:id', forGroup('admin'), urlFetch('file'), async ctx => {
 	ctx.body = await File.findByIdAndRemove(ctx.params.id)
 })
 

@@ -65,6 +65,9 @@ export default class {
 	public static findById(id: any) {
 		return FS.findById(id)
 	}
+	public static findByIdAndUpdate(id: any, data: any) {
+		return FS.findByIdAndUpdate(id, data)
+	}
 	public static findByIdAndRemove(id: any) {
 		return new Promise<any>((resolve, reject) => {
 			bucket.delete(new ObjectID(id), error => {

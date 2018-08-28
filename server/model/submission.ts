@@ -1,6 +1,7 @@
 import { Schema, Document, model } from 'mongoose'
 
 export enum Status {
+	WAIT, // Pending
 	AC, // Accepted
 	WA, // Wrong Answer
 	TLE, // Time Limit Exceed
@@ -8,7 +9,6 @@ export enum Status {
 	RE, // Runtime Error
 	CE, // Compile Error
 	SE, // System Error
-	WAIT, // Pending
 	OTHER // Others
 }
 
@@ -19,9 +19,9 @@ export interface IResult {
 }
 
 export interface ISubmission extends Document {
-	user: Schema.Types.ObjectId
-	problem: Schema.Types.ObjectId
-	contest?: Schema.Types.ObjectId
+	uid: Schema.Types.ObjectId
+	pid: Schema.Types.ObjectId
+	cid?: Schema.Types.ObjectId
 	code: string
 	language: number
 	open: boolean
@@ -29,7 +29,7 @@ export interface ISubmission extends Document {
 	cases: IResult[]
 }
 
-const result = {
+const result = new Schema({
 	time: {
 		type: Number,
 		required: true
@@ -42,23 +42,19 @@ const result = {
 		type: Number,
 		required: true
 	}
-}
+}, { _id: false })
 
 const schema = new Schema({
-	user: {
+	uid: {
 		type: Schema.Types.ObjectId,
-		ref: 'user',
 		required: true
 	},
-	problem: {
+	pid: {
 		type: Schema.Types.ObjectId,
-		ref: 'problem',
 		required: true
 	},
-	contest: {
-		type: Schema.Types.ObjectId,
-		ref: 'contest',
-		required: false
+	cid: {
+		type: Schema.Types.ObjectId
 	},
 	code: {
 		type: String,
@@ -71,12 +67,10 @@ const schema = new Schema({
 	},
 	open: {
 		type: Boolean,
-		required: false,
 		default: false
 	},
 	result: {
 		type: result,
-		required: false,
 		default: {
 			time: 0,
 			memory: 0,
@@ -85,8 +79,7 @@ const schema = new Schema({
 	},
 	cases: {
 		type: [result],
-		required: false,
-		default: <IResult[]>[]
+		default: []
 	}
 }, {
 	versionKey: false,
