@@ -1,6 +1,5 @@
 {
 	"rules": {
-		"member-access": true,
 		"no-empty-interface": true,
 		"no-parameter-reassignment": true,
 

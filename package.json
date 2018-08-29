@@ -11,15 +11,16 @@
   "private": true,
   "scripts": {
     "dev:server": "ts-node-dev --no-notify server",
-    "dev:web": "exit 0",
+    "dev:web": "webpack-dev-server --mode development",
     "build:server": "rm -rf build && tsc",
-    "build:web": "rm -rf dist && exit 0",
+    "build:web": "rm -rf dist && webpack --mode production",
     "lint:server": "tslint -p tsconfig.json -c tslint.json",
-    "lint:web": "exit 0",
+    "lint:web": "tslint -p web/tsconfig.json -c tslint.json",
     "lint": "npm run lint:server && npm run lint:web",
     "build": "npm run build:server && npm run build:web"
   },
   "dependencies": {
+    "antd": "^3.8.4",
     "bcryptjs": "^2.4.3",
     "config": "^2.0.1",
     "jsonwebtoken": "^8.3.0",
@@ -31,9 +32,14 @@
     "log4js": "^3.0.5",
     "mongodb": "^3.1.4",
     "mongoose": "^5.2.10",
-    "nodemailer": "^4.6.8"
+    "nodemailer": "^4.6.8",
+    "react": "^16.4.2",
+    "react-dom": "^16.4.2"
   },
   "devDependencies": {
+    "@babel/core": "^7.0.0",
+    "@babel/preset-env": "^7.0.0",
+    "@babel/preset-react": "^7.0.0",
     "@types/bcryptjs": "^2.4.1",
     "@types/config": "^0.0.34",
     "@types/jsonwebtoken": "^7.2.8",
@@ -44,9 +50,22 @@
     "@types/mongodb": "^3.1.4",
     "@types/mongoose": "^5.2.7",
     "@types/nodemailer": "^4.6.2",
+    "@types/react": "^16.4.12",
+    "@types/react-dom": "^16.0.7",
+    "babel-loader": "^8.0.0",
+    "babel-plugin-import": "^1.8.0",
+    "css-loader": "^1.0.0",
+    "html-webpack-plugin": "^3.2.0",
+    "less": "^2.7.3",
+    "less-loader": "^4.1.0",
+    "style-loader": "^0.23.0",
+    "ts-loader": "^4.5.0",
     "ts-node-dev": "latest",
     "tslint": "^5.11.0",
-    "typescript": "^3.0.1"
+    "typescript": "^3.0.1",
+    "webpack": "^4.17.1",
+    "webpack-cli": "^3.1.0",
+    "webpack-dev-server": "^3.1.7"
   },
   "optionalDependencies": {
     "dcrypto": "^1.1.0",
