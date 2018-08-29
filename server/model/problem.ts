@@ -13,6 +13,8 @@ export interface IProblem extends Document {
 		id: Schema.Types.ObjectId
 		key: string
 	}
+	createdAt: Date
+	updatedAt: Date
 }
 
 const belong = new Schema({

@@ -58,7 +58,7 @@ router.get('/problem/:id', urlFetch('problem'), async ctx => {
 })
 
 router.post('/problem', forGroup('admin'), async ctx => {
-	const { body, files } = ctx.request, { data } = files
+	const { body, files } = ctx.request, { data } = files || <any>{}
 	if (data) { body.data = await addData(data) }
 	ctx.body = await Problem.create(body)
 	if (!data) { return }
@@ -68,7 +68,7 @@ router.post('/problem', forGroup('admin'), async ctx => {
 })
 
 router.put('/problem/:id', forGroup('admin'), urlFetch('problem'), async ctx => {
-	let { body, files } = ctx.request, { data } = files
+	let { body, files } = ctx.request, { data } = files || <any>{}
 	if (data) { body.data = await addData(data, ctx.problem._id) }
 	ctx.body = await ctx.problem.update(body, { runValidators: true })
 	ctx.problem.set(body)

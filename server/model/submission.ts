@@ -27,6 +27,8 @@ export interface ISubmission extends Document {
 	open: boolean
 	result: IResult
 	cases: IResult[]
+	createdAt: Date
+	updatedAt: Date
 }
 
 const result = new Schema({

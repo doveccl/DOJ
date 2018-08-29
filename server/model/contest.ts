@@ -9,6 +9,8 @@ export interface IContest extends Document {
 	startAt: Date
 	endAt: Date
 	freezeAt?: Date
+	createdAt: Date
+	updatedAt: Date
 }
 
 const schema = new Schema({

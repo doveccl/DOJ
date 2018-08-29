@@ -35,7 +35,7 @@ export function token(exclude?: RegExp): Middleware {
 	}
 }
 
-export function checkGroup(user: IUser, type: string | number, diff = 0) {
+export function isGroup(user: IUser, type: string | number, diff = 0) {
 	let group: UserGroup
 	switch (type) {
 		case 'root':
@@ -50,7 +50,7 @@ export function checkGroup(user: IUser, type: string | number, diff = 0) {
 }
 
 export function ensureGroup(user: IUser, type: string | number, diff = 0) {
-	if (!checkGroup(user, type, diff)) {
+	if (!isGroup(user, type, diff)) {
 		throw new Error('permission denied')
 	}
 }

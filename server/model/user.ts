@@ -10,6 +10,8 @@ export interface IUser extends Document {
 	solve: number
 	submit: number
 	introduction: string
+	createdAt: Date
+	updatedAt: Date
 }
 
 const schema = new Schema({
