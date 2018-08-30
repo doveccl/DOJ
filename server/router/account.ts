@@ -17,7 +17,7 @@ router.get('/info', token(), async ctx => {
 })
 
 router.get('/login', password(), async ctx => {
-	ctx.body = ctx.body = ctx.self.toJSON()
+	ctx.body = ctx.self.toJSON()
 	ctx.body.token = await sign({ id: ctx.self._id })
 	delete ctx.body.password
 })
