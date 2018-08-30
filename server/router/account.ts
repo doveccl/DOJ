@@ -12,18 +12,14 @@ import { send } from '../util/mail'
 const router = new Router()
 
 router.get('/info', token(), async ctx => {
-	ctx.body = {
-		name: ctx.self.name,
-		mail: ctx.self.mail
-	}
+	ctx.body = ctx.self.toJSON()
+	delete ctx.body.password
 })
 
 router.get('/login', password(), async ctx => {
-	ctx.body = {
-		name: ctx.self.name,
-		mail: ctx.self.mail,
-		token: await sign({ id: ctx.self._id })
-	}
+	ctx.body = ctx.body = ctx.self.toJSON()
+	ctx.body.token = await sign({ id: ctx.self._id })
+	delete ctx.body.password
 })
 
 router.post('/register', async ctx => {
@@ -35,10 +31,21 @@ router.post('/register', async ctx => {
 	validatePassword(password)
 	let group = UserGroup.common
 	if (invitation) {
-		const data: any = await verify(invitation)
-		const { mail: m, group: g } = data
-		if (typeof g === 'number') { group = g }
-		if (m !== mail) { throw new Error('invalid invitation code') }
+		try {
+			const data: any = await verify(invitation)
+			const { mail: m, group: g } = data
+			if (typeof g === 'number') { group = g }
+			if (m !== mail) { throw new Error() }
+		} catch(e) {
+			throw new Error('invalid invitation code')
+		}
+	}
+
+	if (await User.findOne({ name })) {
+		throw new Error('invalid username: already exists')
+	}
+	if (await User.findOne({ mail })) {
+		throw new Error('invalid mail: already exists')
 	}
 
 	const { _id: id } = await User.create({

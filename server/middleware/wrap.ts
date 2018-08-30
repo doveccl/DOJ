@@ -26,15 +26,13 @@ export default (): Middleware => Compose([
 		} catch(e) {
 			logServer.error(e.message)
 			logServer.debug(e.stack)
-			if (/(:?invalid|validation)/i.test(e.message)) {
-				ctx.status = 400
-			} else if (/(:?login|jwt)/i.test(e.message)) {
+			if (/(:?login|jwt)/i.test(e.message)) {
 				ctx.status = 401
 			} else if (/permission/i.test(e.message)) {
 				ctx.status = 403
 			} else if (/not found/i.test(e.message)) {
 				ctx.status = 404
-			} else { ctx.status = 500 }
+			} else { ctx.status = 400 }
 			ctx.body = { success: false, message: e.message }
 		}
 	}

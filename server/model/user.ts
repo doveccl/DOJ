@@ -51,7 +51,11 @@ const schema = new Schema({
 	}
 }, {
 	versionKey: false,
-	timestamps: true
+	timestamps: true,
+	collation: {
+		locale: 'en_US',
+		strength: 2
+	}
 })
 
 export default model<IUser>('user', schema)

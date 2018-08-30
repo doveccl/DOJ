@@ -9,6 +9,7 @@ import Sider from './component/sider'
 import Header from './component/header'
 import Footer from './component/footer'
 
+import './util/init'
 import './index.less'
 
 const app = <BrowserRouter>

@@ -41,6 +41,7 @@ class Sider extends React.Component<SiderProps> {
 		return <Layout.Sider
 			width={220}
 			collapsible={true}
+			breakpoint="lg"
 			className="sider"
 		>
 			<div className="logo">

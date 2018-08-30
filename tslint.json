@@ -32,13 +32,6 @@
 		"jsdoc-format": true,
 		"new-parens": true,
 		"no-trailing-whitespace": [true, "ignore-comments", "ignore-jsdoc"],
-		"no-unnecessary-initializer": true,
-		"variable-name":[
-			true,
-			"check-format",
-			"allow-leading-underscore",
-			"allow-trailing-underscore",
-			"ban-keywords"
-		]
+		"no-unnecessary-initializer": true
 	}
 }

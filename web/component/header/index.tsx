@@ -1,8 +1,9 @@
+import * as md5 from 'md5'
 import * as React from 'react'
-import { Layout, Menu, Icon } from 'antd'
+import { Layout, Menu, Avatar, Icon } from 'antd'
 import { withRouter } from 'react-router-dom'
 
-import { fetch, logout } from '../../util/account'
+import { info, logout } from '../../util/account'
 import { addListener, removeListener, GlobalState } from '../../util/state'
 
 import './index.less'
@@ -29,7 +30,7 @@ class Header extends React.Component<HeaderProps> {
 		}
 	}
 	componentWillMount() {
-		fetch() // try to load account info
+		info() // try to load account info
 		addListener('header', global => {
 			this.setState({ global })
 		})
@@ -38,7 +39,12 @@ class Header extends React.Component<HeaderProps> {
 		removeListener('header')
 	}
 	render() {
+		let mhash, avatar
 		const { user } = this.state.global
+		if (user) {
+			mhash = md5(user.mail.trim().toLowerCase())
+			avatar = `//cdn.v2ex.com/gravatar/${mhash}?d=wavatar`
+		}
 
 		return <Layout.Header className="header">
 			<Menu
@@ -51,7 +57,7 @@ class Header extends React.Component<HeaderProps> {
 				{user && <Menu.SubMenu
 					key="user"
 					title={<span>
-						<Icon type="user" />
+						<Avatar className="avatar" src={avatar} />
 						<span>{user.name}</span>
 					</span>}
 				>
