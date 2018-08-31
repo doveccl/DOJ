@@ -5,6 +5,7 @@ import { Layout } from 'antd'
 import { BrowserRouter } from 'react-router-dom'
 
 import Router from './router'
+import Path from './component/path'
 import Sider from './component/sider'
 import Header from './component/header'
 import Footer from './component/footer'
@@ -18,6 +19,7 @@ const app = <BrowserRouter>
 		<Layout>
 			<Header />
 			<Layout.Content className="content">
+				<Path />
 				<Router />
 			</Layout.Content>
 			<Footer />

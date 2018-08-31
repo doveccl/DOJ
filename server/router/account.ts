@@ -3,18 +3,13 @@ import { hashSync, compareSync } from 'bcryptjs'
 import { get } from 'config'
 
 import User, { UserGroup } from '../model/user'
-import { token, password } from '../middleware/auth'
+import { password } from '../middleware/auth'
 import { validatePassword } from '../util/function'
 import { sign, verify } from '../util/jwt'
 import { has, put } from '../util/timeset'
 import { send } from '../util/mail'
 
 const router = new Router()
-
-router.get('/info', token(), async ctx => {
-	ctx.body = ctx.self.toJSON()
-	delete ctx.body.password
-})
 
 router.get('/login', password(), async ctx => {
 	ctx.body = ctx.self.toJSON()

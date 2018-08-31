@@ -11,6 +11,11 @@ const EXCLUDE_LIST = [ 'solve', 'submit' ]
 
 const router = new Router()
 
+router.get('/info', async ctx => {
+	ctx.body = ctx.self.toJSON()
+	delete ctx.body.password
+})
+
 router.get('/user', async ctx => {
 	let { rank, page, size } = ctx.query
 	if (!rank) { ensureGroup(ctx.self, 'admin') }

@@ -1,10 +1,20 @@
 import { IUser } from './interface'
 
+type PathItem = string | {
+	text: string
+	url: string
+}
+
 export interface GlobalState {
 	user?: IUser
+	path?: PathItem[]
 	[index: string]: any
 }
-const state: GlobalState = {}
+
+const state: GlobalState = {
+	user: undefined,
+	path: []
+}
 
 interface Listener {
 	[index: string]: (state: GlobalState) => any

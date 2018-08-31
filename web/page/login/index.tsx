@@ -6,6 +6,7 @@ import {
 import { FormComponentProps } from 'antd/lib/form'
 import { withRouter } from 'react-router-dom'
 
+import { updateState } from '../../util/state'
 import { login } from '../../util/account'
 
 interface LoginFormProps {
@@ -95,6 +96,9 @@ interface LoginProps {
 }
 
 class Login extends React.Component<LoginProps> {
+	componentWillMount() {
+		updateState({ path: [ 'Login' ] })
+	}
 	render() {
 		return <Card title="User Login">
 			<WrappedLoginForm history={this.props.history} />

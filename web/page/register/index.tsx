@@ -3,6 +3,7 @@ import { Card, Form, Input, Button, message } from 'antd'
 import { FormComponentProps } from 'antd/lib/form'
 import { withRouter } from 'react-router-dom'
 
+import { updateState } from '../../util/state'
 import { register } from '../../util/account'
 
 interface RegisterFormProps {
@@ -116,6 +117,9 @@ interface RegisterProps {
 }
 
 class Register extends React.Component<RegisterProps> {
+	componentWillMount() {
+		updateState({ path: [ 'Register' ] })
+	}
 	render() {
 		return <Card title="User Registration">
 			<WrappedRegisterForm history={this.props.history} />

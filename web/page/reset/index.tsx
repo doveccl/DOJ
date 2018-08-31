@@ -3,6 +3,7 @@ import { Card, Form, Input, Button, message } from 'antd'
 import { FormComponentProps } from 'antd/lib/form'
 import { withRouter } from 'react-router-dom'
 
+import { updateState } from '../../util/state'
 import { getReset, putReset } from '../../util/account'
 
 interface ResetFormProps {
@@ -136,6 +137,9 @@ interface ResetProps {
 }
 
 class Reset extends React.Component<ResetProps> {
+	componentWillMount() {
+		updateState({ path: [ 'Forgot password' ] })
+	}
 	render() {
 		return <Card title="Password Reset">
 			<WrappedResetForm history={this.props.history} />
