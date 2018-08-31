@@ -31,7 +31,7 @@ export function addListener(
 }
 
 export function removeListener(uniqueKey: string) {
-	if (listeners[uniqueKey]) { return false }
+	if (!listeners[uniqueKey]) { return false }
 	return delete listeners[uniqueKey]
 }
 
@@ -45,3 +45,5 @@ export function updateState(data: GlobalState) {
 		}
 	}
 }
+
+export { state as globalState }

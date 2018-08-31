@@ -23,14 +23,15 @@ export function password(): Middleware {
 	}
 }
 
-export function token(exclude?: RegExp): Middleware {
+export function token(getCookie = false): Middleware {
 	return async (ctx, next) => {
-		if (!(exclude && exclude.test(ctx.url))) {
-			const token: string = ctx.get('token')
-			const data: any = await verify(token)
-			ctx.self = await User.findById(data.id)
-			if (!ctx.self) { throw new Error('login required') }
+		let token: string = ctx.get('token')
+		if (!token && getCookie && ctx.method === 'GET') {
+			token = ctx.cookies.get('token')
 		}
+		const data: any = await verify(token)
+		ctx.self = await User.findById(data.id)
+		if (!ctx.self) { throw new Error('login required') }
 		await next()
 	}
 }

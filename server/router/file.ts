@@ -3,9 +3,11 @@ import * as Router from 'koa-router'
 import File, { TYPE_REG } from '../model/file'
 
 import { urlFetch } from '../middleware/fetch'
-import { ensureGroup, forGroup } from '../middleware/auth'
+import { token, ensureGroup, forGroup } from '../middleware/auth'
 
 const router = new Router()
+
+router.use('/file', token(true))
 
 router.get('/file', forGroup('admin'), async ctx => {
 	let { page, size } = ctx.query

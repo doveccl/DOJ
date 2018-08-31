@@ -5,6 +5,8 @@ import Login from './page/login'
 import Register from './page/register'
 import Reset from './page/reset'
 
+import Home from './page/home'
+
 export default class extends React.Component {
 	render() {
 		return <Switch>
@@ -15,7 +17,7 @@ export default class extends React.Component {
 			<Route path="/contest" />
 			<Route path="/submission" />
 			<Route path="/rank" />
-			<Route path="/" />
+			<Route path="/" component={Home} />
 		</Switch>
 	}
 }

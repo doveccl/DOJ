@@ -4,9 +4,11 @@ import Problem from '../model/problem'
 import Contest from '../model/contest'
 
 import { urlFetch } from '../middleware/fetch'
-import { forGroup } from '../middleware/auth'
+import { token, forGroup } from '../middleware/auth'
 
 const router = new Router()
+
+router.use('/contest', token())
 
 router.get('/contest', async ctx => {
 	let { page, size } = ctx.query

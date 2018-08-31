@@ -4,9 +4,11 @@ import Problem from '../model/problem'
 import File from '../model/file'
 
 import { contest, urlFetch } from '../middleware/fetch'
-import { ensureGroup, forGroup } from '../middleware/auth'
+import { token, ensureGroup, forGroup } from '../middleware/auth'
 
 const router = new Router()
+
+router.use('/problem', token())
 
 async function addData(file: any, problem?: any) {
 	const { path, name, type } = file

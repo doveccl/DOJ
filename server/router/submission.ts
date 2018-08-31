@@ -3,11 +3,13 @@ import * as Router from 'koa-router'
 import { IUser } from '../model/user'
 import Submission, { ISubmission, Status } from '../model/submission'
 
-import { isGroup } from '../middleware/auth'
+import { token, isGroup } from '../middleware/auth'
 import { user, problem, contest, urlFetch } from '../middleware/fetch'
 import { toStringCompare } from '../util/function'
 
 const router = new Router()
+
+router.use('/submission', token())
 
 async function parseSubmission(record: ISubmission, self: IUser) {
 	const admin = isGroup(self, 'admin')

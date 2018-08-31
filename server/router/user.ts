@@ -4,17 +4,14 @@ import { hashSync, compareSync } from 'bcryptjs'
 import User from '../model/user'
 
 import { urlFetch } from '../middleware/fetch'
-import { ensureGroup, forGroup } from '../middleware/auth'
+import { token, ensureGroup, forGroup } from '../middleware/auth'
 import { toStringCompare, validatePassword } from '../util/function'
 
 const EXCLUDE_LIST = [ 'solve', 'submit' ]
 
 const router = new Router()
 
-router.get('/info', async ctx => {
-	ctx.body = ctx.self.toJSON()
-	delete ctx.body.password
-})
+router.use('/user', token())
 
 router.get('/user', async ctx => {
 	let { rank, page, size } = ctx.query
@@ -28,6 +25,11 @@ router.get('/user', async ctx => {
 		.sort(rank ? '-solve submit name' : '')
 		.skip(size * (page - 1)).limit(size)
 	ctx.body = { total, list }
+})
+
+router.get('/user/info', async ctx => {
+	ctx.body = ctx.self.toJSON()
+	delete ctx.body.password
 })
 
 router.post('/user', forGroup('admin'), async ctx => {

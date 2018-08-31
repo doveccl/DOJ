@@ -14,7 +14,7 @@ export function info() {
 		sessionStorage.getItem('token')
 	if (!token) { return }
 	setToken(token)
-	axios.get('/info')
+	axios.get('/user/info')
 		.then(({ data }) => {
 			if (data.success) {
 				const user = data.data
