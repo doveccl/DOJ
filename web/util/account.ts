@@ -2,9 +2,11 @@ import axios from 'axios'
 import { updateState } from './state'
 
 function setToken(token: string) {
+	document.cookie = `token=${token}`
 	axios.defaults.headers.common['token'] = token
 }
 function delToken() {
+	document.cookie = ''
 	axios.defaults.headers.common['token'] = ''
 }
 

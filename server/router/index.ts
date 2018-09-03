@@ -6,6 +6,7 @@ import User from './user'
 import Problem from './problem'
 import Contest from './contest'
 import Submission from './submission'
+import Config from './config'
 import File from './file'
 
 const router = new Route({ prefix: '/api' })
@@ -16,6 +17,7 @@ router.use(
 	Problem.routes(), Problem.allowedMethods(),
 	Contest.routes(), Contest.allowedMethods(),
 	Submission.routes(), Submission.allowedMethods(),
+	Config.routes(), Config.allowedMethods(),
 	File.routes(), File.allowedMethods()
 )
 

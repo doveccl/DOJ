@@ -2,6 +2,7 @@ const path = require('path')
 const config = require('config')
 const webpack = require('webpack')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
+const MiniCssExtractPlugin = require("mini-css-extract-plugin")
 
 const API_PORT = config.get('port')
 
@@ -15,8 +16,7 @@ module.exports = (env, argv) => {
 		},
 		output: {
 			path: path.resolve(__dirname, './dist'),
-			filename: '[name].js',
-			chunkFilename: 'vendor.[name].js'
+			filename: '[name].js'
 		},
 		module: {
 			rules: [
@@ -26,12 +26,16 @@ module.exports = (env, argv) => {
 				},
 				{
 					test: /\.less$/,
-					loader: 'style-loader!css-loader!less-loader'
+					use: [
+						MiniCssExtractPlugin.loader,
+						'css-loader',
+						'less-loader?javascriptEnabled'
+					]
 				}
 			]
 		},
 		resolve: {
-			extensions: [ '.tsx', '.ts', '.js' ]
+			extensions: ['.tsx', '.ts', '.js']
 		},
 		plugins: [
 			new HtmlWebpackPlugin({
@@ -40,6 +44,9 @@ module.exports = (env, argv) => {
 				meta: {
 					viewport: 'width=device-width, initial-scale=1'
 				}
+			}),
+			new MiniCssExtractPlugin({
+				filename: '[name].css'
 			})
 		]
 	}
@@ -55,32 +62,6 @@ module.exports = (env, argv) => {
 			historyApiFallback: true,
 			proxy: {
 				'/api': `http://localhost:${API_PORT}`
-			}
-		}
-	}
-
-	if (prod) {
-		config.optimization = {
-			splitChunks: {
-				chunks: "all",
-				cacheGroups: {
-					default: false,
-					react: {
-						name: 'react',
-						test: /react/,
-						priority: 10
-					},
-					antd: {
-						name: 'antd',
-						test: /antd/,
-						priority: 5
-					},
-					other: {
-						name: 'other',
-						test: /[\\/]node_modules[\\/]/,
-						priority: -10
-					}
-				}
 			}
 		}
 	}

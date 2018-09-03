@@ -108,7 +108,7 @@ class ResetForm extends React.Component<ResetFormProps & FormComponentProps, any
 						{ min: 6, max: 20, message: 'Length of password should be 6-20' }
 					]
 				})(
-					<Input type="password" placeholder="Your password (length 6-20)" />
+					<Input type="password" placeholder="Your new password (length 6-20)" />
 				)}
 			</Form.Item>
 			<Form.Item label="Confirm" {...formItemLayout}>

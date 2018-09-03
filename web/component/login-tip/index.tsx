@@ -22,7 +22,7 @@ export default class extends React.Component {
 			className="login-tip"
 			message={<span>
 				This page is not available for guest,
-				Please {<Link to="/login">login</Link>} first
+				please {<Link to="/login">login</Link>} first
 			</span>}
 		/>
 	}
