@@ -4,7 +4,7 @@ import { Layout, Menu, Avatar, Icon } from 'antd'
 import { withRouter } from 'react-router-dom'
 
 import { info, logout } from '../../util/account'
-import { addListener, removeListener, GlobalState } from '../../util/state'
+import { addListener, removeListener, globalState } from '../../util/state'
 
 import './index.less'
 
@@ -17,7 +17,7 @@ interface MenuClick {
 }
 
 class Header extends React.Component<HeaderProps> {
-	state = { global: {} as GlobalState }
+	state = { global: globalState }
 	onClick = ({ key }: MenuClick) => {
 		switch (key) {
 			case '/setting':

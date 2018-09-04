@@ -1,7 +1,7 @@
 import axios from 'axios'
 import wrap from './wrap'
 
-export function getConfig() {
+export function getConfigs() {
 	return wrap(
 		axios.get('/config')
 	)

@@ -13,7 +13,7 @@ export default class extends React.Component {
 	}
 	componentWillMount() {
 		updateState({ path: [ 'Home' ] })
-		model.getConfig()
+		model.getConfigs()
 			.then(data => {
 				let state: any = {}
 				for (let i of data) {

@@ -57,7 +57,7 @@ const schema = new Schema({
 	},
 	contest: {
 		type: belong,
-		unique: true
+		sparse: true
 	}
 }, {
 	versionKey: false,

@@ -1,6 +1,7 @@
 export enum UserGroup { common, admin, root }
 
-export interface IUser extends Document {
+export interface IUser {
+	_id: string
 	name: string
 	mail: string
 	group: UserGroup
@@ -12,7 +13,8 @@ export interface IUser extends Document {
 	updatedAt: Date
 }
 
-export interface IProblem extends Document {
+export interface IProblem {
+	_id: string
 	title: string
 	content: string
 	tags: string[]
@@ -32,6 +34,7 @@ export interface IProblem extends Document {
 export enum ContestType { OI, ICPC }
 
 export interface IContest {
+	_id: string
 	title: string
 	description: string
 	type: ContestType
@@ -61,6 +64,7 @@ export interface IResult {
 }
 
 export interface ISubmission {
+	_id: string
 	uid: string
 	pid: string
 	cid?: string
@@ -74,6 +78,7 @@ export interface ISubmission {
 }
 
 export interface IFile {
+	_id: string
 	filename: string
 	contentType: string
 	length: number

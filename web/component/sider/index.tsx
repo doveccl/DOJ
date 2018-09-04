@@ -3,7 +3,7 @@ import { Layout, Menu, Icon } from 'antd'
 import { withRouter } from 'react-router-dom'
 
 import { isGroup } from '../../util/function'
-import { addListener, removeListener, GlobalState } from '../../util/state'
+import { addListener, removeListener, globalState } from '../../util/state'
 
 import './index.less'
 
@@ -16,7 +16,7 @@ interface MenuClick {
 }
 
 class Sider extends React.Component<SiderProps> {
-	state = { global: {} as GlobalState }
+	state = { global: globalState }
 	onClick = ({ key }: MenuClick) => {
 		this.props.history.push(key)
 	}
