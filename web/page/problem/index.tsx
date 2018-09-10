@@ -5,7 +5,7 @@ import { Card, Table, Input, Progress, Tag, message } from 'antd'
 import * as model from '../../model'
 import LoginTip from '../../component/login-tip'
 import { IProblem, HistoryProps } from '../../util/interface'
-import { updateState, globalState } from '../../util/state'
+import { updateState } from '../../util/state'
 
 import './index.less'
 
@@ -18,6 +18,7 @@ class Problems extends React.Component<HistoryProps> {
 	}
 	componentWillMount() {
 		updateState({ path: [ 'Problem' ] })
+		if (!model.hasToken()) { return }
 		this.handleChange(this.state.pagination)
 	}
 	onSearch = (value: string) => {
@@ -34,15 +35,17 @@ class Problems extends React.Component<HistoryProps> {
 		this.setState({ loading: true, pagination: pager })
 		const { pageSize: size, current: page } = pager
 		model.getProblems({ page, size, search })
-			.then(data => {
-				this.state.pagination.total = data.total
+			.then(({ total, list: problems }) => {
+				this.state.pagination.total = total
 				this.setState({
 					pagination: this.state.pagination,
-					problems: data.list,
-					loading: false
+					loading: false, problems
 				})
 			})
-			.catch(err => globalState.user && message.error(err))
+			.catch(err => {
+				message.error(err)
+				this.setState({ loading: false })
+			})
 	}
 	render() {
 		return <React.Fragment>

@@ -8,9 +8,7 @@ import { addListener, removeListener, globalState } from '../../util/state'
 
 import './index.less'
 
-interface MenuClick {
-	key: string
-}
+interface MenuClick { key: string }
 
 class Sider extends React.Component<HistoryProps> {
 	state = { global: globalState }

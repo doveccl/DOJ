@@ -4,7 +4,7 @@ import { Card, message } from 'antd'
 
 import * as model from '../../model'
 import LoginTip from '../../component/login-tip'
-import { updateState, globalState } from '../../util/state'
+import { updateState } from '../../util/state'
 
 export default class extends React.Component {
 	state = {
@@ -13,6 +13,7 @@ export default class extends React.Component {
 	}
 	componentWillMount() {
 		updateState({ path: [ 'Home' ] })
+		if (!model.hasToken()) { return }
 		model.getConfigs()
 			.then(data => {
 				let state: any = {}
@@ -22,9 +23,7 @@ export default class extends React.Component {
 				this.setState(state)
 			})
 			.catch(err => {
-				if (globalState.user) {
-					message.error(err)
-				}
+				message.error(err)
 			})
 	}
 	render() {

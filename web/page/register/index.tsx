@@ -3,9 +3,9 @@ import { Card, Form, Input, Button, message } from 'antd'
 import { FormComponentProps } from 'antd/lib/form'
 import { withRouter } from 'react-router-dom'
 
+import * as model from '../../model'
 import { HistoryProps } from '../../util/interface'
 import { updateState } from '../../util/state'
-import { register } from '../../util/account'
 
 class RegisterForm extends React.Component<HistoryProps & FormComponentProps, any> {
 	state = {
@@ -16,15 +16,15 @@ class RegisterForm extends React.Component<HistoryProps & FormComponentProps, an
 		this.props.form.validateFields((err, values) => {
 			if (!err) {
 				this.setState({ loading: true })
-				register(values, err => {
-					this.setState({ loading: false })
-					if (err) {
-						message.error(err)
-					} else {
+				model.register(values)
+					.then(() => {
 						message.success('registration success')
 						this.props.history.replace('/login')
-					}
-				})
+					})
+					.catch(err => {
+						message.error(err)
+						this.setState({ loading: false })
+					})
 			}
 		})
 	}

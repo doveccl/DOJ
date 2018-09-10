@@ -3,9 +3,9 @@ import { Card, Form, Input, Button, message } from 'antd'
 import { FormComponentProps } from 'antd/lib/form'
 import { withRouter } from 'react-router-dom'
 
+import * as model from '../../model'
 import { HistoryProps } from '../../util/interface'
 import { updateState } from '../../util/state'
-import { getReset, putReset } from '../../util/account'
 
 class ResetForm extends React.Component<HistoryProps & FormComponentProps, any> {
 	state = {
@@ -16,13 +16,9 @@ class ResetForm extends React.Component<HistoryProps & FormComponentProps, any> 
 		const form = this.props.form
 		const user = form.getFieldValue('user')
 		this.setState({ loading: true })
-		getReset(user, (err, data) => {
-			if (err) {
-				message.error(err)
-				this.setState({ loading: false })
-			} else {
-				const { mail } = data
-				message.success(`Verify code has been sent to '${mail}'`, 10)
+		model.getReset(user)
+			.then(({ mail }) => {
+				message.success(`Verify code has been sent to '${mail}'`, 5)
 				this.setState({ countdown: 60, loading: false })
 				const timer = setInterval(() => {
 					let countdown = this.state.countdown
@@ -32,23 +28,26 @@ class ResetForm extends React.Component<HistoryProps & FormComponentProps, any> 
 					}
 					this.setState({ countdown })
 				}, 1000)
-			}
-		})
+			})
+			.catch(err => {
+				message.error(err)
+				this.setState({ loading: false })
+			})
 	}
 	handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault()
 		this.props.form.validateFields((err, values) => {
 			if (!err) {
 				this.setState({ loading: true })
-				putReset(values, err => {
-					this.setState({ loading: false })
-					if (err) {
-						message.error(err)
-					} else {
+				model.putReset(values)
+					.then(() => {
 						message.success('password reset success')
 						this.props.history.replace('/login')
-					}
-				})
+					})
+					.catch(err => {
+						message.error(err)
+						this.setState({ loading: false })
+					})
 			}
 		})
 	}

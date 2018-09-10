@@ -3,16 +3,16 @@ import * as React from 'react'
 import { Layout, Menu, Avatar, Icon } from 'antd'
 import { withRouter } from 'react-router-dom'
 
+import * as model from '../../model'
+import * as state from '../../util/state'
 import { HistoryProps } from '../../util/interface'
-import { info, logout } from '../../util/account'
-import { addListener, removeListener, globalState } from '../../util/state'
 
 import './index.less'
 
 interface MenuClick { key: string }
 
 class Header extends React.Component<HistoryProps> {
-	state = { global: globalState }
+	state = { global: state.globalState }
 	onClick = ({ key }: MenuClick) => {
 		switch (key) {
 			case '/setting':
@@ -20,18 +20,21 @@ class Header extends React.Component<HistoryProps> {
 				this.props.history.push(key)
 				break
 			default:
-				logout()
+				model.logout()
 				this.props.history.push('/login')
 		}
 	}
 	componentWillMount() {
-		info() // try to load account info
-		addListener('header', global => {
+		state.addListener('header', global => {
 			this.setState({ global })
 		})
+		if (!model.hasToken()) { return }
+		model.getSelfInfo() // try to load account info
+			.then(user => state.updateState({ user }))
+			.catch(err => console.warn(err))
 	}
 	componentWillUnmount() {
-		removeListener('header')
+		state.removeListener('header')
 	}
 	render() {
 		let mhash, avatar
@@ -43,7 +46,6 @@ class Header extends React.Component<HistoryProps> {
 
 		return <Layout.Header className="header">
 			<Menu
-				theme="light"
 				mode="horizontal"
 				className="menu"
 				selectable={false}
@@ -66,11 +68,11 @@ class Header extends React.Component<HistoryProps> {
 					</Menu.Item>
 				</Menu.SubMenu>}
 				{!user && <Menu.Item key="/login">
-					<Icon type="login" />
+					<Icon type="user" />
 					<span>Login</span>
 				</Menu.Item>}
 				{!user && <Menu.Item key="/register">
-					<Icon type="usergroup-add" />
+					<Icon type="user-add" />
 					<span>Register</span>
 				</Menu.Item>}
 			</Menu>

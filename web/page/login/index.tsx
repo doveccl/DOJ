@@ -6,9 +6,9 @@ import {
 import { FormComponentProps } from 'antd/lib/form'
 import { withRouter } from 'react-router-dom'
 
+import * as model from '../../model'
 import { HistoryProps } from '../../util/interface'
 import { updateState } from '../../util/state'
-import { login } from '../../util/account'
 
 class LoginForm extends React.Component<HistoryProps & FormComponentProps, any> {
 	state = {
@@ -22,14 +22,15 @@ class LoginForm extends React.Component<HistoryProps & FormComponentProps, any> 
 		this.props.form.validateFields((err, values) => {
 			if (!err) {
 				this.setState({ loading: true })
-				login(values, err => {
-					this.setState({ loading: false })
-					if (err) {
-						message.error(err)
-					} else {
+				model.login(values)
+					.then(user => {
+						updateState({ user })
 						this.props.history.replace('/')
-					}
-				})
+					})
+					.catch(err => {
+						message.error(err)
+						this.setState({ loading: false })
+					})
 			}
 		})
 	}
