@@ -6,14 +6,11 @@ import {
 import { FormComponentProps } from 'antd/lib/form'
 import { withRouter } from 'react-router-dom'
 
+import { HistoryProps } from '../../util/interface'
 import { updateState } from '../../util/state'
 import { login } from '../../util/account'
 
-interface LoginFormProps {
-	history: import('history').History
-}
-
-class LoginForm extends React.Component<LoginFormProps & FormComponentProps, any> {
+class LoginForm extends React.Component<HistoryProps & FormComponentProps, any> {
 	state = {
 		loading: false
 	}
@@ -91,11 +88,7 @@ class LoginForm extends React.Component<LoginFormProps & FormComponentProps, any
 
 const WrappedLoginForm = Form.create()(LoginForm)
 
-interface LoginProps {
-	history: import('history').History
-}
-
-class Login extends React.Component<LoginProps> {
+class Login extends React.Component<HistoryProps> {
 	componentWillMount() {
 		updateState({ path: [ 'Login' ] })
 	}

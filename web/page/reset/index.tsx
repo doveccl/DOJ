@@ -3,14 +3,11 @@ import { Card, Form, Input, Button, message } from 'antd'
 import { FormComponentProps } from 'antd/lib/form'
 import { withRouter } from 'react-router-dom'
 
+import { HistoryProps } from '../../util/interface'
 import { updateState } from '../../util/state'
 import { getReset, putReset } from '../../util/account'
 
-interface ResetFormProps {
-	history: import('history').History
-}
-
-class ResetForm extends React.Component<ResetFormProps & FormComponentProps, any> {
+class ResetForm extends React.Component<HistoryProps & FormComponentProps, any> {
 	state = {
 		loading: false,
 		countdown: 0
@@ -132,11 +129,7 @@ class ResetForm extends React.Component<ResetFormProps & FormComponentProps, any
 
 const WrappedResetForm = Form.create()(ResetForm)
 
-interface ResetProps {
-	history: import('history').History
-}
-
-class Reset extends React.Component<ResetProps> {
+class Reset extends React.Component<HistoryProps> {
 	componentWillMount() {
 		updateState({ path: [ 'Forgot password' ] })
 	}

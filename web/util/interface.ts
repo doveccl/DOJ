@@ -1,4 +1,10 @@
+import { History } from 'history'
+
 export enum UserGroup { common, admin, root }
+
+export interface HistoryProps {
+	history: History
+}
 
 export interface IUser {
 	_id: string

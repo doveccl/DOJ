@@ -3,20 +3,15 @@ import * as React from 'react'
 import { Layout, Menu, Avatar, Icon } from 'antd'
 import { withRouter } from 'react-router-dom'
 
+import { HistoryProps } from '../../util/interface'
 import { info, logout } from '../../util/account'
 import { addListener, removeListener, globalState } from '../../util/state'
 
 import './index.less'
 
-interface HeaderProps {
-	history: import('history').History
-}
+interface MenuClick { key: string }
 
-interface MenuClick {
-	key: string
-}
-
-class Header extends React.Component<HeaderProps> {
+class Header extends React.Component<HistoryProps> {
 	state = { global: globalState }
 	onClick = ({ key }: MenuClick) => {
 		switch (key) {

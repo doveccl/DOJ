@@ -3,19 +3,16 @@ import { Layout, Menu, Icon } from 'antd'
 import { withRouter } from 'react-router-dom'
 
 import { isGroup } from '../../util/function'
+import { HistoryProps } from '../../util/interface'
 import { addListener, removeListener, globalState } from '../../util/state'
 
 import './index.less'
-
-interface SiderProps {
-	history: import('history').History
-}
 
 interface MenuClick {
 	key: string
 }
 
-class Sider extends React.Component<SiderProps> {
+class Sider extends React.Component<HistoryProps> {
 	state = { global: globalState }
 	onClick = ({ key }: MenuClick) => {
 		this.props.history.push(key)

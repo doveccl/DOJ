@@ -4,16 +4,12 @@ import { Card, Table, Input, Progress, Tag, message } from 'antd'
 
 import * as model from '../../model'
 import LoginTip from '../../component/login-tip'
-import { IProblem } from '../../util/interface'
+import { IProblem, HistoryProps } from '../../util/interface'
 import { updateState, globalState } from '../../util/state'
 
 import './index.less'
 
-interface ProblemsProps {
-	history: import('history').History
-}
-
-class Problems extends React.Component<ProblemsProps> {
+class Problems extends React.Component<HistoryProps> {
 	state = {
 		loading: true,
 		search: '',
