@@ -20,7 +20,7 @@
     "build": "npm run build:server && npm run build:web"
   },
   "dependencies": {
-    "antd": "^3.9.0",
+    "antd": "^3.9.2",
     "axios": "^0.18.0",
     "bcryptjs": "^2.4.3",
     "config": "^2.0.1",
@@ -33,11 +33,11 @@
     "log4js": "^3.0.5",
     "md5": "^2.2.1",
     "mongodb": "^3.1.4",
-    "mongoose": "^5.2.12",
+    "mongoose": "^5.2.14",
     "nodemailer": "^4.6.8",
-    "react": "^16.4.2",
-    "react-dom": "^16.4.2",
-    "react-markdown": "^3.5.0",
+    "react": "^16.5.0",
+    "react-dom": "^16.5.0",
+    "react-markdown": "^3.6.0",
     "react-router-dom": "^4.3.1"
   },
   "devDependencies": {
@@ -53,7 +53,7 @@
     "@types/koa-router": "^7.0.31",
     "@types/md5": "^2.1.32",
     "@types/mongodb": "^3.1.4",
-    "@types/mongoose": "^5.2.9",
+    "@types/mongoose": "^5.2.11",
     "@types/nodemailer": "^4.6.2",
     "@types/react": "^16.4.13",
     "@types/react-dom": "^16.0.7",
@@ -65,13 +65,13 @@
     "less": "^3.8.1",
     "less-loader": "^4.1.0",
     "mini-css-extract-plugin": "^0.4.2",
-    "ts-loader": "^4.5.0",
+    "ts-loader": "^5.1.0",
     "ts-node-dev": "latest",
     "tslint": "^5.11.0",
     "typescript": "^3.0.3",
-    "webpack": "^4.17.1",
+    "webpack": "^4.17.2",
     "webpack-cli": "^3.1.0",
-    "webpack-dev-server": "^3.1.7"
+    "webpack-dev-server": "^3.1.8"
   },
   "optionalDependencies": {
     "dcrypto": "^1.1.0",

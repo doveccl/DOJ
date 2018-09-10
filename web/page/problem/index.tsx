@@ -1,14 +1,22 @@
 import * as React from 'react'
-import { Card, Table, Input, Progress, Tag, message, Pagination } from 'antd'
+import { withRouter } from 'react-router-dom'
+import { Card, Table, Input, Progress, Tag, message } from 'antd'
 
 import * as model from '../../model'
 import LoginTip from '../../component/login-tip'
 import { IProblem } from '../../util/interface'
 import { updateState, globalState } from '../../util/state'
 
-export default class extends React.Component {
+import './index.less'
+
+interface ProblemsProps {
+	history: import('history').History
+}
+
+class Problems extends React.Component<ProblemsProps> {
 	state = {
 		loading: true,
+		search: '',
 		problems: [] as IProblem[],
 		pagination: { current: 1, pageSize: 50, total: 0 }
 	}
@@ -16,11 +24,19 @@ export default class extends React.Component {
 		updateState({ path: [ 'Problem' ] })
 		this.handleChange(this.state.pagination)
 	}
-	handleChange = (pagination: any, search?: any) => {
+	onSearch = (value: string) => {
+		const pagination = { ...this.state.pagination }
+		pagination.current = 1
+		this.setState({ search: value })
+		this.handleChange(pagination, value)
+	}
+	handleChange = (pagination: any, keyword?: any) => {
+		const search = typeof keyword === 'string' ?
+			keyword : this.state.search
 		const pager = { ...this.state.pagination }
 		pager.current = pagination.current
 		this.setState({ loading: true, pagination: pager })
-		const { pageSize: size, current: page } = pagination
+		const { pageSize: size, current: page } = pager
 		model.getProblems({ page, size, search })
 			.then(data => {
 				this.state.pagination.total = data.total
@@ -37,13 +53,17 @@ export default class extends React.Component {
 			<LoginTip />
 			<Card
 				title="Problems"
+				className="problems"
 				extra={<Input.Search
 					placeholder="Title, content or tags"
-					onSearch={value => this.handleChange(this.state.pagination, value)}
+					onSearch={this.onSearch}
 				/>}
 			>
 				<Table
 					rowKey="_id"
+					onRow={({ _id }) => ({
+						onClick: () => this.props.history.push(`/problem/${_id}`)
+					})}
 					loading={this.state.loading}
 					dataSource={this.state.problems}
 					pagination={this.state.pagination}
@@ -62,3 +82,5 @@ export default class extends React.Component {
 		</React.Fragment>
 	}
 }
+
+export default withRouter(({ history }) => <Problems history={history} />)
