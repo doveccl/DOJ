@@ -45,9 +45,9 @@ router.put('/contest/:id', forGroup('admin'), urlFetch('contest'), async ctx => 
 
 router.del('/contest/:id', forGroup('admin'), urlFetch('contest'), async ctx => {
 	ctx.body = await ctx.contest.remove()
-	await Problem.update(
+	await Problem.updateMany(
 		{ 'contest.id': ctx.params.id },
-		{ $unset: { contest: 1 } }, { multi: true }
+		{ $unset: { contest: 1 } }
 	)
 })
 

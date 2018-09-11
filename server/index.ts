@@ -2,7 +2,7 @@ import * as Koa from 'koa'
 import * as Compose from 'koa-compose'
 
 import { get } from 'config'
-import { connect } from 'mongoose'
+import { connect, set } from 'mongoose'
 
 import Log from './middleware/log'
 import Wrap from './middleware/wrap'
@@ -17,7 +17,14 @@ const app = new Koa()
 
 app.use(Compose([ Log(), Wrap(), Router() ]))
 
-connect(dbUri, { useNewUrlParser: true }, error => {
+/**
+ * Fix deprecation warnings
+ */
+set('useNewUrlParser', true)
+set('useFindAndModify', false)
+set('useCreateIndex', true)
+
+connect(dbUri, error => {
 	if (error) {
 		logServer.fatal(error)
 		process.exit(1)

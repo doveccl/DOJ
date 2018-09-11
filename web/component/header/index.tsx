@@ -68,7 +68,7 @@ class Header extends React.Component<HistoryProps> {
 					</Menu.Item>
 				</Menu.SubMenu>}
 				{!user && <Menu.Item key="/login">
-					<Icon type="user" />
+					<Icon type="login" />
 					<span>Login</span>
 				</Menu.Item>}
 				{!user && <Menu.Item key="/register">

@@ -1,5 +1,3 @@
-import { globalState } from '../util/state'
-
 export interface IResponse {
 	success: boolean
 	message?: string

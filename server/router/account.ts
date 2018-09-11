@@ -73,7 +73,6 @@ router.put('/reset', async ctx => {
 	if (compareSync(password, user.password)) {
 		throw new Error('new password should be different from the old one')
 	}
-
 	ctx.body = await user.update({ password: hashSync(password) })
 })
 
