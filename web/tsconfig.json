@@ -5,7 +5,11 @@
 		"sourceMap": true,
 		"noImplicitAny": true,
 		"moduleResolution": "node",
-		"jsx": "preserve"
+		"jsx": "preserve",
+		"typeRoots": [
+			"../node_modules/@types",
+			"../typings"
+		]
 	},
 	"exclude": [
 		"node_modules"

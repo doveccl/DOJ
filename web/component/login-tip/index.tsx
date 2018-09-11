@@ -17,7 +17,7 @@ export default class extends React.Component {
 		removeListener('login-tip')
 	}
 	render() {
-		return this.state.global.user ? <span /> : <Alert
+		return this.state.global.user ? null : <Alert
 			type="warning"
 			className="login-tip"
 			message={<span>

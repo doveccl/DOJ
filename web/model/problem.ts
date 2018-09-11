@@ -6,3 +6,9 @@ export function getProblems(params?: any) {
 		axios.get('/problem', { params })
 	)
 }
+
+export function getProblem(id: string) {
+	return wrap(
+		axios.get(`/problem/${id}`)
+	)
+}

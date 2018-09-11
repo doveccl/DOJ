@@ -1,6 +1,7 @@
 const path = require('path')
 const config = require('config')
 const webpack = require('webpack')
+const CopyWebpackPlugin = require('copy-webpack-plugin')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const MiniCssExtractPlugin = require("mini-css-extract-plugin")
 
@@ -16,6 +17,7 @@ module.exports = (env, argv) => {
 		},
 		output: {
 			path: path.resolve(__dirname, './dist'),
+			publicPath: '/',
 			filename: '[name].js'
 		},
 		module: {
@@ -25,12 +27,16 @@ module.exports = (env, argv) => {
 					loader: 'babel-loader!ts-loader'
 				},
 				{
-					test: /\.less$/,
+					test: /\.(c|le)ss$/,
 					use: [
 						MiniCssExtractPlugin.loader,
 						'css-loader',
 						'less-loader?javascriptEnabled'
 					]
+				},
+				{
+					test: /\.(woff|woff2|eot|ttf|otf)$/,
+					loader: 'file-loader'
 				}
 			]
 		},
@@ -47,7 +53,13 @@ module.exports = (env, argv) => {
 			}),
 			new MiniCssExtractPlugin({
 				filename: '[name].css'
-			})
+			}),
+			new CopyWebpackPlugin([
+				{
+					from: 'node_modules/pdfjs-dist/build/pdf.worker.min.js',
+					to: 'pdf.worker.js'
+				}
+			])
 		]
 	}
 

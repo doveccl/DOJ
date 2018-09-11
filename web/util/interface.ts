@@ -1,9 +1,14 @@
 import { History } from 'history'
+import { match } from 'react-router-dom'
 
 export enum UserGroup { common, admin, root }
 
 export interface HistoryProps {
 	history: History
+}
+
+export interface MatchProps {
+	match: match<any>
 }
 
 export interface IUser {

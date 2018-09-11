@@ -11,7 +11,6 @@
 		"no-duplicate-super": true,
 		"no-empty": true,
 		"no-invalid-template-strings": true,
-		"no-null-keyword": true,
 		"no-sparse-arrays":true,
 		"no-string-throw": true,
 		"no-switch-case-fall-through": true,
