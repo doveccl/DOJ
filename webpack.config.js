@@ -59,7 +59,8 @@ module.exports = (env, argv) => {
 					{ name: 'react-router', var: 'ReactRouter', path: `umd/react-router${min}.js` },
 					{ name: 'react-router-dom', var: 'ReactRouterDOM', path: `umd/react-router-dom${min}.js` },
 					{ name: 'axios', path: `dist/axios${min}.js` },
-					{ name: 'katex', path: `dist/katex${min}.js`, style: `dist/katex${min}.css` }
+					{ name: 'katex', path: `dist/katex${min}.js`, style: `dist/katex${min}.css` },
+					{ name: 'ace-builds', var: 'ace', path: `src-min-noconflict/ace.js` }
 				],
 				prod, publicPath: '/node_modules'
 			}),

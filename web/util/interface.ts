@@ -11,6 +11,11 @@ export interface MatchProps {
 	match: match<any>
 }
 
+export interface ILanguage {
+	name: string
+	suffix: string
+}
+
 export interface IUser {
 	_id: string
 	name: string

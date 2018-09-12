@@ -1,9 +1,9 @@
 import * as React from 'react'
-import * as Markdown from 'react-markdown'
 import { Card, message } from 'antd'
 
 import * as model from '../../model'
 import LoginTip from '../../component/login-tip'
+import Markdown from '../../component/markdown'
 import { updateState } from '../../util/state'
 
 export default class extends React.Component {

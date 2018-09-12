@@ -6,3 +6,9 @@ export function getConfigs() {
 		axios.get('/config')
 	)
 }
+
+export function getLanguages() {
+	return wrap(
+		axios.get('/config/languages')
+	)
+}

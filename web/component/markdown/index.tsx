@@ -4,10 +4,9 @@ import * as math from 'remark-math'
 import * as shortcodes from 'remark-shortcodes'
 
 import PDF from '../pdf'
-import hljs from '../../util/highlight'
-import { renderToString } from 'katex'
+import Code from '../code'
 
-import './index.less'
+import { renderToString } from 'katex'
 
 const renderMath = (math: string, displayMode = false) => {
 	try {
@@ -24,11 +23,9 @@ export default class extends React.Component<Markdown.ReactMarkdownProps> {
 			{ ...this.props }
 			plugins={[ math, shortcodes ]}
 			renderers={{
-				code: ({ value, language }) => {
-					if (!language) { return <pre className="hljs">{value}</pre> }
-					const { value: __html } = hljs.highlightAuto(value, [ language ])
-					return <pre className="hljs" dangerouslySetInnerHTML={{ __html }} />
-				},
+				code: ({ value, language }) => <Code
+					static value={value} language={language}
+				/>,
 				shortcode: ({ identifier, attributes }) => {
 					let { id, url } = attributes
 					url = url ? url : `/api/file/${id}`

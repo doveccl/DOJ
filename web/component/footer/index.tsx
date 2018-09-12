@@ -6,7 +6,8 @@ import './index.less'
 export default class extends React.Component {
 	render() {
 		return <Layout.Footer className="footer">
-			Copyright &copy; 2018 Doveccl Online Judge
+			<span>Copyright &copy; 2018 </span>
+			<a target="_blank" href="https://github.com/doveccl/DOJ">Doveccl Online Judge</a>
 		</Layout.Footer>
 	}
 }

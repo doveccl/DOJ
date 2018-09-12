@@ -1,48 +1,237 @@
-import hljs from 'highlight.js/lib/highlight'
+function escapeHtml(unsafe) {
+	return unsafe
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&apos;');
+}
 
-import bash from 'highlight.js/lib/languages/bash'
-hljs.registerLanguage('bash', bash)
+ace.define("ace/ext/static_highlight", ["require", "exports", "module", "ace/edit_session", "ace/layer/text", "ace/config", "ace/lib/dom"], function (require, exports, module) {
+	"use strict";
 
-import cpp from 'highlight.js/lib/languages/cpp'
-hljs.registerLanguage('cpp', cpp)
+	var EditSession = require("../edit_session").EditSession;
+	var TextLayer = require("../layer/text").Text;
+	var baseStyles = ".ace_static_highlight {\
+		font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', 'Droid Sans Mono', monospace;\
+		font-size: 12px;\
+		white-space: pre-wrap\
+		}\
+		.ace_static_highlight .ace_gutter {\
+		width: 2em;\
+		text-align: right;\
+		padding: 0 3px 0 0;\
+		margin-right: 3px;\
+		}\
+		.ace_static_highlight.ace_show_gutter .ace_line {\
+		padding-left: 2.6em;\
+		}\
+		.ace_static_highlight .ace_line { position: relative; }\
+		.ace_static_highlight .ace_gutter-cell {\
+		-moz-user-select: -moz-none;\
+		-khtml-user-select: none;\
+		-webkit-user-select: none;\
+		user-select: none;\
+		top: 0;\
+		bottom: 0;\
+		left: 0;\
+		position: absolute;\
+		}\
+		.ace_static_highlight .ace_gutter-cell:before {\
+		content: counter(ace_line, decimal);\
+		counter-increment: ace_line;\
+		}\
+		.ace_static_highlight {\
+		counter-reset: ace_line;\
+		}\
+		";
+	var config = require("../config");
+	var dom = require("../lib/dom");
 
-import cs from 'highlight.js/lib/languages/cs'
-hljs.registerLanguage('cs', cs)
+	function Element(type) {
+		this.type = type;
+		this.style = {};
+		this.textContent = "";
+	}
+	Element.prototype.cloneNode = function () {
+		return this;
+	};
+	Element.prototype.appendChild = function (child) {
+		this.textContent += child.toString();
+	};
+	Element.prototype.toString = function () {
+		var stringBuilder = [];
+		if (this.type != "fragment") {
+			stringBuilder.push("<", this.type);
+			if (this.className)
+				stringBuilder.push(" class='", this.className, "'");
+			var styleStr = [];
+			for (var key in this.style) {
+				styleStr.push(key, ":", this.style[key]);
+			}
+			if (styleStr.length)
+				stringBuilder.push(" style='", styleStr.join(""), "'");
+			stringBuilder.push(">");
+		}
 
-import css from 'highlight.js/lib/languages/css'
-hljs.registerLanguage('css', css)
+		if (this.textContent) {
+			if (this.type === 'span')
+				stringBuilder.push(escapeHtml(this.textContent));
+			else
+				stringBuilder.push(this.textContent);
+		}
 
-import delphi from 'highlight.js/lib/languages/delphi'
-hljs.registerLanguage('delphi', delphi)
+		if (this.type != "fragment") {
+			stringBuilder.push("</", this.type, ">");
+		}
 
-import go from 'highlight.js/lib/languages/go'
-hljs.registerLanguage('go', go)
+		return stringBuilder.join("");
+	};
 
-import java from 'highlight.js/lib/languages/java'
-hljs.registerLanguage('java', java)
+	var simpleDom = {
+		createTextNode: function (textContent, element) {
+			return textContent;
+		},
+		createElement: function (type) {
+			return new Element(type);
+		},
+		createFragment: function () {
+			return new Element("fragment");
+		}
+	};
 
-import javascript from 'highlight.js/lib/languages/javascript'
-hljs.registerLanguage('javascript', javascript)
+	var SimpleTextLayer = function () {
+		this.config = {};
+		this.dom = simpleDom;
+	};
+	SimpleTextLayer.prototype = TextLayer.prototype;
 
-import json from 'highlight.js/lib/languages/json'
-hljs.registerLanguage('json', json)
+	var highlight = function (el, opts, callback) {
+		var m = el.className.match(/lang-(\w+)/);
+		var mode = opts.mode || m && ("ace/mode/" + m[1]);
+		if (!mode)
+			return false;
+		var theme = opts.theme || "ace/theme/textmate";
 
-import kotlin from 'highlight.js/lib/languages/kotlin'
-hljs.registerLanguage('kotlin', kotlin)
+		var data = "";
+		var nodes = [];
 
-import markdown from 'highlight.js/lib/languages/markdown'
-hljs.registerLanguage('markdown', markdown)
+		if (el.firstElementChild) {
+			var textLen = 0;
+			for (var i = 0; i < el.childNodes.length; i++) {
+				var ch = el.childNodes[i];
+				if (ch.nodeType == 3) {
+					textLen += ch.data.length;
+					data += ch.data;
+				} else {
+					nodes.push(textLen, ch);
+				}
+			}
+		} else {
+			data = el.textContent;
+			if (opts.trim)
+				data = data.trim();
+		}
 
-import php from 'highlight.js/lib/languages/php'
-hljs.registerLanguage('php', php)
+		highlight.render(data, mode, theme, opts.firstLineNumber, !opts.showGutter, function (highlighted) {
+			dom.importCssString(highlighted.css, "ace_highlight");
+			el.innerHTML = highlighted.html;
+			var container = el.firstChild.firstChild;
+			for (var i = 0; i < nodes.length; i += 2) {
+				var pos = highlighted.session.doc.indexToPosition(nodes[i]);
+				var node = nodes[i + 1];
+				var lineEl = container.children[pos.row];
+				lineEl && lineEl.appendChild(node);
+			}
+			callback && callback();
+		});
+	};
+	highlight.render = function (input, mode, theme, lineStart, disableGutter, callback) {
+		var waiting = 1;
+		var modeCache = EditSession.prototype.$modes;
+		if (typeof theme == "string") {
+			waiting++;
+			config.loadModule(['theme', theme], function (m) {
+				theme = m;
+				--waiting || done();
+			});
+		}
+		var modeOptions;
+		if (mode && typeof mode === "object" && !mode.getTokenizer) {
+			modeOptions = mode;
+			mode = modeOptions.path;
+		}
+		if (typeof mode == "string") {
+			waiting++;
+			config.loadModule(['mode', mode], function (m) {
+				if (!modeCache[mode] || modeOptions)
+					modeCache[mode] = new m.Mode(modeOptions);
+				mode = modeCache[mode];
+				--waiting || done();
+			});
+		}
+		function done() {
+			var result = highlight.renderSync(input, mode, theme, lineStart, disableGutter);
+			return callback ? callback(result) : result;
+		}
+		return --waiting || done();
+	};
+	highlight.renderSync = function (input, mode, theme, lineStart, disableGutter) {
+		lineStart = parseInt(lineStart || 1, 10);
 
-import python from 'highlight.js/lib/languages/python'
-hljs.registerLanguage('python', python)
+		var session = new EditSession("");
+		session.setUseWorker(false);
+		session.setMode(mode);
 
-import sql from 'highlight.js/lib/languages/sql'
-hljs.registerLanguage('sql', sql)
+		var textLayer = new SimpleTextLayer();
+		textLayer.setSession(session);
+		Object.keys(textLayer.$tabStrings).forEach(function (k) {
+			if (typeof textLayer.$tabStrings[k] == "string") {
+				var el = simpleDom.createFragment();
+				el.textContent = textLayer.$tabStrings[k];
+				textLayer.$tabStrings[k] = el;
+			}
+		});
 
-import xml from 'highlight.js/lib/languages/xml'
-hljs.registerLanguage('xml', xml)
+		session.setValue(input);
+		var length = session.getLength();
 
-export default hljs
+		var outerEl = simpleDom.createElement("div");
+		outerEl.className = theme.cssClass;
+
+		var innerEl = simpleDom.createElement("div");
+		innerEl.className = "ace_static_highlight" + (disableGutter ? "" : " ace_show_gutter");
+		innerEl.style["counter-reset"] = "ace_line " + (lineStart - 1);
+
+		for (var ix = 0; ix < length; ix++) {
+			var lineEl = simpleDom.createElement("div");
+			lineEl.className = "ace_line";
+
+			if (!disableGutter) {
+				var gutterEl = simpleDom.createElement("span");
+				gutterEl.className = "ace_gutter ace_gutter-cell";
+				gutterEl.textContent = ""; /*(ix + lineStart) + */
+				lineEl.appendChild(gutterEl);
+			}
+			textLayer.$renderLine(lineEl, ix, false);
+			innerEl.appendChild(lineEl);
+		}
+		outerEl.appendChild(innerEl);
+		return {
+			css: baseStyles + theme.cssText,
+			html: outerEl.toString(),
+			session: session
+		};
+	};
+
+	module.exports = highlight;
+	module.exports.highlight = highlight;
+});
+
+(function () {
+	ace.require(["ace/ext/static_highlight"], function (m) {
+		if (typeof module == "object" && typeof exports == "object" && module) {
+			module.exports = m;
+		}
+	});
+})();

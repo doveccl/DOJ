@@ -1,4 +1,4 @@
-import { IUser } from './interface'
+import { IUser, ILanguage } from './interface'
 
 type PathItem = string | {
 	text: string
@@ -8,11 +8,13 @@ type PathItem = string | {
 export interface GlobalState {
 	user?: IUser
 	path?: PathItem[]
+	languages?: ILanguage[]
 	[index: string]: any
 }
 
 const state: GlobalState = {
 	user: undefined,
+	languages: [],
 	path: []
 }
 
