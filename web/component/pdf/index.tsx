@@ -1,26 +1,23 @@
 import * as React from 'react'
-import { Document, Page, setOptions } from 'react-pdf'
 
-import './index.less'
+interface PDFProps { file: string }
 
-setOptions({ workerSrc: '/pdf.worker.js' })
-
-export default class extends React.Component<any> {
-	state = { numPages: 0 }
+export default class extends React.Component<PDFProps> {
 	render() {
-		return <div>
-			<Document
-				{ ...this.props }
-				className="pdf-document"
-				onLoadSuccess={({ numPages }: any) => this.setState({ numPages })}
+		return <p style={{
+			width: '100%',
+			height: '100vh'
+		}}>
+			<object
+				type="application/pdf"
+				width="100%"
+				height="100%"
+				data={this.props.file}
 			>
-				{new Array(this.state.numPages).fill(0).map((_, i) => <Page
-					key={`p_${i}`}
-					renderMode="svg"
-					className="pdf-page"
-					pageNumber={i + 1}
-				/>)}
-			</Document>
-		</div>
+				<a target="_blank" href={this.props.file}>
+					click here to download the PDF
+				</a>
+			</object>
+		</p>
 	}
 }

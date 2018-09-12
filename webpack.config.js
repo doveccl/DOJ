@@ -1,24 +1,29 @@
 const path = require('path')
 const config = require('config')
 const webpack = require('webpack')
-const CopyWebpackPlugin = require('copy-webpack-plugin')
+const WebpackCdnPlugin = require('webpack-cdn-plugin')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
+const CompressionPlugin = require('compression-webpack-plugin')
 const MiniCssExtractPlugin = require("mini-css-extract-plugin")
+const OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin')
 
 const API_PORT = config.get('port')
 
 module.exports = (env, argv) => {
 	const dev = argv.mode === 'development'
 	const prod = argv.mode === 'production'
+	const min = prod ? '.min' : ''
+	const reactMode = prod ? 'production.min' : 'development'
 
 	const config = {
 		entry: {
 			app: './web'
 		},
 		output: {
-			path: path.resolve(__dirname, './dist'),
 			publicPath: '/',
-			filename: '[name].js'
+			path: path.resolve(__dirname, './dist'),
+			filename: '[name].[hash:8].js',
+			chunkFilename: '[name].chunk.[chunkhash:8].js'
 		},
 		module: {
 			rules: [
@@ -33,15 +38,11 @@ module.exports = (env, argv) => {
 						'css-loader',
 						'less-loader?javascriptEnabled'
 					]
-				},
-				{
-					test: /\.(woff|woff2|eot|ttf|otf)$/,
-					loader: 'file-loader'
 				}
 			]
 		},
 		resolve: {
-			extensions: [ '.tsx', '.ts', '.js' ]
+			extensions: ['.tsx', '.ts', '.js']
 		},
 		plugins: [
 			new HtmlWebpackPlugin({
@@ -51,15 +52,21 @@ module.exports = (env, argv) => {
 					viewport: 'width=device-width, initial-scale=1'
 				}
 			}),
-			new MiniCssExtractPlugin({
-				filename: '[name].css'
+			new WebpackCdnPlugin({
+				modules: [
+					{ name: 'react', var: 'React', path: `umd/react.${reactMode}.js` },
+					{ name: 'react-dom', var: 'ReactDOM', path: `umd/react-dom.${reactMode}.js` },
+					{ name: 'react-router', var: 'ReactRouter', path: `umd/react-router${min}.js` },
+					{ name: 'react-router-dom', var: 'ReactRouterDOM', path: `umd/react-router-dom${min}.js` },
+					{ name: 'axios', path: `dist/axios${min}.js` },
+					{ name: 'katex', path: `dist/katex${min}.js`, style: `dist/katex${min}.css` }
+				],
+				prod, publicPath: '/node_modules'
 			}),
-			new CopyWebpackPlugin([
-				{
-					from: 'node_modules/pdfjs-dist/build/pdf.worker.min.js',
-					to: 'pdf.worker.js'
-				}
-			])
+			new MiniCssExtractPlugin({
+				filename: '[name].[hash:8].css',
+				chunkFilename: '[name].chunk.[chunkhash:8].css'
+			})
 		]
 	}
 
@@ -76,6 +83,13 @@ module.exports = (env, argv) => {
 				'/api': `http://localhost:${API_PORT}`
 			}
 		}
+	}
+
+	if (prod) {
+		config.plugins.push(
+			new OptimizeCssAssetsPlugin(),
+			new CompressionPlugin()
+		)
 	}
 
 	return config

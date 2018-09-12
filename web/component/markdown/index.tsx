@@ -3,13 +3,11 @@ import * as Markdown from 'react-markdown'
 import * as math from 'remark-math'
 import * as shortcodes from 'remark-shortcodes'
 
-import { renderToString } from 'katex'
-import { highlightAuto } from 'highlight.js'
-
 import PDF from '../pdf'
+import hljs from '../../util/highlight'
+import { renderToString } from 'katex'
 
-import 'katex/dist/katex.min.css'
-import 'highlight.js/styles/default.css'
+import './index.less'
 
 const renderMath = (math: string, displayMode = false) => {
 	try {
@@ -28,7 +26,7 @@ export default class extends React.Component<Markdown.ReactMarkdownProps> {
 			renderers={{
 				code: ({ value, language }) => {
 					if (!language) { return <pre className="hljs">{value}</pre> }
-					const { value: __html } = highlightAuto(value, [ language ])
+					const { value: __html } = hljs.highlightAuto(value, [ language ])
 					return <pre className="hljs" dangerouslySetInnerHTML={{ __html }} />
 				},
 				shortcode: ({ identifier, attributes }) => {
