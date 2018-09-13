@@ -7,6 +7,14 @@ import LoginTip from '../../component/login-tip'
 import { IContest, ContestType, HistoryProps } from '../../util/interface'
 import { updateState } from '../../util/state'
 
+export const renderType = (t: ContestType) => {
+	switch (t) {
+		case ContestType.OI: return <Tag color="volcano">OI</Tag>
+		case ContestType.ICPC: return <Tag color="cyan">ICPC</Tag>
+		default: return <Tag>unknown</Tag>
+	}
+}
+
 class Contests extends React.Component<HistoryProps> {
 	state = {
 		loading: true,
@@ -43,7 +51,7 @@ class Contests extends React.Component<HistoryProps> {
 				<Table
 					rowKey="_id"
 					onRow={({ _id }) => ({
-						onClick: () => this.props.history.push(`/contests/${_id}`)
+						onClick: () => this.props.history.push(`/contest/${_id}`)
 					})}
 					loading={this.state.loading}
 					dataSource={this.state.contests}
@@ -51,13 +59,7 @@ class Contests extends React.Component<HistoryProps> {
 					onChange={this.handleChange}
 					columns={[
 						{ title: 'Title', width: 20, dataIndex: 'title' },
-						{ title: 'Type', width: 10, dataIndex: 'type', render: t => {
-							switch (t) {
-								case ContestType.OI: return <Tag color="volcano">OI</Tag>
-								case ContestType.ICPC: return <Tag color="cyan">ICPC</Tag>
-								default: return <Tag>unknown</Tag>
-							}
-						}},
+						{ title: 'Type', width: 10, dataIndex: 'type', render: renderType},
 						{
 							title: 'Start', width: 20, dataIndex: 'startAt',
 							render: d => new Date(d).toLocaleString()

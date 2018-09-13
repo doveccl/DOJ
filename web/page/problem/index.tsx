@@ -66,11 +66,11 @@ class Problems extends React.Component<HistoryProps> {
 					pagination={this.state.pagination}
 					onChange={this.handleChange}
 					columns={[
-						{ title: 'Title', width: 20, dataIndex: 'title' },
-						{ title: 'Tags', width: 20, key: 'tags', render: (t, r) => <React.Fragment>
+						{ title: 'Title', width: 100, dataIndex: 'title' },
+						{ title: 'Tags', width: 200, key: 'tags', render: (t, r) => <React.Fragment>
 							{r.tags.map((tag, i) => <Tag key={i}>{tag}</Tag>)}
 						</React.Fragment> },
-						{ title: 'Ratio', width: 10, key: 'ratio', render: (t, r) =>
+						{ title: 'Ratio', width: 100, key: 'ratio', render: (t, r) =>
 							<Progress percent={r.solve / r.submit} />
 						}
 					]}

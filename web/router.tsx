@@ -9,6 +9,7 @@ import Home from './page/home'
 import Problems from './page/problem'
 import Problem from './page/problem/id'
 import Contests from './page/contest'
+import Contest from './page/contest/id'
 
 export default class extends React.Component {
 	render() {
@@ -18,6 +19,7 @@ export default class extends React.Component {
 			<Route path="/reset" component={Reset} />
 			<Route path="/problem/:id" component={Problem} />
 			<Route path="/problem" component={Problems} />
+			<Route path="/contest/:id" component={Contest} />
 			<Route path="/contest" component={Contests} />
 			<Route path="/submission" />
 			<Route path="/rank" />

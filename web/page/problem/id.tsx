@@ -121,8 +121,11 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 		return <React.Fragment>
 			<LoginTip />
 			<Card
-				loading={!Boolean(this.state.problem.content)}
+				loading={!this.state.problem.content}
 				title={this.state.problem.title || 'Problem'}
+				extra={<a href="#submit">
+					<Button type="primary">Submit</Button>
+				</a>}
 			>
 				<Markdown
 					escapeHtml={false}
@@ -131,6 +134,7 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 			</Card>
 			<div className="divider" />
 			<Card
+				id="submit"
 				title="Submit"
 				loading={
 					!this.state.global.user ||
