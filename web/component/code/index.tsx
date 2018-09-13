@@ -102,10 +102,10 @@ export default class extends React.Component<CodeProps> {
 		editor.on('change', () => onChange && onChange(editor.getValue()))
 		this.setState({ editor })
 	}
-	componentDidUpdate() {
+	componentWillReceiveProps(nextProps: CodeProps) {
 		const { editor } = this.state
 		if (editor) {
-			const { language, theme } = this.props
+			const { language, theme } = nextProps
 			if (language && this.prevLanguage !== language) {
 				this.prevLanguage = language
 				const mode = language2mode(language)

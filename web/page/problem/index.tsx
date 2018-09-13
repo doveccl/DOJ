@@ -7,8 +7,6 @@ import LoginTip from '../../component/login-tip'
 import { IProblem, HistoryProps } from '../../util/interface'
 import { updateState } from '../../util/state'
 
-import './index.less'
-
 class Problems extends React.Component<HistoryProps> {
 	state = {
 		loading: true,

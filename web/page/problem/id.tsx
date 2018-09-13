@@ -17,6 +17,7 @@ interface SubmitFormProps {
 	uid: string
 	pid: string
 	languages: ILanguage[]
+	callback: (id: any) => any
 }
 
 class SubmitForm extends React.Component<SubmitFormProps & FormComponentProps> {
@@ -28,7 +29,17 @@ class SubmitForm extends React.Component<SubmitFormProps & FormComponentProps> {
 		e.preventDefault()
 		this.props.form.validateFields((err, values) => {
 			if (!err) {
-				console.log(values)
+				this.setState({ loading: true })
+				model.postSubmission(values)
+					.then(data => {
+						this.setState({ loading: false })
+						message.success('submit success')
+						this.props.callback(data._id)
+					})
+					.catch(err => {
+						this.setState({ loading: false })
+						message.error(err)
+					})
 			}
 		})
 	}
@@ -54,6 +65,7 @@ class SubmitForm extends React.Component<SubmitFormProps & FormComponentProps> {
 					rules: [{ required: true, message: 'Please choose language' }]
 				})(
 					<Select
+						style={{ width: '50%', minWidth: '200px' }}
 						placeholder="Choose language"
 						onSelect={value => {
 							const lan = this.props.languages[Number(value)]
@@ -127,6 +139,7 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 				}
 			>
 				{this.state.global.user && <WrappedSubmitForm
+					callback={id => this.props.history.push(`/submission/${id}`)}
 					languages={this.state.global.languages}
 					uid={this.state.global.user._id}
 					pid={this.state.problem._id}
