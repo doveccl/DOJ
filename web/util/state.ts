@@ -1,4 +1,4 @@
-import { IUser, ILanguage } from './interface'
+import { ILanguage, IUser } from './interface'
 
 type PathItem = string | {
 	text: string
@@ -38,10 +38,10 @@ export function removeListener(uniqueKey: string) {
 }
 
 export function updateState(data: GlobalState) {
-	for (let key of Object.keys(data)) {
+	for (const key of Object.keys(data)) {
 		state[key] = data[key]
 	}
-	for (let key of Object.keys(listeners)) {
+	for (const key of Object.keys(listeners)) {
 		if (listeners[key]) {
 			listeners[key](state)
 		}

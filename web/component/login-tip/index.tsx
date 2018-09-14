@@ -1,22 +1,23 @@
 import * as React from 'react'
-import { Alert } from 'antd'
 import { Link } from 'react-router-dom'
 
-import { addListener, removeListener, globalState } from '../../util/state'
+import { Alert } from 'antd'
+
+import { addListener, globalState, removeListener } from '../../util/state'
 
 import './index.less'
 
 export default class extends React.Component {
-	state = { global: globalState }
-	componentWillMount() {
-		addListener('login-tip', global => {
+	public state = { global: globalState }
+	public componentWillMount() {
+		addListener('login-tip', (global) => {
 			this.setState({ global })
 		})
 	}
-	componentWillUnmount() {
+	public componentWillUnmount() {
 		removeListener('login-tip')
 	}
-	render() {
+	public render() {
 		return this.state.global.user ? null : <Alert
 			type="warning"
 			className="login-tip"

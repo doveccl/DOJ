@@ -1,18 +1,17 @@
 import * as React from 'react'
-import { Switch, Route } from 'react-router-dom'
+import { Route, Switch } from 'react-router-dom'
 
+import Contests from './page/contest'
+import Contest from './page/contest/id'
+import Home from './page/home'
 import Login from './page/login'
+import Problems from './page/problem'
+import Problem from './page/problem/id'
 import Register from './page/register'
 import Reset from './page/reset'
 
-import Home from './page/home'
-import Problems from './page/problem'
-import Problem from './page/problem/id'
-import Contests from './page/contest'
-import Contest from './page/contest/id'
-
 export default class extends React.Component {
-	render() {
+	public render() {
 		return <Switch>
 			<Route path="/login" component={Login} />
 			<Route path="/register" component={Register} />

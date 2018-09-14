@@ -1,149 +1,58 @@
 import * as React from 'react'
 import { withRouter } from 'react-router-dom'
-import {
-	Card, Form, Input, Select,
-	Checkbox, Button, Divider, message
-} from 'antd'
-import { FormComponentProps } from 'antd/lib/form'
 
-import * as model from '../../model'
-import * as state from '../../util/state'
-import Code from '../../component/code'
-import Markdown from '../../component/markdown'
+import { message, Button, Card } from 'antd'
+
+import WrappedSubmitForm from '../../component/form/submit'
 import LoginTip from '../../component/login-tip'
-import { IProblem, ILanguage, HistoryProps, MatchProps } from '../../util/interface'
-
-interface SubmitFormProps {
-	uid: string
-	pid: string
-	languages: ILanguage[]
-	callback: (id: any) => any
-}
-
-class SubmitForm extends React.Component<SubmitFormProps & FormComponentProps> {
-	state = {
-		loading: false,
-		language: undefined as string
-	}
-	handleSubmit = (e: React.FormEvent) => {
-		e.preventDefault()
-		this.props.form.validateFields((err, values) => {
-			if (!err) {
-				this.setState({ loading: true })
-				model.postSubmission(values)
-					.then(data => {
-						this.setState({ loading: false })
-						message.success('submit success')
-						this.props.callback(data._id)
-					})
-					.catch(err => {
-						this.setState({ loading: false })
-						message.error(err)
-					})
-			}
-		})
-	}
-	render() {
-		const { uid, pid } = this.props
-		const { getFieldDecorator } = this.props.form
-		return <Form onSubmit={this.handleSubmit} className="submit-form">
-			<Form.Item style={{ display: 'none' }}>
-				{getFieldDecorator('uid', { initialValue: uid })(<Input readOnly />)}
-			</Form.Item>
-			<Form.Item style={{ display: 'none' }}>
-				{getFieldDecorator('pid', { initialValue: pid })(<Input readOnly />)}
-			</Form.Item>
-			<Form.Item>
-				{getFieldDecorator('code', {
-					rules: [{ required: true, message: 'Please input your code' }]
-				})(
-					<Code options={{ maxLines: 30 }} language={this.state.language} />
-				)}
-			</Form.Item>
-			<Form.Item>
-				{getFieldDecorator('language', {
-					rules: [{ required: true, message: 'Please choose language' }]
-				})(
-					<Select
-						style={{ width: '50%', minWidth: '200px' }}
-						placeholder="Choose language"
-						onSelect={value => {
-							const lan = this.props.languages[Number(value)]
-							this.setState({ language: lan.suffix })
-						}}
-					>
-						{this.props.languages.map((lan, idx) => <Select.Option
-							key={idx}
-							children={lan.name}
-						/>)}
-					</Select>
-				)}
-			</Form.Item>
-			<Form.Item>
-				<Button type="primary" htmlType="submit" loading={this.state.loading}>
-					Submit
-				</Button>
-				<Divider type="vertical" />
-				{getFieldDecorator('open', {
-					valuePropName: 'checked',
-					initialValue: true
-				})(
-					<Checkbox>Share my code to others</Checkbox>
-				)}
-			</Form.Item>
-		</Form>
-	}
-}
-
-const WrappedSubmitForm = Form.create()(SubmitForm)
+import Markdown from '../../component/markdown'
+import { getProblem, hasToken } from '../../model'
+import { HistoryProps, IProblem, MatchProps } from '../../util/interface'
+import { addListener, globalState, removeListener, updateState } from '../../util/state'
 
 class Problem extends React.Component<HistoryProps & MatchProps> {
-	state = {
+	public state = {
 		code: '',
 		problem: {} as IProblem,
-		global: state.globalState
+		global: globalState
 	}
-	componentWillMount() {
+	public componentWillMount() {
 		const { params } = this.props.match
-		state.updateState({ path: [
+		updateState({ path: [
 			{ url: '/problem', text: 'Problem' }, params.id
 		] })
-		state.addListener('problem', global => this.setState({ global }))
-		if (!model.hasToken()) { return }
-		model.getProblem(params.id)
-			.then(problem => this.setState({ problem }))
-			.catch(err => message.error(err))
+		addListener('problem', (global) => this.setState({ global }))
+		if (!hasToken()) { return }
+		getProblem(params.id)
+			.then((problem) => this.setState({ problem }))
+			.catch((err) => message.error(err))
 	}
-	componentWillUnmount() {
-		state.removeListener('problem')
+	public componentWillUnmount() {
+		removeListener('problem')
 	}
-	render() {
+	public render() {
+		const { global, problem } = this.state
 		return <React.Fragment>
 			<LoginTip />
 			<Card
-				loading={!this.state.problem.content}
-				title={this.state.problem.title || 'Problem'}
+				loading={!problem.content}
+				title={problem.title || 'Problem'}
 				extra={<a href="#submit">
 					<Button type="primary">Submit</Button>
 				</a>}
 			>
 				<Markdown
 					escapeHtml={false}
-					source={this.state.problem.content}
+					source={problem.content}
 				/>
 			</Card>
 			<div className="divider" />
 			<Card
-				id="submit"
-				title="Submit"
-				loading={
-					!this.state.global.user ||
-					!this.state.problem._id ||
-					this.state.global.languages.length === 0
-				}
+				id="submit" title="Submit"
+				loading={!global.user || !problem._id}
 			>
-				{this.state.global.user && <WrappedSubmitForm
-					callback={id => this.props.history.push(`/submission/${id}`)}
+				{global.user && <WrappedSubmitForm
+					callback={(id) => this.props.history.push(`/submission/${id}`)}
 					languages={this.state.global.languages}
 					uid={this.state.global.user._id}
 					pid={this.state.problem._id}

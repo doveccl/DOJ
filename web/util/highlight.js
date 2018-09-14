@@ -1,3 +1,5 @@
+/* tslint:disable */
+
 function escapeHtml(unsafe) {
 	return unsafe
 		.replace(/&/g, '&amp;')

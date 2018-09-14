@@ -5,6 +5,22 @@
 			"options": "tabs"
 		},
 		"interface-name": false,
+		"member-ordering": {
+			"options": {
+				"order": [
+					"private-static-field",
+					"private-instance-field",
+					"public-static-field",
+					"public-instance-field",
+					"private-constructor",
+					"public-constructor",
+					"private-static-method",
+					"private-instance-method",
+					"public-static-method",
+					"public-instance-method"
+				]
+			}
+		},
 		"no-console": false,
 		"object-literal-sort-keys": false,
 		"ordered-imports": {

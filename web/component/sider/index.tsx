@@ -1,29 +1,30 @@
 import * as React from 'react'
-import { Layout, Menu, Icon } from 'antd'
 import { withRouter } from 'react-router-dom'
+
+import { Icon, Layout, Menu } from 'antd'
 
 import { isGroup } from '../../util/function'
 import { HistoryProps } from '../../util/interface'
-import { addListener, removeListener, globalState } from '../../util/state'
+import { addListener, globalState, removeListener } from '../../util/state'
 
 import './index.less'
 
 interface MenuClick { key: string }
 
 class Sider extends React.Component<HistoryProps> {
-	state = { global: globalState }
-	onClick = ({ key }: MenuClick) => {
+	public state = { global: globalState }
+	private onClick = ({ key }: MenuClick) => {
 		this.props.history.push(key)
 	}
-	componentWillMount() {
-		addListener('sider', global => {
+	public componentWillMount() {
+		addListener('sider', (global) => {
 			this.setState({ global })
 		})
 	}
-	componentWillUnmount() {
+	public componentWillUnmount() {
 		removeListener('sider')
 	}
-	render() {
+	public render() {
 		const selectedKeys: string[] = []
 		const { pathname } = this.props.history.location
 		let arr = pathname.match(/^(\/[^/]*)(:?\/|$)/)

@@ -11,7 +11,7 @@ export function isGroup(user: IUser, type: string | number, diff = 0) {
 			group = UserGroup[type]
 			break
 		default:
-			group = +new Number(type)
+			group = Number(type)
 	}
 	return user && user.group - group >= diff
 }

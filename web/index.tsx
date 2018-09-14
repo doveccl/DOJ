@@ -1,17 +1,17 @@
 import * as React from 'react'
 import * as ReactDOM from 'react-dom'
-
-import { Layout } from 'antd'
 import { BrowserRouter } from 'react-router-dom'
 
-import Router from './router'
+import { Layout } from 'antd'
+
+import Footer from './component/footer'
+import Header from './component/header'
 import Path from './component/path'
 import Sider from './component/sider'
-import Header from './component/header'
-import Footer from './component/footer'
+import Router from './router'
 
-import './util/init'
 import './index.less'
+import './util/init'
 
 const app = <BrowserRouter>
 	<Layout className="container">

@@ -1,5 +1,5 @@
-import * as React from 'react'
 import * as ace from 'ace-builds'
+import * as React from 'react'
 import * as highlight from '../../util/highlight'
 
 import './index.less'
@@ -48,7 +48,7 @@ function escapeHtml(unsafe: string) {
 		.replace(/</g, '&lt;')
 		.replace(/>/g, '&gt;')
 		.replace(/"/g, '&quot;')
-		.replace(/'/g, '&apos;');
+		.replace(/'/g, '&apos;')
 }
 
 const LAN_MAP: any = {
@@ -66,7 +66,7 @@ const LAN_MAP: any = {
 	pl: 'perl',
 	py: 'python',
 	rb: 'ruby',
-	rs: 'rust',
+	rs: 'rust'
 }
 
 const language2mode = (mode: string) => {
@@ -76,12 +76,19 @@ const language2mode = (mode: string) => {
 }
 
 export default class extends React.Component<CodeProps> {
-	private prevTheme = undefined as string
 	private prevLanguage = undefined as string
-	state = {
+	private prevTheme = undefined as string
+	public state = {
 		editor: undefined as ace.Ace.Editor
 	}
-	getOptions = () => {
+	private editor = (code: HTMLElement) => {
+		if (!code) { return }
+		const { onChange } = this.props
+		const editor = ace.edit(code, this.getOptions())
+		editor.on('change', () => onChange && onChange(editor.getValue()))
+		this.setState({ editor })
+	}
+	private getOptions = () => {
 		const { language, theme, value } = this.props
 		const options = this.props.options || {}
 		const mode = language2mode(language)
@@ -90,19 +97,13 @@ export default class extends React.Component<CodeProps> {
 		if (theme) { options.theme = `ace/theme/${theme}` }
 		return options
 	}
-	viewer = (code: HTMLElement) => {
+	private viewer = (code: HTMLElement) => {
 		if (!code) { return }
 		const value = this.props.value || ''
 		code.innerHTML = escapeHtml(value)
 		highlight(code, this.getOptions())
 	}
-	editor = (code: HTMLElement) => {
-		if (!code) { return }
-		const { onChange } = this.props, editor = ace.edit(code, this.getOptions())
-		editor.on('change', () => onChange && onChange(editor.getValue()))
-		this.setState({ editor })
-	}
-	componentWillReceiveProps(nextProps: CodeProps) {
+	public componentWillReceiveProps(nextProps: CodeProps) {
 		const { editor } = this.state
 		if (editor) {
 			const { language, theme } = nextProps
@@ -117,9 +118,9 @@ export default class extends React.Component<CodeProps> {
 			}
 		}
 	}
-	render() {
+	public render() {
 		return this.props.static ?
-			<pre ref={this.viewer} className="viewer" />:
+			<pre ref={this.viewer} className="viewer" /> :
 			<div ref={this.editor} className="editor" />
 	}
 }

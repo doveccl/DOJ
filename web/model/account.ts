@@ -1,16 +1,16 @@
 import axios from 'axios'
 import * as Cookie from 'js-cookie'
 
-import wrap from './wrap'
 import { updateState } from '../util/state'
+import wrap from './wrap'
 
-function setToken(token: string, expires = 7) {
+function setToken(token: string, expires: number) {
 	Cookie.set('token', token, { expires })
-	axios.defaults.headers.common['token'] = token
+	axios.defaults.headers.common.token = token
 }
 function delToken() {
 	Cookie.remove('token')
-	axios.defaults.headers.common['token'] = ''
+	axios.defaults.headers.common.token = undefined
 }
 
 export function hasToken() {
@@ -18,11 +18,11 @@ export function hasToken() {
 }
 
 export function login(headers: any) {
+	const { remember } = headers
+	const exp = remember ? 7 : undefined
 	return wrap(
 		axios.get('/login', { headers }),
-		data => {
-			setToken(data.token, headers.remember ? 7 : undefined)
-		}
+		({ token }) => setToken(token, exp)
 	)
 }
 

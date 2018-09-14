@@ -1,43 +1,44 @@
 import * as md5 from 'md5'
 import * as React from 'react'
-import { Layout, Menu, Avatar, Icon } from 'antd'
 import { withRouter } from 'react-router-dom'
 
-import * as model from '../../model'
-import * as state from '../../util/state'
+import { Avatar, Icon, Layout, Menu } from 'antd'
+
+import { getSelfInfo, hasToken, logout } from '../../model'
 import { HistoryProps } from '../../util/interface'
+import { addListener, globalState, removeListener, updateState } from '../../util/state'
 
 import './index.less'
 
 interface MenuClick { key: string }
 
 class Header extends React.Component<HistoryProps> {
-	state = { global: state.globalState }
-	onClick = ({ key }: MenuClick) => {
+	public state = { global: globalState }
+	private onClick = ({ key }: MenuClick) => {
 		switch (key) {
 			case '/setting':
 			case '/register':
 				this.props.history.push(key)
 				break
 			default:
-				model.logout()
+				logout()
 				this.props.history.push('/login')
 		}
 	}
-	componentWillMount() {
-		state.addListener('header', global => {
+	public componentWillMount() {
+		addListener('header', (global) => {
 			this.setState({ global })
 		})
-		if (!model.hasToken()) { return }
-		model.getSelfInfo() // try to load account info
-			.then(user => state.updateState({ user }))
-			.catch(err => console.warn(err))
+		if (!hasToken()) { return }
+		getSelfInfo()
+			.then((user) => updateState({ user }))
+			.catch(console.warn)
 	}
-	componentWillUnmount() {
-		state.removeListener('header')
+	public componentWillUnmount() {
+		removeListener('header')
 	}
-	render() {
-		let mhash, avatar
+	public render() {
+		let { mhash, avatar } = {} as any
 		const { user } = this.state.global
 		if (user) {
 			mhash = md5(user.mail.trim().toLowerCase())

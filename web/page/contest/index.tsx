@@ -1,10 +1,11 @@
 import * as React from 'react'
 import { withRouter } from 'react-router-dom'
-import { Card, Table, Tag, message } from 'antd'
 
-import * as model from '../../model'
+import { message, Card, Table, Tag } from 'antd'
+
 import LoginTip from '../../component/login-tip'
-import { IContest, ContestType, HistoryProps } from '../../util/interface'
+import { getContests, hasToken } from '../../model'
+import { ContestType, HistoryProps, IContest } from '../../util/interface'
 import { updateState } from '../../util/state'
 
 export const renderType = (t: ContestType) => {
@@ -16,22 +17,17 @@ export const renderType = (t: ContestType) => {
 }
 
 class Contests extends React.Component<HistoryProps> {
-	state = {
+	public state = {
 		loading: true,
 		contests: [] as IContest[],
 		pagination: { current: 1, pageSize: 50, total: 0 }
 	}
-	componentWillMount() {
-		updateState({ path: [ 'Contest' ] })
-		if (!model.hasToken()) { return }
-		this.handleChange(this.state.pagination)
-	}
-	handleChange = (pagination: any) => {
+	private handleChange = (pagination: any) => {
 		const pager = { ...this.state.pagination }
 		pager.current = pagination.current
 		this.setState({ loading: true, pagination: pager })
 		const { pageSize: size, current: page } = pager
-		model.getContests({ page, size })
+		getContests({ page, size })
 			.then(({ total, list: contests }) => {
 				this.state.pagination.total = total
 				this.setState({
@@ -39,12 +35,17 @@ class Contests extends React.Component<HistoryProps> {
 					loading: false, contests
 				})
 			})
-			.catch(err => {
+			.catch((err) => {
 				message.error(err)
 				this.setState({ loading: false })
 			})
 	}
-	render() {
+	public componentWillMount() {
+		updateState({ path: [ 'Contest' ] })
+		if (!hasToken()) { return }
+		this.handleChange(this.state.pagination)
+	}
+	public render() {
 		return <React.Fragment>
 			<LoginTip />
 			<Card title="Contests" className="contests">
@@ -62,11 +63,11 @@ class Contests extends React.Component<HistoryProps> {
 						{ title: 'Type', width: 10, dataIndex: 'type', render: renderType},
 						{
 							title: 'Start', width: 20, dataIndex: 'startAt',
-							render: d => new Date(d).toLocaleString()
+							render: (d) => new Date(d).toLocaleString()
 						},
 						{
 							title: 'End', width: 20, dataIndex: 'endAt',
-							render: d => new Date(d).toLocaleString()
+							render: (d) => new Date(d).toLocaleString()
 						},
 						{ title: 'Status', width: 10, key: 'status', render: (t, r) => {
 							const now = new Date()

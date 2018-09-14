@@ -9,7 +9,7 @@ export default function(
 	callback?: (data: any) => any
 ) {
 	return new Promise<any>((resolve, reject) => {
-		response.then(res => {
+		response.then((res) => {
 			const d: IResponse = res.data
 			if (d.success) {
 				if (callback) {

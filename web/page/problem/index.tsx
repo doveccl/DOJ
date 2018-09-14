@@ -1,38 +1,28 @@
 import * as React from 'react'
 import { withRouter } from 'react-router-dom'
-import { Card, Table, Input, Progress, Tag, message } from 'antd'
 
-import * as model from '../../model'
+import { message, Card, Input, Progress, Table, Tag } from 'antd'
+
 import LoginTip from '../../component/login-tip'
-import { IProblem, HistoryProps } from '../../util/interface'
+import { getProblems, hasToken } from '../../model'
+import { HistoryProps, IProblem } from '../../util/interface'
 import { updateState } from '../../util/state'
 
 class Problems extends React.Component<HistoryProps> {
-	state = {
+	public state = {
 		loading: true,
 		search: '',
 		problems: [] as IProblem[],
 		pagination: { current: 1, pageSize: 50, total: 0 }
 	}
-	componentWillMount() {
-		updateState({ path: [ 'Problem' ] })
-		if (!model.hasToken()) { return }
-		this.handleChange(this.state.pagination)
-	}
-	onSearch = (value: string) => {
-		const pagination = { ...this.state.pagination }
-		pagination.current = 1
-		this.setState({ search: value })
-		this.handleChange(pagination, value)
-	}
-	handleChange = (pagination: any, keyword?: any) => {
+	private handleChange = (pagination: any, keyword?: any) => {
 		const search = typeof keyword === 'string' ?
 			keyword : this.state.search
 		const pager = { ...this.state.pagination }
 		pager.current = pagination.current
 		this.setState({ loading: true, pagination: pager })
 		const { pageSize: size, current: page } = pager
-		model.getProblems({ page, size, search })
+		getProblems({ page, size, search })
 			.then(({ total, list: problems }) => {
 				this.state.pagination.total = total
 				this.setState({
@@ -40,12 +30,23 @@ class Problems extends React.Component<HistoryProps> {
 					loading: false, problems
 				})
 			})
-			.catch(err => {
+			.catch((err) => {
 				message.error(err)
 				this.setState({ loading: false })
 			})
 	}
-	render() {
+	private onSearch = (value: string) => {
+		const pagination = { ...this.state.pagination }
+		pagination.current = 1
+		this.setState({ search: value })
+		this.handleChange(pagination, value)
+	}
+	public componentWillMount() {
+		updateState({ path: [ 'Problem' ] })
+		if (!hasToken()) { return }
+		this.handleChange(this.state.pagination)
+	}
+	public render() {
 		return <React.Fragment>
 			<LoginTip />
 			<Card

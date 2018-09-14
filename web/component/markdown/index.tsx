@@ -3,22 +3,22 @@ import * as Markdown from 'react-markdown'
 import * as math from 'remark-math'
 import * as shortcodes from 'remark-shortcodes'
 
-import PDF from '../pdf'
 import Code from '../code'
+import PDF from '../pdf'
 
 import { renderToString } from 'katex'
 
-const renderMath = (math: string, displayMode = false) => {
+const renderMath = (tex: string, displayMode = false) => {
 	try {
-		const __html = renderToString(math, { displayMode })
-		return <span dangerouslySetInnerHTML={{ __html }} />
+		const html = renderToString(tex, { displayMode })
+		return <span dangerouslySetInnerHTML={{ __html: html }} />
 	} catch {
 		return <span style={{ color: 'red' }}>error</span>
 	}
 }
 
 export default class extends React.Component<Markdown.ReactMarkdownProps> {
-	render() {
+	public render() {
 		return <Markdown
 			{ ...this.props }
 			plugins={[ math, shortcodes ]}
@@ -27,11 +27,11 @@ export default class extends React.Component<Markdown.ReactMarkdownProps> {
 					static value={value} language={language}
 				/>,
 				shortcode: ({ identifier, attributes }) => {
-					let { id, url } = attributes
-					url = url ? url : `/api/file/${id}`
+					const { id, url } = attributes
+					const link = url || `/api/file/${id}`
 					switch (identifier.toLowerCase()) {
-						case 'pdf': return <PDF file={url} />
-						case 'img': return <img src={url} />
+						case 'pdf': return <PDF file={link} />
+						case 'img': return <img src={link} />
 						default: return <span>Unsupported: {identifier}</span>
 					}
 				},

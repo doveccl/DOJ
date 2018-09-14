@@ -1,65 +1,70 @@
 import * as React from 'react'
 import { withRouter, Link } from 'react-router-dom'
-import { Card, Row, Col, Progress, Table, message } from 'antd'
 
-import * as model from '../../model'
-import * as state from '../../util/state'
-import Markdown from '../../component/markdown'
+import { message, Card, Col, Progress, Row, Table } from 'antd'
+
 import LoginTip from '../../component/login-tip'
-import { renderType } from './index'
+import Markdown from '../../component/markdown'
+import { getContest, getProblems, hasToken } from '../../model'
 import { parseTime } from '../../util/function'
-import { IProblem, IContest, HistoryProps, MatchProps } from '../../util/interface'
+import { HistoryProps, IContest, IProblem, MatchProps } from '../../util/interface'
+import { addListener, globalState, removeListener, updateState } from '../../util/state'
+import { renderType } from './index'
 
 class Contest extends React.Component<HistoryProps & MatchProps> {
 	private timer = undefined as any
-	state = {
+	public state = {
 		process: 0,
+		status: '',
 		tabKey: 'description',
 		contest: {} as IContest,
 		problems: [] as IProblem[],
-		global: state.globalState
+		global: globalState
 	}
-	componentWillMount() {
+	private refreshProcess = (c?: IContest) => {
+		const { startAt, endAt } = c || this.state.contest
+		const st = new Date(startAt)
+		const et = new Date(endAt)
+		const now = new Date()
+		const diff = +now - +st
+		const status = parseTime(diff)
+		let process = 100 * diff / (+et - +st)
+		if (process < 0) { process = 0 }
+		if (process > 100) { process = 100 }
+		this.setState({ process, status })
+	}
+	public componentWillMount() {
 		const { params } = this.props.match
-		state.updateState({ path: [
+		updateState({ path: [
 			{ url: '/contest', text: 'Contest' }, params.id
 		] })
-		state.addListener('contest', global => this.setState({ global }))
+		addListener('contest', (global) => this.setState({ global }))
 		this.componentWillReceiveProps(this.props)
-		if (!model.hasToken()) { return }
-		model.getContest(params.id)
-			.then(contest => {
+		if (!hasToken()) { return }
+		getContest(params.id)
+			.then((contest) => {
 				this.setState({ contest })
 				this.refreshProcess(contest)
 			})
-			.catch(err => message.error(err))
-		model.getProblems({ cid: params.id })
+			.catch(message.error)
+		getProblems({ cid: params.id })
 			.then(({ list: problems }) => this.setState({ problems }))
-			.catch(err => console.warn(err))
+			.catch(console.warn)
 		this.timer = setInterval(this.refreshProcess, 1000)
 	}
-	componentWillUnmount() {
-		clearInterval(this.timer)
-		state.removeListener('contest')
-	}
-	componentWillReceiveProps(nextProps: HistoryProps & MatchProps) {
+	public componentWillReceiveProps(nextProps: HistoryProps & MatchProps) {
 		const { hash } = nextProps.history.location
 		if (hash) { this.setState({ tabKey: hash.replace('#', '') }) }
 	}
-	refreshProcess = (c?: IContest) => {
-		const { startAt, endAt } = c || this.state.contest
-		const st = new Date(startAt), et = new Date(endAt)
-		const now = new Date(), diff = +now - +st
-		let process = 100 * diff / (+et - +st)
-		if (process < 0) { process = 0 }
-		if (process > 100) { process =100 }
-		this.setState({ process })
+	public componentWillUnmount() {
+		clearInterval(this.timer)
+		removeListener('contest')
 	}
-	render() {
-		const { startAt, endAt, type } = this.state.contest
-		const { _id, title, description } = this.state.contest
-		const st = new Date(startAt), et = new Date(endAt)
-		const now = new Date(), diff = parseTime(+now - +st)
+	public render() {
+		const { process, status, contest } = this.state
+		const { _id, title, description } = contest
+		const { startAt, endAt, type } = contest
+
 		return <React.Fragment>
 			<LoginTip />
 			<Card
@@ -69,9 +74,9 @@ class Contest extends React.Component<HistoryProps & MatchProps> {
 			>
 				<Progress percent={this.state.process} showInfo={false} />
 				<Row type="flex" justify="space-between">
-					<Col>{st.toLocaleString()}</Col>
-					<Col>{now < et ? diff : 'Ended'}</Col>
-					<Col>{et.toLocaleString()}</Col>
+					<Col>{new Date(startAt).toLocaleString()}</Col>
+					<Col>{process < 100 ? status : 'Ended'}</Col>
+					<Col>{new Date(endAt).toLocaleString()}</Col>
 				</Row>
 			</Card>
 			<div className="divider" />
@@ -83,11 +88,11 @@ class Contest extends React.Component<HistoryProps & MatchProps> {
 					{ key: 'scoreboard', tab: 'Scoreboard' }
 				]}
 				activeTabKey={this.state.tabKey}
-				onTabChange={tabKey => {
+				onTabChange={(tabKey) => {
 					this.setState({ tabKey })
 					this.props.history.push(`#${tabKey}`)
 				}}
-      >
+			>
 				{this.state.tabKey === 'description' && <Markdown
 					escapeHtml={false}
 					source={description}
@@ -104,12 +109,12 @@ class Contest extends React.Component<HistoryProps & MatchProps> {
 						{ width: 200, title: 'Title', dataIndex: 'title', render: (t, r) => <Link
 							children={t} to={`/problem/${r._id}`}
 						/> },
-						{ width: 200, title: 'Action', dataIndex: '_id', render: _id => <a
-							children="Open in new tab" href={`/problem/${_id}`} target="_blank"
+						{ width: 200, title: 'Action', dataIndex: '_id', render: (id) => <a
+							children="Open in new tab" href={`/problem/${id}`} target="_blank"
 						/> }
 					]}
 				/>}
-      </Card>
+			</Card>
 		</React.Fragment>
 	}
 }
