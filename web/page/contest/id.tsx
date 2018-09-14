@@ -38,19 +38,22 @@ class Contest extends React.Component<HistoryProps & MatchProps> {
 		updateState({ path: [
 			{ url: '/contest', text: 'Contest' }, params.id
 		] })
-		addListener('contest', (global) => this.setState({ global }))
+		addListener('contest', (global) => {
+			this.setState({ global })
+		})
 		this.componentWillReceiveProps(this.props)
-		if (!hasToken()) { return }
-		getContest(params.id)
-			.then((contest) => {
-				this.setState({ contest })
-				this.refreshProcess(contest)
-			})
-			.catch(message.error)
-		getProblems({ cid: params.id })
-			.then(({ list: problems }) => this.setState({ problems }))
-			.catch(console.warn)
-		this.timer = setInterval(this.refreshProcess, 1000)
+		if (hasToken()) {
+			getContest(params.id)
+				.then((contest) => {
+					this.setState({ contest })
+					this.refreshProcess(contest)
+				})
+				.catch(message.error)
+			getProblems({ cid: params.id })
+				.then(({ list: problems }) => this.setState({ problems }))
+				.catch(console.warn)
+			this.timer = setInterval(this.refreshProcess, 1000)
+		}
 	}
 	public componentWillReceiveProps(nextProps: HistoryProps & MatchProps) {
 		const { hash } = nextProps.history.location

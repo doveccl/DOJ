@@ -21,11 +21,14 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 		updateState({ path: [
 			{ url: '/problem', text: 'Problem' }, params.id
 		] })
-		addListener('problem', (global) => this.setState({ global }))
-		if (!hasToken()) { return }
-		getProblem(params.id)
-			.then((problem) => this.setState({ problem }))
-			.catch((err) => message.error(err))
+		addListener('problem', (global) => {
+			this.setState({ global })
+		})
+		if (!hasToken()) {
+			getProblem(params.id)
+				.then((problem) => this.setState({ problem }))
+				.catch((err) => message.error(err))
+		}
 	}
 	public componentWillUnmount() {
 		removeListener('problem')

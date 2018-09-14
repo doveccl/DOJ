@@ -29,10 +29,11 @@ class Header extends React.Component<HistoryProps> {
 		addListener('header', (global) => {
 			this.setState({ global })
 		})
-		if (!hasToken()) { return }
-		getSelfInfo()
-			.then((user) => updateState({ user }))
-			.catch(console.warn)
+		if (hasToken()) {
+			getSelfInfo()
+				.then((user) => updateState({ user }))
+				.catch(console.warn)
+		}
 	}
 	public componentWillUnmount() {
 		removeListener('header')
