@@ -1,19 +1,18 @@
 import * as Router from 'koa-router'
 
-import Problem from '../model/problem'
-import Contest from '../model/contest'
-
+import { forGroup, token } from '../middleware/auth'
 import { urlFetch } from '../middleware/fetch'
-import { token, forGroup } from '../middleware/auth'
+import { Contest } from '../model/contest'
+import { Problem } from '../model/problem'
 
 const router = new Router()
 
 router.use('/contest', token())
 
-router.get('/contest', async ctx => {
+router.get('/contest', async (ctx) => {
 	let { page, size } = ctx.query
-	page = parseInt(page) || 1
-	size = parseInt(size) || 50
+	page = parseInt(page, 10) || 1
+	size = parseInt(size, 10) || 50
 	const total = await Contest.countDocuments()
 	const list = await Contest.find()
 		.sort({ _id: -1 })
@@ -22,18 +21,18 @@ router.get('/contest', async ctx => {
 	ctx.body = { total, list }
 })
 
-router.post('/contest', forGroup('admin'), async ctx => {
+router.post('/contest', forGroup('admin'), async (ctx) => {
 	const { startAt, endAt, freezeAt } = ctx.request.body
 	if (startAt >= endAt) { throw new Error('invalid datetime range') }
 	if (freezeAt >= endAt) { throw new Error('invalid freeze time') }
 	ctx.body = await Contest.create(ctx.request.body)
 })
 
-router.get('/contest/:id', urlFetch('contest'), async ctx => {
+router.get('/contest/:id', urlFetch('contest'), async (ctx) => {
 	ctx.body = ctx.contest
 })
 
-router.put('/contest/:id', forGroup('admin'), urlFetch('contest'), async ctx => {
+router.put('/contest/:id', forGroup('admin'), urlFetch('contest'), async (ctx) => {
 	const { startAt, endAt, freezeAt } = ctx.request.body
 	const { startAt: s, endAt: e, freezeAt: f } = ctx.contest
 	if (
@@ -50,7 +49,7 @@ router.put('/contest/:id', forGroup('admin'), urlFetch('contest'), async ctx => 
 	ctx.contest.set(ctx.request.body)
 })
 
-router.del('/contest/:id', forGroup('admin'), urlFetch('contest'), async ctx => {
+router.del('/contest/:id', forGroup('admin'), urlFetch('contest'), async (ctx) => {
 	ctx.body = await ctx.contest.remove()
 	await Problem.updateMany(
 		{ 'contest.id': ctx.params.id },

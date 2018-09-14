@@ -1,4 +1,4 @@
-import { Schema, Document, model } from 'mongoose'
+import { model, Document, Schema } from 'mongoose'
 
 export enum Status {
 	WAIT, // Pending
@@ -88,4 +88,4 @@ const schema = new Schema({
 	timestamps: true
 })
 
-export default model<ISubmission>('submission', schema)
+export const Submission = model<ISubmission>('submission', schema)

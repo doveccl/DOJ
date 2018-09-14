@@ -1,4 +1,4 @@
-import { Schema, Document, model } from 'mongoose'
+import { model, Document, Schema } from 'mongoose'
 
 export enum UserGroup { common, admin, root }
 
@@ -58,4 +58,4 @@ const schema = new Schema({
 	}
 })
 
-export default model<IUser>('user', schema)
+export const User = model<IUser>('user', schema)

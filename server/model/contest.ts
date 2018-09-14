@@ -1,4 +1,4 @@
-import { Schema, Document, model } from 'mongoose'
+import { model, Document, Schema } from 'mongoose'
 
 export enum ContestType { OI, ICPC }
 
@@ -46,4 +46,4 @@ const schema = new Schema({
 	timestamps: true
 })
 
-export default model<IContest>('contest', schema)
+export const Contest = model<IContest>('contest', schema)

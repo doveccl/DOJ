@@ -1,29 +1,30 @@
+import * as bcrypt from 'bcryptjs'
+import * as config from 'config'
 import * as Router from 'koa-router'
-import { hashSync, compareSync } from 'bcryptjs'
-import { get } from 'config'
 
-import User, { UserGroup } from '../model/user'
 import { password } from '../middleware/auth'
+import { User, UserGroup } from '../model/user'
 import { validatePassword } from '../util/function'
 import { sign, verify } from '../util/jwt'
-import { has, put } from '../util/timeset'
 import { send } from '../util/mail'
+import { has, put } from '../util/timeset'
 
 const router = new Router()
 
-router.get('/login', password(), async ctx => {
+router.get('/login', password(), async (ctx) => {
 	ctx.body = ctx.self.toJSON()
 	ctx.body.token = await sign({ id: ctx.self._id })
 	delete ctx.body.password
 })
 
-router.post('/register', async ctx => {
-	const { name, mail, password, invitation } = ctx.request.body
-	if (!get<boolean>('openRegistration') && !invitation) {
+router.post('/register', async (ctx) => {
+	const pass = ctx.request.body.password
+	const { name, mail, invitation } = ctx.request.body
+	if (!config.get('openRegistration') && !invitation) {
 		throw new Error('invitation code is required')
 	}
 
-	validatePassword(password)
+	validatePassword(pass)
 	let group = UserGroup.common
 	if (invitation) {
 		try {
@@ -31,7 +32,7 @@ router.post('/register', async ctx => {
 			const { mail: m, group: g } = data
 			if (typeof g === 'number') { group = g }
 			if (m !== mail) { throw new Error() }
-		} catch(e) {
+		} catch (e) {
 			throw new Error('invalid invitation code')
 		}
 	}
@@ -44,36 +45,40 @@ router.post('/register', async ctx => {
 	}
 
 	const { _id: id } = await User.create({
-		name, mail, group, password: hashSync(password)
+		name, mail, group, password: bcrypt.hashSync(pass)
 	})
 	ctx.body = { name, mail, token: await sign({ id }) }
 })
 
-router.get('/reset', async ctx => {
-	const user: string = ctx.query.user, name = user, mail = user
-	const u = await User.findOne({ $or: [{ name }, { mail }] })
+router.get('/reset', async (ctx) => {
+	const user = ctx.query.user
+	const condition = [{ name: user }, { mail: user }]
+	const u = await User.findOne({ $or: condition })
+
 	if (!u) { throw new Error('invalid user name or mail') }
 	if (has(u.mail)) { throw new Error('please try later') } else { put(u.mail) }
 
-	const id = u._id, hash = hashSync(u.password)
-	const code = await sign({ id, hash }, undefined, { expiresIn: '1h' })
+	const hash = bcrypt.hashSync(u.password)
+	const code = await sign({ id: u._id, hash }, undefined, { expiresIn: '1h' })
+
 	await send(u.mail, 'Verify code for password reset', code)
 	ctx.body = { mail: u.mail.replace(/^(\w)[^@]*@/, '$1***@') }
 })
 
-router.put('/reset', async ctx => {
-	let { code, password } = ctx.request.body
+router.put('/reset', async (ctx) => {
+	const { code, password: pass } = ctx.request.body
+
 	const data: any = await verify(code)
 	const user = await User.findById(data.id)
 
-	validatePassword(password)
-	if (!compareSync(user.password, data.hash)) {
+	validatePassword(pass)
+	if (!bcrypt.compareSync(user.password, data.hash)) {
 		throw new Error('invalid verify code')
 	}
-	if (compareSync(password, user.password)) {
+	if (bcrypt.compareSync(pass, user.password)) {
 		throw new Error('new password should be different from the old one')
 	}
-	ctx.body = await user.update({ password: hashSync(password) })
+	ctx.body = await user.update({ password: bcrypt.hashSync(pass) })
 })
 
 export default router

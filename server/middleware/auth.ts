@@ -1,10 +1,10 @@
-import { Middleware } from 'koa'
 import { compareSync } from 'bcryptjs'
+import { Middleware } from 'koa'
 
-import User, { IUser, UserGroup } from '../model/user'
+import { IUser, User, UserGroup } from '../model/user'
 import { verify } from '../util/jwt'
 
-declare module "koa" {
+declare module 'koa' {
 	interface Context {
 		self?: IUser
 	}
@@ -13,23 +13,20 @@ declare module "koa" {
 export function password(): Middleware {
 	return async (ctx, next) => {
 		const user = ctx.get('user')
-		const password = ctx.get('password')
-		const name = user, mail = user
-		ctx.self = await User.findOne({ $or: [{ name }, { mail }] })
-		if (!ctx.self || !compareSync(password, ctx.self.password)) {
+		const pass = ctx.get('password')
+		const condition = [{ name: user }, { mail: user }]
+		ctx.self = await User.findOne({ $or: condition })
+		if (!ctx.self || !compareSync(pass, ctx.self.password)) {
 			throw new Error('invalid user or password')
 		}
 		await next()
 	}
 }
 
-export function token(getCookie = false): Middleware {
+export function token(cookie = false, k = 'token'): Middleware {
 	return async (ctx, next) => {
-		let token: string = ctx.get('token')
-		if (!token && getCookie && ctx.method === 'GET') {
-			token = ctx.cookies.get('token')
-		}
-		const data: any = await verify(token)
+		const tkn = ctx.get(k) || cookie && ctx.cookies.get(k)
+		const data: any = await verify(tkn || '')
 		ctx.self = await User.findById(data.id)
 		if (!ctx.self) { throw new Error('login required') }
 		await next()
@@ -45,7 +42,7 @@ export function isGroup(user: IUser, type: string | number, diff = 0) {
 			group = UserGroup[type]
 			break
 		default:
-			group = +new Number(type)
+			group = Number(type)
 	}
 	return user && user.group - group >= diff
 }

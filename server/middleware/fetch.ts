@@ -1,12 +1,12 @@
 import { Middleware } from 'koa'
 
-import User, { IUser } from '../model/user'
-import Problem, { IProblem } from '../model/problem'
-import Contest, { IContest } from '../model/contest'
-import Submission, { ISubmission } from '../model/submission'
-import File, { IFile } from '../model/file'
+import { Contest, IContest } from '../model/contest'
+import { File, IFile } from '../model/file'
+import { IProblem, Problem } from '../model/problem'
+import { ISubmission, Submission } from '../model/submission'
+import { IUser, User } from '../model/user'
 
-declare module "koa" {
+declare module 'koa' {
 	interface Context {
 		user?: IUser
 		problem?: IProblem
@@ -67,7 +67,7 @@ export function urlFetch(
 		'submission' |
 		'file'
 ): Middleware {
-	return async(ctx, next) => {
+	return async (ctx, next) => {
 		if (ctx.params.id) {
 			ctx[type] = await fetch(type, ctx.params.id)
 			if (!ctx[type]) { throw new Error(`${type} not found`) }

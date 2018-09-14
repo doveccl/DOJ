@@ -1,25 +1,24 @@
 import * as Router from 'koa-router'
 
-import File, { TYPE_REG } from '../model/file'
-
+import { ensureGroup, forGroup, token } from '../middleware/auth'
 import { urlFetch } from '../middleware/fetch'
-import { token, ensureGroup, forGroup } from '../middleware/auth'
+import { File, TYPE_REG } from '../model/file'
 
 const router = new Router()
 
 router.use('/file', token(true))
 
-router.get('/file', forGroup('admin'), async ctx => {
+router.get('/file', forGroup('admin'), async (ctx) => {
 	let { page, size } = ctx.query
-	page = parseInt(page) || 1
-	size = parseInt(size) || 50
+	page = parseInt(page, 10) || 1
+	size = parseInt(size, 10) || 50
 	const total = await File.countDocuments()
 	const list = await File.find()
 		.skip(size * (page - 1)).limit(size)
 	ctx.body = { total, list }
 })
 
-router.get('/file/:id', urlFetch('file'), async ctx => {
+router.get('/file/:id', urlFetch('file'), async (ctx) => {
 	if (ctx.file.metadata === 'data') {
 		ensureGroup(ctx.self, 'admin')
 	}
@@ -28,10 +27,10 @@ router.get('/file/:id', urlFetch('file'), async ctx => {
 	ctx.body = File.creatReadStream(ctx.params.id)
 })
 
-router.post('/file', forGroup('admin'), async ctx => {
+router.post('/file', forGroup('admin'), async (ctx) => {
 	const keys = Object.keys(ctx.request.files)
-	ctx.body = <any[]>[]
-	for (let key of keys) {
+	ctx.body = [] as any[]
+	for (const key of keys) {
 		const file = ctx.request.files[key]
 		if (TYPE_REG.test(file.type)) {
 			const { path, name, type } = file
@@ -42,12 +41,12 @@ router.post('/file', forGroup('admin'), async ctx => {
 	}
 })
 
-router.put('/file/:id', forGroup('admin'), urlFetch('file'), async ctx => {
+router.put('/file/:id', forGroup('admin'), urlFetch('file'), async (ctx) => {
 	const { filename } = ctx.request.body
 	ctx.body = await ctx.file.update({ filename })
 })
 
-router.del('/file/:id', forGroup('admin'), urlFetch('file'), async ctx => {
+router.del('/file/:id', forGroup('admin'), urlFetch('file'), async (ctx) => {
 	ctx.body = await File.findByIdAndRemove(ctx.params.id)
 })
 

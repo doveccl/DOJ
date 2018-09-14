@@ -23,7 +23,7 @@ export default (): Middleware => Compose([
 			await next()
 			if (ctx.type !== 'application/json') { return }
 			ctx.body = { success: true, data: ctx.body }
-		} catch(e) {
+		} catch (e) {
 			logServer.error(e.message)
 			logServer.debug(e.stack)
 			if (/(:?login|jwt)/i.test(e.message)) {

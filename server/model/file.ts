@@ -1,6 +1,6 @@
 import * as fs from 'fs'
-import { Schema, Document, model, connection } from 'mongoose'
-import { ObjectID, GridFSBucket, GridFSBucketOpenUploadStreamOptions } from 'mongodb'
+import { GridFSBucket, GridFSBucketOpenUploadStreamOptions, ObjectID } from 'mongodb'
+import { connection, model, Document, Schema } from 'mongoose'
 
 export const TYPE_REG = /(:?image|pdf|zip)/
 
@@ -41,7 +41,7 @@ const FS = model<IFile>('fs.file', schema)
 let bucket: GridFSBucket
 connection.on('open', () => bucket = new GridFSBucket(connection.db))
 
-export default class {
+export class File {
 	public static create(
 		path: string, filename: string,
 		opts?: GridFSBucketOpenUploadStreamOptions
@@ -49,7 +49,7 @@ export default class {
 		return new Promise<any>((resolve, reject) => {
 			const stream = bucket.openUploadStream(filename, opts)
 			fs.createReadStream(path).pipe(stream)
-				.on('error', error => reject(error))
+				.on('error', (error) => reject(error))
 				.on('finish', () => resolve(stream.id))
 		})
 	}
@@ -70,7 +70,7 @@ export default class {
 	}
 	public static findByIdAndRemove(id: any) {
 		return new Promise<any>((resolve, reject) => {
-			bucket.delete(new ObjectID(id), error => {
+			bucket.delete(new ObjectID(id), (error) => {
 				if (error) { reject(error) }
 				resolve({ id })
 			})

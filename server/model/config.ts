@@ -1,4 +1,4 @@
-import { Schema, Document, model } from 'mongoose'
+import { model, Document, Schema } from 'mongoose'
 
 export interface IConfig extends Document {
 	_id: string
@@ -20,13 +20,13 @@ const schema = new Schema({
 
 const modelConfig = model<IConfig>('config', schema)
 
-const createIfNotExist = async (_id: string, value: any) => {
-	if (!await modelConfig.findById(_id)) {
-		await modelConfig.create({ _id, value })
+const createIfNotExist = async (id: string, value: any) => {
+	if (!await modelConfig.findById(id)) {
+		await modelConfig.create({ _id: id, value })
 	}
 }
 
 createIfNotExist('notification', 'DOJ notification')
 createIfNotExist('faq', 'DOJ FAQ')
 
-export default modelConfig
+export { modelConfig as Config }

@@ -1,13 +1,13 @@
-import * as Route from 'koa-router'
 import * as Compose from 'koa-compose'
+import * as Route from 'koa-router'
 
 import Account from './account'
-import User from './user'
-import Problem from './problem'
-import Contest from './contest'
-import Submission from './submission'
 import Config from './config'
+import Contest from './contest'
 import File from './file'
+import Problem from './problem'
+import Submission from './submission'
+import User from './user'
 
 const router = new Route({ prefix: '/api' })
 

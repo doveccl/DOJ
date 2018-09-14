@@ -1,10 +1,9 @@
 import * as Router from 'koa-router'
 
+import { isGroup, token } from '../middleware/auth'
+import { contest, problem, urlFetch, user } from '../middleware/fetch'
+import { ISubmission, Status, Submission } from '../model/submission'
 import { IUser } from '../model/user'
-import Submission, { ISubmission, Status } from '../model/submission'
-
-import { token, isGroup } from '../middleware/auth'
-import { user, problem, contest, urlFetch } from '../middleware/fetch'
 import { toStringCompare } from '../util/function'
 
 const router = new Router()
@@ -52,40 +51,42 @@ async function parseSubmission(record: ISubmission, self: IUser) {
 	return result
 }
 
-router.get('/submission', async ctx => {
-	let { page, size, uid, pid, cid } = ctx.query
+router.get('/submission', async (ctx) => {
+	const { uid, pid, cid } = ctx.query
+	let { page, size } = ctx.query
+
 	const condition: any = { uid, pid, cid }
-	for (let k of ['uid', 'pid', 'cid']) {
+	for (const k of ['uid', 'pid', 'cid']) {
 		if (!condition[k]) { delete condition[k] }
 	}
 
-	page = parseInt(page) || 1
-	size = parseInt(size) || 50
+	page = parseInt(page, 10) || 1
+	size = parseInt(size, 10) || 50
 	const total = await Submission.countDocuments(condition)
 	if (size === -1) { size = total }
 	const arr = await Submission.find(condition)
 		.select('-code -cases')
 		.skip(size * (page - 1)).limit(size)
 	const list: any[] = []
-	for (let item of arr) {
+	for (const item of arr) {
 		list.push(await parseSubmission(item, ctx.self))
 	}
 	ctx.body = { total, list }
 })
 
-router.get('/submission/:id', urlFetch('submission'), async ctx => {
+router.get('/submission/:id', urlFetch('submission'), async (ctx) => {
 	ctx.body = await parseSubmission(ctx.submission, ctx.self)
 })
 
 /**
  * user can only modify code visibility to others
  */
-router.put('/submission/:id', urlFetch('submission'), async ctx => {
+router.put('/submission/:id', urlFetch('submission'), async (ctx) => {
 	const { open } = ctx.request.body
 	ctx.body = await ctx.submission.update({ open }, { runValidators: true })
 })
 
-router.post('/submission', async ctx => {
+router.post('/submission', async (ctx) => {
 	const { body } = ctx.request
 	const p = await problem(body.pid)
 	body.uid = ctx.self._id

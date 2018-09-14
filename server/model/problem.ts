@@ -1,4 +1,4 @@
-import { Schema, Document, model } from 'mongoose'
+import { model, Document, Schema } from 'mongoose'
 
 export interface IProblem extends Document {
 	title: string
@@ -34,7 +34,7 @@ const schema = new Schema({
 	},
 	tags: {
 		type: [String],
-		default: <string[]>[]
+		default: [] as string[]
 	},
 	timeLimit: {
 		type: Number,
@@ -65,4 +65,4 @@ const schema = new Schema({
 	timestamps: true
 })
 
-export default model<IProblem>('problem', schema)
+export const Problem = model<IProblem>('problem', schema)
