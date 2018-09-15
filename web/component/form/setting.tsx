@@ -3,10 +3,15 @@ import * as React from 'react'
 import { message, Button, Form, Input } from 'antd'
 import { FormComponentProps } from 'antd/lib/form'
 
-import { register } from '../../model'
-import { HistoryProps } from '../../util/interface'
+import { putUser } from '../../model'
+import { IUser } from '../../util/interface'
 
-class RegisterForm extends React.Component<HistoryProps & FormComponentProps> {
+interface SettingFormProps extends FormComponentProps {
+	user: IUser
+	callback: (user: IUser) => any
+}
+
+class SettingForm extends React.Component<SettingFormProps> {
 	public state = {
 		loading: false
 	}
@@ -23,10 +28,12 @@ class RegisterForm extends React.Component<HistoryProps & FormComponentProps> {
 		this.props.form.validateFields((error, values) => {
 			if (!error) {
 				this.setState({ loading: true })
-				register(values)
+				putUser(this.props.user._id, values)
 					.then(() => {
-						message.success('registration success')
-						this.props.history.replace('/login')
+						const { user, callback } = this.props
+						callback(Object.assign(user, values))
+						message.success('modify success')
+						this.setState({ loading: false })
 					})
 					.catch((err) => {
 						message.error(err)
@@ -51,6 +58,7 @@ class RegisterForm extends React.Component<HistoryProps & FormComponentProps> {
 		return <Form onSubmit={this.handleSubmit}>
 			<Form.Item label="Name" {...formItemLayout}>
 				{getFieldDecorator('name', {
+					initialValue: this.props.user.name,
 					rules: [
 						{ required: true, message: 'Please input your name' },
 						{ pattern: /^[a-zA-Z0-9][a-zA-Z0-9_]{2,14}$/, message: 'Invalid pattern' }
@@ -61,6 +69,7 @@ class RegisterForm extends React.Component<HistoryProps & FormComponentProps> {
 			</Form.Item>
 			<Form.Item label="Mail" {...formItemLayout}>
 				{getFieldDecorator('mail', {
+					initialValue: this.props.user.mail,
 					rules: [
 						{ required: true, message: 'Please input your mail' },
 						{ type: 'email', message: 'Invalid email pattern' }
@@ -69,41 +78,46 @@ class RegisterForm extends React.Component<HistoryProps & FormComponentProps> {
 					<Input placeholder="Valid mail (for password retrieve) is required" />
 				)}
 			</Form.Item>
-			<Form.Item label="Password" {...formItemLayout}>
+			<Form.Item label="Introduction" {...formItemLayout}>
+				{getFieldDecorator('introduction', {
+					initialValue: this.props.user.introduction
+				})(
+					<Input.TextArea
+						rows={5}
+						placeholder="Your introduction"
+					/>
+				)}
+			</Form.Item>
+			<Form.Item label="Old password" {...formItemLayout}>
+				{getFieldDecorator('oldPassword')(
+					<Input type="password" placeholder="Your old password" />
+				)}
+			</Form.Item>
+			<Form.Item label="New password" {...formItemLayout}>
 				{getFieldDecorator('password', {
 					rules: [
-						{ required: true, message: 'Please input your password' },
 						{ min: 6, max: 20, message: 'Length of password should be 6-20' }
 					]
 				})(
-					<Input type="password" placeholder="Your password (length 6-20)" />
+					<Input type="password" placeholder="Your new password (length 6-20)" />
 				)}
 			</Form.Item>
 			<Form.Item label="Confirm" {...formItemLayout}>
 				{getFieldDecorator('password2', {
 					rules: [
-						{ required: true, message: 'Please confirm your password' },
 						{ validator: this.comparePassword }
 					]
 				})(
-					<Input type="password" placeholder="Confirm your password" />
-				)}
-			</Form.Item>
-			<Form.Item label="Invitation code" {...formItemLayout}>
-				{getFieldDecorator('invitation')(
-					<Input.TextArea
-						rows={5}
-						placeholder="This filed is not required if OJ is open for registration"
-					/>
+					<Input type="password" placeholder="Confirm your new password" />
 				)}
 			</Form.Item>
 			<Form.Item {...tailFormItemLayout}>
 				<Button type="primary" htmlType="submit" loading={this.state.loading}>
-					Register
+					Save
 				</Button>
 			</Form.Item>
 		</Form>
 	}
 }
 
-export default Form.create()(RegisterForm)
+export default Form.create()(SettingForm)

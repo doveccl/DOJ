@@ -3,10 +3,11 @@ import * as React from 'react'
 import { message, Button, Form, Input } from 'antd'
 import { FormComponentProps } from 'antd/lib/form'
 
-import * as model from '../../model'
+import { getReset, putReset } from '../../model'
+import { logout } from '../../model'
 import { HistoryProps } from '../../util/interface'
 
-class ResetForm extends React.Component<HistoryProps & FormComponentProps, any> {
+class ResetForm extends React.Component<HistoryProps & FormComponentProps> {
 	public state = {
 		loading: false,
 		countdown: 0
@@ -23,7 +24,7 @@ class ResetForm extends React.Component<HistoryProps & FormComponentProps, any> 
 		const form = this.props.form
 		const user = form.getFieldValue('user')
 		this.setState({ loading: true })
-		model.getReset(user)
+		getReset(user)
 			.then(({ mail }) => {
 				message.success(`Verify code has been sent to '${mail}'`, 5)
 				this.setState({ countdown: 60, loading: false })
@@ -46,8 +47,9 @@ class ResetForm extends React.Component<HistoryProps & FormComponentProps, any> 
 		this.props.form.validateFields((error, values) => {
 			if (!error) {
 				this.setState({ loading: true })
-				model.putReset(values)
+				putReset(values)
 					.then(() => {
+						logout()
 						message.success('password reset success')
 						this.props.history.replace('/login')
 					})
@@ -72,7 +74,7 @@ class ResetForm extends React.Component<HistoryProps & FormComponentProps, any> 
 				md: { span: 20, offset: 4 }
 			}
 		}
-		return <Form onSubmit={this.handleSubmit} className="register-form">
+		return <Form onSubmit={this.handleSubmit}>
 			<Form.Item label="User" {...formItemLayout}>
 				<Input.Group compact={true}>
 					{getFieldDecorator('user')(

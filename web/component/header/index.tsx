@@ -1,10 +1,10 @@
-import * as md5 from 'md5'
 import * as React from 'react'
 import { withRouter } from 'react-router-dom'
 
 import { Avatar, Icon, Layout, Menu } from 'antd'
 
 import { getSelfInfo, hasToken, logout } from '../../model'
+import { alink } from '../../util/function'
 import { HistoryProps } from '../../util/interface'
 import { addListener, globalState, removeListener, updateState } from '../../util/state'
 
@@ -39,13 +39,7 @@ class Header extends React.Component<HistoryProps> {
 		removeListener('header')
 	}
 	public render() {
-		let { mhash, avatar } = {} as any
 		const { user } = this.state.global
-		if (user) {
-			mhash = md5(user.mail.trim().toLowerCase())
-			avatar = `//cdn.v2ex.com/gravatar/${mhash}?d=wavatar`
-		}
-
 		return <Layout.Header className="header">
 			<Menu
 				mode="horizontal"
@@ -56,7 +50,8 @@ class Header extends React.Component<HistoryProps> {
 				{user && <Menu.SubMenu
 					key="user"
 					title={<span>
-						<Avatar className="avatar" src={avatar} />
+						<Avatar src={alink(user) }/>
+						<div className="hdivider" />
 						<span>{user.name}</span>
 					</span>}
 				>

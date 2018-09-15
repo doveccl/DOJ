@@ -7,7 +7,7 @@ import { login } from '../../model'
 import { HistoryProps } from '../../util/interface'
 import { updateState } from '../../util/state'
 
-class LoginForm extends React.Component<HistoryProps & FormComponentProps, any> {
+class LoginForm extends React.Component<HistoryProps & FormComponentProps> {
 	public state = {
 		loading: false
 	}
@@ -49,7 +49,7 @@ class LoginForm extends React.Component<HistoryProps & FormComponentProps, any> 
 				md: { span: 20, offset: 4 }
 			}
 		}
-		return <Form onSubmit={this.handleSubmit} className="login-form">
+		return <Form onSubmit={this.handleSubmit}>
 			<Form.Item label="User" {...formItemLayout}>
 				{getFieldDecorator('user', {
 					rules: [{ required: true, message: 'Please input your name or mail' }]

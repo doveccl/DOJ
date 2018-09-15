@@ -1,6 +1,12 @@
+import * as md5 from 'md5'
 import { IUser, UserGroup } from './interface'
 
 export const Int = (x: any) => parseInt(x, 10)
+
+const g = (h = '', d = 'mm') => `//cdn.v2ex.com/gravatar/${h}?d=${d}`
+export function alink(user?: IUser, d = 'wavatar') {
+	return g(md5(user ? user.mail : ''), d)
+}
 
 export function isGroup(user: IUser, type: string | number, diff = 0) {
 	let group: UserGroup
