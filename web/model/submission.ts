@@ -7,8 +7,20 @@ export function getSubmissions(params?: any) {
 	)
 }
 
+export function getSubmission(id: any) {
+	return wrap(
+		axios.get(`/submission/${id}`)
+	)
+}
+
 export function postSubmission(data: any) {
 	return wrap(
 		axios.post('/submission', data)
+	)
+}
+
+export function putSubmission(id: any, data: any) {
+	return wrap(
+		axios.put(`/submission/${id}`, data)
 	)
 }

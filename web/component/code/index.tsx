@@ -43,6 +43,7 @@ const LAN_SET = [
 ]
 
 function escapeHtml(unsafe: string) {
+	if (!unsafe) { return '' }
 	return unsafe
 		.replace(/&/g, '&amp;')
 		.replace(/</g, '&lt;')
@@ -78,18 +79,10 @@ const language2mode = (mode: string) => {
 export default class extends React.Component<CodeProps> {
 	private prevLanguage = undefined as string
 	private prevTheme = undefined as string
-	public state = {
-		editor: undefined as ace.Ace.Editor
-	}
-	private editor = (code: HTMLElement) => {
-		if (!code) { return }
-		const { onChange } = this.props
-		const editor = ace.edit(code, this.getOptions())
-		editor.on('change', () => onChange && onChange(editor.getValue()))
-		this.setState({ editor })
-	}
-	private getOptions = () => {
-		const { language, theme, value } = this.props
+	private editor = undefined as ace.Ace.Editor
+	private viewer = undefined as HTMLElement
+	private getOptions = (props?: CodeProps) => {
+		const { language, theme, value } = props || this.props
 		const options = this.props.options || {}
 		const mode = language2mode(language)
 		if (value) { options.value = value }
@@ -97,30 +90,47 @@ export default class extends React.Component<CodeProps> {
 		if (theme) { options.theme = `ace/theme/${theme}` }
 		return options
 	}
-	private viewer = (code: HTMLElement) => {
+	private refEditor = (code: HTMLElement) => {
 		if (!code) { return }
-		const value = this.props.value || ''
-		code.innerHTML = escapeHtml(value)
+		const { onChange } = this.props
+		const editor = ace.edit(code, this.getOptions())
+		editor.on('change', () => onChange && onChange(editor.getValue()))
+		this.editor = editor
+	}
+	private refViewer = (code: HTMLElement) => {
+		if (!code) { return }
+		code.innerHTML = escapeHtml(this.props.value)
 		highlight(code, this.getOptions())
+		this.viewer = code
 	}
 	public componentWillReceiveProps(nextProps: CodeProps) {
-		const { editor } = this.state
-		if (editor) {
+		if (this.editor) {
 			const { language, theme } = nextProps
+			if (theme && this.prevTheme !== theme) {
+				this.prevTheme = theme
+				this.editor.setTheme(`ace/theme/${theme}`)
+			}
 			if (language && this.prevLanguage !== language) {
 				this.prevLanguage = language
 				const mode = language2mode(language)
-				editor.session.setMode(`ace/mode/${mode}`)
+				this.editor.session.setMode(`ace/mode/${mode}`)
 			}
-			if (theme && this.prevTheme !== theme) {
+		} else if (this.viewer) {
+			const { language, theme } = nextProps
+			if (
+				(theme && this.prevTheme !== theme) ||
+				(language && this.prevLanguage !== language)
+			) {
 				this.prevTheme = theme
-				editor.setTheme(`ace/theme/${theme}`)
+				this.prevLanguage = language
+				this.viewer.innerHTML = escapeHtml(nextProps.value)
+				highlight(this.viewer, this.getOptions(nextProps))
 			}
 		}
 	}
 	public render() {
 		return this.props.static ?
-			<pre ref={this.viewer} className="viewer" /> :
-			<div ref={this.editor} className="editor" />
+			<pre ref={this.refViewer} className="viewer" /> :
+			<div ref={this.refEditor} className="editor" />
 	}
 }

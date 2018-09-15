@@ -15,14 +15,12 @@ class Problems extends React.Component<HistoryProps> {
 		problems: [] as IProblem[],
 		pagination: { current: 1, pageSize: 50, total: 0 }
 	}
-	private handleChange = (pagination: any, keyword?: any) => {
-		const search = typeof keyword === 'string' ?
-			keyword : this.state.search
+	private handleChange = (pagination: any) => {
 		const pager = { ...this.state.pagination }
 		pager.current = pagination.current
 		this.setState({ loading: true, pagination: pager })
 		const { pageSize: size, current: page } = pager
-		getProblems({ page, size, search })
+		getProblems({ page, size, search: this.state.search })
 			.then(({ total, list: problems }) => {
 				this.state.pagination.total = total
 				this.setState({
@@ -38,20 +36,20 @@ class Problems extends React.Component<HistoryProps> {
 	private onSearch = (value: string) => {
 		const pagination = { ...this.state.pagination }
 		pagination.current = 1
-		this.setState({ search: value })
-		this.handleChange(pagination, value)
+		this.setState({ search: value }, () => {
+			this.handleChange(pagination)
+		})
 	}
 	public componentWillMount() {
 		updateState({ path: [ 'Problem' ] })
-		if (!hasToken()) { return }
-		this.handleChange(this.state.pagination)
+		if (hasToken()) { this.handleChange(this.state.pagination) }
 	}
 	public render() {
 		return <React.Fragment>
 			<LoginTip />
 			<Card
 				title="Problems"
-				className="problems"
+				className="list"
 				extra={<Input.Search
 					placeholder="Title, content or tags"
 					onSearch={this.onSearch}
@@ -59,6 +57,7 @@ class Problems extends React.Component<HistoryProps> {
 			>
 				<Table
 					rowKey="_id"
+					size="middle"
 					onRow={({ _id }) => ({
 						onClick: () => this.props.history.push(`/problem/${_id}`)
 					})}

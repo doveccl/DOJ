@@ -29,7 +29,6 @@ export function addListener(
 ) {
 	if (listeners[uniqueKey]) { return false }
 	listeners[uniqueKey] = callback
-	callback(state)
 }
 
 export function removeListener(uniqueKey: string) {

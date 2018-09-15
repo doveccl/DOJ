@@ -1,9 +1,9 @@
 import * as Router from 'koa-router'
 
-import { isGroup, token } from '../middleware/auth'
+import { ensureGroup, isGroup, token } from '../middleware/auth'
 import { contest, problem, urlFetch, user } from '../middleware/fetch'
 import { ISubmission, Status, Submission } from '../model/submission'
-import { IUser } from '../model/user'
+import { IUser, User } from '../model/user'
 import { toStringCompare } from '../util/function'
 
 const router = new Router()
@@ -13,6 +13,7 @@ router.use('/submission', token())
 async function parseSubmission(record: ISubmission, self: IUser) {
 	const admin = isGroup(self, 'admin')
 	const { uid, pid, cid } = record
+	const json = record.toJSON()
 	const u = await user(uid)
 	const p = await problem(pid)
 	const c = await contest(cid)
@@ -21,12 +22,12 @@ async function parseSubmission(record: ISubmission, self: IUser) {
 		 * if submission code is not open to others
 		 * code should be invisible other common user
 		 */
-		if (!record.open) { delete record.code }
+		if (!record.open) { delete json.code }
 		/**
 		 * for contest (before ending) submission code
 		 * other common user also couldn't see it
 		 */
-		if (c && new Date() < c.endAt) { delete record.code }
+		if (c && new Date() < c.endAt) { delete json.code }
 	}
 	if (!admin && c && new Date() < c.endAt) {
 		/**
@@ -34,30 +35,32 @@ async function parseSubmission(record: ISubmission, self: IUser) {
 		 * common user (include itself) couldn't see result before ending
 		 */
 		if (c.freezeAt <= record.createdAt) {
-			delete record.cases
-			record.result = {
+			delete json.cases
+			json.result = {
 				time: 0, memory: 0,
 				status: Status.WAIT
 			}
 		}
 	}
-	const result = record.toJSON()
 	/**
 	 * attach additional data to record
 	 */
-	result.uname = u.name
-	result.ptitle = p.title
-	if (c) { result.ctitle = c.title }
-	return result
+	json.uname = u.name
+	json.ptitle = p.title
+	return json
 }
 
 router.get('/submission', async (ctx) => {
-	const { uid, pid, cid } = ctx.query
+	const { uname, pid, cid } = ctx.query
 	let { page, size } = ctx.query
 
-	const condition: any = { uid, pid, cid }
-	for (const k of ['uid', 'pid', 'cid']) {
+	const condition: any = { uname, pid, cid }
+	for (const k of ['uname', 'pid', 'cid']) {
 		if (!condition[k]) { delete condition[k] }
+	}
+	if (uname) {
+		const u = await User.findOne({ name: uname })
+		if (u) { condition.uid = u._id, delete condition.uname }
 	}
 
 	page = parseInt(page, 10) || 1
@@ -65,7 +68,7 @@ router.get('/submission', async (ctx) => {
 	const total = await Submission.countDocuments(condition)
 	if (size === -1) { size = total }
 	const arr = await Submission.find(condition)
-		.select('-code -cases')
+		.select('-code -cases').sort('-_id')
 		.skip(size * (page - 1)).limit(size)
 	const list: any[] = []
 	for (const item of arr) {
@@ -83,6 +86,8 @@ router.get('/submission/:id', urlFetch('submission'), async (ctx) => {
  */
 router.put('/submission/:id', urlFetch('submission'), async (ctx) => {
 	const { open } = ctx.request.body
+	const { self, submission } = ctx
+	if (!toStringCompare(self._id, submission.uid)) { ensureGroup(self, 'admin') }
 	ctx.body = await ctx.submission.update({ open }, { runValidators: true })
 })
 

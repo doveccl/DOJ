@@ -9,6 +9,8 @@ import Problems from './page/problem'
 import Problem from './page/problem/id'
 import Register from './page/register'
 import Reset from './page/reset'
+import Submissions from './page/submission'
+import Submission from './page/submission/id'
 
 export default class extends React.Component {
 	public render() {
@@ -20,7 +22,8 @@ export default class extends React.Component {
 			<Route path="/problem" component={Problems} />
 			<Route path="/contest/:id" component={Contest} />
 			<Route path="/contest" component={Contests} />
-			<Route path="/submission" />
+			<Route path="/submission/:id" component={Submission} />
+			<Route path="/submission" component={Submissions} />
 			<Route path="/rank" />
 			<Route path="/" component={Home} />
 		</Switch>

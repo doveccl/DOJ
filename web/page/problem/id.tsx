@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { withRouter } from 'react-router-dom'
 
-import { message, Button, Card } from 'antd'
+import { message, Card, Tag } from 'antd'
 
 import WrappedSubmitForm from '../../component/form/submit'
 import LoginTip from '../../component/login-tip'
@@ -13,6 +13,7 @@ import { addListener, globalState, removeListener, updateState } from '../../uti
 class Problem extends React.Component<HistoryProps & MatchProps> {
 	public state = {
 		code: '',
+		tabKey: 'submit',
 		problem: {} as IProblem,
 		global: globalState
 	}
@@ -24,7 +25,7 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 		addListener('problem', (global) => {
 			this.setState({ global })
 		})
-		if (!hasToken()) {
+		if (hasToken()) {
 			getProblem(params.id)
 				.then((problem) => this.setState({ problem }))
 				.catch((err) => message.error(err))
@@ -38,11 +39,9 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 		return <React.Fragment>
 			<LoginTip />
 			<Card
-				loading={!problem.content}
+				loading={!problem._id}
 				title={problem.title || 'Problem'}
-				extra={<a href="#submit">
-					<Button type="primary">Submit</Button>
-				</a>}
+				extra={(problem.tags || []).map((t, i) => <Tag key={i}>{t}</Tag>)}
 			>
 				<Markdown
 					escapeHtml={false}
@@ -51,10 +50,15 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 			</Card>
 			<div className="divider" />
 			<Card
-				id="submit" title="Submit"
+				tabList={[
+					{ key: 'submit', tab: 'Submit' },
+					{ key: 'discuss', tab: 'Discuss' }
+				]}
+				activeTabKey={this.state.tabKey}
+				onTabChange={(tabKey) => this.setState({ tabKey })}
 				loading={!global.user || !problem._id}
 			>
-				{global.user && <WrappedSubmitForm
+				{this.state.tabKey === 'submit' && global.user && <WrappedSubmitForm
 					callback={(id) => this.props.history.push(`/submission/${id}`)}
 					languages={this.state.global.languages}
 					uid={this.state.global.user._id}

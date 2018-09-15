@@ -41,7 +41,6 @@ class Contest extends React.Component<HistoryProps & MatchProps> {
 		addListener('contest', (global) => {
 			this.setState({ global })
 		})
-		this.componentWillReceiveProps(this.props)
 		if (hasToken()) {
 			getContest(params.id)
 				.then((contest) => {

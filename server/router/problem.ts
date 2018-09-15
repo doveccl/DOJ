@@ -23,7 +23,8 @@ router.get('/problem', async (ctx) => {
 	const { all, search, cid } = ctx.query
 	let { page, size } = ctx.query
 
-	const searchRegExp = new RegExp(search)
+	const esc = search.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
+	const searchRegExp = new RegExp(esc, 'i')
 	const condition = {
 		'contest.id': cid,
 		'$or': [

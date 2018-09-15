@@ -7,6 +7,7 @@ const CompressionPlugin = require('compression-webpack-plugin')
 const MiniCssExtractPlugin = require("mini-css-extract-plugin")
 const OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin')
 
+const packageJson = require('./package.json')
 const API_PORT = config.get('port')
 
 module.exports = (env, argv) => {
@@ -49,7 +50,9 @@ module.exports = (env, argv) => {
 				title: 'DOJ',
 				favicon: 'web/logo.png',
 				meta: {
-					viewport: 'width=device-width, initial-scale=1'
+					author: packageJson.author,
+					description: packageJson.description,
+					keywords: packageJson.keywords.join(',')
 				}
 			}),
 			new WebpackCdnPlugin({
@@ -79,6 +82,7 @@ module.exports = (env, argv) => {
 		)
 		config.devServer = {
 			hot: true,
+			host: '0.0.0.0',
 			historyApiFallback: true,
 			proxy: {
 				'/api': `http://localhost:${API_PORT}`

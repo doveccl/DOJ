@@ -91,6 +91,8 @@ export interface ISubmission {
 	cases: IResult[]
 	createdAt: Date
 	updatedAt: Date
+	uname: string
+	ptitle: string
 }
 
 export interface IFile {

@@ -42,15 +42,15 @@ class Contests extends React.Component<HistoryProps> {
 	}
 	public componentWillMount() {
 		updateState({ path: [ 'Contest' ] })
-		if (!hasToken()) { return }
-		this.handleChange(this.state.pagination)
+		if (hasToken()) { this.handleChange(this.state.pagination) }
 	}
 	public render() {
 		return <React.Fragment>
 			<LoginTip />
-			<Card title="Contests" className="contests">
+			<Card title="Contests" className="list">
 				<Table
 					rowKey="_id"
+					size="middle"
 					onRow={({ _id }) => ({
 						onClick: () => this.props.history.push(`/contest/${_id}`)
 					})}
@@ -59,17 +59,17 @@ class Contests extends React.Component<HistoryProps> {
 					pagination={this.state.pagination}
 					onChange={this.handleChange}
 					columns={[
-						{ title: 'Title', width: 20, dataIndex: 'title' },
-						{ title: 'Type', width: 10, dataIndex: 'type', render: renderType},
+						{ title: 'Title', width: 200, dataIndex: 'title' },
+						{ title: 'Type', width: 100, dataIndex: 'type', render: renderType},
 						{
-							title: 'Start', width: 20, dataIndex: 'startAt',
+							title: 'Start At', width: 200, dataIndex: 'startAt',
 							render: (d) => new Date(d).toLocaleString()
 						},
 						{
-							title: 'End', width: 20, dataIndex: 'endAt',
+							title: 'End At', width: 200, dataIndex: 'endAt',
 							render: (d) => new Date(d).toLocaleString()
 						},
-						{ title: 'Status', width: 10, key: 'status', render: (t, r) => {
+						{ title: 'Status', width: 100, key: 'status', render: (t, r) => {
 							const now = new Date()
 							switch (true) {
 								case now < new Date(r.startAt):
