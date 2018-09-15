@@ -23,6 +23,14 @@ class SettingForm extends React.Component<SettingFormProps> {
 			callback()
 		}
 	}
+	private noSamePassword = (rule: any, value: string, callback: (err?: string) => any) => {
+		const form = this.props.form
+		if (value && value === form.getFieldValue('oldPassword')) {
+			callback('New password should be different to the old one')
+		} else {
+			callback()
+		}
+	}
 	private handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault()
 		this.props.form.validateFields((error, values) => {
@@ -34,6 +42,11 @@ class SettingForm extends React.Component<SettingFormProps> {
 						callback(Object.assign(user, values))
 						message.success('modify success')
 						this.setState({ loading: false })
+						this.props.form.setFields({
+							password: '',
+							password2: '',
+							oldPassword: ''
+						})
 					})
 					.catch((err) => {
 						message.error(err)
@@ -96,7 +109,8 @@ class SettingForm extends React.Component<SettingFormProps> {
 			<Form.Item label="New password" {...formItemLayout}>
 				{getFieldDecorator('password', {
 					rules: [
-						{ min: 6, max: 20, message: 'Length of password should be 6-20' }
+						{ min: 6, max: 20, message: 'Length of password should be 6-20' },
+						{ validator: this.noSamePassword }
 					]
 				})(
 					<Input type="password" placeholder="Your new password (length 6-20)" />

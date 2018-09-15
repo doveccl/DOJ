@@ -55,9 +55,8 @@ router.put('/user/:id', urlFetch('user'), async (ctx) => {
 	} else { delete body.group }
 
 	if (body.password !== undefined) {
-		validatePassword(body.oldPassword)
 		if (!bcrypt.compareSync(body.oldPassword, self.password)) {
-			throw new Error('invalid old password')
+			throw new Error('wrong old password')
 		}
 		validatePassword(body.password)
 		body.password = bcrypt.hashSync(body.password)
