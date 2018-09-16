@@ -45,6 +45,7 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 				extra={(problem.tags || []).map((t, i) => <Tag key={i}>{t}</Tag>)}
 			>
 				<Markdown
+					shortCode={true}
 					escapeHtml={false}
 					source={problem.content}
 				/>

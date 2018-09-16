@@ -130,7 +130,7 @@ export default class extends React.Component<CodeProps> {
 	}
 	public render() {
 		return this.props.static ?
-			<pre ref={this.refViewer} className="viewer" /> :
-			<div ref={this.refEditor} className="editor" />
+			<pre ref={this.refViewer} className="code-viewer" /> :
+			<div ref={this.refEditor} className="code-editor" />
 	}
 }

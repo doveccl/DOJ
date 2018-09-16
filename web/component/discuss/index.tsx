@@ -1,11 +1,12 @@
 import * as React from 'react'
 
-import { message, List } from 'antd'
+import { message, Button, Card, List } from 'antd'
 
-import { getPosts } from '../../model'
+import { getPosts, postPost } from '../../model'
 import { isGroup } from '../../util/function'
 import { IPost } from '../../util/interface'
 import { globalState } from '../../util/state'
+import Editor from '../editor'
 import Post from './post'
 
 interface DiscussProps {
@@ -37,6 +38,16 @@ export default class extends React.Component<DiscussProps> {
 				this.setState({ loading: false })
 			})
 	}
+	private handleClick = () => {
+		const { topic } = this.props
+		const { content } = this.state
+		postPost({ topic, content })
+			.then(() => {
+				message.success('post success')
+				this.handleChange(1)
+			})
+			.catch(message.error)
+	}
 	public componentWillMount() {
 		this.handleChange()
 	}
@@ -50,9 +61,22 @@ export default class extends React.Component<DiscussProps> {
 				grid={{ column: 1 }}
 				loading={this.state.loading}
 				dataSource={this.state.posts}
-				pagination={{ total, current, pageSize, onChange: this.handleChange }}
-				renderItem={(p: IPost) => <Post post={p} action={isAdmin || p.uid === uid} />}
+				pagination={{
+					total, current, pageSize,
+					hideOnSinglePage: true,
+					onChange: this.handleChange
+				}}
+				renderItem={(p: IPost) => <Post
+					post={p} callback={this.handleChange}
+					action={isAdmin || p.uid === uid}
+				/>}
 			/>
+			<div className="divider" />
+			<Card type="inner" title="Creat a new post" actions={[
+				<Button type="primary" onClick={this.handleClick}>Post</Button>
+			]}>
+				<Editor onChange={(content) => this.setState({ content })} />
+			</Card>
 		</React.Fragment>
 	}
 }
