@@ -20,7 +20,9 @@ export interface IProblem extends Document {
 const belong = new Schema({
 	id: Schema.Types.ObjectId,
 	key: String
-}, { _id: false })
+}, {
+	_id: false
+})
 
 const schema = new Schema({
 	title: {
@@ -56,13 +58,20 @@ const schema = new Schema({
 		type: Schema.Types.ObjectId
 	},
 	contest: {
-		type: belong,
-		sparse: true,
-		unique: true
+		type: belong
 	}
 }, {
 	versionKey: false,
-	timestamps: true
+	timestamps: true,
+	collation: {
+		locale: 'en_US',
+		strength: 2
+	}
 })
+
+schema.index(
+	{ 'contest.id': 1, 'contest.key': 1 },
+	{ unique: true, sparse: true }
+)
 
 export const Problem = model<IProblem>('problem', schema)

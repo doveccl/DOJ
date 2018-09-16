@@ -70,9 +70,9 @@ const LAN_MAP: any = {
 	rs: 'rust'
 }
 
-const language2mode = (mode: string) => {
-	if (mode in LAN_SET) { return mode }
-	if (mode in LAN_MAP) { return LAN_MAP[mode] }
+const language2mode = (lan: string) => {
+	if (LAN_SET.includes(lan)) { return lan }
+	if (lan in LAN_MAP) { return LAN_MAP[lan] }
 	return false
 }
 

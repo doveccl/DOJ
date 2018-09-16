@@ -5,6 +5,7 @@ import Account from './account'
 import Config from './config'
 import Contest from './contest'
 import File from './file'
+import Post from './post'
 import Problem from './problem'
 import Submission from './submission'
 import User from './user'
@@ -17,6 +18,7 @@ router.use(
 	Problem.routes(), Problem.allowedMethods(),
 	Contest.routes(), Contest.allowedMethods(),
 	Submission.routes(), Submission.allowedMethods(),
+	Post.routes(), Post.allowedMethods(),
 	Config.routes(), Config.allowedMethods(),
 	File.routes(), File.allowedMethods()
 )

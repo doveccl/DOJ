@@ -20,9 +20,10 @@ async function addData(file: any, problem?: any) {
 }
 
 router.get('/problem', async (ctx) => {
-	const { all, search, cid } = ctx.query
-	let { page, size } = ctx.query
+	const { all, cid } = ctx.query
+	let { page, size, search } = ctx.query
 
+	if (!search) { search = '' }
 	const esc = search.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
 	const searchRegExp = new RegExp(esc, 'i')
 	const condition = {

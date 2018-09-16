@@ -3,6 +3,7 @@ import { withRouter } from 'react-router-dom'
 
 import { message, Card, Tag } from 'antd'
 
+import Discuss from '../../component/discuss'
 import WrappedSubmitForm from '../../component/form/submit'
 import LoginTip from '../../component/login-tip'
 import Markdown from '../../component/markdown'
@@ -59,11 +60,10 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 				loading={!global.user || !problem._id}
 			>
 				{this.state.tabKey === 'submit' && global.user && <WrappedSubmitForm
+					languages={global.languages} uid={global.user._id} pid={problem._id}
 					callback={(id) => this.props.history.push(`/submission/${id}`)}
-					languages={this.state.global.languages}
-					uid={this.state.global.user._id}
-					pid={this.state.problem._id}
 				/>}
+				{this.state.tabKey === 'discuss' && global.user && <Discuss topic={problem._id} />}
 			</Card>
 		</React.Fragment>
 	}

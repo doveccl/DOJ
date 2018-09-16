@@ -25,8 +25,8 @@ export interface IUser {
 	solve: number
 	submit: number
 	introduction: string
-	createdAt: Date
-	updatedAt: Date
+	createdAt: string
+	updatedAt: string
 }
 
 export interface IProblem {
@@ -43,8 +43,8 @@ export interface IProblem {
 		id: string
 		key: string
 	}
-	createdAt: Date
-	updatedAt: Date
+	createdAt: string
+	updatedAt: string
 }
 
 export enum ContestType { OI, ICPC }
@@ -56,9 +56,9 @@ export interface IContest {
 	type: ContestType
 	startAt: Date
 	endAt: Date
-	freezeAt?: Date
-	createdAt: Date
-	updatedAt: Date
+	freezeAt?: string
+	createdAt: string
+	updatedAt: string
 }
 
 export enum Status {
@@ -89,10 +89,21 @@ export interface ISubmission {
 	open: boolean
 	result: IResult
 	cases: IResult[]
-	createdAt: Date
-	updatedAt: Date
+	createdAt: string
+	updatedAt: string
 	uname: string
 	ptitle: string
+}
+
+export interface IPost {
+	_id: string
+	uid: string
+	topic: string
+	content: string
+	createdAt: string
+	updatedAt: string
+	uname: string
+	umail: string
 }
 
 export interface IFile {

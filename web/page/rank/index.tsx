@@ -5,7 +5,7 @@ import { message, Avatar, Card, Table, Tag } from 'antd'
 
 import LoginTip from '../../component/login-tip'
 import { getUsers, hasToken } from '../../model'
-import { alink } from '../../util/function'
+import { glink } from '../../util/function'
 import { HistoryProps, IUser } from '../../util/interface'
 import { updateState } from '../../util/state'
 
@@ -54,7 +54,7 @@ class Rank extends React.Component<HistoryProps> {
 							i + pageSize * (current - 1) + 1
 						) },
 						{ title: 'User', width: 200, key: 'user', render: (t, r) => <span>
-							<Avatar size="small" src={alink(r)} />
+							<Avatar size="small" src={glink(r.mail)} />
 							<div className="hdivider" />
 							<span>{r.name}</span>
 						</span> },

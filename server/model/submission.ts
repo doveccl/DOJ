@@ -44,19 +44,24 @@ const result = new Schema({
 		type: Number,
 		required: true
 	}
-}, { _id: false })
+}, {
+	_id: false
+})
 
 const schema = new Schema({
 	uid: {
 		type: Schema.Types.ObjectId,
-		required: true
+		required: true,
+		index: true
 	},
 	pid: {
 		type: Schema.Types.ObjectId,
-		required: true
+		required: true,
+		index: true
 	},
 	cid: {
-		type: Schema.Types.ObjectId
+		type: Schema.Types.ObjectId,
+		index: true
 	},
 	code: {
 		type: String,

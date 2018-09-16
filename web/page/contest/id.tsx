@@ -3,6 +3,7 @@ import { withRouter, Link } from 'react-router-dom'
 
 import { message, Card, Col, Progress, Row, Table } from 'antd'
 
+import Discuss from '../../component/discuss'
 import LoginTip from '../../component/login-tip'
 import Markdown from '../../component/markdown'
 import { getContest, getProblems, hasToken } from '../../model'
@@ -63,7 +64,7 @@ class Contest extends React.Component<HistoryProps & MatchProps> {
 		removeListener('contest')
 	}
 	public render() {
-		const { process, status, contest } = this.state
+		const { process, status, contest, global } = this.state
 		const { _id, title, description } = contest
 		const { startAt, endAt, type } = contest
 
@@ -116,6 +117,7 @@ class Contest extends React.Component<HistoryProps & MatchProps> {
 						/> }
 					]}
 				/>}
+				{this.state.tabKey === 'discuss' && global.user && _id && <Discuss topic={_id} />}
 			</Card>
 		</React.Fragment>
 	}

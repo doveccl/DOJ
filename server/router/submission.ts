@@ -85,18 +85,18 @@ router.get('/submission/:id', urlFetch('submission'), async (ctx) => {
  * user can only modify code visibility to others
  */
 router.put('/submission/:id', urlFetch('submission'), async (ctx) => {
-	const { open } = ctx.request.body
 	const { self, submission } = ctx
+	const { open } = ctx.request.body
 	if (!toStringCompare(self._id, submission.uid)) { ensureGroup(self, 'admin') }
-	ctx.body = await ctx.submission.update({ open }, { runValidators: true })
+	ctx.body = await submission.update({ open }, { runValidators: true })
 })
 
 router.post('/submission', async (ctx) => {
 	const { body } = ctx.request
-	const p = await problem(body.pid)
 	body.uid = ctx.self._id
 	body.cid = body.result = body.cases = undefined
 
+	const p = await problem(body.pid)
 	if (!p) { throw new Error('invalid problem id') }
 	if (p.contest) {
 		const c = await contest(p.contest.id)
@@ -106,7 +106,7 @@ router.post('/submission', async (ctx) => {
 			body.cid = p.contest.id
 		}
 	}
-	ctx.body = await Submission.create(ctx.request.body)
+	ctx.body = await Submission.create(body)
 	// add submission id (ctx.body._id) to judge queue
 })
 

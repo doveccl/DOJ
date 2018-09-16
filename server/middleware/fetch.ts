@@ -2,6 +2,7 @@ import { Middleware } from 'koa'
 
 import { Contest, IContest } from '../model/contest'
 import { File, IFile } from '../model/file'
+import { IPost, Post } from '../model/post'
 import { IProblem, Problem } from '../model/problem'
 import { ISubmission, Submission } from '../model/submission'
 import { IUser, User } from '../model/user'
@@ -12,6 +13,7 @@ declare module 'koa' {
 		problem?: IProblem
 		contest?: IContest
 		submission?: ISubmission
+		post?: IPost
 		file?: IFile
 	}
 }
@@ -47,6 +49,7 @@ export async function fetch(
 		'problem' |
 		'contest' |
 		'submission' |
+		'post' |
 		'file',
 	id: any
 ) {
@@ -55,6 +58,7 @@ export async function fetch(
 		case 'problem': return await problem(id)
 		case 'contest': return await contest(id)
 		case 'submission': return await Submission.findById(id)
+		case 'post': return await Post.findById(id)
 		case 'file': return await File.findById(id)
 	}
 }
@@ -65,6 +69,7 @@ export function urlFetch(
 		'problem' |
 		'contest' |
 		'submission' |
+		'post' |
 		'file'
 ): Middleware {
 	return async (ctx, next) => {
@@ -80,6 +85,7 @@ export function urlFetch(
 		if (ctx.params.id && ctx.method === 'DELETE') {
 			switch (type) {
 				case 'file':
+				case 'post':
 				case 'submission': break
 				default: delete cache[type][ctx.params.id]
 			}

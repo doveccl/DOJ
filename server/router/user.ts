@@ -23,7 +23,7 @@ router.get('/user', async (ctx) => {
 	const total = await User.countDocuments()
 	const list = await User.find()
 		.select(rank ? '-password -group' : '')
-		.sort(rank ? '-solve submit name' : '')
+		.sort(rank ? '-solve submit' : '')
 		.skip(size * (page - 1)).limit(size)
 	ctx.body = { total, list }
 })

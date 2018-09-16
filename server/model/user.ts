@@ -58,4 +58,6 @@ const schema = new Schema({
 	}
 })
 
+schema.index({ solve: -1, submit: 1 })
+
 export const User = model<IUser>('user', schema)

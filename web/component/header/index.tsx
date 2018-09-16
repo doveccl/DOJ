@@ -4,7 +4,7 @@ import { withRouter } from 'react-router-dom'
 import { Avatar, Icon, Layout, Menu } from 'antd'
 
 import { getSelfInfo, hasToken, logout } from '../../model'
-import { alink } from '../../util/function'
+import { glink } from '../../util/function'
 import { HistoryProps } from '../../util/interface'
 import { addListener, globalState, removeListener, updateState } from '../../util/state'
 
@@ -50,7 +50,7 @@ class Header extends React.Component<HistoryProps> {
 				{user && <Menu.SubMenu
 					key="user"
 					title={<span>
-						<Avatar src={alink(user) }/>
+						<Avatar src={glink(user.mail) }/>
 						<div className="hdivider" />
 						<span>{user.name}</span>
 					</span>}

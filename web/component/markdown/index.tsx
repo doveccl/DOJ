@@ -17,11 +17,22 @@ const renderMath = (tex: string, displayMode = false) => {
 	}
 }
 
-export default class extends React.Component<Markdown.ReactMarkdownProps> {
+interface MarkdownProps extends Markdown.ReactMarkdownProps {
+	shortCode?: boolean
+}
+
+export default class extends React.Component<MarkdownProps> {
+	public shouldComponentUpdate(nextPorps: MarkdownProps) {
+		return nextPorps.source !== this.props.source
+	}
 	public render() {
+		const plugins = [ math ]
+		if (this.props.shortCode) {
+			plugins.push(shortcodes)
+		}
 		return <Markdown
 			{ ...this.props }
-			plugins={[ math, shortcodes ]}
+			plugins={plugins}
 			renderers={{
 				code: ({ value, language }) => <Code
 					static value={value} language={language}
