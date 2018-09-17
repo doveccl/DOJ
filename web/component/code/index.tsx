@@ -1,6 +1,7 @@
 import * as ace from 'ace-builds'
 import * as React from 'react'
-import * as highlight from '../../util/highlight'
+
+import highlight from '../../util/highlight'
 
 import './index.less'
 
@@ -42,16 +43,6 @@ const LAN_SET = [
 	'yaml'
 ]
 
-function escapeHtml(unsafe: string) {
-	if (!unsafe) { return '' }
-	return unsafe
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;')
-		.replace(/"/g, '&quot;')
-		.replace(/'/g, '&apos;')
-}
-
 const LAN_MAP: any = {
 	c: 'c_cpp',
 	cpp: 'c_cpp',
@@ -77,8 +68,6 @@ const language2mode = (lan: string) => {
 }
 
 export default class extends React.Component<CodeProps> {
-	private prevLanguage = undefined as string
-	private prevTheme = undefined as string
 	private editor = undefined as ace.Ace.Editor
 	private viewer = undefined as HTMLElement
 	private getOptions = (props?: CodeProps) => {
@@ -99,31 +88,24 @@ export default class extends React.Component<CodeProps> {
 	}
 	private refViewer = (code: HTMLElement) => {
 		if (!code) { return }
-		code.innerHTML = escapeHtml(this.props.value)
+		code.innerText = this.props.value
 		highlight(code, this.getOptions())
 		this.viewer = code
 	}
 	public componentWillReceiveProps(nextProps: CodeProps) {
 		if (this.editor) {
 			const { language, theme } = nextProps
-			if (theme && this.prevTheme !== theme) {
-				this.prevTheme = theme
+			if (theme && theme !== this.props.theme) {
 				this.editor.setTheme(`ace/theme/${theme}`)
 			}
-			if (language && this.prevLanguage !== language) {
-				this.prevLanguage = language
+			if (language && language !== this.props.language) {
 				const mode = language2mode(language)
 				this.editor.session.setMode(`ace/mode/${mode}`)
 			}
 		} else if (this.viewer) {
-			const { language, theme } = nextProps
-			if (
-				(theme && this.prevTheme !== theme) ||
-				(language && this.prevLanguage !== language)
-			) {
-				this.prevTheme = theme
-				this.prevLanguage = language
-				this.viewer.innerHTML = escapeHtml(nextProps.value)
+			const { language, theme, value } = nextProps
+			if (theme || language || value) {
+				this.viewer.textContent = nextProps.value
 				highlight(this.viewer, this.getOptions(nextProps))
 			}
 		}
