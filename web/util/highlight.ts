@@ -72,9 +72,8 @@ export default (el: HTMLElement, opts: Partial<ace.Ace.EditorOptions>) => {
 	const style = ace.require(opts.theme).cssClass
 
 	getMode(opts.mode, (mode) => {
-		const session = new EditSession('')
+		const session = ace.createEditSession(opts.value, mode)
 		session.setUseWorker(false)
-		session.setMode(mode)
 
 		const textLayer = new SimpleTextLayer()
 		textLayer.setSession(session)
@@ -86,7 +85,6 @@ export default (el: HTMLElement, opts: Partial<ace.Ace.EditorOptions>) => {
 			}
 		}
 
-		session.setValue(opts.value)
 		const length = session.getLength()
 		const wrapper = simpleDom.createElement('div')
 		wrapper.className = `ace_static_highlight ${style}`
