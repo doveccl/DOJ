@@ -1,9 +1,14 @@
 {
   "name": "doj",
-	"version": "3.0.0",
-	"author": "Doveccl <doveccl@live.com>",
-	"description": "Online Judge for OI & ACM/ICPC",
-	"keywords": [ "OI", "ICPC", "OJ", "Online Judge" ],
+  "version": "3.0.0",
+  "author": "Doveccl <doveccl@live.com>",
+  "description": "Online Judge for OI & ACM/ICPC",
+  "keywords": [
+    "OI",
+    "ICPC",
+    "OJ",
+    "Online Judge"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/doveccl/DOJ.git"

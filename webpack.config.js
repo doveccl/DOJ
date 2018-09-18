@@ -75,14 +75,8 @@ module.exports = (env, argv) => {
 	}
 
 	if (dev) {
-		config.devtool = 'source-map'
-		config.plugins.push(
-			new webpack.HotModuleReplacementPlugin(),
-			new webpack.NamedModulesPlugin()
-		)
+		config.devtool = 'inline-source-map'
 		config.devServer = {
-			hot: true,
-			host: '0.0.0.0',
 			historyApiFallback: true,
 			proxy: {
 				'/api': `http://localhost:${API_PORT}`

@@ -102,6 +102,7 @@ class Contest extends React.Component<HistoryProps & MatchProps> {
 				/>}
 				{this.state.tabKey === 'problems' && <Table
 					rowKey="_id"
+					size="middle"
 					pagination={false}
 					dataSource={this.state.problems}
 					columns={[

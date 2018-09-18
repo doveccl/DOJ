@@ -7,6 +7,12 @@ export function getConfigs() {
 	)
 }
 
+export function putConfigs(data: any) {
+	return wrap(
+		axios.put('/config', data)
+	)
+}
+
 export function getLanguages() {
 	return wrap(
 		axios.get('/config/languages')

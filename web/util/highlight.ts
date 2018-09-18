@@ -72,7 +72,7 @@ export default (el: HTMLElement, opts: Partial<ace.Ace.EditorOptions>) => {
 	const style = ace.require(opts.theme).cssClass
 
 	getMode(opts.mode, (mode) => {
-		const session = ace.createEditSession(opts.value, mode)
+		const session = new EditSession(opts.value, mode)
 		session.setUseWorker(false)
 
 		const textLayer = new SimpleTextLayer()

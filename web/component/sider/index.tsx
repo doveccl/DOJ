@@ -51,7 +51,7 @@ class Sider extends React.Component<HistoryProps> {
 				defaultSelectedKeys={[ '/' ]}
 				selectedKeys={selectedKeys}
 			>
-				<Menu.Item key="/">
+				<Menu.Item key="/home">
 					<Icon type="home" />
 					<span>Home</span>
 				</Menu.Item>

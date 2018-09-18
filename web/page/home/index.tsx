@@ -9,31 +9,31 @@ import { updateState } from '../../util/state'
 
 export default class extends React.Component {
 	public state = {
-		notification: '',
-		faq: ''
+		notification: undefined as string,
+		faq: undefined as string
 	}
 	public componentWillMount() {
 		updateState({ path: [ 'Home' ] })
-		if (!hasToken()) { return }
-		getConfigs()
-			.then((data) => {
-				const state: any = {}
-				for (const i of data) {
-					state[i._id] = i.value
-				}
-				this.setState(state)
-			})
-			.catch(message.error)
+		if (hasToken()) {
+			getConfigs()
+				.then((data: any[]) => {
+					data.forEach(({ _id, value }) => {
+						this.setState({ [_id]: value })
+					})
+				})
+				.catch(message.error)
+		}
 	}
 	public render() {
+		const { notification, faq } = this.state
 		return <React.Fragment>
 			<LoginTip />
-			<Card title="Welcome to DOJ" loading={!this.state.notification}>
-				<Markdown source={this.state.notification} escapeHtml={false} />
+			<Card title="Welcome to DOJ" loading={typeof notification === 'undefined'}>
+				<Markdown source={notification} escapeHtml={false} />
 			</Card>
 			<div className="divider" />
-			<Card title="FAQ" loading={!this.state.faq}>
-				<Markdown source={this.state.faq} escapeHtml={false} />
+			<Card title="FAQ" loading={typeof faq === 'undefined'}>
+				<Markdown source={faq} escapeHtml={false} />
 			</Card>
 		</React.Fragment>
 	}

@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Route, Switch } from 'react-router-dom'
+import { Redirect, Route, Switch } from 'react-router-dom'
 
 import Contests from './page/contest'
 import Contest from './page/contest/id'
@@ -14,7 +14,10 @@ import Setting from './page/setting'
 import Submissions from './page/submission'
 import Submission from './page/submission/id'
 
+import ManageSetting from './page/manage/setting'
+
 export default () => <Switch>
+	<Route path="/home" component={Home} />
 	<Route path="/login" component={Login} />
 	<Route path="/register" component={Register} />
 	<Route path="/reset" component={Reset} />
@@ -26,5 +29,6 @@ export default () => <Switch>
 	<Route path="/submission" component={Submissions} />
 	<Route path="/rank" component={Rank} />
 	<Route path="/setting" component={Setting} />
-	<Route path="/" component={Home} />
+	<Route path="/manage/setting" component={ManageSetting} />
+	<Redirect to="/home" />
 </Switch>
