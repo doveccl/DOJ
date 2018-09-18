@@ -15,6 +15,7 @@ import Submissions from './page/submission'
 import Submission from './page/submission/id'
 
 import ManageSetting from './page/manage/setting'
+import ManageUser from './page/manage/user'
 
 export default () => <Switch>
 	<Route path="/home" component={Home} />
@@ -30,5 +31,6 @@ export default () => <Switch>
 	<Route path="/rank" component={Rank} />
 	<Route path="/setting" component={Setting} />
 	<Route path="/manage/setting" component={ManageSetting} />
+	<Route path="/manage/user" component={ManageUser} />
 	<Redirect to="/home" />
 </Switch>

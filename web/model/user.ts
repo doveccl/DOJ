@@ -18,3 +18,9 @@ export function putUser(id: any, data: any) {
 		axios.put(`/user/${id}`, data)
 	)
 }
+
+export function delUser(id: any) {
+	return wrap(
+		axios.delete(`/user/${id}`)
+	)
+}

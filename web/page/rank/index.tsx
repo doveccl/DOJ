@@ -1,15 +1,14 @@
 import * as React from 'react'
-import { withRouter } from 'react-router-dom'
 
-import { message, Avatar, Card, Table, Tag } from 'antd'
+import { message, Avatar, Card, Table } from 'antd'
 
 import LoginTip from '../../component/login-tip'
 import { getUsers, hasToken } from '../../model'
 import { glink } from '../../util/function'
-import { HistoryProps, IUser } from '../../util/interface'
+import { IUser } from '../../util/interface'
 import { updateState } from '../../util/state'
 
-class Rank extends React.Component<HistoryProps> {
+export default class extends React.Component {
 	public state = {
 		loading: true,
 		users: [] as IUser[],
@@ -68,5 +67,3 @@ class Rank extends React.Component<HistoryProps> {
 		</React.Fragment>
 	}
 }
-
-export default withRouter(({ history }) => <Rank history={history} />)
