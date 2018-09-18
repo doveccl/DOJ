@@ -1,10 +1,10 @@
 import * as React from 'react'
 
-import { message, Card, Divider, Modal, Popconfirm, Table, Tag } from 'antd'
+import { message, Button, Card, Divider, Input, Modal, Popconfirm, Table, Tag } from 'antd'
 import { WrappedFormUtils } from 'antd/lib/form/Form'
 
 import WrappedUserForm from '../../component/form/user'
-import { delUser, getUsers, hasToken, putUser } from '../../model'
+import { delUser, getUsers, hasToken, inviteUser, postUser, putUser } from '../../model'
 import { IUser, UserGroup } from '../../util/interface'
 import { updateState } from '../../util/state'
 
@@ -51,22 +51,49 @@ export default class extends React.Component {
 			modalUser: user
 		})
 	}
-	private update = () => {
+	private ok = () => {
 		this.form.validateFields((error, values) => {
 			if (!error) {
 				this.setState({ loading: true })
-				putUser(this.state.modalUser._id, values)
-					.then(() => {
-						message.success('update success')
-						this.setState({ modalOpen: false })
-						this.handleChange()
-					})
-					.catch((err) => {
-						message.error(err)
-						this.setState({ loading: false })
-					})
+				if (this.state.modalUser) {
+					putUser(this.state.modalUser._id, values)
+						.then(() => {
+							message.success('update success')
+							this.setState({ modalOpen: false })
+							this.handleChange()
+						})
+						.catch((err) => {
+							message.error(err)
+							this.setState({ loading: false })
+						})
+				} else {
+					postUser(values)
+						.then(() => {
+							message.success('create success')
+							this.setState({ modalOpen: false })
+							this.handleChange()
+						})
+						.catch((err) => {
+							message.error(err)
+							this.setState({ loading: false })
+						})
+				}
 			}
 		})
+	}
+	private invite = (mail: string) => {
+		if (mail) {
+			const hide: any = message.loading('Sending ...', 0)
+			inviteUser({ mail })
+				.then(({ mail: m }) => {
+					hide()
+					message.success(`code has been send to: ${m}`, 10)
+				})
+				.catch((err) => {
+					hide()
+					message.error(err)
+				})
+		}
 	}
 	private del = (id: any) => {
 		delUser(id)
@@ -78,14 +105,30 @@ export default class extends React.Component {
 		if (hasToken()) { this.handleChange(this.state.pagination) }
 	}
 	public render() {
-		return <Card title="Users">
+		return <Card
+			title="Users"
+			extra={<React.Fragment>
+				<Button
+					size="small" onClick={() => this.openModal()}
+				>
+					Create User
+				</Button>
+				<Divider type="vertical" />
+				<Button
+					size="small" type="primary"
+					onClick={() => this.invite(prompt('Send invitation mail to:'))}
+				>
+					Invite User
+				</Button>
+			</React.Fragment>}
+		>
 			<Modal
 				style={{ minWidth: 650 }}
 				destroyOnClose={true}
 				visible={this.state.modalOpen}
 				title={this.state.modalTitle}
 				confirmLoading={this.state.loading}
-				onOk={() => this.update()}
+				onOk={() => this.ok()}
 				onCancel={() => this.setState({ modalOpen: false })}
 			>
 				<WrappedUserForm

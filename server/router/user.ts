@@ -5,6 +5,8 @@ import { ensureGroup, forGroup, token } from '../middleware/auth'
 import { urlFetch } from '../middleware/fetch'
 import { User } from '../model/user'
 import { toStringCompare, validatePassword } from '../util/function'
+import { sign } from '../util/jwt'
+import { send } from '../util/mail'
 
 const EXCLUDE_LIST = [ 'solve', 'submit' ]
 
@@ -70,6 +72,13 @@ router.put('/user/:id', urlFetch('user'), async (ctx) => {
 router.del('/user/:id', urlFetch('user'), async (ctx) => {
 	ensureGroup(ctx.self, ctx.user.group, 1)
 	ctx.body = await ctx.user.remove()
+})
+
+router.post('/user/invite', forGroup('admin'), async (ctx) => {
+	const { mail } = ctx.request.body
+	const invitation = await sign({ mail })
+	await send(mail, 'Invitation code', invitation)
+	ctx.body = { mail: mail.replace(/^(\w)[^@]*@/, '$1***@') }
 })
 
 export default router

@@ -3,7 +3,7 @@ import * as config from 'config'
 import * as Router from 'koa-router'
 
 import { password } from '../middleware/auth'
-import { User, UserGroup } from '../model/user'
+import { User } from '../model/user'
 import { validatePassword } from '../util/function'
 import { sign, verify } from '../util/jwt'
 import { send } from '../util/mail'
@@ -25,13 +25,10 @@ router.post('/register', async (ctx) => {
 	}
 
 	validatePassword(pass)
-	let group = UserGroup.common
 	if (invitation) {
 		try {
 			const data: any = await verify(invitation)
-			const { mail: m, group: g } = data
-			if (typeof g === 'number') { group = g }
-			if (m !== mail) { throw new Error() }
+			if (data.mail !== mail) { throw new Error() }
 		} catch (e) {
 			throw new Error('invalid invitation code')
 		}
@@ -45,7 +42,7 @@ router.post('/register', async (ctx) => {
 	}
 
 	const { _id: id } = await User.create({
-		name, mail, group, password: bcrypt.hashSync(pass)
+		name, mail, password: bcrypt.hashSync(pass)
 	})
 	ctx.body = { name, mail, token: await sign({ id }) }
 })
@@ -61,7 +58,7 @@ router.get('/reset', async (ctx) => {
 	const hash = bcrypt.hashSync(u.password)
 	const code = await sign({ id: u._id, hash }, undefined, { expiresIn: '1h' })
 
-	await send(u.mail, 'Verify code for password reset', code)
+	await send(u.mail, 'Verify code', code)
 	ctx.body = { mail: u.mail.replace(/^(\w)[^@]*@/, '$1***@') }
 })
 

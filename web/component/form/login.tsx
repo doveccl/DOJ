@@ -22,12 +22,7 @@ class LoginForm extends React.Component<HistoryProps & FormComponentProps> {
 				login(values)
 					.then((user) => {
 						updateState({ user })
-						const { history } = this.props
-						if (history.location.key) {
-							history.goBack()
-						} else {
-							history.replace('/')
-						}
+						this.props.history.replace('/')
 					})
 					.catch((err) => {
 						message.error(err)

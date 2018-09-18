@@ -2,7 +2,7 @@ import * as React from 'react'
 
 import { Form, Input, Select } from 'antd'
 import { FormComponentProps } from 'antd/lib/form'
-import { IUser } from '../../util/interface'
+import { IUser, UserGroup } from '../../util/interface'
 import { globalState } from '../../util/state'
 
 interface UserFormProps extends FormComponentProps {
@@ -13,7 +13,8 @@ class UserForm extends React.Component<UserFormProps> {
 	public render() {
 		const { value } = this.props
 		const { getFieldDecorator } = this.props.form
-		const self = globalState.user._id === (value && value._id)
+		const self = globalState.user
+		const isSelf = self._id === (value && value._id)
 		const formItemLayout = {
 			labelCol: { xs: 24, sm: 6, md: 4 },
 			wrapperCol: { xs: 24, sm: 18, md: 20 }
@@ -41,15 +42,25 @@ class UserForm extends React.Component<UserFormProps> {
 					<Input placeholder="Valid mail (for password retrieve) is required" />
 				)}
 			</Form.Item>
-			{!self && <Form.Item label="Group" {...formItemLayout}>
+			{!value && <Form.Item label="Password" {...formItemLayout}>
+				{getFieldDecorator('password', {
+					rules: [
+						{ required: true, message: 'Please input user password' },
+						{ min: 6, max: 20, message: 'Length of password should be 6-20' }
+					]
+				})(
+					<Input placeholder="User password" />
+				)}
+			</Form.Item>}
+			{!isSelf && <Form.Item label="Group" {...formItemLayout}>
 				{getFieldDecorator('group', {
-					initialValue: value && value.group,
+					initialValue: value ? value.group : 0,
 					rules: [{ required: true}]
 				})(
 					<Select placeholder="User group">
 						<Select.Option value={0} children="Common" />
-						<Select.Option value={1} children="Admin" />
-						<Select.Option value={2} children="Root" />
+						{self.group > UserGroup.admin && <Select.Option value={1} children="Admin" />}
+						{self.group > UserGroup.root && <Select.Option value={2} children="Root" />}
 					</Select>
 				)}
 			</Form.Item>}
