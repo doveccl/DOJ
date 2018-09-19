@@ -94,6 +94,10 @@ class Sider extends React.Component<HistoryProps> {
 						<Icon type="layout" />
 						<span>Contest</span>
 					</Menu.Item>
+					<Menu.Item key="/manage/file">
+						<Icon type="file" />
+						<span>File</span>
+					</Menu.Item>
 				</Menu.SubMenu>}
 			</Menu>
 		</Layout.Sider>

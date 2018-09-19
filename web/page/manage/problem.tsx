@@ -146,7 +146,7 @@ export default class extends React.Component<HistoryProps> {
 						{ title: 'Action', key: 'action', render: (t, r) => <React.Fragment>
 							<a onClick={() => this.openModal(r)}>Edit</a>
 							<Divider type="vertical" />
-							<Popconfirm title="Delete this user?" onConfirm={() => this.del(r._id)}>
+							<Popconfirm title="Delete this problem?" onConfirm={() => this.del(r._id)}>
 								<a style={{ color: 'red' }}>Delete</a>
 							</Popconfirm>
 						</React.Fragment> }

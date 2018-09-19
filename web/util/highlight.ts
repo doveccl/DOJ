@@ -50,7 +50,6 @@ const simpleDom = {
 	createFragment: () => new Element('fragment')
 }
 
-// tslint:disable-next-line:max-classes-per-file
 const SimpleTextLayer: any = class {
 	private config = {}
 	private dom = simpleDom

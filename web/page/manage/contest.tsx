@@ -50,6 +50,7 @@ class ContestProblems extends React.Component<{ cid: string }> {
 			.catch(message.error)
 	}
 	public componentWillMount() {
+		updateState({ path: [ 'Manage', 'Contest' ] })
 		this.handleChange()
 	}
 	public render() {
@@ -88,7 +89,7 @@ class ContestProblems extends React.Component<{ cid: string }> {
 					{ title: 'Problem Key', dataIndex: 'contest.key' },
 					{ title: 'Problem Title', dataIndex: 'title' },
 					{ title: 'Action', key: 'action', render: (t, r) => <Popconfirm
-						title="Delete this user?" onConfirm={() => this.del(r._id)}
+						title="Delete this problem?" onConfirm={() => this.del(r._id)}
 					>
 						<a style={{ color: 'red' }}>Delete</a>
 					</Popconfirm> }
@@ -98,7 +99,6 @@ class ContestProblems extends React.Component<{ cid: string }> {
 	}
 }
 
-// tslint:disable-next-line:max-classes-per-file
 export default class extends React.Component<HistoryProps> {
 	private form: WrappedFormUtils = undefined
 	public state = {
@@ -218,7 +218,7 @@ export default class extends React.Component<HistoryProps> {
 						{ title: 'Action', key: 'action', render: (t, r) => <React.Fragment>
 							<a onClick={() => this.openModal(r)}>Edit</a>
 							<Divider type="vertical" />
-							<Popconfirm title="Delete this user?" onConfirm={() => this.del(r._id)}>
+							<Popconfirm title="Delete this contest?" onConfirm={() => this.del(r._id)}>
 								<a style={{ color: 'red' }}>Delete</a>
 							</Popconfirm>
 						</React.Fragment> }

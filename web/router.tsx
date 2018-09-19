@@ -15,6 +15,7 @@ import Submissions from './page/submission'
 import Submission from './page/submission/id'
 
 import ManageContest from './page/manage/contest'
+import ManageFile from './page/manage/file'
 import ManageProblem from './page/manage/problem'
 import ManageSetting from './page/manage/setting'
 import ManageUser from './page/manage/user'
@@ -36,5 +37,6 @@ export default () => <Switch>
 	<Route path="/manage/user" component={ManageUser} />
 	<Route path="/manage/problem" component={ManageProblem} />
 	<Route path="/manage/contest" component={ManageContest} />
+	<Route path="/manage/file" component={ManageFile} />
 	<Redirect to="/home" />
 </Switch>

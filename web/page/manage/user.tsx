@@ -1,6 +1,6 @@
 import * as React from 'react'
 
-import { message, Button, Card, Divider, Input, Modal, Popconfirm, Table, Tag } from 'antd'
+import { message, Button, Card, Divider, Modal, Popconfirm, Table, Tag } from 'antd'
 import { WrappedFormUtils } from 'antd/lib/form/Form'
 
 import WrappedUserForm from '../../component/form/user'

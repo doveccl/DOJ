@@ -57,16 +57,12 @@ router.get('/problem/:id', urlFetch('problem'), async (ctx) => {
 
 router.post('/problem', forGroup('admin'), async (ctx) => {
 	ctx.body = await Problem.create(ctx.request.body)
-	await File.findByIdAndUpdate(ctx.request.body.data, {
-		metadata: { type: 'data', problem: ctx.body._id }
-	})
+	await File.findByIdAndUpdate(ctx.request.body.data, { metadata: { type: 'data' } })
 })
 
 router.put('/problem/:id', forGroup('admin'), urlFetch('problem'), async (ctx) => {
 	ctx.body = await ctx.problem.update(ctx.request.body, { runValidators: true })
-	await File.findByIdAndUpdate(ctx.request.body.data, {
-		metadata: { type: 'data', problem: ctx.problem._id }
-	})
+	await File.findByIdAndUpdate(ctx.request.body.data, { metadata: { type: 'data' } })
 })
 
 router.del('/problem/:id', forGroup('admin'), urlFetch('problem'), async (ctx) => {

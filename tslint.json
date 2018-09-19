@@ -5,6 +5,7 @@
 			"options": "tabs"
 		},
 		"interface-name": false,
+		"max-classes-per-file": [ true, 2 ],
 		"member-ordering": {
 			"options": {
 				"order": [
