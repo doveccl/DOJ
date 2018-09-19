@@ -1,17 +1,30 @@
 import * as React from 'react'
 
-import { message, Button, Card, Divider, Input, Modal, Popconfirm, Table, Tag } from 'antd'
-import { WrappedFormUtils } from 'antd/lib/form/Form'
+import { message, Card, Divider, Icon, Popconfirm, Table, Upload } from 'antd'
+import { UploadChangeParam } from 'antd/lib/upload'
 
-import WrappedUserForm from '../../component/form/user'
 import { delFile, getFiles, hasToken, putFile } from '../../model'
 import { IFile } from '../../util/interface'
 import { updateState } from '../../util/state'
 
+const TYPES = [
+	'.pdf', '.zip', '.bmp',
+	'.jpg', '.jpeg', '.png', '.gif'
+]
+
+const renderUsage = (f: IFile) => {
+	if (/pdf/.test(f.contentType)) {
+		return `[[ PDF id="${f._id}" ]]`
+	} else if (/image/.test(f.contentType)) {
+		return `[[ IMG id="${f._id}" ]]`
+	}
+	return `Data ID: ${f._id}`
+}
+
 export default class extends React.Component {
-	private form: WrappedFormUtils = undefined
 	public state = {
 		loading: true,
+		uploading: false,
 		files: [] as IFile[],
 		pagination: { current: 1, pageSize: 50, total: 0 }
 	}
@@ -33,6 +46,25 @@ export default class extends React.Component {
 				this.setState({ loading: false })
 			})
 	}
+	private onUploadChange = ({ file }: UploadChangeParam) => {
+		const { status, response } = file
+		if (status === 'uploading') {
+			this.setState({ uploading: true })
+		} else if (status === 'done') {
+			this.setState({ uploading: false })
+			if (response.success) {
+				this.handleChange()
+			} else {
+				message.error(response.message)
+			}
+		}
+	}
+	private rename = (id: any, filename: string) => {
+		if (!filename) { return }
+		putFile(id, { filename })
+			.then(() => this.handleChange())
+			.catch(message.error)
+	}
 	private del = (id: any) => {
 		delFile(id)
 			.then(() => this.handleChange())
@@ -44,6 +76,24 @@ export default class extends React.Component {
 	}
 	public render() {
 		return <Card title="Files">
+			<Upload.Dragger
+				action="/api/file"
+				accept={TYPES.join(',')}
+				onChange={this.onUploadChange}
+				showUploadList={false}
+				multiple={false}
+			>
+				<p className="ant-upload-drag-icon">
+					<Icon type={this.state.uploading ? 'loading' : 'cloud-upload'} />
+				</p>
+				<p className="ant-upload-text">
+					Click or drag file to this area to upload
+				</p>
+				<p className="ant-upload-hint">
+					PDF, ZIP, Images are supported
+				</p>
+			</Upload.Dragger>
+			<div className="divider" />
 			<Table
 				rowKey="_id"
 				size="middle"
@@ -52,10 +102,17 @@ export default class extends React.Component {
 				pagination={this.state.pagination}
 				onChange={this.handleChange}
 				columns={[
-					{ title: 'ID', dataIndex: '_id' },
-					{ title: 'Filename', dataIndex: 'filename' },
-					{ title: 'Type', dataIndex: 'metadata.type' },
+					{ title: 'Filename', dataIndex: 'filename', render: (t, r) => (
+						<a href={`/api/file/${r._id}`} download={t}>{t}</a>
+					) },
+					{ title: 'MD5', dataIndex: 'md5' },
+					{ title: 'File Type', dataIndex: 'metadata.type' },
+					{ title: 'Usage', key: 'usage', render: (t, r) => renderUsage(r) },
 					{ title: 'Action', key: 'action', render: (t, r) => <React.Fragment>
+						<a onClick={() => {
+							this.rename(r._id, prompt('New name:', r.filename))
+						}}>Rename</a>
+						<Divider type="vertical" />
 						<Popconfirm title="Delete this file?" onConfirm={() => this.del(r._id)}>
 							<a style={{ color: 'red' }}>Delete</a>
 						</Popconfirm>

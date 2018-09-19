@@ -14,6 +14,7 @@ router.get('/file', forGroup('admin'), async (ctx) => {
 	size = parseInt(size, 10) || 50
 	const total = await File.countDocuments()
 	const list = await File.find()
+		.sort('-_id')
 		.skip(size * (page - 1)).limit(size)
 	ctx.body = { total, list }
 })
@@ -42,8 +43,9 @@ router.post('/file', forGroup('admin'), async (ctx) => {
 })
 
 router.put('/file/:id', forGroup('admin'), urlFetch('file'), async (ctx) => {
-	const { filename, metadata } = ctx.request.body
-	ctx.body = await ctx.file.update({ filename, metadata })
+	const { filename } = ctx.request.body
+	if (!filename) { throw new Error('Invalid filename') }
+	ctx.body = await ctx.file.update({ filename })
 })
 
 router.del('/file/:id', forGroup('admin'), urlFetch('file'), async (ctx) => {

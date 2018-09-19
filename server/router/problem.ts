@@ -32,6 +32,7 @@ router.get('/problem', async (ctx) => {
 	size = parseInt(size, 10) || 50
 	const total = await Problem.countDocuments(condition)
 	const arr = await Problem.find(condition)
+		.sort(all ? '-_id' : '_id')
 		.select(all ? '' : '-content -data')
 		.skip(size * (page - 1)).limit(size)
 	const list: any[] = []
@@ -61,8 +62,9 @@ router.post('/problem', forGroup('admin'), async (ctx) => {
 })
 
 router.put('/problem/:id', forGroup('admin'), urlFetch('problem'), async (ctx) => {
-	ctx.body = await ctx.problem.update(ctx.request.body, { runValidators: true })
 	await File.findByIdAndUpdate(ctx.request.body.data, { metadata: { type: 'data' } })
+	ctx.body = await ctx.problem.update(ctx.request.body, { runValidators: true })
+	ctx.problem.set(ctx.request.body)
 })
 
 router.del('/problem/:id', forGroup('admin'), urlFetch('problem'), async (ctx) => {

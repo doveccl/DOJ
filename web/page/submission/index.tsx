@@ -11,9 +11,14 @@ import { addListener, globalState, removeListener, updateState } from '../../uti
 
 export const renderStatus = (r: IResult) => {
 	switch (r.status) {
-		case Status.WAIT: return <Tag color="volcano">Pending</Tag>
+		case Status.WAIT: return <Tag color="blue">Pending</Tag>
 		case Status.AC: return <Tag color="green">Accepted</Tag>
 		case Status.WA: return <Tag color="red">Wrong Answer</Tag>
+		case Status.TLE: return <Tag color="gold">Time Limit Exceed</Tag>
+		case Status.MLE: return <Tag color="volcano">Memory Limit Exceed</Tag>
+		case Status.RE: return <Tag color="magenta">Runtime Error</Tag>
+		case Status.CE: return <Tag color="purple">Compile Error</Tag>
+		case Status.SE: return <Tag color="cyan">System Error</Tag>
 		default: return <Tag>unknown</Tag>
 	}
 }

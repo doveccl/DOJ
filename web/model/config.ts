@@ -1,20 +1,14 @@
 import axios from 'axios'
 import wrap from './wrap'
 
-export function getConfigs() {
+export function getConfig(id: any) {
 	return wrap(
-		axios.get('/config')
+		axios.get(`/config/${id}`)
 	)
 }
 
-export function putConfigs(data: any) {
+export function putConfig(id: any, data: any) {
 	return wrap(
-		axios.put('/config', data)
-	)
-}
-
-export function getLanguages() {
-	return wrap(
-		axios.get('/config/languages')
+		axios.put(`/config/${id}`, data)
 	)
 }

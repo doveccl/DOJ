@@ -1,20 +1,19 @@
 import axios from 'axios'
 import * as Cookie from 'js-cookie'
 
-import * as model from '../model'
-import * as state from './state'
+import { getConfig } from '../model'
+import { addListener, removeListener, updateState } from './state'
 
 axios.defaults.baseURL = '/api'
 axios.defaults.validateStatus = (status) => status < 500
 axios.defaults.headers.common.token = Cookie.get('token')
 
-state.addListener('update_languages', ({ user, languages }) => {
+addListener('update_languages', ({ user, languages }) => {
 	if (user && languages.length === 0) {
-		model.getLanguages()
+		getConfig('languages')
 			.then((list) => {
-				state.updateState({ languages: list })
-				state.removeListener('update_languages')
+				updateState({ languages: list })
+				removeListener('update_languages')
 			})
-			.catch((err) => console.warn(err))
 	}
 })
