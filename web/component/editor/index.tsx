@@ -9,7 +9,7 @@ import './index.less'
 
 interface EditorProps {
 	value?: string
-	sortCode?: boolean
+	shortCode?: boolean
 	escapeHtml?: boolean
 	onChange?: (value: string) => any
 }
@@ -33,6 +33,7 @@ export default class extends React.Component<EditorProps> {
 			</Col>
 			<Col span={12} className="preview">
 				<Markdown
+					shortCode={this.props.shortCode}
 					escapeHtml={this.props.escapeHtml}
 					source={this.state.content}
 				/>

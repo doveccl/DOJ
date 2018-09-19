@@ -5,6 +5,7 @@ import { message, Button, Card, Col, Icon, Input, Row, Table, Tag } from 'antd'
 
 import LoginTip from '../../component/login-tip'
 import { getSubmissions, hasToken } from '../../model'
+import { renderMemory, renderTime } from '../../util/function'
 import { HistoryProps, IResult, ISubmission, Status } from '../../util/interface'
 import { addListener, globalState, removeListener, updateState } from '../../util/state'
 
@@ -15,18 +16,6 @@ export const renderStatus = (r: IResult) => {
 		case Status.WA: return <Tag color="red">Wrong Answer</Tag>
 		default: return <Tag>unknown</Tag>
 	}
-}
-
-export const renderTime = (t: number) => `${t}ms`
-export const renderMemory = (k: number) => {
-	if (k < 1024) {
-		return `${k}K`
-	}
-	const m = k / 1024
-	if (m < 1024) {
-		return `${m.toFixed(1)}M`
-	}
-	return `${(m / 1024).toFixed(2)}G`
 }
 
 class Submissions extends React.Component<HistoryProps> {

@@ -9,7 +9,6 @@ import { getSubmission, hasToken, putSubmission } from '../../model'
 import { isGroup } from '../../util/function'
 import { HistoryProps, ISubmission, MatchProps } from '../../util/interface'
 import { addListener, globalState, removeListener, updateState } from '../../util/state'
-import { renderMemory, renderStatus, renderTime } from './index'
 
 class Submission extends React.Component<HistoryProps & MatchProps> {
 	public state = {

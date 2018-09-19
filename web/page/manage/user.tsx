@@ -108,14 +108,12 @@ export default class extends React.Component {
 		return <Card
 			title="Users"
 			extra={<React.Fragment>
-				<Button
-					size="small" onClick={() => this.openModal()}
-				>
+				<Button onClick={() => this.openModal()}>
 					Create User
 				</Button>
 				<Divider type="vertical" />
 				<Button
-					size="small" type="primary"
+					type="primary"
 					onClick={() => this.invite(prompt('Send invitation mail to:'))}
 				>
 					Invite User

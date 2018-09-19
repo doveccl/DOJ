@@ -7,6 +7,18 @@ export const glink = (m = '', d = 'wavatar') => (
 	`//cdn.v2ex.com/gravatar/${md5(m)}?d=${d}`
 )
 
+export const renderTime = (t: number) => `${t} ms`
+export const renderMemory = (k: number) => {
+	if (k < 1024) {
+		return `${k} KiB`
+	}
+	const m = k / 1024
+	if (m < 1024) {
+		return `${m.toFixed(1)} MiB`
+	}
+	return `${(m / 1024).toFixed(2)} GiB`
+}
+
 export function isGroup(user: IUser, type: string | number, diff = 0) {
 	let group: UserGroup
 	switch (type) {

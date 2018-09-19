@@ -1,13 +1,14 @@
 import * as React from 'react'
 import { withRouter } from 'react-router-dom'
 
-import { message, Card, Tag } from 'antd'
+import { message, Card, Divider, Tag } from 'antd'
 
 import Discuss from '../../component/discuss'
 import WrappedSubmitForm from '../../component/form/submit'
 import LoginTip from '../../component/login-tip'
 import Markdown from '../../component/markdown'
 import { getProblem, hasToken } from '../../model'
+import { renderMemory, renderTime } from '../../util/function'
 import { HistoryProps, IProblem, MatchProps } from '../../util/interface'
 import { addListener, globalState, removeListener, updateState } from '../../util/state'
 
@@ -42,7 +43,10 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 			<Card
 				loading={!problem._id}
 				title={problem.title || 'Problem'}
-				extra={(problem.tags || []).map((t, i) => <Tag key={i}>{t}</Tag>)}
+				extra={problem._id && <React.Fragment>
+					<Tag color="volcano">{renderTime(problem.timeLimit)}</Tag>
+					<Tag color="orange">{renderMemory(problem.memoryLimit)}</Tag>
+				</React.Fragment>}
 			>
 				<Markdown
 					shortCode={true}

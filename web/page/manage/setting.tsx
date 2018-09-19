@@ -39,9 +39,9 @@ export default class extends React.Component {
 			<Card
 				title="Set Notification &amp; FAQ"
 				extra={<React.Fragment>
-					<Button size="small" onClick={this.loadConfigs}>Reset</Button>
+					<Button onClick={this.loadConfigs}>Reset</Button>
 					<Divider type="vertical" />
-					<Button size="small" type="primary" onClick={this.update}>Update</Button>
+					<Button type="primary" onClick={this.update}>Update</Button>
 				</React.Fragment>}
 				loading={
 					typeof faq === 'undefined' ||

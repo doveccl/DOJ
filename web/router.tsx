@@ -14,6 +14,7 @@ import Setting from './page/setting'
 import Submissions from './page/submission'
 import Submission from './page/submission/id'
 
+import ManageProblem from './page/manage/problem'
 import ManageSetting from './page/manage/setting'
 import ManageUser from './page/manage/user'
 
@@ -32,5 +33,6 @@ export default () => <Switch>
 	<Route path="/setting" component={Setting} />
 	<Route path="/manage/setting" component={ManageSetting} />
 	<Route path="/manage/user" component={ManageUser} />
+	<Route path="/manage/problem" component={ManageProblem} />
 	<Redirect to="/home" />
 </Switch>

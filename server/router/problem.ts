@@ -42,7 +42,7 @@ router.get('/problem', async (ctx) => {
 	size = parseInt(size, 10) || 50
 	const total = await Problem.countDocuments(condition)
 	const arr = await Problem.find(condition)
-		.select(all ? '-content' : '-content -data')
+		.select(all ? '' : '-content -data')
 		.skip(size * (page - 1)).limit(size)
 	const list: any[] = []
 	for (const item of arr) {
