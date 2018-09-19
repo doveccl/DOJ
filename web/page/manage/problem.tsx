@@ -88,8 +88,8 @@ export default class extends React.Component<HistoryProps> {
 			.catch(message.error)
 	}
 	public componentWillMount() {
-		updateState({ path: [ 'Problem' ] })
-		if (hasToken()) { this.handleChange(this.state.pagination) }
+		updateState({ path: [ 'Manage', 'Problem' ] })
+		if (hasToken()) { this.handleChange() }
 	}
 	public render() {
 		return <React.Fragment>
@@ -131,13 +131,18 @@ export default class extends React.Component<HistoryProps> {
 					pagination={this.state.pagination}
 					onChange={this.handleChange}
 					columns={[
-						{ title: 'ID', dataIndex: '_id' },
+						{ title: 'ID', width: 250, dataIndex: '_id', render: (t) => (
+							<a href={`/problem/${t}`} target="_blank">{t}</a>
+						) },
 						{ title: 'Title', dataIndex: 'title' },
 						{ title: 'Time', dataIndex: 'timeLimit', render: renderTime },
 						{ title: 'Memory', dataIndex: 'memoryLimit', render: renderMemory },
 						{ title: 'Tags', key: 'tags', render: (t, r) => <React.Fragment>
 							{r.tags.map((tag, i) => <Tag key={i}>{tag}</Tag>)}
 						</React.Fragment> },
+						{ title: 'Data', width: 250, dataIndex: 'data', render: (t) => (
+							t ? <a href={`/file/${t}`} target="_blank">{t}</a> : 'null'
+						) },
 						{ title: 'Action', key: 'action', render: (t, r) => <React.Fragment>
 							<a onClick={() => this.openModal(r)}>Edit</a>
 							<Divider type="vertical" />

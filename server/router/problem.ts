@@ -9,16 +9,6 @@ const router = new Router()
 
 router.use('/problem', token())
 
-async function addData(file: any, problem?: any) {
-	const { path, name, type } = file
-	if (type !== 'application/zip') {
-		throw new Error('invalid data type')
-	}
-	return await File.create(path, name, {
-		contentType: type, metadata: { type: 'data', problem }
-	})
-}
-
 router.get('/problem', async (ctx) => {
 	const { all, cid } = ctx.query
 	let { page, size, search } = ctx.query
@@ -66,25 +56,17 @@ router.get('/problem/:id', urlFetch('problem'), async (ctx) => {
 })
 
 router.post('/problem', forGroup('admin'), async (ctx) => {
-	const { body, files } = ctx.request
-	const { data } = files || {} as any
-
-	if (data) { body.data = await addData(data) }
-	ctx.body = await Problem.create(body)
-	if (!data) { return }
-
-	await File.findByIdAndUpdate(body.data, {
-		'metadata.problem': ctx.body._id
+	ctx.body = await Problem.create(ctx.request.body)
+	await File.findByIdAndUpdate(ctx.request.body.data, {
+		metadata: { type: 'data', problem: ctx.body._id }
 	})
 })
 
 router.put('/problem/:id', forGroup('admin'), urlFetch('problem'), async (ctx) => {
-	const { body, files } = ctx.request
-	const { data } = files || {} as any
-
-	if (data) { body.data = await addData(data, ctx.problem._id) }
-	ctx.body = await ctx.problem.update(body, { runValidators: true })
-	ctx.problem.set(body)
+	ctx.body = await ctx.problem.update(ctx.request.body, { runValidators: true })
+	await File.findByIdAndUpdate(ctx.request.body.data, {
+		metadata: { type: 'data', problem: ctx.problem._id }
+	})
 })
 
 router.del('/problem/:id', forGroup('admin'), urlFetch('problem'), async (ctx) => {

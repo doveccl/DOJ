@@ -50,9 +50,17 @@ class ProblemForm extends React.Component<ProblemFormProps> {
 					<InputNumber min={0} />
 				)}
 			</Form.Item>
+			<Form.Item label="Data" {...formItemLayout}>
+				{getFieldDecorator('data', {
+					initialValue: value && value.data
+				})(
+					<Input placeholder="Problem data id (use Manage/File to upload data)" />
+				)}
+			</Form.Item>
 			<Form.Item label="Content" {...formItemLayout}>
 				{getFieldDecorator('content', {
-					initialValue: value && value.content
+					initialValue: value && value.content,
+					rules: [{ required: true, message: 'Please input problem content' }]
 				})(
 					<Editor shortCode={true} escapeHtml={false} />
 				)}

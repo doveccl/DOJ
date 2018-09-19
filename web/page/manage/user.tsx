@@ -102,7 +102,7 @@ export default class extends React.Component {
 	}
 	public componentWillMount() {
 		updateState({ path: [ 'Manage', 'User' ] })
-		if (hasToken()) { this.handleChange(this.state.pagination) }
+		if (hasToken()) { this.handleChange() }
 	}
 	public render() {
 		return <Card

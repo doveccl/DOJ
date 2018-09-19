@@ -42,8 +42,8 @@ router.post('/file', forGroup('admin'), async (ctx) => {
 })
 
 router.put('/file/:id', forGroup('admin'), urlFetch('file'), async (ctx) => {
-	const { filename } = ctx.request.body
-	ctx.body = await ctx.file.update({ filename })
+	const { filename, metadata } = ctx.request.body
+	ctx.body = await ctx.file.update({ filename, metadata })
 })
 
 router.del('/file/:id', forGroup('admin'), urlFetch('file'), async (ctx) => {

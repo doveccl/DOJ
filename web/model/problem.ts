@@ -7,7 +7,7 @@ export function getProblems(params?: any) {
 	)
 }
 
-export function getProblem(id: string) {
+export function getProblem(id: any) {
 	return wrap(
 		axios.get(`/problem/${id}`)
 	)
@@ -25,7 +25,7 @@ export function putProblem(id: any, data: any) {
 	)
 }
 
-export function delProblem(id: string) {
+export function delProblem(id: any) {
 	return wrap(
 		axios.delete(`/problem/${id}`)
 	)

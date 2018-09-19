@@ -10,7 +10,7 @@ function escapeHtml(unsafe?: string) {
 		.replace(/'/g, '&apos;')
 }
 
-const Config = ace.require('ace/config')
+const loadModule = ace.require('ace/config').loadModule
 const TextLayer = ace.require('ace/layer/text').Text
 const EditSession = ace.require('ace/edit_session').EditSession
 
@@ -60,7 +60,7 @@ SimpleTextLayer.prototype = TextLayer.prototype
 const cacheMode: any = {}
 const getMode = (mode: string, callback: (mode: any) => any) => {
 	if (cacheMode[mode]) { return callback(cacheMode[mode]) }
-	Config.loadModule([ 'mode', mode ], (m: any) => {
+	loadModule([ 'mode', mode ], (m: any) => {
 		callback(cacheMode[mode] = new m.Mode())
 	})
 }
