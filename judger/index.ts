@@ -5,12 +5,10 @@ import { judge } from './judge'
 import { logJudger } from './log'
 import { SE } from './pack'
 
-const port: number = config.get('port')
-const host: string = config.get('host')
 const secret: string = config.get('secret')
 const concurrent: number = config.get('concurrent')
 
-const socket = io(`http://${host}:${port}`)
+const socket = io(config.get('host'))
 
 socket.on('judge', (s: any) => {
 	judge(s)

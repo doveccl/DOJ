@@ -19,7 +19,7 @@ async function parseSubmission(record: DSubmission, self: DUser) {
 	const json = record.toJSON()
 	const u = await user(uid)
 	const p = await problem(pid)
-	const c = await contest(cid)
+	const c = cid && await contest(cid)
 	if (!admin && !compare(self._id, u.id)) {
 		/**
 		 * if submission code is not open to others

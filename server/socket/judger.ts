@@ -41,7 +41,7 @@ export const routeJudger = (io: IO.Server, socket: IO.Socket) => {
 	})
 	socket.on('disconnect', () => {
 		if (judgers.includes(socket.id)) {
-			logSocket.info('Add judger:', socket.id)
+			logSocket.info('Del judger:', socket.id)
 			// set error for judgings[socket.id]
 			delJudger(socket.id)
 		}
