@@ -24,8 +24,12 @@ class Element {
 	public cloneNode() {
 		return this
 	}
-	public appendChild(child: Element) {
-		this.text += child.toString()
+	public appendChild(child: Element | HTMLElement) {
+		if (child instanceof HTMLElement) {
+			this.text += child.outerHTML
+		} else {
+			this.text += child.toString()
+		}
 	}
 	public toString() {
 		let result = ''

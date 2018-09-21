@@ -12,8 +12,8 @@ const socket = io(config.get('host'))
 
 socket.on('judge', (s: any) => {
 	judge(s)
-		.then((val) => socket.emit('update', val))
-		.catch((err) => socket.emit('update', SE(err)))
+		.then((val) => socket.emit('finish', val))
+		.catch((err) => socket.emit('finish', SE(s._id, err)))
 })
 
 socket.on('connect', () => {
