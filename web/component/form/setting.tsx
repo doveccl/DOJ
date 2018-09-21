@@ -134,4 +134,4 @@ class SettingForm extends React.Component<SettingFormProps> {
 	}
 }
 
-export default Form.create()(SettingForm)
+export const WrappedSettingForm = Form.create()(SettingForm)

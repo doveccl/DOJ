@@ -3,7 +3,7 @@ import * as React from 'react'
 import { message, Button, Checkbox, Divider, Form, Input, Select } from 'antd'
 import { FormComponentProps } from 'antd/lib/form'
 
-import Code from '../../component/code'
+import { Code } from '../../component/code'
 import { postSubmission } from '../../model'
 import { ILanguage } from '../../util/interface'
 
@@ -89,4 +89,4 @@ class SubmitForm extends React.Component<SubmitFormProps & FormComponentProps> {
 	}
 }
 
-export default Form.create()(SubmitForm)
+export const WrappedSubmitForm = Form.create()(SubmitForm)

@@ -21,8 +21,10 @@ log4js.configure({
 
 export const logHttp = log4js.getLogger('HTTP')
 export const logServer = log4js.getLogger('Server')
+export const logSocket = log4js.getLogger('Socket')
 
-logHttp.level = config.get('logLevel')
-logServer.level = config.get('logLevel')
+logHttp.level = config.get('log')
+logServer.level = config.get('log')
+logSocket.level = config.get('log')
 
 export default (category: string) => log4js.getLogger(category)

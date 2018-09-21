@@ -3,8 +3,8 @@ import { withRouter } from 'react-router-dom'
 
 import { Avatar, Icon, Layout, Menu } from 'antd'
 
+import { glink } from '../../../common/function'
 import { getSelfInfo, hasToken, logout } from '../../model'
-import { glink } from '../../util/function'
 import { HistoryProps } from '../../util/interface'
 import { addListener, globalState, removeListener, updateState } from '../../util/state'
 

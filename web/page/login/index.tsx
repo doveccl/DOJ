@@ -3,7 +3,7 @@ import * as React from 'react'
 import { Card } from 'antd'
 import { withRouter } from 'react-router-dom'
 
-import WrappedLoginForm from '../../component/form/login'
+import { WrappedLoginForm } from '../../component/form/login'
 import { HistoryProps } from '../../util/interface'
 import { updateState } from '../../util/state'
 

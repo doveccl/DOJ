@@ -3,7 +3,8 @@ import { withRouter } from 'react-router-dom'
 
 import { Icon, Layout, Menu } from 'antd'
 
-import { isGroup } from '../../util/function'
+import { Group } from '../../../common/interface'
+import { diffGroup } from '../../../common/user'
 import { HistoryProps } from '../../util/interface'
 import { addListener, globalState, removeListener } from '../../util/state'
 
@@ -71,7 +72,7 @@ class Sider extends React.Component<HistoryProps> {
 					<Icon type="bar-chart" />
 					<span>Rank</span>
 				</Menu.Item>
-				{user && isGroup(user, 'admin') && <Menu.SubMenu
+				{user && diffGroup(user, Group.admin) && <Menu.SubMenu
 					key="manage"
 					title={<span>
 						<Icon type="dashboard" />

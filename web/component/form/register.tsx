@@ -106,4 +106,4 @@ class RegisterForm extends React.Component<HistoryProps & FormComponentProps> {
 	}
 }
 
-export default Form.create()(RegisterForm)
+export const WrappedRegisterForm = Form.create()(RegisterForm)

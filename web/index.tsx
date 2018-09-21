@@ -4,11 +4,9 @@ import { BrowserRouter } from 'react-router-dom'
 
 import { Layout } from 'antd'
 
-import Footer from './component/footer'
-import Header from './component/header'
-import Path from './component/path'
-import Sider from './component/sider'
-import Router from './router'
+import { Path } from './component/path'
+import { Footer, Header, Sider } from './layout'
+import { Router } from './router'
 
 import './index.less'
 import './util/init'

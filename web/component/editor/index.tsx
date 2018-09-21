@@ -2,8 +2,8 @@ import * as React from 'react'
 
 import { Col, Row } from 'antd'
 
-import Code from '../code'
-import Markdown from '../markdown'
+import { Code } from '../code'
+import { MarkDown } from '../markdown'
 
 import './index.less'
 
@@ -14,7 +14,7 @@ interface EditorProps {
 	onChange?: (value: string) => any
 }
 
-export default class extends React.Component<EditorProps> {
+export class Editor extends React.Component<EditorProps> {
 	public state = { content: this.props.value }
 	private onChange = (content: string) => {
 		this.setState({ content })
@@ -32,7 +32,7 @@ export default class extends React.Component<EditorProps> {
 				/>
 			</Col>
 			<Col span={12} className="preview">
-				<Markdown
+				<MarkDown
 					shortCode={this.props.shortCode}
 					escapeHtml={this.props.escapeHtml}
 					source={this.state.content}

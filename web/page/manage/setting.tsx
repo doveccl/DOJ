@@ -2,7 +2,7 @@ import * as React from 'react'
 
 import { message, Button, Card, Divider } from 'antd'
 
-import Editor from '../../component/editor'
+import { Editor } from '../../component/editor'
 import { getConfig, hasToken, putConfig } from '../../model'
 import { updateState } from '../../util/state'
 

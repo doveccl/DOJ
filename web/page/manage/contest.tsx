@@ -3,7 +3,7 @@ import * as React from 'react'
 import { message, Button, Card, Col, Divider, Icon, Input, Modal, Popconfirm, Row, Table } from 'antd'
 import { WrappedFormUtils } from 'antd/lib/form/Form'
 
-import WrappedContestForm from '../../component/form/contest'
+import { WrappedContestForm } from '../../component/form/contest'
 import { delContest, getContests, getProblems, hasToken, postContest, putContest, putProblem } from '../../model'
 import { HistoryProps, IContest, IProblem } from '../../util/interface'
 import { updateState } from '../../util/state'

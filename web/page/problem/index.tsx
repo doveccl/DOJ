@@ -3,7 +3,7 @@ import { withRouter } from 'react-router-dom'
 
 import { message, Card, Input, Progress, Table, Tag } from 'antd'
 
-import LoginTip from '../../component/login-tip'
+import { LoginTip } from '../../component/login-tip'
 import { getProblems, hasToken } from '../../model'
 import { HistoryProps, IProblem } from '../../util/interface'
 import { updateState } from '../../util/state'

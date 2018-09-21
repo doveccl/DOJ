@@ -1,15 +1,6 @@
 # macOS
 .DS_Store
 
-# Logs
-logs
-*.log
-npm-debug.log*
-
-# Temporary files
-*.tmp
-*.temp
-
 # Dependency directories
 node_modules/
 

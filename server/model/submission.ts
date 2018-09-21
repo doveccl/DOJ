@@ -1,35 +1,7 @@
 import { model, Document, Schema } from 'mongoose'
+import { ISubmission, Status } from '../../common/interface'
 
-export enum Status {
-	WAIT, // Pending
-	AC, // Accepted
-	WA, // Wrong Answer
-	TLE, // Time Limit Exceed
-	MLE, // Memory Limit Exceed
-	RE, // Runtime Error
-	CE, // Compile Error
-	SE, // System Error
-	OTHER // Others
-}
-
-export interface IResult {
-	time: number
-	memory: number
-	status: Status
-}
-
-export interface ISubmission extends Document {
-	uid: Schema.Types.ObjectId
-	pid: Schema.Types.ObjectId
-	cid?: Schema.Types.ObjectId
-	code: string
-	language: number
-	open: boolean
-	result: IResult
-	cases: IResult[]
-	createdAt: Date
-	updatedAt: Date
-}
+export type DSubmission = ISubmission<Schema.Types.ObjectId, Date> & Document
 
 const result = new Schema({
 	time: {
@@ -43,6 +15,10 @@ const result = new Schema({
 	status: {
 		type: Number,
 		required: true
+	},
+	extra: {
+		type: String,
+		required: false
 	}
 }, {
 	_id: false
@@ -93,4 +69,4 @@ const schema = new Schema({
 	timestamps: true
 })
 
-export const Submission = model<ISubmission>('submission', schema)
+export const Submission = model<DSubmission>('submission', schema)

@@ -2,9 +2,9 @@ import * as bcrypt from 'bcryptjs'
 import * as config from 'config'
 import * as Router from 'koa-router'
 
+import { checkPassword } from '../../common/function'
 import { password } from '../middleware/auth'
 import { User } from '../model/user'
-import { validatePassword } from '../util/function'
 import { sign, verify } from '../util/jwt'
 import { send } from '../util/mail'
 import { has, put } from '../util/timeset'
@@ -20,11 +20,11 @@ router.get('/login', password(), async (ctx) => {
 router.post('/register', async (ctx) => {
 	const pass = ctx.request.body.password
 	const { name, mail, invitation } = ctx.request.body
-	if (!config.get('openRegistration') && !invitation) {
+	if (!config.get('registration') && !invitation) {
 		throw new Error('invitation code is required')
 	}
 
-	validatePassword(pass)
+	checkPassword(pass, true)
 	if (invitation) {
 		try {
 			const data: any = await verify(invitation)
@@ -68,7 +68,7 @@ router.put('/reset', async (ctx) => {
 	const data: any = await verify(code)
 	const user = await User.findById(data.id)
 
-	validatePassword(pass)
+	checkPassword(pass, true)
 	if (!bcrypt.compareSync(user.password, data.hash)) {
 		throw new Error('invalid verify code')
 	}

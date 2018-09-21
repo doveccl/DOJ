@@ -3,12 +3,12 @@ import { withRouter } from 'react-router-dom'
 
 import { message, Card, Divider, Tag } from 'antd'
 
-import Discuss from '../../component/discuss'
-import WrappedSubmitForm from '../../component/form/submit'
-import LoginTip from '../../component/login-tip'
-import Markdown from '../../component/markdown'
+import { parseMemory, parseTime } from '../../../common/function'
+import { Discuss } from '../../component/discuss'
+import { WrappedSubmitForm } from '../../component/form/submit'
+import { LoginTip } from '../../component/login-tip'
+import { MarkDown } from '../../component/markdown'
 import { getProblem, hasToken } from '../../model'
-import { renderMemory, renderTime } from '../../util/function'
 import { HistoryProps, IProblem, MatchProps } from '../../util/interface'
 import { addListener, globalState, removeListener, updateState } from '../../util/state'
 
@@ -44,11 +44,11 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 				loading={!problem._id}
 				title={problem.title || 'Problem'}
 				extra={problem._id && <React.Fragment>
-					<Tag color="volcano">{renderTime(problem.timeLimit)}</Tag>
-					<Tag color="orange">{renderMemory(problem.memoryLimit)}</Tag>
+					<Tag color="volcano">{parseTime(problem.timeLimit)}</Tag>
+					<Tag color="orange">{parseMemory(problem.memoryLimit)}</Tag>
 				</React.Fragment>}
 			>
-				<Markdown
+				<MarkDown
 					shortCode={true}
 					escapeHtml={false}
 					source={problem.content}

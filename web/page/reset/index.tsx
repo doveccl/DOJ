@@ -3,7 +3,7 @@ import { withRouter } from 'react-router-dom'
 
 import { Card } from 'antd'
 
-import WrappedResetForm from '../../component/form/reset'
+import { WrappedResetForm } from '../../component/form/reset'
 import { HistoryProps } from '../../util/interface'
 import { updateState } from '../../util/state'
 

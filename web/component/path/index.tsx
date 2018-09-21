@@ -7,7 +7,7 @@ import { addListener, globalState, removeListener } from '../../util/state'
 
 import './index.less'
 
-export default class extends React.Component {
+export class Path extends React.Component {
 	public state = { global: globalState }
 	public componentWillMount() {
 		addListener('path', (global) => {

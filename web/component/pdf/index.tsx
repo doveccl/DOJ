@@ -2,7 +2,7 @@ import * as React from 'react'
 
 interface PDFProps { file: string }
 
-export default class extends React.Component<PDFProps> {
+export class PDF extends React.Component<PDFProps> {
 	public render() {
 		return <p style={{
 			width: '100%',

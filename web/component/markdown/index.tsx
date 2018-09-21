@@ -3,8 +3,8 @@ import * as Markdown from 'react-markdown'
 import * as math from 'remark-math'
 import * as shortcodes from 'remark-shortcodes'
 
-import Code from '../code'
-import PDF from '../pdf'
+import { Code } from '../code'
+import { PDF } from '../pdf'
 
 import { renderToString } from 'katex'
 
@@ -21,7 +21,7 @@ interface MarkdownProps extends Markdown.ReactMarkdownProps {
 	shortCode?: boolean
 }
 
-export default class extends React.Component<MarkdownProps> {
+export class MarkDown extends React.Component<MarkdownProps> {
 	public shouldComponentUpdate(nextPorps: MarkdownProps) {
 		return nextPorps.source !== this.props.source
 	}

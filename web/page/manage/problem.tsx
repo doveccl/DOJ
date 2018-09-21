@@ -3,9 +3,9 @@ import * as React from 'react'
 import { message, Button, Card, Divider, Input, Modal, Popconfirm, Table, Tag } from 'antd'
 import { WrappedFormUtils } from 'antd/lib/form/Form'
 
-import WrappedProblemForm from '../../component/form/problem'
+import { parseMemory, parseTime } from '../../../common/function'
+import { WrappedProblemForm } from '../../component/form/problem'
 import { delProblem, getProblems, hasToken, postProblem, putProblem } from '../../model'
-import { renderMemory, renderTime } from '../../util/function'
 import { HistoryProps, IProblem } from '../../util/interface'
 import { updateState } from '../../util/state'
 
@@ -135,13 +135,13 @@ export default class extends React.Component<HistoryProps> {
 							<a href={`/problem/${t}`} target="_blank">{t}</a>
 						) },
 						{ title: 'Title', dataIndex: 'title' },
-						{ title: 'Time', dataIndex: 'timeLimit', render: renderTime },
-						{ title: 'Memory', dataIndex: 'memoryLimit', render: renderMemory },
+						{ title: 'Time', dataIndex: 'timeLimit', render: parseTime },
+						{ title: 'Memory', dataIndex: 'memoryLimit', render: parseMemory },
 						{ title: 'Tags', key: 'tags', render: (t, r) => <React.Fragment>
 							{r.tags.map((tag, i) => <Tag key={i}>{tag}</Tag>)}
 						</React.Fragment> },
 						{ title: 'Data', width: 250, dataIndex: 'data', render: (t) => (
-							t ? <a href={`/file/${t}`} target="_blank">{t}</a> : 'null'
+							t ? <a href={`/api/file/${t}`} target="_blank">{t}</a> : 'null'
 						) },
 						{ title: 'Action', key: 'action', render: (t, r) => <React.Fragment>
 							<a onClick={() => this.openModal(r)}>Edit</a>

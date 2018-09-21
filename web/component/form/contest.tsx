@@ -4,8 +4,9 @@ import * as React from 'react'
 import { DatePicker, Form, Input, Select } from 'antd'
 import { FormComponentProps } from 'antd/lib/form'
 
-import Editor from '../../component/editor'
-import { ContestType, IContest } from '../../util/interface'
+import { ContestType } from '../../../common/interface'
+import { Editor } from '../../component/editor'
+import { IContest } from '../../util/interface'
 
 interface ContestFormProps extends FormComponentProps {
 	value?: IContest
@@ -98,4 +99,4 @@ class ContestForm extends React.Component<ContestFormProps> {
 	}
 }
 
-export default Form.create()(ContestForm)
+export const WrappedContestForm = Form.create()(ContestForm)

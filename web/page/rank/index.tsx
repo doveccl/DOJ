@@ -2,9 +2,9 @@ import * as React from 'react'
 
 import { message, Avatar, Card, Table } from 'antd'
 
-import LoginTip from '../../component/login-tip'
+import { glink } from '../../../common/function'
+import { LoginTip } from '../../component/login-tip'
 import { getUsers, hasToken } from '../../model'
-import { glink } from '../../util/function'
 import { IUser } from '../../util/interface'
 import { updateState } from '../../util/state'
 

@@ -3,7 +3,7 @@ import * as React from 'react'
 import { Form, Input, InputNumber, Select } from 'antd'
 import { FormComponentProps } from 'antd/lib/form'
 
-import Editor from '../../component/editor'
+import { Editor } from '../../component/editor'
 import { IProblem } from '../../util/interface'
 
 interface ProblemFormProps extends FormComponentProps {
@@ -69,4 +69,4 @@ class ProblemForm extends React.Component<ProblemFormProps> {
 	}
 }
 
-export default Form.create()(ProblemForm)
+export const WrappedProblemForm = Form.create()(ProblemForm)

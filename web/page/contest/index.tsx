@@ -3,9 +3,10 @@ import { withRouter } from 'react-router-dom'
 
 import { message, Card, Table, Tag } from 'antd'
 
-import LoginTip from '../../component/login-tip'
+import { ContestType } from '../../../common/interface'
+import { LoginTip } from '../../component/login-tip'
 import { getContests, hasToken } from '../../model'
-import { ContestType, HistoryProps, IContest } from '../../util/interface'
+import { HistoryProps, IContest } from '../../util/interface'
 import { updateState } from '../../util/state'
 
 export const renderType = (t: ContestType) => {

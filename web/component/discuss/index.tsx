@@ -2,18 +2,19 @@ import * as React from 'react'
 
 import { message, Button, Card, List } from 'antd'
 
+import { Group } from '../../../common/interface'
+import { diffGroup } from '../../../common/user'
 import { getPosts, postPost } from '../../model'
-import { isGroup } from '../../util/function'
 import { IPost } from '../../util/interface'
 import { globalState } from '../../util/state'
-import Editor from '../editor'
-import Post from './post'
+import { Editor } from '../editor'
+import { Post } from './post'
 
 interface DiscussProps {
 	topic: string
 }
 
-export default class extends React.Component<DiscussProps> {
+export class Discuss extends React.Component<DiscussProps> {
 	public state = {
 		total: 0,
 		current: 1,
@@ -53,7 +54,7 @@ export default class extends React.Component<DiscussProps> {
 	}
 	public render() {
 		const uid = globalState.user._id
-		const isAdmin = isGroup(globalState.user, 'admin')
+		const isAdmin = diffGroup(globalState.user, Group.admin)
 		const { total, current, pageSize } = this.state
 
 		return <React.Fragment>

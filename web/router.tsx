@@ -20,7 +20,7 @@ import ManageProblem from './page/manage/problem'
 import ManageSetting from './page/manage/setting'
 import ManageUser from './page/manage/user'
 
-export default () => <Switch>
+export const Router = () => <Switch>
 	<Route path="/home" component={Home} />
 	<Route path="/login" component={Login} />
 	<Route path="/register" component={Register} />

@@ -1,10 +1,12 @@
 import * as bcrypt from 'bcryptjs'
 import * as Router from 'koa-router'
 
-import { ensureGroup, forGroup, token } from '../middleware/auth'
-import { urlFetch } from '../middleware/fetch'
+import { checkPassword, compare } from '../../common/function'
+import { Group } from '../../common/interface'
+import { ensureGroup } from '../../common/user'
+import { group, token } from '../middleware/auth'
+import { fetch } from '../middleware/fetch'
 import { User } from '../model/user'
-import { toStringCompare, validatePassword } from '../util/function'
 import { sign } from '../util/jwt'
 import { send } from '../util/mail'
 
@@ -18,7 +20,7 @@ router.get('/user', async (ctx) => {
 	const { rank } = ctx.query
 	let { page, size } = ctx.query
 
-	if (!rank) { ensureGroup(ctx.self, 'admin') }
+	if (!rank) { ensureGroup(ctx.self, Group.admin) }
 	page = parseInt(page, 10) || 1
 	size = parseInt(size, 10) || 50
 
@@ -35,23 +37,23 @@ router.get('/user/info', async (ctx) => {
 	delete ctx.body.password
 })
 
-router.post('/user', forGroup('admin'), async (ctx) => {
+router.post('/user', group(Group.admin), async (ctx) => {
 	const { body } = ctx.request
-	const { group } = body
+	const { group: ugroup } = body
 
-	if (group) { ensureGroup(ctx.self, group, 1) }
-	validatePassword(body.password)
+	if (ugroup) { ensureGroup(ctx.self, ugroup, 1) }
+	checkPassword(body.password, true)
 
 	for (const item of EXCLUDE_LIST) { delete body[item] }
 	body.password = bcrypt.hashSync(body.password)
 	ctx.body = await User.create(body)
 })
 
-router.put('/user/:id', urlFetch('user'), async (ctx) => {
+router.put('/user/:id', fetch('user'), async (ctx) => {
 	const { self, user } = ctx
 	const { body } = ctx.request
 
-	if (!toStringCompare(self._id, user._id)) {
+	if (!compare(self._id, user._id)) {
 		ensureGroup(self, user.group, 1)
 		delete body.password
 	} else { delete body.group }
@@ -60,7 +62,7 @@ router.put('/user/:id', urlFetch('user'), async (ctx) => {
 		if (!bcrypt.compareSync(body.oldPassword, self.password)) {
 			throw new Error('wrong old password')
 		}
-		validatePassword(body.password)
+		checkPassword(body.password, true)
 		body.password = bcrypt.hashSync(body.password)
 	}
 
@@ -69,12 +71,12 @@ router.put('/user/:id', urlFetch('user'), async (ctx) => {
 	user.set(body)
 })
 
-router.del('/user/:id', urlFetch('user'), async (ctx) => {
+router.del('/user/:id', fetch('user'), async (ctx) => {
 	ensureGroup(ctx.self, ctx.user.group, 1)
 	ctx.body = await ctx.user.remove()
 })
 
-router.post('/user/invite', forGroup('admin'), async (ctx) => {
+router.post('/user/invite', group(Group.admin), async (ctx) => {
 	const { mail } = ctx.request.body
 	const invitation = await sign({ mail })
 	await send(mail, 'Invitation code', invitation)

@@ -17,13 +17,16 @@
   "private": true,
   "scripts": {
     "dev:server": "ts-node-dev --no-notify --project server/tsconfig.json server",
+    "dev:judger": "ts-node-dev --no-notify --project judger/tsconfig.json judger",
     "dev:web": "webpack-dev-server --mode development",
     "build:server": "rm -rf build && tsc -p server",
+    "build:judger": "rm -rf core && tsc -p judger",
     "build:web": "rm -rf dist && webpack --mode production",
     "lint:server": "tslint -p server/tsconfig.json -c tslint.json",
+    "lint:judger": "tslint -p judger/tsconfig.json -c tslint.json",
     "lint:web": "tslint -p web/tsconfig.json -c tslint.json",
-    "lint": "npm run lint:server && npm run lint:web",
-    "build": "npm run build:server && npm run build:web"
+    "lint": "npm run lint:server && npm run lint:judger && npm run lint:web",
+    "build": "npm run build:server && npm run build:judger && npm run build:web"
   },
   "dependencies": {
     "ace-builds": "^1.4.1",
@@ -51,7 +54,9 @@
     "react-router": "^4.3.1",
     "react-router-dom": "^4.3.1",
     "remark-math": "^1.0.4",
-    "remark-shortcodes": "^0.2.1"
+    "remark-shortcodes": "^0.2.1",
+    "socket.io": "^2.1.1",
+    "socket.io-client": "^2.1.1"
   },
   "devDependencies": {
     "@babel/core": "^7.0.1",
@@ -74,6 +79,8 @@
     "@types/react-dom": "^16.0.7",
     "@types/react-router": "^4.0.31",
     "@types/react-router-dom": "^4.3.1",
+    "@types/socket.io": "^1.4.38",
+    "@types/socket.io-client": "^1.4.32",
     "babel-loader": "^8.0.2",
     "babel-plugin-import": "^1.8.0",
     "compression-webpack-plugin": "^2.0.0",

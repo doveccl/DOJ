@@ -1,0 +1,13 @@
+{
+	"compilerOptions": {
+		"target": "es2017",
+		"outDir" : "../core",
+		"module": "commonjs",
+		"noImplicitAny": true,
+		"removeComments": true,
+		"typeRoots": [
+			"../node_modules/@types",
+			"../typings"
+		]
+	}
+}

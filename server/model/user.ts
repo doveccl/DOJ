@@ -1,18 +1,7 @@
 import { model, Document, Schema } from 'mongoose'
+import { IUser } from '../../common/interface'
 
-export enum UserGroup { common, admin, root }
-
-export interface IUser extends Document {
-	name: string
-	mail: string
-	group: UserGroup
-	password: string
-	solve: number
-	submit: number
-	introduction: string
-	createdAt: Date
-	updatedAt: Date
-}
+export type DUser = IUser<Schema.Types.ObjectId, Date> & Document
 
 const schema = new Schema({
 	name: {
@@ -60,4 +49,4 @@ const schema = new Schema({
 
 schema.index({ solve: -1, submit: 1 })
 
-export const User = model<IUser>('user', schema)
+export const User = model<DUser>('user', schema)

@@ -1,12 +1,14 @@
 import { compareSync } from 'bcryptjs'
 import { Middleware } from 'koa'
 
-import { IUser, User, UserGroup } from '../model/user'
+import { Group } from '../../common/interface'
+import { ensureGroup } from '../../common/user'
+import { DUser, User } from '../model/user'
 import { verify } from '../util/jwt'
 
 declare module 'koa' {
 	interface Context {
-		self?: IUser
+		self?: DUser
 	}
 }
 
@@ -33,29 +35,9 @@ export function token(cookie = false, k = 'token'): Middleware {
 	}
 }
 
-export function isGroup(user: IUser, type: string | number, diff = 0) {
-	let group: UserGroup
-	switch (type) {
-		case 'root':
-		case 'admin':
-		case 'common':
-			group = UserGroup[type]
-			break
-		default:
-			group = Number(type)
-	}
-	return user && user.group - group >= diff
-}
-
-export function ensureGroup(user: IUser, type: string | number, diff = 0) {
-	if (!isGroup(user, type, diff)) {
-		throw new Error('permission denied')
-	}
-}
-
-export function forGroup(type: 'root' | 'admin' | 'common'): Middleware {
+export function group(ugroup: Group): Middleware {
 	return async (ctx, next) => {
-		ensureGroup(ctx.self, type)
+		ensureGroup(ctx.self, ugroup)
 		await next()
 	}
 }

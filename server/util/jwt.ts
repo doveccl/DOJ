@@ -1,7 +1,7 @@
 import * as config from 'config'
 import * as jwt from 'jsonwebtoken'
 
-const secret: string = config.get('jwtSecret')
+const secret: string = config.get('secret')
 
 export function sign(
 	payload: string | object | Buffer,

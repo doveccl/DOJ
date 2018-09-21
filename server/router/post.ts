@@ -1,9 +1,11 @@
 import * as Router from 'koa-router'
 
-import { ensureGroup, token } from '../middleware/auth'
-import { contest, problem, urlFetch, user } from '../middleware/fetch'
+import { compare } from '../../common/function'
+import { Group } from '../../common/interface'
+import { ensureGroup } from '../../common/user'
+import { token } from '../middleware/auth'
+import { contest, fetch, problem, user } from '../middleware/fetch'
 import { Post } from '../model/post'
-import { toStringCompare } from '../util/function'
 
 const router = new Router()
 
@@ -26,10 +28,10 @@ router.get('/post', async (ctx) => {
 	ctx.body = { total, list }
 })
 
-router.put('/post/:id', urlFetch('post'), async (ctx) => {
+router.put('/post/:id', fetch('post'), async (ctx) => {
 	const { self, post } = ctx
 	const { content } = ctx.request.body
-	if (!toStringCompare(self._id, post.uid)) { ensureGroup(self, 'admin') }
+	if (!compare(self._id, post.uid)) { ensureGroup(self, Group.admin) }
 	ctx.body = await post.update({ content }, { runValidators: true })
 })
 
@@ -42,9 +44,9 @@ router.post('/post', async (ctx) => {
 	ctx.body = await Post.create(body)
 })
 
-router.del('/post/:id', urlFetch('post'), async (ctx) => {
+router.del('/post/:id', fetch('post'), async (ctx) => {
 	const { self, post } = ctx
-	if (!toStringCompare(self._id, post.uid)) { ensureGroup(self, 'admin') }
+	if (!compare(self._id, post.uid)) { ensureGroup(self, Group.admin) }
 	ctx.body = await post.remove()
 })
 

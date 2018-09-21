@@ -127,4 +127,4 @@ class ResetForm extends React.Component<HistoryProps & FormComponentProps> {
 	}
 }
 
-export default Form.create()(ResetForm)
+export const WrappedResetForm = Form.create()(ResetForm)

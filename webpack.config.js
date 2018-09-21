@@ -1,6 +1,5 @@
 const path = require('path')
 const config = require('config')
-const webpack = require('webpack')
 const WebpackCdnPlugin = require('webpack-cdn-plugin')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const CompressionPlugin = require('compression-webpack-plugin')
@@ -57,13 +56,16 @@ module.exports = (env, argv) => {
 			}),
 			new WebpackCdnPlugin({
 				modules: [
+					{ name: 'moment', path: `min/moment.min.js` },
+					{ name: 'axios', path: `dist/axios${min}.js` },
+					{ name: 'ace-builds', var: 'ace', path: `src-min-noconflict/ace.js` },
+					{ name: 'katex', path: `dist/katex${min}.js`, style: `dist/katex${min}.css` },
 					{ name: 'react', var: 'React', path: `umd/react.${reactMode}.js` },
 					{ name: 'react-dom', var: 'ReactDOM', path: `umd/react-dom.${reactMode}.js` },
 					{ name: 'react-router', var: 'ReactRouter', path: `umd/react-router${min}.js` },
 					{ name: 'react-router-dom', var: 'ReactRouterDOM', path: `umd/react-router-dom${min}.js` },
-					{ name: 'axios', path: `dist/axios${min}.js` },
-					{ name: 'katex', path: `dist/katex${min}.js`, style: `dist/katex${min}.css` },
-					{ name: 'ace-builds', var: 'ace', path: `src-min-noconflict/ace.js` }
+					{ name: 'react-markdown', var: 'reactMarkdown', path: 'umd/react-markdown.js' },
+					// { name: 'antd', path: `dist/antd${min}.js`, style: `dist/antd${min}.css` }
 				],
 				prod, publicPath: '/node_modules'
 			}),

@@ -1,7 +1,9 @@
 import * as Router from 'koa-router'
 
-import { ensureGroup, forGroup, token } from '../middleware/auth'
-import { contest, urlFetch } from '../middleware/fetch'
+import { Group } from '../../common/interface'
+import { ensureGroup } from '../../common/user'
+import { group, token } from '../middleware/auth'
+import { contest, fetch } from '../middleware/fetch'
 import { File } from '../model/file'
 import { Problem } from '../model/problem'
 
@@ -26,7 +28,7 @@ router.get('/problem', async (ctx) => {
 	}
 	if (!search) { delete condition.$or }
 	if (!cid) { delete condition['contest.id'] }
-	if (all) { ensureGroup(ctx.self, 'admin') }
+	if (all) { ensureGroup(ctx.self, Group.admin) }
 
 	page = parseInt(page, 10) || 1
 	size = parseInt(size, 10) || 50
@@ -47,27 +49,27 @@ router.get('/problem', async (ctx) => {
 	ctx.body = { total, list }
 })
 
-router.get('/problem/:id', urlFetch('problem'), async (ctx) => {
+router.get('/problem/:id', fetch('problem'), async (ctx) => {
 	if (ctx.problem.contest) {
 		const c = await contest(ctx.problem.contest.id)
-		if (new Date() < c.startAt) { ensureGroup(ctx.self, 'admin') }
+		if (new Date() < c.startAt) { ensureGroup(ctx.self, Group.admin) }
 	}
 	ctx.body = ctx.problem.toJSON()
 	delete ctx.body.data
 })
 
-router.post('/problem', forGroup('admin'), async (ctx) => {
+router.post('/problem', group(Group.admin), async (ctx) => {
 	ctx.body = await Problem.create(ctx.request.body)
 	await File.findByIdAndUpdate(ctx.request.body.data, { metadata: { type: 'data' } })
 })
 
-router.put('/problem/:id', forGroup('admin'), urlFetch('problem'), async (ctx) => {
+router.put('/problem/:id', group(Group.admin), fetch('problem'), async (ctx) => {
 	await File.findByIdAndUpdate(ctx.request.body.data, { metadata: { type: 'data' } })
 	ctx.body = await ctx.problem.update(ctx.request.body, { runValidators: true })
 	ctx.problem.set(ctx.request.body)
 })
 
-router.del('/problem/:id', forGroup('admin'), urlFetch('problem'), async (ctx) => {
+router.del('/problem/:id', group(Group.admin), fetch('problem'), async (ctx) => {
 	ctx.body = await ctx.problem.remove()
 })
 

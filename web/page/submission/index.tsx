@@ -3,10 +3,11 @@ import { withRouter, Link } from 'react-router-dom'
 
 import { message, Button, Card, Col, Icon, Input, Row, Table, Tag } from 'antd'
 
-import LoginTip from '../../component/login-tip'
+import { parseMemory, parseTime } from '../../../common/function'
+import { IResult, Status } from '../../../common/interface'
+import { LoginTip } from '../../component/login-tip'
 import { getSubmissions, hasToken } from '../../model'
-import { renderMemory, renderTime } from '../../util/function'
-import { HistoryProps, IResult, ISubmission, Status } from '../../util/interface'
+import { HistoryProps, ISubmission } from '../../util/interface'
 import { addListener, globalState, removeListener, updateState } from '../../util/state'
 
 export const renderStatus = (r: IResult) => {
@@ -116,8 +117,8 @@ class Submissions extends React.Component<HistoryProps> {
 						{ title: 'Status', dataIndex: 'result', render: renderStatus, onCell: (r) => ({
 							onClick: () => this.props.history.push(`/submission/${r._id}`)
 						}) },
-						{ title: 'Time', align: 'center', dataIndex: 'result.time', render: renderTime },
-						{ title: 'Memory', align: 'center', dataIndex: 'result.memory', render: renderMemory },
+						{ title: 'Time', align: 'center', dataIndex: 'result.time', render: parseTime },
+						{ title: 'Memory', align: 'center', dataIndex: 'result.memory', render: parseMemory },
 						{ title: 'Language', align: 'center', dataIndex: 'language', render: (l) => (
 							languages[l] ? languages[l].name : 'unknown'
 						) },

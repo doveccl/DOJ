@@ -1,22 +1,29 @@
 import * as config from 'config'
 import * as Router from 'koa-router'
 
-import { forGroup, token } from '../middleware/auth'
+import { Group } from '../../common/interface'
+import { group, token } from '../middleware/auth'
 import { Config } from '../model/config'
+
+interface Language {
+	name: string
+	suffix: string
+}
 
 const router = new Router()
 
 router.use('/config', token())
 
 router.get('/config/languages', async (ctx) => {
-	ctx.body = config.get('languages')
+	const languages: Language[] = config.get('languages')
+	ctx.body = languages.map(({ name, suffix }) => ({ name, suffix }))
 })
 
 router.get('/config/notification', async (ctx) => {
 	ctx.body = await Config.findById('notification')
 })
 
-router.put('/config/:id', forGroup('admin'), async (ctx) => {
+router.put('/config/:id', group(Group.admin), async (ctx) => {
 	ctx.body = await Config.findByIdAndUpdate(ctx.params.id, ctx.request.body)
 })
 

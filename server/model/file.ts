@@ -1,19 +1,9 @@
 import * as fs from 'fs'
 import { GridFSBucket, GridFSBucketOpenUploadStreamOptions, ObjectID } from 'mongodb'
 import { connection, model, Document, Schema } from 'mongoose'
+import { IFile } from '../../common/interface'
 
-export const TYPE_REG = /(:?image|pdf|zip)/
-
-export interface IFile extends Document {
-	filename: string
-	contentType: string
-	length: number
-	chunkSize: number
-	uploadDate: Date
-	metadata: any
-	aliases: string[]
-	md5: string
-}
+export type DFile = IFile<Schema.Types.ObjectId, Date> & Document
 
 const schema = new Schema({
 	filename: String,
@@ -33,13 +23,15 @@ const schema = new Schema({
  * do not creat/delete file with this model
  * do not update file content with this model
  */
-const FS = model<IFile>('fs.file', schema)
+const FS = model<DFile>('fs.file', schema)
 
 /**
  * mongodb GridFS Bucket
  */
 let bucket: GridFSBucket
 connection.on('open', () => bucket = new GridFSBucket(connection.db))
+
+export const TYPE_REG = /(:?image|pdf|zip)/
 
 export class File {
 	public static create(

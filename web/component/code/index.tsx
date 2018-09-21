@@ -67,7 +67,7 @@ const language2mode = (lan: string) => {
 	return false
 }
 
-export default class extends React.Component<CodeProps> {
+export class Code extends React.Component<CodeProps> {
 	private editor = undefined as ace.Ace.Editor
 	private viewer = undefined as HTMLElement
 	private getOptions = (props?: CodeProps) => {

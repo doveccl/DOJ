@@ -1,12 +1,7 @@
 import { model, Document, Schema } from 'mongoose'
+import { IPost } from '../../common/interface'
 
-export interface IPost extends Document {
-	uid: Schema.Types.ObjectId
-	topic: Schema.Types.ObjectId
-	content: string
-	createdAt: Date
-	updatedAt: Date
-}
+export type DPost = IPost<Schema.Types.ObjectId, Date> & Document
 
 const schema = new Schema({
 	uid: {
@@ -29,4 +24,4 @@ const schema = new Schema({
 	timestamps: true
 })
 
-export const Post = model<IPost>('post', schema)
+export const Post = model<DPost>('post', schema)

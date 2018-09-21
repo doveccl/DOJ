@@ -1,7 +1,8 @@
 import * as Router from 'koa-router'
 
-import { forGroup, token } from '../middleware/auth'
-import { urlFetch } from '../middleware/fetch'
+import { Group } from '../../common/interface'
+import { group, token } from '../middleware/auth'
+import { fetch } from '../middleware/fetch'
 import { Contest } from '../model/contest'
 import { Problem } from '../model/problem'
 
@@ -21,18 +22,18 @@ router.get('/contest', async (ctx) => {
 	ctx.body = { total, list }
 })
 
-router.post('/contest', forGroup('admin'), async (ctx) => {
+router.post('/contest', group(Group.admin), async (ctx) => {
 	const { startAt, endAt, freezeAt } = ctx.request.body
 	if (startAt >= endAt) { throw new Error('invalid datetime range') }
 	if (freezeAt >= endAt) { throw new Error('invalid freeze time') }
 	ctx.body = await Contest.create(ctx.request.body)
 })
 
-router.get('/contest/:id', urlFetch('contest'), async (ctx) => {
+router.get('/contest/:id', fetch('contest'), async (ctx) => {
 	ctx.body = ctx.contest
 })
 
-router.put('/contest/:id', forGroup('admin'), urlFetch('contest'), async (ctx) => {
+router.put('/contest/:id', group(Group.admin), fetch('contest'), async (ctx) => {
 	const { startAt, endAt, freezeAt } = ctx.request.body
 	const { startAt: s, endAt: e, freezeAt: f } = ctx.contest
 	if (
@@ -49,7 +50,7 @@ router.put('/contest/:id', forGroup('admin'), urlFetch('contest'), async (ctx) =
 	ctx.contest.set(ctx.request.body)
 })
 
-router.del('/contest/:id', forGroup('admin'), urlFetch('contest'), async (ctx) => {
+router.del('/contest/:id', group(Group.admin), fetch('contest'), async (ctx) => {
 	ctx.body = await ctx.contest.remove()
 	await Problem.updateMany(
 		{ 'contest.id': ctx.params.id },

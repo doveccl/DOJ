@@ -3,7 +3,7 @@ import * as React from 'react'
 import { Card } from 'antd'
 import { withRouter } from 'react-router-dom'
 
-import WrappedSettingForm from '../../component/form/setting'
+import { WrappedSettingForm } from '../../component/form/setting'
 import { HistoryProps } from '../../util/interface'
 import { addListener, globalState, removeListener, updateState } from '../../util/state'
 

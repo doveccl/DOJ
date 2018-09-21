@@ -1,23 +1,26 @@
 import * as Router from 'koa-router'
 
-import { ensureGroup, isGroup, token } from '../middleware/auth'
-import { contest, problem, urlFetch, user } from '../middleware/fetch'
-import { ISubmission, Status, Submission } from '../model/submission'
-import { IUser, User } from '../model/user'
-import { toStringCompare } from '../util/function'
+import { compare } from '../../common/function'
+import { ContestType, Group, Status } from '../../common/interface'
+import { diffGroup, ensureGroup } from '../../common/user'
+import { token } from '../middleware/auth'
+import { contest, fetch, problem, user } from '../middleware/fetch'
+import { DSubmission, Submission } from '../model/submission'
+import { DUser, User } from '../model/user'
+import { doJudge } from '../socket/judger'
 
 const router = new Router()
 
 router.use('/submission', token())
 
-async function parseSubmission(record: ISubmission, self: IUser) {
-	const admin = isGroup(self, 'admin')
+async function parseSubmission(record: DSubmission, self: DUser) {
+	const admin = diffGroup(self, Group.admin)
 	const { uid, pid, cid } = record
 	const json = record.toJSON()
 	const u = await user(uid)
 	const p = await problem(pid)
 	const c = await contest(cid)
-	if (!admin && !toStringCompare(self._id, u.id)) {
+	if (!admin && !compare(self._id, u.id)) {
 		/**
 		 * if submission code is not open to others
 		 * code should be invisible other common user
@@ -32,13 +35,15 @@ async function parseSubmission(record: ISubmission, self: IUser) {
 	if (!admin && c && new Date() < c.endAt) {
 		/**
 		 * if the scoreboard is frozen before a submission is submitted
-		 * common user (include itself) couldn't see result before ending
+		 * common user couldn't see result before ending
 		 */
-		if (c.freezeAt <= record.createdAt) {
-			delete json.cases
-			json.result = {
-				time: 0, memory: 0,
-				status: Status.WAIT
+		if (c.type !== ContestType.ICPC || !compare(self._id, u.id)) {
+			if (c.freezeAt <= record.createdAt) {
+				delete json.cases
+				json.result = {
+					time: 0, memory: 0,
+					status: Status.WAIT
+				}
 			}
 		}
 	}
@@ -77,17 +82,17 @@ router.get('/submission', async (ctx) => {
 	ctx.body = { total, list }
 })
 
-router.get('/submission/:id', urlFetch('submission'), async (ctx) => {
+router.get('/submission/:id', fetch('submission'), async (ctx) => {
 	ctx.body = await parseSubmission(ctx.submission, ctx.self)
 })
 
 /**
  * user can only modify code visibility to others
  */
-router.put('/submission/:id', urlFetch('submission'), async (ctx) => {
+router.put('/submission/:id', fetch('submission'), async (ctx) => {
 	const { self, submission } = ctx
 	const { open } = ctx.request.body
-	if (!toStringCompare(self._id, submission.uid)) { ensureGroup(self, 'admin') }
+	if (!compare(self._id, submission.uid)) { ensureGroup(self, Group.admin) }
 	ctx.body = await submission.update({ open }, { runValidators: true })
 })
 
@@ -98,6 +103,7 @@ router.post('/submission', async (ctx) => {
 
 	const p = await problem(body.pid)
 	if (!p) { throw new Error('invalid problem id') }
+	if (!p.data) { throw new Error('no data for this problem') }
 	if (p.contest) {
 		const c = await contest(p.contest.id)
 		if (new Date() < c.startAt) {
@@ -107,7 +113,7 @@ router.post('/submission', async (ctx) => {
 		}
 	}
 	ctx.body = await Submission.create(body)
-	// add submission id (ctx.body._id) to judge queue
+	doJudge([ ctx.body ])
 })
 
 export default router

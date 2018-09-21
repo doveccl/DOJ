@@ -2,11 +2,11 @@ import * as React from 'react'
 
 import { message, Avatar, Button, Card, Divider, List, Popconfirm } from 'antd'
 
+import { glink } from '../../../common/function'
 import { delPost, putPost } from '../../model'
-import { glink } from '../../util/function'
 import { IPost } from '../../util/interface'
-import Editor from '../editor'
-import Markdown from '../markdown'
+import { Editor } from '../editor'
+import { MarkDown } from '../markdown'
 
 interface PostProps {
 	post: IPost
@@ -14,7 +14,7 @@ interface PostProps {
 	callback?: () => any
 }
 
-export default class extends React.Component<PostProps> {
+export class Post extends React.Component<PostProps> {
 	public state = {
 		edit: false,
 		text: this.props.post.content
@@ -66,7 +66,7 @@ export default class extends React.Component<PostProps> {
 					<Button type="primary" onClick={this.update}>Update</Button>
 					<Divider type="vertical" />
 					<Button onClick={() => this.setState({ edit: false })}>Cancel</Button>
-				</React.Fragment> : <Markdown source={content} />}
+				</React.Fragment> : <MarkDown source={content} />}
 			</Card>
 		</List.Item>
 	}

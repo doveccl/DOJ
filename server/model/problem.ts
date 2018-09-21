@@ -1,21 +1,7 @@
 import { model, Document, Schema } from 'mongoose'
+import { IProblem } from '../../common/interface'
 
-export interface IProblem extends Document {
-	title: string
-	content: string
-	tags: string[]
-	timeLimit: number
-	memoryLimit: number
-	solve: number
-	submit: number
-	data?: Schema.Types.ObjectId
-	contest?: {
-		id: Schema.Types.ObjectId
-		key: string
-	}
-	createdAt: Date
-	updatedAt: Date
-}
+export type DProblem = IProblem<Schema.Types.ObjectId, Date> & Document
 
 const belong = new Schema({
 	id: Schema.Types.ObjectId,
@@ -74,4 +60,4 @@ schema.index(
 	{ unique: true, sparse: true }
 )
 
-export const Problem = model<IProblem>('problem', schema)
+export const Problem = model<DProblem>('problem', schema)

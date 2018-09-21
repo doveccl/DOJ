@@ -7,11 +7,6 @@ import { delFile, getFiles, hasToken, putFile } from '../../model'
 import { IFile } from '../../util/interface'
 import { updateState } from '../../util/state'
 
-const TYPES = [
-	'.pdf', '.zip', '.bmp',
-	'.jpg', '.jpeg', '.png', '.gif'
-]
-
 const renderUsage = (f: IFile) => {
 	if (/pdf/.test(f.contentType)) {
 		return `[[ PDF id="${f._id}" ]]`
@@ -78,7 +73,7 @@ export default class extends React.Component {
 		return <Card title="Files">
 			<Upload.Dragger
 				action="/api/file"
-				accept={TYPES.join(',')}
+				accept="image/*,.zip,.pdf"
 				onChange={this.onUploadChange}
 				showUploadList={false}
 				multiple={false}
@@ -105,9 +100,9 @@ export default class extends React.Component {
 					{ title: 'Filename', dataIndex: 'filename', render: (t, r) => (
 						<a href={`/api/file/${r._id}`} download={t}>{t}</a>
 					) },
-					{ title: 'MD5', dataIndex: 'md5' },
-					{ title: 'File Type', dataIndex: 'metadata.type' },
 					{ title: 'Usage', key: 'usage', render: (t, r) => renderUsage(r) },
+					{ title: 'File Type', dataIndex: 'metadata.type' },
+					{ title: 'MD5', dataIndex: 'md5' },
 					{ title: 'Action', key: 'action', render: (t, r) => <React.Fragment>
 						<a onClick={() => {
 							this.rename(r._id, prompt('New name:', r.filename))

@@ -2,8 +2,8 @@ import * as React from 'react'
 
 import { message, Card } from 'antd'
 
-import LoginTip from '../../component/login-tip'
-import Markdown from '../../component/markdown'
+import { LoginTip } from '../../component/login-tip'
+import { MarkDown } from '../../component/markdown'
 import { getConfig, hasToken } from '../../model'
 import { updateState } from '../../util/state'
 
@@ -22,7 +22,7 @@ export default class extends React.Component {
 		return <React.Fragment>
 			<LoginTip />
 			<Card title="Welcome to DOJ" loading={typeof value === 'undefined'}>
-				<Markdown source={value} escapeHtml={false} />
+				<MarkDown source={value} escapeHtml={false} />
 			</Card>
 		</React.Fragment>
 	}

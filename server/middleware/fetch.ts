@@ -1,20 +1,23 @@
 import { Middleware } from 'koa'
+import { Schema } from 'mongoose'
 
-import { Contest, IContest } from '../model/contest'
-import { File, IFile } from '../model/file'
-import { IPost, Post } from '../model/post'
-import { IProblem, Problem } from '../model/problem'
-import { ISubmission, Submission } from '../model/submission'
-import { IUser, User } from '../model/user'
+import { Contest, DContest } from '../model/contest'
+import { DFile, File } from '../model/file'
+import { DPost, Post } from '../model/post'
+import { DProblem, Problem } from '../model/problem'
+import { DSubmission, Submission } from '../model/submission'
+import { DUser, User } from '../model/user'
+
+type IDLike = string | Schema.Types.ObjectId
 
 declare module 'koa' {
 	interface Context {
-		user?: IUser
-		problem?: IProblem
-		contest?: IContest
-		submission?: ISubmission
-		post?: IPost
-		file?: IFile
+		user?: DUser
+		problem?: DProblem
+		contest?: DContest
+		submission?: DSubmission
+		post?: DPost
+		file?: DFile
 	}
 }
 
@@ -23,47 +26,30 @@ interface Cache<T> {
 }
 
 const cache = {
-	user: {} as Cache<IUser>,
-	problem: {} as Cache<IProblem>,
-	contest: {} as Cache<IContest>
+	user: {} as Cache<DUser>,
+	problem: {} as Cache<DProblem>,
+	contest: {} as Cache<DContest>
 }
 
-export async function user(id: any) {
+export async function user(maybeID: IDLike) {
+	const id = String(maybeID)
 	if (cache.user[id]) { return cache.user[id] }
 	return cache.user[id] = await User.findById(id)
 }
 
-export async function problem(id: any) {
+export async function problem(maybeID: IDLike) {
+	const id = String(maybeID)
 	if (cache.problem[id]) { return cache.problem[id] }
 	return cache.problem[id] = await Problem.findById(id)
 }
 
-export async function contest(id: any) {
+export async function contest(maybeID: IDLike) {
+	const id = String(maybeID)
 	if (cache.contest[id]) { return cache.contest[id] }
 	return cache.contest[id] = await Contest.findById(id)
 }
 
-export async function fetch(
-	type:
-		'user' |
-		'problem' |
-		'contest' |
-		'submission' |
-		'post' |
-		'file',
-	id: any
-) {
-	switch (type) {
-		case 'user': return await user(id)
-		case 'problem': return await problem(id)
-		case 'contest': return await contest(id)
-		case 'submission': return await Submission.findById(id)
-		case 'post': return await Post.findById(id)
-		case 'file': return await File.findById(id)
-	}
-}
-
-export function urlFetch(
+export function fetch(
 	type:
 		'user' |
 		'problem' |
@@ -73,8 +59,27 @@ export function urlFetch(
 		'file'
 ): Middleware {
 	return async (ctx, next) => {
-		if (ctx.params.id) {
-			ctx[type] = await fetch(type, ctx.params.id)
+		const { id } = ctx.params
+		if (id) {
+			switch (type) {
+				case 'user':
+					ctx[type] = await user(id)
+					break
+				case 'problem':
+					ctx[type] = await problem(id)
+					break
+				case 'contest':
+					ctx[type] = await contest(id)
+					break
+				case 'submission':
+					ctx[type] = await Submission.findById(id)
+					break
+				case 'post':
+					ctx[type] = await Post.findById(id)
+					break
+				case 'file':
+					ctx[type] = await File.findById(id)
+			}
 			if (!ctx[type]) { throw new Error(`${type} not found`) }
 		}
 		await next()

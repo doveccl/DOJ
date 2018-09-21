@@ -1,0 +1,12 @@
+# macOS
+.DS_Store
+
+# git
+.git*
+
+# Dependency directories
+node_modules/
+
+# Build files
+build/
+dist/

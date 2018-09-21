@@ -3,10 +3,11 @@ import { withRouter, Link } from 'react-router-dom'
 
 import { message, Card, Checkbox, Timeline } from 'antd'
 
-import Code from '../../component/code'
-import LoginTip from '../../component/login-tip'
+import { Group } from '../../../common/interface'
+import { diffGroup } from '../../../common/user'
+import { Code } from '../../component/code'
+import { LoginTip } from '../../component/login-tip'
 import { getSubmission, hasToken, putSubmission } from '../../model'
-import { isGroup } from '../../util/function'
 import { HistoryProps, ISubmission, MatchProps } from '../../util/interface'
 import { addListener, globalState, removeListener, updateState } from '../../util/state'
 
@@ -60,7 +61,7 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 						checked={open}
 						children="Public"
 						disabled={
-							!isGroup(global.user, 'admin') &&
+							!diffGroup(global.user, Group.admin) &&
 							global.user._id !== submission.uid
 						}
 						onChange={(e) => {

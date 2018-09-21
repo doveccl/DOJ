@@ -3,15 +3,16 @@ import * as React from 'react'
 import { message, Button, Card, Divider, Modal, Popconfirm, Table, Tag } from 'antd'
 import { WrappedFormUtils } from 'antd/lib/form/Form'
 
-import WrappedUserForm from '../../component/form/user'
+import { Group } from '../../../common/interface'
+import { WrappedUserForm } from '../../component/form/user'
 import { delUser, getUsers, hasToken, inviteUser, postUser, putUser } from '../../model'
-import { IUser, UserGroup } from '../../util/interface'
+import { IUser } from '../../util/interface'
 import { updateState } from '../../util/state'
 
-const renderGroup = (g: UserGroup) => {
+const renderGroup = (g: Group) => {
 	switch (g) {
-		case UserGroup.admin: return <Tag>Admin</Tag>
-		case UserGroup.root: return <Tag>Root</Tag>
+		case Group.admin: return <Tag>Admin</Tag>
+		case Group.root: return <Tag>Root</Tag>
 		default: return <Tag>Common</Tag>
 	}
 }

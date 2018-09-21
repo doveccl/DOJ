@@ -2,7 +2,9 @@ import * as React from 'react'
 
 import { Form, Input, Select } from 'antd'
 import { FormComponentProps } from 'antd/lib/form'
-import { IUser, UserGroup } from '../../util/interface'
+import { Group } from '../../../common/interface'
+import { diffGroup } from '../../../common/user'
+import { IUser } from '../../util/interface'
 import { globalState } from '../../util/state'
 
 interface UserFormProps extends FormComponentProps {
@@ -59,8 +61,7 @@ class UserForm extends React.Component<UserFormProps> {
 				})(
 					<Select placeholder="User group">
 						<Select.Option value={0} children="Common" />
-						{self.group > UserGroup.admin && <Select.Option value={1} children="Admin" />}
-						{self.group > UserGroup.root && <Select.Option value={2} children="Root" />}
+						{diffGroup(self, Group.admin, 1) && <Select.Option value={1} children="Admin" />}
 					</Select>
 				)}
 			</Form.Item>}
@@ -78,4 +79,4 @@ class UserForm extends React.Component<UserFormProps> {
 	}
 }
 
-export default Form.create()(UserForm)
+export const WrappedUserForm = Form.create()(UserForm)

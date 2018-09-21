@@ -1,17 +1,7 @@
 import { model, Document, Schema } from 'mongoose'
+import { IContest } from '../../common/interface'
 
-export enum ContestType { OI, ICPC }
-
-export interface IContest extends Document {
-	title: string
-	description: string
-	type: ContestType
-	startAt: Date
-	endAt: Date
-	freezeAt?: Date
-	createdAt: Date
-	updatedAt: Date
-}
+export type DContest = IContest<Schema.Types.ObjectId, Date> & Document
 
 const schema = new Schema({
 	title: {
@@ -46,4 +36,4 @@ const schema = new Schema({
 	timestamps: true
 })
 
-export const Contest = model<IContest>('contest', schema)
+export const Contest = model<DContest>('contest', schema)
