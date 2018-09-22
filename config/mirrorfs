@@ -1,0 +1,6 @@
+mirror /bin/
+mirror /etc/
+mirror /lib/
+mirror /lib64/
+mirror /usr/
+mirror /var/
