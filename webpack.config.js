@@ -83,7 +83,7 @@ module.exports = (env, argv) => {
 			historyApiFallback: true,
 			proxy: {
 				'/api': `http://localhost:${API_PORT}`,
-				'/socket': {
+				'/socket.io': {
 					ws: true,
 					target: `ws://localhost:${API_PORT}`
 				}

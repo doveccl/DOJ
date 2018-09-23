@@ -5,7 +5,7 @@ import { Pack, SE } from '../../common/pack'
 import { problem } from '../middleware/fetch'
 import { DSubmission } from '../model/submission'
 import { logSocket } from '../util/log'
-import { update } from './status'
+import { update } from './client'
 
 let currentNS: IO.Namespace
 

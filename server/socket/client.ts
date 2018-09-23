@@ -14,7 +14,6 @@ let currentNS: IO.Namespace
 export const update = async (pack: Pack) => {
 	await Submission.findByIdAndUpdate(pack._id, pack)
 	currentNS.to(pack._id).emit('result', pack)
-	currentNS.to(pack._id).removeAllListeners()
 }
 
 const verifyRegister = async (id: string, token: string) => {
@@ -36,7 +35,7 @@ const verifyRegister = async (id: string, token: string) => {
 	logSocket.info('User query:', u._id, s._id)
 }
 
-export const routeSocket = (io: IO.Namespace, socket: IO.Socket) => {
+export const routeClient = (io: IO.Namespace, socket: IO.Socket) => {
 	currentNS = io
 	socket.on('register', (data, callback) => {
 		if (!data) { callback(false) }
