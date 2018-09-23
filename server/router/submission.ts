@@ -42,7 +42,7 @@ async function parseSubmission(record: DSubmission, self: DUser) {
 				delete json.cases
 				json.result = {
 					time: 0, memory: 0,
-					status: Status.WAIT
+					status: Status.FREEZE
 				}
 			}
 		}
@@ -104,15 +104,21 @@ router.post('/submission', async (ctx) => {
 	const p = await problem(body.pid)
 	if (!p) { throw new Error('invalid problem id') }
 	if (!p.data) { throw new Error('no data for this problem') }
+
+	let freeze = false
 	if (p.contest) {
 		const c = await contest(p.contest.id)
 		if (new Date() < c.startAt) {
 			throw new Error('invalid before contest start')
 		} else if (new Date() < c.endAt) {
 			body.cid = p.contest.id
+			if (c.type === ContestType.OI) {
+				freeze = true
+			}
 		}
 	}
 	ctx.body = await Submission.create(body)
+	if (freeze) { ctx.body.result.status = Status.FREEZE }
 	doJudge([ ctx.body ])
 })
 

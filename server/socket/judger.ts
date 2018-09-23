@@ -1,11 +1,13 @@
 import * as config from 'config'
 import * as IO from 'socket.io'
 
+import { Pack, SE } from '../../common/pack'
 import { problem } from '../middleware/fetch'
 import { DSubmission } from '../model/submission'
 import { logSocket } from '../util/log'
+import { update } from './status'
 
-let currentIO: IO.Server
+let currentNS: IO.Namespace
 
 const secret: string = config.get('secret')
 
@@ -26,8 +28,8 @@ const delJudger = (id: string) => {
 	}
 }
 
-export const routeJudger = (io: IO.Server, socket: IO.Socket) => {
-	currentIO = io
+export const routeJudger = (io: IO.Namespace, socket: IO.Socket) => {
+	currentNS = io
 	socket.on('register', (data, callback) => {
 		if (data && data.secret === secret) {
 			logSocket.info('Add judger:', socket.id)
@@ -39,10 +41,17 @@ export const routeJudger = (io: IO.Server, socket: IO.Socket) => {
 			callback(false)
 		}
 	})
+	socket.on('finish', (pack: Pack) => {
+		if (!pack || !pack._id) { return }
+		update(pack)
+	})
 	socket.on('disconnect', () => {
 		if (judgers.includes(socket.id)) {
 			logSocket.info('Del judger:', socket.id)
-			// set error for judgings[socket.id]
+			for (const sid of judgings[socket.id]) {
+				update(SE(sid, 'judger disconnected'))
+			}
+			delete judgings[socket.id]
 			delJudger(socket.id)
 		}
 	})
@@ -54,16 +63,13 @@ const parseSubmission = async (s: DSubmission) => {
 	const p = await problem(s.pid)
 	const { _id, language, code } = s
 	const { timeLimit, memoryLimit, data } = p
-	return {
-		_id, language, code,
-		timeLimit, memoryLimit, data
-	}
+	return { _id, language, code, timeLimit, memoryLimit, data }
 }
 const dispatchSubmission = () => {
 	while (judgers.length && submissions.length) {
 		const judger = judgers.shift()
 		const submission = submissions.shift()
-		currentIO.sockets.sockets[judger].emit('judge', submission)
+		currentNS.sockets[judger].emit('judge', submission)
 	}
 }
 

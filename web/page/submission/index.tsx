@@ -20,6 +20,7 @@ export const renderStatus = (r: IResult) => {
 		case Status.RE: return <Tag color="magenta">Runtime Error</Tag>
 		case Status.CE: return <Tag color="purple">Compile Error</Tag>
 		case Status.SE: return <Tag color="cyan">System Error</Tag>
+		case Status.FREEZE: return <Tag color="geekblue">Frozen</Tag>
 		default: return <Tag>unknown</Tag>
 	}
 }

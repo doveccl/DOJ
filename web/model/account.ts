@@ -13,6 +13,10 @@ function delToken() {
 	axios.defaults.headers.common.token = undefined
 }
 
+export function getToken() {
+	return Cookie.get('token')
+}
+
 export function hasToken() {
 	return Boolean(Cookie.get('token'))
 }

@@ -62,7 +62,7 @@ export enum Status {
 	RE, // Runtime Error
 	CE, // Compile Error
 	SE, // System Error
-	OTHER // Others
+	FREEZE // Freeze
 }
 export interface IResult {
 	time: number

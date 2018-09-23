@@ -3,6 +3,7 @@ import * as React from 'react'
 import { message, Button, Checkbox, Divider, Form, Input, Select } from 'antd'
 import { FormComponentProps } from 'antd/lib/form'
 
+import { Status } from '../../../common/interface'
 import { Code } from '../../component/code'
 import { postSubmission } from '../../model'
 import { ILanguage } from '../../util/interface'
@@ -28,7 +29,9 @@ class SubmitForm extends React.Component<SubmitFormProps & FormComponentProps> {
 					.then((data) => {
 						this.setState({ loading: false })
 						message.success('submit success')
-						this.props.callback(data._id)
+						if (data.result.status !== Status.FREEZE) {
+							this.props.callback(data._id)
+						}
 					})
 					.catch((err) => {
 						this.setState({ loading: false })

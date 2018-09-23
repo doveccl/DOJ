@@ -60,6 +60,7 @@ module.exports = (env, argv) => {
 					{ name: 'axios', path: `dist/axios${min}.js` },
 					{ name: 'ace-builds', var: 'ace', path: `src-min-noconflict/ace.js` },
 					{ name: 'katex', path: `dist/katex${min}.js`, style: `dist/katex${min}.css` },
+					{ name: 'socket.io-client', var: 'io', path: 'dist/socket.io.js' },
 					{ name: 'react', var: 'React', path: `umd/react.${reactMode}.js` },
 					{ name: 'react-dom', var: 'ReactDOM', path: `umd/react-dom.${reactMode}.js` },
 					{ name: 'react-router', var: 'ReactRouter', path: `umd/react-router${min}.js` },
@@ -81,7 +82,11 @@ module.exports = (env, argv) => {
 		config.devServer = {
 			historyApiFallback: true,
 			proxy: {
-				'/api': `http://localhost:${API_PORT}`
+				'/api': `http://localhost:${API_PORT}`,
+				'/socket': {
+					ws: true,
+					target: `ws://localhost:${API_PORT}`
+				}
 			}
 		}
 	}

@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { withRouter } from 'react-router-dom'
 
-import { message, Card, Divider, Tag } from 'antd'
+import { message, Card, Tag } from 'antd'
 
 import { parseMemory, parseTime } from '../../../common/function'
 import { Discuss } from '../../component/discuss'
