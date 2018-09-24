@@ -14,7 +14,31 @@ mail:
 languages:
 - name: C
   suffix: c
+  source: main.c
+  compile:
+    time: 10.0
+    cmd: /usr/bin/gcc
+    args: [ main.c, -o, main, -O2, -lm, -std=c99, -DONLINE_JUDGE ]
+  run:
+    ratio: 1.0
+    cmd: main
 - name: C++
   suffix: cpp
+  source: main.cpp
+  compile:
+    time: 10.0
+    cmd: /usr/bin/g++
+    args: [ main.cpp, -o, main, -O2, -lm, -std=c++11, -DONLINE_JUDGE ]
+  run:
+    ratio: 1.0
+    cmd: main
 - name: Pascal
   suffix: pas
+  source: main.pas
+  compile:
+    time: 10.0
+    cmd: /usr/bin/fpc
+    args: [ main.pas ]
+  run:
+    ratio: 1.0
+    cmd: main

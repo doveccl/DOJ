@@ -4,7 +4,7 @@ import * as fs from 'fs-extra'
 import * as jszip from 'jszip'
 import * as path from 'path'
 
-import { lrun } from './run'
+import { lrunSync } from './run'
 
 const host: string = config.get('host')
 const secret: string = config.get('secret')
@@ -13,7 +13,7 @@ const cache = path.join(__dirname, '../.cache')
 const testlib = path.join(__dirname, 'testlib')
 
 const compile = (source: string, out: string) => {
-	return lrun({
+	return lrunSync({
 		cmd: 'g++',
 		maxRealTime: 5,
 		passExitcode: true,
@@ -61,4 +61,5 @@ export const prepareData = async (id: string) => {
 			throw e
 		}
 	}
+	return dataPath
 }

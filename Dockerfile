@@ -1,8 +1,20 @@
-FROM node:8
+FROM ubuntu:18.04
+# install dependencies
+RUN apt-get update && apt-get install -y \
+	gcc \
+	python \
+	python3 \
+	fp-compiler \
+	nodejs \
+	npm \
+	wget \
+	libseccomp2
+# install lrun
+RUN wget https://github.com/quark-zju/lrun/releases/download/v1.1.4/lrun_1.1.4_amd64.deb && \
+	dpkg -i lrun_1.1.4_amd64.deb && rm lrun_1.1.4_amd64.deb
+# build doj
 COPY . /doj
 WORKDIR /doj
-RUN yarn && yarn build && yarn --production
-RUN apt-get update
-RUN wget https://github.com/quark-zju/lrun/releases/download/v1.1.4/lrun_1.1.4_amd64.deb
-RUN apt-get install -y libseccomp2
-RUN dpkg -i lrun_1.1.4_amd64.deb && rm lrun_1.1.4_amd64.deb
+RUN npm install && npm run build && npm prune --production
+# setup mirrorfs
+RUN mkdir /doj_tmp && lrun-mirrorfs --name doj --setup config/mirrorfs

@@ -1,3 +1,4 @@
+mirror /doj_tmp/
 mirror /bin/
 mirror /etc/
 mirror /lib/

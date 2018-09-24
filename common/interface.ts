@@ -1,6 +1,17 @@
 export interface ILanguage {
 	name: string
 	suffix: string
+	source: string
+	compile?: {
+		cmd: string
+		args?: string[]
+		time: number
+	}
+	run: {
+		cmd: string
+		args?: string[]
+		ratio: number
+	}
 }
 
 export interface IConfig {
