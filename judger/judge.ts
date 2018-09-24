@@ -32,9 +32,9 @@ export const judge = async (s: any): Promise<Pack> => {
 		logJudger.debug('compile result:', result)
 		if (result.status !== 0) {
 			const { stdout, stderr, output } = result
-			if (stderr) { return CE(_id, stderr.toString()) }
-			if (stdout) { return CE(_id, stdout.toString()) }
-			if (output[3]) { return CE(_id, output[3]) }
+			const e = stdout.toString() + stderr.toString()
+			if (e.trim()) { return CE(_id, e) }
+			if (output[3]) { return CE(_id, output[3].toString()) }
 			return CE(_id)
 		}
 	}
@@ -51,7 +51,7 @@ export const judge = async (s: any): Promise<Pack> => {
 		const inf = `${dataDir}/${ith}.in`
 		const ansf = `${dataDir}/${ith}.out`
 		const ouf = `${judgeDir}/output`
-		const maxCpuTime = lan.run.ratio * timeLimit / 1000
+		const maxCpuTime = lan.run.ratio * timeLimit / 1024
 		const maxRealTime = 1.5 * maxCpuTime
 		const conf: RunOpts = {
 			cmd: lan.run.cmd,
