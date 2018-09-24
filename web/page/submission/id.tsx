@@ -82,6 +82,7 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 					</Timeline.Item>
 					{cases && cases.length > 0 && <Timeline.Item>
 						{cases.map((c, i) => <p key={i}>
+							<Tag>#{i}</Tag>
 							{renderStatus(c)}
 							<Tag>{parseTime(c.time)}</Tag>
 							<Tag>{parseMemory(c.memory)}</Tag>

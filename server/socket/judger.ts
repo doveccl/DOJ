@@ -43,6 +43,7 @@ export const routeJudger = (io: IO.Namespace, socket: IO.Socket) => {
 	})
 	socket.on('finish', (pack: Pack) => {
 		if (!pack || !pack._id) { return }
+		addJudger(socket.id, 1)
 		update(pack)
 	})
 	socket.on('disconnect', () => {
