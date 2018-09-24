@@ -7,7 +7,7 @@ export interface Pack {
 }
 
 export const Case = (s: Status, t: number, m: number, e?: string): IResult => ({
-	time: t, memory: m, status: s, extra: e
+	time: 1000 * t, memory: m, status: s, extra: e
 })
 
 export const CE = (id: string, e?: any): Pack => ({

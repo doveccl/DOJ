@@ -14,7 +14,7 @@ const testlib = path.join(__dirname, 'testlib')
 
 const compile = (source: string, out: string) => {
 	return lrunSync({
-		cmd: 'g++',
+		cmd: '/usr/bin/g++',
 		maxRealTime: 5,
 		passExitcode: true,
 		args: [ source, '-o', out ]
@@ -34,8 +34,10 @@ export const prepareData = async (id: string) => {
 			const zip = await jszip.loadAsync(data)
 			for (const name in zip.files) {
 				if (name.endsWith('/')) { continue }
-				await fs.outputFile(`${dataPath}/${name}`, zip.files[name])
+				const content = await zip.files[name].async('nodebuffer')
+				await fs.outputFile(`${dataPath}/${name}`, content)
 			}
+			await fs.chmod(dataPath, 0o777)
 			fs.copyFileSync(`${testlib}/testlib.h`, `${dataPath}/testlib.h`)
 			if (!await fs.pathExists(`${dataPath}/checker.cpp`)) {
 				fs.copyFileSync(`${testlib}/checker.cpp`, `${dataPath}/checker.cpp`)

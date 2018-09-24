@@ -1,4 +1,5 @@
 import { spawn, spawnSync, ChildProcess } from 'child_process'
+import { join } from 'path'
 
 const BLACKLIST = [
 	'execve',
@@ -57,6 +58,7 @@ const buildArgs = (o: RunOpts) => {
 	}
 	const builder = [ '--uid', o.uid, '--gid', o.gid, '--network', o.network ]
 	builder.push('--remount-dev', o.remountDev, '--pass-exitcode', o.passExitcode)
+	if (!o.chroot) { builder.push('--tmpfs', join(__dirname, '../config'), 0) }
 	if (o.maxCpuTime) { builder.push('--max-cpu-time', o.maxCpuTime) }
 	if (o.maxRealTime) { builder.push('--max-real-time', o.maxRealTime) }
 	if (o.maxMemory) { builder.push('--max-memory', o.maxMemory) }
@@ -109,8 +111,12 @@ export const parseResult = (res: string): RunResult => ({
 	exceed: getExceedType(res.match(/EXCEED\s+(\w+)/)[1])
 })
 
-export const wait = (cp: ChildProcess) => new Promise<RunResult>((resolve) => {
-	let result: RunResult
-	cp.stdio[3].on('data', (r) => result = parseResult(r))
-	cp.on('close', () => resolve(result))
+export const wait = (cp: ChildProcess) => new Promise<RunResult>((resolve, reject) => {
+	let fd3 = ''
+	cp.stdio[3].on('data', (r) => fd3 += r)
+	cp.on('close', () => {
+		try {
+			resolve(parseResult(fd3))
+		} catch (e) { reject(e) }
+	})
 })

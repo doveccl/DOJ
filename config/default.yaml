@@ -1,5 +1,5 @@
 port: 7974
-host: http://127.0.0.1:7974
+host: http://10.0.2.2:7974
 concurrent: 2
 database: mongodb://127.0.0.1:27017/doj
 log: debug
@@ -21,7 +21,7 @@ languages:
     args: [ main.c, -o, main, -O2, -lm, -std=c99, -DONLINE_JUDGE ]
   run:
     ratio: 1.0
-    cmd: main
+    cmd: ./main
 - name: C++
   suffix: cpp
   source: main.cpp
@@ -31,7 +31,7 @@ languages:
     args: [ main.cpp, -o, main, -O2, -lm, -std=c++11, -DONLINE_JUDGE ]
   run:
     ratio: 1.0
-    cmd: main
+    cmd: ./main
 - name: Pascal
   suffix: pas
   source: main.pas
@@ -41,4 +41,4 @@ languages:
     args: [ main.pas ]
   run:
     ratio: 1.0
-    cmd: main
+    cmd: ./main

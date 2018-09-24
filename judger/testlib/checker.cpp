@@ -15,15 +15,15 @@ int main(int argc, char * argv[]) {
 	int line = 0;
 	while (line++, !ouf.seekEof() && !ans.seekEof())
 		if (!compare(ouf.readLine(), ans.readLine()))
-			quitf(_wa, "incompatible output at line %d", line);
+			quitf(_wa, "- incompatible output at line %d", line);
 
 	while (line++, !ouf.seekEof())
 		if (ouf.readLine().find_first_not_of(S) != -1)
-			quitf(_wa, "incompatible output at line %d", line);
+			quitf(_wa, "- incompatible output at line %d", line);
 
 	while (line++, !ans.seekEof())
 		if (ans.readLine().find_first_not_of(S) != -1)
-			quitf(_wa, "incompatible output at line %d", line);
+			quitf(_wa, "- incompatible output at line %d", line);
 
-	quitf(_ok, "no difference, well done");
+	quitf(_ok, "- no difference, well done");
 }

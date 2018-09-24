@@ -5,3 +5,4 @@ mirror /lib/
 mirror /lib64/
 mirror /usr/
 mirror /var/
+mkdir /dev/

@@ -4,17 +4,20 @@ import * as fs from 'fs-extra'
 import { ILanguage, IResult, Status } from '../common/interface'
 import { Case, CE, Pack } from '../common/pack'
 import { prepareData } from './data'
+import { logJudger } from './log'
 import { lrun, lrunSync, wait, ExceedType, RunOpts, RunResult } from './run'
 
 const mirrorfs = '/run/lrun/mirrorfs/doj'
 const languages: ILanguage[] = config.get('languages')
 
 export const judge = async (s: any): Promise<Pack> => {
+	logJudger.info('judge submission:', s)
 	const { _id, language, code, data, timeLimit, memoryLimit } = s
 	const dataDir = await prepareData(data)
 	const judgeDir = `/doj_tmp/${_id}`
 	const lan = languages[language]
 	await fs.outputFile(`${judgeDir}/${lan.source}`, code)
+	await fs.chmod(judgeDir, 0o777)
 	/**
 	 * compile source code
 	 */
@@ -24,9 +27,9 @@ export const judge = async (s: any): Promise<Pack> => {
 			args: lan.compile.args,
 			maxRealTime: lan.compile.time,
 			passExitcode: true,
-			chroot: mirrorfs,
 			chdir: judgeDir
 		})
+		logJudger.debug('compile result:', result)
 		if (result.status !== 0) {
 			const { stdout, stderr, output } = result
 			if (stderr) { return CE(_id, stderr.toString()) }
@@ -73,6 +76,7 @@ export const judge = async (s: any): Promise<Pack> => {
 			conf.stdin = fs.openSync(inf, 'r')
 			conf.stdout = fs.openSync(ouf, 'w')
 			result = await wait(lrun(conf))
+			logJudger.debug('run result:', result)
 			fs.closeSync(conf.stdin)
 			fs.closeSync(conf.stdout)
 		}
@@ -92,15 +96,13 @@ export const judge = async (s: any): Promise<Pack> => {
 		} else {
 			const res = lrunSync({
 				cmd: checker,
-				args: [ inf, ouf, ansf ]
+				args: [ inf, ouf, ansf ],
+				passExitcode: true
 			})
-			if (res.status !== 0) {
-				const e = res.stdout.toString()
-				cases.push(Case(Status.RE, cpuTime, memory, e))
-			} else {
-				const e = res.stdout.toString()
-				cases.push(Case(Status.AC, cpuTime, memory, e))
-			}
+			logJudger.debug('checker result:', res)
+			const { stdout, stderr, status } = res
+			const e = stdout.toString() + stderr.toString()
+			cases.push(Case(status ? Status.WA : Status.AC, cpuTime, memory, e))
 		}
 		ith++
 	} while (
@@ -119,5 +121,5 @@ export const judge = async (s: any): Promise<Pack> => {
 		if (st !== Status.AC || cas.status === Status.AC) { continue }
 		st = cas.status
 	}
-	return { _id, cases, result: Case(st, t, m) }
+	return { _id, cases, result: { status: st, time: t, memory: m } }
 }
