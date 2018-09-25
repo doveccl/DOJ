@@ -17,4 +17,4 @@ COPY . /doj
 WORKDIR /doj
 RUN npm install && npm run build && npm prune --production
 # setup mirrorfs
-RUN mkdir /doj_tmp && lrun-mirrorfs --name doj --setup config/mirrorfs
+RUN mkdir /doj_tmp && lrun-mirrorfs --name doj --setup judger/mirrorfs

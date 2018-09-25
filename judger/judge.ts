@@ -51,13 +51,13 @@ export const judge = async (s: any): Promise<Pack> => {
 		const inf = `${dataDir}/${ith}.in`
 		const ansf = `${dataDir}/${ith}.out`
 		const ouf = `${judgeDir}/output`
-		const maxCpuTime = lan.run.ratio * timeLimit / 1024
+		const maxCpuTime = lan.run.ratio * timeLimit
 		const maxRealTime = 1.5 * maxCpuTime
 		const conf: RunOpts = {
 			cmd: lan.run.cmd,
 			args: lan.run.args,
 			maxCpuTime, maxRealTime,
-			maxMemory: memoryLimit * 1000,
+			maxMemory: memoryLimit,
 			chroot: mirrorfs,
 			chdir: judgeDir,
 			syscalls: true
@@ -121,5 +121,5 @@ export const judge = async (s: any): Promise<Pack> => {
 		if (st !== Status.AC || cas.status === Status.AC) { continue }
 		st = cas.status
 	}
-	return { _id, cases, result: { status: st, time: t, memory: m } }
+	return { _id, cases, result: Case(st, t, m) }
 }

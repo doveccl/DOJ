@@ -1,9 +1,10 @@
 import * as React from 'react'
 
-import { Form, Input, InputNumber, Select } from 'antd'
+import { Form, Input, Select } from 'antd'
 import { FormComponentProps } from 'antd/lib/form'
 
 import { Editor } from '../../component/editor'
+import { Number } from '../../component/number'
 import { IProblem } from '../../util/interface'
 
 interface ProblemFormProps extends FormComponentProps {
@@ -34,20 +35,28 @@ class ProblemForm extends React.Component<ProblemFormProps> {
 					<Select tokenSeparators={[',']} mode="tags" placeholder="Problem tags" />
 				)}
 			</Form.Item>
-			<Form.Item label="Time (ms)" {...formItemLayout}>
+			<Form.Item label="Time (s)" {...formItemLayout}>
 				{getFieldDecorator('timeLimit', {
-					initialValue: value ? value.timeLimit : 1000,
+					initialValue: value ? value.timeLimit : 1.0,
 					rules: [{ required: true, message: 'Please input time limit' }]
 				})(
-					<InputNumber min={0} />
+					<Number options={[
+						{ name: 'ms', scale: 0.001 },
+						{ name: 's', scale: 1 }
+					]} default={0} />
 				)}
 			</Form.Item>
-			<Form.Item label="Memory (KiB)" {...formItemLayout}>
+			<Form.Item label="Memory (B)" {...formItemLayout}>
 				{getFieldDecorator('memoryLimit', {
-					initialValue: value ? value.memoryLimit : 32 * 1024,
+					initialValue: value ? value.memoryLimit : 32 * 1024 * 1024,
 					rules: [{ required: true, message: 'Please input memory limit' }]
 				})(
-					<InputNumber min={0} />
+					<Number options={[
+						{ name: 'Bytes', scale: 1 },
+						{ name: 'KiB', scale: 1024 },
+						{ name: 'MiB', scale: 1024 * 1024 },
+						{ name: 'GiB', scale: 1024 * 1024 * 1024 }
+					]} default={2} />
 				)}
 			</Form.Item>
 			<Form.Item label="Data" {...formItemLayout}>
