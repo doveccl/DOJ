@@ -24,3 +24,9 @@ export function putSubmission(id: any, data: any) {
 		axios.put(`/submission/${id}`, data)
 	)
 }
+
+export function rejudgeSubmission(data: any) {
+	return wrap(
+		axios.put('/submission/rejudge', data)
+	)
+}

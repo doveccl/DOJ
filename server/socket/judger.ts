@@ -16,9 +16,8 @@ const judgings: { [index: string]: string[] } = {}
 
 const addJudger = (id: string, concurrent: number) => {
 	let count = concurrent
-	while (count--) {
-		judgers.push(id)
-	}
+	while (count--) { judgers.push(id) }
+	dispatchSubmission()
 }
 const delJudger = (id: string) => {
 	for (let i = judgers.length - 1; i >= 0; i--) {
@@ -33,9 +32,8 @@ export const routeJudger = (io: IO.Namespace, socket: IO.Socket) => {
 	socket.on('register', (data, callback) => {
 		if (data && data.secret === secret) {
 			logSocket.info('Add judger:', socket.id)
-			addJudger(socket.id, data.concurrent)
 			judgings[socket.id] = []
-			dispatchSubmission()
+			addJudger(socket.id, data.concurrent)
 			callback(true)
 		} else {
 			callback(false)
@@ -44,6 +42,11 @@ export const routeJudger = (io: IO.Namespace, socket: IO.Socket) => {
 	socket.on('finish', (pack: Pack) => {
 		if (!pack || !pack._id) { return }
 		addJudger(socket.id, 1)
+		for (let i = judgings[socket.id].length - 1; i >= 0; i--) {
+			if (judgings[socket.id][i] === pack._id) {
+				judgings[socket.id].splice(i, 1)
+			}
+		}
 		update(pack)
 	})
 	socket.on('disconnect', () => {
@@ -70,6 +73,7 @@ const dispatchSubmission = () => {
 	while (judgers.length && submissions.length) {
 		const judger = judgers.shift()
 		const submission = submissions.shift()
+		judgings[judger].push(submission)
 		currentNS.sockets[judger].emit('judge', submission)
 	}
 }

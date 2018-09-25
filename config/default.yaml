@@ -1,5 +1,7 @@
+server: true
+judger: true
 port: 7974
-host: http://10.0.2.2:7974
+host: http://127.0.0.1:7974
 concurrent: 2
 database: mongodb://127.0.0.1:27017/doj
 log: debug

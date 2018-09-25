@@ -1,20 +1,23 @@
 import * as React from 'react'
 import * as io from 'socket.io-client'
 
-import { message, Card, Checkbox, Tag, Timeline } from 'antd'
-import { withRouter, Link } from 'react-router-dom'
+import { message, Button, Card, Checkbox, Tag, Timeline } from 'antd'
+import { withRouter } from 'react-router-dom'
 
 import { parseMemory, parseTime } from '../../../common/function'
-import { Group, Status } from '../../../common/interface'
+import { Group, IResult, Status } from '../../../common/interface'
 import { diffGroup } from '../../../common/user'
 import { Code } from '../../component/code'
 import { LoginTip } from '../../component/login-tip'
-import { getSubmission, getToken, hasToken, putSubmission } from '../../model'
+import { getSubmission, getToken, hasToken, putSubmission, rejudgeSubmission } from '../../model'
 import { HistoryProps, ISubmission, MatchProps } from '../../util/interface'
 import { addListener, globalState, removeListener, updateState } from '../../util/state'
 import { renderStatus } from './index'
 
+const color = (r?: IResult) => r.status === Status.AC ? 'green' : 'red'
+
 class Submission extends React.Component<HistoryProps & MatchProps> {
+	private socket: SocketIOClient.Socket
 	public state = {
 		global: globalState,
 		pending: false,
@@ -28,6 +31,7 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 		})
 		if (s.result.status === Status.WAIT) {
 			const socket = io('/client')
+			this.socket = socket
 			socket.on('result', (data: Partial<ISubmission>) => {
 				socket.close()
 				this.state.submission.result = data.result
@@ -43,6 +47,19 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 				})
 			})
 		}
+	}
+	private rejudge = () => {
+		const { submission } = this.state
+		rejudgeSubmission({ _id: submission._id })
+			.then(() => {
+				submission.cases = []
+				submission.result = {
+					time: 0, memory: 0,
+					status: Status.WAIT
+				}
+				this.handleSubmission(submission)
+			})
+			.catch(message.error)
 	}
 	public componentWillMount() {
 		const { params } = this.props.match
@@ -60,13 +77,15 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 	}
 	public componentWillUnmount() {
 		removeListener('submission')
+		if (this.socket) { this.socket.close() }
 	}
 	public render() {
-		const { global, submission } = this.state
-		const { _id, uname, pid, ptitle } = submission
+		const { global, submission, pending } = this.state
+		const { _id, uname } = submission
 		const { result, cases, code, language } = submission
 		const { open, createdAt } = submission
-		const show = result && result.status !== Status.WAIT
+		const scase = cases && cases.length > 0
+		const smain = result && result.status !== Status.WAIT
 		const lan = global.languages[language]
 
 		return <React.Fragment>
@@ -74,22 +93,24 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 			<Card
 				loading={!_id}
 				title={`Submission by ${uname || 'user'}`}
-				extra={<Link to={`/problem/${pid}`}>{ptitle}</Link>}
+				extra={!pending && diffGroup(global.user, Group.admin) && <Button
+					type="primary" children="Rejudge" onClick={this.rejudge}
+				/>}
 			>
-				<Timeline pending={this.state.pending}>
+				<Timeline pending={pending}>
 					<Timeline.Item color="green">
 						[{new Date(createdAt).toLocaleString()}] {uname} submitted the code
 					</Timeline.Item>
-					{cases && cases.length > 0 && <Timeline.Item>
-						{cases.map((c, i) => <p key={i}>
+					{!pending && scase && cases.map((c, i) => (
+						<Timeline.Item key={i} color={color(c)}>
 							<Tag>#{i}</Tag>
 							{renderStatus(c)}
 							<Tag>{parseTime(c.time)}</Tag>
 							<Tag>{parseMemory(c.memory)}</Tag>
 							<span>{c.extra}</span>
-						</p>)}
-					</Timeline.Item>}
-					{show && <Timeline.Item color={result.status === Status.AC ? 'green' : 'red'}>
+						</Timeline.Item>
+					))}
+					{!scase && smain && <Timeline.Item color={color(result)}>
 						<pre>
 							{renderStatus(result)}
 							<Tag>{parseTime(result.time)}</Tag>

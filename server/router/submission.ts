@@ -3,10 +3,11 @@ import * as Router from 'koa-router'
 import { compare } from '../../common/function'
 import { ContestType, Group, Status } from '../../common/interface'
 import { diffGroup, ensureGroup } from '../../common/user'
-import { token } from '../middleware/auth'
+import { group, token } from '../middleware/auth'
 import { contest, fetch, problem, user } from '../middleware/fetch'
 import { DSubmission, Submission } from '../model/submission'
 import { DUser, User } from '../model/user'
+import { judgeFromDB } from '../socket'
 import { doJudge } from '../socket/judger'
 
 const router = new Router()
@@ -73,7 +74,7 @@ router.get('/submission', async (ctx) => {
 	const total = await Submission.countDocuments(condition)
 	if (size === -1) { size = total }
 	const arr = await Submission.find(condition)
-		.select('-code -cases').sort('-_id')
+		.select('-code').sort('-_id')
 		.skip(size * (page - 1)).limit(size)
 	const list: any[] = []
 	for (const item of arr) {
@@ -84,6 +85,17 @@ router.get('/submission', async (ctx) => {
 
 router.get('/submission/:id', fetch('submission'), async (ctx) => {
 	ctx.body = await parseSubmission(ctx.submission, ctx.self)
+})
+
+router.put('/submission/rejudge', group(Group.admin), async (ctx) => {
+	ctx.body = await Submission.updateMany(ctx.request.body, {
+		cases: [],
+		result: {
+			time: 0, memory: 0,
+			status: Status.WAIT
+		}
+	})
+	await judgeFromDB()
 })
 
 /**

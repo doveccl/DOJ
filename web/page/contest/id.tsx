@@ -7,6 +7,7 @@ import { parseCount } from '../../../common/function'
 import { Discuss } from '../../component/discuss'
 import { LoginTip } from '../../component/login-tip'
 import { MarkDown } from '../../component/markdown'
+import { Scoreboard } from '../../component/scoreboard'
 import { getContest, getProblems, hasToken } from '../../model'
 import { HistoryProps, IContest, IProblem, MatchProps } from '../../util/interface'
 import { addListener, globalState, removeListener, updateState } from '../../util/state'
@@ -119,6 +120,7 @@ class Contest extends React.Component<HistoryProps & MatchProps> {
 					]}
 				/>}
 				{this.state.tabKey === 'discuss' && global.user && _id && <Discuss topic={_id} />}
+				{this.state.tabKey === 'scoreboard' && _id && <Scoreboard id={_id} />}
 			</Card>
 		</React.Fragment>
 	}

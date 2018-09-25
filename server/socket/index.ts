@@ -5,12 +5,16 @@ import { Submission } from '../model/submission'
 import { routeClient } from './client'
 import { doJudge, routeJudger } from './judger'
 
-const io = SocketIO()
-export const attachSocketIO = async (s: any) => {
-	io.attach(s)
+export const judgeFromDB = async () => {
 	doJudge(await Submission.find({
 		'result.status': Status.WAIT
 	}))
+}
+
+const io = SocketIO()
+export const attachSocketIO = async (s: any) => {
+	io.attach(s)
+	await judgeFromDB()
 }
 
 io.of('/judger').on('connection', (socket) => {

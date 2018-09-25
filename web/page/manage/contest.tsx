@@ -38,9 +38,10 @@ class ContestProblems extends React.Component<{ cid: string }> {
 			})
 	}
 	private add = () => {
-		const { pid: id, pkey: key } = this.state
-		if (!id || !key) { return }
-		putProblem(this.state.pid, { contest: { id, key } })
+		const { cid: id } = this.props
+		const { pid, pkey: key } = this.state
+		if (!pid || !key) { return }
+		putProblem(pid, { contest: { id, key } })
 			.then(() => this.handleChange())
 			.catch(message.error)
 	}

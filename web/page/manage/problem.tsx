@@ -5,7 +5,7 @@ import { WrappedFormUtils } from 'antd/lib/form/Form'
 
 import { parseMemory, parseTime } from '../../../common/function'
 import { WrappedProblemForm } from '../../component/form/problem'
-import { delProblem, getProblems, hasToken, postProblem, putProblem } from '../../model'
+import { delProblem, getProblems, hasToken, postProblem, putProblem, rejudgeSubmission } from '../../model'
 import { HistoryProps, IProblem } from '../../util/interface'
 import { updateState } from '../../util/state'
 
@@ -82,6 +82,11 @@ export default class extends React.Component<HistoryProps> {
 			}
 		})
 	}
+	private rejudge = (pid: any) => {
+		rejudgeSubmission({ pid })
+			.then(() => message.success('rejudge success'))
+			.catch(message.error)
+	}
 	private del = (id: any) => {
 		delProblem(id)
 			.then(() => this.handleChange())
@@ -145,6 +150,10 @@ export default class extends React.Component<HistoryProps> {
 						) },
 						{ title: 'Action', key: 'action', render: (t, r) => <React.Fragment>
 							<a onClick={() => this.openModal(r)}>Edit</a>
+							<Divider type="vertical" />
+							<Popconfirm title="Rejudge this problem?" onConfirm={() => this.rejudge(r._id)}>
+								<a>Rejudge</a>
+							</Popconfirm>
 							<Divider type="vertical" />
 							<Popconfirm title="Delete this problem?" onConfirm={() => this.del(r._id)}>
 								<a style={{ color: 'red' }}>Delete</a>
