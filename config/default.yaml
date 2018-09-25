@@ -38,29 +38,29 @@ languages:
   run:
     ratio: 2.0
     cmd: /usr/bin/python
-		args: [ main.py ]
+    args: [ main.py ]
 - name: Python 3.x
   suffix: py
   source: main.py
   run:
     ratio: 2.0
     cmd: /usr/bin/python3
-		args: [ main.py ]
+    args: [ main.py ]
 - name: Java 1.8 with OpenJDK
   suffix: java
   source: Main.java
-	compile:
+  compile:
     time: 10.0
     cmd: /usr/bin/javac
     args: [ Main.java ]
   run:
     ratio: 2.0
     cmd: /usr/bin/java
-		args: [ Main ]
+    args: [ Main ]
 - name: JavaScript with NodeJS
   suffix: js
   source: main.js
   run:
     ratio: 2.0
     cmd: /usr/bin/node
-		args: [ main.js ]
+    args: [ main.js ]
