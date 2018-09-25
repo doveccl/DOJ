@@ -19,7 +19,7 @@ if (!fs.pathExistsSync('/doj_tmp')) {
 if (!fs.pathExistsSync('/run/lrun/mirrorfs/doj')) {
 	spawnSync('lrun-mirrorfs', [
 		'--name', 'doj',
-		'--setup', 'judger/mirrorfs'
+		'--setup', 'mirrorfs.cfg'
 	])
 }
 

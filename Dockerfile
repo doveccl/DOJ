@@ -4,7 +4,7 @@ RUN apt-get update && apt-get install -y \
 	gcc \
 	python \
 	python3 \
-	fp-compiler \
+	openjdk-8-jdk-headless \
 	nodejs \
 	npm \
 	wget \
