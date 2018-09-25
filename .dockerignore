@@ -9,6 +9,7 @@ node_modules/
 
 # Build files
 build/
+core/
 dist/
 
 # Others

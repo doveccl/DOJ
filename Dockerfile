@@ -16,5 +16,3 @@ RUN wget https://github.com/quark-zju/lrun/releases/download/v1.1.4/lrun_1.1.4_a
 COPY . /doj
 WORKDIR /doj
 RUN npm install && npm run build && npm prune --production
-# setup mirrorfs
-RUN mkdir /doj_tmp && lrun-mirrorfs --name doj --setup judger/mirrorfs

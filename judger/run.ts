@@ -1,6 +1,8 @@
 import { spawn, spawnSync, ChildProcess } from 'child_process'
 import { join } from 'path'
 
+export { spawn, spawnSync }
+
 const BLACKLIST = [
 	'execve',
 	'flock',
@@ -119,4 +121,19 @@ export const wait = (cp: ChildProcess) => new Promise<RunResult>((resolve, rejec
 			resolve(parseResult(fd3))
 		} catch (e) { reject(e) }
 	})
+})
+
+export const interRun = (test: RunOpts, inter: RunOpts) => new Promise<RunResult>((resolve) => {
+	let [ t3, i3, work ] = [ '', '', 2 ]
+	const t = lrun(test)
+	const i = lrun(inter)
+	const ret = () => resolve(parseResult(t3 || i3))
+	t.stdio[3].on('data', (r) => t3 += r)
+	i.stdio[3].on('data', (r) => i3 += r)
+	t.on('close', () => --work || ret())
+	i.on('close', () => --work || ret())
+	t.stdin.on('error', () => t.kill())
+	i.stdin.on('error', () => i.kill())
+	t.stdout.pipe(i.stdin)
+	i.stdout.pipe(t.stdin)
 })

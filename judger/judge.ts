@@ -5,7 +5,7 @@ import { ILanguage, IResult, Status } from '../common/interface'
 import { Case, CE, Pack } from '../common/pack'
 import { prepareData } from './data'
 import { logJudger } from './log'
-import { lrun, lrunSync, wait, ExceedType, RunOpts, RunResult } from './run'
+import { interRun, lrun, lrunSync, wait, ExceedType, RunOpts, RunResult } from './run'
 
 const mirrorfs = '/run/lrun/mirrorfs/doj'
 const languages: ILanguage[] = config.get('languages')
@@ -63,15 +63,11 @@ export const judge = async (s: any): Promise<Pack> => {
 			syscalls: true
 		}
 		if (interactor) {
-			const cpTest = lrun(conf)
-			const cpInter = lrun({
+			result = await interRun(conf, {
 				cmd: interactor,
 				args: [ inf, ouf ],
-				maxCpuTime, maxRealTime
+				remountDev: false
 			})
-			cpTest.stdout.pipe(cpInter.stdin)
-			cpInter.stdout.pipe(cpTest.stdin)
-			result = (await wait(cpInter), await wait(cpTest))
 		} else {
 			conf.stdin = fs.openSync(inf, 'r')
 			conf.stdout = fs.openSync(ouf, 'w')
@@ -80,6 +76,7 @@ export const judge = async (s: any): Promise<Pack> => {
 			fs.closeSync(conf.stdin)
 			fs.closeSync(conf.stdout)
 		}
+		logJudger.debug(`#${ith} run result:`, result)
 		const { exceed, cpuTime, memory, signal } = result
 		if (exceed !== null) {
 			switch (exceed) {
@@ -121,5 +118,6 @@ export const judge = async (s: any): Promise<Pack> => {
 		if (st !== Status.AC || cas.status === Status.AC) { continue }
 		st = cas.status
 	}
+	logJudger.info('cases:', cases)
 	return { _id, cases, result: Case(st, t, m) }
 }
