@@ -13,6 +13,7 @@ let currentNS: IO.Namespace
 
 export const update = async (pack: Pack) => {
 	await Submission.findByIdAndUpdate(pack._id, pack)
+	if (!currentNS) { return }
 	currentNS.to(pack._id).emit('result', pack)
 }
 
