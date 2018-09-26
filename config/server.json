@@ -3,5 +3,13 @@
 	"database": "mongodb://<USER>:<PASS>@<HOST>:<PORT>/doj",
 	"log": "info|error|debug",
 	"secret": "<SECRET>",
-	"registration": "true|false"
+	"registration": "true|false",
+	"mail": {
+		"host": "<SMTP_HOST>",
+		"port": "<SMTP_PORT>",
+		"auth": {
+			"user": "<SMTP_USER>",
+			"pass": "<SMTP_PASS>"
+		}
+	}
 }

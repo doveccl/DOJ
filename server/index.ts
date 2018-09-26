@@ -33,7 +33,7 @@ export default () => mongoose.connect(database, (error) => {
 		startCron()
 		const server = http.createServer(app.callback())
 		attachSocketIO(server)
-		server.listen(port, () => {
+		server.listen(port, '0.0.0.0', () => {
 			logServer.info(`listening on port ${port}`)
 		})
 	}
