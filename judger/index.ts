@@ -15,6 +15,11 @@ export default () => {
 	const socket = io(`${host}/judger`)
 	logJudger.info('connect to server:', host)
 
+	/**
+	 * ensure config safe
+	 * e.g. #include </doj/config/default.json>
+	 */
+	spawnSync('chmod', [ '-R', '600', 'config' ])
 	if (!fs.pathExistsSync('/doj_tmp')) {
 		fs.mkdirpSync('/doj_tmp')
 	}

@@ -1,5 +1,4 @@
 import { spawn, spawnSync, ChildProcess } from 'child_process'
-import { join } from 'path'
 
 export { spawn, spawnSync }
 
@@ -60,7 +59,6 @@ const buildArgs = (o: RunOpts) => {
 	}
 	const builder = [ '--uid', o.uid, '--gid', o.gid, '--network', o.network ]
 	builder.push('--remount-dev', o.remountDev, '--pass-exitcode', o.passExitcode)
-	if (!o.chroot) { builder.push('--tmpfs', join(__dirname, '../config'), 0) }
 	if (o.maxCpuTime) { builder.push('--max-cpu-time', o.maxCpuTime) }
 	if (o.maxRealTime) { builder.push('--max-real-time', o.maxRealTime) }
 	if (o.maxMemory) { builder.push('--max-memory', o.maxMemory) }
