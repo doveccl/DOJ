@@ -11,32 +11,36 @@ const host: string = config.get('host')
 const secret: string = config.get('secret')
 const concurrent: number = config.get('concurrent')
 
-const socket = io(`${host}/judger`)
+export default () => {
+	const socket = io(`${host}/judger`)
+	logJudger.info('connect to server:', host)
 
-if (!fs.pathExistsSync('/doj_tmp')) {
-	fs.mkdirpSync('/doj_tmp')
-}
-if (!fs.pathExistsSync('/run/lrun/mirrorfs/doj')) {
-	spawnSync('lrun-mirrorfs', [
-		'--name', 'doj',
-		'--setup', 'mirrorfs.cfg'
-	])
-}
+	if (!fs.pathExistsSync('/doj_tmp')) {
+		fs.mkdirpSync('/doj_tmp')
+	}
+	if (!fs.pathExistsSync('/run/lrun/mirrorfs/doj')) {
+		spawnSync('lrun-mirrorfs', [
+			'--name', 'doj',
+			'--setup', 'mirrorfs.cfg'
+		])
+	}
 
-socket.on('judge', (s: any) => {
-	judge(s)
-		.then((val) => socket.emit('finish', val))
-		.catch((err) => {
-			logJudger.error('judge error:', err)
-			socket.emit('finish', SE(s._id, err))
-		})
-})
-
-socket.on('connect', () => {
-	socket.emit('register', { secret, concurrent }, (success: boolean) => {
-		if (!success) {
-			logJudger.fatal('failed to register')
-			process.exit(1)
-		}
+	socket.on('judge', (s: any) => {
+		judge(s)
+			.then((val) => socket.emit('finish', val))
+			.catch((err) => {
+				logJudger.error('judge error:', err)
+				socket.emit('finish', SE(s._id, err))
+			})
 	})
-})
+
+	socket.on('connect', () => {
+		logJudger.info('connected, register as judger')
+		socket.emit('register', { secret, concurrent }, (success: boolean) => {
+			if (!success) {
+				logJudger.fatal('failed to register')
+				process.exit(1)
+			}
+		})
+	})
+}

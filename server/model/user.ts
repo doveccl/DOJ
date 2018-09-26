@@ -1,5 +1,7 @@
+import { hashSync } from 'bcryptjs'
 import { model, Document, Schema } from 'mongoose'
-import { IUser } from '../../common/interface'
+
+import { Group, IUser } from '../../common/interface'
 
 export type DUser = IUser<Schema.Types.ObjectId, Date> & Document
 
@@ -50,3 +52,16 @@ const schema = new Schema({
 schema.index({ solve: -1, submit: 1 })
 
 export const User = model<DUser>('user', schema)
+
+const createIfEmpty = async (user: Partial<DUser>) => {
+	if (!await User.find().countDocuments()) {
+		await User.create(user)
+	}
+}
+
+createIfEmpty({
+	name: 'admin',
+	mail: 'admin@d.oj',
+	group: Group.root,
+	password: hashSync('admin')
+})

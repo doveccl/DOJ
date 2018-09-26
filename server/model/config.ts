@@ -18,10 +18,13 @@ const schema = new Schema({
 
 export const Config = model<DConfig>('config', schema)
 
-const createIfNotExist = async (id: string, value: any) => {
-	if (!await Config.findById(id)) {
-		await Config.create({ _id: id, value })
+const createIfNotExist = async (config: Partial<DConfig>) => {
+	if (!await Config.findById(config._id)) {
+		await Config.create(config)
 	}
 }
 
-createIfNotExist('notification', 'DOJ notification')
+createIfNotExist({
+	_id: 'notification',
+	value: 'DOJ notification'
+})

@@ -2,15 +2,11 @@ import axios from 'axios'
 import * as config from 'config'
 import * as fs from 'fs-extra'
 import * as jszip from 'jszip'
-import * as path from 'path'
 
 import { lrunSync } from './run'
 
 const host: string = config.get('host')
 const secret: string = config.get('secret')
-
-const cache = path.join(__dirname, '../.cache')
-const testlib = path.join(__dirname, 'testlib')
 
 const compile = (source: string, out: string) => {
 	return lrunSync({
@@ -22,7 +18,7 @@ const compile = (source: string, out: string) => {
 }
 
 export const prepareData = async (id: string) => {
-	const dataPath = `${cache}/${id}`
+	const dataPath = `.cache/${id}`
 	if (!await fs.pathExists(dataPath)) {
 		try {
 			const { data } = await axios({
@@ -38,9 +34,9 @@ export const prepareData = async (id: string) => {
 				await fs.outputFile(`${dataPath}/${name}`, content)
 			}
 			await fs.chmod(dataPath, 0o777)
-			fs.copyFileSync(`${testlib}/testlib.h`, `${dataPath}/testlib.h`)
+			fs.copyFileSync(`testlib/testlib.h`, `${dataPath}/testlib.h`)
 			if (!await fs.pathExists(`${dataPath}/checker.cpp`)) {
-				fs.copyFileSync(`${testlib}/checker.cpp`, `${dataPath}/checker.cpp`)
+				fs.copyFileSync(`testlib/checker.cpp`, `${dataPath}/checker.cpp`)
 			}
 			let result = compile(`${dataPath}/checker.cpp`, `${dataPath}/checker`)
 			if (result.status !== 0) {

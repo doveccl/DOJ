@@ -1,5 +1,3 @@
-server: true
-judger: true
 port: 7974
 host: http://127.0.0.1:7974
 concurrent: 2

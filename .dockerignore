@@ -1,17 +1,17 @@
 # macOS
 .DS_Store
 
-# git
-.git*
-
 # Dependency directories
 node_modules/
 
 # Build files
 build/
-core/
 dist/
 
 # Others
 .cache/
 .vscode/
+
+# git & config
+.git*
+config

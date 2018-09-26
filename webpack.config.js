@@ -1,13 +1,11 @@
 const path = require('path')
-const config = require('config')
+const Config = require('config')
 const WebpackCdnPlugin = require('webpack-cdn-plugin')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
-const CompressionPlugin = require('compression-webpack-plugin')
 const MiniCssExtractPlugin = require("mini-css-extract-plugin")
 const OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin')
 
 const packageJson = require('./package.json')
-const API_PORT = config.get('port')
 
 module.exports = (env, argv) => {
 	const dev = argv.mode === 'development'
@@ -78,6 +76,7 @@ module.exports = (env, argv) => {
 	}
 
 	if (dev) {
+		const API_PORT = Config.get('port')
 		config.devtool = 'inline-source-map'
 		config.devServer = {
 			historyApiFallback: true,
@@ -93,8 +92,7 @@ module.exports = (env, argv) => {
 
 	if (prod) {
 		config.plugins.push(
-			new OptimizeCssAssetsPlugin(),
-			new CompressionPlugin()
+			new OptimizeCssAssetsPlugin()
 		)
 	}
 
