@@ -53,7 +53,7 @@ export default class extends React.Component {
 		})
 	}
 	private ok = () => {
-		this.form.validateFields((error, values) => {
+		this.form.validateFields((error: any, values: any) => {
 			if (!error) {
 				this.setState({ loading: true })
 				if (this.state.modalUser) {

@@ -22,7 +22,7 @@ class SubmitForm extends React.Component<SubmitFormProps & FormComponentProps> {
 	}
 	private handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault()
-		this.props.form.validateFields((error, values) => {
+		this.props.form.validateFields((error: any, values: any) => {
 			if (!error) {
 				this.setState({ loading: true })
 				postSubmission(values)

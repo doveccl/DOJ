@@ -33,7 +33,7 @@ class SettingForm extends React.Component<SettingFormProps> {
 	}
 	private handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault()
-		this.props.form.validateFields((error, values) => {
+		this.props.form.validateFields((error: any, values: any) => {
 			if (!error) {
 				this.setState({ loading: true })
 				putUser(this.props.user._id, values)

@@ -44,7 +44,7 @@ class ResetForm extends React.Component<HistoryProps & FormComponentProps> {
 	}
 	private handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault()
-		this.props.form.validateFields((error, values) => {
+		this.props.form.validateFields((error: any, values: any) => {
 			if (!error) {
 				this.setState({ loading: true })
 				putReset(values)
