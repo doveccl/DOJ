@@ -18,7 +18,7 @@
   "scripts": {
     "dev": "ts-node-dev --no-notify .",
     "dev:web": "webpack-dev-server --mode development",
-    "build": "rm -rf build && tsc && webpack-dev-server --mode development"
+    "build": "rm -rf build && tsc && webpack --mode production"
   },
   "dependencies": {
     "ace-builds": "^1.4.1",
@@ -95,6 +95,5 @@
     "webpack-cdn-plugin": "^2.2.1",
     "webpack-cli": "^3.1.0",
     "webpack-dev-server": "^3.1.8"
-  },
-  "optionalDependencies": {}
+  }
 }

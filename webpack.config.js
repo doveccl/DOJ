@@ -1,5 +1,4 @@
 const path = require('path')
-const Config = require('config')
 const WebpackCdnPlugin = require('webpack-cdn-plugin')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const MiniCssExtractPlugin = require("mini-css-extract-plugin")
@@ -76,7 +75,7 @@ module.exports = (env, argv) => {
 	}
 
 	if (dev) {
-		const API_PORT = Config.get('port')
+		const API_PORT = require('config').get('port')
 		config.devtool = 'inline-source-map'
 		config.devServer = {
 			historyApiFallback: true,

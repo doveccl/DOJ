@@ -1,0 +1,118 @@
+{
+	"port": 7974,
+	"host": "http://127.0.0.1:7974",
+	"concurrent": 2,
+	"database": "mongodb://127.0.0.1:27017/doj",
+	"log": "debug",
+	"secret": "doj_secret",
+	"registration": true,
+	"mail": {
+		"host": "smtp.mailtrap.io",
+		"port": 2525,
+		"auth": {
+			"user": "2e35494e193977",
+			"pass": "1a2a2128eb634e"
+		}
+	},
+	"languages": [
+		{
+			"name": "C99 with GNU GCC",
+			"suffix": "c",
+			"source": "main.c",
+			"compile": {
+				"time": 10,
+				"cmd": "/usr/bin/gcc",
+				"args": [
+					"main.c",
+					"-o",
+					"main",
+					"-O2",
+					"-lm",
+					"-std=c99",
+					"-DONLINE_JUDGE"
+				]
+			},
+			"run": {
+				"ratio": 1,
+				"cmd": "./main"
+			}
+		},
+		{
+			"name": "C++11 with GNU G++",
+			"suffix": "cpp",
+			"source": "main.cpp",
+			"compile": {
+				"time": 10,
+				"cmd": "/usr/bin/g++",
+				"args": [
+					"main.cpp",
+					"-o",
+					"main",
+					"-O2",
+					"-lm",
+					"-std=c++11",
+					"-DONLINE_JUDGE"
+				]
+			},
+			"run": {
+				"ratio": 1,
+				"cmd": "./main"
+			}
+		},
+		{
+			"name": "Python 2.x",
+			"suffix": "py",
+			"source": "main.py",
+			"run": {
+				"ratio": 2,
+				"cmd": "/usr/bin/python",
+				"args": [
+					"main.py"
+				]
+			}
+		},
+		{
+			"name": "Python 3.x",
+			"suffix": "py",
+			"source": "main.py",
+			"run": {
+				"ratio": 2,
+				"cmd": "/usr/bin/python3",
+				"args": [
+					"main.py"
+				]
+			}
+		},
+		{
+			"name": "Java 1.8 with OpenJDK",
+			"suffix": "java",
+			"source": "Main.java",
+			"compile": {
+				"time": 10,
+				"cmd": "/usr/bin/javac",
+				"args": [
+					"Main.java"
+				]
+			},
+			"run": {
+				"ratio": 2,
+				"cmd": "/usr/bin/java",
+				"args": [
+					"Main"
+				]
+			}
+		},
+		{
+			"name": "JavaScript with NodeJS",
+			"suffix": "js",
+			"source": "main.js",
+			"run": {
+				"ratio": 2,
+				"cmd": "/usr/bin/node",
+				"args": [
+					"main.js"
+				]
+			}
+		}
+	]
+}

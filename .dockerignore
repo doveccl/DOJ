@@ -12,6 +12,5 @@ dist/
 .cache/
 .vscode/
 
-# git & config
+# git
 .git*
-config

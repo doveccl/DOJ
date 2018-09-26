@@ -1,0 +1,7 @@
+{
+	"port": "<LISTEN_PORT>",
+	"database": "mongodb://<USER>:<PASS>@<HOST>:<PORT>/doj",
+	"log": "info|error|debug",
+	"secret": "<SECRET>",
+	"registration": "true|false"
+}
