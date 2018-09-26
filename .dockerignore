@@ -12,5 +12,8 @@ dist/
 .cache/
 .vscode/
 
+# Config
+config/production.*
+
 # git
 .git*

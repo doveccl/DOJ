@@ -11,3 +11,6 @@ dist/
 # Others
 .cache/
 .vscode/
+
+# Config
+config/production.*
