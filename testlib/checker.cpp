@@ -1,29 +1,44 @@
 #include "testlib.h"
-#define S "\t\n\v\f\r "
 using namespace std;
 
+bool spaces(string s) {
+	int len = s.length();
+	for (int i = 0; i < len; i++)
+		if (s[i] != ' ')
+			return false;
+	return true;
+}
+
 bool compare(string a, string b) {
-	a.erase(a.find_last_not_of(S) + 1);
-	b.erase(a.find_last_not_of(S) + 1);
-	return a == b;
+	int i, alen = a.length(), blen = b.length();
+	for (i = 0; i < alen && i < blen; i++)
+		if (a[i] != b[i])
+			return false;
+	while (i < alen)
+		if (a[i++] != ' ')
+			return false;
+	while (i < blen)
+		if (b[i++] != ' ')
+			return false;
+	return true;
 }
 
 int main(int argc, char * argv[]) {
-	setName("Compare output with answer, ignore spaces at EOL and empty lines at EOF");
+	setName("Answer checker, ignore trailing spaces and empty lines");
 	registerTestlibCmd(argc, argv);
 
 	int line = 0;
 	while (!ouf.seekEof() && !ans.seekEof())
 		if (line++, !compare(ouf.readLine(), ans.readLine()))
-			quitf(_wa, "- incompatible output at line %d", line);
+			quitf(_wa, "at line %d", line);
 
 	while (!ouf.seekEof())
-		if (line++, ouf.readLine().find_first_not_of(S) != -1)
-			quitf(_wa, "- incompatible output at line %d", line);
+		if (line++, !spaces(ouf.readLine()))
+			quitf(_wa, "at line %d", line);
 
 	while (!ans.seekEof())
-		if (line++, ans.readLine().find_first_not_of(S) != -1)
-			quitf(_wa, "- incompatible output at line %d", line);
+		if (line++, !spaces(ans.readLine()))
+			quitf(_wa, "at line %d", line);
 
-	quitf(_ok, "- no difference, well done");
+	quitf(_ok, "- %d line(s) in total", line);
 }

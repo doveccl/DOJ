@@ -42,10 +42,12 @@ export default class extends React.Component {
 			})
 	}
 	private onUploadChange = ({ file }: UploadChangeParam) => {
-		const { status: s, response: r } = file
-		if (s === 'uploading') {
+		const { status, response: r } = file
+		if (status === 'uploading') {
 			this.setState({ uploading: true })
-		} else if (s === 'done' || s === 'error') {
+		} else if (status === 'removed') {
+			this.setState({ uploading: false })
+		} else { // status is 'done' or 'error'
 			this.setState({ uploading: false })
 			if (r.success) {
 				this.handleChange()
