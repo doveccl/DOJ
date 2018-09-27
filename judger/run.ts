@@ -3,6 +3,7 @@ import { spawn, spawnSync, ChildProcess } from 'child_process'
 export { spawn, spawnSync }
 
 const BLACKLIST = [
+	'clone[a&268435456==268435456]',
 	'execve',
 	'flock',
 	'ptrace',
@@ -14,7 +15,6 @@ const BLACKLIST = [
 	'syncfs',
 	'unshare',
 	'setns',
-	'clone',
 	'query_module',
 	'sysinfo',
 	'syslog',

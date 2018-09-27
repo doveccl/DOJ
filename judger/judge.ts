@@ -72,7 +72,6 @@ export const judge = async (s: any): Promise<Pack> => {
 			conf.stdin = fs.openSync(inf, 'r')
 			conf.stdout = fs.openSync(ouf, 'w')
 			result = await wait(lrun(conf))
-			logJudger.debug('run result:', result)
 			fs.closeSync(conf.stdin)
 			fs.closeSync(conf.stdout)
 		}

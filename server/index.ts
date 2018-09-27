@@ -26,7 +26,7 @@ mongoose.set('useNewUrlParser', true)
 mongoose.set('useFindAndModify', false)
 mongoose.set('useCreateIndex', true)
 
-export default () => mongoose.connect(database, (error) => {
+mongoose.connect(database, (error) => {
 	if (error) {
 		logServer.fatal(error)
 	} else {

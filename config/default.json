@@ -98,6 +98,8 @@
 				"ratio": 2,
 				"cmd": "/usr/bin/java",
 				"args": [
+					"-Xmx512M",
+					"-Xss256M",
 					"Main"
 				]
 			}
