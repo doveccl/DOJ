@@ -42,15 +42,15 @@ export default class extends React.Component {
 			})
 	}
 	private onUploadChange = ({ file }: UploadChangeParam) => {
-		const { status, response } = file
-		if (status === 'uploading') {
+		const { status: s, response: r } = file
+		if (s === 'uploading') {
 			this.setState({ uploading: true })
-		} else if (status === 'done') {
+		} else if (s === 'done' || s === 'error') {
 			this.setState({ uploading: false })
-			if (response.success) {
+			if (r.success) {
 				this.handleChange()
 			} else {
-				message.error(response.message)
+				message.error(r.message || r)
 			}
 		}
 	}
@@ -75,7 +75,6 @@ export default class extends React.Component {
 				action="/api/file"
 				accept="image/*,.zip,.pdf"
 				onChange={this.onUploadChange}
-				showUploadList={false}
 				multiple={false}
 			>
 				<p className="ant-upload-drag-icon">

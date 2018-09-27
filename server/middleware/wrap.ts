@@ -5,7 +5,12 @@ import { Middleware } from 'koa'
 import { logServer } from '../util/log'
 
 export default (): Middleware => Compose([
-	Body({ multipart: true }),
+	Body({
+		multipart: true,
+		formidable: {
+			maxFileSize: 200 * 1024 * 1024
+		}
+	}),
 	async (ctx, next) => {
 		/**
 		 * 'createdAt' and 'updatedAt' are maintained automatically

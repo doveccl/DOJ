@@ -5,7 +5,7 @@ import { getConfig } from '../model'
 import { addListener, removeListener, updateState } from './state'
 
 axios.defaults.baseURL = '/api'
-axios.defaults.validateStatus = (status) => status < 500
+axios.defaults.validateStatus = (status) => status <= 404
 axios.defaults.headers.common.token = Cookie.get('token')
 
 addListener('update_languages', ({ user, languages }) => {
