@@ -35,7 +35,7 @@ class ProblemForm extends React.Component<ProblemFormProps> {
 					<Select tokenSeparators={[',']} mode="tags" placeholder="Problem tags" />
 				)}
 			</Form.Item>
-			<Form.Item label="Time (s)" {...formItemLayout}>
+			<Form.Item label="Time" {...formItemLayout}>
 				{getFieldDecorator('timeLimit', {
 					initialValue: value ? value.timeLimit : 1.0,
 					rules: [{ required: true, message: 'Please input time limit' }]
@@ -46,7 +46,7 @@ class ProblemForm extends React.Component<ProblemFormProps> {
 					]} default={0} />
 				)}
 			</Form.Item>
-			<Form.Item label="Memory (B)" {...formItemLayout}>
+			<Form.Item label="Memory" {...formItemLayout}>
 				{getFieldDecorator('memoryLimit', {
 					initialValue: value ? value.memoryLimit : 32 * 1024 * 1024,
 					rules: [{ required: true, message: 'Please input memory limit' }]
