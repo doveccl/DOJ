@@ -71,13 +71,13 @@ const buildArgs = (o: RunOpts) => {
 export const lrunSync = (opts: RunOpts) => {
 	const { stdin, stdout, stderr } = opts
 	const stdio = [ stdin, stdout, stderr, 'pipe' ]
-	const o = { env: {}, maxBuffer: 10240, stdio }
+	const o = { maxBuffer: 10240, stdio }
 	return spawnSync('lrun', buildArgs(opts), o)
 }
 
 export const lrun = (opts: RunOpts) => {
 	const { stdin, stdout, stderr } = opts
-	const o = { env: {}, stdio: [ stdin, stdout, stderr, 'pipe' ] }
+	const o = { stdio: [ stdin, stdout, stderr, 'pipe' ] }
 	return spawn('lrun', buildArgs(opts), o)
 }
 
