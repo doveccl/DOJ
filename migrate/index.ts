@@ -8,7 +8,7 @@
 
 import * as JSZip from 'jszip'
 
-import { openSync, outputFile, pathExists, readFileSync, readSync } from 'fs-extra'
+import { closeSync, openSync, outputFile, pathExists, readFileSync, readSync } from 'fs-extra'
 import { connect } from 'mongoose'
 import { createConnection, Connection } from 'mysql'
 import { join } from 'path'
@@ -37,11 +37,12 @@ async function parseMD(s: string, imgname?: string) {
 	let res = s
 	let type = 'image'
 	for (const match of matchs) {
-		const md5 = match.replace(/(^[^=]+=|\]$)/, '')
+		const md5 = match.replace(/(^[^=]+=|\)$)/g, '')
 		const buf = Buffer.from([0, 0])
 		try {
 			const imgfd = openSync(join(upload, md5), 'r')
 			readSync(imgfd, buf, 0, 2, 0)
+			closeSync(imgfd)
 			if (buf[0] === 0xff && buf[1] === 0xd8) {
 				type = 'image/jpeg'
 			} else if (buf[0] === 0x89 && buf[1] === 0x50) {
