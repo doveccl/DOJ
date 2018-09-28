@@ -181,7 +181,7 @@ async function main() {
 			title: `P${problem.id} - ${problem.name}`,
 			content: content || 'no content for this problem',
 			tags: problem.tags.split('|'),
-			timeLimit: problem.time,
+			timeLimit: problem.time / 1000,
 			memoryLimit: 1024 * 1024 * problem.memory / 1000,
 			createdAt: problem.create_time,
 			updatedAt: problem.create_time,
