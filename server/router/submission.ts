@@ -7,7 +7,6 @@ import { group, token } from '../middleware/auth'
 import { contest, fetch, problem, user } from '../middleware/fetch'
 import { DSubmission, Submission } from '../model/submission'
 import { DUser, User } from '../model/user'
-import { judgeFromDB } from '../socket'
 import { doJudge } from '../socket/judger'
 
 const router = new Router()
@@ -88,14 +87,8 @@ router.get('/submission/:id', fetch('submission'), async (ctx) => {
 })
 
 router.put('/submission/rejudge', group(Group.admin), async (ctx) => {
-	ctx.body = await Submission.updateMany(ctx.request.body, {
-		cases: [],
-		result: {
-			time: 0, memory: 0,
-			status: Status.WAIT
-		}
-	})
-	await judgeFromDB()
+	ctx.body = await Submission.find(ctx.request.body)
+	ctx.body.forEach(doJudge)
 })
 
 /**
