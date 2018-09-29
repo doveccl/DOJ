@@ -82,9 +82,11 @@ const dispatchSubmission = () => {
 	}
 }
 
-export const doJudge = async (ss: DSubmission[]) => {
-	for (const s of ss) {
-		submissions.push(await parseSubmission(s))
-	}
+export const doJudge = async (s: DSubmission) => {
+	logSocket.info(
+		'add submission to queue:', s._id,
+		`-- queue length = ${submissions.length}`
+	)
+	submissions.push(await parseSubmission(s))
 	dispatchSubmission()
 }

@@ -6,9 +6,9 @@ import { routeClient } from './client'
 import { doJudge, routeJudger } from './judger'
 
 export const judgeFromDB = async () => {
-	doJudge(await Submission.find({
+	(await Submission.find({
 		'result.status': Status.WAIT
-	}))
+	})).forEach(doJudge)
 }
 
 const io = SocketIO()

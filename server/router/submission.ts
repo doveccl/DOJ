@@ -131,7 +131,7 @@ router.post('/submission', async (ctx) => {
 	}
 	ctx.body = await Submission.create(body)
 	if (freeze) { ctx.body.result.status = Status.FREEZE }
-	doJudge([ ctx.body ])
+	doJudge(ctx.body)
 })
 
 export default router
