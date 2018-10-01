@@ -32,6 +32,7 @@ export interface RunOpts {
 	maxCpuTime?: number
 	maxRealTime?: number
 	maxMemory?: number
+	maxStack?: number
 	chroot?: string
 	chdir?: string
 	syscalls?: boolean
@@ -62,6 +63,7 @@ const buildArgs = (o: RunOpts) => {
 	if (o.maxCpuTime) { builder.push('--max-cpu-time', o.maxCpuTime) }
 	if (o.maxRealTime) { builder.push('--max-real-time', o.maxRealTime) }
 	if (o.maxMemory) { builder.push('--max-memory', o.maxMemory) }
+	if (o.maxStack) { builder.push('--max-stack', o.maxStack) }
 	if (o.chroot) { builder.push('--chroot', o.chroot) }
 	if (o.chdir) { builder.push('--chdir', o.chdir) }
 	if (o.syscalls) { builder.push('--syscalls', `!${BLACKLIST.join(',')}`) }

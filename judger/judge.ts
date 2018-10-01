@@ -58,6 +58,7 @@ export const judge = async (s: any): Promise<Pack> => {
 			args: lan.run.args,
 			maxCpuTime, maxRealTime,
 			maxMemory: memoryLimit,
+			maxStack: memoryLimit,
 			chroot: mirrorfs,
 			chdir: judgeDir,
 			syscalls: true
