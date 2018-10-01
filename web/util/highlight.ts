@@ -17,6 +17,7 @@ const EditSession = ace.require('ace/edit_session').EditSession
 class Element {
 	private type: string
 	public text = ''
+	public textContent = ''
 	public className: string
 	constructor(type: string) {
 		this.type = type
@@ -38,9 +39,7 @@ class Element {
 			c = c ? ` class="${c}"` : ''
 			result = `<${this.type}${c}>`
 		}
-		if (this.text) {
-			result += this.text
-		}
+		result += this.textContent || this.text
 		if (this.type !== 'fragment') {
 			result += `</${this.type}>`
 		}
