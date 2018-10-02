@@ -1,7 +1,7 @@
 import * as React from 'react'
-import { withRouter } from 'react-router-dom'
+import { withRouter, Link } from 'react-router-dom'
 
-import { message, Card, Tag } from 'antd'
+import { message, Button, Card, Divider, Tag } from 'antd'
 
 import { parseMemory, parseTime } from '../../../common/function'
 import { Discuss } from '../../component/discuss'
@@ -46,6 +46,13 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 				extra={problem._id && <React.Fragment>
 					<Tag color="volcano">{parseTime(problem.timeLimit)}</Tag>
 					<Tag color="orange">{parseMemory(problem.memoryLimit)}</Tag>
+					<Divider type="vertical" />
+					<Button type="primary">
+						<Link to="/submission">
+							{problem.solve}/{problem.submit}
+							({(100 * problem.solve / problem.submit || 0).toFixed(1)}%)
+						</Link>
+					</Button>
 				</React.Fragment>}
 			>
 				<MarkDown
