@@ -71,7 +71,7 @@ class Problems extends React.Component<HistoryProps> {
 							{r.tags.map((tag, i) => <Tag key={i}>{tag}</Tag>)}
 						</React.Fragment> },
 						{ title: 'Ratio', width: 100, key: 'ratio', render: (t, r) =>
-							<Progress percent={Math.floor(100 * r.solve / r.submit)} />
+							<Progress percent={Math.floor(100 * r.solve / r.submit)} status="active" />
 						}
 					]}
 				/>
