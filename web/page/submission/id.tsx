@@ -81,7 +81,7 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 	}
 	public render() {
 		const { global, submission, pending } = this.state
-		const { _id, uname, pid } = submission
+		const { _id, uname, pid, ptitle } = submission
 		const { result, cases, code, language } = submission
 		const { open, createdAt } = submission
 		const scase = cases && cases.length > 0
@@ -94,7 +94,7 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 				loading={!_id}
 				title={`Submission by ${uname || 'user'}`}
 				extra={<React.Fragment>
-					<Link to={`/problem/${pid}`}><Button>Back to problem</Button></Link>
+					<Link to={`/problem/${pid}`}>{ptitle}</Link>
 					{!pending && diffGroup(global.user, Group.admin) &&
 					<React.Fragment>
 						<Divider type="vertical" />
