@@ -1,6 +1,7 @@
 import { scheduleJob } from 'node-schedule'
 
 import { Status } from '../../common/interface'
+import { clearCache } from '../middleware/fetch'
 import { Problem } from '../model/problem'
 import { Submission } from '../model/submission'
 import { User } from '../model/user'
@@ -35,5 +36,6 @@ export const startCron = () => scheduleJob(
 				}).countDocuments()
 			})
 		}
+		clearCache()
 	}
 )

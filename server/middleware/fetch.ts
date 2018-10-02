@@ -31,6 +31,12 @@ const cache = {
 	contest: {} as Cache<DContest>
 }
 
+export function clearCache() {
+	cache.user = {}
+	cache.problem = {}
+	cache.contest = {}
+}
+
 export async function user(maybeID: IDLike) {
 	const id = String(maybeID)
 	if (cache.user[id]) { return cache.user[id] }
