@@ -1,8 +1,8 @@
 import * as React from 'react'
 import * as io from 'socket.io-client'
 
-import { message, Button, Card, Checkbox, Tag, Timeline } from 'antd'
-import { withRouter } from 'react-router-dom'
+import { message, Button, Card, Checkbox, Divider, Tag, Timeline } from 'antd'
+import { withRouter, Link } from 'react-router-dom'
 
 import { parseMemory, parseTime } from '../../../common/function'
 import { Group, IResult, Status } from '../../../common/interface'
@@ -81,7 +81,7 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 	}
 	public render() {
 		const { global, submission, pending } = this.state
-		const { _id, uname } = submission
+		const { _id, uname, pid } = submission
 		const { result, cases, code, language } = submission
 		const { open, createdAt } = submission
 		const scase = cases && cases.length > 0
@@ -93,9 +93,14 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 			<Card
 				loading={!_id}
 				title={`Submission by ${uname || 'user'}`}
-				extra={!pending && diffGroup(global.user, Group.admin) && <Button
-					type="primary" children="Rejudge" onClick={this.rejudge}
-				/>}
+				extra={<React.Fragment>
+					<Link to={`/problem/${pid}`}><Button>Back to problem</Button></Link>
+					{!pending && diffGroup(global.user, Group.admin) &&
+					<React.Fragment>
+						<Divider type="vertical" />
+						<Button type="primary" children="Rejudge" onClick={this.rejudge} />
+					</React.Fragment>}
+				</React.Fragment>}
 			>
 				<Timeline pending={pending}>
 					<Timeline.Item color="green">
