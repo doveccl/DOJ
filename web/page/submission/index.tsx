@@ -64,11 +64,8 @@ class Submissions extends React.Component<HistoryProps> {
 	public componentWillMount() {
 		updateState({ path: [ 'Submission' ] })
 		addListener('submissions', (global) => this.setState({ global }))
-		const searchRequest = parse(this.props.history.location.search.substr(1))
-		this.setState({ uname: searchRequest.uname, pid: searchRequest.pid }, () => {
-			this.handleChange(this.state.pagination)
-		})
-		if (hasToken()) { this.handleChange(this.state.pagination) }
+		const { uname, pid } = parse(this.props.history.location.search.substr(1))
+		this.setState({ uname, pid }, () => hasToken() && this.handleChange(this.state.pagination))
 	}
 	public componentWillUnmount() {
 		removeListener('submissions')
@@ -83,6 +80,7 @@ class Submissions extends React.Component<HistoryProps> {
 					<Col span={10}>
 						<Input
 							placeholder="Username"
+							defaultValue={this.state.uname}
 							onChange={(e) => this.setState({ uname: e.target.value })}
 							prefix={<Icon type="user" style={{ color: 'rgba(0,0,0,.25)' }} />}
 						/>
@@ -90,6 +88,7 @@ class Submissions extends React.Component<HistoryProps> {
 					<Col span={11}>
 						<Input
 							placeholder="Problem ID"
+							defaultValue={this.state.pid}
 							onChange={(e) => this.setState({ pid: e.target.value })}
 							prefix={<Icon type="file-text" style={{ color: 'rgba(0,0,0,.25)' }} />}
 						/>
