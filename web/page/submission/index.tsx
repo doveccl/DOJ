@@ -2,6 +2,7 @@ import * as React from 'react'
 import { withRouter, Link } from 'react-router-dom'
 
 import { message, Button, Card, Col, Icon, Input, Row, Table, Tag } from 'antd'
+import { parse, stringify } from 'querystring'
 
 import { parseMemory, parseTime } from '../../../common/function'
 import { IResult, Status } from '../../../common/interface'
@@ -30,18 +31,17 @@ class Submissions extends React.Component<HistoryProps> {
 		loading: true,
 		uname: '',
 		pid: '',
-		cid: '',
 		global: globalState,
 		submissions: [] as ISubmission[],
 		pagination: { current: 1, pageSize: 50, total: 0 }
 	}
 	private handleChange = (pagination: any) => {
-		const { uname, pid, cid } = this.state
+		const { uname, pid } = this.state
 		const pager = { ...this.state.pagination }
 		pager.current = pagination.current
 		this.setState({ loading: true, pagination: pager })
 		const { pageSize: size, current: page } = pager
-		getSubmissions({ page, size, uname, pid, cid })
+		getSubmissions({ page, size, uname, pid })
 			.then(({ total, list: submissions }) => {
 				this.state.pagination.total = total
 				this.setState({
@@ -57,11 +57,17 @@ class Submissions extends React.Component<HistoryProps> {
 	private handleSearch = () => {
 		const pagination = { ...this.state.pagination }
 		pagination.current = 1
+		const searchUrl = stringify({ uname: this.state.uname, pid: this.state.pid })
+		this.props.history.push(`/submission?${searchUrl}`)
 		this.handleChange(pagination)
 	}
 	public componentWillMount() {
 		updateState({ path: [ 'Submission' ] })
 		addListener('submissions', (global) => this.setState({ global }))
+		const searchRequest = parse(this.props.history.location.search.substr(1))
+		this.setState({ uname: searchRequest.uname, pid: searchRequest.pid }, () => {
+			this.handleChange(this.state.pagination)
+		})
 		if (hasToken()) { this.handleChange(this.state.pagination) }
 	}
 	public componentWillUnmount() {
@@ -74,26 +80,21 @@ class Submissions extends React.Component<HistoryProps> {
 			<LoginTip />
 			<Card title="Submissions">
 				<Row gutter={16}>
-					<Col span={7}>
+					<Col span={10}>
 						<Input
 							placeholder="Username"
 							onChange={(e) => this.setState({ uname: e.target.value })}
 							prefix={<Icon type="user" style={{ color: 'rgba(0,0,0,.25)' }} />}
 						/>
 					</Col>
-					<Col span={7}>
+					<Col span={11}>
 						<Input
 							placeholder="Problem ID"
 							onChange={(e) => this.setState({ pid: e.target.value })}
 							prefix={<Icon type="file-text" style={{ color: 'rgba(0,0,0,.25)' }} />}
 						/>
 					</Col>
-					<Col span={7}>
-						<Input
-							placeholder="Contest ID"
-							onChange={(e) => this.setState({ cid: e.target.value })}
-							prefix={<Icon type="code" style={{ color: 'rgba(0,0,0,.25)' }} />}
-						/>
+					<Col span={0}>
 					</Col>
 					<Col span={3}>
 						<Button block type="primary" onClick={this.handleSearch}>Search</Button>

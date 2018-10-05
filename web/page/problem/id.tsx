@@ -44,7 +44,7 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 				loading={!problem._id}
 				title={problem.title || 'Problem'}
 				extra={problem._id && <React.Fragment>
-					<Link to="/submission">
+					<Link to={`/submission?pid=${problem._id}`}>
 						Solutions ({problem.solve}/{problem.submit})
 					</Link>
 					<Divider type="vertical" />
@@ -68,7 +68,7 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 				onTabChange={(tabKey) => this.setState({ tabKey })}
 				loading={!global.user || !problem._id}
 			>
-				{this.state.tabKey === 'submit' && global.user && <WrappedSubmitForm
+				{this.state.tabKey === 'submit' && global.languages.length > 0 && <WrappedSubmitForm
 					languages={global.languages} uid={global.user._id} pid={problem._id}
 					callback={(id) => this.props.history.push(`/submission/${id}`)}
 				/>}

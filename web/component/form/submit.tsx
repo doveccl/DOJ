@@ -40,6 +40,10 @@ class SubmitForm extends React.Component<SubmitFormProps & FormComponentProps> {
 			}
 		})
 	}
+	public componentWillMount() {
+		const lan = this.props.languages[Number(localStorage.language) || 1]
+		this.setState({ language: lan.suffix })
+	}
 	public render() {
 		const { uid, pid } = this.props
 		const { getFieldDecorator } = this.props.form
@@ -59,18 +63,20 @@ class SubmitForm extends React.Component<SubmitFormProps & FormComponentProps> {
 			</Form.Item>
 			<Form.Item>
 				{getFieldDecorator('language', {
+					initialValue: Number(localStorage.language) || 1,
 					rules: [{ required: true, message: 'Please choose language' }]
 				})(
 					<Select
 						style={{ width: '50%', minWidth: '200px' }}
-						placeholder="Choose language"
 						onSelect={(value) => {
 							const lan = this.props.languages[Number(value)]
 							this.setState({ language: lan.suffix })
+							localStorage.language = value
 						}}
 					>
 						{this.props.languages.map((lan, idx) => <Select.Option
 							key={idx}
+							value={idx}
 							children={lan.name}
 						/>)}
 					</Select>
