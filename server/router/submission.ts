@@ -17,8 +17,8 @@ async function parseSubmission(record: DSubmission, self: DUser) {
 	const admin = diffGroup(self, Group.admin)
 	const { uid, pid, cid } = record
 	const json = record.toJSON()
-	const u = await user(uid)
-	const p = await problem(pid)
+	const u = await user(uid) || { name: 'unknown', id: '' }
+	const p = await problem(pid) || { title: 'unknown' }
 	const c = cid && await contest(cid)
 	if (!admin && !compare(self._id, u.id)) {
 		/**
