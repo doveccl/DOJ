@@ -73,7 +73,7 @@ export class Discuss extends React.Component<DiscussProps> {
 				/>}
 			/>
 			<div className="divider" />
-			<Card type="inner" title="Creat a new post" actions={[
+			<Card type="inner" title="Create a new post" actions={[
 				<Button type="primary" onClick={this.handleClick}>Post</Button>
 			]}>
 				<Editor onChange={(content) => this.setState({ content })} />
