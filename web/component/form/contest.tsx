@@ -99,4 +99,4 @@ class ContestForm extends React.Component<ContestFormProps> {
 	}
 }
 
-export const WrappedContestForm = Form.create()(ContestForm)
+export const WrappedContestForm = Form.create<ContestFormProps>()(ContestForm)

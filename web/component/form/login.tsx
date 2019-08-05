@@ -7,7 +7,9 @@ import { login } from '../../model'
 import { HistoryProps } from '../../util/interface'
 import { updateState } from '../../util/state'
 
-class LoginForm extends React.Component<HistoryProps & FormComponentProps> {
+interface LoginFormProps extends HistoryProps, FormComponentProps {}
+
+class LoginForm extends React.Component<LoginFormProps> {
 	public state = {
 		loading: false
 	}
@@ -84,4 +86,4 @@ class LoginForm extends React.Component<HistoryProps & FormComponentProps> {
 	}
 }
 
-export const WrappedLoginForm = Form.create()(LoginForm)
+export const WrappedLoginForm = Form.create<LoginFormProps>()(LoginForm)

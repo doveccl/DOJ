@@ -78,4 +78,4 @@ class ProblemForm extends React.Component<ProblemFormProps> {
 	}
 }
 
-export const WrappedProblemForm = Form.create()(ProblemForm)
+export const WrappedProblemForm = Form.create<ProblemFormProps>()(ProblemForm)

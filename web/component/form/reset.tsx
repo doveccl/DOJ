@@ -7,7 +7,9 @@ import { getReset, putReset } from '../../model'
 import { logout } from '../../model'
 import { HistoryProps } from '../../util/interface'
 
-class ResetForm extends React.Component<HistoryProps & FormComponentProps> {
+interface ResetFormProps extends HistoryProps, FormComponentProps {}
+
+class ResetForm extends React.Component<ResetFormProps> {
 	public state = {
 		loading: false,
 		countdown: 0
@@ -127,4 +129,4 @@ class ResetForm extends React.Component<HistoryProps & FormComponentProps> {
 	}
 }
 
-export const WrappedResetForm = Form.create()(ResetForm)
+export const WrappedResetForm = Form.create<ResetFormProps>()(ResetForm)

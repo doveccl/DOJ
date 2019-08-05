@@ -60,9 +60,8 @@ module.exports = (env, argv) => {
 					{ name: 'socket.io-client', var: 'io', path: 'dist/socket.io.js' },
 					{ name: 'react', var: 'React', path: `umd/react.${reactMode}.js` },
 					{ name: 'react-dom', var: 'ReactDOM', path: `umd/react-dom.${reactMode}.js` },
-					{ name: 'react-router', var: 'ReactRouter', path: `umd/react-router${min}.js` },
 					{ name: 'react-router-dom', var: 'ReactRouterDOM', path: `umd/react-router-dom${min}.js` },
-					{ name: 'react-markdown', var: 'reactMarkdown', path: 'umd/react-markdown.js' },
+					{ name: 'react-markdown', var: 'ReactMarkdown', path: 'umd/react-markdown.js' },
 					// { name: 'antd', path: `dist/antd${min}.js`, style: `dist/antd${min}.css` }
 				],
 				prod, publicPath: '/node_modules'

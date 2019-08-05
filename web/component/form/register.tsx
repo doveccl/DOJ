@@ -6,7 +6,9 @@ import { FormComponentProps } from 'antd/lib/form'
 import { register } from '../../model'
 import { HistoryProps } from '../../util/interface'
 
-class RegisterForm extends React.Component<HistoryProps & FormComponentProps> {
+interface RegisterFormProps extends HistoryProps, FormComponentProps {}
+
+class RegisterForm extends React.Component<RegisterFormProps> {
 	public state = {
 		loading: false
 	}
@@ -106,4 +108,4 @@ class RegisterForm extends React.Component<HistoryProps & FormComponentProps> {
 	}
 }
 
-export const WrappedRegisterForm = Form.create()(RegisterForm)
+export const WrappedRegisterForm = Form.create<RegisterFormProps>()(RegisterForm)

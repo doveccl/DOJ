@@ -79,4 +79,4 @@ class UserForm extends React.Component<UserFormProps> {
 	}
 }
 
-export const WrappedUserForm = Form.create()(UserForm)
+export const WrappedUserForm = Form.create<UserFormProps>()(UserForm)

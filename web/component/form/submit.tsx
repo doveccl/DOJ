@@ -8,14 +8,14 @@ import { Code } from '../../component/code'
 import { postSubmission } from '../../model'
 import { ILanguage } from '../../util/interface'
 
-interface SubmitFormProps {
+interface SubmitFormProps extends FormComponentProps{
 	uid: string
 	pid: string
 	languages: ILanguage[]
 	callback: (id: any) => any
 }
 
-class SubmitForm extends React.Component<SubmitFormProps & FormComponentProps> {
+class SubmitForm extends React.Component<SubmitFormProps> {
 	public state = {
 		loading: false,
 		language: undefined as string
@@ -101,4 +101,4 @@ class SubmitForm extends React.Component<SubmitFormProps & FormComponentProps> {
 	}
 }
 
-export const WrappedSubmitForm = Form.create()(SubmitForm)
+export const WrappedSubmitForm = Form.create<SubmitFormProps>()(SubmitForm)
