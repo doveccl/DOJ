@@ -23,7 +23,7 @@
   "dependencies": {
     "ace-builds": "^1.4.1",
     "antd": "^3.9.3",
-    "axios": "^0.18.0",
+    "axios": "^0.18.1",
     "bcryptjs": "^2.4.3",
     "config": "^2.0.1",
     "fs-extra": "^7.0.0",
