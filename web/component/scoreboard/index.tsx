@@ -23,6 +23,7 @@ const score = (s: ISubmission) => {
 export class Scoreboard extends React.Component<ScoreboardProps> {
 	private timer: any
 	public state = {
+		firstLoad: false,
 		contest: {} as IContest,
 		problems: [] as IProblem[],
 		submissions: [] as ISubmission[]
@@ -34,7 +35,7 @@ export class Scoreboard extends React.Component<ScoreboardProps> {
 			return 'result for OI is unavailable before contest end'
 		}
 		getSubmissions({ size: -1, cid: this.props.id })
-			.then(({ list }) => this.setState({ submissions: list }))
+			.then(({ list }) => this.setState({ submissions: list, firstLoad: true }))
 			.catch(message.error)
 	}
 	private sort = () => {
@@ -141,11 +142,11 @@ export class Scoreboard extends React.Component<ScoreboardProps> {
 		clearInterval(this.timer)
 	}
 	public render() {
-		const { contest, problems } = this.state
+		const { contest, problems, firstLoad } = this.state
 		const ps = problems.sort((a, b) => (
 			a.contest.key.localeCompare(b.contest.key)
 		))
-		if (!contest._id || problems.length === 0) {
+		if (!contest._id || problems.length === 0 || !firstLoad) {
 			return <Table loading={true} />
 		}
 		const oi = contest.type === ContestType.OI
