@@ -17,7 +17,7 @@ class Sider extends React.Component<HistoryProps> {
 	private onClick = ({ key }: MenuClick) => {
 		this.props.history.push(key)
 	}
-	public componentWillMount() {
+	public componentDidMount() {
 		addListener('sider', (global) => {
 			this.setState({ global })
 		})

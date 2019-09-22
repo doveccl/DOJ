@@ -19,7 +19,7 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 		problem: {} as IProblem,
 		global: globalState
 	}
-	public componentWillMount() {
+	public componentDidMount() {
 		const { params } = this.props.match
 		updateState({ path: [
 			{ url: '/problem', text: 'Problem' }, params.id

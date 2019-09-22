@@ -9,7 +9,7 @@ import { updateState } from '../../util/state'
 
 export default class extends React.Component {
 	public state = { value: undefined as string }
-	public componentWillMount() {
+	public componentDidMount() {
 		updateState({ path: [ 'Home' ] })
 		if (hasToken()) {
 			getConfig('notification')

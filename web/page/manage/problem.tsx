@@ -92,7 +92,7 @@ export default class extends React.Component<HistoryProps> {
 			.then(() => this.handleChange())
 			.catch(message.error)
 	}
-	public componentWillMount() {
+	public componentDidMount() {
 		updateState({ path: [ 'Manage', 'Problem' ] })
 		if (hasToken()) { this.handleChange() }
 	}

@@ -8,7 +8,7 @@ import { HistoryProps } from '../../util/interface'
 import { updateState } from '../../util/state'
 
 class Register extends React.Component<HistoryProps> {
-	public componentWillMount() {
+	public componentDidMount() {
 		updateState({ path: [ 'Register' ] })
 	}
 	public render() {

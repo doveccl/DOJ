@@ -8,7 +8,7 @@ import { HistoryProps } from '../../util/interface'
 import { updateState } from '../../util/state'
 
 class Reset extends React.Component<HistoryProps> {
-	public componentWillMount() {
+	public componentDidMount() {
 		updateState({ path: [ 'Forgot password' ] })
 	}
 	public render() {

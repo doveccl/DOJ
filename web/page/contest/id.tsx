@@ -35,7 +35,7 @@ class Contest extends React.Component<HistoryProps & MatchProps> {
 		if (process > 100) { process = 100 }
 		this.setState({ process, status })
 	}
-	public componentWillMount() {
+	public componentDidMount() {
 		const { params } = this.props.match
 		updateState({ path: [
 			{ url: '/contest', text: 'Contest' }, params.id

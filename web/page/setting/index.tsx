@@ -11,7 +11,7 @@ class Setting extends React.Component<HistoryProps> {
 	public state = {
 		global: globalState
 	}
-	public componentWillMount() {
+	public componentDidMount() {
 		updateState({ path: [ 'Setting' ] })
 		addListener('setting', (global) => {
 			this.setState({ global })

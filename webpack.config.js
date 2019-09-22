@@ -55,7 +55,7 @@ module.exports = (env, argv) => {
 				modules: [
 					{ name: 'moment', path: `min/moment.min.js` },
 					{ name: 'axios', path: `dist/axios${min}.js` },
-					{ name: 'ace-builds', var: 'ace', path: `src-min-noconflict/ace.js` },
+					{ name: 'ace-builds', var: 'ace', paths: [`src-min-noconflict/ace.js`, `src-min-noconflict/ext-static_highlight.js`] },
 					{ name: 'katex', path: `dist/katex${min}.js`, style: `dist/katex${min}.css` },
 					{ name: 'socket.io-client', var: 'io', path: 'dist/socket.io.js' },
 					{ name: 'react', var: 'React', path: `umd/react.${reactMode}.js` },
@@ -79,10 +79,16 @@ module.exports = (env, argv) => {
 		config.devServer = {
 			historyApiFallback: true,
 			proxy: {
-				'/api': `http://localhost:${API_PORT}`,
+				'/api': {
+					secure: false,
+					changeOrigin: true,
+					target: argv.server || `http://localhost:${API_PORT}`
+				},
 				'/socket.io': {
 					ws: true,
-					target: `ws://localhost:${API_PORT}`
+					secure: false,
+					changeOrigin: true,
+					target: argv.server || `ws://localhost:${API_PORT}`
 				}
 			}
 		}

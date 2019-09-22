@@ -49,7 +49,7 @@ export class Discuss extends React.Component<DiscussProps> {
 			})
 			.catch(message.error)
 	}
-	public componentWillMount() {
+	public componentDidMount() {
 		this.handleChange()
 	}
 	public render() {

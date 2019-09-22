@@ -41,7 +41,7 @@ class Contests extends React.Component<HistoryProps> {
 				this.setState({ loading: false })
 			})
 	}
-	public componentWillMount() {
+	public componentDidMount() {
 		updateState({ path: [ 'Contest' ] })
 		if (hasToken()) { this.handleChange(this.state.pagination) }
 	}

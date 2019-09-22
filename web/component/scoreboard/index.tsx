@@ -124,7 +124,7 @@ export class Scoreboard extends React.Component<ScoreboardProps> {
 				b.solve - a.solve
 		))
 	}
-	public componentWillMount() {
+	public componentDidMount() {
 		this.refresh()
 		getContest(this.props.id)
 			.then((contest: IContest) => {

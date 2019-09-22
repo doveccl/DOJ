@@ -19,7 +19,7 @@ export default class extends React.Component {
 			.then(() => message.success('update success'))
 			.catch(message.error)
 	}
-	public componentWillMount() {
+	public componentDidMount() {
 		updateState({ path: [ 'Manage', 'Setting' ] })
 		if (hasToken()) { this.loadConfigs() }
 	}

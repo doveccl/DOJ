@@ -61,7 +61,7 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 			})
 			.catch(message.error)
 	}
-	public componentWillMount() {
+	public componentDidMount() {
 		const { params } = this.props.match
 		updateState({ path: [
 			{ url: '/submission', text: 'Submission' }, params.id

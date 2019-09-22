@@ -9,7 +9,7 @@ import './index.less'
 
 export class LoginTip extends React.Component {
 	public state = { global: globalState }
-	public componentWillMount() {
+	public componentDidMount() {
 		addListener('login-tip', (global) => {
 			this.setState({ global })
 		})

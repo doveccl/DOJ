@@ -101,7 +101,7 @@ export default class extends React.Component {
 			.then(() => this.handleChange())
 			.catch(message.error)
 	}
-	public componentWillMount() {
+	public componentDidMount() {
 		updateState({ path: [ 'Manage', 'User' ] })
 		if (hasToken()) { this.handleChange() }
 	}

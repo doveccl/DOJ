@@ -8,7 +8,7 @@ import { Code } from '../../component/code'
 import { postSubmission } from '../../model'
 import { ILanguage } from '../../util/interface'
 
-interface SubmitFormProps extends FormComponentProps{
+interface SubmitFormProps extends FormComponentProps {
 	uid: string
 	pid: string
 	languages: ILanguage[]
@@ -40,11 +40,10 @@ class SubmitForm extends React.Component<SubmitFormProps> {
 			}
 		})
 	}
-	public componentWillMount() {
-		if (localStorage.language !== undefined) {
-			const lan = this.props.languages[localStorage.language]
-			this.setState({ language: lan.suffix })
-		}
+	public static getDerivedStateFromProps(props: SubmitFormProps) {
+		// lan: previous submission language OR undefined
+		const lan = props.languages[localStorage.language]
+		return { language: lan && lan.suffix }
 	}
 	public render() {
 		const { uid, pid } = this.props

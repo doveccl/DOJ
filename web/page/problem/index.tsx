@@ -40,7 +40,7 @@ class Problems extends React.Component<HistoryProps> {
 			this.handleChange(pagination)
 		})
 	}
-	public componentWillMount() {
+	public componentDidMount() {
 		updateState({ path: [ 'Problem' ] })
 		if (hasToken()) { this.handleChange(this.state.pagination) }
 	}

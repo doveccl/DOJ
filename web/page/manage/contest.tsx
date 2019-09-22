@@ -50,7 +50,7 @@ class ContestProblems extends React.Component<{ cid: string }> {
 			.then(() => this.handleChange())
 			.catch(message.error)
 	}
-	public componentWillMount() {
+	public componentDidMount() {
 		updateState({ path: [ 'Manage', 'Contest' ] })
 		this.handleChange()
 	}
@@ -170,7 +170,7 @@ export default class extends React.Component<HistoryProps> {
 			.then(() => this.handleChange())
 			.catch(message.error)
 	}
-	public componentWillMount() {
+	public componentDidMount() {
 		updateState({ path: [ 'Manage', 'Contest' ] })
 		if (hasToken()) { this.handleChange() }
 	}

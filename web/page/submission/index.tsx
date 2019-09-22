@@ -61,7 +61,7 @@ class Submissions extends React.Component<HistoryProps> {
 		this.props.history.push(`/submission?${searchUrl}`)
 		this.handleChange(pagination)
 	}
-	public componentWillMount() {
+	public componentDidMount() {
 		updateState({ path: [ 'Submission' ] })
 		addListener('submissions', (global) => this.setState({ global }))
 		const { uname, pid } = parse(this.props.history.location.search.substr(1))

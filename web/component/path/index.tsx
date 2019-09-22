@@ -9,7 +9,7 @@ import './index.less'
 
 export class Path extends React.Component {
 	public state = { global: globalState }
-	public componentWillMount() {
+	public componentDidMount() {
 		addListener('path', (global) => {
 			this.setState({ global })
 		})

@@ -32,7 +32,7 @@ export default class extends React.Component {
 				this.setState({ loading: false })
 			})
 	}
-	public componentWillMount() {
+	public componentDidMount() {
 		updateState({ path: [ 'Rank' ] })
 		if (hasToken()) { this.handleChange(this.state.pagination) }
 	}

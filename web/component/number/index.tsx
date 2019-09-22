@@ -27,7 +27,7 @@ export class Number extends React.Component<NumberProps> {
 		const val = num * options[sel].scale
 		this.setState({ sel: k, num: val / options[k].scale })
 	}
-	public componentWillMount() {
+	public componentDidMount() {
 		if (!this.props.value) { return }
 		const { value, options } = this.props
 		for (let sel = 0; sel < options.length; sel++) {

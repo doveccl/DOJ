@@ -25,7 +25,7 @@ class Header extends React.Component<HistoryProps> {
 				this.props.history.push('/login')
 		}
 	}
-	public componentWillMount() {
+	public componentDidMount() {
 		addListener('header', (global) => {
 			this.setState({ global })
 		})

@@ -1,7 +1,7 @@
 import * as ace from 'ace-builds'
 import * as React from 'react'
 
-import highlight from '../../util/highlight'
+const highlight = ace.require('ace/ext/static_highlight')
 
 import './index.less'
 
@@ -88,31 +88,13 @@ export class Code extends React.Component<CodeProps> {
 	}
 	private refViewer = (code: HTMLElement) => {
 		if (!code) { return }
-		code.innerText = this.props.value
+		code.textContent = this.props.value
 		highlight(code, this.getOptions())
 		this.viewer = code
 	}
-	public componentWillReceiveProps(nextProps: CodeProps) {
-		if (this.editor) {
-			const { language, theme } = nextProps
-			if (theme && theme !== this.props.theme) {
-				this.editor.setTheme(`ace/theme/${theme}`)
-			}
-			if (language && language !== this.props.language) {
-				const mode = language2mode(language)
-				this.editor.session.setMode(`ace/mode/${mode}`)
-			}
-		} else if (this.viewer) {
-			const { language, theme, value } = nextProps
-			if (theme || language || value) {
-				this.viewer.textContent = nextProps.value
-				highlight(this.viewer, this.getOptions(nextProps))
-			}
-		}
-	}
 	public render() {
 		return this.props.static ?
-			<pre ref={this.refViewer} className="code-viewer" /> :
+			<div ref={this.refViewer} className="code-viewer" /> :
 			<div ref={this.refEditor} className="code-editor" />
 	}
 }
