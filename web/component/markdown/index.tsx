@@ -17,7 +17,7 @@ const renderMath = (tex: string, displayMode = false) => {
 	}
 }
 
-interface MarkdownProps extends Markdown.ReactMarkdownProps {
+type MarkdownProps = Markdown.ReactMarkdownProps & {
 	shortCode?: boolean
 }
 

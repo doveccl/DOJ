@@ -1,7 +1,8 @@
 import * as React from 'react'
 import { withRouter, Link } from 'react-router-dom'
 
-import { message, Button, Card, Col, Icon, Input, Row, Table, Tag } from 'antd'
+import { message, Button, Card, Col, Input, Row, Table, Tag } from 'antd'
+import { UserOutlined, FileTextOutlined } from '@ant-design/icons'
 import { parse, stringify } from 'querystring'
 
 import { parseMemory, parseTime } from '../../../common/function'
@@ -82,7 +83,7 @@ class Submissions extends React.Component<HistoryProps> {
 							placeholder="Username"
 							defaultValue={this.state.uname}
 							onChange={(e) => this.setState({ uname: e.target.value })}
-							prefix={<Icon type="user" style={{ color: 'rgba(0,0,0,.25)' }} />}
+							prefix={<UserOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
 						/>
 					</Col>
 					<Col span={11}>
@@ -90,7 +91,7 @@ class Submissions extends React.Component<HistoryProps> {
 							placeholder="Problem ID"
 							defaultValue={this.state.pid}
 							onChange={(e) => this.setState({ pid: e.target.value })}
-							prefix={<Icon type="file-text" style={{ color: 'rgba(0,0,0,.25)' }} />}
+							prefix={<FileTextOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
 						/>
 					</Col>
 					<Col span={0}>

@@ -5,7 +5,7 @@
 node_modules/
 
 # Build files
-build/
+app/
 dist/
 
 # Others

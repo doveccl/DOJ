@@ -1,7 +1,20 @@
 import * as React from 'react'
 import { withRouter } from 'react-router-dom'
 
-import { Icon, Layout, Menu } from 'antd'
+import { Layout, Menu } from 'antd'
+import {
+	HomeOutlined,
+	FileTextOutlined,
+	CodeOutlined,
+	CalendarOutlined,
+	BarcodeOutlined,
+	DashboardOutlined,
+	SettingOutlined,
+	TeamOutlined,
+	DatabaseOutlined,
+	LayoutOutlined,
+	FileOutlined
+} from '@ant-design/icons'
 
 import { Group } from '../../../common/interface'
 import { diffGroup } from '../../../common/user'
@@ -10,13 +23,8 @@ import { addListener, globalState, removeListener } from '../../util/state'
 
 import './index.less'
 
-interface MenuClick { key: string }
-
 class Sider extends React.Component<HistoryProps> {
 	public state = { global: globalState }
-	private onClick = ({ key }: MenuClick) => {
-		this.props.history.push(key)
-	}
 	public componentDidMount() {
 		addListener('sider', (global) => {
 			this.setState({ global })
@@ -48,55 +56,55 @@ class Sider extends React.Component<HistoryProps> {
 			<Menu
 				theme="dark"
 				mode="inline"
-				onClick={this.onClick}
-				defaultSelectedKeys={[ '/' ]}
 				selectedKeys={selectedKeys}
+				defaultSelectedKeys={[ '/' ]}
+				onClick={({ key }) => this.props.history.push(String(key))}
 			>
 				<Menu.Item key="/home">
-					<Icon type="home" />
+					<HomeOutlined />
 					<span>Home</span>
 				</Menu.Item>
 				<Menu.Item key="/problem">
-					<Icon type="file-text" />
+					<FileTextOutlined />
 					<span>Problem</span>
 				</Menu.Item>
 				<Menu.Item key="/contest">
-					<Icon type="code" />
+					<CodeOutlined />
 					<span>Contest</span>
 				</Menu.Item>
 				<Menu.Item key="/submission">
-					<Icon type="calendar" />
+					<CalendarOutlined />
 					<span>Submission</span>
 				</Menu.Item>
 				<Menu.Item key="/rank">
-					<Icon type="bar-chart" />
+					<BarcodeOutlined />
 					<span>Rank</span>
 				</Menu.Item>
 				{user && diffGroup(user, Group.admin) && <Menu.SubMenu
 					key="manage"
 					title={<span>
-						<Icon type="dashboard" />
+						<DashboardOutlined />
 						<span>Manage</span>
 					</span>}
 				>
 					<Menu.Item key="/manage/setting">
-						<Icon type="setting" />
+						<SettingOutlined />
 						<span>Setting</span>
 					</Menu.Item>
 					<Menu.Item key="/manage/user">
-						<Icon type="team" />
+						<TeamOutlined />
 						<span>User</span>
 					</Menu.Item>
 					<Menu.Item key="/manage/problem">
-						<Icon type="database" />
+						<DatabaseOutlined />
 						<span>Problem</span>
 					</Menu.Item>
 					<Menu.Item key="/manage/contest">
-						<Icon type="layout" />
+						<LayoutOutlined />
 						<span>Contest</span>
 					</Menu.Item>
 					<Menu.Item key="/manage/file">
-						<Icon type="file" />
+						<FileOutlined />
 						<span>File</span>
 					</Menu.Item>
 				</Menu.SubMenu>}

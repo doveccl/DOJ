@@ -22,7 +22,7 @@ export default class extends React.Component {
 		return <React.Fragment>
 			<LoginTip />
 			<Card title="Welcome to DOJ" loading={typeof value === 'undefined'}>
-				<MarkDown source={value} escapeHtml={false} />
+				<MarkDown source={value} allowDangerousHtml={true} />
 			</Card>
 		</React.Fragment>
 	}

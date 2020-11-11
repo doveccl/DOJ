@@ -71,7 +71,7 @@ class ProblemForm extends React.Component<ProblemFormProps> {
 					initialValue: value && value.content,
 					rules: [{ required: true, message: 'Please input problem content' }]
 				})(
-					<Editor shortCode={true} escapeHtml={false} />
+					<Editor shortCode={true} allowDangerousHtml={true} />
 				)}
 			</Form.Item>
 		</Form>

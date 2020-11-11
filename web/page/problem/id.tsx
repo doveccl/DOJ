@@ -54,7 +54,7 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 			>
 				<MarkDown
 					shortCode={true}
-					escapeHtml={false}
+					allowDangerousHtml={true}
 					source={problem.content}
 				/>
 			</Card>
@@ -70,7 +70,7 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 			>
 				{this.state.tabKey === 'submit' && global.languages.length > 0 && <WrappedSubmitForm
 					languages={global.languages} uid={global.user._id} pid={problem._id}
-					callback={(id) => this.props.history.push(`/submission/${id}`)}
+					callback={(id: number) => this.props.history.push(`/submission/${id}`)}
 				/>}
 				{this.state.tabKey === 'discuss' && global.user && <Discuss topic={problem._id} />}
 			</Card>

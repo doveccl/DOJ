@@ -1,5 +1,5 @@
 import * as React from 'react'
-import * as io from 'socket.io-client'
+import { Manager, Socket } from 'socket.io-client'
 
 import { message, Button, Card, Checkbox, Divider, Tag, Timeline } from 'antd'
 import { withRouter, Link } from 'react-router-dom'
@@ -17,7 +17,7 @@ import { renderStatus } from './index'
 const color = (r?: IResult) => r.status === Status.AC ? 'green' : 'red'
 
 class Submission extends React.Component<HistoryProps & MatchProps> {
-	private socket: SocketIOClient.Socket
+	private socket: Socket
 	public state = {
 		global: globalState,
 		pending: false,
@@ -30,10 +30,10 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 				'Pending ...' : false
 		})
 		if (s.result.status === Status.WAIT) {
-			const socket = io('/client')
-			this.socket = socket
-			socket.on('result', (data: Partial<ISubmission>) => {
-				socket.close()
+			const manager = new Manager()
+			this.socket = manager.socket('/client')
+			this.socket.on('result', (data: Partial<ISubmission>) => {
+				this.socket.close()
 				this.state.submission.result = data.result
 				this.state.submission.cases = data.cases
 				this.setState({
@@ -41,9 +41,12 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 					submission: this.state.submission
 				})
 			})
-			socket.on('connect', () => {
-				socket.emit('register', { id: s._id, token: getToken() }, (ok: boolean) => {
-					if (!ok) { socket.close() }
+			this.socket.on('connect', () => {
+				this.socket.emit('register', { 
+					d: s._id,
+					token: getToken()
+				}, (ok: boolean) => {
+					ok || this.socket.close()
 				})
 			})
 		}

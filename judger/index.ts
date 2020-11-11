@@ -1,6 +1,6 @@
 import * as fs from 'fs-extra'
 import * as config from 'config'
-import { io } from 'socket.io-client'
+import { Manager } from 'socket.io-client'
 
 import { SE } from '../common/pack'
 import { judge } from './judge'
@@ -11,17 +11,15 @@ const host: string = config.get('host')
 const secret: string = config.get('secret')
 const concurrent: number = config.get('concurrent')
 
-const socket = io(`${host}/judger`)
+const manager = new Manager(host)
+const socket = manager.socket('/judger')
 logJudger.info('connect to server:', host)
 
 /**
  * ensure config safe
  * e.g. #include </doj/config/default.json>
  */
-spawnSync('chmod', [ '-R', '600', 'config' ])
-if (!fs.pathExistsSync('/doj_tmp')) {
-	fs.mkdirpSync('/doj_tmp')
-}
+spawnSync('chmod', [ '-R', '600', 'config/*' ])
 if (!fs.pathExistsSync('/run/lrun/mirrorfs/doj')) {
 	spawnSync('lrun-mirrorfs', [
 		'--name', 'doj',

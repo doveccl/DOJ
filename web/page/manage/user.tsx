@@ -1,7 +1,6 @@
 import * as React from 'react'
 
 import { message, Button, Card, Divider, Modal, Popconfirm, Table, Tag } from 'antd'
-import { WrappedFormUtils } from 'antd/lib/form/Form'
 
 import { Group } from '../../../common/interface'
 import { WrappedUserForm } from '../../component/form/user'
@@ -18,7 +17,7 @@ const renderGroup = (g: Group) => {
 }
 
 export default class extends React.Component {
-	private form: WrappedFormUtils = undefined
+	private form
 	public state = {
 		loading: true,
 		users: [] as IUser[],

@@ -2,19 +2,21 @@ import * as moment from 'moment'
 import * as React from 'react'
 
 import { DatePicker, Form, Input, Select } from 'antd'
-import { FormComponentProps } from 'antd/lib/form'
+import { FormInstance } from 'antd/lib/form'
 
 import { ContestType } from '../../../common/interface'
 import { Editor } from '../../component/editor'
 import { IContest } from '../../util/interface'
 
-interface ContestFormProps extends FormComponentProps {
-	value?: IContest
+interface ContestFormProps {
+	contest?: IContest
+	onRefForm: (form: FormInstance<IContest>) => void
 }
 
-class ContestForm extends React.Component<ContestFormProps> {
-	private adjustFreeze = (t?: any) => {
-		const { form } = this.props
+export class ContestForm extends React.Component<ContestFormProps> {
+	private formRef = React.createRef<FormInstance<IContest>>()
+	private adjustFreeze = (t?: Array<moment.Moment> | number) => {
+		const form = this.formRef.current
 		const type = typeof t === 'number' ? t : form.getFieldValue('type')
 		const time = Array.isArray(t) ? t : form.getFieldValue('time')
 		if (time && time[0] && time[1]) {
@@ -30,73 +32,64 @@ class ContestForm extends React.Component<ContestFormProps> {
 			}
 		}
 	}
+
+	componentDidMount() {
+		this.props.onRefForm(this.formRef.current)
+	}
+
 	public render() {
-		const { value } = this.props
-		const { getFieldDecorator } = this.props.form
 		const formItemLayout = {
 			labelCol: { xs: 24, sm: 6, md: 4 },
 			wrapperCol: { xs: 24, sm: 18, md: 20 }
 		}
-		return <Form>
-			<Form.Item label="Title" {...formItemLayout}>
-				{getFieldDecorator('title', {
-					initialValue: value && value.title,
-					rules: [{ required: true, message: 'Please input contest title' }]
-				})(
-					<Input placeholder="Contest title" />
-				)}
+
+		const contest = Object.assign({ time: null }, this.props.contest)
+		contest.freezeAt = contest.freezeAt && moment(contest.freezeAt)
+		if (contest.startAt && contest.endAt) {
+			contest.time = [
+				moment(this.props.contest.startAt),
+				moment(this.props.contest.endAt)				
+			]
+		}
+
+		return <Form initialValues={contest} ref={this.formRef}>
+			<Form.Item label="Title" name="title" rules={[
+				{ required: true, message: 'Please input contest title' }
+			]} {...formItemLayout}>
+				<Input placeholder="Contest title" />
 			</Form.Item>
-			<Form.Item label="Type" {...formItemLayout}>
-				{getFieldDecorator('type', {
-					initialValue: value ? value.type : ContestType.OI,
-					rules: [{ required: true, message: 'Please select type' }]
-				})(
-					<Select onSelect={this.adjustFreeze}>
-						<Select.Option value={ContestType.OI}>OI</Select.Option>
-						<Select.Option value={ContestType.ICPC}>ICPC</Select.Option>
-					</Select>
-				)}
+			<Form.Item label="Type" name="type" rules={[
+				{ required: true, message: 'Please select type' }
+			]} {...formItemLayout}>
+				<Select onSelect={t => this.adjustFreeze(Number(t))}>
+					<Select.Option value={ContestType.OI}>OI</Select.Option>
+					<Select.Option value={ContestType.ICPC}>ICPC</Select.Option>
+				</Select>
 			</Form.Item>
-			<Form.Item style={{ display: 'none' }}>
-				{getFieldDecorator('startAt', { initialValue: value && value.startAt })(<Input />)}
+			<Form.Item name="startAt" style={{ display: 'none' }}>
+				<Input />
 			</Form.Item>
-			<Form.Item style={{ display: 'none' }}>
-				{getFieldDecorator('endAt', { initialValue: value && value.endAt })(<Input />)}
+			<Form.Item name="endAt" style={{ display: 'none' }}>
+				<Input />
 			</Form.Item>
-			<Form.Item label="Time" {...formItemLayout}>
-				{getFieldDecorator('time', {
-					rules: [{ required: true, message: 'Please select time' }],
-					initialValue: value && [
-						moment(value.startAt),
-						moment(value.endAt)
-					]
-				})(
-					<DatePicker.RangePicker
-						showTime={true}
-						onOk={this.adjustFreeze}
-						format="YYYY-MM-DD HH:mm:ss"
-					/>
-				)}
+			<Form.Item label="Time" name="time" rules={[
+				{ required: true, message: 'Please select time' }
+			]} {...formItemLayout}>
+				<DatePicker.RangePicker
+					showTime={true}
+					onChange={this.adjustFreeze}
+					format="YYYY-MM-DD HH:mm:ss"
+				/>
 			</Form.Item>
-			<Form.Item label="Freeze time" {...formItemLayout}>
-				{getFieldDecorator('freezeAt', {
-					initialValue: value && moment(value.freezeAt)
-				})(
-					<DatePicker
-						showTime={true}
-						format="YYYY-MM-DD HH:mm:ss"
-					/>
-				)}
+			<Form.Item label="Freeze time" name="freezeAt" {...formItemLayout}>
+				<DatePicker
+					showTime={true}
+					format="YYYY-MM-DD HH:mm:ss"
+				/>
 			</Form.Item>
-			<Form.Item label="Description" {...formItemLayout}>
-				{getFieldDecorator('description', {
-					initialValue: value && value.description
-				})(
-					<Editor escapeHtml={false} />
-				)}
+			<Form.Item label="Description" name="description" {...formItemLayout}>
+				<Editor allowDangerousHtml={true} />
 			</Form.Item>
 		</Form>
 	}
 }
-
-export const WrappedContestForm = Form.create<ContestFormProps>()(ContestForm)
