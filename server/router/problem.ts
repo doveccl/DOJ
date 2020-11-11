@@ -5,9 +5,13 @@ import { ensureGroup } from '../../common/user'
 import { group, token } from '../middleware/auth'
 import { contest, fetch } from '../middleware/fetch'
 import { File } from '../model/file'
-import { Problem } from '../model/problem'
+import { DProblem, Problem } from '../model/problem'
+import { DUser } from '../model/user'
 
-const router = new Router()
+const router = new Router<any, {
+	self: DUser
+	problem: DProblem
+}>()
 
 router.use('/problem', token())
 

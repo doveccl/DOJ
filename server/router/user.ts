@@ -6,13 +6,13 @@ import { Group } from '../../common/interface'
 import { ensureGroup } from '../../common/user'
 import { group, token } from '../middleware/auth'
 import { fetch } from '../middleware/fetch'
-import { User } from '../model/user'
+import { DUser, User } from '../model/user'
 import { sign } from '../util/jwt'
 import { send } from '../util/mail'
 
 const EXCLUDE_LIST = [ 'solve', 'submit' ]
 
-const router = new Router()
+const router = new Router<any, { self: DUser }>()
 
 router.use('/user', token())
 

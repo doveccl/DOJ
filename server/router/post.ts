@@ -6,8 +6,9 @@ import { ensureGroup } from '../../common/user'
 import { token } from '../middleware/auth'
 import { contest, fetch, problem, user } from '../middleware/fetch'
 import { Post } from '../model/post'
+import { DUser } from '../model/user'
 
-const router = new Router()
+const router = new Router<any, { self: DUser }>()
 
 router.use('/post', token())
 

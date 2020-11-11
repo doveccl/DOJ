@@ -5,9 +5,9 @@ import { Group } from '../../common/interface'
 import { ensureGroup } from '../../common/user'
 import { group, token } from '../middleware/auth'
 import { fetch } from '../middleware/fetch'
-import { File, TYPE_REG } from '../model/file'
+import { DFile, File, TYPE_REG } from '../model/file'
 
-const router = new Router()
+const router = new Router<any, { file: DFile }>()
 
 router.use('/file', token(true))
 

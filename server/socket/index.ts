@@ -1,4 +1,4 @@
-import * as SocketIO from 'socket.io'
+import { Server } from 'socket.io'
 
 import { Status } from '../../common/interface'
 import { Submission } from '../model/submission'
@@ -11,7 +11,7 @@ export const judgeFromDB = async () => {
 	})).forEach(doJudge)
 }
 
-const io = SocketIO()
+const io = new Server()
 export const attachSocketIO = async (s: any) => {
 	io.attach(s)
 	await judgeFromDB()

@@ -1,8 +1,7 @@
 import { Group } from './interface'
 
 interface HasGroup {
-	group: Group
-	[index: string]: any
+	group?: Group
 }
 
 export function diffGroup(user: HasGroup, group: Group, diff = 0) {

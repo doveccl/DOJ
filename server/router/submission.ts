@@ -9,7 +9,7 @@ import { DSubmission, Submission } from '../model/submission'
 import { DUser, User } from '../model/user'
 import { doJudge } from '../socket/judger'
 
-const router = new Router()
+const router = new Router<any, { self: DUser }>()
 
 router.use('/submission', token())
 

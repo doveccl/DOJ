@@ -1,6 +1,6 @@
-import * as config from 'config'
 import * as fs from 'fs-extra'
-import * as io from 'socket.io-client'
+import * as config from 'config'
+import { io } from 'socket.io-client'
 
 import { SE } from '../common/pack'
 import { judge } from './judge'

@@ -73,7 +73,7 @@ const dispatchSubmission = () => {
 	while (judgers.length && submissions.length) {
 		const judger = judgers.shift()
 		const submission = submissions.shift()
-		currentNS.sockets[judger].emit('judge', submission)
+		currentNS.sockets.get(judger).emit('judge', submission)
 		logSocket.info(
 			'submission', submission._id, '->', judger,
 			'-- judgers/submissions queue:',

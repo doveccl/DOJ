@@ -3,10 +3,10 @@ import * as Router from 'koa-router'
 import { Group } from '../../common/interface'
 import { group, token } from '../middleware/auth'
 import { fetch } from '../middleware/fetch'
-import { Contest } from '../model/contest'
+import { Contest, DContest } from '../model/contest'
 import { Problem } from '../model/problem'
 
-const router = new Router()
+const router = new Router<any, { contest: DContest }>()
 
 router.use('/contest', token())
 

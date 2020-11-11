@@ -24,13 +24,13 @@ export interface IUser<I, T> {
 	_id: I
 	name: string
 	mail: string
-	group: Group
+	group?: Group
 	password: string
-	solve: number
-	submit: number
-	introduction: string
-	createdAt: T
-	updatedAt: T
+	solve?: number
+	submit?: number
+	introduction?: string
+	createdAt?: T
+	updatedAt?: T
 }
 
 export interface IProblem<I, T> {
