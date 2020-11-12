@@ -75,7 +75,7 @@ router.put('/reset', async (ctx) => {
 	if (bcrypt.compareSync(pass, user.password)) {
 		throw new Error('new password should be different from the old one')
 	}
-	ctx.body = await user.update({ password: bcrypt.hashSync(pass) })
+	ctx.body = await user.updateOne({ password: bcrypt.hashSync(pass) })
 })
 
 export default router

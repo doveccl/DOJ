@@ -46,7 +46,7 @@ router.put('/contest/:id', group(Group.admin), fetch('contest'), async (ctx) => 
 		(freezeAt !== undefined && endAt === undefined && new Date(freezeAt) >= e) ||
 		(freezeAt === undefined && endAt !== undefined && new Date(endAt) <= f)
 	) { throw new Error('invalid datetime range') }
-	ctx.body = await ctx.contest.update(ctx.request.body, { runValidators: true })
+	ctx.body = await ctx.contest.updateOne(ctx.request.body, { runValidators: true })
 	ctx.contest.set(ctx.request.body)
 })
 

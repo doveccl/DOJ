@@ -2,7 +2,7 @@ const path = require('path')
 const WebpackCdnPlugin = require('webpack-cdn-plugin')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const MiniCssExtractPlugin = require("mini-css-extract-plugin")
-const OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin')
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin')
 
 const packageJson = require('./package.json')
 
@@ -53,6 +53,7 @@ module.exports = (env, argv) => {
 		plugins: [
 			new HtmlWebpackPlugin({
 				title: 'DOJ',
+				inject: 'body',
 				favicon: 'web/logo.png',
 				meta: {
 					author: packageJson.author,
@@ -103,9 +104,12 @@ module.exports = (env, argv) => {
 	}
 
 	if (prod) {
-		config.plugins.push(
-			new OptimizeCssAssetsPlugin()
-		)
+		config.optimization = {
+			minimize: true,
+			minimizer: [
+				new CssMinimizerPlugin()
+			]
+		}
 	}
 
 	return config

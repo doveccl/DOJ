@@ -69,7 +69,7 @@ router.post('/problem', group(Group.admin), async (ctx) => {
 
 router.put('/problem/:id', group(Group.admin), fetch('problem'), async (ctx) => {
 	await File.findByIdAndUpdate(ctx.request.body.data, { metadata: { type: 'data' } })
-	ctx.body = await ctx.problem.update(ctx.request.body, { runValidators: true })
+	ctx.body = await ctx.problem.updateOne(ctx.request.body, { runValidators: true })
 	ctx.problem.set(ctx.request.body)
 })
 

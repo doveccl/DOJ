@@ -67,7 +67,7 @@ router.put('/user/:id', fetch('user'), async (ctx) => {
 	}
 
 	for (const item of EXCLUDE_LIST) { delete body[item] }
-	ctx.body = await user.update(body, { runValidators: true })
+	ctx.body = await user.updateOne(body, { runValidators: true })
 	user.set(body)
 })
 

@@ -48,7 +48,7 @@ router.post('/file', group(Group.admin), async (ctx) => {
 router.put('/file/:id', group(Group.admin), fetch('file'), async (ctx) => {
 	const { filename } = ctx.request.body
 	if (!filename) { throw new Error('Invalid filename') }
-	ctx.body = await ctx.file.update({ filename })
+	ctx.body = await ctx.file.updateOne({ filename })
 })
 
 router.del('/file/:id', group(Group.admin), fetch('file'), async (ctx) => {

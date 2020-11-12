@@ -98,7 +98,7 @@ router.put('/submission/:id', fetch('submission'), async (ctx) => {
 	const { self, submission } = ctx
 	const { open } = ctx.request.body
 	if (!compare(self._id, submission.uid)) { ensureGroup(self, Group.admin) }
-	ctx.body = await submission.update({ open }, { runValidators: true })
+	ctx.body = await submission.updateOne({ open }, { runValidators: true })
 })
 
 router.post('/submission', async (ctx) => {

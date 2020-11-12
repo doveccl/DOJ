@@ -33,7 +33,7 @@ router.put('/post/:id', fetch('post'), async (ctx) => {
 	const { self, post } = ctx
 	const { content } = ctx.request.body
 	if (!compare(self._id, post.uid)) { ensureGroup(self, Group.admin) }
-	ctx.body = await post.update({ content }, { runValidators: true })
+	ctx.body = await post.updateOne({ content }, { runValidators: true })
 })
 
 router.post('/post', async (ctx) => {
