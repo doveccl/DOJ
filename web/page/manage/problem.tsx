@@ -1,16 +1,16 @@
 import * as React from 'react'
 
 import { message, Button, Card, Divider, Input, Modal, Popconfirm, Table, Tag } from 'antd'
-import { WrappedFormUtils } from 'antd/lib/form/Form'
+import { FormInstance } from 'antd/lib/form'
 
 import { parseMemory, parseTime } from '../../../common/function'
-import { WrappedProblemForm } from '../../component/form/problem'
+import { ProblemForm } from '../../component/form/problem'
 import { delProblem, getProblems, hasToken, postProblem, putProblem, rejudgeSubmission } from '../../model'
 import { HistoryProps, IProblem } from '../../util/interface'
 import { updateState } from '../../util/state'
 
 export default class extends React.Component<HistoryProps> {
-	private form: WrappedFormUtils = undefined
+	private form: FormInstance
 	public state = {
 		loading: true,
 		search: '',
@@ -53,32 +53,30 @@ export default class extends React.Component<HistoryProps> {
 		})
 	}
 	private ok = () => {
-		this.form.validateFields((error: any, values: any) => {
-			if (!error) {
-				this.setState({ loading: true })
-				if (this.state.modalProblem) {
-					putProblem(this.state.modalProblem._id, values)
-						.then(() => {
-							message.success('update success')
-							this.setState({ modalOpen: false })
-							this.handleChange()
-						})
-						.catch((err) => {
-							message.error(err)
-							this.setState({ loading: false })
-						})
-				} else {
-					postProblem(values)
-						.then(() => {
-							message.success('create success')
-							this.setState({ modalOpen: false })
-							this.handleChange()
-						})
-						.catch((err) => {
-							message.error(err)
-							this.setState({ loading: false })
-						})
-				}
+		this.form.validateFields().then(values => {
+			this.setState({ loading: true })
+			if (this.state.modalProblem) {
+				putProblem(this.state.modalProblem._id, values)
+					.then(() => {
+						message.success('update success')
+						this.setState({ modalOpen: false })
+						this.handleChange()
+					})
+					.catch((err) => {
+						message.error(err)
+						this.setState({ loading: false })
+					})
+			} else {
+				postProblem(values)
+					.then(() => {
+						message.success('create success')
+						this.setState({ modalOpen: false })
+						this.handleChange()
+					})
+					.catch((err) => {
+						message.error(err)
+						this.setState({ loading: false })
+					})
 			}
 		})
 	}
@@ -121,11 +119,9 @@ export default class extends React.Component<HistoryProps> {
 					onOk={() => this.ok()}
 					onCancel={() => this.setState({ modalOpen: false })}
 				>
-					<WrappedProblemForm
-						value={this.state.modalProblem}
-						wrappedComponentRef={(w: any) => {
-							this.form = w && w.props.form
-						}}
+					<ProblemForm
+						problem={this.state.modalProblem}
+						onRefForm={form => this.form = form}
 					/>
 				</Modal>
 				<Table

@@ -15,7 +15,7 @@ export const startCron = () => scheduleJob(
 		const users = await User.find()
 		const problems = await Problem.find()
 		for (const user of users) {
-			await user.update({
+			await user.updateOne({
 				solve: await Submission.find({
 					'uid': user._id,
 					'result.status': Status.AC
@@ -26,7 +26,7 @@ export const startCron = () => scheduleJob(
 			})
 		}
 		for (const problem of problems) {
-			await problem.update({
+			await problem.updateOne({
 				solve: await Submission.find({
 					'pid': problem._id,
 					'result.status': Status.AC

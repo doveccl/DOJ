@@ -5,9 +5,13 @@ import { ensureGroup } from '../../common/user'
 import { group, token } from '../middleware/auth'
 import { contest, fetch } from '../middleware/fetch'
 import { File } from '../model/file'
-import { Problem } from '../model/problem'
+import { DProblem, Problem } from '../model/problem'
+import { DUser } from '../model/user'
 
-const router = new Router()
+const router = new Router<any, {
+	self: DUser
+	problem: DProblem
+}>()
 
 router.use('/problem', token())
 
@@ -65,7 +69,7 @@ router.post('/problem', group(Group.admin), async (ctx) => {
 
 router.put('/problem/:id', group(Group.admin), fetch('problem'), async (ctx) => {
 	await File.findByIdAndUpdate(ctx.request.body.data, { metadata: { type: 'data' } })
-	ctx.body = await ctx.problem.update(ctx.request.body, { runValidators: true })
+	ctx.body = await ctx.problem.updateOne(ctx.request.body, { runValidators: true })
 	ctx.problem.set(ctx.request.body)
 })
 

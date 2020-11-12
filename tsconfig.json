@@ -1,19 +1,12 @@
 {
 	"compilerOptions": {
-		"target": "es2017",
-		"outDir": "build",
-		"module": "commonjs",
+		"outDir": "app",
+		"target": "ESNext",
+		"module": "CommonJS",
 		"noImplicitAny": true,
-		"removeComments": true,
-		"typeRoots": [
-			"node_modules/@types",
-			"typings"
-		]
+		"removeComments": true
 	},
-	"include": [
-		"index.ts",
-		"common/**/*",
-		"server/**/*",
-		"judger/**/*"
+	"files": [
+		"index.ts"
 	]
 }

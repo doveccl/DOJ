@@ -19,14 +19,11 @@ const app = new Koa()
 
 app.use(Compose([ Log(), Static(), Wrap(), Router() ]))
 
-/**
- * Fix deprecation warnings
- */
-mongoose.set('useNewUrlParser', true)
-mongoose.set('useFindAndModify', false)
-mongoose.set('useCreateIndex', true)
-
-mongoose.connect(database, (error) => {
+mongoose.connect(database, {
+	useCreateIndex: true,
+	useNewUrlParser: true,
+	useUnifiedTopology: true
+}, (error) => {
 	if (error) {
 		logServer.fatal(error)
 	} else {

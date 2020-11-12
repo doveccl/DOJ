@@ -2,7 +2,7 @@ const path = require('path')
 const WebpackCdnPlugin = require('webpack-cdn-plugin')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const MiniCssExtractPlugin = require("mini-css-extract-plugin")
-const OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin')
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin')
 
 const packageJson = require('./package.json')
 
@@ -19,21 +19,30 @@ module.exports = (env, argv) => {
 		output: {
 			publicPath: '/',
 			path: path.resolve(__dirname, './dist'),
-			filename: '[name].[hash:8].js',
-			chunkFilename: '[name].chunk.[chunkhash:8].js'
+			filename: '[name].[chunkhash:8].js'
 		},
 		module: {
 			rules: [
 				{
 					test: /\.tsx?$/,
-					loader: 'babel-loader!ts-loader'
+					use: [
+						'babel-loader',
+						'ts-loader'
+					]
 				},
 				{
 					test: /\.(c|le)ss$/,
 					use: [
 						MiniCssExtractPlugin.loader,
 						'css-loader',
-						'less-loader?javascriptEnabled'
+						{
+							loader: 'less-loader',
+							options: {
+								lessOptions: {
+									javascriptEnabled: true
+								}
+							}
+						}
 					]
 				}
 			]
@@ -44,6 +53,7 @@ module.exports = (env, argv) => {
 		plugins: [
 			new HtmlWebpackPlugin({
 				title: 'DOJ',
+				inject: 'body',
 				favicon: 'web/logo.png',
 				meta: {
 					author: packageJson.author,
@@ -67,8 +77,7 @@ module.exports = (env, argv) => {
 				prod, publicPath: '/node_modules'
 			}),
 			new MiniCssExtractPlugin({
-				filename: '[name].[hash:8].css',
-				chunkFilename: '[name].chunk.[chunkhash:8].css'
+				filename: '[name].[chunkhash:8].css'
 			})
 		]
 	}
@@ -95,9 +104,12 @@ module.exports = (env, argv) => {
 	}
 
 	if (prod) {
-		config.plugins.push(
-			new OptimizeCssAssetsPlugin()
-		)
+		config.optimization = {
+			minimize: true,
+			minimizer: [
+				new CssMinimizerPlugin()
+			]
+		}
 	}
 
 	return config

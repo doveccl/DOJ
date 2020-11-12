@@ -6,13 +6,13 @@ import { Group } from '../../common/interface'
 import { ensureGroup } from '../../common/user'
 import { group, token } from '../middleware/auth'
 import { fetch } from '../middleware/fetch'
-import { User } from '../model/user'
+import { DUser, User } from '../model/user'
 import { sign } from '../util/jwt'
 import { send } from '../util/mail'
 
 const EXCLUDE_LIST = [ 'solve', 'submit' ]
 
-const router = new Router()
+const router = new Router<any, { self: DUser }>()
 
 router.use('/user', token())
 
@@ -58,16 +58,18 @@ router.put('/user/:id', fetch('user'), async (ctx) => {
 		delete body.password
 	} else { delete body.group }
 
-	if (body.password !== undefined) {
+	if (body.password) {
 		if (!bcrypt.compareSync(body.oldPassword, self.password)) {
 			throw new Error('wrong old password')
 		}
 		checkPassword(body.password, true)
 		body.password = bcrypt.hashSync(body.password)
+	} else { // 防止为 '' 的情况
+		delete body.password
 	}
 
 	for (const item of EXCLUDE_LIST) { delete body[item] }
-	ctx.body = await user.update(body, { runValidators: true })
+	ctx.body = await user.updateOne(body, { runValidators: true })
 	user.set(body)
 })
 

@@ -33,9 +33,9 @@ export class Editor extends React.Component<EditorProps> {
 			</Col>
 			<Col span={12} className="preview">
 				<MarkDown
+					source={this.state.content}
 					shortCode={this.props.shortCode}
 					escapeHtml={this.props.escapeHtml}
-					source={this.state.content}
 				/>
 			</Col>
 		</Row>

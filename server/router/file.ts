@@ -5,9 +5,9 @@ import { Group } from '../../common/interface'
 import { ensureGroup } from '../../common/user'
 import { group, token } from '../middleware/auth'
 import { fetch } from '../middleware/fetch'
-import { File, TYPE_REG } from '../model/file'
+import { DFile, File, TYPE_REG } from '../model/file'
 
-const router = new Router()
+const router = new Router<any, { file: DFile }>()
 
 router.use('/file', token(true))
 
@@ -33,7 +33,7 @@ router.get('/file/:id', fetch('file'), async (ctx) => {
 
 router.post('/file', group(Group.admin), async (ctx) => {
 	const keys = Object.keys(ctx.request.files)
-	ctx.body = [] as any[]
+	ctx.body = new Array()
 	for (const key of keys) {
 		const file = ctx.request.files[key]
 		if (TYPE_REG.test(file.type)) {
@@ -48,7 +48,7 @@ router.post('/file', group(Group.admin), async (ctx) => {
 router.put('/file/:id', group(Group.admin), fetch('file'), async (ctx) => {
 	const { filename } = ctx.request.body
 	if (!filename) { throw new Error('Invalid filename') }
-	ctx.body = await ctx.file.update({ filename })
+	ctx.body = await ctx.file.updateOne({ filename })
 })
 
 router.del('/file/:id', group(Group.admin), fetch('file'), async (ctx) => {

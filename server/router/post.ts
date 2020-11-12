@@ -6,8 +6,9 @@ import { ensureGroup } from '../../common/user'
 import { token } from '../middleware/auth'
 import { contest, fetch, problem, user } from '../middleware/fetch'
 import { Post } from '../model/post'
+import { DUser } from '../model/user'
 
-const router = new Router()
+const router = new Router<any, { self: DUser }>()
 
 router.use('/post', token())
 
@@ -32,7 +33,7 @@ router.put('/post/:id', fetch('post'), async (ctx) => {
 	const { self, post } = ctx
 	const { content } = ctx.request.body
 	if (!compare(self._id, post.uid)) { ensureGroup(self, Group.admin) }
-	ctx.body = await post.update({ content }, { runValidators: true })
+	ctx.body = await post.updateOne({ content }, { runValidators: true })
 })
 
 router.post('/post', async (ctx) => {

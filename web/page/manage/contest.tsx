@@ -1,9 +1,10 @@
 import * as React from 'react'
 
-import { message, Button, Card, Col, Divider, Icon, Input, Modal, Popconfirm, Row, Table } from 'antd'
-import { WrappedFormUtils } from 'antd/lib/form/Form'
+import { message, Button, Card, Col, Divider, Input, Modal, Popconfirm, Row, Table } from 'antd'
+import { FileTextOutlined, BarsOutlined } from '@ant-design/icons'
+import { FormInstance } from 'antd/lib/form'
 
-import { WrappedContestForm } from '../../component/form/contest'
+import { ContestForm } from '../../component/form/contest'
 import { delContest, getContests, getProblems, hasToken, postContest, putContest, putProblem } from '../../model'
 import { HistoryProps, IContest, IProblem } from '../../util/interface'
 import { updateState } from '../../util/state'
@@ -61,14 +62,14 @@ class ContestProblems extends React.Component<{ cid: string }> {
 					<Input
 						placeholder="Problem ID"
 						onChange={(e) => this.setState({ pid: e.target.value })}
-						prefix={<Icon type="file-text" style={{ color: 'rgba(0,0,0,.25)' }} />}
+						prefix={<FileTextOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
 					/>
 				</Col>
 				<Col span={10}>
 					<Input
 						placeholder="Problem Key (A, B, C, D ...)"
 						onChange={(e) => this.setState({ pkey: e.target.value })}
-						prefix={<Icon type="bars" style={{ color: 'rgba(0,0,0,.25)' }} />}
+						prefix={<BarsOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
 					/>
 				</Col>
 				<Col span={4}>
@@ -101,7 +102,7 @@ class ContestProblems extends React.Component<{ cid: string }> {
 }
 
 export default class extends React.Component<HistoryProps> {
-	private form: WrappedFormUtils = undefined
+	private form: FormInstance<IContest>
 	public state = {
 		loading: true,
 		contests: [] as IContest[],
@@ -136,32 +137,30 @@ export default class extends React.Component<HistoryProps> {
 		})
 	}
 	private ok = () => {
-		this.form.validateFields((error: any, values: any) => {
-			if (!error) {
-				this.setState({ loading: true })
-				if (this.state.modalContest) {
-					putContest(this.state.modalContest._id, values)
-						.then(() => {
-							message.success('update success')
-							this.setState({ modalOpen: false })
-							this.handleChange()
-						})
-						.catch((err) => {
-							message.error(err)
-							this.setState({ loading: false })
-						})
-				} else {
-					postContest(values)
-						.then(() => {
-							message.success('create success')
-							this.setState({ modalOpen: false })
-							this.handleChange()
-						})
-						.catch((err) => {
-							message.error(err)
-							this.setState({ loading: false })
-						})
-				}
+		this.form.validateFields().then(value => {
+			this.setState({ loading: true })
+			if (this.state.modalContest) {
+				putContest(this.state.modalContest._id, value)
+					.then(() => {
+						message.success('update success')
+						this.setState({ modalOpen: false })
+						this.handleChange()
+					})
+					.catch((err) => {
+						message.error(err)
+						this.setState({ loading: false })
+					})
+			} else {
+				postContest(value)
+					.then(() => {
+						message.success('create success')
+						this.setState({ modalOpen: false })
+						this.handleChange()
+					})
+					.catch((err) => {
+						message.error(err)
+						this.setState({ loading: false })
+					})
 			}
 		})
 	}
@@ -193,11 +192,9 @@ export default class extends React.Component<HistoryProps> {
 					onOk={() => this.ok()}
 					onCancel={() => this.setState({ modalOpen: false })}
 				>
-					<WrappedContestForm
-						value={this.state.modalContest}
-						wrappedComponentRef={(w: any) => {
-							this.form = w && w.props.form
-						}}
+					<ContestForm
+						contest={this.state.modalContest}
+						onRefForm={form => this.form = form}
 					/>
 				</Modal>
 				<Table

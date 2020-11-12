@@ -77,7 +77,7 @@ class Contest extends React.Component<HistoryProps & MatchProps> {
 				extra={renderType(type)}
 			>
 				<Progress percent={this.state.process} showInfo={false} />
-				<Row type="flex" justify="space-between">
+				<Row justify="space-between">
 					<Col>{new Date(startAt).toLocaleString()}</Col>
 					<Col>{process < 100 ? status : 'Ended'}</Col>
 					<Col>{new Date(endAt).toLocaleString()}</Col>
@@ -98,8 +98,8 @@ class Contest extends React.Component<HistoryProps & MatchProps> {
 				}}
 			>
 				{this.state.tabKey === 'description' && <MarkDown
-					escapeHtml={false}
 					source={description}
+					escapeHtml={false}
 				/>}
 				{this.state.tabKey === 'problems' && <Table
 					rowKey="_id"

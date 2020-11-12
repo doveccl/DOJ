@@ -53,15 +53,9 @@ schema.index({ solve: -1, submit: 1 })
 
 export const User = model<DUser>('user', schema)
 
-const createIfEmpty = async (user: Partial<DUser>) => {
-	if (!await User.find().countDocuments()) {
-		await User.create(user)
-	}
-}
-
-createIfEmpty({
+User.findOne().then(c => c || User.create({
 	name: 'admin',
 	mail: 'admin@d.oj',
 	group: Group.root,
 	password: hashSync('admin')
-})
+}))

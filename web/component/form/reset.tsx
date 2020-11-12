@@ -1,30 +1,20 @@
 import * as React from 'react'
 
 import { message, Button, Form, Input } from 'antd'
-import { FormComponentProps } from 'antd/lib/form'
+import { FormInstance } from 'antd/lib/form'
 
 import { getReset, putReset } from '../../model'
 import { logout } from '../../model'
 import { HistoryProps } from '../../util/interface'
 
-interface ResetFormProps extends HistoryProps, FormComponentProps {}
-
-class ResetForm extends React.Component<ResetFormProps> {
+export class ResetForm extends React.Component<HistoryProps> {
+	private formRef = React.createRef<FormInstance<any>>()
 	public state = {
 		loading: false,
 		countdown: 0
 	}
-	private comparePassword = (rule: any, value: string, callback: (err?: string) => any) => {
-		const form = this.props.form
-		if (value && value !== form.getFieldValue('password')) {
-			callback('Two passwords are inconsistent')
-		} else {
-			callback()
-		}
-	}
-	private handleSend = () => {
-		const form = this.props.form
-		const user = form.getFieldValue('user')
+	private handleSend() {
+		const user = this.formRef.current.getFieldValue('user')
 		this.setState({ loading: true })
 		getReset(user)
 			.then(({ mail }) => {
@@ -44,27 +34,21 @@ class ResetForm extends React.Component<ResetFormProps> {
 				this.setState({ loading: false })
 			})
 	}
-	private handleSubmit = (e: React.FormEvent) => {
-		e.preventDefault()
-		this.props.form.validateFields((error: any, values: any) => {
-			if (!error) {
-				this.setState({ loading: true })
-				putReset(values)
-					.then(() => {
-						logout()
-						message.success('password reset success')
-						this.props.history.replace('/login')
-					})
-					.catch((err) => {
-						message.error(err)
-						this.setState({ loading: false })
-					})
-			}
-		})
+	private handleSubmit(values: any) {
+		this.setState({ loading: true })
+		putReset(values)
+			.then(() => {
+				logout()
+				message.success('password reset success')
+				this.props.history.replace('/login')
+			})
+			.catch((err) => {
+				message.error(err)
+				this.setState({ loading: false })
+			})
 	}
 	public render() {
 		const { countdown } = this.state
-		const { getFieldDecorator } = this.props.form
 		const formItemLayout = {
 			labelCol: { xs: 24, sm: 6, md: 4 },
 			wrapperCol: { xs: 24, sm: 18, md: 20 }
@@ -76,15 +60,15 @@ class ResetForm extends React.Component<ResetFormProps> {
 				md: { span: 20, offset: 4 }
 			}
 		}
-		return <Form onSubmit={this.handleSubmit}>
-			<Form.Item label="User" {...formItemLayout}>
+		return <Form onFinish={this.handleSubmit} ref={this.formRef}>
+			<Form.Item {...formItemLayout}>
 				<Input.Group compact={true}>
-					{getFieldDecorator('user')(
+					<Form.Item label="User" name="user" noStyle>
 						<Input
 							style={{ width: '70%' }}
 							placeholder="Your name or mail"
 						/>
-					)}
+					</Form.Item>
 					<Button
 						style={{ width: '30%' }}
 						loading={this.state.loading}
@@ -93,32 +77,26 @@ class ResetForm extends React.Component<ResetFormProps> {
 					>{countdown ? `(${countdown}s)` : 'Send verify code'}</Button>
 				</Input.Group>
 			</Form.Item>
-			<Form.Item label="Verify code" {...formItemLayout}>
-				{getFieldDecorator('code', {
-					rules: [{ required: true, message: 'Please input the verify code' }]
-				})(
-					<Input.TextArea rows={5} placeholder="Input the verify code you received" />
-				)}
+			<Form.Item label="Verify code" name="code" rules={[
+				{ required: true, message: 'Please input the verify code' }
+			]} {...formItemLayout}>
+				<Input.TextArea rows={5} placeholder="Input the verify code you received" />
 			</Form.Item>
-			<Form.Item label="New password" {...formItemLayout}>
-				{getFieldDecorator('password', {
-					rules: [
-						{ required: true, message: 'Please input your new password' },
-						{ min: 6, max: 20, message: 'Length of password should be 6-20' }
-					]
-				})(
-					<Input type="password" placeholder="Your new password (length 6-20)" />
-				)}
+			<Form.Item label="New password" name="password" rules={[
+				{ required: true, message: 'Please input your new password' },
+				{ min: 6, max: 20, message: 'Length of password should be 6-20' }
+			]} {...formItemLayout}>
+				<Input type="password" placeholder="Your new password (length 6-20)" />
 			</Form.Item>
-			<Form.Item label="Confirm" {...formItemLayout}>
-				{getFieldDecorator('password2', {
-					rules: [
-						{ required: true, message: 'Please confirm your password' },
-						{ validator: this.comparePassword }
-					]
-				})(
-					<Input type="password" placeholder="Confirm your password" />
-				)}
+			<Form.Item label="Confirm" name="password2" rules={[
+				{ required: true, message: 'Please confirm your password' },
+				{ validator: async (_rule, value) => {
+					if (value !== this.formRef.current.getFieldValue('password')) {
+						throw new Error('Two passwords are inconsistent')
+					}
+				} }
+			]} {...formItemLayout}>
+				<Input type="password" placeholder="Confirm your password" />
 			</Form.Item>
 			<Form.Item {...tailFormItemLayout}>
 				<Button type="primary" htmlType="submit" loading={this.state.loading}>
@@ -128,5 +106,3 @@ class ResetForm extends React.Component<ResetFormProps> {
 		</Form>
 	}
 }
-
-export const WrappedResetForm = Form.create<ResetFormProps>()(ResetForm)

@@ -1,5 +1,6 @@
 import * as config from 'config'
 import * as fs from 'fs-extra'
+import { tmpdir } from 'os'
 
 import { ILanguage, IResult, Status } from '../common/interface'
 import { Case, CE, Pack } from '../common/pack'
@@ -14,7 +15,7 @@ export const judge = async (s: any): Promise<Pack> => {
 	logJudger.info('judge submission:', s)
 	const { _id, language, code, data, timeLimit, memoryLimit } = s
 	const dataDir = await prepareData(data)
-	const judgeDir = `/doj_tmp/${_id}`
+	const judgeDir = `${tmpdir()}/doj/${_id}`
 	const lan = languages[language]
 	await fs.outputFile(`${judgeDir}/${lan.source}`, code)
 	await fs.chmod(judgeDir, 0o777)
@@ -29,13 +30,12 @@ export const judge = async (s: any): Promise<Pack> => {
 			passExitcode: true,
 			chdir: judgeDir
 		})
-		logJudger.debug('compile result:', result)
-		if (result.status !== 0) {
-			const { stdout, stderr, output } = result
-			const e = stdout.toString() + stderr.toString()
-			if (e.trim()) { return CE(_id, e) }
-			if (output[3]) { return CE(_id, output[3].toString()) }
-			return CE(_id)
+		logJudger.debug('Compiler return:', result.status)
+		if (result.error) {
+			return CE(_id, result.error)
+		} else if (result.status !== 0) {
+			const fds = result.output.filter(o => o)
+			return CE(_id, fds.map(String).join(''))
 		}
 	}
 	/**
