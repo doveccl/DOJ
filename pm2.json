@@ -1,0 +1,9 @@
+{
+  "name": "DOJ",
+  "cwd": "./",
+  "script": "./app",
+  "args": "--server --judger",
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
