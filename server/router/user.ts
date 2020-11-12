@@ -58,12 +58,14 @@ router.put('/user/:id', fetch('user'), async (ctx) => {
 		delete body.password
 	} else { delete body.group }
 
-	if (body.password !== undefined) {
+	if (body.password) {
 		if (!bcrypt.compareSync(body.oldPassword, self.password)) {
 			throw new Error('wrong old password')
 		}
 		checkPassword(body.password, true)
 		body.password = bcrypt.hashSync(body.password)
+	} else { // 防止为 '' 的情况
+		delete body.password
 	}
 
 	for (const item of EXCLUDE_LIST) { delete body[item] }

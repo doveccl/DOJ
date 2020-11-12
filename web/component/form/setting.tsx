@@ -67,13 +67,19 @@ export class SettingForm extends React.Component<SettingFormProps> {
 			<Form.Item label="Introduction" name="introduction" {...formItemLayout}>
 				<Input.TextArea rows={5} placeholder="Your introduction" />
 			</Form.Item>
-			<Form.Item label="Old password" name="oldPassword" {...formItemLayout}>
+			<Form.Item label="Old password" name="oldPassword" rules={[
+				{ validator: async (_rule, value) => {
+					if (!value && this.formRef.current.getFieldValue('password')) {
+						throw new Error('Old password is required')
+					}
+				} }
+			]} {...formItemLayout}>
 				<Input type="password" placeholder="Your old password" />
 			</Form.Item>
 			<Form.Item label="New password" name="password" rules={[
 				{ min: 6, max: 20, message: 'Length of password should be 6-20' },
 				{ validator: async (_rule, value) => {
-					if (value === this.formRef.current.getFieldValue('oldPassword')) {
+					if (value && value === this.formRef.current.getFieldValue('oldPassword')) {
 						throw new Error('New password should be different to the old one')
 					}
 				} }
