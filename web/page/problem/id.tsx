@@ -5,7 +5,7 @@ import { message, Card, Divider, Tag } from 'antd'
 
 import { parseMemory, parseTime } from '../../../common/function'
 import { Discuss } from '../../component/discuss'
-import { WrappedSubmitForm } from '../../component/form/submit'
+import { SubmitForm } from '../../component/form/submit'
 import { LoginTip } from '../../component/login-tip'
 import { MarkDown } from '../../component/markdown'
 import { getProblem, hasToken } from '../../model'
@@ -54,7 +54,7 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 			>
 				<MarkDown
 					shortCode={true}
-					allowDangerousHtml={true}
+					escapeHtml={false}
 					source={problem.content}
 				/>
 			</Card>
@@ -68,7 +68,7 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 				onTabChange={(tabKey) => this.setState({ tabKey })}
 				loading={!global.user || !problem._id}
 			>
-				{this.state.tabKey === 'submit' && global.languages.length > 0 && <WrappedSubmitForm
+				{this.state.tabKey === 'submit' && global.languages.length > 0 && <SubmitForm
 					languages={global.languages} uid={global.user._id} pid={problem._id}
 					callback={(id: number) => this.props.history.push(`/submission/${id}`)}
 				/>}

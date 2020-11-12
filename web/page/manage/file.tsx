@@ -1,6 +1,7 @@
 import * as React from 'react'
 
-import { message, Card, Divider, Icon, Popconfirm, Table, Upload } from 'antd'
+import { message, Card, Divider, Popconfirm, Table, Upload } from 'antd'
+import { LoadingOutlined, CloudUploadOutlined } from '@ant-design/icons'
 import { UploadChangeParam } from 'antd/lib/upload'
 
 import { delFile, getFiles, hasToken, putFile } from '../../model'
@@ -80,7 +81,7 @@ export default class extends React.Component {
 				multiple={false}
 			>
 				<p className="ant-upload-drag-icon">
-					<Icon type={this.state.uploading ? 'loading' : 'cloud-upload'} />
+					{this.state.uploading ? <LoadingOutlined /> : <CloudUploadOutlined />}
 				</p>
 				<p className="ant-upload-text">
 					Click or drag file to this area to upload

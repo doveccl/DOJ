@@ -19,8 +19,7 @@ module.exports = (env, argv) => {
 		output: {
 			publicPath: '/',
 			path: path.resolve(__dirname, './dist'),
-			filename: '[name].[hash:8].js',
-			chunkFilename: '[name].chunk.[chunkhash:8].js'
+			filename: '[name].[chunkhash:8].js'
 		},
 		module: {
 			rules: [
@@ -36,7 +35,14 @@ module.exports = (env, argv) => {
 					use: [
 						MiniCssExtractPlugin.loader,
 						'css-loader',
-						'less-loader?javascriptEnabled'
+						{
+							loader: 'less-loader',
+							options: {
+								lessOptions: {
+									javascriptEnabled: true
+								}
+							}
+						}
 					]
 				}
 			]
@@ -70,8 +76,7 @@ module.exports = (env, argv) => {
 				prod, publicPath: '/node_modules'
 			}),
 			new MiniCssExtractPlugin({
-				filename: '[name].[hash:8].css',
-				chunkFilename: '[name].chunk.[chunkhash:8].css'
+				filename: '[name].[chunkhash:8].css'
 			})
 		]
 	}

@@ -33,7 +33,7 @@ router.get('/file/:id', fetch('file'), async (ctx) => {
 
 router.post('/file', group(Group.admin), async (ctx) => {
 	const keys = Object.keys(ctx.request.files)
-	ctx.body = [] as any[]
+	ctx.body = new Array()
 	for (const key of keys) {
 		const file = ctx.request.files[key]
 		if (TYPE_REG.test(file.type)) {

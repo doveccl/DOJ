@@ -99,7 +99,7 @@ class Contest extends React.Component<HistoryProps & MatchProps> {
 			>
 				{this.state.tabKey === 'description' && <MarkDown
 					source={description}
-					allowDangerousHtml={true}
+					escapeHtml={false}
 				/>}
 				{this.state.tabKey === 'problems' && <Table
 					rowKey="_id"

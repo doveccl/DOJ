@@ -1,7 +1,8 @@
 import * as React from 'react'
 import { withRouter } from 'react-router-dom'
 
-import { Avatar, Icon, Layout, Menu } from 'antd'
+import { Avatar, Layout, Menu } from 'antd'
+import { IdcardOutlined, LogoutOutlined, LoginOutlined, UserAddOutlined } from '@ant-design/icons'
 
 import { glink } from '../../../common/function'
 import { getSelfInfo, hasToken, logout } from '../../model'
@@ -10,21 +11,8 @@ import { addListener, globalState, removeListener, updateState } from '../../uti
 
 import './index.less'
 
-interface MenuClick { key: string }
-
 class Header extends React.Component<HistoryProps> {
 	public state = { global: globalState }
-	private onClick = ({ key }: MenuClick) => {
-		switch (key) {
-			case '/setting':
-			case '/register':
-				this.props.history.push(key)
-				break
-			default:
-				logout()
-				this.props.history.push('/login')
-		}
-	}
 	public componentDidMount() {
 		addListener('header', (global) => {
 			this.setState({ global })
@@ -45,7 +33,17 @@ class Header extends React.Component<HistoryProps> {
 				mode="horizontal"
 				className="menu"
 				selectable={false}
-				onClick={this.onClick}
+				onClick={({ key }) => {
+					switch (key) {
+						case '/setting':
+						case '/register':
+							this.props.history.push(key)
+							break
+						default:
+							logout()
+							this.props.history.push('/login')
+					}
+				}}
 			>
 				{user && <Menu.SubMenu
 					key="user"
@@ -56,20 +54,20 @@ class Header extends React.Component<HistoryProps> {
 					</span>}
 				>
 					<Menu.Item key="/setting">
-						<Icon type="idcard" />
+						<IdcardOutlined />
 						<span>Setting</span>
 					</Menu.Item>
 					<Menu.Item key="/logout">
-						<Icon type="logout" />
+						<LogoutOutlined />
 						<span>Logout</span>
 					</Menu.Item>
 				</Menu.SubMenu>}
 				{!user && <Menu.Item key="/login">
-					<Icon type="login" />
+					<LoginOutlined />
 					<span>Login</span>
 				</Menu.Item>}
 				{!user && <Menu.Item key="/register">
-					<Icon type="user-add" />
+					<UserAddOutlined />
 					<span>Register</span>
 				</Menu.Item>}
 			</Menu>

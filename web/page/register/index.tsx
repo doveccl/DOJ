@@ -3,7 +3,7 @@ import { withRouter } from 'react-router-dom'
 
 import { Card } from 'antd'
 
-import { WrappedRegisterForm } from '../../component/form/register'
+import { RegisterForm } from '../../component/form/register'
 import { HistoryProps } from '../../util/interface'
 import { updateState } from '../../util/state'
 
@@ -13,7 +13,7 @@ class Register extends React.Component<HistoryProps> {
 	}
 	public render() {
 		return <Card title="User Registration">
-			<WrappedRegisterForm history={this.props.history} />
+			<RegisterForm history={this.props.history} />
 		</Card>
 	}
 }

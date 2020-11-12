@@ -37,7 +37,7 @@ export default class extends React.Component {
 			>
 				<Editor
 					value={value}
-					allowDangerousHtml={true}
+					escapeHtml={false}
 					onChange={(v) => this.setState({ value: v })}
 				/>
 			</Card>

@@ -10,7 +10,7 @@ import './index.less'
 interface EditorProps {
 	value?: string
 	shortCode?: boolean
-	allowDangerousHtml?: boolean
+	escapeHtml?: boolean
 	onChange?: (value: string) => any
 }
 
@@ -35,7 +35,7 @@ export class Editor extends React.Component<EditorProps> {
 				<MarkDown
 					source={this.state.content}
 					shortCode={this.props.shortCode}
-					allowDangerousHtml={this.props.allowDangerousHtml}
+					escapeHtml={this.props.escapeHtml}
 				/>
 			</Col>
 		</Row>

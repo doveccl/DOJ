@@ -14,7 +14,7 @@ interface ContestFormProps {
 }
 
 export class ContestForm extends React.Component<ContestFormProps> {
-	private formRef = React.createRef<FormInstance<IContest>>()
+	private formRef = React.createRef<FormInstance>()
 	private adjustFreeze = (t?: Array<moment.Moment> | number) => {
 		const form = this.formRef.current
 		const type = typeof t === 'number' ? t : form.getFieldValue('type')
@@ -44,7 +44,7 @@ export class ContestForm extends React.Component<ContestFormProps> {
 		}
 
 		const contest = Object.assign({ time: null }, this.props.contest)
-		contest.freezeAt = contest.freezeAt && moment(contest.freezeAt)
+		contest.freezeAt = contest.freezeAt && moment(contest.freezeAt) as any
 		if (contest.startAt && contest.endAt) {
 			contest.time = [
 				moment(this.props.contest.startAt),
@@ -88,7 +88,7 @@ export class ContestForm extends React.Component<ContestFormProps> {
 				/>
 			</Form.Item>
 			<Form.Item label="Description" name="description" {...formItemLayout}>
-				<Editor allowDangerousHtml={true} />
+				<Editor escapeHtml={false} />
 			</Form.Item>
 		</Form>
 	}

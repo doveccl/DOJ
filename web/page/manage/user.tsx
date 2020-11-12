@@ -1,9 +1,10 @@
 import * as React from 'react'
 
 import { message, Button, Card, Divider, Modal, Popconfirm, Table, Tag } from 'antd'
+import { FormInstance } from 'antd/lib/form'
 
 import { Group } from '../../../common/interface'
-import { WrappedUserForm } from '../../component/form/user'
+import { UserForm } from '../../component/form/user'
 import { delUser, getUsers, hasToken, inviteUser, postUser, putUser } from '../../model'
 import { IUser } from '../../util/interface'
 import { updateState } from '../../util/state'
@@ -17,7 +18,7 @@ const renderGroup = (g: Group) => {
 }
 
 export default class extends React.Component {
-	private form
+	private form: FormInstance
 	public state = {
 		loading: true,
 		users: [] as IUser[],
@@ -52,32 +53,30 @@ export default class extends React.Component {
 		})
 	}
 	private ok = () => {
-		this.form.validateFields((error: any, values: any) => {
-			if (!error) {
-				this.setState({ loading: true })
-				if (this.state.modalUser) {
-					putUser(this.state.modalUser._id, values)
-						.then(() => {
-							message.success('update success')
-							this.setState({ modalOpen: false })
-							this.handleChange()
-						})
-						.catch((err) => {
-							message.error(err)
-							this.setState({ loading: false })
-						})
-				} else {
-					postUser(values)
-						.then(() => {
-							message.success('create success')
-							this.setState({ modalOpen: false })
-							this.handleChange()
-						})
-						.catch((err) => {
-							message.error(err)
-							this.setState({ loading: false })
-						})
-				}
+		this.form.validateFields().then(values => {
+			this.setState({ loading: true })
+			if (this.state.modalUser) {
+				putUser(this.state.modalUser._id, values)
+					.then(() => {
+						message.success('update success')
+						this.setState({ modalOpen: false })
+						this.handleChange()
+					})
+					.catch((err) => {
+						message.error(err)
+						this.setState({ loading: false })
+					})
+			} else {
+				postUser(values)
+					.then(() => {
+						message.success('create success')
+						this.setState({ modalOpen: false })
+						this.handleChange()
+					})
+					.catch((err) => {
+						message.error(err)
+						this.setState({ loading: false })
+					})
 			}
 		})
 	}
@@ -129,11 +128,9 @@ export default class extends React.Component {
 				onOk={() => this.ok()}
 				onCancel={() => this.setState({ modalOpen: false })}
 			>
-				<WrappedUserForm
-					value={this.state.modalUser}
-					wrappedComponentRef={(w: any) => {
-						this.form = w && w.props.form
-					}}
+				<UserForm
+					user={this.state.modalUser}
+					onRefForm={form => this.form = form}
 				/>
 			</Modal>
 			<Table

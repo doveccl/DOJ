@@ -38,6 +38,7 @@ export class SettingForm extends React.Component<SettingFormProps> {
 				this.setState({ loading: false })
 			})
 	}
+
 	public render() {
 		const formItemLayout = {
 			labelCol: { xs: 24, sm: 6, md: 4 },
