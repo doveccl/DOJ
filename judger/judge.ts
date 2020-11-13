@@ -26,12 +26,12 @@ export async function judge(args: IJudge) {
 	const runPath = `${runRoot}/${args._id}`
 
 	await fs.outputFile(`${runPath}/${language.source}`, args.code)
-	for (const file in fs.readdirSync(dataPath)) {
+	fs.readdirSync(dataPath).forEach(file => {
 		if (file.endsWith('.in')) return
 		if (file.endsWith('.out')) return
 		if (fs.existsSync(`${runPath}/${file}`)) return
-		await fs.copy(`${dataPath}/${file}`, `${runPath}/${file}`)
-	}
+		fs.copySync(`${dataPath}/${file}`, `${runPath}/${file}`)
+	})
 
 	// compile
 	if (language.compile) {
