@@ -16,9 +16,15 @@ if (!pathExistsSync(mirrorfs)) {
 	])
 }
 
-process.on('exit', () => {
+function teardown() {
 	spawnSync('lrun-mirrorfs', [
 		'--name', 'doj',
 		'--teardown', 'mirrorfs.cfg'
 	])
+}
+
+process.on('beforeExit', teardown)
+process.on('SIGINT', () => {
+	teardown()
+	process.exit()
 })
