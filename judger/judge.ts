@@ -39,9 +39,7 @@ export async function judge(args: IJudge) {
 			cmd: language.compile.cmd,
 			args: language.compile.args,
 			maxRealTime: language.compile.time,
-			passExitcode: true,
-			chroot: mirrorfs,
-			chdir: runPath
+			passExitcode: true
 		})
 		logJudger.debug('Compiler return:', result.status)
 		if (result.error) {

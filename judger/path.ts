@@ -1,30 +1,22 @@
-import { spawnSync } from 'child_process'
-import { pathExistsSync, mkdirpSync, removeSync } from 'fs-extra'
+import { execSync } from 'child_process'
+import { mkdtempSync } from 'fs-extra'
 
-export const runRoot = '/doj/run'
-export const dataRoot = '/doj/data'
-export const mirrorfs = '/run/lrun/mirrorfs/doj'
+const cfg = './mirrorfs.cfg'
+const name = `doj_${Math.random().toString(16).substr(2)}`
+const setup = `lrun-mirrorfs --name ${name} --setup ${cfg}`
+const teardown = `lrun-mirrorfs --name ${name} --teardown ${cfg}`
 
-// keep judger root clean
-removeSync(runRoot)
-mkdirpSync(runRoot)
+export const runRoot = mkdtempSync('/tmp/doj/run/')
+export const dataRoot = mkdtempSync('/etc/doj/data_')
+export const mirrorfs = execSync(setup).toString().trim()
 
-if (!pathExistsSync(mirrorfs)) {
-	spawnSync('lrun-mirrorfs', [
-    '--name', 'doj',
-		'--setup', 'mirrorfs.cfg'
-	])
-}
-
-function teardown() {
-	spawnSync('lrun-mirrorfs', [
-		'--name', 'doj',
-		'--teardown', 'mirrorfs.cfg'
-	])
-}
-
-process.on('beforeExit', teardown)
+execSync('chmod -R 600 config/*')
+process.on('beforeExit', () => {
+	execSync(teardown)
+	execSync('chmod -R 644 config/*')
+})
 process.on('SIGINT', () => {
-	teardown()
+	execSync(teardown)
+	execSync('chmod -R 644 config/*')
 	process.exit()
 })

@@ -61,7 +61,7 @@ const buildArgs = (args: RunOpts) => {
 	if (o.maxStack) builder.push('--max-stack', o.maxStack)
 	if (o.chroot) builder.push('--chroot', o.chroot)
 	if (o.chdir) builder.push('--chdir', o.chdir)
-	return builder.concat(o.cmd, ...o.args).map(String)
+	return builder.concat(o.cmd, o.args || []).map(String)
 }
 
 export const lrunSync = (opts: RunOpts) => {
