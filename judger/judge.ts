@@ -1,81 +1,95 @@
-import config from 'config'
 import fs from 'fs-extra'
-import { tmpdir } from 'os'
+import config from 'config'
 
-import { ILanguage, IResult, Status } from '../common/interface'
-import { Case, CE, Pack } from '../common/pack'
-import { prepareData } from './data'
 import { logJudger } from './log'
+import { prepareData } from './data'
+import { Case, CE } from '../common/pack'
+import { mirrorfs, runRoot } from './path'
+import { ILanguage, IResult, Status } from '../common/interface'
 import { interRun, lrun, lrunSync, wait, ExceedType, RunOpts, RunResult } from './run'
 
-const mirrorfs = '/run/lrun/mirrorfs/doj'
 const languages: ILanguage[] = config.get('languages')
 
-export const judge = async (s: any): Promise<Pack> => {
-	logJudger.info('judge submission:', s)
-	const { _id, language, code, data, timeLimit, memoryLimit } = s
-	const dataDir = await prepareData(data)
-	const judgeDir = `${tmpdir()}/doj/${_id}`
-	const lan = languages[language]
-	await fs.outputFile(`${judgeDir}/${lan.source}`, code)
-	await fs.chmod(judgeDir, 0o777)
-	/**
-	 * compile source code
-	 */
-	if (lan.compile) {
+interface IJudge {
+	_id: string
+	code: string
+	data: string
+	language: number
+	timeLimit: number
+	memoryLimit: number
+}
+
+export async function judge(args: IJudge) {
+	logJudger.info('judge submission:', args._id)
+	const language = languages[args.language]
+	const dataPath = await prepareData(args.data)
+	const runPath = `${runRoot}/${args._id}`
+
+	await fs.outputFile(`${runPath}/${language.source}`, args.code)
+	for (const file in fs.readdirSync(dataPath)) {
+		if (file.endsWith('.in')) return
+		if (file.endsWith('.out')) return
+		if (fs.existsSync(`${runPath}/${file}`)) return
+		await fs.copy(`${dataPath}/${file}`, `${runPath}/${file}`)
+	}
+
+	// compile
+	if (language.compile) {
 		const result = lrunSync({
-			cmd: lan.compile.cmd,
-			args: lan.compile.args,
-			maxRealTime: lan.compile.time,
+			cmd: language.compile.cmd,
+			args: language.compile.args,
+			maxRealTime: language.compile.time,
 			passExitcode: true,
-			chdir: judgeDir
+			chroot: mirrorfs,
+			chdir: runPath
 		})
 		logJudger.debug('Compiler return:', result.status)
 		if (result.error) {
-			return CE(_id, result.error)
+			return CE(args._id, result.error)
 		} else if (result.status !== 0) {
 			const fds = result.output.filter(o => o)
-			return CE(_id, fds.map(String).join(''))
+			return CE(args._id, fds.map(String).join(''))
 		}
 	}
-	/**
-	 * run test data
-	 */
-	const checker = `${dataDir}/checker`
-	const interPath = `${dataDir}/interactor`
+
+	// judge
+	const checker = `${dataPath}/checker`
+	const interPath = `${dataPath}/interactor`
 	const interactor = fs.existsSync(interPath) && interPath
-	const cases: IResult[] = []
-	let ith = 0
+	let ith = 0, cases = new Array<IResult>()
 	do {
 		let result: RunResult
-		const inf = `${dataDir}/${ith}.in`
-		const ansf = `${dataDir}/${ith}.out`
-		const ouf = `${judgeDir}/output`
-		const maxCpuTime = lan.run.ratio * timeLimit
-		const maxRealTime = 1.5 * maxCpuTime
+		const inf = `${dataPath}/${ith}.in`
+		const ansf = `${dataPath}/${ith}.out`
+		const outf = `${runPath}/${ith}.output`
+
+		const rate = language.run.ratio
 		const conf: RunOpts = {
-			cmd: lan.run.cmd,
-			args: lan.run.args,
-			maxCpuTime, maxRealTime,
-			maxMemory: memoryLimit,
-			maxStack: memoryLimit,
+			cmd: language.run.cmd,
+			args: language.run.args,
+			maxCpuTime: rate * args.timeLimit,
+			maxRealTime: 1.5 * rate * args.timeLimit,
+			maxMemory: args.memoryLimit,
+			maxStack: args.memoryLimit,
 			chroot: mirrorfs,
-			chdir: judgeDir,
+			chdir: runPath,
 			syscalls: true
 		}
+
 		if (interactor) {
 			result = await interRun(conf, {
 				cmd: interactor,
-				args: [ inf, ouf ],
+				args: [inf, outf],
 				remountDev: false
 			})
 		} else {
 			conf.stdin = fs.openSync(inf, 'r')
-			conf.stdout = fs.openSync(ouf, 'w')
+			conf.stdout = fs.openSync(outf, 'w')
 			result = await wait(lrun(conf))
-			fs.closeSync(conf.stdin)
 			fs.closeSync(conf.stdout)
+			fs.closeSync(conf.stdin)
 		}
+
 		logJudger.debug(`#${ith} run result:`, result)
 		const { exceed, cpuTime, memory, signal } = result
 		if (exceed !== null) {
@@ -90,10 +104,10 @@ export const judge = async (s: any): Promise<Pack> => {
 		} else if (signal) {
 			const e = `process signaled (number: ${signal})`
 			cases.push(Case(Status.RE, cpuTime, memory, e))
-		} else {
+		} else { // check output
 			const res = lrunSync({
 				cmd: checker,
-				args: [ inf, ouf, ansf ],
+				args: [inf, outf, ansf],
 				passExitcode: true
 			})
 			logJudger.debug('checker result:', res)
@@ -103,21 +117,20 @@ export const judge = async (s: any): Promise<Pack> => {
 		}
 		ith++
 	} while (
-		fs.existsSync(`${dataDir}/${ith}.in`) &&
-		fs.existsSync(`${dataDir}/${ith}.out`)
+		fs.existsSync(`${dataPath}}/${ith}.in`) &&
+		fs.existsSync(`${dataPath}/${ith}.out`)
 	)
-	/**
-	 * wrap result
-	 */
-	let t = 0
-	let m = 0
-	let st = Status.AC
+
+	// pack result
+	let t = 0, m = 0, st = Status.AC
 	for (const cas of cases) {
-		if (t < cas.time) { t = cas.time }
-		if (m < cas.memory) { m = cas.memory }
-		if (st !== Status.AC || cas.status === Status.AC) { continue }
-		st = cas.status
+		if (t < cas.time) t = cas.time
+		if (m < cas.memory) m = cas.memory
+		if (st === Status.AC) st = cas.status
 	}
 	logJudger.info('cases:', cases)
-	return { _id, cases, result: Case(st, t, m) }
+	return {
+		cases, _id: args._id,
+		result: Case(st, t, m)
+	}
 }

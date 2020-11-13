@@ -13,7 +13,7 @@ log4js.configure({
 	},
 	categories: {
 		default: {
-			appenders: [ 'out' ],
+			appenders: ['out'],
 			level: 'info'
 		}
 	}

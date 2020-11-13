@@ -22,6 +22,7 @@ app.use(Compose([ Log(), Static(), Wrap(), Router() ]))
 mongoose.connect(database, {
 	useCreateIndex: true,
 	useNewUrlParser: true,
+	useFindAndModify: false,
 	useUnifiedTopology: true
 }, (error) => {
 	if (error) {
