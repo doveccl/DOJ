@@ -82,13 +82,13 @@ module.exports = (_env, argv) => {
 				'/api': {
 					secure: false,
 					changeOrigin: true,
-					target: argv.server || `http://localhost:${config.get('port')}`
+					target: `http://localhost:${config.get('port')}`
 				},
 				'/socket.io': {
 					ws: true,
 					secure: false,
 					changeOrigin: true,
-					target: argv.server || `ws://localhost:${config.get('port')}`
+					target: `ws://localhost:${config.get('port')}`
 				}
 			}
 		},
