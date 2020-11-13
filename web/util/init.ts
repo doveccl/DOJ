@@ -1,5 +1,5 @@
 import axios from 'axios'
-import * as Cookie from 'js-cookie'
+import Cookie from 'js-cookie'
 
 import { getConfig } from '../model'
 import { addListener, removeListener, updateState } from './state'

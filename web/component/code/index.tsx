@@ -1,4 +1,4 @@
-import * as ace from 'ace-builds'
+import ace from 'ace-builds'
 import * as React from 'react'
 
 const highlight = ace.require('ace/ext/static_highlight')

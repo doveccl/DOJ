@@ -1,5 +1,5 @@
-import * as Body from 'koa-body'
-import * as Compose from 'koa-compose'
+import Body from 'koa-body'
+import Compose from 'koa-compose'
 
 import { Middleware } from 'koa'
 import { logServer } from '../util/log'

@@ -1,5 +1,5 @@
-import * as config from 'config'
-import * as fs from 'fs-extra'
+import config from 'config'
+import fs from 'fs-extra'
 import { tmpdir } from 'os'
 
 import { ILanguage, IResult, Status } from '../common/interface'

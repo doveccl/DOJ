@@ -1,4 +1,4 @@
-import * as Router from 'koa-router'
+import Router from 'koa-router'
 
 import { compare } from '../../common/function'
 import { ContestType, Group, Status } from '../../common/interface'

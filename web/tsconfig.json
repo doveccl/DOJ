@@ -1,15 +1,10 @@
 {
 	"compilerOptions": {
-		"target": "es2017",
-		"jsx": "preserve",
-		"moduleResolution": "node",
-		"allowJs": true,
+		"jsx": "react",
+		"target": "ESNext",
+		"module": "ESNext",
+		"moduleResolution": "Node",
 		"inlineSourceMap": true,
-		"noImplicitAny": true,
-		"removeComments": true,
-		"typeRoots": [
-			"../node_modules/@types",
-			"../typings"
-		]
+		"esModuleInterop": true
 	}
 }

@@ -1,12 +1,11 @@
-import config from 'config'
-import webpack from 'webpack'
-import WebpackCdnPlugin from 'webpack-cdn-plugin'
-import HtmlWebpackPlugin from 'html-webpack-plugin'
-import MiniCssExtractPlugin from 'mini-css-extract-plugin'
-import CssMinimizerPlugin from 'css-minimizer-webpack-plugin'
-import packageJson from './package.json'
+const config = require('config')
+const WebpackCdnPlugin = require('webpack-cdn-plugin')
+const HtmlWebpackPlugin = require('html-webpack-plugin')
+const MiniCssExtractPlugin = require('mini-css-extract-plugin')
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin')
+const packageJson = require('./package.json')
 
-export default (_env: any, argv: any):webpack.Configuration => {
+module.exports = (_env, argv) => {
 	const dev = argv.mode === 'development'
 	const reactMode = dev ? 'development' : 'production.min'
 	const min = dev ? '' : '.min'
@@ -23,12 +22,7 @@ export default (_env: any, argv: any):webpack.Configuration => {
 			rules: [
 				{
 					test: /\.tsx?$/,
-					loader: 'ts-loader',
-					options: {
-						compilerOptions: {
-							jsx: 'React'
-						}
-					}
+					loader: 'ts-loader'
 				},
 				{
 					test: /\.(c|le)ss$/,
@@ -99,7 +93,7 @@ export default (_env: any, argv: any):webpack.Configuration => {
 			}
 		},
 		optimization: {
-			minimize: dev,
+			minimize: argv.mode === 'production',
 			minimizer: [new CssMinimizerPlugin(), '...']
 		}
 	}

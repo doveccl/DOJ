@@ -1,4 +1,4 @@
-import * as Router from 'koa-router'
+import Router from 'koa-router'
 
 import { Group } from '../../common/interface'
 import { group, token } from '../middleware/auth'

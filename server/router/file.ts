@@ -1,5 +1,5 @@
-import * as config from 'config'
-import * as Router from 'koa-router'
+import config from 'config'
+import Router from 'koa-router'
 
 import { Group } from '../../common/interface'
 import { ensureGroup } from '../../common/user'

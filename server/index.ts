@@ -1,8 +1,8 @@
-import * as config from 'config'
-import * as http from 'http'
-import * as Koa from 'koa'
-import * as Compose from 'koa-compose'
-import * as mongoose from 'mongoose'
+import config from 'config'
+import http from 'http'
+import Koa from 'koa'
+import Compose from 'koa-compose'
+import mongoose from 'mongoose'
 
 import Log from './middleware/log'
 import Static from './middleware/static'

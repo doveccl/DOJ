@@ -1,5 +1,5 @@
-import * as fs from 'fs-extra'
-import * as config from 'config'
+import fs from 'fs-extra'
+import config from 'config'
 import { Manager } from 'socket.io-client'
 
 import { SE } from '../common/pack'

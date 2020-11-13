@@ -1,4 +1,4 @@
-import * as fs from 'fs'
+import fs from 'fs'
 import { GridFSBucket, GridFSBucketOpenUploadStreamOptions, ObjectID } from 'mongodb'
 import { connection, model, Document, Schema } from 'mongoose'
 import { IFile } from '../../common/interface'

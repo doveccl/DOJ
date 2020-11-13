@@ -1,7 +1,7 @@
 import * as React from 'react'
-import * as Markdown from 'react-markdown'
-import * as math from 'remark-math'
-import * as shortcodes from 'remark-shortcodes'
+import Markdown from 'react-markdown'
+import math from 'remark-math'
+import shortcodes from 'remark-shortcodes'
 
 import { Code } from '../code'
 import { PDF } from '../pdf'

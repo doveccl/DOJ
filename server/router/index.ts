@@ -1,5 +1,5 @@
-import * as Compose from 'koa-compose'
-import * as Route from 'koa-router'
+import Compose from 'koa-compose'
+import Route from 'koa-router'
 
 import Account from './account'
 import Config from './config'

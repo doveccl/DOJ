@@ -6,7 +6,7 @@
  *   npx ts-node migrate # OR yarn ts-node migrate
  */
 
-import * as JSZip from 'jszip'
+import JSZip from 'jszip'
 
 import { closeSync, openSync, outputFile, pathExists, readFileSync, readSync } from 'fs-extra'
 import { connect } from 'mongoose'

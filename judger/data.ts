@@ -1,7 +1,7 @@
 import axios from 'axios'
-import * as config from 'config'
-import * as fs from 'fs-extra'
-import * as jszip from 'jszip'
+import config from 'config'
+import fs from 'fs-extra'
+import jszip from 'jszip'
 
 import { lrunSync } from './run'
 

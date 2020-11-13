@@ -1,6 +1,6 @@
-import * as bcrypt from 'bcryptjs'
-import * as config from 'config'
-import * as Router from 'koa-router'
+import bcrypt from 'bcryptjs'
+import config from 'config'
+import Router from 'koa-router'
 
 import { checkPassword } from '../../common/function'
 import { password } from '../middleware/auth'

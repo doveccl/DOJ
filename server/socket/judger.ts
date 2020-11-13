@@ -1,5 +1,5 @@
-import * as config from 'config'
-import * as IO from 'socket.io'
+import config from 'config'
+import IO from 'socket.io'
 
 import { Pack } from '../../common/pack'
 import { problem } from '../middleware/fetch'

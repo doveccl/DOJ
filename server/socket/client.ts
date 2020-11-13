@@ -1,4 +1,4 @@
-import * as IO from 'socket.io'
+import IO from 'socket.io'
 
 import { compare } from '../../common/function'
 import { ContestType, Group } from '../../common/interface'

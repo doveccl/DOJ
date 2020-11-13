@@ -1,5 +1,5 @@
-import * as config from 'config'
-import * as jwt from 'jsonwebtoken'
+import config from 'config'
+import jwt from 'jsonwebtoken'
 
 const secret: string = config.get('secret')
 

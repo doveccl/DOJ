@@ -1,5 +1,5 @@
-import * as bcrypt from 'bcryptjs'
-import * as Router from 'koa-router'
+import bcrypt from 'bcryptjs'
+import Router from 'koa-router'
 
 import { checkPassword, compare } from '../../common/function'
 import { Group } from '../../common/interface'
