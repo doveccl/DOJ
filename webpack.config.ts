@@ -1,34 +1,34 @@
-const path = require('path')
-const WebpackCdnPlugin = require('webpack-cdn-plugin')
-const HtmlWebpackPlugin = require('html-webpack-plugin')
-const MiniCssExtractPlugin = require("mini-css-extract-plugin")
-const CssMinimizerPlugin = require('css-minimizer-webpack-plugin')
+import config from 'config'
+import webpack from 'webpack'
+import WebpackCdnPlugin from 'webpack-cdn-plugin'
+import HtmlWebpackPlugin from 'html-webpack-plugin'
+import MiniCssExtractPlugin from 'mini-css-extract-plugin'
+import CssMinimizerPlugin from 'css-minimizer-webpack-plugin'
+import packageJson from './package.json'
 
-const packageJson = require('./package.json')
-
-module.exports = (env, argv) => {
+export default (_env: any, argv: any):webpack.Configuration => {
 	const dev = argv.mode === 'development'
-	const prod = argv.mode === 'production'
-	const min = prod ? '.min' : ''
-	const reactMode = prod ? 'production.min' : 'development'
+	const reactMode = dev ? 'development' : 'production.min'
+	const min = dev ? '' : '.min'
 
-	const config = {
+	return {
 		entry: {
 			app: './web'
 		},
 		output: {
 			publicPath: '/',
-			path: path.resolve(__dirname, './dist'),
 			filename: '[name].[chunkhash:8].js'
 		},
 		module: {
 			rules: [
 				{
 					test: /\.tsx?$/,
-					use: [
-						'babel-loader',
-						'ts-loader'
-					]
+					loader: 'ts-loader',
+					options: {
+						compilerOptions: {
+							jsx: 'React'
+						}
+					}
 				},
 				{
 					test: /\.(c|le)ss$/,
@@ -72,45 +72,35 @@ module.exports = (env, argv) => {
 					{ name: 'react-dom', var: 'ReactDOM', path: `umd/react-dom.${reactMode}.js` },
 					{ name: 'react-router-dom', var: 'ReactRouterDOM', path: `umd/react-router-dom${min}.js` },
 					{ name: 'react-markdown', var: 'ReactMarkdown', path: 'umd/react-markdown.js' },
-					// { name: 'antd', path: `dist/antd${min}.js`, style: `dist/antd${min}.css` }
+					{ name: 'antd', path: `dist/antd${min}.js`, style: `dist/antd${min}.css` }
 				],
-				prod, publicPath: '/node_modules'
+				prod: argv.mode === 'production',
+				publicPath: '/node_modules'
 			}),
 			new MiniCssExtractPlugin({
 				filename: '[name].[chunkhash:8].css'
 			})
-		]
-	}
-
-	if (dev) {
-		const API_PORT = require('config').get('port')
-		config.devtool = 'inline-source-map'
-		config.devServer = {
+		],
+		devtool: dev && 'inline-source-map',
+		devServer: {
 			historyApiFallback: true,
 			proxy: {
 				'/api': {
 					secure: false,
 					changeOrigin: true,
-					target: argv.server || `http://localhost:${API_PORT}`
+					target: argv.server || `http://localhost:${config.get('port')}`
 				},
 				'/socket.io': {
 					ws: true,
 					secure: false,
 					changeOrigin: true,
-					target: argv.server || `ws://localhost:${API_PORT}`
+					target: argv.server || `ws://localhost:${config.get('port')}`
 				}
 			}
+		},
+		optimization: {
+			minimize: dev,
+			minimizer: [new CssMinimizerPlugin(), '...']
 		}
 	}
-
-	if (prod) {
-		config.optimization = {
-			minimize: true,
-			minimizer: [
-				new CssMinimizerPlugin()
-			]
-		}
-	}
-
-	return config
 }

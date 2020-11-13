@@ -4,7 +4,13 @@
 		"target": "ESNext",
 		"module": "CommonJS",
 		"noImplicitAny": true,
-		"removeComments": true
+		"removeComments": true,
+		"resolveJsonModule": true,
+		"esModuleInterop": true,
+		"typeRoots": [
+			"./node_modules/@types",
+			"./typings"
+		]
 	},
 	"files": [
 		"index.ts"
