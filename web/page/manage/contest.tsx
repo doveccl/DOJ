@@ -1,4 +1,4 @@
-import * as React from 'react'
+import React from 'react'
 
 import { message, Button, Card, Col, Divider, Input, Modal, Popconfirm, Row, Table } from 'antd'
 import { FileTextOutlined, BarsOutlined } from '@ant-design/icons'
@@ -88,7 +88,7 @@ class ContestProblems extends React.Component<{ cid: string }> {
 					{ title: 'Problem ID', width: 250, dataIndex: '_id', render: (t) => (
 						<a href={`/problem/${t}`} target="_blank">{t}</a>
 					) },
-					{ title: 'Problem Key', dataIndex: 'contest.key' },
+					{ title: 'Problem Key', dataIndex: ['contest', 'key'] },
 					{ title: 'Problem Title', dataIndex: 'title' },
 					{ title: 'Action', key: 'action', render: (t, r) => <Popconfirm
 						title="Delete this problem?" onConfirm={() => this.del(r._id)}

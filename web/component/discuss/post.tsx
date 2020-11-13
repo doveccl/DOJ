@@ -1,4 +1,4 @@
-import * as React from 'react'
+import React from 'react'
 
 import { message, Avatar, Button, Card, Divider, List, Popconfirm } from 'antd'
 

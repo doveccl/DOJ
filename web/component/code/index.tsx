@@ -1,5 +1,5 @@
 import ace from 'ace-builds'
-import * as React from 'react'
+import React from 'react'
 
 const highlight = ace.require('ace/ext/static_highlight')
 
@@ -68,8 +68,6 @@ const language2mode = (lan: string) => {
 }
 
 export class Code extends React.Component<CodeProps> {
-	private editor = undefined as ace.Ace.Editor
-	private viewer = undefined as HTMLElement
 	private getOptions = (props?: CodeProps) => {
 		const { language, theme, value } = props || this.props
 		const options = this.props.options || {}
@@ -84,13 +82,11 @@ export class Code extends React.Component<CodeProps> {
 		const { onChange } = this.props
 		const editor = ace.edit(code, this.getOptions())
 		editor.on('change', () => onChange && onChange(editor.getValue()))
-		this.editor = editor
 	}
 	private refViewer = (code: HTMLElement) => {
 		if (!code) { return }
 		code.textContent = this.props.value
 		highlight(code, this.getOptions())
-		this.viewer = code
 	}
 	public render() {
 		return this.props.static ?

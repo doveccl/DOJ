@@ -1,4 +1,4 @@
-import * as React from 'react'
+import React from 'react'
 import { withRouter, Link } from 'react-router-dom'
 
 import { message, Button, Card, Col, Input, Row, Table, Tag } from 'antd'
@@ -40,6 +40,7 @@ class Submissions extends React.Component<HistoryProps> {
 		const { uname, pid } = this.state
 		const pager = { ...this.state.pagination }
 		pager.current = pagination.current
+		pager.pageSize = pagination.pageSize
 		this.setState({ loading: true, pagination: pager })
 		const { pageSize: size, current: page } = pager
 		getSubmissions({ page, size, uname, pid })
@@ -81,7 +82,7 @@ class Submissions extends React.Component<HistoryProps> {
 					<Col span={10}>
 						<Input
 							placeholder="Username"
-							defaultValue={this.state.uname}
+							value={this.state.uname}
 							onChange={(e) => this.setState({ uname: e.target.value })}
 							prefix={<UserOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
 						/>
@@ -89,7 +90,7 @@ class Submissions extends React.Component<HistoryProps> {
 					<Col span={11}>
 						<Input
 							placeholder="Problem ID"
-							defaultValue={this.state.pid}
+							value={this.state.pid}
 							onChange={(e) => this.setState({ pid: e.target.value })}
 							prefix={<FileTextOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
 						/>
@@ -119,8 +120,8 @@ class Submissions extends React.Component<HistoryProps> {
 						{ title: 'Status', dataIndex: 'result', render: renderStatus, onCell: (r) => ({
 							onClick: () => this.props.history.push(`/submission/${r._id}`)
 						}) },
-						{ title: 'Time', align: 'center', dataIndex: 'result.time', render: parseTime },
-						{ title: 'Memory', align: 'center', dataIndex: 'result.memory', render: parseMemory },
+						{ title: 'Time', align: 'center', dataIndex: ['result', 'time'], render: parseTime },
+						{ title: 'Memory', align: 'center', dataIndex: ['result', 'memory'], render: parseMemory },
 						{ title: 'Language', align: 'center', dataIndex: 'language', render: (l) => (
 							languages[l] ? languages[l].name : 'unknown'
 						) },

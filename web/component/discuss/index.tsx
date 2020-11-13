@@ -1,4 +1,4 @@
-import * as React from 'react'
+import React from 'react'
 
 import { message, Button, Card, List } from 'antd'
 

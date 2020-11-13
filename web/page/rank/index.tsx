@@ -1,4 +1,4 @@
-import * as React from 'react'
+import React from 'react'
 
 import { message, Avatar, Card, Table } from 'antd'
 
@@ -17,6 +17,7 @@ export default class extends React.Component {
 	private handleChange = (pagination: any) => {
 		const pager = { ...this.state.pagination }
 		pager.current = pagination.current
+		pager.pageSize = pagination.pageSize
 		this.setState({ loading: true, pagination: pager })
 		const { pageSize: size, current: page } = pager
 		getUsers({ page, size, rank: 1 })

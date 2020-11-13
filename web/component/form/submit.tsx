@@ -1,4 +1,4 @@
-import * as React from 'react'
+import React from 'react'
 
 import { message, Button, Checkbox, Divider, Form, Input, Select } from 'antd'
 
@@ -41,7 +41,7 @@ export class SubmitForm extends React.Component<SubmitFormProps> {
 	}
 	public render() {
 		return <Form
-			onFinish={this.handleSubmit}
+			onFinish={v => this.handleSubmit(v)}
 			className="submit-form"
 			initialValues={this.props}
 		>
@@ -58,7 +58,7 @@ export class SubmitForm extends React.Component<SubmitFormProps> {
 			</Form.Item>
 			<Form.Item name="language" rules={[
 				{ required: true, message: 'Please choose language' }
-			]} initialValue={Number(localStorage.language)}>
+			]} initialValue={Number(localStorage.language) || 0}>
 				<Select
 					style={{ width: '50%', minWidth: '200px' }}
 					placeholder="Choose language"
@@ -80,7 +80,7 @@ export class SubmitForm extends React.Component<SubmitFormProps> {
 					Submit
 				</Button>
 				<Divider type="vertical" />
-				<Form.Item name="open" valuePropName="checked" noStyle>
+				<Form.Item name="open" valuePropName="checked" initialValue={true} noStyle>
 					<Checkbox>Share my code to others</Checkbox>
 				</Form.Item>
 			</Form.Item>

@@ -13,7 +13,7 @@ export interface GlobalState {
 }
 
 const state: GlobalState = {
-	user: undefined,
+	user: {} as IUser,
 	languages: [],
 	path: []
 }

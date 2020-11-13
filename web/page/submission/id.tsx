@@ -1,4 +1,4 @@
-import * as React from 'react'
+import React from 'react'
 import { Manager, Socket } from 'socket.io-client'
 
 import { message, Button, Card, Checkbox, Divider, Tag, Timeline } from 'antd'

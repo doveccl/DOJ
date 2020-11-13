@@ -1,4 +1,4 @@
-import * as React from 'react'
+import React from 'react'
 
 import { message, Card, Divider, Popconfirm, Table, Upload } from 'antd'
 import { LoadingOutlined, CloudUploadOutlined } from '@ant-design/icons'

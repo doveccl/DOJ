@@ -1,4 +1,4 @@
-import * as React from 'react'
+import React from 'react'
 
 import { message, Button, Card, Divider, Modal, Popconfirm, Table, Tag } from 'antd'
 import { FormInstance } from 'antd/lib/form'

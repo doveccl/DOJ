@@ -1,4 +1,4 @@
-import * as React from 'react'
+import React from 'react'
 import { withRouter, Link } from 'react-router-dom'
 
 import { message, Card, Col, Progress, Row, Table } from 'antd'
@@ -109,7 +109,7 @@ class Contest extends React.Component<HistoryProps & MatchProps> {
 					columns={[
 						{
 							width: 100, sorter: (a, b) => a.contest.key.localeCompare(b.contest.key),
-							title: 'Index', dataIndex: 'contest.key', defaultSortOrder: 'ascend'
+							title: 'Index', dataIndex: ['contest', 'key'], defaultSortOrder: 'ascend'
 						},
 						{ width: 200, title: 'Title', dataIndex: 'title', render: (t, r) => <Link
 							children={t} to={`/problem/${r._id}`}

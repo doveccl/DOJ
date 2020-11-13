@@ -1,4 +1,4 @@
-import * as React from 'react'
+import React from 'react'
 
 import { message, Button, Checkbox, Divider, Form, Input } from 'antd'
 import { UserOutlined, LockOutlined } from '@ant-design/icons'
