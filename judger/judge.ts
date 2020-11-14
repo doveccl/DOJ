@@ -51,10 +51,11 @@ export async function judge(args: IJudge, socket?: Socket) {
 			chdir: runPath
 		})
 		logJudger.debug('Compiler return:', result.status)
+		const { stdout, stderr } = result
 		if (result.error) {
 			return CE(args._id, result.error)
-		} else if (result.status !== 0) {
-			return CE(args._id, result.stderr.toString())
+		} else if (result.status !== 0 || String(stderr)) {
+			return CE(args._id, stdout + '' + stderr)
 		}
 	}
 

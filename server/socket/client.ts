@@ -13,13 +13,11 @@ let currentNS: Namespace
 
 export const update = async (pack: Pack) => {
 	await Submission.findByIdAndUpdate(pack._id, pack)
-	if (!currentNS) { return }
-	currentNS.to(pack._id).emit('result', pack)
+	currentNS && currentNS.to(pack._id).emit('result', pack)
 }
 
 export const step = async (pack: Pack) => {
-	if (!currentNS) { return }
-	currentNS.to(pack._id).emit('step', pack)
+	currentNS && currentNS.to(pack._id).emit('step', pack)
 }
 
 const verifyRegister = async (id: string, token: string) => {
@@ -38,8 +36,8 @@ const verifyRegister = async (id: string, token: string) => {
 			throw new Error('result frozen')
 		}
 	}
-	if (s.result.status !== Status.WAIT) return s
 	logSocket.info('User query:', u._id, s._id)
+	if (s.result.status !== Status.WAIT) return s
 }
 
 export const routeClient = (io: Namespace, socket: Socket) => {
@@ -49,12 +47,8 @@ export const routeClient = (io: Namespace, socket: Socket) => {
 		const { id, token } = data
 		verifyRegister(id, token)
 			.then(s => {
-				if (s) {
-					socket.emit('finish', s)
-				} else {
-					socket.join(id)
-				}
-				callback(true)
+				socket.join(id); callback(true)
+				s && currentNS.to(id).emit('result', s)
 			})
 			.catch(() => callback(false))
 	})

@@ -88,7 +88,10 @@ router.get('/submission/:id', fetch('submission'), async (ctx) => {
 
 router.put('/submission/rejudge', group(Group.admin), async (ctx) => {
 	ctx.body = await Submission.find(ctx.request.body)
-	ctx.body.forEach(doJudge)
+	ctx.body.forEach((s: DSubmission) => {
+		s.result.status = Status.WAIT
+		s.save().then(() => doJudge(s))
+	})
 })
 
 /**
