@@ -32,6 +32,13 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 		if (s.result.status === Status.WAIT) {
 			const manager = new Manager()
 			this.socket = manager.socket('/client')
+			this.socket.on('step', (data: any) => {
+				this.state.submission.cases = data.cases
+				this.setState({
+					pending: data.pending,
+					submission: this.state.submission
+				})
+			})
 			this.socket.on('result', (data: Partial<ISubmission>) => {
 				this.socket.close()
 				this.state.submission.result = data.result
@@ -109,7 +116,7 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 					<Timeline.Item color="green">
 						[{new Date(createdAt).toLocaleString()}] {uname} submitted the code
 					</Timeline.Item>
-					{!pending && scase && cases.map((c, i) => (
+					{scase && cases.map((c, i) => (
 						<Timeline.Item key={i} color={color(c)}>
 							<Tag>#{i}</Tag>
 							{renderStatus(c)}

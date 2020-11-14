@@ -17,6 +17,11 @@ export const update = async (pack: Pack) => {
 	currentNS.to(pack._id).emit('result', pack)
 }
 
+export const step = async (pack: Pack) => {
+	if (!currentNS) { return }
+	currentNS.to(pack._id).emit('step', pack)
+}
+
 const verifyRegister = async (id: string, token: string) => {
 	const data: any = await verify(token)
 	const s = await Submission.findById(id)

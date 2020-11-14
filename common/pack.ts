@@ -2,8 +2,9 @@ import { IResult, Status } from './interface'
 
 export interface Pack {
 	_id: string
-	result: IResult
 	cases: IResult[]
+	result?: IResult
+	pending?: false | string
 }
 
 export const Case = (s: Status, t: number, m: number, e?: string): IResult => ({

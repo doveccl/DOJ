@@ -5,7 +5,7 @@ import { Pack } from '../../common/pack'
 import { problem } from '../middleware/fetch'
 import { DSubmission } from '../model/submission'
 import { logSocket } from '../util/log'
-import { update } from './client'
+import { step, update } from './client'
 
 let currentNS: Namespace
 
@@ -46,6 +46,10 @@ export const routeJudger = (io: Namespace, socket: Socket) => {
 		} else {
 			callback(false)
 		}
+	})
+	socket.on('step', (pack: Pack) => {
+		if (!pack || !pack._id) { return }
+		step(pack)
 	})
 	socket.on('finish', (pack: Pack) => {
 		if (!pack || !pack._id) { return }

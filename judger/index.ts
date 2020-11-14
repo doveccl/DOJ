@@ -14,7 +14,7 @@ const socket = manager.socket('/judger')
 logJudger.info('connect to server:', host)
 
 socket.on('judge', (s: any) => {
-	judge(s)
+	judge(s, socket)
 		.then((val) => socket.emit('finish', val))
 		.catch((err) => {
 			logJudger.error('judge error:', err)

@@ -1,5 +1,6 @@
 import fs from 'fs-extra'
 import config from 'config'
+import { Socket } from 'socket.io-client'
 
 import { logJudger } from './log'
 import { prepareData } from './data'
@@ -19,8 +20,13 @@ interface IJudge {
 	memoryLimit: number
 }
 
-export async function judge(args: IJudge) {
+export async function judge(args: IJudge, socket?: Socket) {
+	const step = (pending?: string, cases: IResult[] = []) => {
+		socket.emit('step', { _id: args._id, pending, cases })
+	}
+
 	logJudger.info('judge submission:', args._id)
+	step('Prepare problem data and checker ...')
 	const language = languages[args.language]
 	const dataPath = await prepareData(args.data)
 	const runPath = `${runRoot}/${args._id}`
@@ -35,6 +41,7 @@ export async function judge(args: IJudge) {
 
 	// compile
 	if (language.compile) {
+		step('Compiling code ...')
 		await fs.chmod(runPath, 0o777)
 		const result = lrunSync({
 			cmd: language.compile.cmd,
@@ -61,6 +68,7 @@ export async function judge(args: IJudge) {
 		const inf = `${dataPath}/${ith}.in`
 		const ansf = `${dataPath}/${ith}.out`
 		const outf = `${runPath}/${ith}.output`
+		step(`Judging case #${ith} ...`, cases)
 
 		const rate = language.run.ratio
 		const conf: RunOpts = {
