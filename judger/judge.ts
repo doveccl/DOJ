@@ -39,14 +39,14 @@ export async function judge(args: IJudge) {
 			cmd: language.compile.cmd,
 			args: language.compile.args,
 			maxRealTime: language.compile.time,
-			passExitcode: true
+			passExitcode: true,
+			chdir: runPath
 		})
 		logJudger.debug('Compiler return:', result.status)
 		if (result.error) {
 			return CE(args._id, result.error)
 		} else if (result.status !== 0) {
-			const fds = result.output.filter(o => o)
-			return CE(args._id, fds.map(String).join(''))
+			return CE(args._id, result.stderr.toString())
 		}
 	}
 
