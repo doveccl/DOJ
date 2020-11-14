@@ -18,10 +18,10 @@ class Contest extends React.Component<HistoryProps & MatchProps> {
 	public state = {
 		process: 0,
 		status: '',
-		tabKey: 'description',
+		global: globalState,
 		contest: {} as IContest,
 		problems: [] as IProblem[],
-		global: globalState
+		tabKey: this.props.history.location.hash.replace('#', '') || 'description'
 	}
 	private refreshProcess = (c?: IContest) => {
 		const { startAt, endAt } = c || this.state.contest
@@ -55,10 +55,6 @@ class Contest extends React.Component<HistoryProps & MatchProps> {
 				.catch(console.warn)
 			this.timer = setInterval(this.refreshProcess, 1000)
 		}
-	}
-	public componentWillReceiveProps(nextProps: HistoryProps & MatchProps) {
-		const { hash } = nextProps.history.location
-		if (hash) { this.setState({ tabKey: hash.replace('#', '') }) }
 	}
 	public componentWillUnmount() {
 		clearInterval(this.timer)
