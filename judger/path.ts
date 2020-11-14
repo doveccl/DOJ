@@ -1,13 +1,12 @@
 import { execSync } from 'child_process'
-import { mkdtempSync } from 'fs-extra'
 
 const cfg = './mirrorfs.cfg'
-const name = `doj_${Math.random().toString(16).substr(2)}`
-const setup = `lrun-mirrorfs --name ${name} --setup ${cfg}`
-const teardown = `lrun-mirrorfs --name ${name} --teardown ${cfg}`
+const rand = Math.random().toString(16).substr(2)
+const setup = `lrun-mirrorfs --name doj_${rand} --setup ${cfg}`
+const teardown = `lrun-mirrorfs --name doj_${rand} --teardown ${cfg}`
 
-export const runRoot = mkdtempSync('/tmp/doj/run/')
-export const dataRoot = mkdtempSync('/etc/doj/data_')
+export const runRoot = `/tmp/doj/run_${rand}`
+export const dataRoot = `/etc/doj/data_${rand}`
 export const mirrorfs = execSync(setup).toString().trim()
 
 execSync('chmod -R 600 config/*')
