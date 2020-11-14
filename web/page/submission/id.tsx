@@ -43,7 +43,7 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 			})
 			this.socket.on('connect', () => {
 				this.socket.emit('register', { 
-					d: s._id,
+					id: s._id,
 					token: getToken()
 				}, (ok: boolean) => {
 					ok || this.socket.close()

@@ -17,10 +17,10 @@ export const attachSocketIO = async (s: any) => {
 	await judgeFromDB()
 }
 
-io.of('/judger').on('connection', (socket) => {
+io.of('/judger').on('connection', socket => {
 	routeJudger(io.of('/judger'), socket)
 })
 
-io.of('/client').on('connection', (socket) => {
+io.of('/client').on('connection', socket => {
 	routeClient(io.of('/client'), socket)
 })

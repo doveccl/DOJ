@@ -1,5 +1,5 @@
 import config from 'config'
-import IO from 'socket.io'
+import { Namespace, Socket } from 'socket.io'
 
 import { Pack } from '../../common/pack'
 import { problem } from '../middleware/fetch'
@@ -7,7 +7,7 @@ import { DSubmission } from '../model/submission'
 import { logSocket } from '../util/log'
 import { update } from './client'
 
-let currentNS: IO.Namespace
+let currentNS: Namespace
 
 const secret: string = config.get('secret')
 
@@ -36,7 +36,7 @@ const delJudger = (id: string) => {
 	}
 }
 
-export const routeJudger = (io: IO.Namespace, socket: IO.Socket) => {
+export const routeJudger = (io: Namespace, socket: Socket) => {
 	currentNS = io
 	socket.on('register', (data, callback) => {
 		if (data && data.secret === secret) {

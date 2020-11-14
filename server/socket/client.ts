@@ -1,4 +1,4 @@
-import IO from 'socket.io'
+import { Socket, Namespace } from 'socket.io'
 
 import { compare } from '../../common/function'
 import { ContestType, Group } from '../../common/interface'
@@ -9,7 +9,7 @@ import { Submission } from '../model/submission'
 import { verify } from '../util/jwt'
 import { logSocket } from '../util/log'
 
-let currentNS: IO.Namespace
+let currentNS: Namespace
 
 export const update = async (pack: Pack) => {
 	await Submission.findByIdAndUpdate(pack._id, pack)
@@ -36,7 +36,7 @@ const verifyRegister = async (id: string, token: string) => {
 	logSocket.info('User query:', u._id, s._id)
 }
 
-export const routeClient = (io: IO.Namespace, socket: IO.Socket) => {
+export const routeClient = (io: Namespace, socket: Socket) => {
 	currentNS = io
 	socket.on('register', (data, callback) => {
 		if (!data) { callback(false) }
