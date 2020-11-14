@@ -116,7 +116,7 @@ export async function judge(args: IJudge) {
 		}
 		ith++
 	} while (
-		fs.existsSync(`${dataPath}}/${ith}.in`) &&
+		fs.existsSync(`${dataPath}/${ith}.in`) &&
 		fs.existsSync(`${dataPath}/${ith}.out`)
 	)
 
