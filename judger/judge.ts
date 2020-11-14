@@ -24,7 +24,6 @@ export async function judge(args: IJudge) {
 	const language = languages[args.language]
 	const dataPath = await prepareData(args.data)
 	const runPath = `${runRoot}/${args._id}`
-	await fs.chmod(runPath, 0o777)
 
 	await fs.outputFile(`${runPath}/${language.source}`, args.code)
 	fs.readdirSync(dataPath).forEach(file => {
@@ -36,6 +35,7 @@ export async function judge(args: IJudge) {
 
 	// compile
 	if (language.compile) {
+		await fs.chmod(runPath, 0o777)
 		const result = lrunSync({
 			cmd: language.compile.cmd,
 			args: language.compile.args,
