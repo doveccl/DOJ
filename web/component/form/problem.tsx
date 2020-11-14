@@ -20,6 +20,7 @@ export class ProblemForm extends React.Component<ProblemFormProps> {
 	}
 
 	public render() {
+		const { problem } = this.props
 		const formItemLayout = {
 			labelCol: { xs: 24, sm: 6, md: 4 },
 			wrapperCol: { xs: 24, sm: 18, md: 20 }
@@ -35,7 +36,7 @@ export class ProblemForm extends React.Component<ProblemFormProps> {
 			</Form.Item>
 			<Form.Item label="Time" name="timeLimit" rules={[
         { required: true, message: 'Please input time limit' }
-			]} initialValue={1.0} {...formItemLayout}>
+			]} initialValue={problem ? undefined : 1.0} {...formItemLayout}>
 				<Number options={[
 					{ name: 'ms', scale: 0.001 },
 					{ name: 's', scale: 1 }
@@ -43,7 +44,7 @@ export class ProblemForm extends React.Component<ProblemFormProps> {
 			</Form.Item>
 			<Form.Item label="Memory" name="memoryLimit" rules={[
 				{ required: true, message: 'Please input memory limit' }
-			]} initialValue={32 * 1024 * 1024} {...formItemLayout}>
+			]} initialValue={problem ? undefined : 32 * 1024 * 1024} {...formItemLayout}>
 				<Number options={[
 					{ name: 'Bytes', scale: 1 },
 					{ name: 'KiB', scale: 1024 },

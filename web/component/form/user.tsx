@@ -49,7 +49,7 @@ export class UserForm extends React.Component<UserFormProps> {
 			</Form.Item>}
 			{!isSelf && <Form.Item label="Group" name="group" rules={[
 				{ required: true, message: 'Please select user group' }
-			]} initialValue={0} {...formItemLayout}>
+			]} initialValue={user ? undefined : 0} {...formItemLayout}>
 				<Select placeholder="User group">
 					<Select.Option value={0} children="Common" />
 					{diffGroup(self, Group.admin, 1) && <Select.Option value={1} children="Admin" />}

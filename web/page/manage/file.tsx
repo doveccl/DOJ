@@ -103,7 +103,7 @@ export default class extends React.Component {
 						<a href={`/api/file/${r._id}`} download={t}>{t}</a>
 					) },
 					{ title: 'Usage', key: 'usage', render: (t, r) => renderUsage(r) },
-					{ title: 'File Type', dataIndex: 'metadata.type' },
+					{ title: 'File Type', dataIndex: ['metadata', 'type'] },
 					{ title: 'MD5', dataIndex: 'md5' },
 					{ title: 'Action', key: 'action', render: (t, r) => <React.Fragment>
 						<a onClick={() => {
