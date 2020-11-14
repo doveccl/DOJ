@@ -92,14 +92,11 @@ export class Code extends React.Component<CodeProps> {
 		}
 	}
 	public shouldComponentUpdate(nextProps?: CodeProps) {
-		let flag = false
-		Object.keys(nextProps).forEach(key => {
-			if (nextProps[key] != this.props[key]) {
-				this.update(nextProps)
-				flag = true
-			}
-		})
-		return flag
+		if (nextProps.language != this.props.language) {
+			this.update(nextProps)
+			return true
+		}
+		return false
 	}
 	public componentDidMount() {
 		this.update(this.props)
