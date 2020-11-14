@@ -1,7 +1,7 @@
 import { Socket, Namespace } from 'socket.io'
 
 import { compare } from '../../common/function'
-import { ContestType, Group } from '../../common/interface'
+import { ContestType, Group, Status } from '../../common/interface'
 import { Pack } from '../../common/pack'
 import { diffGroup } from '../../common/user'
 import { contest, user } from '../middleware/fetch'
@@ -38,6 +38,7 @@ const verifyRegister = async (id: string, token: string) => {
 			throw new Error('result frozen')
 		}
 	}
+	if (s.result.status !== Status.WAIT) return s
 	logSocket.info('User query:', u._id, s._id)
 }
 
@@ -47,7 +48,14 @@ export const routeClient = (io: Namespace, socket: Socket) => {
 		if (!data) { callback(false) }
 		const { id, token } = data
 		verifyRegister(id, token)
-			.then(() => socket.join(id), callback(true))
+			.then(s => {
+				if (s) {
+					socket.emit('finish', s)
+				} else {
+					socket.join(id)
+				}
+				callback(true)
+			})
 			.catch(() => callback(false))
 	})
 }

@@ -3,6 +3,7 @@
   "cwd": "./",
   "script": "./app",
   "args": "--server --judger",
+  "instance_var": "INSTANCE_ID",
   "env": {
     "NODE_ENV": "production"
   }

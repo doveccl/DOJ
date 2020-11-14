@@ -68,6 +68,8 @@ const language2mode = (lan: string) => {
 }
 
 export class Code extends React.Component<CodeProps> {
+	private refViewer = React.createRef<HTMLDivElement>()
+	private refEditor = React.createRef<HTMLDivElement>()
 	private getOptions = (props?: CodeProps) => {
 		const { language, theme, value } = props || this.props
 		const options = this.props.options || {}
@@ -77,16 +79,30 @@ export class Code extends React.Component<CodeProps> {
 		if (theme) { options.theme = `ace/theme/${theme}` }
 		return options
 	}
-	private refEditor = (code: HTMLElement) => {
-		if (!code) { return }
-		const { onChange } = this.props
-		const editor = ace.edit(code, this.getOptions())
-		editor.on('change', () => onChange && onChange(editor.getValue()))
+	private update(props: CodeProps) {
+		if (props.static) {
+			const code = this.refViewer.current
+			code.textContent = props.value
+			highlight(code, this.getOptions(props))
+		} else {
+			const { onChange } = props
+			const code = this.refEditor.current
+			const editor = ace.edit(code, this.getOptions(props))
+			editor.on('change', () => onChange && onChange(editor.getValue()))
+		}
 	}
-	private refViewer = (code: HTMLElement) => {
-		if (!code) { return }
-		code.textContent = this.props.value
-		highlight(code, this.getOptions())
+	public shouldComponentUpdate(nextProps?: CodeProps) {
+		let flag = false
+		Object.keys(nextProps).forEach(key => {
+			if (nextProps[key] != this.props[key]) {
+				this.update(nextProps)
+				flag = true
+			}
+		})
+		return flag
+	}
+	public componentDidMount() {
+		this.update(this.props)
 	}
 	public render() {
 		return this.props.static ?
