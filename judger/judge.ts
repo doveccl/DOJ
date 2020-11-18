@@ -54,7 +54,7 @@ export async function judge(args: IJudge, socket?: Socket) {
 		const { stdout, stderr } = result
 		if (result.error) {
 			return CE(args._id, result.error)
-		} else if (result.status !== 0 || String(stderr)) {
+		} else if (result.status !== 0) {
 			return CE(args._id, stdout + '' + stderr)
 		}
 	}
