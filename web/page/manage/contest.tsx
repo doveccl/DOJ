@@ -114,6 +114,7 @@ export default class extends React.Component<HistoryProps> {
 	private handleChange = (pagination = this.state.pagination) => {
 		const pager = { ...this.state.pagination }
 		pager.current = pagination.current
+		pager.pageSize = pagination.pageSize
 		this.setState({ loading: true, pagination: pager })
 		const { pageSize: size, current: page } = pager
 		getContests({ page, size })
