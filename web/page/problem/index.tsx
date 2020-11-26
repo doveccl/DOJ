@@ -18,6 +18,7 @@ class Problems extends React.Component<HistoryProps> {
 	private handleChange = (pagination: any) => {
 		const pager = { ...this.state.pagination }
 		pager.current = pagination.current
+		pager.pageSize = pagination.pageSize
 		this.setState({ loading: true, pagination: pager })
 		const { pageSize: size, current: page } = pager
 		getProblems({ page, size, search: this.state.search })

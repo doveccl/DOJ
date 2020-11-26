@@ -23,6 +23,7 @@ class ContestProblems extends React.Component<{ cid: string }> {
 	private handleChange = (pagination = this.state.pagination) => {
 		const pager = { ...this.state.pagination }
 		pager.current = pagination.current
+		pager.pageSize = pagination.pageSize
 		this.setState({ loading: true, pagination: pager })
 		const { pageSize: size, current: page } = pager
 		getProblems({ page, size, all: 1, cid: this.props.cid })
