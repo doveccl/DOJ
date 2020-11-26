@@ -76,7 +76,7 @@ export async function judge(args: IJudge, socket?: Socket) {
 			cmd: language.run.cmd,
 			args: language.run.args,
 			maxCpuTime: rate * args.timeLimit,
-			maxRealTime: 1.5 * rate * args.timeLimit,
+			maxRealTime: 2 * rate * args.timeLimit,
 			maxMemory: args.memoryLimit,
 			maxStack: args.memoryLimit,
 			chroot: mirrorfs,
@@ -99,19 +99,19 @@ export async function judge(args: IJudge, socket?: Socket) {
 		}
 
 		logJudger.debug(`#${ith} run result:`, result)
-		const { exceed, cpuTime, memory, signal } = result
+		const { exceed, realTime, memory, signal } = result
 		if (exceed !== null) {
 			switch (exceed) {
 				case ExceedType.CPU_TIME:
 				case ExceedType.REAL_TIME:
-					cases.push(Case(Status.TLE, cpuTime, memory))
+					cases.push(Case(Status.TLE, realTime, memory))
 					break
 				case ExceedType.MEMORY:
-					cases.push(Case(Status.MLE, cpuTime, memory))
+					cases.push(Case(Status.MLE, realTime, memory))
 			}
 		} else if (signal) {
 			const e = `process signaled (number: ${signal})`
-			cases.push(Case(Status.RE, cpuTime, memory, e))
+			cases.push(Case(Status.RE, realTime, memory, e))
 		} else { // check output
 			const res = lrunSync({
 				cmd: checker,
@@ -121,7 +121,7 @@ export async function judge(args: IJudge, socket?: Socket) {
 			logJudger.debug('checker result:', res)
 			const { stdout, stderr, status } = res
 			const e = stdout.toString() + stderr.toString()
-			cases.push(Case(status ? Status.WA : Status.AC, cpuTime, memory, e))
+			cases.push(Case(status ? Status.WA : Status.AC, realTime, memory, e))
 		}
 		ith++
 	} while (
