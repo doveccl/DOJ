@@ -28,6 +28,7 @@ router.get('/file/:id', fetch('file'), async (ctx) => {
 	}
 
 	ctx.type = ctx.file.contentType
+	ctx.attachment(ctx.file.filename)
 	ctx.body = File.creatReadStream(ctx.params.id)
 })
 
