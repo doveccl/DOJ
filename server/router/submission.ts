@@ -47,12 +47,11 @@ async function parseSubmission(record: DSubmission, self: DUser) {
 			}
 		}
 	}
-	/**
-	 * attach additional data to record
-	 */
-	json.uname = u.name
-	json.ptitle = p.title
-	return json
+	// add additional data to record
+	return Object.assign(json, {
+		uname: u.name,
+		ptitle: p.title
+	})
 }
 
 router.get('/submission', async (ctx) => {

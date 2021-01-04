@@ -35,12 +35,15 @@ router.post('/file', group(Group.admin), async (ctx) => {
 	const keys = Object.keys(ctx.request.files)
 	ctx.body = new Array()
 	for (const key of keys) {
-		const file = ctx.request.files[key]
-		if (TYPE_REG.test(file.type)) {
-			const { path, name, type } = file
-			ctx.body.push(await File.create(path, name, {
-				contentType: type, metadata: { type: 'common' }
-			}))
+		const item = ctx.request.files[key]
+		const files = Array.isArray(item) ? item : [item]
+		for (const file of files) {
+			if (TYPE_REG.test(file.type)) {
+				const { path, name, type } = file
+				ctx.body.push(await File.create(path, name, {
+					contentType: type, metadata: { type: 'common' }
+				}))
+			}
 		}
 	}
 })

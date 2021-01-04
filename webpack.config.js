@@ -65,7 +65,7 @@ module.exports = (_env, argv) => {
 					{ name: 'react', var: 'React', path: `umd/react.${reactMode}.js` },
 					{ name: 'react-dom', var: 'ReactDOM', path: `umd/react-dom.${reactMode}.js` },
 					{ name: 'react-router-dom', var: 'ReactRouterDOM', path: `umd/react-router-dom${min}.js` },
-					{ name: 'react-markdown', var: 'ReactMarkdown', path: 'umd/react-markdown.js' },
+					{ name: 'react-markdown', var: 'ReactMarkdown', path: 'react-markdown.min.js' },
 					{ name: 'antd', path: `dist/antd${min}.js`, style: `dist/antd${min}.css` }
 				],
 				prod: argv.mode === 'production',

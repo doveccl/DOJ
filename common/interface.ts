@@ -21,7 +21,7 @@ export interface IConfig {
 
 export enum Group { common, admin, root }
 export interface IUser<I, T> {
-	_id: I
+	_id?: I
 	name: string
 	mail: string
 	group?: Group
