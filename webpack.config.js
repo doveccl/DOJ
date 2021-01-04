@@ -68,6 +68,7 @@ module.exports = (_env, argv) => {
 					{ name: 'react-markdown', var: 'ReactMarkdown', path: 'react-markdown.min.js' },
 					{ name: 'antd', path: `dist/antd${min}.js`, style: `dist/antd${min}.css` }
 				],
+				prodUrl: '//cdn.jsdelivr.net/npm/:name@:version/:path',
 				prod: argv.mode === 'production',
 				publicPath: '/node_modules'
 			}),
