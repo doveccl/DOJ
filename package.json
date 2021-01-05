@@ -63,6 +63,7 @@
     "axios": "^0.21.1",
     "css-loader": "^5.0.1",
     "css-minimizer-webpack-plugin": "^1.1.5",
+    "github-markdown-css": "^4.0.0",
     "html-webpack-plugin": "next",
     "js-cookie": "^2.2.1",
     "katex": "^0.12.0",

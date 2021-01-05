@@ -31,6 +31,7 @@ export class MarkDown extends React.Component<MarkdownProps> {
 		const { allowDangerousHtml, shortCode, children } = this.props
 		return <Markdown
 			plugins={[gfm, math]}
+			className="markdown-body"
 			allowDangerousHtml={allowDangerousHtml}
 			children={shortCode ? children.replace(shortCodeRegExp, code => {
 				const arrs = code.slice(2, -2).trim().split(/\s+/)

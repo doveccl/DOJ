@@ -66,7 +66,8 @@ module.exports = (_env, argv) => {
 					{ name: 'react-dom', var: 'ReactDOM', path: `umd/react-dom.${reactMode}.js` },
 					{ name: 'react-router-dom', var: 'ReactRouterDOM', path: `umd/react-router-dom${min}.js` },
 					{ name: 'react-markdown', var: 'ReactMarkdown', path: 'react-markdown.min.js' },
-					{ name: 'antd', path: `dist/antd${min}.js`, style: `dist/antd${min}.css` }
+					{ name: 'antd', path: `dist/antd${min}.js`, style: `dist/antd${min}.css` },
+					{ name: 'github-markdown-css', cssOnly: true, style: `github-markdown${min}.css` }
 				],
 				prodUrl: '//cdn.jsdelivr.net/npm/:name@:version/:path',
 				prod: argv.mode === 'production',
@@ -89,7 +90,7 @@ module.exports = (_env, argv) => {
 					ws: true,
 					secure: false,
 					changeOrigin: true,
-					target: `ws://localhost:${config.get('port')}`
+					target: `http://localhost:${config.get('port')}`
 				}
 			}
 		},
