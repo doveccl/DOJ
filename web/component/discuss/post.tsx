@@ -66,7 +66,7 @@ export class Post extends React.Component<PostProps> {
 					<Button type="primary" onClick={this.update}>Update</Button>
 					<Divider type="vertical" />
 					<Button onClick={() => this.setState({ edit: false })}>Cancel</Button>
-				</React.Fragment> : <MarkDown source={content} />}
+				</React.Fragment> : <MarkDown children={content} />}
 			</Card>
 		</List.Item>
 	}

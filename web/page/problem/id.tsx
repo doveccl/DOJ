@@ -54,8 +54,8 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 			>
 				<MarkDown
 					shortCode={true}
-					escapeHtml={false}
-					source={problem.content}
+					children={problem.content}
+					allowDangerousHtml={true}
 				/>
 			</Card>
 			<div className="divider" />

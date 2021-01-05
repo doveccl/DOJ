@@ -1,12 +1,11 @@
 import React from 'react'
 import Markdown from 'react-markdown'
 import math from 'remark-math'
-import shortcodes from 'remark-shortcodes'
 
 import { Code } from '../code'
-import { PDF } from '../pdf'
-
 import { renderToString } from 'katex'
+
+const shortCodeRegExp = /\[\[\s*\w+(\s+[^\]]+=[^\]]+)+\s*\]\]/g
 
 const renderMath = (tex: string, displayMode = false) => {
 	try {
@@ -17,37 +16,42 @@ const renderMath = (tex: string, displayMode = false) => {
 	}
 }
 
-type MarkdownProps = Markdown.ReactMarkdownProps & {
+type MarkdownProps = {
+	children: string
 	shortCode?: boolean
+	allowDangerousHtml?: boolean
 }
 
 export class MarkDown extends React.Component<MarkdownProps> {
 	public shouldComponentUpdate(nextPorps: MarkdownProps) {
-		return nextPorps.source !== this.props.source
+		return nextPorps.children !== this.props.children
 	}
 	public render() {
-		const plugins = [ math ]
-		if (this.props.shortCode) {
-			plugins.push(shortcodes)
-		}
+		const { allowDangerousHtml, shortCode, children } = this.props
 		return <Markdown
-			{ ...this.props }
-			plugins={plugins}
+			plugins={[math]}
+			allowDangerousHtml={allowDangerousHtml}
+			children={shortCode ? children.replace(shortCodeRegExp, code => {
+				const arrs = code.slice(2, -2).trim().split(/\s+/)
+				const type = arrs.shift().toLowerCase()
+				const attrs = {} as any
+				arrs.forEach(attr => {
+					const [k, v] = attr.split('=')
+					attrs[k.trim()] = eval(v.trim())
+				})
+				if (attrs.id) attrs.url = `/api/file/${attrs.id}`
+				switch (type) {
+					case 'pdf': return `<object class="pdf" data=${attrs.url} />`
+					case 'img': return `<img src=${attrs.url} />`
+					default: return `<s>Unknown Tag: ${type}</s>`
+				}
+			}) : children}
 			renderers={{
+				math: ({ value }) => renderMath(value, true),
+				inlineMath: ({ value }) => renderMath(value),
 				code: ({ value, language }) => <Code
 					static value={value} language={language}
-				/>,
-				shortcode: ({ identifier, attributes }) => {
-					const { id, url } = attributes
-					const link = url || `/api/file/${id}`
-					switch (identifier.toLowerCase()) {
-						case 'pdf': return <PDF file={link} />
-						case 'img': return <img src={link} />
-						default: return <span>Unsupported: {identifier}</span>
-					}
-				},
-				math: ({ value }) => renderMath(value, true),
-				inlineMath: ({ value }) => renderMath(value)
+				/>
 			}}
 		/>
 	}

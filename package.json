@@ -76,7 +76,6 @@
     "react-markdown": "^5.0.3",
     "react-router-dom": "^5.2.0",
     "remark-math": "^4.0.0",
-    "remark-shortcodes": "^0.3.1",
     "ts-loader": "^8.0.13",
     "ts-node-dev": "^1.1.1",
     "typescript": "^4.1.3",
