@@ -1,6 +1,7 @@
 import React from 'react'
 import Markdown from 'react-markdown'
 import math from 'remark-math'
+import gfm from 'remark-gfm'
 
 import { Code } from '../code'
 import { renderToString } from 'katex'
@@ -29,7 +30,7 @@ export class MarkDown extends React.Component<MarkdownProps> {
 	public render() {
 		const { allowDangerousHtml, shortCode, children } = this.props
 		return <Markdown
-			plugins={[math]}
+			plugins={[gfm, math]}
 			allowDangerousHtml={allowDangerousHtml}
 			children={shortCode ? children.replace(shortCodeRegExp, code => {
 				const arrs = code.slice(2, -2).trim().split(/\s+/)
