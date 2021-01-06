@@ -1,9 +1,7 @@
 import React from 'react'
-
-import { Col, Row } from 'antd'
-
 import { Code } from '../code'
 import { MarkDown } from '../markdown'
+import { EyeOutlined } from '@ant-design/icons'
 
 import './index.less'
 
@@ -23,21 +21,24 @@ export class Editor extends React.Component<EditorProps> {
 		}
 	}
 	public render() {
-		return <Row className="editor" gutter={16}>
-			<Col span={12} className="code">
+		return <div className="editor">
+			<div className="code">
 				<Code
 					language="markdown"
 					value={this.state.content}
 					onChange={this.onChange}
 				/>
-			</Col>
-			<Col span={12} className="preview">
-				<MarkDown
-					children={this.state.content}
-					shortCode={this.props.shortCode}
-					allowDangerousHtml={this.props.allowDangerousHtml}
-				/>
-			</Col>
-		</Row>
+			</div>
+			<div className="preview">
+				<EyeOutlined className="button" />
+				<div className="view">
+					<MarkDown
+						children={this.state.content}
+						shortCode={this.props.shortCode}
+						allowDangerousHtml={this.props.allowDangerousHtml}
+					/>
+				</div>
+			</div>
+		</div>
 	}
 }

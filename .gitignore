@@ -11,6 +11,7 @@ dist/
 # Others
 .cache/
 .vscode/
+package-lock.json
 
 # Config
 config/production.*

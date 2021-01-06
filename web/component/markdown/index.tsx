@@ -6,6 +6,8 @@ import gfm from 'remark-gfm'
 import { Code } from '../code'
 import { renderToString } from 'katex'
 
+import './index.less'
+
 const shortCodeRegExp = /\[\[\s*\w+(\s+[^\]]+=[^\]]+)+\s*\]\]/g
 
 const renderMath = (tex: string, displayMode = false) => {
@@ -29,11 +31,12 @@ export class MarkDown extends React.Component<MarkdownProps> {
 	}
 	public render() {
 		const { allowDangerousHtml, shortCode, children } = this.props
+		const source = (children || '').replace(/[\s\n]*\n(#+)/g, '\n\n$1')
 		return <Markdown
 			plugins={[gfm, math]}
 			className="markdown-body"
 			allowDangerousHtml={allowDangerousHtml}
-			children={shortCode ? children.replace(shortCodeRegExp, code => {
+			children={shortCode ? source.replace(shortCodeRegExp, code => {
 				const arrs = code.slice(2, -2).trim().split(/\s+/)
 				const type = arrs.shift().toLowerCase()
 				const attrs = {} as any
@@ -47,7 +50,7 @@ export class MarkDown extends React.Component<MarkdownProps> {
 					case 'img': return `<img src=${attrs.url} />`
 					default: return `<s>Unknown Tag: ${type}</s>`
 				}
-			}) : children}
+			}) : source}
 			renderers={{
 				math: ({ value }) => renderMath(value, true),
 				inlineMath: ({ value }) => renderMath(value),
