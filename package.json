@@ -57,7 +57,7 @@
     "@types/nodemailer": "^6.4.0",
     "@types/react": "^17.0.0",
     "@types/react-dom": "^17.0.0",
-    "@types/react-router": "^5.1.9",
+    "@types/react-router": "^5.1.10",
     "@types/react-router-dom": "^5.1.7",
     "antd": "^4.10.0",
     "axios": "^0.21.1",
