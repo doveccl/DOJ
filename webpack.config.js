@@ -70,7 +70,7 @@ module.exports = (_env, argv) => {
 					{ name: 'github-markdown-css', cssOnly: true, style: `github-markdown${min}.css` }
 				],
 				prodUrl: '//cdn.jsdelivr.net/npm/:name@:version/:path',
-				// prodUrl: '/node_modules/:name/:path',
+				// prodUrl: '/npm/:name@:version/:path', // require nginx proxy
 				prod: argv.mode === 'production',
 				publicPath: '/node_modules'
 			}),
