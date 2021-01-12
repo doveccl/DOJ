@@ -16,7 +16,7 @@
 	},
 	"languages": [
 		{
-			"name": "C99 with GNU GCC",
+			"name": "C",
 			"suffix": "c",
 			"source": "main.c",
 			"compile": {
@@ -38,7 +38,7 @@
 			}
 		},
 		{
-			"name": "C++11 with GNU G++",
+			"name": "C++",
 			"suffix": "cpp",
 			"source": "main.cpp",
 			"compile": {
@@ -60,7 +60,7 @@
 			}
 		},
 		{
-			"name": "Python 2.x",
+			"name": "Python2",
 			"suffix": "py",
 			"source": "main.py",
 			"run": {
@@ -72,7 +72,7 @@
 			}
 		},
 		{
-			"name": "Python 3.x",
+			"name": "Python3",
 			"suffix": "py",
 			"source": "main.py",
 			"run": {
@@ -84,7 +84,7 @@
 			}
 		},
 		{
-			"name": "Java 1.8 with OpenJDK",
+			"name": "Java",
 			"suffix": "java",
 			"source": "Main.java",
 			"compile": {
@@ -105,7 +105,7 @@
 			}
 		},
 		{
-			"name": "JavaScript with NodeJS",
+			"name": "JavaScript",
 			"suffix": "js",
 			"source": "main.js",
 			"run": {
