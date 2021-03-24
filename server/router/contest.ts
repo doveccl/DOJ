@@ -11,9 +11,8 @@ const router = new Router<any, { contest: DContest }>()
 router.use('/contest', token())
 
 router.get('/contest', async (ctx) => {
-	let { page, size } = ctx.query
-	page = parseInt(page, 10) || 1
-	size = parseInt(size, 10) || 50
+	const page = Number(ctx.query.page) || 1
+	const size = Number(ctx.query.size) || 50
 	const total = await Contest.countDocuments()
 	const list = await Contest.find()
 		.sort({ _id: -1 })

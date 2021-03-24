@@ -18,11 +18,10 @@ router.use('/user', token())
 
 router.get('/user', async (ctx) => {
 	const { rank } = ctx.query
-	let { page, size } = ctx.query
+	if (!rank) ensureGroup(ctx.self, Group.admin)
 
-	if (!rank) { ensureGroup(ctx.self, Group.admin) }
-	page = parseInt(page, 10) || 1
-	size = parseInt(size, 10) || 50
+	const page = Number(ctx.query.page) || 1
+	const size = Number(ctx.query.size) || 50
 
 	const total = await User.countDocuments()
 	const list = await User.find()

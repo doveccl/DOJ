@@ -12,9 +12,9 @@ const router = new Router<any, { file: DFile }>()
 router.use('/file', token(true))
 
 router.get('/file', group(Group.admin), async (ctx) => {
-	let { page, size } = ctx.query
-	page = parseInt(page, 10) || 1
-	size = parseInt(size, 10) || 50
+	const page = Number(ctx.query.page) || 1
+	const size = Number(ctx.query.size) || 50
+
 	const total = await File.countDocuments()
 	const list = await File.find()
 		.sort('-_id')

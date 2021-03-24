@@ -98,7 +98,7 @@ export interface ISubmission<I, T> {
 export interface IPost<I, T> {
 	_id: I
 	uid: I
-	topic: I
+	topic: I | string
 	content: string
 	createdAt: T
 	updatedAt: T

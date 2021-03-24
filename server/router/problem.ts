@@ -17,7 +17,9 @@ router.use('/problem', token())
 
 router.get('/problem', async (ctx) => {
 	const { all, cid } = ctx.query
-	let { page, size, search } = ctx.query
+	let search = ctx.query.search as string
+	const page = Number(ctx.query.page) || 1
+	const size = Number(ctx.query.size) || 50
 
 	if (!search) { search = '' }
 	const esc = search.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
@@ -34,8 +36,6 @@ router.get('/problem', async (ctx) => {
 	if (!cid) { delete condition['contest.id'] }
 	if (all) { ensureGroup(ctx.self, Group.admin) }
 
-	page = parseInt(page, 10) || 1
-	size = parseInt(size, 10) || 50
 	const total = await Problem.countDocuments(condition)
 	const arr = await Problem.find(condition)
 		.sort(all ? '-_id' : '_id')

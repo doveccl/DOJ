@@ -48,7 +48,7 @@ router.post('/register', async (ctx) => {
 })
 
 router.get('/reset', async (ctx) => {
-	const user = ctx.query.user
+	const user = ctx.query.user as string
 	const condition = [{ name: user }, { mail: user }]
 	const u = await User.findOne({ $or: condition })
 

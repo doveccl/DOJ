@@ -56,19 +56,19 @@ async function parseSubmission(record: DSubmission, self: DUser) {
 
 router.get('/submission', async (ctx) => {
 	const { uname, pid, cid } = ctx.query
-	let { page, size } = ctx.query
+
+	let page = Number(ctx.query.page) || 1
+	let size = Number(ctx.query.size) || 50
 
 	const condition: any = { uname, pid, cid }
 	for (const k of ['uname', 'pid', 'cid']) {
 		if (!condition[k]) { delete condition[k] }
 	}
-	if (uname) {
+	if (typeof uname === 'string') {
 		const u = await User.findOne({ name: uname })
 		if (u) { condition.uid = u._id, delete condition.uname }
 	}
 
-	page = parseInt(page, 10) || 1
-	size = parseInt(size, 10) || 50
 	const total = await Submission.countDocuments(condition)
 	if (size === -1) { size = total }
 	const arr = await Submission.find(condition)

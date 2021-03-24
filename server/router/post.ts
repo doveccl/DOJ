@@ -13,11 +13,10 @@ const router = new Router<any, { self: DUser }>()
 router.use('/post', token())
 
 router.get('/post', async (ctx) => {
-	const { topic } = ctx.query
-	let { page, size } = ctx.query
+	const topic = ctx.query.topic as string
+	const page = Number(ctx.query.page) || 1
+	const size = Number(ctx.query.size) || 50
 
-	page = parseInt(page, 10) || 1
-	size = parseInt(size, 10) || 50
 	const total = await Post.countDocuments({ topic })
 	const arr = await Post.find({ topic })
 		.sort('-_id').skip(size * (page - 1)).limit(size)
