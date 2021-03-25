@@ -112,7 +112,7 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 					</React.Fragment>}
 				</React.Fragment>}
 			>
-				<Timeline pending={pending}>
+				<Timeline className="result" pending={pending}>
 					<Timeline.Item color="green">
 						[{new Date(createdAt).toLocaleString()}] {uname} submitted the code
 					</Timeline.Item>
@@ -122,16 +122,20 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 							{renderStatus(c)}
 							<Tag>{parseTime(c.time)}</Tag>
 							<Tag>{parseMemory(c.memory)}</Tag>
-							<span>{c.extra}</span>
+							{c.extra && (/.\n./.test(c.extra) ?
+							  <pre>{c.extra.trim()}</pre> :
+								<span>{c.extra}</span>
+							)}
 						</Timeline.Item>
 					))}
 					{!scase && smain && <Timeline.Item color={color(result)}>
-						<pre>
-							{renderStatus(result)}
-							<Tag>{parseTime(result.time)}</Tag>
-							<Tag>{parseMemory(result.memory)}</Tag>
-						</pre>
-						{result.extra && <pre>{result.extra}</pre>}
+						{renderStatus(result)}
+						<Tag>{parseTime(result.time)}</Tag>
+						<Tag>{parseMemory(result.memory)}</Tag>
+						{result.extra && (/.\n./.test(result.extra) ?
+							<pre>{result.extra.trim()}</pre> :
+							<span>{result.extra}</span>
+						)}
 					</Timeline.Item>}
 				</Timeline>
 			</Card>

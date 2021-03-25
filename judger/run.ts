@@ -89,6 +89,7 @@ export interface RunResult {
 	exitCode: number
 	signal: number
 	exceed: null | ExceedType
+	error?: string // user program stderr output
 }
 
 const getExceedType = (str: string) => {
@@ -115,8 +116,9 @@ export const wait = (cp: ChildProcess) => new Promise<RunResult>((resolve, rejec
 	cp.stdio[3].on('data', c => fd3 += c)
 	cp.on('close', () => {
 		try {
-			if (fd2) throw new Error(fd2)
-			else resolve(parseResult(fd3))
+			const res = parseResult(fd3)
+			if (fd2) res.error = fd2
+			resolve(res)
 		} catch (e) {
 			reject(e)
 		}
