@@ -1,7 +1,7 @@
 import config from 'config'
 import { Namespace, Socket } from 'socket.io'
 
-import { Pack } from '../../common/pack'
+import { Pack, SE } from '../../common/pack'
 import { problem } from '../middleware/fetch'
 import { DSubmission } from '../model/submission'
 import { logSocket } from '../util/log'
@@ -66,6 +66,7 @@ export const routeJudger = (io: Namespace, socket: Socket) => {
 
 const parseSubmission = async (s: DSubmission) => {
 	const p = await problem(s.pid)
+	if (!p) throw new Error('problem not found')
 	const { _id, language, code } = s
 	const { timeLimit, memoryLimit, data } = p
 	return {
@@ -91,6 +92,10 @@ export const doJudge = async (s: DSubmission) => {
 		'add submission to queue:', s._id,
 		`-- queue length = ${submissions.length}`
 	)
-	submissions.push(await parseSubmission(s))
-	dispatchSubmission()
+	try {
+		submissions.push(await parseSubmission(s))
+		dispatchSubmission()
+	} catch (e) {
+		await update(SE(s._id, e.message))
+	}
 }

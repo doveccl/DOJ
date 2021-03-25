@@ -42,7 +42,7 @@ export const glink = (m = '', d = 'wavatar') => (
  * Parse time usage
  * @param t time in ms
  */
-export const parseTime = (t: number) => `${1000 * t} ms`
+export const parseTime = (t: number) => `${Math.round(1000 * t)} ms`
 
 /**
  * Parse memory usage
