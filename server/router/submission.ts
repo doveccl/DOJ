@@ -2,7 +2,7 @@ import Router from 'koa-router'
 
 import { compare } from '../../common/function'
 import { ContestType, Group, Status } from '../../common/interface'
-import { diffGroup, ensureGroup } from '../../common/user'
+import { diffGroup } from '../../common/user'
 import { group, token } from '../middleware/auth'
 import { contest, fetch, problem, user } from '../middleware/fetch'
 import { DSubmission, Submission } from '../model/submission'
@@ -94,13 +94,18 @@ router.put('/submission/rejudge', group(Group.admin), async (ctx) => {
 })
 
 /**
- * user can only modify code visibility to others
+ * common user can only modify code visibility to others
  */
 router.put('/submission/:id', fetch('submission'), async (ctx) => {
 	const { self, submission } = ctx
 	const { open } = ctx.request.body
-	if (!compare(self._id, submission.uid)) { ensureGroup(self, Group.admin) }
-	ctx.body = await submission.updateOne({ open }, { runValidators: true })
+	if (diffGroup(self, Group.admin)) {
+		ctx.body = await submission.updateOne(ctx.request.body, { runValidators: true })
+	} else if (compare(self._id, submission.uid)) {
+		ctx.body = await submission.updateOne({ open }, { runValidators: true })
+	} else {
+		throw new Error('permission denied')
+	}
 })
 
 router.post('/submission', async (ctx) => {

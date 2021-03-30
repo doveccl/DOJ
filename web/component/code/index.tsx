@@ -68,6 +68,7 @@ const language2mode = (lan: string) => {
 }
 
 export class Code extends React.Component<CodeProps> {
+	private editor: ace.Ace.Editor
 	private refViewer = React.createRef<HTMLDivElement>()
 	private refEditor = React.createRef<HTMLDivElement>()
 	private getOptions = (props?: CodeProps) => {
@@ -79,31 +80,51 @@ export class Code extends React.Component<CodeProps> {
 		if (theme) { options.theme = `ace/theme/${theme}` }
 		return options
 	}
-	private update(props: CodeProps) {
-		if (props.static) {
-			const code = this.refViewer.current
-			code.textContent = props.value
-			highlight(code, this.getOptions(props))
-		} else {
-			const { onChange } = props
-			const code = this.refEditor.current
-			const editor = ace.edit(code, this.getOptions(props))
-			editor.on('change', () => onChange && onChange(editor.getValue()))
+	private destroy() {
+		if (this.editor) {
+			this.editor.destroy()
+			this.editor = null
 		}
 	}
+	private update() {
+		if (this.props.static) {
+			const code = this.refViewer.current
+			code.textContent = this.props.value
+			highlight(code, this.getOptions(this.props))
+		} else if (!this.editor) {
+			const code = this.refEditor.current
+			const cb = this.props.onChange || (() => {})
+			this.editor = ace.edit(code, this.getOptions(this.props))
+			this.editor.on('change', () => cb(this.editor.getValue()))
+		} else { // change editor language & theme
+			const { mode, theme } = this.getOptions(this.props)
+			if (this.editor.getTheme() !== theme) this.editor.setTheme(theme)
+			this.editor.getSession().setMode(mode)
+		}
+	}
+
+	public componentDidMount() {
+		this.update()
+	}
 	public shouldComponentUpdate(nextProps?: CodeProps) {
-		if (nextProps.language != this.props.language) {
-			this.update(nextProps)
-			return true
+		for (const k of Object.keys(nextProps)) {
+			if (k === 'onChange') continue
+			if (nextProps[k] !== this.props[k]) {
+				nextProps.static && this.destroy()
+				return true
+			}
 		}
 		return false
 	}
-	public componentDidMount() {
-		this.update(this.props)
+	public componentDidUpdate() {
+		this.update()
+	}
+	public componentWillUnmount() {
+		this.destroy()
 	}
 	public render() {
 		return this.props.static ?
-			<div ref={this.refViewer} className="code-viewer" /> :
+			<div ref={this.refViewer} className="code-viewer" children={this.props.value} /> :
 			<div ref={this.refEditor} className="code-editor" />
 	}
 }

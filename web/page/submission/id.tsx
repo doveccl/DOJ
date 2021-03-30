@@ -1,6 +1,7 @@
 import React from 'react'
 import { Manager, Socket } from 'socket.io-client'
 
+import { CheckboxChangeEvent } from 'antd/lib/checkbox'
 import { message, Button, Card, Checkbox, Divider, Tag, Timeline } from 'antd'
 import { withRouter, Link } from 'react-router-dom'
 
@@ -21,7 +22,8 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 	public state = {
 		global: globalState,
 		pending: false,
-		submission: {} as ISubmission
+		submission: {} as ISubmission,
+		edit: false
 	}
 	private handleSubmission = (s: ISubmission) => {
 		this.setState({
@@ -71,6 +73,15 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 			})
 			.catch(message.error)
 	}
+	private shareChange = (e: CheckboxChangeEvent) => {
+		const s = this.state.submission
+		s.open = e.target.checked
+		putSubmission(s._id, s).then(() => this.forceUpdate()).catch(message.error)
+	}
+	private codeChange = (code: string) => {
+		this.state.submission.code = code
+	}
+
 	public componentDidMount() {
 		const { params } = this.props.match
 		updateState({ path: [
@@ -87,10 +98,10 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 	}
 	public componentWillUnmount() {
 		removeListener('submission')
-		if (this.socket) { this.socket.close() }
+		if (this.socket) this.socket.close()
 	}
 	public render() {
-		const { global, submission, pending } = this.state
+		const { global, submission, pending, edit } = this.state
 		const { _id, uname, pid, ptitle } = submission
 		const { result, cases, code, language } = submission
 		const { open, createdAt } = submission
@@ -143,26 +154,40 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 				<div className="divider" />
 				<Card
 					title="Code"
-					extra={<Checkbox
-						checked={open}
-						children="Public"
-						disabled={
-							!diffGroup(global.user, Group.admin) &&
-							global.user._id !== submission.uid
-						}
-						onChange={(e) => {
-							const s = { ...submission }
-							s.open = e.target.checked
-							putSubmission(_id, { open: s.open })
-								.then(() => this.setState({ submission: s }))
-								.catch(message.error)
-						}}
-					/>}
+					extra={<React.Fragment>
+						<Checkbox
+							checked={open}
+							children="Public"
+							onChange={this.shareChange}
+							disabled={
+								!diffGroup(global.user, Group.admin) &&
+								global.user._id !== submission.uid
+							}
+						/>
+						{diffGroup(global.user, Group.admin) && <React.Fragment>
+							<Divider type="vertical" />
+							<Button
+								type={edit ? 'primary' : 'default'}
+								children={edit ? 'Update' : 'Edit'}
+								onClick={() => {
+									if (edit) {
+										putSubmission(_id, submission).then(() => {
+											this.rejudge()
+											this.setState({ edit: false })
+										}).catch(message.error)
+									} else {
+										this.setState({ edit: true })
+									}
+								}}
+							/>
+						</React.Fragment>}
+					</React.Fragment>}
 				>
 					<Code
 						value={code}
-						static={true}
+						static={!edit}
 						language={lan && lan.suffix}
+						onChange={this.codeChange}
 					/>
 				</Card>
 			</React.Fragment>}
