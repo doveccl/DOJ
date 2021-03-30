@@ -164,7 +164,7 @@ class Submission extends React.Component<HistoryProps & MatchProps> {
 								global.user._id !== submission.uid
 							}
 						/>
-						{diffGroup(global.user, Group.admin) && <React.Fragment>
+						{diffGroup(global.user, Group.root) && <React.Fragment>
 							<Divider type="vertical" />
 							<Button
 								type={edit ? 'primary' : 'default'}
