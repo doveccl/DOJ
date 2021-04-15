@@ -13,7 +13,7 @@ export class ResetForm extends React.Component<HistoryProps> {
 		loading: false,
 		countdown: 0
 	}
-	private handleSend() {
+	private handleSend = () => {
 		const user = this.formRef.current.getFieldValue('user')
 		this.setState({ loading: true })
 		getReset(user)
@@ -34,7 +34,7 @@ export class ResetForm extends React.Component<HistoryProps> {
 				this.setState({ loading: false })
 			})
 	}
-	private handleSubmit(values: any) {
+	private handleSubmit = (values: any) => {
 		this.setState({ loading: true })
 		putReset(values)
 			.then(() => {
