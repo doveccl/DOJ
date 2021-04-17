@@ -67,19 +67,19 @@ module.exports = (_env, argv) => {
 					{ name: 'react-router-dom', var: 'ReactRouterDOM', path: `umd/react-router-dom${min}.js` },
 					{ name: 'react-markdown', var: 'ReactMarkdown', path: 'react-markdown.min.js' },
 					{ name: 'antd', path: `dist/antd${min}.js`, style: `dist/antd${min}.css` },
-					{ name: 'github-markdown-css', cssOnly: true, style: `github-markdown${min}.css` }
-				],
-				prodUrl: '//cdn.jsdelivr.net/npm/:name@:version/:path',
-				// prodUrl: '/npm/:name@:version/:path', // require nginx proxy
-				prod: argv.mode === 'production',
-				publicPath: '/node_modules'
+					{ name: 'github-markdown-css', cssOnly: true, style: `github-markdown.css` }
+				]
 			}),
 			new MiniCssExtractPlugin({
 				filename: '[name].[chunkhash:8].css'
 			})
 		],
 		devtool: dev && 'inline-source-map',
+		watchOptions: {
+			ignored: /node_modules/,
+		},
 		devServer: {
+			port: 28080,
 			historyApiFallback: true,
 			proxy: {
 				'/api': {
