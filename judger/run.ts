@@ -2,7 +2,7 @@ import { spawn, spawnSync, ChildProcess } from 'child_process'
 
 const env = {
 	HOME: '/tmp',
-	PATH: '/bin:/usr/bin'
+	PATH: '/bin:/usr/bin:/usr/local/bin'
 }
 
 const BLACKLIST = [
