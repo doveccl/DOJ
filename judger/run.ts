@@ -1,5 +1,10 @@
 import { spawn, spawnSync, ChildProcess } from 'child_process'
 
+const env = {
+	HOME: '/tmp',
+	PATH: '/bin:/usr/bin'
+}
+
 const BLACKLIST = [
 	'clone[a&268435456==268435456]',
 	'execve',
@@ -67,13 +72,13 @@ const buildArgs = (args: RunOpts) => {
 export const lrunSync = (opts: RunOpts) => {
 	const { stdin, stdout, stderr } = opts
 	const stdio = [stdin, stdout, stderr, 'pipe']
-	return spawnSync('lrun', buildArgs(opts), { maxBuffer: 10240, stdio })
+	return spawnSync('lrun', buildArgs(opts), { maxBuffer: 10240, stdio, env })
 }
 
 export const lrun = (opts: RunOpts) => {
 	const { stdin, stdout, stderr } = opts
 	const stdio = [stdin, stdout, stderr, 'pipe']
-	return spawn('lrun', buildArgs(opts), { stdio })
+	return spawn('lrun', buildArgs(opts), { stdio, env })
 }
 
 export enum ExceedType {
@@ -119,8 +124,8 @@ export const wait = (cp: ChildProcess) => new Promise<RunResult>((resolve, rejec
 			const res = parseResult(fd3)
 			if (fd2) res.error = fd2
 			resolve(res)
-		} catch (e) {
-			reject(e)
+		} catch {
+			reject(fd2 + fd3)
 		}
 	})
 })

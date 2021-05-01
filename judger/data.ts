@@ -39,6 +39,7 @@ export async function prepareData(id: string) {
 				await fs.copy(`testlib/checker.cpp`, `${dataPath}/checker.cpp`)
 			}
 			let result = compile(`${dataPath}/checker.cpp`, `${dataPath}/checker`)
+			if (result.error) throw result.error
 			if (result.status !== 0) {
 				const { stdout, stderr } = result
 				if (stderr) throw new Error(stderr.toString())

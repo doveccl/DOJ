@@ -65,7 +65,7 @@
 			"source": "main.py",
 			"run": {
 				"ratio": 2,
-				"cmd": "/usr/bin/python",
+				"cmd": "/usr/bin/python2",
 				"args": [
 					"main.py"
 				]
@@ -114,6 +114,25 @@
 				"args": [
 					"main.js"
 				]
+			}
+		},
+		{
+			"name": "Go",
+			"suffix": "go",
+			"source": "main.go",
+			"compile": {
+				"time": 10,
+				"cmd": "/usr/bin/go",
+				"args": [
+					"build",
+					"-o",
+					"main",
+					"main.go"
+				]
+			},
+			"run": {
+				"ratio": 1,
+				"cmd": "./main"
 			}
 		}
 	]
