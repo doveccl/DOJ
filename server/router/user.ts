@@ -12,7 +12,10 @@ import { send } from '../util/mail'
 
 const EXCLUDE_LIST = [ 'solve', 'submit' ]
 
-const router = new Router<any, { self: DUser }>()
+const router = new Router<any, {
+	self: DUser
+	user: DUser
+}>()
 
 router.use('/user', token())
 

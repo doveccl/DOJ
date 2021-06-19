@@ -5,10 +5,13 @@ import { Group } from '../../common/interface'
 import { ensureGroup } from '../../common/user'
 import { token } from '../middleware/auth'
 import { contest, fetch, problem, user } from '../middleware/fetch'
-import { Post } from '../model/post'
+import { DPost, Post } from '../model/post'
 import { DUser } from '../model/user'
 
-const router = new Router<any, { self: DUser }>()
+const router = new Router<any, {
+	self: DUser
+	post: DPost
+}>()
 
 router.use('/post', token())
 

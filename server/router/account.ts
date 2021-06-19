@@ -4,12 +4,12 @@ import Router from 'koa-router'
 
 import { checkPassword } from '../../common/function'
 import { password } from '../middleware/auth'
-import { User } from '../model/user'
+import { DUser, User } from '../model/user'
 import { sign, verify } from '../util/jwt'
 import { send } from '../util/mail'
 import { has, put } from '../util/timeset'
 
-const router = new Router()
+const router = new Router<any, { self: DUser }>()
 
 router.get('/login', password(), async (ctx) => {
 	ctx.body = ctx.self.toJSON()
