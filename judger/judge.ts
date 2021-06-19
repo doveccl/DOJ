@@ -100,11 +100,7 @@ export async function judge(args: IJudge, socket?: Socket) {
 
 		logJudger.debug(`#${ith} run result:`, result)
 		const { exceed, realTime, memory, signal, exitCode, error } = result
-		if (exitCode || error || signal) {
-			let e = `Error (code=${exitCode}, signal=${signal})`
-			if (error) e += ':\n' + error.trimEnd()
-			cases.push(Case(Status.RE, realTime, memory, e))
-		} else if (exceed !== null) {
+		if (exceed !== null) {
 			switch (exceed) {
 				case ExceedType.CPU_TIME:
 				case ExceedType.REAL_TIME:
@@ -113,6 +109,10 @@ export async function judge(args: IJudge, socket?: Socket) {
 				case ExceedType.MEMORY:
 					cases.push(Case(Status.MLE, realTime, memory))
 			}
+		} else if (exitCode || error || signal) {
+			let e = `Error (code=${exitCode}, signal=${signal})`
+			if (error) e += ':\n' + error.trimEnd()
+			cases.push(Case(Status.RE, realTime, memory, e))
 		} else { // check output
 			const res = lrunSync({
 				cmd: checker,
