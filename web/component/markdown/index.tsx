@@ -1,5 +1,6 @@
 import React from 'react'
-import Markdown from 'react-markdown'
+import ReactMarkdown from 'react-markdown'
+import katex from 'rehype-katex'
 import math from 'remark-math'
 import gfm from 'remark-gfm'
 
@@ -32,10 +33,13 @@ export class MarkDown extends React.Component<MarkdownProps> {
 	public render() {
 		const { allowDangerousHtml, shortCode, children } = this.props
 		const source = (children || '').replace(/[\s\n]*\n(#+)/g, '\n\n$1')
-		return <Markdown
-			plugins={[gfm, math]}
+		return <ReactMarkdown
+			// @ts-ignore
+			rehypePlugins={[katex]}
+			// @ts-ignore
+			remarkPlugins={[gfm, math]}
 			className="markdown-body"
-			allowDangerousHtml={allowDangerousHtml}
+			skipHtml={!allowDangerousHtml}
 			children={shortCode ? source.replace(shortCodeRegExp, code => {
 				const arrs = code.slice(2, -2).trim().split(/\s+/)
 				const type = arrs.shift().toLowerCase()
@@ -51,12 +55,12 @@ export class MarkDown extends React.Component<MarkdownProps> {
 					default: return `<s>Unknown Tag: ${type}</s>`
 				}
 			}) : source}
-			renderers={{
-				math: ({ value }) => renderMath(value, true),
-				inlineMath: ({ value }) => renderMath(value),
-				code: ({ value, language }) => <Code
-					static value={value} language={language}
-				/>
+			components={{
+				code({inline, className, children}) {
+					if (inline || !className) return <code>{children}</code>
+					const lan = /language-(\w+)/.exec(className)[1]
+					return <Code static language={lan} value={String(children)} />
+				}
 			}}
 		/>
 	}

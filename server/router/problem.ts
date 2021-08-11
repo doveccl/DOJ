@@ -16,7 +16,8 @@ const router = new Router<any, {
 router.use('/problem', token())
 
 router.get('/problem', async (ctx) => {
-	const { all, cid } = ctx.query
+	const all = ctx.query.all as string
+	const cid = ctx.query.cid as string
 	let search = ctx.query.search as string
 	const page = Number(ctx.query.page) || 1
 	const size = Number(ctx.query.size) || 50
@@ -27,7 +28,7 @@ router.get('/problem', async (ctx) => {
 	const condition = {
 		'contest.id': cid,
 		'$or': [
-			{ tags: search },
+			{ tags: [search] },
 			{ title: searchRegExp },
 			{ content: searchRegExp }
 		]

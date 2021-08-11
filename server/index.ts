@@ -19,12 +19,7 @@ const app = new Koa()
 
 app.use(Compose([ Log(), Static(), Wrap(), Router() ]))
 
-mongoose.connect(database, {
-	useCreateIndex: true,
-	useNewUrlParser: true,
-	useFindAndModify: false,
-	useUnifiedTopology: true
-}, (error) => {
+mongoose.connect(database, error => {
 	if (error) {
 		logServer.fatal(error)
 	} else {

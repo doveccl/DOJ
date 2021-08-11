@@ -1,9 +1,11 @@
 const config = require('config')
+const packageJson = require('./package.json')
+
 const WebpackCdnPlugin = require('webpack-cdn-plugin')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const MiniCssExtractPlugin = require('mini-css-extract-plugin')
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin')
-const packageJson = require('./package.json')
+const NodePolyfillPlugin = require("node-polyfill-webpack-plugin")
 
 module.exports = (_env, argv) => {
 	const dev = argv.mode === 'development'
@@ -45,6 +47,7 @@ module.exports = (_env, argv) => {
 			extensions: ['.tsx', '.ts', '.js']
 		},
 		plugins: [
+			new NodePolyfillPlugin(),
 			new HtmlWebpackPlugin({
 				title: 'DOJ',
 				inject: 'body',
@@ -60,12 +63,11 @@ module.exports = (_env, argv) => {
 					{ name: 'moment', path: `min/moment.min.js` },
 					{ name: 'axios', path: `dist/axios${min}.js` },
 					{ name: 'ace-builds', var: 'ace', paths: [`src-min-noconflict/ace.js`, `src-min-noconflict/ext-static_highlight.js`] },
-					{ name: 'katex', path: `dist/katex${min}.js`, style: `dist/katex${min}.css` },
+					{ name: 'katex', cssOnly: true, style: `dist/katex${min}.css` },
 					{ name: 'socket.io-client', var: 'io', path: 'dist/socket.io.js' },
 					{ name: 'react', var: 'React', path: `umd/react.${reactMode}.js` },
 					{ name: 'react-dom', var: 'ReactDOM', path: `umd/react-dom.${reactMode}.js` },
 					{ name: 'react-router-dom', var: 'ReactRouterDOM', path: `umd/react-router-dom${min}.js` },
-					{ name: 'react-markdown', var: 'ReactMarkdown', path: 'react-markdown.min.js' },
 					{ name: 'antd', path: `dist/antd${min}.js`, style: `dist/antd${min}.css` },
 					{ name: 'github-markdown-css', cssOnly: true, style: `github-markdown.css` }
 				]

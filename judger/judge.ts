@@ -98,7 +98,7 @@ export async function judge(args: IJudge, socket?: Socket) {
 			fs.closeSync(conf.stdin)
 		}
 
-		logJudger.debug(`#${ith} run result:`, result)
+		logJudger.debug(`#${ith} run result:`, JSON.stringify(result))
 		const { exceed, realTime, memory, signal, exitCode, error } = result
 		if (exceed !== null) {
 			switch (exceed) {
@@ -119,9 +119,9 @@ export async function judge(args: IJudge, socket?: Socket) {
 				args: [inf, outf, ansf],
 				passExitcode: true
 			})
-			logJudger.debug('checker result:', res)
 			const { stdout, stderr, status } = res
 			const e = (stdout.toString() + stderr.toString()).trimEnd()
+			logJudger.debug(`#${ith} checker result:`, JSON.stringify(e))
 			cases.push(Case(status ? Status.WA : Status.AC, realTime, memory, e))
 		}
 		ith++
@@ -137,7 +137,6 @@ export async function judge(args: IJudge, socket?: Socket) {
 		if (m < cas.memory) m = cas.memory
 		if (st === Status.AC) st = cas.status
 	}
-	logJudger.info('cases:', cases)
 	return {
 		cases, _id: args._id,
 		result: Case(st, t, m)

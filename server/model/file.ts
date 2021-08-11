@@ -1,5 +1,5 @@
 import fs from 'fs'
-import { GridFSBucket, GridFSBucketOpenUploadStreamOptions, ObjectID } from 'mongodb'
+import { GridFSBucket, GridFSBucketWriteStreamOptions, ObjectId } from 'mongodb'
 import { connection, model, Document, Schema } from 'mongoose'
 import { IFile } from '../../common/interface'
 
@@ -29,6 +29,7 @@ const FS = model<DFile>('fs.file', schema)
  * mongodb GridFS Bucket
  */
 let bucket: GridFSBucket
+// @ts-ignore util mongoose update its dependency version
 connection.on('open', () => bucket = new GridFSBucket(connection.db))
 
 export const TYPE_REG = /(:?image|pdf|zip)/
@@ -36,17 +37,19 @@ export const TYPE_REG = /(:?image|pdf|zip)/
 export class File {
 	public static create(
 		path: string, filename: string,
-		opts?: GridFSBucketOpenUploadStreamOptions
+		opts?: GridFSBucketWriteStreamOptions
 	) {
-		return new Promise<any>((resolve, reject) => {
+		return new Promise<ObjectId>((resolve, reject) => {
 			const stream = bucket.openUploadStream(filename, opts)
-			fs.createReadStream(path).pipe(stream)
-				.on('error', (error) => reject(error))
-				.on('finish', () => resolve(stream.id))
+			stream.on('error', error => reject(error))
+			stream.on('finish', () => resolve(stream.id))
+			fs.createReadStream(path).on('data', data => {
+				stream.write(data instanceof Buffer ? data : Buffer.from(data))
+			})
 		})
 	}
 	public static creatReadStream(id: any) {
-		return bucket.openDownloadStream(new ObjectID(id))
+		return bucket.openDownloadStream(new ObjectId(id))
 	}
 	public static countDocuments(conditions?: any) {
 		return FS.countDocuments(conditions)
@@ -62,9 +65,8 @@ export class File {
 	}
 	public static findByIdAndRemove(id: any) {
 		return new Promise<any>((resolve, reject) => {
-			bucket.delete(new ObjectID(id), (error) => {
-				if (error) { reject(error) }
-				resolve({ id })
+			bucket.delete(new ObjectId(id), err => {
+				err ? reject(err) : resolve({ id })
 			})
 		})
 	}
