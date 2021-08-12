@@ -1,11 +1,12 @@
 import Router from 'koa-router'
 
-import { Group } from '../../common/interface'
+import { Group, Status } from '../../common/interface'
 import { ensureGroup } from '../../common/user'
 import { group, token } from '../middleware/auth'
 import { contest, fetch } from '../middleware/fetch'
 import { File } from '../model/file'
 import { DProblem, Problem } from '../model/problem'
+import { Submission } from '../model/submission'
 import { DUser } from '../model/user'
 
 const router = new Router<any, {
@@ -47,9 +48,15 @@ router.get('/problem', async (ctx) => {
 		if (!all && item.contest) {
 			const c = await contest(item.contest.id)
 			const enableAt = cid ? c.startAt : c.endAt
-			if (new Date() < enableAt) { continue }
+			if (new Date() < enableAt) continue
 		}
-		list.push(item.toJSON())
+		list.push(Object.assign({
+			solved: await Submission.countDocuments({
+				pid: item._id,
+				uid: ctx.self._id,
+				'result.status': Status.AC
+			})
+		}, item.toJSON()))
 	}
 	ctx.body = { total, list }
 })

@@ -43,9 +43,8 @@ export class File {
 			const stream = bucket.openUploadStream(filename, opts)
 			stream.on('error', error => reject(error))
 			stream.on('finish', () => resolve(stream.id))
-			fs.createReadStream(path).on('data', data => {
-				stream.write(data instanceof Buffer ? data : Buffer.from(data))
-			})
+			// @ts-ignore util mongodb update its stream define
+			fs.createReadStream(path).pipe(stream)
 		})
 	}
 	public static creatReadStream(id: any) {

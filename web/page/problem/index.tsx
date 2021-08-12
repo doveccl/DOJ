@@ -2,6 +2,7 @@ import React from 'react'
 import { withRouter } from 'react-router-dom'
 
 import { message, Card, Input, Progress, Table, Tag } from 'antd'
+import { CheckOutlined } from '@ant-design/icons'
 
 import { LoginTip } from '../../component/login-tip'
 import { getProblems, hasToken } from '../../model'
@@ -67,11 +68,14 @@ class Problems extends React.Component<HistoryProps> {
 					pagination={this.state.pagination}
 					onChange={this.handleChange}
 					columns={[
-						{ title: 'Title', width: 100, dataIndex: 'title' },
-						{ title: 'Tags', width: 200, key: 'tags', render: (t, r) => <React.Fragment>
+						{ title: 'AC', width: 20, align: 'center', key: 'solved', render: s => s ?
+							<CheckOutlined style={{ color: '#52c41a' }} /> : null
+						},
+						{ title: 'Title', width: 200, dataIndex: 'title' },
+						{ title: 'Tags', width: 100, key: 'tags', render: (_, r) => <React.Fragment>
 							{r.tags.map((tag, i) => <Tag key={i}>{tag}</Tag>)}
 						</React.Fragment> },
-						{ title: 'Ratio', width: 100, key: 'ratio', render: (t, r) =>
+						{ title: 'Ratio', width: 100, key: 'ratio', render: (_, r) =>
 							<Progress percent={Math.floor(100 * r.solve / r.submit)} status="active" />
 						}
 					]}

@@ -17,7 +17,7 @@ socket.on('judge', (s: any) => {
 	judge(s, socket)
 		.then((val) => socket.emit('finish', val))
 		.catch((err) => {
-			logJudger.error('judge error:', err)
+			logJudger.error('judge error:', err?.message || err)
 			socket.emit('finish', SE(s._id, err))
 		})
 })
