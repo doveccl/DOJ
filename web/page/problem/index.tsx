@@ -68,8 +68,8 @@ class Problems extends React.Component<HistoryProps> {
 					pagination={this.state.pagination}
 					onChange={this.handleChange}
 					columns={[
-						{ title: 'AC', width: 20, align: 'center', key: 'solved', render: s => s ?
-							<CheckOutlined style={{ color: '#52c41a' }} /> : null
+						{ title: 'AC', width: 20, align: 'center', key: 'solved', render: (_, r) =>
+							r.solved ? <CheckOutlined style={{ color: '#52c41a' }} /> : null
 						},
 						{ title: 'Title', width: 200, dataIndex: 'title' },
 						{ title: 'Tags', width: 100, key: 'tags', render: (_, r) => <React.Fragment>

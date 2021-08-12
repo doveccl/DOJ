@@ -41,6 +41,7 @@ export interface IProblem<I, T> {
 	timeLimit: number
 	memoryLimit: number
 	solve: number
+	solved?: number
 	submit: number
 	data?: I
 	contest?: {
