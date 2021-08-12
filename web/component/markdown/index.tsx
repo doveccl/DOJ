@@ -1,29 +1,16 @@
 import React from 'react'
-import ReactMarkdown from 'react-markdown'
-import katex from 'rehype-katex'
-import math from 'remark-math'
-import gfm from 'remark-gfm'
-
-import { Code } from '../code'
+import marked from 'marked'
+import hljs from 'highlight.js'
+import { sanitize } from 'dompurify'
 import { renderToString } from 'katex'
 
 import './index.less'
 
 const shortCodeRegExp = /\[\[\s*\w+(\s+[^\]]+=[^\]]+)+\s*\]\]/g
 
-const renderMath = (tex: string, displayMode = false) => {
-	try {
-		const html = renderToString(tex, { displayMode })
-		return <span dangerouslySetInnerHTML={{ __html: html }} />
-	} catch {
-		return <span style={{ color: 'red' }}>error</span>
-	}
-}
-
 type MarkdownProps = {
 	children: string
-	shortCode?: boolean
-	allowDangerousHtml?: boolean
+	trusted?: boolean
 }
 
 export class MarkDown extends React.Component<MarkdownProps> {
@@ -31,36 +18,45 @@ export class MarkDown extends React.Component<MarkdownProps> {
 		return nextPorps.children !== this.props.children
 	}
 	public render() {
-		const { allowDangerousHtml, shortCode, children } = this.props
-		const source = (children || '').replace(/[\s\n]*\n(#+)/g, '\n\n$1')
-		return <ReactMarkdown
-			// @ts-ignore
-			rehypePlugins={[katex]}
-			// @ts-ignore
-			remarkPlugins={[gfm, math]}
+		const { trusted, children } = this.props
+		let result = (trusted ? children?.replace(shortCodeRegExp, code => {
+			const arrs = code.slice(2, -2).trim().split(/\s+/)
+			const type = arrs.shift().toLowerCase()
+			const attrs = {} as any
+			arrs.forEach(attr => {
+				const [k, v] = attr.split('=')
+				attrs[k.trim()] = v.trim().replace(/"/g, '')
+			})
+			if (attrs.id) attrs.src = `/api/file/${attrs.id}`
+			switch (type) {
+				case 'pdf': return `<object class="pdf" data=${attrs.src} />`
+				case 'img': return `<img src=${attrs.src} />`
+				default: return `<s>Unknown Tag: ${type}</s>`
+			}
+		}) : sanitize(children, {
+			ALLOWED_TAGS: []
+		}))?.replace(/\${1,2}[\s\S]+?\${1,2}/g, str => {
+			const displayMode = str.startsWith('$$')
+			const math = str.replace(/^\$+|\$+$/g, '')
+			try {
+				return renderToString(math, { displayMode })
+			} catch {
+				const el = document.createElement(displayMode ? 'div' : 'span')
+				el.style.color = 'red'
+				el.textContent = math
+				return el.outerHTML
+			}
+		})
+		return <div
 			className="markdown-body"
-			skipHtml={!allowDangerousHtml}
-			children={shortCode ? source.replace(shortCodeRegExp, code => {
-				const arrs = code.slice(2, -2).trim().split(/\s+/)
-				const type = arrs.shift().toLowerCase()
-				const attrs = {} as any
-				arrs.forEach(attr => {
-					const [k, v] = attr.split('=')
-					attrs[k.trim()] = eval(v.trim())
+			dangerouslySetInnerHTML={{
+				__html: marked(result, {
+					silent: true,
+					highlight(code, lang) {
+						if (!lang) return code
+						return hljs.highlightAuto(code).value
+					}
 				})
-				if (attrs.id) attrs.url = `/api/file/${attrs.id}`
-				switch (type) {
-					case 'pdf': return `<object class="pdf" data=${attrs.url} />`
-					case 'img': return `<img src=${attrs.url} />`
-					default: return `<s>Unknown Tag: ${type}</s>`
-				}
-			}) : source}
-			components={{
-				code({inline, className, children}) {
-					if (inline || !className) return <code>{children}</code>
-					const lan = /language-(\w+)/.exec(className)[1]
-					return <Code static language={lan} value={String(children)} />
-				}
 			}}
 		/>
 	}

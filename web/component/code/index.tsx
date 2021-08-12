@@ -1,7 +1,6 @@
-import ace from 'ace-builds'
 import React from 'react'
-
-const highlight = ace.require('ace/ext/static_highlight')
+import ace from 'ace-builds'
+import hljs from 'highlight.js'
 
 import './index.less'
 
@@ -62,8 +61,8 @@ const LAN_MAP: any = {
 }
 
 const language2mode = (lan: string) => {
-	if (LAN_SET.includes(lan)) { return lan }
-	if (lan in LAN_MAP) { return LAN_MAP[lan] }
+	if (LAN_SET.includes(lan)) return lan
+	if (lan in LAN_MAP) return LAN_MAP[lan]
 	return false
 }
 
@@ -75,9 +74,9 @@ export class Code extends React.Component<CodeProps> {
 		const { language, theme, value } = props || this.props
 		const options = this.props.options || {}
 		const mode = language2mode(language)
-		if (value) { options.value = value }
-		if (mode) { options.mode = `ace/mode/${mode}` }
-		if (theme) { options.theme = `ace/theme/${theme}` }
+		if (value) options.value = value
+		if (mode) options.mode = `ace/mode/${mode}`
+		if (theme) options.theme = `ace/theme/${theme}`
 		return options
 	}
 	private destroy() {
@@ -89,8 +88,7 @@ export class Code extends React.Component<CodeProps> {
 	private update() {
 		if (this.props.static) {
 			const code = this.refViewer.current
-			code.textContent = this.props.value
-			highlight(code, this.getOptions(this.props))
+			code.innerHTML = hljs.highlightAuto(this.props.value).value
 		} else if (!this.editor) {
 			const code = this.refEditor.current
 			const cb = this.props.onChange || (() => {})

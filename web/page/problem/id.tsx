@@ -52,11 +52,7 @@ class Problem extends React.Component<HistoryProps & MatchProps> {
 					<Tag color="orange">{parseMemory(problem.memoryLimit)}</Tag>
 				</React.Fragment>}
 			>
-				<MarkDown
-					shortCode={true}
-					children={problem.content}
-					allowDangerousHtml={true}
-				/>
+				<MarkDown trusted children={problem.content} />
 			</Card>
 			<div className="divider" />
 			<Card

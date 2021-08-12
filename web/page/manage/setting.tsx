@@ -36,8 +36,7 @@ export default class extends React.Component {
 				loading={typeof value === 'undefined'}
 			>
 				<Editor
-					value={value}
-					allowDangerousHtml={true}
+					trusted value={value}
 					onChange={(v) => this.setState({ value: v })}
 				/>
 			</Card>

@@ -88,7 +88,7 @@ export class ContestForm extends React.Component<ContestFormProps> {
 				/>
 			</Form.Item>
 			<Form.Item label="Description" name="description" {...formItemLayout}>
-				<Editor allowDangerousHtml={true} />
+				<Editor trusted />
 			</Form.Item>
 		</Form>
 	}

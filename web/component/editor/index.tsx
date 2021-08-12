@@ -7,8 +7,7 @@ import './index.less'
 
 interface EditorProps {
 	value?: string
-	shortCode?: boolean
-	allowDangerousHtml?: boolean
+	trusted?: boolean
 	onChange?: (value: string) => any
 }
 
@@ -34,8 +33,7 @@ export class Editor extends React.Component<EditorProps> {
 				<div className="view">
 					<MarkDown
 						children={this.state.content}
-						shortCode={this.props.shortCode}
-						allowDangerousHtml={this.props.allowDangerousHtml}
+						trusted={this.props.trusted}
 					/>
 				</div>
 			</div>
