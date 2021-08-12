@@ -1,3 +1,4 @@
+import path from 'path'
 import config from 'config'
 import Router from 'koa-router'
 
@@ -27,11 +28,9 @@ router.get('/file', group(Group.admin), async (ctx) => {
 })
 
 router.get('/file/:id', fetch('file'), async (ctx) => {
-	if (ctx.file.metadata === 'data') {
+	if (ctx.file.metadata?.type === 'data')
 		ensureGroup(ctx.self, Group.admin)
-	}
-
-	ctx.type = ctx.file.contentType
+	ctx.type = path.extname(ctx.file.filename)
 	ctx.body = File.creatReadStream(ctx.params.id)
 })
 
@@ -43,10 +42,8 @@ router.post('/file', group(Group.admin), async (ctx) => {
 		const files = Array.isArray(item) ? item : [item]
 		for (const file of files) {
 			if (TYPE_REG.test(file.type)) {
-				const { path, name, type } = file
-				ctx.body.push(await File.create(path, name, {
-					contentType: type, metadata: { type: 'common' }
-				}))
+				const { path, name } = file
+				ctx.body.push(await File.create(path, name))
 			}
 		}
 	}
@@ -66,11 +63,9 @@ router.del('/file/:id', group(Group.admin), fetch('file'), async (ctx) => {
  * for judger to download data
  */
 router.get('/data/:id', fetch('file'), async (ctx) => {
-	if (ctx.query.secret !== config.get('secret')) {
+	if (ctx.query.secret !== config.get('secret'))
 		throw new Error('invalid secret')
-	}
-
-	ctx.type = ctx.file.contentType
+	ctx.type = path.extname(ctx.file.filename)
 	ctx.body = File.creatReadStream(ctx.params.id)
 })
 

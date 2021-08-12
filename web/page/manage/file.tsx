@@ -9,12 +9,11 @@ import { IFile } from '../../util/interface'
 import { updateState } from '../../util/state'
 
 const renderUsage = (f: IFile) => {
-	if (/pdf/.test(f.contentType)) {
+	if (/\.pdf$/.test(f.filename))
 		return `[[ PDF id="${f._id}" ]]`
-	} else if (/image/.test(f.contentType)) {
+	else if (/\.(png|jpe?g|gif)$/.test(f.filename))
 		return `[[ IMG id="${f._id}" ]]`
-	}
-	return `Data ID: ${f._id}`
+	return `${f._id}`
 }
 
 export default class extends React.Component {

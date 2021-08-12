@@ -108,11 +108,8 @@ export interface IPost<I, T> {
 export interface IFile<I, T> {
 	_id: I
 	filename: string
-	contentType: string
 	length: number
 	chunkSize: number
 	uploadDate: T
 	metadata: any
-	aliases: string[]
-	md5: string
 }

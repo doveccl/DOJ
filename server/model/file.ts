@@ -7,13 +7,10 @@ export type DFile = IFile<Schema.Types.ObjectId, Date> & Document
 
 const schema = new Schema({
 	filename: String,
-	contentType: String,
 	length: Number,
 	chunkSize: Number,
 	uploadDate: Date,
-	metadata: Schema.Types.Mixed,
-	aliases: [String],
-	md5: String
+	metadata: Schema.Types.Mixed
 }, {
 	versionKey: false
 })

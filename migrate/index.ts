@@ -54,8 +54,7 @@ async function parseMD(s: string, imgname?: string) {
 			}
 			const fid = await File.create(
 				join(upload, md5),
-				imgname || 'image',
-				{ contentType: type }
+				imgname || 'image'
 			)
 			res = res.replace(match, `[[ IMG id="${fid}" ]]`)
 		} catch (e) {
@@ -93,7 +92,7 @@ async function addData(pid: string) {
 		)
 		return await File.create(
 			join(data, pid, `P${pid}-data.zip`),
-			`P${pid}-data.zip`, { contentType: 'application/zip' }
+			`P${pid}-data.zip`
 		)
 	}
 }
