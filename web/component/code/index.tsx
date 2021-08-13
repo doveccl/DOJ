@@ -117,8 +117,9 @@ export class Code extends React.Component<CodeProps> {
 		this.destroy()
 	}
 	public render() {
+		const { value, language } = this.props
 		return this.props.static ?
-			<MarkDown>{`~~~\n${this.props.value.trim()}\n~~~`}</MarkDown> :
+			<MarkDown>{`~~~${language}\n${value.trim()}\n~~~`}</MarkDown> :
 			<div ref={this.refEditor} className="code-editor" />
 	}
 }

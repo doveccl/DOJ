@@ -6,10 +6,13 @@ import { renderToString } from 'katex'
 
 import './index.less'
 
-const shortCodeRegExp = /\[\[\s*\w+(\s+[^\]]+=[^\]]+)+\s*\]\]/g
+const mathRegExp = /(\${1,2})([\s\S]+?)\1/g
+const codeRegExp = /\s*([`~]{3})(\S*)\s+([\s\S]+?)\n\1/g
+const shortCodeRegExp = /\[\[\s*(\w+)(?:\s+(\w+)="(\S+)")+\s*\]\]/g
 
 type MarkdownProps = {
 	children: string
+	autohljs?: boolean
 	trusted?: boolean
 }
 
@@ -21,39 +24,36 @@ export class MarkDown extends React.Component<MarkdownProps> {
 		const codes: string[] = []
 		const { trusted, children } = this.props
 		let result = children || ''
-		// replace code blocks with simple string
+		// replace code blocks with empty string
 		// avoid sanitize: '#include<xxx>' => '#include'
-		marked(result, {
-			silent: true,
-			highlight(code) {
-				codes.push(code)
-				result = result.replace(code, 'replacer')
-			}
+		result = result.replace(codeRegExp, (_, tok, lan, code) => {
+			codes.push(code)
+			return `\n${tok}${lan}\n${tok}`
 		})
 		// trusted ? parse shortcode : sanitize it
-		result = trusted ? result.replace(shortCodeRegExp, code => {
-			const arrs = code.slice(2, -2).trim().split(/\s+/)
-			const type = arrs.shift().toLowerCase()
-			const attrs = {} as any
-			arrs.forEach(attr => {
-				const [k, v] = attr.split('=')
-				attrs[k.trim()] = v.trim().replace(/"/g, '')
-			})
-			if (attrs.id) attrs.src = `/api/file/${attrs.id}`
-			switch (type) {
-				case 'pdf': return `<object class="pdf" data=${attrs.src} />`
-				case 'img': return `<img src=${attrs.src} />`
-				default: return `<s>Unknown Tag: ${type}</s>`
+		result = trusted ? result.replace(shortCodeRegExp, (_, tag, ...args) => {
+			let id = '', src = ''
+			for (let i = 1; i < args.length; i += 2) {
+				switch (args[i - 1]) {
+					case 'id': id = args[i]; break
+					case 'src': src = args[i]; break
+				}
+			}
+			if (id) src = `/api/file/${id}`
+			switch (src && tag.toLowerCase()) {
+				case 'pdf': return `<object class="pdf" data=${src} />`
+				case 'img': return `<img src=${src} />`
+				default: return `<red>[${tag}]</red>`
 			}
 		}) : sanitize(result, { ALLOWED_TAGS: [] })
 		// parse math block $...$, $$...$$ with katex
-		result = result.replace(/\${1,2}[\s\S]+?\${1,2}/g, str => {
-			const displayMode = str.startsWith('$$')
-			const math = str.replace(/^\$+|\$+$/g, '')
+		result = result.replace(mathRegExp, (_, tok, math) => {
+			const displayMode = tok === '$$'
+			const tag = displayMode ? 'div' : 'span'
 			try {
 				return renderToString(math, { displayMode })
 			} catch {
-				const el = document.createElement(displayMode ? 'div' : 'span')
+				const el = document.createElement(tag)
 				el.style.color = 'red'
 				el.textContent = math
 				return el.outerHTML
@@ -64,10 +64,10 @@ export class MarkDown extends React.Component<MarkdownProps> {
 			dangerouslySetInnerHTML={{
 				__html: marked(result, {
 					silent: true,
-					highlight(_, lan) {
+					highlight: (_, lan) => {
 						// restore replaced code
-						const code = codes.shift()
-						const lans = lan ? [lan] : undefined
+						let code = codes.shift(), lans = [lan]
+						if (!lan && this.props.autohljs) lans = undefined
 						return hljs.highlightAuto(code, lans).value
 					}
 				})
