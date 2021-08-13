@@ -64,10 +64,11 @@ export class MarkDown extends React.Component<MarkdownProps> {
 			dangerouslySetInnerHTML={{
 				__html: marked(result, {
 					silent: true,
-					highlight(_code, lang) {
+					highlight(_, lan) {
 						// restore replaced code
 						const code = codes.shift()
-						return hljs.highlightAuto(code, [lang]).value
+						const lans = lan ? [lan] : undefined
+						return hljs.highlightAuto(code, lans).value
 					}
 				})
 			}}
