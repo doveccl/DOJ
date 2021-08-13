@@ -18,8 +18,20 @@ export class MarkDown extends React.Component<MarkdownProps> {
 		return nextPorps.children !== this.props.children
 	}
 	public render() {
+		const codes: string[] = []
 		const { trusted, children } = this.props
-		let result = (trusted ? children?.replace(shortCodeRegExp, code => {
+		let result = children || ''
+		// replace code blocks with simple string
+		// avoid sanitize: '#include<xxx>' => '#include'
+		marked(result, {
+			silent: true,
+			highlight(code) {
+				codes.push(code)
+				result = result.replace(code, 'replacer')
+			}
+		})
+		// trusted ? parse shortcode : sanitize it
+		result = trusted ? result.replace(shortCodeRegExp, code => {
 			const arrs = code.slice(2, -2).trim().split(/\s+/)
 			const type = arrs.shift().toLowerCase()
 			const attrs = {} as any
@@ -33,9 +45,9 @@ export class MarkDown extends React.Component<MarkdownProps> {
 				case 'img': return `<img src=${attrs.src} />`
 				default: return `<s>Unknown Tag: ${type}</s>`
 			}
-		}) : sanitize(children, {
-			ALLOWED_TAGS: []
-		}))?.replace(/\${1,2}[\s\S]+?\${1,2}/g, str => {
+		}) : sanitize(result, { ALLOWED_TAGS: [] })
+		// parse math block $...$, $$...$$ with katex
+		result = result.replace(/\${1,2}[\s\S]+?\${1,2}/g, str => {
 			const displayMode = str.startsWith('$$')
 			const math = str.replace(/^\$+|\$+$/g, '')
 			try {
@@ -52,9 +64,10 @@ export class MarkDown extends React.Component<MarkdownProps> {
 			dangerouslySetInnerHTML={{
 				__html: marked(result, {
 					silent: true,
-					highlight(code, lang) {
-						if (!lang) return code
-						return hljs.highlightAuto(code).value
+					highlight(_code, lang) {
+						// restore replaced code
+						const code = codes.shift()
+						return hljs.highlightAuto(code, [lang]).value
 					}
 				})
 			}}

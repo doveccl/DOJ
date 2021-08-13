@@ -88,7 +88,8 @@ export class Code extends React.Component<CodeProps> {
 	private update() {
 		if (this.props.static) {
 			const code = this.refViewer.current
-			code.innerHTML = hljs.highlightAuto(this.props.value).value
+			const { language, value } = this.props
+			code.innerHTML = hljs.highlightAuto(value, [language]).value
 		} else if (!this.editor) {
 			const code = this.refEditor.current
 			const cb = this.props.onChange || (() => {})
