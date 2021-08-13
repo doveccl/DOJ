@@ -24,6 +24,8 @@ export class MarkDown extends React.Component<MarkdownProps> {
 		const codes: string[] = []
 		const { trusted, children } = this.props
 		let result = children || ''
+		// ensure an empty line before title
+		result = result.replace(/\s*\n(#{1,6})/g, '\n\n$1').trimLeft()
 		// replace code blocks with empty string
 		// avoid sanitize: '#include<xxx>' => '#include'
 		result = result.replace(codeRegExp, (_, tok, lan, code) => {
