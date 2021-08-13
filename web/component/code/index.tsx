@@ -1,6 +1,6 @@
 import React from 'react'
 import ace from 'ace-builds'
-import hljs from 'highlight.js'
+import { MarkDown } from '../markdown'
 
 import './index.less'
 
@@ -68,7 +68,6 @@ const language2mode = (lan: string) => {
 
 export class Code extends React.Component<CodeProps> {
 	private editor: ace.Ace.Editor
-	private refViewer = React.createRef<HTMLDivElement>()
 	private refEditor = React.createRef<HTMLDivElement>()
 	private getOptions = (props?: CodeProps) => {
 		const { language, theme, value } = props || this.props
@@ -86,11 +85,7 @@ export class Code extends React.Component<CodeProps> {
 		}
 	}
 	private update() {
-		if (this.props.static) {
-			const code = this.refViewer.current
-			const { language, value } = this.props
-			code.innerHTML = hljs.highlightAuto(value, [language]).value
-		} else if (!this.editor) {
+		if (!this.editor) {
 			const code = this.refEditor.current
 			const cb = this.props.onChange || (() => {})
 			this.editor = ace.edit(code, this.getOptions(this.props))
@@ -103,7 +98,7 @@ export class Code extends React.Component<CodeProps> {
 	}
 
 	public componentDidMount() {
-		this.update()
+		if (!this.props.static) this.update()
 	}
 	public shouldComponentUpdate(nextProps?: CodeProps) {
 		for (const k of Object.keys(nextProps)) {
@@ -116,14 +111,15 @@ export class Code extends React.Component<CodeProps> {
 		return false
 	}
 	public componentDidUpdate() {
-		this.update()
+		if (!this.props.static) this.update()
 	}
 	public componentWillUnmount() {
 		this.destroy()
 	}
 	public render() {
+		const { language, value } = this.props
 		return this.props.static ?
-			<div ref={this.refViewer} className="code-viewer" children={this.props.value} /> :
+			<MarkDown>{`~~~${language}\n${value.trim()}\n~~~`}</MarkDown> :
 			<div ref={this.refEditor} className="code-editor" />
 	}
 }
