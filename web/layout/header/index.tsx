@@ -30,46 +30,34 @@ class Header extends React.Component<HistoryProps> {
 		const { user } = this.state.global
 		return <Layout.Header className="header">
 			<Menu
-				mode="horizontal"
 				className="menu"
-				selectable={false}
+				mode="horizontal"
+				key={user ? 'user-nemu' : 'login-menu'}
+				selectedKeys={[this.props.history.location.pathname]}
 				onClick={({ key }) => {
 					switch (key) {
+						case '/login':
 						case '/setting':
 						case '/register':
 							this.props.history.push(key)
 							break
-						default:
-							logout()
+						case '/logout':
 							this.props.history.push('/login')
+							logout()
+							break
 					}
 				}}
 			>
-				{user && <Menu.SubMenu
-					key="user"
-					title={<span>
-						<Avatar src={glink(user.mail) }/>
-						<div className="hdivider" />
-						<span>{user.name}</span>
-					</span>}
+				{user ? <Menu.SubMenu
+					key="/user-menu" title={user.name}
+					icon={<Avatar src={glink(user.mail)} />}
 				>
-					<Menu.Item key="/setting">
-						<IdcardOutlined />
-						<span>Setting</span>
-					</Menu.Item>
-					<Menu.Item key="/logout">
-						<LogoutOutlined />
-						<span>Logout</span>
-					</Menu.Item>
-				</Menu.SubMenu>}
-				{!user && <Menu.Item key="/login">
-					<LoginOutlined />
-					<span>Login</span>
-				</Menu.Item>}
-				{!user && <Menu.Item key="/register">
-					<UserAddOutlined />
-					<span>Register</span>
-				</Menu.Item>}
+					<Menu.Item key="/setting" icon={<IdcardOutlined />}>Setting</Menu.Item>
+					<Menu.Item key="/logout" icon={<LogoutOutlined />}>Logout</Menu.Item>
+				</Menu.SubMenu> : <React.Fragment>
+					<Menu.Item key="/login" icon={<LoginOutlined />}>Login</Menu.Item>
+					<Menu.Item key="/register" icon={<UserAddOutlined />}>Register</Menu.Item>
+				</React.Fragment>}
 			</Menu>
 		</Layout.Header>
 	}
