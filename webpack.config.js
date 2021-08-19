@@ -71,6 +71,7 @@ module.exports = (_env, argv) => {
 					{ name: 'antd', path: `dist/antd${min}.js`, style: `dist/antd${min}.css` },
 					{ name: 'github-markdown-css', cssOnly: true, style: 'github-markdown.css' },
 					{ name: 'highlight.js', var: 'hljs', cdn: '@highlightjs/cdn-assets', path: `highlight${min}.js`, style: 'styles/github.min.css' },
+					{ name: 'highlightjs-line-numbers.js', var: 'null',  path: 'dist/highlightjs-line-numbers.min.js'},
 				]
 			}),
 			new MiniCssExtractPlugin({
