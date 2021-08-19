@@ -5,22 +5,21 @@
 	}
 	pre {
 		padding: 0;
+		code::before {
+			pointer-events: auto;
+			content: 'COPY';
+			position: absolute;
+			top: 0; right: 0;
+			background: #fff;
+			border-radius: 3px;
+			padding: 3px 5px;
+			margin: 5px;
+			cursor: pointer;
+			box-shadow: #ccc 1px 1px .5px;
+		}
 		code {
 			position: relative;
 			pointer-events: none;
-			::before {
-				pointer-events: auto;
-				content: 'COPY';
-				position: absolute;
-				top: 0; right: 0;
-				background: #fff;
-				border-radius: 3px;
-				padding: 3px 5px;
-				margin: 5px;
-				cursor: pointer;
-				user-select: none;
-				box-shadow: #ccc 1px 1px .5px;
-			}
 			table {
 				margin: 0;
 				tr, th, td {
