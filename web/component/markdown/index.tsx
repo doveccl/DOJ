@@ -9,7 +9,7 @@ import 'highlightjs-line-numbers.js'
 import './index.less'
 
 const mathRegExp = /(\${1,2})([\s\S]+?)\1/g
-const codeRegExp = /\s*([`~]{3})(\S*)\s+([\s\S]+?)\n\1/g
+const codeRegExp = /\s*([`~]{3})(\S*)\s+?([\s\S]+?)\n\1/g
 const shortCodeRegExp = /\[\[\s*(\w+)(?:\s+(\w+)="(\S+)")+\s*\]\]/g
 
 type MarkdownProps = {
