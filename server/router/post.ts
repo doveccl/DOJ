@@ -25,8 +25,8 @@ router.get('/post', async (ctx) => {
 		.sort('-_id').skip(size * (page - 1)).limit(size)
 	const list: any[] = []
 	for (const item of arr) {
-		const { name: uname, mail: umail } = await user(item.uid)
-		list.push(Object.assign(item.toJSON(), { uname, umail }))
+		const { name: uname, mail: umail } = await user(item.uid) || {}
+		list.push(Object.assign(item.toJSON(), { uname: uname || 'unknown', umail }))
 	}
 	ctx.body = { total, list }
 })
