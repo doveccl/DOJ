@@ -1,3 +1,4 @@
+import moment from 'moment'
 import React, { useContext, useState } from 'react'
 import { message, Avatar, Button, Card, Divider, List, Popconfirm } from 'antd'
 import { glink } from '../../../common/function'
@@ -30,7 +31,7 @@ export function Post(post: IPost & IMut) {
 				<span>{post.uname}</span>
 			</>}
 			extra={<>
-				<span>Posted at {new Date(post.createdAt).toLocaleString()}</span>
+				<span>{moment(post.createdAt).fromNow()}</span>
 				{mutable && <>
 					<Divider type="vertical" />
 					<a onClick={() => setEdit(true)}>Edit</a>

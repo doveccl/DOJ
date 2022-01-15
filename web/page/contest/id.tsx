@@ -1,7 +1,7 @@
+import moment from 'moment'
 import React, { useContext, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { message, Card, Col, Progress, Row, Table } from 'antd'
-
 import { renderType } from './index'
 import { parseCount } from '../../../common/function'
 import { Discuss } from '../../component/discuss'
@@ -58,9 +58,9 @@ export default function Contest() {
 		>
 			<Progress percent={process} showInfo={false} />
 			<Row justify="space-between">
-				<Col>{new Date(contest?.startAt).toLocaleString()}</Col>
+				<Col>{moment(contest?.startAt).format('llll')}</Col>
 				<Col>{status}</Col>
-				<Col>{new Date(contest?.endAt).toLocaleString()}</Col>
+				<Col>{moment(contest?.endAt).format('llll')}</Col>
 			</Row>
 		</Card>
 		<div className="divider" />

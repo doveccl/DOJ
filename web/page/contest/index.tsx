@@ -1,7 +1,7 @@
+import moment from 'moment'
 import React, { useContext, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { message, Card, Table, Tag, TablePaginationConfig } from 'antd'
-
 import { ContestType } from '../../../common/interface'
 import { LoginTip } from '../../component/login-tip'
 import { getContests } from '../../model'
@@ -65,11 +65,11 @@ export default function Contests() {
 					{ title: 'Type', width: 100, dataIndex: 'type', render: renderType},
 					{
 						title: 'Start At', width: 200, dataIndex: 'startAt',
-						render: (d) => new Date(d).toLocaleString()
+						render: d => moment(d).format('llll')
 					},
 					{
 						title: 'End At', width: 200, dataIndex: 'endAt',
-						render: (d) => new Date(d).toLocaleString()
+						render: d => moment(d).format('llll')
 					},
 					{ title: 'Status', width: 100, key: 'status', render: (t, r) => {
 						const now = new Date()

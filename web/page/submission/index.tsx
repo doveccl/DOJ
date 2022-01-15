@@ -1,8 +1,8 @@
+import moment from 'moment'
 import React, { useContext, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { message, Button, Card, Col, Input, Row, Table, Tag, TablePaginationConfig } from 'antd'
 import { UserOutlined, FileTextOutlined } from '@ant-design/icons'
-
 import { parseMemory, parseTime } from '../../../common/function'
 import { IResult, Status } from '../../../common/interface'
 import { LoginTip } from '../../component/login-tip'
@@ -126,7 +126,7 @@ export default function Submissions() {
 						global.languages?.[l].name ?? 'unknown'
 					) },
 					{ title: 'Submit At', align: 'center', dataIndex: 'createdAt', render: t => (
-						new Date(t).toLocaleString()
+						moment(t).fromNow()
 					) }
 				]}
 			/>

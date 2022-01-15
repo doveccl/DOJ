@@ -1,3 +1,4 @@
+import moment from 'moment'
 import React, { useContext, useEffect, useState } from 'react'
 import { message, Button, Card, Divider, Form, Modal, Popconfirm, Table, Tag, TablePaginationConfig } from 'antd'
 import { Group } from '../../../common/interface'
@@ -115,7 +116,7 @@ export default function ManageUser() {
 				{ title: 'Name', dataIndex: 'name' },
 				{ title: 'Mail', dataIndex: 'mail' },
 				{ title: 'Group', dataIndex: 'group', render: renderGroup },
-				{ title: 'Join', dataIndex: 'createdAt', render: t => new Date(t).toLocaleString() },
+				{ title: 'Join', dataIndex: 'createdAt', render: t => moment(t).fromNow() },
 				{ title: 'Action', key: 'action', render: (_, r) => <>
 					<a onClick={() => (setUser(r), setOpen(true))}>Edit</a>
 					{global.user._id !== r._id && <>

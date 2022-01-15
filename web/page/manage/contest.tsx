@@ -1,3 +1,4 @@
+import moment from 'moment'
 import React, { useContext, useEffect, useState } from 'react'
 import { message, Button, Card, Col, Divider, Input, Modal, Popconfirm, Row, Table, TablePaginationConfig, Form } from 'antd'
 import { FileTextOutlined, BarsOutlined } from '@ant-design/icons'
@@ -19,25 +20,20 @@ function ContestProblems({ cid = '' }) {
 	const [pkey, setPkey] = useState('')
 	const [loading, setLoading] = useState(true)
 	const [problems, setProblems] = useState([] as IProblem[])
-	const [pagination, setPagination] = useState(defaultPage)
 
-	const { current, pageSize } = pagination
 	useEffect(() => {
 		setLoading(true)
 		getProblems({
 			cid,
-			all: true,
-			page: current,
-			size: pageSize
-		}).then(({ total, list }) => {
+			all: true
+		}).then(({ list }) => {
 			setProblems(list)
-			setPagination({ ...pagination, total })
 		}).catch(e => {
 			message.error(e)
 		}).finally(() => {
 			setLoading(false)
 		})
-	}, [current, pageSize])
+	}, [])
 
 	return <>
 		<Row gutter={16}>
@@ -73,8 +69,7 @@ function ContestProblems({ cid = '' }) {
 			size="middle"
 			loading={loading}
 			dataSource={problems}
-			pagination={pagination}
-			onChange={setPagination}
+			pagination={false}
 			columns={[
 				{ title: 'Problem ID', width: 250, dataIndex: '_id', render: t => (
 					<a href={`/problem/${t}`} target="_blank">{t}</a>
@@ -180,8 +175,8 @@ export default function ManageContest() {
 					) },
 					{ title: 'Title', dataIndex: 'title' },
 					{ title: 'Type', dataIndex: 'type', render: renderType },
-					{ title: 'Start At', dataIndex: 'startAt', render: t => new Date(t).toLocaleString() },
-					{ title: 'End At', dataIndex: 'endAt', render: t => new Date(t).toLocaleString() },
+					{ title: 'Start At', dataIndex: 'startAt', render: t => moment(t).format('llll') },
+					{ title: 'End At', dataIndex: 'endAt', render: t => moment(t).format('llll') },
 					{ title: 'Action', key: 'action', render: (_, r) => <>
 						<a onClick={() => (setContest(r), setOpen(true))}>Edit</a>
 						<Divider type="vertical" />

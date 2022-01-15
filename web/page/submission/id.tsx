@@ -1,8 +1,8 @@
+import moment from 'moment'
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import { message, Button, Card, Checkbox, Divider, Tag, Timeline } from 'antd'
 import { Link, useParams } from 'react-router-dom'
 import { Manager, Socket } from 'socket.io-client'
-
 import { parseMemory, parseTime } from '../../../common/function'
 import { Group, IResult, Status } from '../../../common/interface'
 import { diffGroup } from '../../../common/user'
@@ -84,7 +84,7 @@ export default function Submission() {
 		>
 			<Timeline className="result" pending={pending}>
 				<Timeline.Item color="green">
-					[{new Date(s?.createdAt).toLocaleString()}] {s?.uname} submitted the code
+					{s?.uname} submitted {moment(s?.createdAt).fromNow()}
 				</Timeline.Item>
 				{cases?.map((c, i) => (
 					<Timeline.Item key={i} color={color(c)}>
