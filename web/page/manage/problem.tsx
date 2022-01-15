@@ -3,7 +3,7 @@ import { message, Button, Card, Divider, Form, Input, Modal, Popconfirm, Table, 
 import { parseMemory, parseTime } from '../../../common/function'
 import { ProblemForm } from '../../component/form/problem'
 import { delProblem, getProblems, postProblem, putProblem, rejudgeSubmission } from '../../model'
-import { IProblem } from '../../util/interface'
+import { IProblem } from '../../interface'
 import { GlobalContext } from '../../global'
 
 const defaultPage: TablePaginationConfig = {

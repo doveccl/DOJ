@@ -5,7 +5,7 @@ import { message, Card, Table, Tag, TablePaginationConfig } from 'antd'
 import { ContestType } from '../../../common/interface'
 import { LoginTip } from '../../component/login-tip'
 import { getContests } from '../../model'
-import { IContest } from '../../util/interface'
+import { IContest } from '../../interface'
 import { GlobalContext } from '../../global'
 
 export const renderType = (t: ContestType) => {

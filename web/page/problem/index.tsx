@@ -5,7 +5,7 @@ import { CheckOutlined } from '@ant-design/icons'
 
 import { LoginTip } from '../../component/login-tip'
 import { getProblems } from '../../model'
-import { IProblem } from '../../util/interface'
+import { IProblem } from '../../interface'
 import { GlobalContext } from '../../global'
 
 const defaultPage: TablePaginationConfig = {

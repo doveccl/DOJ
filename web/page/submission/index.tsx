@@ -7,7 +7,7 @@ import { parseMemory, parseTime } from '../../../common/function'
 import { IResult, Status } from '../../../common/interface'
 import { LoginTip } from '../../component/login-tip'
 import { getSubmissions } from '../../model'
-import { ISubmission } from '../../util/interface'
+import { ISubmission } from '../../interface'
 import { GlobalContext } from '../../global'
 
 export const renderStatus = (r: IResult) => {

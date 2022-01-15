@@ -4,7 +4,7 @@ import { message, Card, Divider, Popconfirm, Table, Upload, TablePaginationConfi
 import { LoadingOutlined, CloudUploadOutlined } from '@ant-design/icons'
 import { UploadChangeParam } from 'antd/lib/upload'
 import { delFile, getFiles, putFile } from '../../model'
-import { IFile } from '../../util/interface'
+import { IFile } from '../../interface'
 import { GlobalContext } from '../../global'
 import { parseMemory } from '../../../common/function'
 

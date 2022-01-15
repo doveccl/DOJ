@@ -9,7 +9,7 @@ import { diffGroup } from '../../../common/user'
 import { Code } from '../../component/code'
 import { LoginTip } from '../../component/login-tip'
 import { getSubmission, getToken, putSubmission, rejudgeSubmission } from '../../model'
-import { ISubmission } from '../../util/interface'
+import { ISubmission } from '../../interface'
 import { GlobalContext } from '../../global'
 import { renderStatus } from './index'
 

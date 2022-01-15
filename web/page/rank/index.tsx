@@ -4,7 +4,7 @@ import { message, Avatar, Card, Table, TablePaginationConfig } from 'antd'
 import { glink } from '../../../common/function'
 import { LoginTip } from '../../component/login-tip'
 import { getUsers } from '../../model'
-import { IUser } from '../../util/interface'
+import { IUser } from '../../interface'
 import { GlobalContext } from '../../global'
 
 const defaultPage: TablePaginationConfig = {

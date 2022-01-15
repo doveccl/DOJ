@@ -1,4 +1,4 @@
-import * as I from '../../common/interface'
+import * as I from '../common/interface'
 
 export type ILanguage = Pick<I.ILanguage, 'name' | 'suffix'>
 

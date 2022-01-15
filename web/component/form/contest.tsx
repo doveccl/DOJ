@@ -4,7 +4,7 @@ import { DatePicker, Form, Input, Select } from 'antd'
 import { FormInstance } from 'antd/lib/form'
 import { ContestType } from '../../../common/interface'
 import { Editor } from '../../component/editor'
-import { IContest } from '../../util/interface'
+import { IContest } from '../../interface'
 
 const formItemLayout = {
 	labelCol: { xs: 24, sm: 6, md: 4 },

@@ -9,7 +9,7 @@ import { LoginTip } from '../../component/login-tip'
 import { MarkDown } from '../../component/markdown'
 import { Scoreboard } from '../../component/scoreboard'
 import { getContest, getProblems } from '../../model'
-import { IContest, IProblem } from '../../util/interface'
+import { IContest, IProblem } from '../../interface'
 import { GlobalContext } from '../../global'
 
 export default function Contest() {

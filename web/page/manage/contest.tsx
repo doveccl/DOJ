@@ -3,7 +3,7 @@ import { message, Button, Card, Col, Divider, Input, Modal, Popconfirm, Row, Tab
 import { FileTextOutlined, BarsOutlined } from '@ant-design/icons'
 import { ContestForm } from '../../component/form/contest'
 import { delContest, getContests, getProblem, getProblems, hasToken, postContest, putContest, putProblem } from '../../model'
-import { IContest, IProblem } from '../../util/interface'
+import { IContest, IProblem } from '../../interface'
 import { GlobalContext } from '../../global'
 import { renderType } from '../contest'
 

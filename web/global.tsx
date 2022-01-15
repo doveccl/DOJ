@@ -2,7 +2,7 @@ import axios from 'axios'
 import Cookie from 'js-cookie'
 import React, { createContext, useReducer } from 'react'
 import { getConfig } from './model'
-import { ILanguage, IUser } from './util/interface'
+import { ILanguage, IUser } from './interface'
 
 axios.defaults.baseURL = '/api'
 axios.defaults.validateStatus = status => status <= 404

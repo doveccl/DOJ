@@ -2,7 +2,7 @@ import React, { useEffect } from 'react'
 import { Form, FormInstance, Input, Select } from 'antd'
 import { Editor } from '../../component/editor'
 import { Number } from '../../component/number'
-import { IProblem } from '../../util/interface'
+import { IProblem } from '../../interface'
 
 const formItemLayout = {
 	labelCol: { xs: 24, sm: 6, md: 4 },

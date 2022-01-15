@@ -5,7 +5,7 @@ import { message, Table } from 'antd'
 import { parseCount } from '../../../common/function'
 import { ContestType, Status } from '../../../common/interface'
 import { getContest, getProblems, getSubmissions } from '../../model'
-import { IContest, IProblem, ISubmission } from '../../util/interface'
+import { IContest, IProblem, ISubmission } from '../../interface'
 
 interface ScoreboardProps {
 	id: string

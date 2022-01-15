@@ -3,7 +3,7 @@ import { message, Button, Card, Divider, Form, Modal, Popconfirm, Table, Tag, Ta
 import { Group } from '../../../common/interface'
 import { UserForm } from '../../component/form/user'
 import { delUser, getUsers, inviteUser, postUser, putUser } from '../../model'
-import { IUser } from '../../util/interface'
+import { IUser } from '../../interface'
 import { GlobalContext } from '../../global'
 
 const renderGroup = (g: Group) => {

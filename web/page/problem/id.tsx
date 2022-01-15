@@ -8,7 +8,7 @@ import { SubmitForm } from '../../component/form/submit'
 import { LoginTip } from '../../component/login-tip'
 import { MarkDown } from '../../component/markdown'
 import { getProblem } from '../../model'
-import { IProblem } from '../../util/interface'
+import { IProblem } from '../../interface'
 import { GlobalContext } from '../../global'
 
 export default function Problem() {

@@ -2,7 +2,7 @@ import React, { useContext, useEffect } from 'react'
 import { Form, FormInstance, Input, Select } from 'antd'
 import { Group } from '../../../common/interface'
 import { diffGroup } from '../../../common/user'
-import { IUser } from '../../util/interface'
+import { IUser } from '../../interface'
 import { GlobalContext } from '../../global'
 
 const formItemLayout = {

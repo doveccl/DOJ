@@ -4,7 +4,7 @@ import { message, Button, Form, Input } from 'antd'
 import { FormInstance } from 'antd/lib/form'
 
 import { putUser } from '../../model'
-import { IUser } from '../../util/interface'
+import { IUser } from '../../interface'
 
 type ISettingForm = IUser & {
 	password2: string
