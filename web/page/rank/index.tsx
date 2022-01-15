@@ -37,7 +37,7 @@ export default function Rank() {
 		})
 	}, [global.user, current, pageSize])
 
-	return <React.Fragment>
+	return <>
 		<LoginTip />
 		<Card title="Rank List">
 			<Table
@@ -63,5 +63,5 @@ export default function Rank() {
 				]}
 			/>
 		</Card>
-	</React.Fragment>
+	</>
 }

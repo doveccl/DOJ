@@ -22,17 +22,17 @@ export default function Manage() {
 
 	useEffect(() => global.user && reload(), [global.user])
 
-	return <React.Fragment>
+	return <>
 		<Card
 			title="Set Notification"
 			loading={value === null}
-			extra={<React.Fragment>
+			extra={<>
 				<Button onClick={reload}>Reset</Button>
 				<Divider type="vertical" />
 				<Button type="primary" onClick={update}>Update</Button>
-			</React.Fragment>}
+			</>}
 		>
 			<Editor trusted value={value} onChange={setValue} />
 		</Card>
-	</React.Fragment>
+	</>
 }

@@ -48,25 +48,25 @@ export class Post extends React.Component<PostProps> {
 					<div className="hdivider" />
 					<span>{uname}</span>
 				</span>}
-				extra={<React.Fragment>
+				extra={<>
 					<span>Posted at {postAtString}</span>
-					{this.props.action && <React.Fragment>
+					{this.props.action && <>
 						<Divider type="vertical" />
 						<a onClick={() => this.setState({ edit: true })}>Edit</a>
 						<Divider type="vertical" />
 						<Popconfirm title="Are you sure delete this post?" onConfirm={this.remove}>
 							<a style={{ color: 'red' }}>Delete</a>
 						</Popconfirm>
-					</React.Fragment>}
-				</React.Fragment>}
+					</>}
+				</>}
 			>
-				{this.state.edit ? <React.Fragment>
+				{this.state.edit ? <>
 					<Editor value={content} onChange={(text) => this.setState({ text })} />
 					<div className="divider" />
 					<Button type="primary" onClick={this.update}>Update</Button>
 					<Divider type="vertical" />
 					<Button onClick={() => this.setState({ edit: false })}>Cancel</Button>
-				</React.Fragment> : <MarkDown children={content} />}
+				</> : <MarkDown children={content} />}
 			</Card>
 		</List.Item>
 	}

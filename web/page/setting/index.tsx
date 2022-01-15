@@ -7,9 +7,9 @@ export default function Setting() {
 	const [global, setGlobal] = useContext(GlobalContext)
 	useEffect(() => setGlobal({ path: ['Setting'] }), [])
 
-	return <React.Fragment>
+	return <>
 		<Card title="Setting" loading={!global.user}>
 			<SettingForm user={global.user} onUpdate={user => setGlobal({ user })} />
 		</Card>
-	</React.Fragment>
+	</>
 }

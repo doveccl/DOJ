@@ -71,9 +71,9 @@ export default function Problems() {
 						r.solved ? <CheckOutlined style={{ color: '#52c41a' }} /> : null
 					},
 					{ title: 'Title', width: 200, dataIndex: 'title' },
-					{ title: 'Tags', width: 100, key: 'tags', render: (_, r) => <React.Fragment>
+					{ title: 'Tags', width: 100, key: 'tags', render: (_, r) => <>
 						{r.tags.map((tag, i) => <Tag key={i}>{tag}</Tag>)}
-					</React.Fragment> },
+					</> },
 					{ title: 'Ratio', width: 100, key: 'ratio', render: (_, r) =>
 						<Progress percent={Math.floor(100 * r.solve / r.submit)} status="active" />
 					}

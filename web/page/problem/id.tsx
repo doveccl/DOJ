@@ -30,19 +30,19 @@ export default function Problem() {
 			.catch(message.error)
 	}, [global.user])
 
-	return <React.Fragment>
+	return <>
 		<LoginTip />
 		<Card
 			loading={!problem}
 			title={problem?.title ?? 'Problem'}
-			extra={problem && <React.Fragment>
+			extra={problem && <>
 				<Link to={`/submission?pid=${problem._id}`}>
 					Solutions ({problem.solve}/{problem.submit})
 				</Link>
 				<Divider type="vertical" />
 				<Tag color="volcano">{parseTime(problem.timeLimit)}</Tag>
 				<Tag color="orange">{parseMemory(problem.memoryLimit)}</Tag>
-			</React.Fragment>}
+			</>}
 		>
 			<MarkDown trusted children={problem?.content} />
 		</Card>
@@ -57,5 +57,5 @@ export default function Problem() {
 		>
 			{tab === '#discuss' ? <Discuss topic={id} /> : <SubmitForm pid={id} />}
 		</Card>
-	</React.Fragment>
+	</>
 }
