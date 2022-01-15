@@ -57,7 +57,7 @@ export default function(_: unknown, argv: Record<string, unknown>) {
 				}
 			}),
 			new WebpackCdnPlugin({
-				prodUrl: '//cdn.jsdelivr.net/npm/:name@:version/:path',
+				// prodUrl: '//cdn.jsdelivr.net/npm/:name@:version/:path',
 				modules: [
 					{ name: 'marked', path: `marked.min.js` },
 					{ name: 'moment', path: `min/moment.min.js` },
