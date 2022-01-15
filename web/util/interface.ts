@@ -1,6 +1,3 @@
-import { History } from 'history'
-import { match } from 'react-router-dom'
-
 import * as I from '../../common/interface'
 
 export type ILanguage = Pick<I.ILanguage, 'name' | 'suffix'>
@@ -18,12 +15,4 @@ export interface ISubmission extends I.ISubmission<string, string> {
 export interface IPost extends I.IPost<string, string> {
 	uname: string
 	umail: string
-}
-
-export interface HistoryProps {
-	history: History
-}
-
-export interface MatchProps {
-	match: match<any>
 }

@@ -1,4 +1,7 @@
 {
+	"files": [
+		"index.tsx"
+	],
 	"compilerOptions": {
 		"jsx": "react",
 		"target": "ESNext",

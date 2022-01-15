@@ -1,16 +1,14 @@
-import React from 'react'
-import { withRouter, Link } from 'react-router-dom'
-
-import { message, Button, Card, Col, Input, Row, Table, Tag } from 'antd'
+import React, { useContext, useEffect, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { message, Button, Card, Col, Input, Row, Table, Tag, TablePaginationConfig } from 'antd'
 import { UserOutlined, FileTextOutlined } from '@ant-design/icons'
-import { parse, stringify } from 'querystring'
 
 import { parseMemory, parseTime } from '../../../common/function'
 import { IResult, Status } from '../../../common/interface'
 import { LoginTip } from '../../component/login-tip'
-import { getSubmissions, hasToken } from '../../model'
-import { HistoryProps, ISubmission } from '../../util/interface'
-import { addListener, globalState, removeListener, updateState } from '../../util/state'
+import { getSubmissions } from '../../model'
+import { ISubmission } from '../../util/interface'
+import { GlobalContext } from '../../global'
 
 export const renderStatus = (r: IResult) => {
 	switch (r.status) {
@@ -27,112 +25,111 @@ export const renderStatus = (r: IResult) => {
 	}
 }
 
-class Submissions extends React.Component<HistoryProps> {
-	public state = {
-		loading: true,
-		uname: '',
-		pid: '',
-		global: globalState,
-		submissions: [] as ISubmission[],
-		pagination: { current: 1, pageSize: 50, total: 0 }
-	}
-	private handleChange = (pagination: any) => {
-		const { uname, pid } = this.state
-		const pager = { ...this.state.pagination }
-		pager.current = pagination.current
-		pager.pageSize = pagination.pageSize
-		this.setState({ loading: true, pagination: pager })
-		const { pageSize: size, current: page } = pager
-		getSubmissions({ page, size, uname, pid })
-			.then(({ total, list: submissions }) => {
-				this.state.pagination.total = total
-				this.setState({
-					pagination: this.state.pagination,
-					loading: false, submissions
-				})
-			})
-			.catch((err) => {
-				message.error(err)
-				this.setState({ loading: false })
-			})
-	}
-	private handleSearch = () => {
-		const pagination = { ...this.state.pagination }
-		pagination.current = 1
-		const searchUrl = stringify({ uname: this.state.uname, pid: this.state.pid })
-		this.props.history.push(`/submission?${searchUrl}`)
-		this.handleChange(pagination)
-	}
-	public componentDidMount() {
-		updateState({ path: [ 'Submission' ] })
-		addListener('submissions', (global) => this.setState({ global }))
-		const { uname, pid } = parse(this.props.history.location.search.substr(1))
-		this.setState({ uname, pid }, () => hasToken() && this.handleChange(this.state.pagination))
-	}
-	public componentWillUnmount() {
-		removeListener('submissions')
-	}
-	public render() {
-		const { languages } = this.state.global
-		const { pageSize, current, total } = this.state.pagination
-		return <React.Fragment>
-			<LoginTip />
-			<Card title="Submissions">
-				<Row gutter={16}>
-					<Col span={10}>
-						<Input
-							placeholder="Username"
-							value={this.state.uname}
-							onChange={(e) => this.setState({ uname: e.target.value })}
-							prefix={<UserOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
-						/>
-					</Col>
-					<Col span={11}>
-						<Input
-							placeholder="Problem ID"
-							value={this.state.pid}
-							onChange={(e) => this.setState({ pid: e.target.value })}
-							prefix={<FileTextOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
-						/>
-					</Col>
-					<Col span={0}>
-					</Col>
-					<Col span={3}>
-						<Button block type="primary" onClick={this.handleSearch}>Search</Button>
-					</Col>
-				</Row>
-				<div className="divider" />
-				<Table
-					rowKey="_id"
-					size="middle"
-					loading={this.state.loading}
-					dataSource={this.state.submissions}
-					pagination={this.state.pagination}
-					onChange={this.handleChange}
-					columns={[
-						{ title: 'Index', dataIndex: '_id', render: (t, r, i) => <Link
-							children={total - pageSize * (current - 1) - i} to={`/submission/${t}`}
-						/> },
-						{ title: 'User', dataIndex: 'uname' },
-						{ title: 'Problem', dataIndex: 'ptitle', render: (t, r) => <Link
-							children={t} to={`/problem/${r.pid}`}
-						/> },
-						{ title: 'Status', dataIndex: 'result', render: renderStatus, onCell: (r) => ({
-							onClick: () => this.props.history.push(`/submission/${r._id}`)
-						}) },
-						{ title: 'Time', align: 'center', dataIndex: ['result', 'time'], render: parseTime },
-						{ title: 'Memory', align: 'center', dataIndex: ['result', 'memory'], render: parseMemory },
-						{ title: 'Language', align: 'center', dataIndex: 'language', render: (l) => (
-							languages[l] ? languages[l].name : 'unknown'
-						) },
-						{ title: 'Submit At', align: 'center', dataIndex: 'createdAt', render: (t) => (
-							new Date(t).toLocaleString()
-						) }
-					]}
-				/>
-			</Card>
-		</React.Fragment>
-	}
+const defaultPage: TablePaginationConfig = {
+	total: 0,
+	current: 1,
+	pageSize: 50
 }
 
-export default withRouter(({ history }) => <Submissions history={history} />)
+export default function Submissions() {
+	const navigate = useNavigate()
+	const [search, setSearch] = useSearchParams()
+	const [global, setGlobal] = useContext(GlobalContext)
+	useEffect(() => setGlobal({ path: ['Submission'] }), [])
+
+	const [flag, update] = useState({})
+	const [loading, setLoading] = useState(true)
+	const [submissions, setSubmissions] = useState([] as ISubmission[])
+	const [pagination, setPagination] = useState(defaultPage)
+	const [pid, uname] = [search.get('pid'), search.get('uname')]
+	const [tmpPid, setTmpPid] = useState(pid)
+	const [tmpUname, setTmpUname] = useState(uname)
+
+	const { current, pageSize, total } = pagination
+	useEffect(() => {
+		if (global.user) {
+			setLoading(true)
+			getSubmissions({
+				pid,
+				uname,
+				page: current,
+				size: pageSize
+			}).then(({ total, list }) => {
+				setSubmissions(list)
+				setPagination({ ...pagination, total })
+			}).catch(e => {
+				message.error(e)
+			}).finally(() => {
+				setLoading(false)
+			})
+		}
+	}, [global.user, current, pageSize, pid, uname, flag])
+
+	return <>
+		<LoginTip />
+		<Card title="Submissions">
+			<Row gutter={8}>
+				<Col span={10}>
+					<Input
+						allowClear
+						value={tmpUname}
+						placeholder="Username"
+						onChange={e => setTmpUname(e.target.value)}
+						prefix={<UserOutlined style={{ color: '#CCC' }} />}
+					/>
+				</Col>
+				<Col span={10}>
+					<Input
+						allowClear
+						value={tmpPid}
+						placeholder="Problem ID"
+						onChange={e => setTmpPid(e.target.value)}
+						prefix={<FileTextOutlined style={{ color: '#CCC' }} />}
+					/>
+				</Col>
+				<Col span={4}>
+					<Button block type="primary" onClick={() => {
+						if (pid !== tmpPid || uname !== tmpUname) {
+							const search: Record<string, string> = {}
+							if (tmpPid) search.pid = tmpPid
+							if (tmpUname) search.uname = tmpUname
+							setPagination({ ...pagination, current: 1 })
+							setSearch(search)
+						} else {
+							update({}) // refresh only
+						}
+					}}>Search / Refresh</Button>
+				</Col>
+			</Row>
+			<div className="divider" />
+			<Table
+				rowKey="_id"
+				size="middle"
+				loading={loading}
+				dataSource={submissions}
+				pagination={pagination}
+				onChange={setPagination}
+				columns={[
+					{ title: 'Index', dataIndex: '_id', render: (t, r, i) => <Link
+						children={total - pageSize * (current - 1) - i} to={`/submission/${t}`}
+					/> },
+					{ title: 'User', dataIndex: 'uname' },
+					{ title: 'Problem', dataIndex: 'ptitle', render: (t, r) => <Link
+						children={t} to={`/problem/${r.pid}`}
+					/> },
+					{ title: 'Status', dataIndex: 'result', render: renderStatus, onCell: (r) => ({
+						onClick: () => navigate(`/submission/${r._id}`)
+					}) },
+					{ title: 'Time', align: 'center', dataIndex: ['result', 'time'], render: parseTime },
+					{ title: 'Memory', align: 'center', dataIndex: ['result', 'memory'], render: parseMemory },
+					{ title: 'Language', align: 'center', dataIndex: 'language', render: l => (
+						global.languages?.[l].name ?? 'unknown'
+					) },
+					{ title: 'Submit At', align: 'center', dataIndex: 'createdAt', render: t => (
+						new Date(t).toLocaleString()
+					) }
+				]}
+			/>
+		</Card>
+	</>
+}

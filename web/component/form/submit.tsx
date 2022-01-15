@@ -1,89 +1,72 @@
-import React from 'react'
-
+import React, { useContext, useReducer, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { message, Button, Checkbox, Divider, Form, Input, Select } from 'antd'
 
 import { Status } from '../../../common/interface'
 import { Code } from '../../component/code'
 import { postSubmission } from '../../model'
-import { ILanguage } from '../../util/interface'
+import { GlobalContext } from '../../global'
 
-interface SubmitFormProps {
-	uid: string
-	pid: string
-	languages: ILanguage[]
-	callback: (id: any) => any
-}
+export function SubmitForm({ pid = '' }) {
+	const navigate = useNavigate()
+	const [loading, setLoading] = useState(false)
+	const [global] = useContext(GlobalContext)
+	const [lanKey, setLanKey] = useReducer(
+		(_: number, k: number) => {
+			localStorage.setItem('language', `${k}`)
+			return k
+		},
+		Number(localStorage.getItem('language'))
+	)
 
-export class SubmitForm extends React.Component<SubmitFormProps> {
-	public state = {
-		loading: false,
-		language: undefined as string
-	}
-	private handleSubmit(values: any) {
-		this.setState({ loading: true })
-		postSubmission(values)
-			.then((data) => {
-				this.setState({ loading: false })
-				message.success('submit success')
-				if (data.result.status !== Status.FREEZE) {
-					this.props.callback(data._id)
+	return <Form
+		className="submit-form"
+		onFinish={value => {
+			postSubmission(value).then(({ _id,result  }) => {
+				if (result.status === Status.FREEZE) {
+					setLoading(false)
+					message.success('submit success')
+				} else {
+					navigate(`/submission/${_id}`)
 				}
+			}).catch(e => {
+				setLoading(false)
+				message.error(e)
 			})
-			.catch((err) => {
-				this.setState({ loading: false })
-				message.error(err)
-			})
-	}
-	public static getDerivedStateFromProps(props: SubmitFormProps) {
-		// lan: previous submission language OR undefined
-		const lan = props.languages[localStorage.language]
-		return { language: lan && lan.suffix }
-	}
-	public render() {
-		return <Form
-			onFinish={v => this.handleSubmit(v)}
-			className="submit-form"
-			initialValues={this.props}
-		>
-			<Form.Item name="uid" style={{ display: 'none' }}>
-				<Input readOnly />
+		}}
+	>
+		<Form.Item name="uid" hidden>
+			<Input readOnly value={global.user?._id} />
+		</Form.Item>
+		<Form.Item name="pid" hidden>
+			<Input readOnly value={pid} />
+		</Form.Item>
+		<Form.Item name="code" rules={[
+			{ required: true, message: 'Please input your code' }
+		]}>
+			<Code options={{ maxLines: 30 }} language={global.languages?.[lanKey].suffix} />
+		</Form.Item>
+		<Form.Item name="language" rules={[
+			{ required: true, message: 'Please choose language' }
+		]} initialValue={lanKey}>
+			<Select
+				style={{ width: '50%', minWidth: '200px' }}
+				placeholder="Choose language"
+				onSelect={k => setLanKey(k)}
+			>
+				{global.languages?.map((lan, key) => <Select.Option
+					key={key}
+					value={key}
+					children={lan.name}
+				/>)}
+			</Select>
+		</Form.Item>
+		<Form.Item>
+			<Button type="primary" htmlType="submit" loading={loading}>Submit</Button>
+			<Divider type="vertical" />
+			<Form.Item name="open" valuePropName="checked" initialValue={true} noStyle>
+				<Checkbox>Share my code to others</Checkbox>
 			</Form.Item>
-			<Form.Item name="pid" style={{ display: 'none' }}>
-				<Input readOnly />
-			</Form.Item>
-			<Form.Item name="code" rules={[
-				{ required: true, message: 'Please input your code' }
-			]}>
-				<Code options={{ maxLines: 30 }} language={this.state.language} />
-			</Form.Item>
-			<Form.Item name="language" rules={[
-				{ required: true, message: 'Please choose language' }
-			]} initialValue={Number(localStorage.language) || 0}>
-				<Select
-					style={{ width: '50%', minWidth: '200px' }}
-					placeholder="Choose language"
-					onSelect={(value) => {
-						const lan = this.props.languages[Number(value)]
-						this.setState({ language: lan.suffix })
-						localStorage.language = value
-					}}
-				>
-					{this.props.languages.map((lan, idx) => <Select.Option
-						key={idx}
-						value={idx}
-						children={lan.name}
-					/>)}
-				</Select>
-			</Form.Item>
-			<Form.Item>
-				<Button type="primary" htmlType="submit" loading={this.state.loading}>
-					Submit
-				</Button>
-				<Divider type="vertical" />
-				<Form.Item name="open" valuePropName="checked" initialValue={true} noStyle>
-					<Checkbox>Share my code to others</Checkbox>
-				</Form.Item>
-			</Form.Item>
-		</Form>
-	}
+		</Form.Item>
+	</Form>
 }

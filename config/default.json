@@ -134,6 +134,22 @@
 				"ratio": 1,
 				"cmd": "./main"
 			}
+		},
+		{
+			"name": "Rust",
+			"suffix": "rs",
+			"source": "main.rs",
+			"compile": {
+				"time": 10,
+				"cmd": "/usr/bin/rustc",
+				"args": [
+					"main.rs"
+				]
+			},
+			"run": {
+				"ratio": 1,
+				"cmd": "./main"
+			}
 		}
 	]
 }

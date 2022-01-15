@@ -109,7 +109,7 @@ export interface IFile<I, T> {
 	_id: I
 	filename: string
 	length: number
-	chunkSize: number
+	chunkSize?: number
 	uploadDate: T
-	metadata: any
+	metadata?: any
 }

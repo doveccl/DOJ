@@ -1,45 +1,38 @@
-import React from 'react'
-
+import React, { useContext, useEffect, useState } from 'react'
 import { message, Button, Card, Divider } from 'antd'
-
 import { Editor } from '../../component/editor'
-import { getConfig, hasToken, putConfig } from '../../model'
-import { updateState } from '../../util/state'
+import { getConfig, putConfig } from '../../model'
+import { GlobalContext } from '../../global'
 
-export default class extends React.Component {
-	public state = { value: undefined as string }
-	private loadConfigs = () => {
-		this.setState({ value: undefined })
+export default function Manage() {
+	const [value, setValue] = useState(null as string)
+	const [global, setGlobal] = useContext(GlobalContext)
+	useEffect(() => setGlobal({ path: ['Manage', 'Setting'] }), [])
+
+	const reload = () => {
 		getConfig('notification')
-			.then(({ value }) => this.setState({ value }))
+			.then(d => setValue(d.value))
 			.catch(message.error)
 	}
-	private update = () => {
-		putConfig('notification', this.state)
+	const update = () => {
+		putConfig('notification', { value })
 			.then(() => message.success('update success'))
 			.catch(message.error)
 	}
-	public componentDidMount() {
-		updateState({ path: [ 'Manage', 'Setting' ] })
-		if (hasToken()) { this.loadConfigs() }
-	}
-	public render() {
-		const { value } = this.state
-		return <React.Fragment>
-			<Card
-				title="Set Notification"
-				extra={<React.Fragment>
-					<Button onClick={this.loadConfigs}>Reset</Button>
-					<Divider type="vertical" />
-					<Button type="primary" onClick={this.update}>Update</Button>
-				</React.Fragment>}
-				loading={typeof value === 'undefined'}
-			>
-				<Editor
-					trusted value={value}
-					onChange={(v) => this.setState({ value: v })}
-				/>
-			</Card>
-		</React.Fragment>
-	}
+
+	useEffect(() => global.user && reload(), [global.user])
+
+	return <React.Fragment>
+		<Card
+			title="Set Notification"
+			loading={value === null}
+			extra={<React.Fragment>
+				<Button onClick={reload}>Reset</Button>
+				<Divider type="vertical" />
+				<Button type="primary" onClick={update}>Update</Button>
+			</React.Fragment>}
+		>
+			<Editor trusted value={value} onChange={setValue} />
+		</Card>
+	</React.Fragment>
 }

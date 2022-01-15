@@ -1,12 +1,12 @@
-import React from 'react'
-
-import { message, Card, Divider, Popconfirm, Table, Upload } from 'antd'
+import moment from 'moment'
+import React, { useContext, useEffect, useState } from 'react'
+import { message, Card, Divider, Popconfirm, Table, Upload, TablePaginationConfig } from 'antd'
 import { LoadingOutlined, CloudUploadOutlined } from '@ant-design/icons'
 import { UploadChangeParam } from 'antd/lib/upload'
-
-import { delFile, getFiles, hasToken, putFile } from '../../model'
+import { delFile, getFiles, putFile } from '../../model'
 import { IFile } from '../../util/interface'
-import { updateState } from '../../util/state'
+import { GlobalContext } from '../../global'
+import { parseMemory } from '../../../common/function'
 
 const renderUsage = (f: IFile) => {
 	if (/\.pdf$/.test(f.filename))
@@ -16,105 +16,100 @@ const renderUsage = (f: IFile) => {
 	return `${f._id}`
 }
 
-export default class extends React.Component {
-	public state = {
-		loading: true,
-		uploading: false,
-		files: [] as IFile[],
-		pagination: { current: 1, pageSize: 50, total: 0 }
-	}
-	private handleChange = (pagination = this.state.pagination) => {
-		const pager = { ...this.state.pagination }
-		pager.current = pagination.current
-		pager.pageSize = pagination.pageSize
-		this.setState({ loading: true, pagination: pager })
-		const { pageSize: size, current: page } = pager
-		getFiles({ page, size })
-			.then(({ total, list: files }) => {
-				this.state.pagination.total = total
-				this.setState({
-					pagination: this.state.pagination,
-					loading: false, files
-				})
+const defaultPage: TablePaginationConfig = {
+	total: 0,
+	current: 1,
+	pageSize: 50
+}
+
+export default function ManageFile() {
+	const [global, setGlobal] = useContext(GlobalContext)
+	useEffect(() => setGlobal({ path: ['Manage', 'Problem'] }), [])
+
+	const [loading, setLoading] = useState(true)
+	const [uploading, setUploading] = useState(false)
+	const [files, setFiles] = useState([] as IFile[])
+	const [pagination, setPagination] = useState(defaultPage)
+
+	const { current, pageSize } = pagination
+	useEffect(() => {
+		if (global.user) {
+			setLoading(true)
+			getFiles({
+				page: current,
+				size: pageSize
+			}).then(({ total, list }) => {
+				setFiles(list)
+				setPagination({ ...pagination, total })
+			}).catch(e => {
+				message.error(e)
+			}).finally(() => {
+				setLoading(false)
 			})
-			.catch((err) => {
-				message.error(err)
-				this.setState({ loading: false })
-			})
-	}
-	private onUploadChange = ({ file }: UploadChangeParam) => {
-		const { status, response: r } = file
-		if (status === 'uploading') {
-			this.setState({ uploading: true })
-		} else if (status === 'removed') {
-			this.setState({ uploading: false })
-		} else { // status is 'done' or 'error'
-			this.setState({ uploading: false })
-			if (r.success) {
-				this.handleChange()
-			} else {
-				message.error(r.message || r)
-			}
 		}
+	}, [global.user, current, pageSize])
+
+	function onUploadChange({ file }: UploadChangeParam) {
+		console.log(file.status)
+		setUploading(file.status === 'uploading')
+		if (file.status === 'error')
+			message.error('upload fail')
+		else if (file.response?.success)
+			setFiles([{
+				_id: file.response.data[0],
+				filename: file.name,
+				length: file.size,
+				uploadDate: moment().format()
+			}, ...files])
 	}
-	private rename = (id: any, filename: string) => {
-		if (!filename) { return }
-		putFile(id, { filename })
-			.then(() => this.handleChange())
-			.catch(message.error)
-	}
-	private del = (id: any) => {
-		delFile(id)
-			.then(() => this.handleChange())
-			.catch(message.error)
-	}
-	public componentDidMount() {
-		updateState({ path: [ 'Manage', 'File' ] })
-		if (hasToken()) { this.handleChange() }
-	}
-	public render() {
-		return <Card title="Files">
-			<Upload.Dragger
-				action="/api/file"
-				accept="image/*,.zip,.pdf"
-				onChange={this.onUploadChange}
-				multiple={false}
-			>
-				<p className="ant-upload-drag-icon">
-					{this.state.uploading ? <LoadingOutlined /> : <CloudUploadOutlined />}
-				</p>
-				<p className="ant-upload-text">
-					Click or drag file to this area to upload
-				</p>
-				<p className="ant-upload-hint">
-					PDF, ZIP, Images are supported
-				</p>
-			</Upload.Dragger>
-			<div className="divider" />
-			<Table
-				rowKey="_id"
-				size="middle"
-				loading={this.state.loading}
-				dataSource={this.state.files}
-				pagination={this.state.pagination}
-				onChange={this.handleChange}
-				columns={[
-					{ title: 'Filename', dataIndex: 'filename', render: (t, r) => (
-						<a href={`/api/file/${r._id}`} download={t}>{t}</a>
-					) },
-					{ title: 'Usage', key: 'usage', render: (t, r) => renderUsage(r) },
-					{ title: 'File Type', dataIndex: ['metadata', 'type'] },
-					{ title: 'Action', key: 'action', render: (t, r) => <React.Fragment>
-						<a onClick={() => {
-							this.rename(r._id, prompt('New name:', r.filename))
-						}}>Rename</a>
-						<Divider type="vertical" />
-						<Popconfirm title="Delete this file?" onConfirm={() => this.del(r._id)}>
-							<a style={{ color: 'red' }}>Delete</a>
-						</Popconfirm>
-					</React.Fragment> }
-				]}
-			/>
-		</Card>
-	}
+
+	return <Card title="Files">
+		<Upload.Dragger
+			action="/api/file"
+			accept="image/*,.zip,.pdf"
+			onChange={onUploadChange}
+			multiple={false}
+		>
+			<p className="ant-upload-drag-icon">
+				{uploading ? <LoadingOutlined /> : <CloudUploadOutlined />}
+			</p>
+			<p className="ant-upload-text">Click or drag file to this area to upload</p>
+			<p className="ant-upload-hint">PDF, ZIP, Images are supported</p>
+		</Upload.Dragger>
+		<div className="divider" />
+		<Table
+			rowKey="_id"
+			size="middle"
+			loading={loading}
+			dataSource={files}
+			pagination={pagination}
+			onChange={setPagination}
+			columns={[
+				{ title: 'Filename', dataIndex: 'filename', render: (t, r) => (
+					<a href={`/api/file/${r._id}`} download={t}>{t}</a>
+				) },
+				{ title: 'Usage', key: 'usage', render: (_, r) => renderUsage(r) },
+				{ title: 'Size', dataIndex: 'length', render: t => parseMemory(t) },
+				{ title: 'Time', dataIndex: 'uploadDate', render: t => moment(t).fromNow() },
+				{ title: 'File Type', dataIndex: ['metadata', 'type'] },
+				{ title: 'Action', key: 'action', render: (_, r) => <>
+					<a onClick={() => {
+						const filename = prompt('New name:', r.filename)
+						putFile(r._id, { filename }).then(() => {
+							setFiles(files.map(f => f._id === r._id ? { ...f, filename } : f))
+						}).catch(message.error)
+					}}>Rename</a>
+					<Divider type="vertical" />
+					<Popconfirm title="Delete this file?" onConfirm={() => {
+						delFile(r._id).then(() => {
+							setFiles(files.filter(f => f._id !== r._id))
+						}).catch(message.error)
+					}}>
+						<a style={{ color: 'red' }}>Delete</a>
+					</Popconfirm>
+				</> }
+			]}
+		/>
+	</Card>
+
 }

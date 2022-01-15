@@ -1,13 +1,12 @@
 {
+	"include": [
+		"./index.ts"
+	],
 	"compilerOptions": {
 		"outDir": "app",
 		"target": "ESNext",
 		"module": "CommonJS",
-		"noImplicitAny": true,
 		"removeComments": true,
 		"esModuleInterop": true
-	},
-	"include": [
-		"./index.ts"
-	]
+	}
 }

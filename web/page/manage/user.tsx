@@ -1,13 +1,10 @@
-import React from 'react'
-
-import { message, Button, Card, Divider, Modal, Popconfirm, Table, Tag } from 'antd'
-import { FormInstance } from 'antd/lib/form'
-
+import React, { useContext, useEffect, useState } from 'react'
+import { message, Button, Card, Divider, Form, Modal, Popconfirm, Table, Tag, TablePaginationConfig } from 'antd'
 import { Group } from '../../../common/interface'
 import { UserForm } from '../../component/form/user'
-import { delUser, getUsers, hasToken, inviteUser, postUser, putUser } from '../../model'
+import { delUser, getUsers, inviteUser, postUser, putUser } from '../../model'
 import { IUser } from '../../util/interface'
-import { updateState } from '../../util/state'
+import { GlobalContext } from '../../global'
 
 const renderGroup = (g: Group) => {
 	switch (g) {
@@ -17,145 +14,122 @@ const renderGroup = (g: Group) => {
 	}
 }
 
-export default class extends React.Component {
-	private form: FormInstance
-	public state = {
-		loading: true,
-		users: [] as IUser[],
-		pagination: { current: 1, pageSize: 50, total: 0 },
-		modalTitle: '',
-		modalOpen: false,
-		modalUser: undefined as IUser
-	}
-	private handleChange = (pagination = this.state.pagination) => {
-		const pager = { ...this.state.pagination }
-		pager.current = pagination.current
-		pager.pageSize = pagination.pageSize
-		this.setState({ loading: true, pagination: pager })
-		const { pageSize: size, current: page } = pager
-		getUsers({ page, size })
-			.then(({ total, list: users }) => {
-				this.state.pagination.total = total
-				this.setState({
-					pagination: this.state.pagination,
-					loading: false, users
-				})
+const defaultPage: TablePaginationConfig = {
+	total: 0,
+	current: 1,
+	pageSize: 50
+}
+
+export default function ManageUser() {
+	const [global, setGlobal] = useContext(GlobalContext)
+	useEffect(() => setGlobal({ path: ['Manage', 'User'] }), [])
+
+	const [form] = Form.useForm<IUser>()
+	const [loading, setLoading] = useState(true)
+	const [users, setUsers] = useState([] as IUser[])
+	const [open, setOpen] = useState(false)
+	const [user, setUser] = useState(null as IUser)
+	const [pagination, setPagination] = useState(defaultPage)
+
+	const { current, pageSize } = pagination
+	useEffect(() => {
+		if (global.user) {
+			setLoading(true)
+			getUsers({
+				page: current,
+				size: pageSize
+			}).then(({ total, list }) => {
+				setUsers(list)
+				setPagination({ ...pagination, total })
+			}).catch(e => {
+				message.error(e)
+			}).finally(() => {
+				setLoading(false)
 			})
-			.catch((err) => {
-				message.error(err)
-				this.setState({ loading: false })
-			})
-	}
-	private openModal = (user?: IUser) => {
-		this.setState({
-			modalOpen: true,
-			modalTitle: user ? 'Edit' : 'Create',
-			modalUser: user
-		})
-	}
-	private ok = () => {
-		this.form.validateFields().then(values => {
-			this.setState({ loading: true })
-			if (this.state.modalUser) {
-				putUser(this.state.modalUser._id, values)
-					.then(() => {
-						message.success('update success')
-						this.setState({ modalOpen: false })
-						this.handleChange()
-					})
-					.catch((err) => {
-						message.error(err)
-						this.setState({ loading: false })
-					})
-			} else {
-				postUser(values)
-					.then(() => {
-						message.success('create success')
-						this.setState({ modalOpen: false })
-						this.handleChange()
-					})
-					.catch((err) => {
-						message.error(err)
-						this.setState({ loading: false })
-					})
-			}
-		})
-	}
-	private invite = (mail: string) => {
-		if (mail) {
-			const hide: any = message.loading('Sending ...', 0)
-			inviteUser({ mail })
-				.then(({ mail: m }) => {
-					hide()
-					message.success(`code has been send to: ${m}`, 10)
-				})
-				.catch((err) => {
-					hide()
-					message.error(err)
-				})
 		}
-	}
-	private del = (id: any) => {
-		delUser(id)
-			.then(() => this.handleChange())
-			.catch(message.error)
-	}
-	public componentDidMount() {
-		updateState({ path: [ 'Manage', 'User' ] })
-		if (hasToken()) { this.handleChange() }
-	}
-	public render() {
-		return <Card
-			title="Users"
-			extra={<React.Fragment>
-				<Button onClick={() => this.openModal()}>
-					Create User
-				</Button>
-				<Divider type="vertical" />
-				<Button
-					type="primary"
-					onClick={() => this.invite(prompt('Send invitation mail to:'))}
-				>
-					Invite User
-				</Button>
-			</React.Fragment>}
+	}, [global.user, current, pageSize])
+
+	return <Card
+		title="Users"
+		extra={<>
+			<Button onClick={() => (setUser(null), setOpen(true))}>Create User</Button>
+			<Divider type="vertical" />
+			<Button
+				type="primary"
+				onClick={() => {
+					const mail = prompt('Send invitation mail to:')
+					if (!mail) return
+					const hideLoad = message.loading('Sending ...', 0)
+					inviteUser({ mail }).then(() => {
+						message.success(`code has been send to: ${mail}`, 10)
+					}).catch(e => {
+						message.error(e)
+					}).finally(hideLoad)
+				}}
+			>Invite User</Button>
+		</>}
+	>
+		<Modal
+			style={{ minWidth: 650 }}
+			destroyOnClose={true}
+			visible={open}
+			title={user ? 'Edit' : 'Create'}
+			confirmLoading={loading}
+			onCancel={() => setOpen(false)}
+			onOk={async () => {
+				setLoading(true)
+				try {
+					const u = await form.validateFields()
+					try {
+						if (user) { // Edit
+							await putUser(user._id, u)
+							const n = Object.assign({}, user, u)
+							setUsers(users.map(o => o === user ? n : o))
+						} else { // Create
+							setUsers([await postUser(u), ...users])
+						}
+						setOpen(false)
+						message.success('success')
+					} catch (e) {
+						message.error(e)
+					}
+				} catch (e) {
+					// ignore form validate error
+					console.debug(e)
+				} finally {
+					setLoading(false)
+				}
+			}}
 		>
-			<Modal
-				style={{ minWidth: 650 }}
-				destroyOnClose={true}
-				visible={this.state.modalOpen}
-				title={this.state.modalTitle}
-				confirmLoading={this.state.loading}
-				onOk={() => this.ok()}
-				onCancel={() => this.setState({ modalOpen: false })}
-			>
-				<UserForm
-					user={this.state.modalUser}
-					onRefForm={form => this.form = form}
-				/>
-			</Modal>
-			<Table
-				rowKey="_id"
-				size="middle"
-				loading={this.state.loading}
-				dataSource={this.state.users}
-				pagination={this.state.pagination}
-				onChange={this.handleChange}
-				columns={[
-					{ title: 'ID', dataIndex: '_id' },
-					{ title: 'Name', dataIndex: 'name' },
-					{ title: 'Mail', dataIndex: 'mail' },
-					{ title: 'Group', dataIndex: 'group', render: renderGroup },
-					{ title: 'Join', dataIndex: 'createdAt', render: (t) => new Date(t).toLocaleString() },
-					{ title: 'Action', key: 'action', render: (t, r) => <React.Fragment>
-						<a onClick={() => this.openModal(r)}>Edit</a>
+			<UserForm user={user} form={form} />
+		</Modal>
+		<Table
+			rowKey="_id"
+			size="middle"
+			loading={loading}
+			dataSource={users}
+			pagination={pagination}
+			onChange={setPagination}
+			columns={[
+				{ title: 'ID', dataIndex: '_id' },
+				{ title: 'Name', dataIndex: 'name' },
+				{ title: 'Mail', dataIndex: 'mail' },
+				{ title: 'Group', dataIndex: 'group', render: renderGroup },
+				{ title: 'Join', dataIndex: 'createdAt', render: t => new Date(t).toLocaleString() },
+				{ title: 'Action', key: 'action', render: (_, r) => <>
+					<a onClick={() => (setUser(r), setOpen(true))}>Edit</a>
+					{global.user._id !== r._id && <>
 						<Divider type="vertical" />
-						<Popconfirm title="Delete this user?" onConfirm={() => this.del(r._id)}>
+						<Popconfirm title="Delete this user?" onConfirm={() => {
+							delUser(r._id).then(() => {
+								setUsers(users.filter(u => u._id !== r._id))
+							}).catch(message.error)
+						}}>
 							<a style={{ color: 'red' }}>Delete</a>
 						</Popconfirm>
-					</React.Fragment> }
-				]}
-			/>
-		</Card>
-	}
+					</>}
+				</> }
+			]}
+		/>
+	</Card>
 }

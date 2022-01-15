@@ -1,13 +1,12 @@
-import React from 'react'
-import { withRouter } from 'react-router-dom'
-
-import { message, Card, Table, Tag } from 'antd'
+import React, { useContext, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { message, Card, Table, Tag, TablePaginationConfig } from 'antd'
 
 import { ContestType } from '../../../common/interface'
 import { LoginTip } from '../../component/login-tip'
-import { getContests, hasToken } from '../../model'
-import { HistoryProps, IContest } from '../../util/interface'
-import { updateState } from '../../util/state'
+import { getContests } from '../../model'
+import { IContest } from '../../util/interface'
+import { GlobalContext } from '../../global'
 
 export const renderType = (t: ContestType) => {
 	switch (t) {
@@ -17,75 +16,73 @@ export const renderType = (t: ContestType) => {
 	}
 }
 
-class Contests extends React.Component<HistoryProps> {
-	public state = {
-		loading: true,
-		contests: [] as IContest[],
-		pagination: { current: 1, pageSize: 50, total: 0 }
-	}
-	private handleChange = (pagination: any) => {
-		const pager = { ...this.state.pagination }
-		pager.current = pagination.current
-		pager.pageSize = pagination.pageSize
-		this.setState({ loading: true, pagination: pager })
-		const { pageSize: size, current: page } = pager
-		getContests({ page, size })
-			.then(({ total, list: contests }) => {
-				this.state.pagination.total = total
-				this.setState({
-					pagination: this.state.pagination,
-					loading: false, contests
-				})
-			})
-			.catch((err) => {
-				message.error(err)
-				this.setState({ loading: false })
-			})
-	}
-	public componentDidMount() {
-		updateState({ path: [ 'Contest' ] })
-		if (hasToken()) { this.handleChange(this.state.pagination) }
-	}
-	public render() {
-		return <React.Fragment>
-			<LoginTip />
-			<Card title="Contests" className="list">
-				<Table
-					rowKey="_id"
-					size="middle"
-					onRow={({ _id }) => ({
-						onClick: () => this.props.history.push(`/contest/${_id}`)
-					})}
-					loading={this.state.loading}
-					dataSource={this.state.contests}
-					pagination={this.state.pagination}
-					onChange={this.handleChange}
-					columns={[
-						{ title: 'Title', width: 200, dataIndex: 'title' },
-						{ title: 'Type', width: 100, dataIndex: 'type', render: renderType},
-						{
-							title: 'Start At', width: 200, dataIndex: 'startAt',
-							render: (d) => new Date(d).toLocaleString()
-						},
-						{
-							title: 'End At', width: 200, dataIndex: 'endAt',
-							render: (d) => new Date(d).toLocaleString()
-						},
-						{ title: 'Status', width: 100, key: 'status', render: (t, r) => {
-							const now = new Date()
-							switch (true) {
-								case now < new Date(r.startAt):
-									return <Tag color="blue">Pending</Tag>
-								case now < new Date(r.endAt):
-									return <Tag color="green">Running</Tag>
-								default: return <Tag color="red">Ended</Tag>
-							}
-						}}
-					]}
-				/>
-			</Card>
-		</React.Fragment>
-	}
+const defaultPage: TablePaginationConfig = {
+	total: 0,
+	current: 1,
+	pageSize: 50
 }
 
-export default withRouter(({ history }) => <Contests history={history} />)
+export default function Contests() {
+	const navigate = useNavigate()
+	const [global, setGlobal] = useContext(GlobalContext)
+	useEffect(() => setGlobal({ path: ['Contest'] }), [])
+
+	const [loading, setLoading] = useState(true)
+	const [contests, setContests] = useState([] as IContest[])
+	const [pagination, setPagination] = useState(defaultPage)
+
+	const { current, pageSize } = pagination
+	useEffect(() => {
+		global.user && getContests({
+			rank: true,
+			page: pagination.current,
+			size: pagination.pageSize
+		}).then(({ total, list }) => {
+			setContests(list)
+			setPagination({ ...pagination, total })
+		}).catch(e => {
+			message.error(e)
+		}).finally(() => {
+			setLoading(false)
+		})
+	}, [global.user, current, pageSize])
+
+	return <>
+		<LoginTip />
+		<Card title="Contests" className="list">
+			<Table
+				rowKey="_id"
+				size="middle"
+				onRow={({ _id }) => ({
+					onClick: () => navigate(`/contest/${_id}`)
+				})}
+				loading={loading}
+				dataSource={contests}
+				pagination={pagination}
+				onChange={setPagination}
+				columns={[
+					{ title: 'Title', width: 200, dataIndex: 'title' },
+					{ title: 'Type', width: 100, dataIndex: 'type', render: renderType},
+					{
+						title: 'Start At', width: 200, dataIndex: 'startAt',
+						render: (d) => new Date(d).toLocaleString()
+					},
+					{
+						title: 'End At', width: 200, dataIndex: 'endAt',
+						render: (d) => new Date(d).toLocaleString()
+					},
+					{ title: 'Status', width: 100, key: 'status', render: (t, r) => {
+						const now = new Date()
+						switch (true) {
+							case now < new Date(r.startAt):
+								return <Tag color="blue">Pending</Tag>
+							case now < new Date(r.endAt):
+								return <Tag color="green">Running</Tag>
+							default: return <Tag color="red">Ended</Tag>
+						}
+					}}
+				]}
+			/>
+		</Card>
+	</>
+}

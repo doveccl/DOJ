@@ -1,15 +1,14 @@
-import React from 'react'
+import './index.less'
+import React, { useEffect, useRef } from 'react'
 import ace from 'ace-builds'
 import { MarkDown } from '../markdown'
-
-import './index.less'
 
 interface CodeProps {
 	value?: string
 	theme?: string
 	language?: string
 	static?: boolean
-	onChange?: (value: string) => any
+	onChange?: (value: string) => void
 	options?: Partial<ace.Ace.EditorOptions>
 }
 
@@ -42,7 +41,7 @@ const LAN_SET = [
 	'yaml'
 ]
 
-const LAN_MAP: any = {
+const LAN_MAP = {
 	c: 'c_cpp',
 	cpp: 'c_cpp',
 	cs: 'csharp',
@@ -60,67 +59,40 @@ const LAN_MAP: any = {
 	rs: 'rust'
 }
 
-const language2mode = (lan: string) => {
+function language2mode(lan: string): string {
 	if (LAN_SET.includes(lan)) return lan
 	if (lan in LAN_MAP) return LAN_MAP[lan]
-	return false
+	return null
 }
 
-export class Code extends React.Component<CodeProps> {
-	private editor: ace.Ace.Editor
-	private refEditor = React.createRef<HTMLDivElement>()
-	private getOptions = (props?: CodeProps) => {
-		const { language, theme, value } = props || this.props
-		const options = this.props.options || {}
-		const mode = language2mode(language)
-		if (value) options.value = value
-		if (mode) options.mode = `ace/mode/${mode}`
-		if (theme) options.theme = `ace/theme/${theme}`
-		return options
-	}
-	private destroy() {
-		if (this.editor) {
-			this.editor.destroy()
-			this.editor = null
-		}
-	}
-	private update() {
-		if (!this.editor) {
-			const code = this.refEditor.current
-			const cb = this.props.onChange || (() => {})
-			this.editor = ace.edit(code, this.getOptions(this.props))
-			this.editor.on('change', () => cb(this.editor.getValue()))
-		} else { // change editor language & theme
-			const { mode, theme } = this.getOptions(this.props)
-			if (this.editor.getTheme() !== theme) this.editor.setTheme(theme)
-			this.editor.getSession().setMode(mode)
-		}
-	}
+function CodeEditor(props: CodeProps) {
+	const div = useRef<HTMLDivElement>(null)
+	const editor = useRef<ace.Ace.Editor>(null)
+	const { value, language, theme, options } = props
 
-	public componentDidMount() {
-		if (!this.props.static) this.update()
-	}
-	public shouldComponentUpdate(nextProps?: CodeProps) {
-		for (const k of Object.keys(nextProps)) {
-			if (k === 'onChange') continue
-			if (nextProps[k] !== this.props[k]) {
-				nextProps.static && this.destroy()
-				return true
-			}
-		}
-		return false
-	}
-	public componentDidUpdate() {
-		if (!this.props.static) this.update()
-	}
-	public componentWillUnmount() {
-		this.destroy()
-	}
-	public render() {
-		const code = this.props.value
-		const lan = this.props.language || ''
-		return this.props.static ?
-			<MarkDown>{`~~~${lan}\n${code}\n~~~`}</MarkDown> :
-			<div ref={this.refEditor} className="code-editor" />
-	}
+	useEffect(() => {
+		const e = editor.current = ace.edit(div.current, options)
+		e.on('change', () => props.onChange(e.getValue()))
+		return () => e.destroy()
+	}, [])
+
+	useEffect(() => {
+		if (value !== editor.current.getValue())
+			editor.current.setValue(value ?? '', -1)
+	}, [value])
+	useEffect(() => {
+		const mode = language2mode(language)
+		mode && editor.current.getSession().setMode(`ace/mode/${mode}`)
+	}, [language])
+	useEffect(() => {
+		theme && editor.current.setTheme(`ace/theme/${theme}`)
+	}, [theme])
+
+	return <div ref={div} className="code-editor"></div>
+}
+
+export function Code(props: CodeProps) {
+	const { value, language = '' } = props
+	if (!props.static) return CodeEditor(props)
+	return <MarkDown children={`~~~${language}\n${value}\n~~~`} />
 }

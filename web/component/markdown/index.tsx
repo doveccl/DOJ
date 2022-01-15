@@ -1,6 +1,6 @@
 import React from 'react'
-import marked from 'marked'
 import hljs from 'highlight.js'
+import { marked } from 'marked'
 import { message } from 'antd'
 import { sanitize } from 'dompurify'
 import { renderToString } from 'katex'

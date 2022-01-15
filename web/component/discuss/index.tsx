@@ -1,83 +1,60 @@
-import React from 'react'
-
+import React, { useContext, useEffect, useState } from 'react'
 import { message, Button, Card, List } from 'antd'
 
 import { Group } from '../../../common/interface'
 import { diffGroup } from '../../../common/user'
 import { getPosts, postPost } from '../../model'
 import { IPost } from '../../util/interface'
-import { globalState } from '../../util/state'
+import { GlobalContext } from '../../global'
 import { Editor } from '../editor'
 import { Post } from './post'
 
-interface DiscussProps {
-	topic: string
-}
+export function Discuss({ topic = '' }) {
+	const [flag, update] = useState({})
+	const [page, setPage] = useState(1)
+	const [size, setSize] = useState(5)
+	const [total, setTotal] = useState(0)
+	const [content, setContent] = useState('')
+	const [posts, setPosts] = useState(null as IPost[])
+	const [global] = useContext(GlobalContext)
 
-export class Discuss extends React.Component<DiscussProps> {
-	public state = {
-		total: 0,
-		current: 1,
-		pageSize: 5,
-		loading: true,
-		content: '',
-		posts: [] as IPost[]
-	}
-	private handleChange = (page?: number, pageSize?: number) => {
-		this.setState({ loading: true })
-		const p = page || this.state.current
-		const s = pageSize || this.state.pageSize
-		getPosts({ page: p, size: s, topic: this.props.topic })
-			.then(({ total, list }) => {
-				this.setState({
-					total, current: p, pageSize: s,
-					posts: list, loading: false
-				})
-			})
-			.catch((err) => {
-				message.error(err)
-				this.setState({ loading: false })
-			})
-	}
-	private handleClick = () => {
-		const { topic } = this.props
-		const { content } = this.state
-		postPost({ topic, content })
-			.then(() => {
-				message.success('post success')
-				this.handleChange(1)
-			})
-			.catch(message.error)
-	}
-	public componentDidMount() {
-		this.handleChange()
-	}
-	public render() {
-		const uid = globalState.user._id
-		const isAdmin = diffGroup(globalState.user, Group.admin)
-		const { total, current, pageSize } = this.state
+	useEffect(() => {
+		global.user && getPosts({ topic, page, size }).then(({ total, list }) => {
+			setTotal(total)
+			setPosts(list)
+		}).catch(message.error)
+	}, [global.user, topic, page, size, flag])
 
-		return <React.Fragment>
-			<List
-				grid={{ column: 1 }}
-				loading={this.state.loading}
-				dataSource={this.state.posts}
-				pagination={{
-					total, current, pageSize,
-					hideOnSinglePage: true,
-					onChange: this.handleChange
-				}}
-				renderItem={(p: IPost) => <Post
-					post={p} callback={this.handleChange}
-					action={isAdmin || p.uid === uid}
-				/>}
-			/>
-			<div className="divider" />
-			<Card type="inner" title="Create a new post" actions={[
-				<Button type="primary" onClick={this.handleClick}>Post</Button>
-			]}>
-				<Editor onChange={(content) => this.setState({ content })} />
-			</Card>
-		</React.Fragment>
-	}
+	return <>
+		<List
+			loading={!posts}
+			dataSource={posts ?? []}
+			grid={{ column: 1 }}
+			pagination={{
+				total,
+				current: page,
+				pageSize: size,
+				hideOnSinglePage: true,
+				onChange: (page, size) => {
+					setPage(page)
+					setSize(size)
+				}
+			}}
+			renderItem={p => <Post
+				post={p} callback={() => update({})}
+				action={diffGroup(global.user, Group.admin) || global.user._id === p.uid}
+			/>}
+		/>
+		<div className="divider" />
+		<Card type="inner" title="Create a new post" actions={[
+			<Button type="primary" onClick={() => {
+				postPost({ topic, content }).then(() => {
+					update({})
+					message.success('post success')
+				}).catch(message.error)
+			}}>Post</Button>
+		]}>
+			<Editor onChange={setContent} />
+		</Card>
+	</>
 }

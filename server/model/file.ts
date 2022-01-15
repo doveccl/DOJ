@@ -26,6 +26,7 @@ const FS = model<DFile>('fs.file', schema)
  * mongodb GridFS Bucket
  */
 let bucket: GridFSBucket
+// @ts-ignore ignore DB type difference between mongoose and mongodb
 connection.on('open', () => bucket = new GridFSBucket(connection.db))
 
 export const TYPE_REG = /(:?image|pdf|zip)/
