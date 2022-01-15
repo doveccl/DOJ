@@ -42,14 +42,14 @@ const verifyRegister = async (id: string, token: string) => {
 
 export const routeClient = (io: Namespace, socket: Socket) => {
 	currentNS = io
-	socket.on('register', (data, callback) => {
-		if (!data) { callback(false) }
+	socket.on('register', (data) => {
+		if (!data) { return }
 		const { id, token } = data
 		verifyRegister(id, token)
 			.then(s => {
-				socket.join(id); callback(true)
+				socket.join(id)
 				s && currentNS.to(id).emit('result', s)
 			})
-			.catch(() => callback(false))
+			.catch(e => logSocket.error(e))
 	})
 }

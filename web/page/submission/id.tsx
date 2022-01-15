@@ -54,7 +54,8 @@ export default function Submission() {
 	}, [s?.result.status])
 
 	function rejudge() {
-		rejudgeSubmission({ id }).then(() => setSubmission({
+		rejudgeSubmission({ _id: id }).catch(message.error)
+		setSubmission({
 			...s,
 			cases: [],
 			result: {
@@ -62,7 +63,7 @@ export default function Submission() {
 				memory: 0,
 				status: Status.WAIT
 			}
-		})).catch(message.error)
+		})
 	}
 
 	let cases = s?.cases.length ? s.cases : [s?.result]
