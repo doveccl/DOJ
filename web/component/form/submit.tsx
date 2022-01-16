@@ -22,7 +22,7 @@ export function SubmitForm({ pid = '' }) {
 	return <Form
 		className="submit-form"
 		onFinish={value => {
-			postSubmission(value).then(({ _id,result  }) => {
+			postSubmission(value).then(({ _id, result }) => {
 				if (result.status === Status.FREEZE) {
 					setLoading(false)
 					message.success('submit success')
@@ -35,11 +35,8 @@ export function SubmitForm({ pid = '' }) {
 			})
 		}}
 	>
-		<Form.Item name="uid" hidden>
-			<Input readOnly value={global.user?._id} />
-		</Form.Item>
-		<Form.Item name="pid" hidden>
-			<Input readOnly value={pid} />
+		<Form.Item name="pid" initialValue={pid} hidden>
+			<Input />
 		</Form.Item>
 		<Form.Item name="code" rules={[
 			{ required: true, message: 'Please input your code' }
