@@ -1,9 +1,8 @@
 import config from 'config'
+import packageJson from './package.json'
 import HtmlWebpackPlugin from 'html-webpack-plugin'
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 import CssMinimizerPlugin from 'css-minimizer-webpack-plugin'
-
-const packageJson = require('./package.json')
 const WebpackCdnPlugin = require('webpack-cdn-plugin')
 
 export default function(_: unknown, argv: Record<string, unknown>) {
@@ -94,11 +93,11 @@ export default function(_: unknown, argv: Record<string, unknown>) {
 					changeOrigin: true,
 					target: `http://localhost:${config.get('port')}`
 				},
-				'/socket.io': {
+				'/wss': {
 					ws: true,
 					secure: false,
 					changeOrigin: true,
-					target: `http://localhost:${config.get('port')}`
+					target: `ws://localhost:${config.get('port')}`
 				}
 			}
 		},

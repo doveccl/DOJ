@@ -1,26 +1,14 @@
-import { Server } from 'socket.io'
-
-import { Status } from '../../common/interface'
-import { Submission } from '../model/submission'
+import WebSocket from 'ws'
+import { Server } from 'http'
 import { routeClient } from './client'
-import { doJudge, routeJudger } from './judger'
+import { routeJudger } from './judger'
+import { logSocket } from '../util/log'
 
-export const judgeFromDB = async () => {
-	(await Submission.find({
-		'result.status': Status.WAIT
-	})).forEach(doJudge)
+export const attachWebSocket = async (server: Server) => {
+	const wss = new WebSocket.Server({ server, path: '/wss' })
+	wss.on('connection', (ws, req) => {
+		ws.on('error', e => logSocket.warn(e.message))
+		if (req.url.endsWith('client')) routeClient(ws)
+		if (req.url.endsWith('judger')) routeJudger(ws)
+	})
 }
-
-const io = new Server()
-export const attachSocketIO = async (s: any) => {
-	io.attach(s)
-	await judgeFromDB()
-}
-
-io.of('/judger').on('connection', socket => {
-	routeJudger(io.of('/judger'), socket)
-})
-
-io.of('/client').on('connection', socket => {
-	routeClient(io.of('/client'), socket)
-})

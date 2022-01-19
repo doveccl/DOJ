@@ -1,7 +1,6 @@
 import fs from 'fs-extra'
 import config from 'config'
-import { Socket } from 'socket.io-client'
-
+import WebSocket from 'ws'
 import { logJudger } from './log'
 import { prepareData } from './data'
 import { Case, CE } from '../common/pack'
@@ -20,9 +19,9 @@ interface IJudge {
 	memoryLimit: number
 }
 
-export async function judge(args: IJudge, socket?: Socket) {
+export async function judge(args: IJudge, ws?: WebSocket) {
 	const step = (pending?: string, cases: IResult[] = []) => {
-		socket.emit('step', { _id: args._id, pending, cases })
+		ws?.send(JSON.stringify({ _id: args._id, pending, cases }))
 	}
 
 	logJudger.info('judge submission:', args._id)

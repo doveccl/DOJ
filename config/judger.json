@@ -1,4 +1,5 @@
 {
+	"name": "<JUDGER_NAME>",
 	"host": "http://<SERVER_HOST>:<PORT>",
 	"concurrent": "<MAX_CONCURRENT_JUDGE_NUM>",
 	"log": "info|error|debug",

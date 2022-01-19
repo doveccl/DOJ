@@ -2,7 +2,6 @@ import moment from 'moment'
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import { message, Button, Card, Checkbox, Divider, Tag, Timeline } from 'antd'
 import { Link, useParams } from 'react-router-dom'
-import { Manager, Socket } from 'socket.io-client'
 import { parseMemory, parseTime } from '../../../common/function'
 import { Group, IResult, Status } from '../../../common/interface'
 import { diffGroup } from '../../../common/user'
@@ -17,7 +16,7 @@ const color = (r?: IResult) => r.status === Status.AC ? 'green' : 'red'
 
 export default function Submission() {
 	const { id } = useParams()
-	const socket = useRef<Socket>(null)
+	const socket = useRef<WebSocket>(null)
 	const [global, setGlobal] = useContext(GlobalContext)
 	useEffect(() => setGlobal({ path: [{ url: '/submission', desc: 'Submission' }, id] }), [])
 
@@ -35,23 +34,27 @@ export default function Submission() {
 	useEffect(() => setCode(s?.code), [s?.code])
 
 	useEffect(() => {
-		if (s?.result.status === Status.WAIT) {
+		if (s?.result?.status === Status.WAIT) {
 			setPending('Pending ...')
-			socket.current = new Manager().socket('/client').on('connect', () => {
-				socket.current.emit('register', { id, token: getToken() })
-			}).on('setp', ({ pending, cases }) => {
-				setPending(pending)
-				setSubmission({ ...s, cases })
-			}).on('result', ({ result, cases }) => {
-				setPending(null)
-				setSubmission({ ...s, result, cases })
-				socket.current.close()
-			})
-			return () => { socket.current.close() }
+			const host = location.origin.replace(/^http/, 'ws')
+			const ws = socket.current = new WebSocket(`${host}/wss?client`)
+			ws.onopen = () => ws.send(JSON.stringify({ id, token: getToken() }))
+			ws.onmessage = ({ data }) => {
+				const { pending, cases, result } = JSON.parse(data)
+				if (pending) {
+					setPending(pending)
+					setSubmission({ ...s, cases })
+				} else {
+					setPending(null)
+					setSubmission({ ...s, result, cases })
+					ws.close()
+				}
+			}
+			return () => ws.close()
 		} else {
 			setPending(null)
 		}
-	}, [s?.result.status])
+	}, [s?.result?.status])
 
 	function rejudge() {
 		rejudgeSubmission({ _id: id }).catch(message.error)
@@ -66,9 +69,9 @@ export default function Submission() {
 		})
 	}
 
-	let cases = s?.cases.length ? s.cases : [s?.result]
-	if (s?.result.status === Status.WAIT) cases = null
-	if (!s?.result) cases = null
+	let cases = s?.cases.length ? s.cases : null
+	if (s?.result?.status > Status.WAIT)
+		cases = cases ?? [s?.result]
 
 	return <>
 		<LoginTip />
