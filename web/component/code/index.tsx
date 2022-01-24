@@ -1,6 +1,6 @@
 import './index.less'
-import React, { useEffect, useRef } from 'react'
 import ace from 'ace-builds'
+import React, { useEffect, useRef } from 'react'
 import { MarkDown } from '../markdown'
 
 interface CodeProps {
@@ -92,7 +92,7 @@ function CodeEditor(props: CodeProps) {
 }
 
 export function Code(props: CodeProps) {
-	const { value, language = '' } = props
+	const { value = '', language = '' } = props
 	if (!props.static) return CodeEditor(props)
 	return <MarkDown children={`~~~${language}\n${value}\n~~~`} />
 }
