@@ -1,6 +1,6 @@
-import config from 'config'
 import Router from 'koa-router'
 
+import { config } from '../util/config'
 import { Group } from '../../common/interface'
 import { group, token } from '../middleware/auth'
 import { Config } from '../model/config'
@@ -15,7 +15,7 @@ const router = new Router()
 router.use('/config', token())
 
 router.get('/config/languages', async (ctx) => {
-	const languages: Language[] = config.get('languages')
+	const languages: Language[] = config.languages
 	ctx.body = languages.map(({ name, suffix }) => ({ name, suffix }))
 })
 

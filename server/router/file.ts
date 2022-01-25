@@ -1,7 +1,7 @@
 import path from 'path'
-import config from 'config'
 import Router from 'koa-router'
 
+import { config } from '../util/config'
 import { Group } from '../../common/interface'
 import { ensureGroup } from '../../common/user'
 import { group, token } from '../middleware/auth'
@@ -63,7 +63,7 @@ router.del('/file/:id', group(Group.admin), fetch('file'), async (ctx) => {
  * for judger to download data
  */
 router.get('/data/:id', fetch('file'), async (ctx) => {
-	if (ctx.query.secret !== config.get('secret'))
+	if (ctx.query.secret !== config.secret)
 		throw new Error('invalid secret')
 	ctx.type = path.extname(ctx.file.filename)
 	ctx.body = File.creatReadStream(ctx.params.id)

@@ -1,13 +1,10 @@
-import fs from 'fs-extra'
+import fs from 'fs'
 import axios from 'axios'
 import jszip from 'jszip'
-import config from 'config'
 
 import { lrunSync } from './run'
 import { dataRoot } from './path'
-
-const host: string = config.get('host')
-const secret: string = config.get('secret')
+import { config } from '../util/config'
 
 function compile(source: string, out: string) {
 	return lrunSync({
@@ -19,9 +16,12 @@ function compile(source: string, out: string) {
 }
 
 export async function prepareData(id: string) {
+	const { host, secret } = config
 	const dataPath = `${dataRoot}/${id}`
+
 	if (!fs.existsSync(dataPath)) {
 		try {
+			await fs.promises.mkdir(dataPath, { recursive: true })
 			const zip = await jszip.loadAsync((await axios({
 				method: 'GET',
 				params: { secret },
@@ -31,12 +31,12 @@ export async function prepareData(id: string) {
 			for (const name in zip.files) {
 				if (name.endsWith('/')) { continue }
 				const content = await zip.files[name].async('nodebuffer')
-				await fs.outputFile(`${dataPath}/${name}`, content)
+				await fs.promises.writeFile(`${dataPath}/${name}`, content)
 			}
-			await fs.chmod(dataPath, 0o777)
-			await fs.copy(`testlib/testlib.h`, `${dataPath}/testlib.h`)
+			await fs.promises.chmod(dataPath, 0o777)
+			await fs.promises.copyFile(`testlib/testlib.h`, `${dataPath}/testlib.h`)
 			if (!fs.existsSync(`${dataPath}/checker.cpp`)) {
-				await fs.copy(`testlib/checker.cpp`, `${dataPath}/checker.cpp`)
+				await fs.promises.copyFile(`testlib/checker.cpp`, `${dataPath}/checker.cpp`)
 			}
 			let result = compile(`${dataPath}/checker.cpp`, `${dataPath}/checker`)
 			if (result.error) throw result.error
@@ -56,7 +56,10 @@ export async function prepareData(id: string) {
 				}
 			}
 		} catch (e) {
-			await fs.remove(dataPath)
+			await fs.promises.rm(dataPath, {
+				force: true,
+				recursive: true
+			})
 			throw e
 		}
 	}

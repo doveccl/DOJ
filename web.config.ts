@@ -1,31 +1,23 @@
-import config from 'config'
-import webpack from 'webpack'
-import packageJson from './package.json'
-import WebpackCdnPlugin from 'webpack-cdn-plugin'
-import HtmlWebpackPlugin from 'html-webpack-plugin'
-import MiniCssExtractPlugin from 'mini-css-extract-plugin'
-
-const port = config.get<number>('port')
+import * as webpack from 'webpack'
+import * as WebpackCdnPlugin from 'webpack-cdn-plugin'
+import * as HtmlWebpackPlugin from 'html-webpack-plugin'
+import * as MiniCssExtractPlugin from 'mini-css-extract-plugin'
 
 export default {
-	entry: {
-		main: './web'
-	},
+	entry: './web',
 	output: {
 		publicPath: '/',
-		filename: '[name].[chunkhash:8].js'
+		path: `${__dirname}/dist/static`,
+		filename: 'main.[chunkhash:8].js'
 	},
 	module: {
-		rules: [
-			{
-				test: /\.tsx?$/,
-				loader: 'ts-loader'
-			},
-			{
-				test: /\.(c|le)ss$/,
-				use: [MiniCssExtractPlugin.loader, 'css-loader', 'less-loader']
-			}
-		]
+		rules: [{
+			test: /\.tsx?$/,
+			loader: 'ts-loader'
+		}, {
+			test: /\.(c|le)ss$/,
+			use: [MiniCssExtractPlugin.loader, 'css-loader', 'less-loader']
+		}]
 	},
 	resolve: {
 		extensions: ['.tsx', '.ts', '.js']
@@ -34,12 +26,7 @@ export default {
 		new HtmlWebpackPlugin({
 			title: 'DOJ',
 			inject: 'body',
-			favicon: 'web/logo.png',
-			meta: {
-				author: packageJson.author,
-				description: packageJson.description,
-				keywords: packageJson.keywords.join(',')
-			}
+			favicon: 'web/logo.png'
 		}),
 		new WebpackCdnPlugin({
 			modules: [
@@ -71,13 +58,13 @@ export default {
 			'/api': {
 				secure: false,
 				changeOrigin: true,
-				target: `http://localhost:${port}`
+				target: 'http://localhost:7974'
 			},
 			'/wss': {
 				ws: true,
 				secure: false,
 				changeOrigin: true,
-				target: `ws://localhost:${port}`
+				target: 'ws://localhost:7974'
 			}
 		}
 	}

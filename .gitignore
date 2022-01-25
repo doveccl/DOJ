@@ -5,7 +5,6 @@
 node_modules/
 
 # Build files
-app/
 dist/
 
 # Others
@@ -14,4 +13,4 @@ dist/
 package-lock.json
 
 # Config
-config/production.*
+config.json

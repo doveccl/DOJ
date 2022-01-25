@@ -17,8 +17,3 @@ const schema = new Schema({
 })
 
 export const Config = model<DConfig>('config', schema)
-
-Config.findById('notification').then(c => c || Config.create({
-	_id: 'notification',
-	value: 'DOJ notification'
-}))

@@ -52,10 +52,3 @@ const schema = new Schema({
 schema.index({ solve: -1, submit: 1 })
 
 export const User = model<DUser>('user', schema)
-
-User.findOne().then(c => c || User.create({
-	name: 'admin',
-	mail: 'admin@d.oj',
-	group: Group.root,
-	password: hashSync('admin')
-}))

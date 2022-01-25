@@ -1,13 +1,11 @@
 {
 	"include": [
-		"./index.ts",
+		"./index.ts"
 	],
 	"compilerOptions": {
-		"outDir": "app",
 		"target": "ESNext",
 		"module": "CommonJS",
-		"removeComments": true,
+		"moduleResolution": "Node",
 		"esModuleInterop": true,
-		"resolveJsonModule": true,
 	}
 }

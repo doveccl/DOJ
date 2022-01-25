@@ -1,13 +1,11 @@
 {
-	"files": [
-		"index.tsx"
+	"include": [
+		"./index.tsx"
 	],
 	"compilerOptions": {
 		"jsx": "react",
 		"target": "ESNext",
-		"module": "ESNext",
 		"moduleResolution": "Node",
-		"inlineSourceMap": true,
-		"esModuleInterop": true
+		"esModuleInterop": true,
 	}
 }

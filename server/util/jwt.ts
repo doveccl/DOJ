@@ -1,11 +1,9 @@
-import config from 'config'
 import jwt from 'jsonwebtoken'
-
-const secret: string = config.get('secret')
+import { config } from './config'
 
 export function sign(
 	payload: string | object | Buffer,
-	secretOrPrivateKey: string | Buffer = secret,
+	secretOrPrivateKey: string | Buffer = config.secret,
 	options: jwt.SignOptions = { expiresIn: '7d' }
 ) {
 	return new Promise<string>((resolve, reject) => {
@@ -21,7 +19,7 @@ export function sign(
 
 export function verify(
 	token: string,
-	secretOrPrivateKey: string | Buffer = secret
+	secretOrPrivateKey: string | Buffer = config.secret
 ) {
 	return new Promise<string | object>((resolve, reject) => {
 		jwt.verify(token, secretOrPrivateKey, (error, data) => {

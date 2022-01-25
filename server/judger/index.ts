@@ -1,15 +1,11 @@
-import config from 'config'
 import WebSocket from 'ws'
-import { SE } from '../common/pack'
+import { config } from '../util/config'
 import { judge } from './judge'
-import { logJudger } from './log'
+import { logJudger } from '../util/log'
+import { SE } from '../../common/pack'
 
-const host = config.get<string>('host')
-const name = config.get<string>('name')
-const secret = config.get<string>('secret')
-const concurrent = config.get<number>('concurrent')
-
-function connectServer() {
+export function connectServer() {
+	const { host, name, secret, concurrent } = config
 	const ws = new WebSocket(`${host}/wss?judger`)
 	logJudger.info('connect to server:', ws.url)
 
@@ -29,5 +25,3 @@ function connectServer() {
 		})
 	}
 }
-
-connectServer()

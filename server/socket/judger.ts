@@ -1,5 +1,5 @@
-import config from 'config'
 import WebSocket from 'ws'
+import { config } from '../util/config'
 import { update } from './client'
 import { logSocket } from '../util/log'
 import { SE } from '../../common/pack'
@@ -18,7 +18,6 @@ interface ParsedSubmission {
 
 let judgers: WebSocket[] = []
 let submissions: ParsedSubmission[] = []
-const secret: string = config.get('secret')
 
 function dispatchSubmission() {
 	while (judgers.length && submissions.length) {
@@ -38,7 +37,7 @@ export function routeJudger(ws: WebSocket) {
 	ws.on('message', raw => {
 		const data = JSON.parse(raw.toString())
 		if (data.name && data.secret && data.concurrent) {
-			if (secret === data.secret) {
+			if (config.secret === data.secret) {
 				logSocket.info('Add judger:', name = data.name)
 				addJudger(ws, data.concurrent)
 			} else {

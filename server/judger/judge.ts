@@ -1,14 +1,12 @@
-import fs from 'fs-extra'
-import config from 'config'
+import fs from 'fs'
 import WebSocket from 'ws'
-import { logJudger } from './log'
+import { config } from '../util/config'
+import { logJudger } from '../util/log'
 import { prepareData } from './data'
-import { Case, CE } from '../common/pack'
 import { mirrorfs, runRoot } from './path'
-import { ILanguage, IResult, Status } from '../common/interface'
+import { Case, CE } from '../../common/pack'
+import { IResult, Status } from '../../common/interface'
 import { interRun, lrun, lrunSync, wait, ExceedType, RunOpts, RunResult } from './run'
-
-const languages: ILanguage[] = config.get('languages')
 
 interface IJudge {
 	_id: string
@@ -26,17 +24,18 @@ export async function judge(args: IJudge, ws?: WebSocket) {
 
 	logJudger.info('judge submission:', args._id)
 	step('Prepare problem data and checker ...')
-	const language = languages[args.language]
+	const language = config.languages[args.language]
 	const dataPath = await prepareData(args.data)
 	const runPath = `${runRoot}/${args._id}`
 
-	await fs.outputFile(`${runPath}/${language.source}`, args.code)
-	await fs.chmod(runPath, 0o777)
+	await fs.promises.mkdir(runPath, { recursive: true })
+	await fs.promises.writeFile(`${runPath}/${language.source}`, args.code)
+	await fs.promises.chmod(runPath, 0o777)
 	fs.readdirSync(dataPath).forEach(file => {
 		if (file.endsWith('.in')) return
 		if (file.endsWith('.out')) return
 		if (fs.existsSync(`${runPath}/${file}`)) return
-		fs.copySync(`${dataPath}/${file}`, `${runPath}/${file}`)
+		fs.promises.copyFile(`${dataPath}/${file}`, `${runPath}/${file}`)
 	})
 
 	// compile

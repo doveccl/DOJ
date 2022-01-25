@@ -1,33 +1,31 @@
-import { createReadStream, stat } from 'fs-extra'
-import { Middleware } from 'koa'
-import { getType } from 'mime'
 import { join } from 'path'
+import { getType } from 'mime'
+import { Middleware } from 'koa'
+import { createReadStream, statSync } from 'fs'
 
-const fileExists = async (path: string) => {
-	try {
-		const s = await stat(path)
-		return s.isFile()
-	} catch (e) {
-		return false
+export default (): Middleware => async (ctx, next) => {
+	if (ctx.url.startsWith('/api')) {
+		await next()
+	} else {
+		[
+			[__dirname, 'static', ctx.url],
+			[__dirname, 'static', 'index.html'],
+			['dist/static', ctx.url],
+			['dist/static/index.html'],
+		]
+			.map(paths => join(...paths))
+			.some(file => {
+				try {
+					if (statSync(file).isFile()) {
+						ctx.type = getType(file)
+						ctx.body = createReadStream(file)
+						return true
+					} else {
+						return false
+					}
+				} catch {
+					return false
+				}
+			})
 	}
 }
-
-export default (): Middleware =>
-	async (ctx, next) => {
-		if (!/:?^\/(api|socket\.io)/.test(ctx.url)) {
-			const p = join('dist', ctx.url)
-			const f = join('dist', ctx.url, 'index.html')
-			if (await fileExists(p)) {
-				ctx.type = getType(p)
-				ctx.body = createReadStream(p)
-			} else if (await fileExists(f)) {
-				ctx.type = getType(f)
-				ctx.body = createReadStream(f)
-			} else if (await fileExists('dist/index.html')) {
-				ctx.type = getType('index.html')
-				ctx.body = createReadStream('dist/index.html')
-			}
-		} else {
-			await next()
-		}
-	}

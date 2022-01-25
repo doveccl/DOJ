@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
-import config from 'config'
 import Router from 'koa-router'
 
+import { config } from '../util/config'
 import { checkPassword } from '../../common/function'
 import { password } from '../middleware/auth'
 import { DUser, User } from '../model/user'
@@ -20,7 +20,7 @@ router.get('/login', password(), async (ctx) => {
 router.post('/register', async (ctx) => {
 	const pass = ctx.request.body.password
 	const { name, mail, invitation } = ctx.request.body
-	if (!config.get('registration') && !invitation) {
+	if (!config.registration && !invitation) {
 		throw new Error('invitation code is required')
 	}
 
