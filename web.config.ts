@@ -1,7 +1,7 @@
-import * as webpack from 'webpack'
-import * as WebpackCdnPlugin from 'webpack-cdn-plugin'
-import * as HtmlWebpackPlugin from 'html-webpack-plugin'
-import * as MiniCssExtractPlugin from 'mini-css-extract-plugin'
+import webpack from 'webpack'
+import WebpackCdnPlugin from 'webpack-cdn-plugin'
+import HtmlWebpackPlugin from 'html-webpack-plugin'
+import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 
 export default {
 	entry: './web',

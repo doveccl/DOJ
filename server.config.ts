@@ -1,6 +1,6 @@
-import * as fs from 'fs'
-import * as webpack from 'webpack'
-import * as CopyWebpackPlugin from 'copy-webpack-plugin'
+import fs from 'fs'
+import webpack from 'webpack'
+import CopyWebpackPlugin from 'copy-webpack-plugin'
 
 export default {
 	target: 'node',

@@ -2,60 +2,35 @@
 
 Online Judge for OI & ACM/ICPC
 
-## Feature
-
-- AJAX based Single Page Application (Web)
-- WebSocket submission result query
-- Markdown (with TeX and shortcode supports) editor
-- Interactive problems
-- Special Judge
-
-## Requirement
-
-- NodeJS 8.x or higher (yarn is recommended)
-- MongoDB 3.x or higher
-- Docker
-
 ## Installation
 
-1. pull image
+0. install `node` and `mongodb`
 
-```bash
-docker pull doveccl/doj
+1. download doj [release](https://github.com/doveccl/DOJ/releases)
+
+## Usage
+
+(optional) create `config.json` with part of [default config](server/util/config.ts)
+
+### standalone-server
+
+```sh
+node doj.js --server --judger
 ```
 
-2. copy [./config](./config) folder and edit your own configurations
+### multi-server
 
-- create file `production.json` and add configurations to override `default.json`
-- `judger.json` and `server.json` are configuration templates
-- for security, please set an unique `secret`
+all server should share same `secret` config
 
-3. simply run command below to start DOJ
+- Server A
 
-```bash
-run -it --privileged -p 80:<configured_port,default: 7974> -v /<path_to_your>/config:/doj/config doveccl/doj --server --judger
-# or use -d instead of -it for background running
+```sh
+node doj.js --server
 ```
 
-4. open http://localhost to test your new OJ, initial root user `admin/admin` could be used for management
+- Server B/C/D/...
 
-## Development
+```sh
+node doj.js --judger
+```
 
-1. clone DOJ to local
-2. use `yarn install` or `npm install` to install dependencies
-3. use `yarn dev:web` or `npm run dev:web` for web debugging
-4. use `yarn dev --server` or `npm run dev --server` for server debugging
-5. use `yarn dev --judger` or `npm run dev --judger` for judger debugging
-6. you can debug server together with judger by flag `--server --judger`
-7. Linux is required for judger debugging
-8. to build project, run `yarn build` or `npm run build`
-
-## Separate server and judgers
-
-`server` is the gate of database
-
-single server with multi-judgers is an efficient way to handle with plenty of submissions
-
-- run `docker <...args> doveccl/doj --server` to setup single server without judgers
-- run `docker <...args> doveccl/doj --judgers` on several machines to setup multi-judgers without server
-- server and judgers should share the same `secret` configuration field
