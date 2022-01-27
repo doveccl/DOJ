@@ -1,9 +1,0 @@
-{
-	"files": [
-		"./web.config.ts",
-		"./server.config.ts"
-	],
-	"compilerOptions": {
-		"esModuleInterop": true
-	}
-}
