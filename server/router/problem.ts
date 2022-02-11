@@ -29,7 +29,13 @@ router.get('/problem', async (ctx) => {
 	const condition = {
 		'contest.id': cid,
 		'$or': [
-			{ tags: [search] },
+			{
+				tags: {
+					$elemMatch: {
+						$eq: search
+					}
+				}
+			},
 			{ title: searchRegExp },
 			{ content: searchRegExp }
 		]
