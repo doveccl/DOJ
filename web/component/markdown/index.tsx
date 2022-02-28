@@ -16,6 +16,7 @@ export function MarkDown({ trusted = false, children = '' }) {
 	useEffect(() => {
 		const codes: string[] = []
 		const noCodeStr = children
+			.replaceAll('\r', '')
 			// replace code blocks with empty string
 			// avoid sanitize: '#include<xxx>' => '#include'
 			.replace(codeRegExp, (_, tok, lan, code) => {
