@@ -175,8 +175,8 @@ export default function ManageContest() {
 					) },
 					{ title: 'Title', dataIndex: 'title' },
 					{ title: 'Type', dataIndex: 'type', render: renderType },
-					{ title: 'Start At', dataIndex: 'startAt', render: t => moment(t).format('llll') },
-					{ title: 'End At', dataIndex: 'endAt', render: t => moment(t).format('llll') },
+					{ title: 'Start At', dataIndex: 'startAt', render: t => moment(t).format() },
+					{ title: 'End At', dataIndex: 'endAt', render: t => moment(t).format() },
 					{ title: 'Action', key: 'action', render: (_, r) => <>
 						<a onClick={() => (setContest(r), setOpen(true))}>Edit</a>
 						<Divider type="vertical" />

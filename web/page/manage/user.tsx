@@ -116,7 +116,7 @@ export default function ManageUser() {
 				{ title: 'Name', dataIndex: 'name' },
 				{ title: 'Mail', dataIndex: 'mail' },
 				{ title: 'Group', dataIndex: 'group', render: renderGroup },
-				{ title: 'Join', dataIndex: 'createdAt', render: t => moment(t).fromNow() },
+				{ title: 'Join', dataIndex: 'createdAt', render: t => moment(t).format() },
 				{ title: 'Action', key: 'action', render: (_, r) => <>
 					<a onClick={() => (setUser(r), setOpen(true))}>Edit</a>
 					{global.user._id !== r._id && <>

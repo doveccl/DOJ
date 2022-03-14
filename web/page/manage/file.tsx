@@ -90,7 +90,7 @@ export default function ManageFile() {
 				) },
 				{ title: 'Usage', key: 'usage', render: (_, r) => renderUsage(r) },
 				{ title: 'Size', dataIndex: 'length', render: t => parseMemory(t) },
-				{ title: 'Time', dataIndex: 'uploadDate', render: t => moment(t).fromNow() },
+				{ title: 'Time', dataIndex: 'uploadDate', render: t => moment(t).format() },
 				{ title: 'File Type', dataIndex: ['metadata', 'type'] },
 				{ title: 'Action', key: 'action', render: (_, r) => <>
 					<a onClick={() => {

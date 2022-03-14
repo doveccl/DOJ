@@ -88,7 +88,7 @@ export default function Submission() {
 		>
 			<Timeline className="result" pending={pending}>
 				<Timeline.Item color="green">
-					{s?.uname} submitted {moment(s?.createdAt).fromNow()}
+					{s?.uname} submitted {moment(s?.createdAt).format()}
 				</Timeline.Item>
 				{cases?.map((c, i) => (
 					<Timeline.Item key={i} color={color(c)}>

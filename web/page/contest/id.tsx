@@ -58,9 +58,9 @@ export default function Contest() {
 		>
 			<Progress percent={process} showInfo={false} />
 			<Row justify="space-between">
-				<Col>{moment(contest?.startAt).format('llll')}</Col>
+				<Col>{moment(contest?.startAt).format()}</Col>
 				<Col>{status}</Col>
-				<Col>{moment(contest?.endAt).format('llll')}</Col>
+				<Col>{moment(contest?.endAt).format()}</Col>
 			</Row>
 		</Card>
 		<div className="divider" />

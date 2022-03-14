@@ -1,4 +1,5 @@
 import axios from 'axios'
+import moment from 'moment'
 import Cookie from 'js-cookie'
 import React, { createContext, useReducer } from 'react'
 import { getConfig } from './model'
@@ -7,6 +8,8 @@ import { ILanguage, IUser } from './interface'
 axios.defaults.baseURL = '/api'
 axios.defaults.validateStatus = status => status <= 404
 axios.defaults.headers.common.token = Cookie.get('token')
+
+moment.defaultFormat = 'YYYY.MM.DD HH:mm:ss'
 
 type Path = string | {
 	url: string

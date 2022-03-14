@@ -31,7 +31,7 @@ export function Post(post: IPost & IMut) {
 				<span>{post.uname}</span>
 			</>}
 			extra={<>
-				<span>{moment(post.createdAt).fromNow()}</span>
+				<span>{moment(post.createdAt).format()}</span>
 				{mutable && <>
 					<Divider type="vertical" />
 					<a onClick={() => setEdit(true)}>Edit</a>

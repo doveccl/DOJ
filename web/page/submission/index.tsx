@@ -126,7 +126,7 @@ export default function Submissions() {
 						global.languages?.[l].name ?? 'unknown'
 					) },
 					{ title: 'Submit At', align: 'center', dataIndex: 'createdAt', render: t => (
-						moment(t).fromNow()
+						moment(t).format()
 					) }
 				]}
 			/>
