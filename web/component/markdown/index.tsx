@@ -1,10 +1,10 @@
 import './index.less'
+import katex from 'katex'
 import hljs from 'highlight.js'
 import React, { useEffect, useRef } from 'react'
 import { marked } from 'marked'
 import { message } from 'antd'
 import { sanitize } from 'dompurify'
-import { renderToString } from 'katex'
 
 const mathRegExp = /(\${1,2})([\s\S]+?)\1/g
 const codeRegExp = /\s*([`~]{3})(\w*)\n([\s\S]+?)\1/g
@@ -49,7 +49,7 @@ export function MarkDown({ trusted = false, children = '' }) {
 			const displayMode = tok === '$$'
 			const tag = displayMode ? 'div' : 'span'
 			try {
-				return renderToString(math, { displayMode })
+				return katex.renderToString(math, { displayMode })
 			} catch {
 				const el = document.createElement(tag)
 				el.style.color = 'red'
