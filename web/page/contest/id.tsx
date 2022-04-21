@@ -47,7 +47,7 @@ export default function Contest() {
 			setStatus(now > et ? 'Ended' : parseCount(now - st))
 		}, 200)
 		return () => clearInterval(timer)
-	}, [])
+	}, [contest])
 
 	return <>
 		<LoginTip />
