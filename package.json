@@ -28,7 +28,7 @@
     "jsonwebtoken": "^8.5.1",
     "jszip": "^3.9.1",
     "koa": "^2.13.4",
-    "koa-body": "^5.0.0",
+    "koa-body": "^4",
     "koa-compose": "^4.1.0",
     "koa-router": "^10.1.1",
     "md5": "^2.3.0",
