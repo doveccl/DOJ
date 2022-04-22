@@ -1,6 +1,6 @@
 import './index.less'
 import React from 'react'
-import { createRoot } from 'react-dom/client'
+import { render } from 'react-dom'
 import { BrowserRouter } from 'react-router-dom'
 import { Layout } from 'antd'
 import { GlobalProvider } from './global'
@@ -10,9 +10,8 @@ import { Router } from './router'
 
 const container = document.createElement('div')
 document.body.appendChild(container)
-const root = createRoot(container)
 
-root.render(<BrowserRouter>
+render(<BrowserRouter>
 	<Layout className="container">
 		<GlobalProvider>
 			<Sider />
@@ -26,4 +25,4 @@ root.render(<BrowserRouter>
 			</Layout>
 		</GlobalProvider>
 	</Layout>
-</BrowserRouter>)
+</BrowserRouter>, container)
