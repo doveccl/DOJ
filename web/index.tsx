@@ -12,17 +12,17 @@ const container = document.createElement('div')
 document.body.appendChild(container)
 
 render(<BrowserRouter>
-	<Layout className="container">
-		<GlobalProvider>
-			<Sider />
-			<Layout>
-				<Header />
-				<Layout.Content className="content">
-					<Path />
-					<Router />
-				</Layout.Content>
-				<Footer />
-			</Layout>
-		</GlobalProvider>
-	</Layout>
+	<GlobalProvider>
+		<Layout className="container">
+				<Sider />
+				<Layout>
+					<Header />
+					<Layout.Content className="content">
+						<Path />
+						<Router />
+					</Layout.Content>
+					<Footer />
+				</Layout>
+		</Layout>
+	</GlobalProvider>
 </BrowserRouter>, container)

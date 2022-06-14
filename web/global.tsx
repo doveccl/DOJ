@@ -26,7 +26,7 @@ const initial: Global = {}
 const reducer = (o: Global, n: Global) => Object.assign({}, o, n)
 
 export const GlobalContext = createContext(null as [Global, (_: Global) => void])
-export const GlobalProvider: React.FC = ({ children }) => {
+export function GlobalProvider({ children = <></> }) {
 	const [state, dispatch] = useReducer(reducer, initial)
 	return <GlobalContext.Provider value={[state, args => {
 		if (args.path) updateTitle(args.path)

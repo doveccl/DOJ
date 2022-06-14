@@ -1,10 +1,13 @@
 import WebSocket from 'ws'
+import { initPath } from './path'
 import { config } from '../util/config'
 import { judge } from './judge'
 import { logJudger } from '../util/log'
 import { SE } from '../../common/pack'
 
 export function connectServer() {
+	initPath()
+
 	const { host, name, secret, concurrent } = config
 	const ws = new WebSocket(`${host}/wss?judger`)
 	logJudger.info('connect to server:', ws.url)
