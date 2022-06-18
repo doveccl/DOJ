@@ -1,0 +1,20 @@
+env:
+  vue/setup-compiler-macros: true
+extends:
+  - eslint:recommended
+  - plugin:vue/vue3-recommended
+  - plugin:@typescript-eslint/recommended
+parser: vue-eslint-parser
+parserOptions:
+  ecmaVersion: latest
+  parser: '@typescript-eslint/parser'
+  sourceType: module
+rules:
+  no-undef: off
+  semi: [warn, never]
+  quotes: [warn, single]
+  comma-dangle: [warn, never]
+  indent:
+    - warn
+    - 2
+    - SwitchCase: 1
