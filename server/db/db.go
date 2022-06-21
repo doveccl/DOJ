@@ -10,7 +10,8 @@ var db *gorm.DB = nil
 func Connect(dsn string) (err error) {
 	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err == nil {
-		initUsers()
+		initConfig()
+		initUser()
 	}
 	return
 }

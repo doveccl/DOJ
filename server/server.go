@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 
+	"github.com/doveccl/DOJ/server/api"
 	"github.com/doveccl/DOJ/server/db"
 	"github.com/doveccl/DOJ/server/ws"
 	"github.com/labstack/echo/v4"
@@ -29,8 +30,8 @@ func Start() {
 	e.Use(middleware.Gzip())
 
 	e.GET("/ws", ws.Upgrade)
-	api := e.Group("/api")
-	api.GET("/test", nil)
+	a := e.Group("/api")
+	a.GET("/login", api.Login)
 
 	e.Use(middleware.StaticWithConfig(middleware.StaticConfig{
 		Root:  "dist",
