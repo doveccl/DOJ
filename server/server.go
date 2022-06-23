@@ -4,41 +4,41 @@ import (
 	"flag"
 	"os"
 
-	"github.com/doveccl/DOJ/server/api"
-	"github.com/doveccl/DOJ/server/db"
-	"github.com/doveccl/DOJ/server/ws"
+	"github.com/doveccl/DOJ/server/database"
+	"github.com/doveccl/DOJ/server/middleware"
+	"github.com/doveccl/DOJ/server/router"
+	"github.com/doveccl/DOJ/server/websocket"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 )
 
-var addr = flag.String("l", "127.0.0.1:7974", "listen address")
-var dsn = flag.String("d", "user=postgres password=postgres", "postgresql dsn")
+var listen = ":7974"
+var dsn = "user=postgres"
+
+func init() {
+	flag.StringVar(&dsn, "d", dsn, "postgres dsn")
+	flag.StringVar(&listen, "l", listen, "listen address")
+}
+
+func parse() {
+	flag.Parse()
+	if d := os.Getenv("DOJ_DSN"); d != "" {
+		dsn = d
+	}
+	if l := os.Getenv("DOJ_LISTEN"); l != "" {
+		listen = l
+	}
+}
 
 func Start() {
-	flag.Parse()
-
 	e := echo.New()
 	e.HideBanner = true
+	middleware.RegisterMiddlewares(e)
+	router.RegisterRoutes(e)
+	websocket.Attach(e)
 
-	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-		CustomTimeFormat: "2006/01/02 15:04:05",
-		Format:           "[${time_custom}] ${status} ${method} ${path} ${latency_human}\n",
-	}))
-	e.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
-		DisableStackAll: true,
-	}))
-	e.Use(middleware.Gzip())
-
-	e.GET("/ws", ws.Upgrade)
-	a := e.Group("/api")
-	a.GET("/login", api.Login)
-
-	e.Use(middleware.StaticWithConfig(middleware.StaticConfig{
-		Root:  "dist",
-		HTML5: true,
-	}))
-
-	if db.Connect(*dsn) != nil || e.Start(*addr) != nil {
+	if parse(); database.Connect(dsn) == nil {
+		e.Logger.Fatal(e.Start(listen))
+	} else {
 		os.Exit(1)
 	}
 }

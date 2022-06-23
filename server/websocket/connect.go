@@ -1,4 +1,4 @@
-package ws
+package websocket
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 
 var upgrader = websocket.Upgrader{}
 
-func Upgrade(c echo.Context) error {
+func upgrade(c echo.Context) error {
 	ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
 		return err
@@ -22,4 +22,8 @@ func Upgrade(c echo.Context) error {
 		}
 		fmt.Println(string(m))
 	}
+}
+
+func Attach(e *echo.Echo) {
+	e.GET("/ws", upgrade)
 }

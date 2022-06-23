@@ -34,6 +34,7 @@ export default defineConfig({
     })
   ],
   server: {
+    port: 28080,
     proxy: {
       '/ws': 'http://localhost:7974',
       '/api': 'http://localhost:7974'
