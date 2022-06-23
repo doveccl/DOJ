@@ -14,13 +14,11 @@ type User struct {
 	Status string
 }
 
-var root = User{Group: 2}
-var pass, _ = bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.MinCost)
+var pass, _ = bcrypt.GenerateFromPassword([]byte("admin"), 10)
+var root = User{Name: "admin", Auth: string(pass), Group: 2}
 
-func createRootUser() {
+func initRootUser() {
 	if db.Limit(1).Find(&root).RowsAffected == 0 {
-		root.Name = "admin"
-		root.Auth = string(pass)
 		db.Create(&root)
 	}
 }

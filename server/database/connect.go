@@ -19,7 +19,7 @@ func Connect(dsn string) (err error) {
 	if err = db.AutoMigrate(models...); err != nil {
 		return
 	}
-	updateConfigs()
-	createRootUser()
+	initRootUser()
+	syncConfigs()
 	return
 }

@@ -80,7 +80,7 @@ zh:
 .menu
   background-color var(--el-bg-color)
 .logo
-  font-size 24px
+  font-size 30px
   font-weight bold
   font-family Menlo, Consolas, monospace
 .grow

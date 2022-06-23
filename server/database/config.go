@@ -19,13 +19,13 @@ var PrivateConfigs = map[string]string{
 }
 
 func (c *Config) Sync() string {
-	if db.Limit(1).Find(c).RowsAffected == 0 {
+	if db.Find(c).RowsAffected == 0 {
 		db.Create(c)
 	}
 	return c.Value
 }
 
-func updateConfigs() {
+func syncConfigs() {
 	for k, v := range PublicConfigs {
 		PublicConfigs[k] = (&Config{k, v, true}).Sync()
 	}
