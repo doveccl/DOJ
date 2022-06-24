@@ -1,7 +1,6 @@
 package server
 
 import (
-	"flag"
 	"os"
 
 	"github.com/doveccl/DOJ/server/database"
@@ -11,33 +10,24 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-var listen = ":7974"
-var dsn = "user=postgres"
-
-func init() {
-	flag.StringVar(&dsn, "d", dsn, "postgres dsn")
-	flag.StringVar(&listen, "l", listen, "listen address")
-}
-
-func parse() {
-	flag.Parse()
-	if d := os.Getenv("DOJ_DSN"); d != "" {
-		dsn = d
-	}
-	if l := os.Getenv("DOJ_LISTEN"); l != "" {
-		listen = l
-	}
+var env = map[string]string{
+	"ADDR": ":7974",
+	"DSN":  "host=localhost user=postgres",
 }
 
 func Start() {
-	e := echo.New()
-	e.HideBanner = true
-	middleware.RegisterMiddlewares(e)
-	router.RegisterRoutes(e)
-	websocket.Attach(e)
-
-	if parse(); database.Connect(dsn) == nil {
-		e.Logger.Fatal(e.Start(listen))
+	for k := range env {
+		if e := os.Getenv("DOJ_" + k); e != "" {
+			env[k] = e
+		}
+	}
+	if database.Connect(env["DSN"]) == nil {
+		e := echo.New()
+		e.HideBanner = true
+		middleware.RegisterMiddlewares(e)
+		router.RegisterRoutes(e)
+		websocket.Attach(e)
+		e.Logger.Fatal(e.Start(env["ADDR"]))
 	} else {
 		os.Exit(1)
 	}
