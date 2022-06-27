@@ -1,5 +1,11 @@
 import { useLocalStorage } from '@vueuse/core'
 
 export const useUserStore = defineStore('user', () => {
-  return {}
+  const token = useLocalStorage('token', '')
+
+  watchEffect(() => {
+    token
+  })
+
+  return { token }
 })

@@ -14,9 +14,15 @@ type UserJWT struct {
 }
 
 func Auth() echo.MiddlewareFunc {
-	return middleware.JWTWithConfig(middleware.JWTConfig{
+	auth := middleware.JWTWithConfig(middleware.JWTConfig{
 		Claims:      &UserJWT{},
 		TokenLookup: "header:token",
 		SigningKey:  []byte(database.PrivateConfigs["secret"]),
 	})
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return auth(func(c echo.Context) error {
+			c.Set("user", c.Get("user").(*jwt.Token).Claims)
+			return next(c)
+		})
+	}
 }

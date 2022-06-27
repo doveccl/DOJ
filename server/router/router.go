@@ -12,4 +12,5 @@ func RegisterRoutes(e *echo.Echo) {
 	api.GET("/config/:key", getConfig)
 
 	api.Use(middleware.Auth())
+	api.GET("/self", self)
 }

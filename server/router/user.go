@@ -13,10 +13,10 @@ import (
 
 func sign(u *database.User) (string, error) {
 	m := jwt.SigningMethodHS256
-	s := []byte(database.PrivateConfigs["secret"])
+	k := []byte(database.PrivateConfigs["secret"])
 	o := middleware.UserJWT{ID: u.ID, Group: u.Group}
 	o.ExpiresAt = time.Now().Add(720 * time.Hour).Unix()
-	return jwt.NewWithClaims(m, o).SignedString(s)
+	return jwt.NewWithClaims(m, o).SignedString(k)
 }
 
 func compare(u *database.User, p string) bool {
@@ -27,11 +27,17 @@ func login(c echo.Context) error {
 	user := c.QueryParam("user")
 	pass := c.QueryParam("pass")
 
-	if u := database.GetUser(user); u == nil || !compare(u, pass) {
+	u := database.GetUser(user)
+	if u == nil || !compare(u, pass) {
 		return echo.ErrUnauthorized
 	} else if t, e := sign(u); e != nil {
 		return echo.ErrInternalServerError
 	} else {
 		return c.JSON(http.StatusOK, echo.Map{"token": t})
 	}
+}
+
+func self(c echo.Context) error {
+	u := c.Get("user").(*middleware.UserJWT)
+	return c.JSON(http.StatusOK, database.GetUser(u.ID))
 }

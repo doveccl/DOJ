@@ -12,14 +12,10 @@ var models = []any{
 }
 
 func Connect(dsn string) (err error) {
-	p, c := postgres.Open(dsn), &gorm.Config{}
-	if db, err = gorm.Open(p, c); err != nil {
-		return
+	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err == nil && db.AutoMigrate(models...) == nil {
+		initRootUser()
+		syncConfigs()
 	}
-	if err = db.AutoMigrate(models...); err != nil {
-		return
-	}
-	initRootUser()
-	syncConfigs()
 	return
 }
