@@ -23,6 +23,7 @@
       </template>
       <div class="grow" />
       <el-space size="large">
+        <user-menu />
         <el-switch
           v-model="dark"
           class="theme"

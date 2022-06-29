@@ -1,0 +1,14 @@
+root = "."
+tmp_dir = "dist"
+
+[build]
+  bin = "dist/doj"
+  cmd = "go build -o ./dist/doj ."
+  exclude_dir = ["web", "node_modules"]
+  include_ext = ["go"]
+
+[log]
+  time = true
+
+[screen]
+  clear_on_rebuild = true
