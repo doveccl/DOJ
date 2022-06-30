@@ -1,1 +1,14 @@
 name: 简体中文
+
+confirm: 确认
+cancel: 取消
+
+problems: 题库
+contests: 比赛
+submissions: 提交记录
+
+sign_in: 登录
+sign_up: 注册
+
+user: 用户
+password: 密码

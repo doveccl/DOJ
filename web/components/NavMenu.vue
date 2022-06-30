@@ -66,17 +66,6 @@ const i18n = useI18nStore()
 const { t } = useI18n()
 </script>
 
-<i18n lang="yaml">
-en:
-  problems: Problems
-  contests: Contests
-  submissions: Submissions
-zh:
-  problems: 题库
-  contests: 比赛
-  submissions: 提交记录
-</i18n>
-
 <style scoped lang="stylus">
 .menu
   background-color var(--el-bg-color)

@@ -24,8 +24,8 @@ func compare(u *database.User, p string) bool {
 }
 
 func login(c echo.Context) error {
-	user := c.QueryParam("user")
-	pass := c.QueryParam("pass")
+	user := c.FormValue("user")
+	pass := c.FormValue("pass")
 
 	u := database.GetUser(user)
 	if u == nil || !compare(u, pass) {

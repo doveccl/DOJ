@@ -7,7 +7,7 @@ import (
 
 func RegisterRoutes(e *echo.Echo) {
 	api := e.Group("/api")
-	api.GET("/login", login)
+	api.POST("/login", login)
 	api.GET("/config", getConfig)
 	api.GET("/config/:key", getConfig)
 

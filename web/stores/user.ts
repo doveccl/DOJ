@@ -20,12 +20,8 @@ export const useUserStore = defineStore('user', () => {
   })
 
   async function login(user: string, pass: string) {
-    try {
-      const r = await axios.get('/api/login', { params: { user, pass } })
-      return token.value = r.data.token
-    } catch (e) {
-      return console.warn('login', e)
-    }
+    const r = await axios.post('/api/login', { user, pass })
+    return token.value = r.data.token
   }
 
   return { info, token, login }
