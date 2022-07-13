@@ -24,7 +24,6 @@ if (process.argv.includes('--server')) {
 		Router()
 	]))
 
-	console.log('config', config.database)
 	mongoose.connect(config.database, err => {
 		if (err) {
 			logServer.error(err.message)

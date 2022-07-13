@@ -2,7 +2,7 @@ import fs from 'fs'
 import webpack from 'webpack'
 import CopyWebpackPlugin from 'copy-webpack-plugin'
 
-export default {
+const config: webpack.Configuration = {
 	target: 'node',
 	entry: './server',
 	mode: 'production',
@@ -19,15 +19,18 @@ export default {
 		extensions: ['.ts', '.js']
 	},
 	externals: [(ctx, callback) => {
-		if (ctx.request.startsWith('.')) return callback()
-		if (!ctx.context.includes('node_modules')) return callback()
+		if (ctx.request.startsWith('.'))
+			return callback()
+		else if (!ctx.context.includes('node_modules'))
+			return callback()
+		else if (['formidable'].includes(ctx.request))
+			return callback(null, `commonjs ${ctx.request}`)
 		const module = `node_modules/${ctx.request.split('/')[0]}`
 		if (fs.existsSync(`${__dirname}/${module}`)) return callback()
 		// treat all modules not installed as built-in modules
 		callback(null, `commonjs ${ctx.request}`)
 	}],
 	plugins: [
-		new webpack.DefinePlugin({ 'global.GENTLY': false }),
 		new CopyWebpackPlugin({
 			patterns: [
 				{ from: 'testlib', to: 'testlib' },
@@ -35,4 +38,6 @@ export default {
 			]
 		})
 	]
-} as webpack.Configuration
+}
+
+export default config

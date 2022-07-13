@@ -21,7 +21,11 @@ function beforeExit() {
 	fs.rmSync('/etc/doj', { recursive: true })
 }
 
+let flag = false
 export function initPath() {
+	if (flag) return
+	else flag = true
+
 	chmodConfig(0o600)
 	fs.mkdirSync(runRoot, { recursive: true })
 	fs.mkdirSync(dataRoot, { recursive: true })
