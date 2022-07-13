@@ -38,5 +38,5 @@ if (process.argv.includes('--server')) {
 }
 
 if (process.argv.includes('--judger')) {
-	connectServer()
+	setTimeout(connectServer, 1000)
 }

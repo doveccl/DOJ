@@ -37,7 +37,7 @@ export default function Submission() {
 		if (s?.result?.status === Status.WAIT) {
 			setPending('Pending ...')
 			const host = location.origin.replace(/^http/, 'ws')
-			const ws = socket.current = new WebSocket(`${host}/wss?client`)
+			const ws = socket.current = new WebSocket(`${host}/socket?client`)
 			ws.onopen = () => ws.send(JSON.stringify({ id, token: getToken() }))
 			ws.onmessage = ({ data }) => {
 				const { pending, cases, result } = JSON.parse(data)

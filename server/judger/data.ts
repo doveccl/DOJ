@@ -25,7 +25,7 @@ export async function prepareData(id: string) {
 			const zip = await jszip.loadAsync((await axios({
 				method: 'GET',
 				params: { secret },
-				url: `${host}/api/data/${id}`,
+				url: `http://${host}/api/data/${id}`,
 				responseType: 'arraybuffer'
 			})).data)
 			for (const name in zip.files) {

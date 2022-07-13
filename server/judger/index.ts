@@ -9,7 +9,7 @@ export function connectServer() {
 	initPath()
 
 	const { host, name, secret, concurrent } = config
-	const ws = new WebSocket(`${host}/wss?judger`)
+	const ws = new WebSocket(`ws://${host}/socket?judger`)
 	logJudger.info('connect to server:', ws.url)
 
 	ws.onerror = e => logJudger.warn('connect error:', e.message)

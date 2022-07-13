@@ -60,7 +60,7 @@ export default {
 				changeOrigin: true,
 				target: 'http://localhost:7974'
 			},
-			'/wss': {
+			'/socket': {
 				ws: true,
 				secure: false,
 				changeOrigin: true,

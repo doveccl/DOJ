@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from 'fs'
 export const config = {
 	port: 7974,
 	name: 'default_judger',
-	host: 'ws://127.0.0.1:7974',
+	host: '127.0.0.1:7974',
 	concurrent: 2,
 	database: 'mongodb://127.0.0.1:27017/doj',
 	log: 'debug',
