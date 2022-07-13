@@ -53,7 +53,7 @@ export const config = {
 					'main',
 					'-O2',
 					'-lm',
-					'-std=c++11',
+					'-std=c++17',
 					'-DONLINE_JUDGE'
 				]
 			},
