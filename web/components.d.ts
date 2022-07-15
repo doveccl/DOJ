@@ -3,6 +3,8 @@
 // Read more: https://github.com/vuejs/core/pull/3399
 import '@vue/runtime-core'
 
+export {}
+
 declare module '@vue/runtime-core' {
   export interface GlobalComponents {
     ElAffix: typeof import('element-plus/es')['ElAffix']
@@ -33,5 +35,3 @@ declare module '@vue/runtime-core' {
     UserMenu: typeof import('./components/UserMenu.vue')['default']
   }
 }
-
-export {}
