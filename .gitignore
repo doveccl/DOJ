@@ -39,5 +39,5 @@ dist-ssr
 go.work
 
 # Others
-DOJ
+tmp
 ~*
