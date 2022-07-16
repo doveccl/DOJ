@@ -26,7 +26,10 @@
     v-model="dialog.signin"
     :title="t('sign_in')"
   >
-    <sign-in @cancel="dialog.signin = false" />
+    <sign-in
+      @finish="dialog.signin = false"
+      @cancel="dialog.signin = false"
+    />
   </el-dialog>
   <el-dialog
     v-model="dialog.signup"

@@ -1,5 +1,9 @@
 name: English
 
+Bad Request: Invalid Parameters
+Unauthorized: Authentication failed
+Internal Server Error: System error, please contact administrator
+
 confirm: Confirm
 cancel: Cancel
 
@@ -12,3 +16,5 @@ sign_up: Sign Up
 
 user: User
 password: Password
+user_required: User is required
+pass_required: Password is required

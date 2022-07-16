@@ -1,5 +1,9 @@
 name: 简体中文
 
+Bad Request: 参数错误
+Unauthorized: 登录失败
+Internal Server Error: 系统错误，请联系管理员
+
 confirm: 确认
 cancel: 取消
 
@@ -12,3 +16,5 @@ sign_up: 注册
 
 user: 用户
 password: 密码
+user_required: 请输入用户名或邮箱
+pass_required: 请输入密码

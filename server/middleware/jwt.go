@@ -7,16 +7,10 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-type UserJWT struct {
-	ID    uint
-	Group uint
-	jwt.StandardClaims
-}
-
 func Auth() echo.MiddlewareFunc {
 	auth := middleware.JWTWithConfig(middleware.JWTConfig{
-		Claims:      &UserJWT{},
 		TokenLookup: "header:token",
+		Claims:      &database.UserJWT{},
 		SigningKey:  []byte(database.PrivateConfigs["secret"]),
 	})
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
