@@ -1,5 +1,8 @@
 <template>
-  <el-dropdown v-if="user.info.ID">
+  <el-dropdown
+    v-if="user.info.ID"
+    @command="command"
+  >
     <el-space>
       <el-avatar
         shape="circle"
@@ -7,6 +10,13 @@
       />
       <div>{{ user.info.Name }}</div>
     </el-space>
+    <template #dropdown>
+      <el-dropdown-menu>
+        <el-dropdown-item command="logout">
+          {{ t('sign_out') }}
+        </el-dropdown-item>
+      </el-dropdown-menu>
+    </template>
   </el-dropdown>
   <template v-else>
     <el-button
@@ -25,6 +35,7 @@
   <el-dialog
     v-model="dialog.signin"
     :title="t('sign_in')"
+    destroy-on-close
   >
     <sign-in
       @finish="dialog.signin = false"
@@ -48,4 +59,12 @@ const dialog = reactive({
   signin: false,
   signup: false
 })
+
+function command(cmd: string) {
+  switch (cmd) {
+    case 'logout':
+      user.logout()
+      break
+  }
+}
 </script>

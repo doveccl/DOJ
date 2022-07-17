@@ -13,6 +13,7 @@ submissions: 提交记录
 
 sign_in: 登录
 sign_up: 注册
+sign_out: 退出登录
 
 user: 用户
 password: 密码

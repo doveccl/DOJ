@@ -1,6 +1,6 @@
 <template>
   <el-form
-    ref="formRef"
+    ref="fref"
     :model="form"
     label-width="auto"
   >
@@ -51,7 +51,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const user = useUserStore()
-const formRef = ref<FormInstance>()
+const fref = ref<FormInstance>()
 const form = reactive({
   message: '',
   loading: false,
@@ -60,15 +60,13 @@ const form = reactive({
 })
 
 function login() {
-  formRef.value?.validate(valid => {
-    if (valid) {
-      form.message = ''
-      form.loading = true
-      user.login(form.user, form.pass)
-        .then(() => emit('finish'))
-        .catch(e => form.message = t(e))
-        .finally(() => form.loading = false)
-    }
+  fref.value?.validate(valid => {
+    form.message = ''
+    form.loading = valid
+    valid && user.login(form.user, form.pass)
+      .then(() => emit('finish'))
+      .catch(e => form.message = t(e))
+      .finally(() => form.loading = false)
   })
 }
 </script>

@@ -24,5 +24,10 @@ export const useUserStore = defineStore('user', () => {
     return token.value = r.data.token
   }
 
-  return { info, token, login }
+  function logout() {
+    token.value = ''
+    info.ID = info.Group = 0
+  }
+
+  return { info, token, login, logout }
 })

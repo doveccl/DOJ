@@ -13,6 +13,7 @@ submissions: Submissions
 
 sign_in: Sign In
 sign_up: Sign Up
+sign_out: Sign Out
 
 user: User
 password: Password
