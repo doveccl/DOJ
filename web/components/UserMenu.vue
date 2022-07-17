@@ -12,7 +12,16 @@
     </el-space>
     <template #dropdown>
       <el-dropdown-menu>
-        <el-dropdown-item command="logout">
+        <el-dropdown-item :command="`/user/${user.info.ID}`">
+          {{ t('self_profile') }}
+        </el-dropdown-item>
+        <el-dropdown-item command="/setting">
+          {{ t('secure_setting') }}
+        </el-dropdown-item>
+        <el-dropdown-item
+          divided
+          command="logout"
+        >
           {{ t('sign_out') }}
         </el-dropdown-item>
       </el-dropdown-menu>
@@ -54,6 +63,7 @@
 import { useUserStore } from '@/stores/user'
 
 const { t } = useI18n()
+const router = useRouter()
 const user = useUserStore()
 const dialog = reactive({
   signin: false,
@@ -65,6 +75,8 @@ function command(cmd: string) {
     case 'logout':
       user.logout()
       break
+    default:
+      router.push(cmd)
   }
 }
 </script>

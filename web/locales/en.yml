@@ -14,6 +14,8 @@ submissions: Submissions
 sign_in: Sign In
 sign_up: Sign Up
 sign_out: Sign Out
+self_profile: My Profile
+secure_setting: Secure Setting
 
 user: User
 password: Password

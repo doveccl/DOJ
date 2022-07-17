@@ -14,6 +14,8 @@ submissions: 提交记录
 sign_in: 登录
 sign_up: 注册
 sign_out: 退出登录
+self_profile: 个人资料
+secure_setting: 安全设置
 
 user: 用户
 password: 密码

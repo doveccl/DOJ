@@ -1,7 +1,7 @@
 root = "."
 
 [build]
-  exclude_dir = ["web", "node_modules"]
+  exclude_dir = ["web", "dist", "node_modules"]
   include_ext = ["go"]
 
 [log]
