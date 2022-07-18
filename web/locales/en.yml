@@ -1,7 +1,8 @@
-name: English
+language: English
 
 Bad Request: Invalid Parameters
 Unauthorized: Authentication failed
+Forbidden: Permission denied
 Internal Server Error: System error, please contact administrator
 
 confirm: Confirm
@@ -17,7 +18,14 @@ sign_out: Sign Out
 self_profile: My Profile
 secure_setting: Secure Setting
 
+name: Name
+mail: Mail
 user: User
 password: Password
+name_required: Name is required
+mail_required: Mail is required
 user_required: User is required
 pass_required: Password is required
+name_format: Length of name with letters, numbers and underscores should between 3 and 16
+mail_format: Invalid mail format
+pass_format: Length of password should between 8 and 20

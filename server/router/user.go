@@ -4,11 +4,18 @@ import (
 	"net/http"
 
 	"github.com/doveccl/DOJ/server/database"
+	"github.com/doveccl/DOJ/server/util"
 	"github.com/labstack/echo/v4"
 )
 
 type LoginForm struct {
 	User string `form:"user" json:"user"`
+	Pass string `form:"pass" json:"pass"`
+}
+
+type RegisterForm struct {
+	Name string `form:"name" json:"name"`
+	Mail string `form:"mail" json:"mail"`
 	Pass string `form:"pass" json:"pass"`
 }
 
@@ -21,6 +28,24 @@ func login(c echo.Context) error {
 		return echo.ErrInternalServerError
 	} else {
 		return c.JSON(http.StatusOK, echo.Map{"token": t})
+	}
+}
+
+func register(c echo.Context) error {
+	f := RegisterForm{}
+	if database.PublicConfigs["registration"] != "1" {
+		return echo.ErrForbidden
+	} else if c.Bind(&f) != nil ||
+		!util.ValidateName(f.Name) ||
+		!util.ValidateName(f.Name) || !util.ValidateMail(f.Mail) || len(f.Pass) < 8 || len(f.Pass) > 20 {
+		return echo.ErrBadRequest
+	}
+	// TODO check name, mail duplicate
+	u := database.User{Name: f.Name, Mail: f.Mail}
+	if u.SetPass(f.Pass) == nil && u.Create() {
+		return c.JSON(http.StatusOK, &u)
+	} else {
+		return echo.ErrInternalServerError
 	}
 }
 

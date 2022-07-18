@@ -23,13 +23,23 @@ type UserJWT struct {
 	jwt.StandardClaims
 }
 
-var pass, _ = bcrypt.GenerateFromPassword([]byte("admin"), 10)
-var root = User{Name: "admin", Auth: pass, Group: 2}
+var root = User{Name: "admin", Group: 3}
+
+func init() {
+	if e := root.SetPass("admin"); e != nil {
+		panic(e)
+	}
+}
 
 func initRootUser() {
 	if db.Limit(1).Find(&root).RowsAffected == 0 {
 		db.Create(&root)
 	}
+}
+
+func (u *User) SetPass(p string) (e error) {
+	u.Auth, e = bcrypt.GenerateFromPassword([]byte(p), 10)
+	return
 }
 
 func (u *User) Compare(p string) bool {
@@ -42,6 +52,10 @@ func (u *User) GetToken() (string, error) {
 	o := UserJWT{ID: u.ID, Group: u.Group}
 	o.ExpiresAt = time.Now().Add(720 * time.Hour).Unix()
 	return jwt.NewWithClaims(m, o).SignedString(k)
+}
+
+func (u *User) Create() bool {
+	return db.Create(u).RowsAffected == 1
 }
 
 func GetUser(u any) *User {

@@ -35,6 +35,7 @@
       {{ t('sign_in') }}
     </el-button>
     <el-button
+      v-if="registration"
       link
       @click="dialog.signup = true"
     >
@@ -54,8 +55,12 @@
   <el-dialog
     v-model="dialog.signup"
     :title="t('sign_up')"
+    destroy-on-close
   >
-    {{ JSON.stringify(dialog) }}
+    <sign-up
+      @finish="dialog.signup = false"
+      @cancel="dialog.signup = false"
+    />
   </el-dialog>
 </template>
 
@@ -65,6 +70,7 @@ import { useUserStore } from '@/stores/user'
 const { t } = useI18n()
 const router = useRouter()
 const user = useUserStore()
+const registration = ref(false)
 const dialog = reactive({
   signin: false,
   signup: false
@@ -79,4 +85,10 @@ function command(cmd: string) {
       router.push(cmd)
   }
 }
+
+onBeforeMount(() => {
+  axios.get('/config')
+    .then(({ data }) => registration.value = !!+data.registration)
+    .catch(e => console.warn('fail to get config', e))
+})
 </script>

@@ -12,7 +12,7 @@ const locale = useLocalStorage('locale', languages[0] ?? 'en')
 export const useI18nStore = defineStore('i18n', () => {
   const i18n = useI18n({ useScope: 'global' })
   const { t, availableLocales: locales } = i18n
-  const names = locales.map(l => t('name', l, { locale: l }))
+  const names = locales.map(l => t('language', l, { locale: l }))
 
   const elocale = computed(() => {
     switch (locale.value) {

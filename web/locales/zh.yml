@@ -1,7 +1,8 @@
-name: 简体中文
+language: 简体中文
 
 Bad Request: 参数错误
 Unauthorized: 登录失败
+Forbidden: 无权限
 Internal Server Error: 系统错误，请联系管理员
 
 confirm: 确认
@@ -17,7 +18,14 @@ sign_out: 退出登录
 self_profile: 个人资料
 secure_setting: 安全设置
 
+name: 用户名
+mail: 邮箱
 user: 用户
 password: 密码
+name_required: 请输入用户名
+mail_required: 请输入邮箱
 user_required: 请输入用户名或邮箱
 pass_required: 请输入密码
+name_format: 用户名只能包含字母、数字和下划线，并且长度在 3 到 16 之间
+mail_format: 邮箱格式错误
+pass_format: 密码长度需要在 8 到 20 之间

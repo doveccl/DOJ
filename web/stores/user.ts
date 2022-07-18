@@ -14,13 +14,13 @@ export const useUserStore = defineStore('user', () => {
     token.value ?
       axios.defaults.headers.common.token = token.value :
       delete axios.defaults.headers.common.token
-    token.value && axios.get('/api/self')
+    token.value && axios.get('/self')
       .then(r => Object.assign(info, r.data))
       .catch(e => console.warn('get self info', e))
   })
 
   async function login(user: string, pass: string) {
-    const r = await axios.post('/api/login', { user, pass })
+    const r = await axios.post('/login', { user, pass })
     return token.value = r.data.token
   }
 
