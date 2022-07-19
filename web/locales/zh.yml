@@ -29,3 +29,6 @@ pass_required: 请输入密码
 name_format: 用户名只能包含字母、数字和下划线，并且长度在 3 到 16 之间
 mail_format: 邮箱格式错误
 pass_format: 密码长度需要在 8 到 20 之间
+duplicate_name: 该用户名已被占用
+duplicate_mail: 该邮箱已经注册
+sign_up_success: 注册成功

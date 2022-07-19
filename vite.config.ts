@@ -25,6 +25,7 @@ export default defineConfig({
     Icons(),
     AutoImport({
       dts: 'web/imports.d.ts',
+      resolvers: [ElementPlusResolver()],
       imports: ['vue', 'vue-router', 'vue-i18n', 'pinia', {
         axios: [['default', 'axios']]
       }]

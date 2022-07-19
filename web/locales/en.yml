@@ -29,3 +29,6 @@ pass_required: Password is required
 name_format: Length of name with letters, numbers and underscores should between 3 and 16
 mail_format: Invalid mail format
 pass_format: Length of password should between 8 and 20
+duplicate_name: The name you entered is already taken
+duplicate_mail: This mail has been registered
+sign_up_success: Registration success

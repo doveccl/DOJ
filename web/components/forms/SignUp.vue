@@ -81,8 +81,13 @@ function register() {
     form.message = ''
     form.loading = valid
     valid && axios.post('/register', form)
-      // TODO show success message
-      .then(() => emit('finish'))
+      .then(() => {
+        emit('finish')
+        ElMessage({
+          type: 'success',
+          message: t('sign_up_success')
+        })
+      })
       .catch(e => form.message = t(e))
   })
 }

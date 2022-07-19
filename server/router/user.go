@@ -32,16 +32,26 @@ func login(c echo.Context) error {
 }
 
 func register(c echo.Context) error {
-	f := RegisterForm{}
 	if database.PublicConfigs["registration"] != "1" {
 		return echo.ErrForbidden
-	} else if c.Bind(&f) != nil ||
+	}
+
+	f := RegisterForm{}
+	if c.Bind(&f) != nil ||
 		!util.ValidateName(f.Name) ||
-		!util.ValidateName(f.Name) || !util.ValidateMail(f.Mail) || len(f.Pass) < 8 || len(f.Pass) > 20 {
+		!util.ValidateMail(f.Mail) ||
+		len(f.Pass) < 8 || len(f.Pass) > 20 {
 		return echo.ErrBadRequest
 	}
-	// TODO check name, mail duplicate
-	u := database.User{Name: f.Name, Mail: f.Mail}
+
+	if database.GetUser(f.Name).Name == f.Name {
+		return echo.NewHTTPError(http.StatusBadRequest, "duplicate_name")
+	}
+	if database.GetUser(f.Mail).Mail == f.Mail {
+		return echo.NewHTTPError(http.StatusBadRequest, "duplicate_mail")
+	}
+
+	u := database.User{Name: f.Name, Mail: f.Mail, Group: 1}
 	if u.SetPass(f.Pass) == nil && u.Create() {
 		return c.JSON(http.StatusOK, &u)
 	} else {
