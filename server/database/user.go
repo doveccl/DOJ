@@ -23,7 +23,10 @@ type UserJWT struct {
 	jwt.StandardClaims
 }
 
-var root = User{Name: "admin", Group: 3}
+var (
+	root       = User{Name: "admin", Group: 3}
+	nameOrMail = "LOWER(name) = LOWER(?) OR LOWER(mail) = LOWER(?)"
+)
 
 func init() {
 	if e := root.SetPass("admin"); e != nil {
@@ -63,7 +66,7 @@ func GetUser(u any) *User {
 	if i, _ := u.(uint); i != 0 {
 		db.Find(user, i)
 	} else if s, _ := u.(string); s != "" {
-		db.Find(user, "name = ? OR mail = ?", s, s)
+		db.Find(user, nameOrMail, s, s)
 	}
 	return user
 }

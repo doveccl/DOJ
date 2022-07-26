@@ -44,10 +44,10 @@ func register(c echo.Context) error {
 		return echo.ErrBadRequest
 	}
 
-	if database.GetUser(f.Name).Name == f.Name {
+	if database.GetUser(f.Name).ID > 0 {
 		return echo.NewHTTPError(http.StatusBadRequest, "duplicate_name")
 	}
-	if database.GetUser(f.Mail).Mail == f.Mail {
+	if database.GetUser(f.Mail).ID > 0 {
 		return echo.NewHTTPError(http.StatusBadRequest, "duplicate_mail")
 	}
 
