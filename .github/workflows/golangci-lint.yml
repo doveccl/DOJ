@@ -13,10 +13,14 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
           go-version: 1.18
-      - uses: actions/checkout@v3
+      - name: verify go.mod
+        run: |
+          go mod tidy
+          git diff --exit-code
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
