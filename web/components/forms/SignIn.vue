@@ -1,41 +1,14 @@
 <template>
-  <el-form
-    ref="fref"
-    :model="form"
-    label-width="auto"
-  >
-    <el-form-item
-      prop="user"
-      :label="t('user')"
-      :rules="{ required: true, message: t('user_required') }"
-    >
-      <el-input
-        v-model="form.user"
-        clearable
-      />
+  <el-form ref="fref" :model="form" :rules="rules" label-width="auto">
+    <el-form-item prop="user" :label="t('user')">
+      <el-input v-model="form.user" clearable />
     </el-form-item>
-    <el-form-item
-      prop="pass"
-      :label="t('password')"
-      :rules="{ required: true, message: t('pass_required') }"
-    >
-      <el-input
-        v-model="form.pass"
-        show-password
-        type="password"
-        @keyup.enter="login"
-      />
+    <el-form-item prop="pass" :label="t('password')">
+      <el-input v-model="form.pass" show-password type="password" @keyup.enter="login" />
     </el-form-item>
-    <el-form-item :error="form.message">
-      <el-button
-        type="primary"
-        @click="login"
-      >
-        {{ t('sign_in') }}
-      </el-button>
-      <el-button @click="emit('cancel')">
-        {{ t('cancel') }}
-      </el-button>
+    <el-form-item :error="state.message">
+      <el-button type="primary" :loading="state.loading" @click="login">{{ t('sign_in') }}</el-button>
+      <el-button @click="close">{{ t('cancel') }}</el-button>
     </el-form-item>
   </el-form>
 </template>
@@ -44,29 +17,31 @@
 import { useUserStore } from '@/stores/user'
 import type { FormInstance } from 'element-plus'
 
-const emit = defineEmits<{
-  (e: 'cancel'): void
-  (e: 'finish'): void
-}>()
-
 const { t } = useI18n()
 const user = useUserStore()
 const fref = ref<FormInstance>()
-const form = reactive({
-  message: '',
-  loading: false,
-  user: '',
-  pass: ''
-})
+const emit = defineEmits<(e: 'close') => void>()
+const state = reactive({ loading: false, message: '' })
+const form = reactive({ user: '', pass: '' })
+const rules = {
+  user: { required: true, message: t('user_required') },
+  pass: { required: true, message: t('pass_required') }
+}
+
+function close() {
+  emit('close')
+  fref.value?.resetFields(['pass'])
+  fref.value?.clearValidate()
+}
 
 function login() {
   fref.value?.validate(valid => {
-    form.message = ''
-    form.loading = valid
+    state.message = ''
+    state.loading = valid
     valid && user.login(form.user, form.pass)
-      .then(() => emit('finish'))
-      .catch(e => form.message = t(e))
-      .finally(() => form.loading = false)
+      .then(close)
+      .catch(e => state.message = t(e))
+      .finally(() => state.loading = false)
   })
 }
 </script>

@@ -11,6 +11,8 @@ parserOptions:
   sourceType: module
 rules:
   no-undef: off
+  vue/max-attributes-per-line: off
+  vue/singleline-html-element-content-newline: off
   semi: [warn, never]
   quotes: [warn, single]
   comma-dangle: [warn, never]
