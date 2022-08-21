@@ -54,9 +54,8 @@ func register(c echo.Context) error {
 	u := database.User{Name: f.Name, Mail: f.Mail, Group: 1}
 	if u.SetPass(f.Pass) == nil && u.Create() {
 		return c.JSON(http.StatusOK, &u)
-	} else {
-		return echo.ErrInternalServerError
 	}
+	return echo.ErrInternalServerError
 }
 
 func self(c echo.Context) error {

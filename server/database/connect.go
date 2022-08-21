@@ -5,7 +5,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var db *gorm.DB = nil
+var db *gorm.DB
 var models = []any{
 	&Config{},
 	&User{},
