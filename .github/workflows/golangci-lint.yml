@@ -1,13 +1,13 @@
 name: golangci-lint
+
 on:
   push:
-    tags:
-      - v*
     branches:
       - v4
   pull_request:
 permissions:
   contents: read
+
 jobs:
   golangci:
     name: lint
@@ -25,8 +25,7 @@ jobs:
         uses: golangci/golangci-lint-action@v3
         with:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
-          version: v1.29
-
+          version: v1.45.2 
           # Optional: working directory, useful for monorepos
           working-directory: server
 
@@ -38,7 +37,7 @@ jobs:
 
           # Optional: if set to true then the all caching functionality will be complete disabled,
           #           takes precedence over all other caching options.
-          # skip-cache: true
+          skip-cache: true
 
           # Optional: if set to true then the action don't cache or restore ~/go/pkg.
           # skip-pkg-cache: true
