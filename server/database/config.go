@@ -1,8 +1,6 @@
 package database
 
-import (
-	"github.com/google/uuid"
-)
+import "github.com/google/uuid"
 
 type Config struct {
 	Key    string `gorm:"primaryKey"`
@@ -10,26 +8,23 @@ type Config struct {
 	Public bool
 }
 
-var PublicConfigs = map[string]string{
-	"registration": "1",
+var ConfMap = map[string]string{}
+
+var ConfList = []*Config{
+	{"registration", "1", true},
+	{"secret", uuid.New().String(), false},
 }
 
-var PrivateConfigs = map[string]string{
-	"secret": uuid.New().String(),
+func init() {
+	initializers[&Config{}] = func() {
+		for _, c := range ConfList {
+			c.Sync()
+			ConfMap[c.Key] = c.Value
+		}
+	}
 }
 
 func (c *Config) Sync() string {
-	if db.Find(c).RowsAffected == 0 {
-		db.Create(c)
-	}
+	db.FirstOrCreate(c)
 	return c.Value
-}
-
-func syncConfigs() {
-	for k, v := range PublicConfigs {
-		PublicConfigs[k] = (&Config{k, v, true}).Sync()
-	}
-	for k, v := range PrivateConfigs {
-		PrivateConfigs[k] = (&Config{k, v, false}).Sync()
-	}
 }

@@ -1,8 +1,6 @@
 package util
 
-import (
-	"regexp"
-)
+import "regexp"
 
 var nameReg = regexp.MustCompile(`^\w{3,16}$`)
 var mailReg = regexp.MustCompile(`^\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$`)

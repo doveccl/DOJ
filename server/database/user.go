@@ -18,25 +18,19 @@ type User struct {
 }
 
 type UserJWT struct {
-	ID    uint
+	Uid   uint
 	Group uint
 	jwt.StandardClaims
 }
 
-var (
-	root       = User{Name: "admin", Group: 3}
-	nameOrMail = "LOWER(name) = LOWER(?) OR LOWER(mail) = LOWER(?)"
-)
+var nameOrMail = "LOWER(name) = LOWER(?) OR LOWER(mail) = LOWER(?)"
 
 func init() {
-	if e := root.SetPass("admin"); e != nil {
-		panic(e)
-	}
-}
-
-func initRootUser() {
-	if db.Limit(1).Find(&root).RowsAffected == 0 {
-		db.Create(&root)
+	initializers[&User{}] = func() {
+		root := &User{Name: "admin", Group: 3}
+		if e := root.SetPass("admin"); e == nil {
+			db.FirstOrCreate(root, &User{Group: 3})
+		}
 	}
 }
 
@@ -51,8 +45,8 @@ func (u *User) Compare(p string) bool {
 
 func (u *User) GetToken() (string, error) {
 	m := jwt.SigningMethodHS256
-	k := []byte(PrivateConfigs["secret"])
-	o := UserJWT{ID: u.ID, Group: u.Group}
+	k := []byte(ConfMap["secret"])
+	o := UserJWT{Uid: u.ID, Group: u.Group}
 	o.ExpiresAt = time.Now().Add(720 * time.Hour).Unix()
 	return jwt.NewWithClaims(m, o).SignedString(k)
 }

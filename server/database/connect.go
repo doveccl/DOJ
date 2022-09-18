@@ -6,16 +6,14 @@ import (
 )
 
 var db *gorm.DB
-var models = []any{
-	&Config{},
-	&User{},
-}
+var initializers = map[any]func(){}
 
-func Connect(dsn string) (err error) {
-	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
-	if err == nil && db.AutoMigrate(models...) == nil {
-		initRootUser()
-		syncConfigs()
+func Connect(dsn string) (e error) {
+	if db, e = gorm.Open(postgres.Open(dsn), &gorm.Config{}); e == nil {
+		for model, initialize := range initializers {
+			db.AutoMigrate(model)
+			initialize()
+		}
 	}
 	return
 }

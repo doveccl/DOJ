@@ -32,7 +32,7 @@ func login(c echo.Context) error {
 }
 
 func register(c echo.Context) error {
-	if database.PublicConfigs["registration"] != "1" {
+	if database.ConfMap["registration"] != "1" {
 		return echo.ErrForbidden
 	}
 
@@ -59,6 +59,6 @@ func register(c echo.Context) error {
 }
 
 func self(c echo.Context) error {
-	u := c.Get("user").(*database.UserJWT)
-	return c.JSON(http.StatusOK, database.GetUser(u.ID))
+	jwt := c.Get("user").(*database.UserJWT)
+	return c.JSON(http.StatusOK, database.GetUser(jwt.Uid))
 }

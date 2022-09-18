@@ -11,7 +11,7 @@ func Auth() echo.MiddlewareFunc {
 	auth := middleware.JWTWithConfig(middleware.JWTConfig{
 		TokenLookup: "header:token",
 		Claims:      &database.UserJWT{},
-		SigningKey:  []byte(database.PrivateConfigs["secret"]),
+		SigningKey:  []byte(database.ConfMap["secret"]),
 	})
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return auth(func(c echo.Context) error {
