@@ -38,11 +38,11 @@ const dialog = reactive({
 
 function command(cmd: string) {
   switch (cmd) {
-    case 'logout':
-      user.logout()
-      break
-    default:
-      router.push(cmd)
+  case 'logout':
+    user.logout()
+    break
+  default:
+    router.push(cmd)
   }
 }
 

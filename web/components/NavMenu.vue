@@ -1,6 +1,6 @@
 <template>
   <el-affix>
-    <el-menu class="menu" mode="horizontal" :default-active="route.path" @select="router.push">
+    <el-menu mode="horizontal" :default-active="route.path" @select="router.push">
       <el-menu-item class="logo" index="/">DOJ</el-menu-item>
       <template v-for="item in routes">
         <el-menu-item v-if="item.name" :key="item.path" :index="item.path">{{ t(item.name) }}</el-menu-item>
@@ -36,16 +36,14 @@ const i18n = useI18nStore()
 const { t } = useI18n()
 </script>
 
-<style scoped lang="stylus">
-.menu
-  background-color var(--el-bg-color)
+<style scoped lang="sass">
 .logo
-  font-size 30px
-  font-weight bold
-  font-family Menlo, Consolas, monospace
+  font-size: 30px
+  font-weight: bold
+  font-family: Menlo, Consolas, monospace
 .right
-  margin-left auto
-  padding-left 1em
+  margin-left: auto
+  padding-left: 1em
 .theme
-  --el-switch-on-color var(--el-border-color)
+  --el-switch-on-color: var(--el-border-color)
 </style>

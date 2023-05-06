@@ -1,23 +1,15 @@
 {
   "compilerOptions": {
     "strict": true,
-    "jsx": "preserve",
-    "target": "esnext",
-    "module": "esnext",
+    "target": "ESNext",
+    "module": "ESNext",
     "moduleResolution": "node",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
     "esModuleInterop": true,
-    "lib": ["esnext", "dom"],
-    "skipLibCheck": true,
-    "sourceMap": true,
     "paths": {
       "@/*": ["./web/*"],
       "@pages/*": ["./web/pages/*"],
       "@stores/*": ["./web/stores/*"],
       "@components/*": ["./web/components/*"]
     }
-  },
-  "include": ["./web/**/*.ts", "./web/**/*.vue"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  }
 }

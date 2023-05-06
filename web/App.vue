@@ -17,10 +17,8 @@ const { elocale } = storeToRefs(useI18nStore())
   </el-config-provider>
 </template>
 
-<style lang="stylus">
-@import 'element-plus/theme-chalk/dark/css-vars.css'
+<style lang="sass">
+@import element-plus/theme-chalk/dark/css-vars.css
 body
-  margin 0
-  background-color var(--el-bg-color)
-  transition background-color var(--el-transition-duration-fast)
+  margin: 0
 </style>
