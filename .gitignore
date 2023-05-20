@@ -1,16 +1,15 @@
-# macOS
-.DS_Store
-
 # Dependency directories
 node_modules/
 
 # Build files
+out/
 dist/
 
-# Others
-.cache/
+# Editor
 .vscode/
-package-lock.json
+
+# Logs
+*.log
 
 # Config
-config.json
+config.yaml

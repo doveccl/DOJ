@@ -1,9 +1,12 @@
 {
-	"files": [
-		"./web.config.ts",
-		"./server.config.ts"
-	],
-	"compilerOptions": {
-		"esModuleInterop": true
-	}
+  "compilerOptions": {
+    "strict": true,
+    "outDir": "out",
+    "target": "ESNext",
+    "module": "CommonJS",
+    "esModuleInterop": true
+  },
+  "files": [
+    "index.ts"
+  ]
 }

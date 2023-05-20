@@ -10,36 +10,35 @@ import { logSocket } from '../util/log'
 const wmap = new Map<string, WebSocket[]>()
 
 export async function update(pack: Pack) {
-	wmap.get(pack._id)?.forEach(ws => {
-		ws.send(JSON.stringify(pack))
-	})
-	if (!pack.pending) {
-		wmap.delete(pack._id)
-		await Submission.findByIdAndUpdate(pack._id, pack)
-	}
+  wmap.get(pack._id)?.forEach(ws => {
+    ws.send(JSON.stringify(pack))
+  })
+  if (!pack.pending) {
+    wmap.delete(pack._id)
+    await Submission.findByIdAndUpdate(pack._id, pack)
+  }
 }
 
 export function routeClient(ws: WebSocket) {
-	ws.on('message', async raw => {
-		const data = JSON.parse(raw.toString())
-		if (data.id && data.token) {
-			const s = await Submission.findById(data.id)
-			const c = s.cid ? await contest(s.cid) : null
-			const u = await user((await verify(data.token))['id'])
-			logSocket.info('User query:', u.name, data.id)
-			if (s.result.status !== Status.WAIT) {
-				ws.send(JSON.stringify(s))
-			} else if (
-				new Date() < c?.freezeAt ||
-				diffGroup(u, Group.admin)
-			) {
-				if (wmap.has(data.id))
-					wmap.get(data.id).push(ws)
-				else
-					wmap.set(data.id, [ws])
-			} else {
-				ws.close()
-			}
-		}
-	})
+  ws.on('message', async raw => {
+    const data = JSON.parse(raw.toString())
+    if (data.id && data.token) {
+      const s = await Submission.findById(data.id)
+      if (!s) return
+      const c = s.cid ? await contest(s.cid) : null
+      const u = await user(verify(data.token).id)
+      if (!u) return
+      logSocket.info('User query:', u.name, data.id)
+      if (s.result.status !== Status.WAIT) {
+        ws.send(JSON.stringify(s))
+      } else if (diffGroup(u, Group.admin) || c?.freezeAt && new Date() < c.freezeAt) {
+        if (wmap.has(data.id))
+          wmap.get(data.id)?.push(ws)
+        else
+          wmap.set(data.id, [ws])
+      } else {
+        ws.close()
+      }
+    }
+  })
 }

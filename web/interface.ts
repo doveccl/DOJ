@@ -8,11 +8,11 @@ export type IContest = I.IContest<string, string>
 export type IFile = I.IFile<string, string>
 
 export interface ISubmission extends I.ISubmission<string, string> {
-	uname: string
-	ptitle: string
+  uname: string
+  ptitle: string
 }
 
 export interface IPost extends I.IPost<string, string> {
-	uname: string
-	umail: string
+  uname: string
+  umail: string
 }
