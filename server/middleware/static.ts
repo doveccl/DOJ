@@ -1,6 +1,5 @@
-import { join } from 'path'
-import { getType } from 'mime'
 import { Middleware } from 'koa'
+import { join, extname } from 'path'
 import { createReadStream, statSync } from 'fs'
 
 export default (): Middleware => async (ctx, next) => {
@@ -15,8 +14,9 @@ export default (): Middleware => async (ctx, next) => {
       .some(file => {
         try {
           if (statSync(file).isFile()) {
-            ctx.type = getType(file) ?? ''
+            /(js|css)$/.test(file) && ctx.set('Cache-Control', 'max-age=31536000')
             ctx.body = createReadStream(file)
+            ctx.type = extname(file)
             return true
           } else {
             return false
