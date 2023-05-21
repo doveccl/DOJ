@@ -19,12 +19,21 @@ export default function Problems() {
   const [global, setGlobal] = useContext(GlobalContext)
   useEffect(() => setGlobal({ path: ['Problem'] }), [])
 
-  const [search, setSearch] = useState('')
+  const param = new URLSearchParams(location.search)
+  const [search, setSearch] = useState(param.get('search'))
   const [loading, setLoading] = useState(true)
   const [problems, setProblems] = useState([] as IProblem[])
   const [pagination, setPagination] = useState(defaultPage)
 
   const { current, pageSize } = pagination
+  useEffect(() => {
+    if (search) {
+      const param = new URLSearchParams({ search })
+      history.replaceState('', '', `?${param}`)
+    } else {
+      history.replaceState('', '', location.pathname)
+    }
+  }, [search])
   useEffect(() => {
     if (global.user) {
       setLoading(true)
