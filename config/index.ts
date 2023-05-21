@@ -67,7 +67,7 @@ languages:
     source: main.js
     run:
       ratio: 2
-      cmd: /usr/bin/node
+      cmd: /usr/local/bin/node
       args: [main.js]
   - name: Go
     suffix: go
