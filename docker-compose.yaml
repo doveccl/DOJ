@@ -9,5 +9,4 @@ services:
     privileged: true
     command: --server --judger
     volumes:
-      - /data/DOJ/config.yaml:/doj/config.yaml
-    #   - /sys/fs/cgroup/cpuacct:/sys/fs/cgroup/cpuacct
+      - ./config.yaml:/doj/config.yaml
