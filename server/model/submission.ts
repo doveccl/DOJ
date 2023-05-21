@@ -6,11 +6,11 @@ export type DSubmission = ISubmission<Schema.Types.ObjectId, Date> & Document
 const result = new Schema({
   time: {
     type: Number,
-    required: true
+    required: false
   },
   memory: {
     type: Number,
-    required: true
+    required: false
   },
   status: {
     type: Number,

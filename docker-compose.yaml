@@ -4,6 +4,7 @@ services:
   doj:
     container_name: doj
     image: doveccl/doj
+    pull_policy: always
     network_mode: host
     restart: unless-stopped
     privileged: true
