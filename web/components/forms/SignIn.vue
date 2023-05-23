@@ -1,18 +1,3 @@
-<template>
-  <el-form ref="fref" :model="form" :rules="rules" label-width="auto">
-    <el-form-item prop="user" :label="t('user')">
-      <el-input v-model="form.user" clearable />
-    </el-form-item>
-    <el-form-item prop="pass" :label="t('password')">
-      <el-input v-model="form.pass" show-password type="password" @keyup.enter="login" />
-    </el-form-item>
-    <el-form-item :error="state.message">
-      <el-button type="primary" :loading="state.loading" @click="login">{{ t('sign_in') }}</el-button>
-      <el-button @click="close">{{ t('cancel') }}</el-button>
-    </el-form-item>
-  </el-form>
-</template>
-
 <script setup lang="ts">
 import { useUserStore } from '@/stores/user'
 import type { FormInstance } from 'element-plus'
@@ -30,18 +15,32 @@ const rules = {
 
 function close() {
   emit('close')
+  state.loading = false
   fref.value?.resetFields(['pass'])
   fref.value?.clearValidate()
+}
+
+function error(e: any) {
+  state.message = t(e)
+  state.loading = false
 }
 
 function login() {
   fref.value?.validate(valid => {
     state.message = ''
     state.loading = valid
-    valid && user.login(form.user, form.pass)
-      .then(close)
-      .catch(e => state.message = t(e))
-      .finally(() => state.loading = false)
+    valid && user.login(form).then(close, error)
   })
 }
 </script>
+
+<template lang="pug">
+el-form(label-width="auto" :model="form" ref="fref" :rules="rules")
+  el-form-item(:label="t('user')" prop="user")
+    el-input(v-model="form.user" clearable)
+  el-form-item(:label="t('password')" prop="pass")
+    el-input(v-model="form.pass" show-password type="password" @keyup.enter="login")
+  el-form-item(:error="state.message")
+    el-button(:loading="state.loading" type="primary" @click="login") {{ t('sign_in') }}
+    el-button(@click="close") {{ t('cancel') }}
+</template>

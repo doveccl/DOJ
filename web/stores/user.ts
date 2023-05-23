@@ -1,27 +1,16 @@
-import { useLocalStorage } from '@vueuse/core'
-
 export const useUserStore = defineStore('user', () => {
   const token = useLocalStorage('token', '')
-  const info = reactive({
-    ID: 0,
-    Name: '',
-    Mail: '',
-    Group: 0,
-    Status: ''
-  })
+  const info = reactive({ ID: 0, Name: '', Mail: '', Group: 0, Status: '' })
 
   watchEffect(() => {
-    token.value ?
-      axios.defaults.headers.common.token = token.value :
-      delete axios.defaults.headers.common.token
-    token.value && axios.get('/self')
-      .then(r => Object.assign(info, r.data))
-      .catch(e => console.warn('get self info', e))
+    const { common } = axios.defaults.headers
+    token.value ? (common.token = token.value) : delete common.token
+    token.value && axios.get('/self').then(r => Object.assign(info, r.data), console.warn)
   })
 
-  async function login(user: string, pass: string) {
+  async function login({ user = '', pass = '' }) {
     const r = await axios.post('/login', { user, pass })
-    return token.value = r.data.token
+    return (token.value = r.data.token)
   }
 
   function logout() {

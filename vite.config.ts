@@ -1,34 +1,38 @@
-import { resolve } from 'path'
-import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import vueI18n from '@intlify/vite-plugin-vue-i18n'
+import vueI18n from '@intlify/unplugin-vue-i18n/vite'
 import Icons from 'unplugin-icons/vite'
 import IconsResolver from 'unplugin-icons/resolver'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
+
+import { resolve } from 'path'
+import { defineConfig } from 'vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
+import type { ImportsMap } from 'unplugin-auto-import/types'
+
+const auto: ImportsMap = {
+  axios: [['default', 'axios']]
+}
 
 export default defineConfig({
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'web'),
-      '@pages': resolve(__dirname, 'web/pages'),
-      '@stores': resolve(__dirname, 'web/stores'),
-      '@components': resolve(__dirname, 'web/components')
+      '@': resolve('web'),
+      '@pages': resolve('web/pages'),
+      '@stores': resolve('web/stores'),
+      '@components': resolve('web/components')
     }
   },
   plugins: [
     vue(),
     vueI18n({
-      include: resolve(__dirname, 'web/locales/**')
+      include: resolve('web/locales/**')
     }),
     Icons(),
     AutoImport({
       dts: 'web/imports.d.ts',
       resolvers: [ElementPlusResolver()],
-      imports: ['vue', 'vue-router', 'vue-i18n', 'pinia', {
-        axios: [['default', 'axios']]
-      }]
+      imports: ['vue', 'vue-router', 'vue-i18n', 'pinia', '@vueuse/core', auto]
     }),
     Components({
       dirs: ['web/components'],

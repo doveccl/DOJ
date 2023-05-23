@@ -1,13 +1,11 @@
-/// <reference types="@intlify/vite-plugin-vue-i18n/client" />
-
 import { createI18n } from 'vue-i18n'
-import { usePreferredLanguages, useLocalStorage } from '@vueuse/core'
-import messages from '@intlify/vite-plugin-vue-i18n/messages'
-import zh from 'element-plus/lib/locale/lang/zh-cn'
-import en from 'element-plus/lib/locale/lang/en'
+import messages from '@intlify/unplugin-vue-i18n/messages'
 
-const languages = usePreferredLanguages().value
-const locale = useLocalStorage('locale', languages[0] ?? 'en')
+import en from 'element-plus/lib/locale/lang/en'
+import zhCN from 'element-plus/lib/locale/lang/zh-cn'
+
+const lan = usePreferredLanguages().value.find(l => l in messages)
+const locale = useLocalStorage('locale', lan ?? 'en')
 
 export const useI18nStore = defineStore('i18n', () => {
   const i18n = useI18n({ useScope: 'global' })
@@ -15,8 +13,10 @@ export const useI18nStore = defineStore('i18n', () => {
 
   const elocale = computed(() => {
     switch (locale.value) {
-    case 'zh': return zh
-    default: return en
+      case 'zh-CN':
+        return zhCN
+      default:
+        return en
     }
   })
 
@@ -29,7 +29,4 @@ export const useI18nStore = defineStore('i18n', () => {
   return { locale, locales, elocale, setLocale }
 })
 
-export const i18n = createI18n({
-  messages,
-  locale: locale.value
-})
+export const i18n = createI18n({ messages, locale: locale.value })

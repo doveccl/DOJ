@@ -1,19 +1,9 @@
-env:
-  vue/setup-compiler-macros: true
 extends:
   - eslint:recommended
-  - plugin:vue/vue3-recommended
-  - plugin:@typescript-eslint/recommended
-parser: vue-eslint-parser
+  - plugin:vue/vue3-essential
+  - '@vue/eslint-config-typescript'
+  - '@vue/eslint-config-prettier/skip-formatting'
 parserOptions:
   ecmaVersion: latest
-  parser: '@typescript-eslint/parser'
-  sourceType: module
 rules:
-  no-undef: off
-  vue/max-attributes-per-line: off
-  vue/singleline-html-element-content-newline: off
-  semi: [warn, never]
-  quotes: [warn, single]
-  comma-dangle: [warn, never]
-  indent: [warn, 2]
+  '@typescript-eslint/no-unused-vars': off

@@ -6,6 +6,7 @@ volumes:
 
 services:
   db:
+    container_name: postgres
     image: postgres
     restart: always
     environment:
@@ -15,6 +16,7 @@ services:
     volumes:
       - db:/var/lib/postgresql/data
   adminer:
+    container_name: adminer
     image: adminer
     restart: always
     ports:

@@ -1,21 +1,3 @@
-<template>
-  <el-form ref="fref" :model="form" :rules="rules" label-width="auto">
-    <el-form-item prop="name" :label="t('name')">
-      <el-input v-model="form.name" clearable />
-    </el-form-item>
-    <el-form-item prop="mail" :label="t('mail')">
-      <el-input v-model="form.mail" clearable />
-    </el-form-item>
-    <el-form-item prop="pass" :label="t('password')">
-      <el-input v-model="form.pass" show-password type="password" />
-    </el-form-item>
-    <el-form-item :error="state.message">
-      <el-button type="primary" :loading="state.loading" @click="register">{{ t('sign_up') }}</el-button>
-      <el-button @click="close()">{{ t('cancel') }}</el-button>
-    </el-form-item>
-  </el-form>
-</template>
-
 <script setup lang="ts">
 import type { FormInstance } from 'element-plus'
 
@@ -41,18 +23,35 @@ const rules = {
 
 function close(ok = false) {
   emit('close')
+  state.loading = false
   ok && ElMessage({ type: 'success', message: t('sign_up_success') })
   fref.value?.resetFields(['pass'])
   fref.value?.clearValidate()
+}
+
+function error(e: any) {
+  state.message = t(e)
+  state.loading = false
 }
 
 function register() {
   fref.value?.validate(valid => {
     state.message = ''
     state.loading = valid
-    valid && axios.post('/register', form)
-      .then(() => close(true))
-      .catch(e => state.message = t(e))
+    valid && axios.post('/register', form).then(() => close(true), error)
   })
 }
 </script>
+
+<template lang="pug">
+el-form(label-width="auto" :model="form" ref="fref" :rules="rules")
+  el-form-item(:label="t('name')" prop="name")
+    el-input(v-model="form.name" clearable)
+  el-form-item(:label="t('mail')" prop="mail")
+    el-input(v-model="form.mail" clearable)
+  el-form-item(:label="t('password')" prop="pass")
+    el-input(v-model="form.pass" show-password type="password")
+  el-form-item(:error="state.message")
+    el-button(:loading="state.loading" type="primary" @click="register") {{ t('sign_up') }}
+    el-button(@click="close()") {{ t('cancel') }}
+</template>

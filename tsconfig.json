@@ -1,15 +1,17 @@
 {
+  "include": ["web/**/*", "web/**/*.vue"],
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
   "compilerOptions": {
-    "strict": true,
-    "target": "ESNext",
-    "module": "ESNext",
+    "noEmit": true,
     "moduleResolution": "node",
-    "esModuleInterop": true,
     "paths": {
       "@/*": ["./web/*"],
       "@pages/*": ["./web/pages/*"],
       "@stores/*": ["./web/stores/*"],
       "@components/*": ["./web/components/*"]
     }
+  },
+  "vueCompilerOptions": {
+    "plugins": ["@volar/vue-language-plugin-pug"]
   }
 }

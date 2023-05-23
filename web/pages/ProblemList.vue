@@ -1,6 +1,3 @@
-<template>
-  problems
-</template>
+<template lang="pug"></template>
 
-<script setup lang="ts">
-</script>
+<script setup lang="ts"></script>

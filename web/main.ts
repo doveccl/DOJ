@@ -14,8 +14,4 @@ axios.interceptors.response.use(undefined, e => {
   }
 })
 
-createApp(App)
-  .use(i18n)
-  .use(router)
-  .use(createPinia())
-  .mount('#app')
+createApp(App).use(i18n).use(router).use(createPinia()).mount('#app')
