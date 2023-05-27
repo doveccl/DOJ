@@ -1,4 +1,4 @@
-import App from '@/App.vue'
+import app from '@/app.vue'
 import { router } from '@/route'
 import { i18n } from '@stores/i18n'
 import { AxiosError } from 'axios'
@@ -14,4 +14,4 @@ axios.interceptors.response.use(undefined, e => {
   }
 })
 
-createApp(App).use(i18n).use(router).use(createPinia()).mount('#app')
+createApp(app).use(i18n).use(router).use(createPinia()).mount('#app')

@@ -2,7 +2,6 @@
   "include": ["web/**/*", "web/**/*.vue"],
   "extends": "@vue/tsconfig/tsconfig.dom.json",
   "compilerOptions": {
-    "noEmit": true,
     "moduleResolution": "node",
     "paths": {
       "@/*": ["./web/*"],

@@ -2,16 +2,11 @@
 import { useUserStore } from '@/stores/user'
 import type { FormInstance } from 'element-plus'
 
-const { t } = useI18n()
 const user = useUserStore()
 const fref = ref<FormInstance>()
 const emit = defineEmits<(e: 'close') => void>()
 const state = reactive({ loading: false, message: '' })
 const form = reactive({ user: '', pass: '' })
-const rules = {
-  user: { required: true, message: t('user_required') },
-  pass: { required: true, message: t('pass_required') }
-}
 
 function close() {
   emit('close')
@@ -21,7 +16,7 @@ function close() {
 }
 
 function error(e: any) {
-  state.message = t(e)
+  state.message = e
   state.loading = false
 }
 
@@ -35,12 +30,12 @@ function login() {
 </script>
 
 <template lang="pug">
-el-form(label-width="auto" :model="form" ref="fref" :rules="rules")
-  el-form-item(:label="t('user')" prop="user")
+el-form(label-width="auto" ref="fref" :model="form")
+  el-form-item(prop="user" :label="$t('user')" :rules="{ required: true, message: $t('user_required') }")
     el-input(v-model="form.user" clearable)
-  el-form-item(:label="t('password')" prop="pass")
+  el-form-item(prop="pass" :label="$t('password')" :rules="{ required: true, message: $t('pass_required') }")
     el-input(v-model="form.pass" show-password type="password" @keyup.enter="login")
-  el-form-item(:error="state.message")
-    el-button(:loading="state.loading" type="primary" @click="login") {{ t('sign_in') }}
-    el-button(@click="close") {{ t('cancel') }}
+  el-form-item(label=" " :error="$t(state.message)")
+    el-button(type="primary" :loading="state.loading" @click="login") {{ $t('sign_in') }}
+    el-button(@click="close") {{ $t('cancel') }}
 </template>

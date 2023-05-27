@@ -6,6 +6,7 @@ const fref = ref<FormInstance>()
 const emit = defineEmits<(e: 'close') => void>()
 const state = reactive({ loading: false, message: '' })
 const form = reactive({ name: '', mail: '', pass: '' })
+
 const rules = {
   name: [
     { required: true, message: t('name_required') },
@@ -30,7 +31,7 @@ function close(ok = false) {
 }
 
 function error(e: any) {
-  state.message = t(e)
+  state.message = e
   state.loading = false
 }
 
@@ -44,14 +45,14 @@ function register() {
 </script>
 
 <template lang="pug">
-el-form(label-width="auto" :model="form" ref="fref" :rules="rules")
-  el-form-item(:label="t('name')" prop="name")
+el-form(label-width="auto" ref="fref" :model="form" :rules="rules")
+  el-form-item(prop="name" :label="$t('name')")
     el-input(v-model="form.name" clearable)
-  el-form-item(:label="t('mail')" prop="mail")
+  el-form-item(prop="mail" :label="$t('mail')")
     el-input(v-model="form.mail" clearable)
-  el-form-item(:label="t('password')" prop="pass")
+  el-form-item(prop="pass" :label="$t('password')")
     el-input(v-model="form.pass" show-password type="password")
-  el-form-item(:error="state.message")
-    el-button(:loading="state.loading" type="primary" @click="register") {{ t('sign_up') }}
-    el-button(@click="close()") {{ t('cancel') }}
+  el-form-item(label=" " :error="$t(state.message)")
+    el-button(type="primary" :loading="state.loading" @click="register") {{ $t('sign_up') }}
+    el-button(@click="close()") {{ $t('cancel') }}
 </template>

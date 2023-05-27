@@ -1,5 +1,11 @@
+plugins: ['@prettier/plugin-pug']
 semi: false
 singleQuote: true
 trailingComma: none
 arrowParens: avoid
 printWidth: 120
+pugSingleQuote: false
+pugAttributeSeparator: none
+pugSortAttributes: asc
+pugSortAttributesBeginning: ['^v-']
+pugSortAttributesEnd: ['^:', '^@']

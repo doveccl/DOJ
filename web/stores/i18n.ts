@@ -8,11 +8,11 @@ const lan = usePreferredLanguages().value.find(l => l in messages)
 const locale = useLocalStorage('locale', lan ?? 'en')
 
 export const useI18nStore = defineStore('i18n', () => {
-  const i18n = useI18n({ useScope: 'global' })
-  const locales = i18n.availableLocales.map(String)
+  const i18n = useI18n()
 
+  watchEffect(() => (locale.value = i18n.locale.value))
   const elocale = computed(() => {
-    switch (locale.value) {
+    switch (i18n.locale.value) {
       case 'zh-CN':
         return zhCN
       default:
@@ -20,13 +20,7 @@ export const useI18nStore = defineStore('i18n', () => {
     }
   })
 
-  function setLocale(value: string) {
-    if (locales.includes(value)) {
-      locale.value = i18n.locale.value = value
-    }
-  }
-
-  return { locale, locales, elocale, setLocale }
+  return { elocale }
 })
 
 export const i18n = createI18n({ messages, locale: locale.value })

@@ -5,16 +5,26 @@ const { elocale } = storeToRefs(useI18nStore())
 
 <template lang="pug">
 el-config-provider(:locale="elocale")
-  el-backtop
-  el-container
-    el-header
+  #container
+    el-affix
       nav-menu
     el-main
       router-view
+    el-backtop
 </template>
 
 <style lang="sass">
 @import element-plus/theme-chalk/dark/css-vars.css
-body
-  margin: 0
+#app
+  top: 0
+  left: 0
+  width: 100vw
+  height: 100vh
+  position: fixed
+  overflow-y: auto
+  overflow-x: hidden
+#container
+  width: 100vw
+.monospace
+  font-family: Cascadia Code, Menlo, Consolas, monospace
 </style>
