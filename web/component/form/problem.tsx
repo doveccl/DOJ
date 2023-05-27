@@ -29,23 +29,15 @@ export function ProblemForm({ problem, form }: IProblemForm) {
     <Form.Item label="Tags" name="tags" {...formItemLayout}>
       <Select tokenSeparators={[',']} mode="tags" placeholder="Problem tags" />
     </Form.Item>
-    <Form.Item label="Time" name="timeLimit" rules={[
+    <Form.Item label="Time (s)" name="timeLimit" rules={[
       { required: true, message: 'Please input time limit' }
     ]} {...formItemLayout}>
-      <Number options={[
-        { name: 'ms', scale: 0.001 },
-        { name: 's', scale: 1 }
-      ]} default={0} />
+      <Number />
     </Form.Item>
-    <Form.Item label="Memory" name="memoryLimit" rules={[
+    <Form.Item label="Memory (MB)" name="memoryLimit" rules={[
       { required: true, message: 'Please input memory limit' }
     ]} {...formItemLayout}>
-      <Number options={[
-        { name: 'Bytes', scale: 1 },
-        { name: 'KiB', scale: 1024 },
-        { name: 'MiB', scale: 1024 * 1024 },
-        { name: 'GiB', scale: 1024 * 1024 * 1024 }
-      ]} default={2} />
+      <Number scale={1 << 20} />
     </Form.Item>
     <Form.Item label="Data" name="data" {...formItemLayout}>
       <Input placeholder="Problem data id (use Manage/File to upload data)" />

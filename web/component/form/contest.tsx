@@ -1,4 +1,5 @@
-import moment from 'moment'
+import moment, { type Moment } from 'moment'
+import momentGenerateConfig from 'rc-picker/lib/generate/moment'
 import { useEffect } from 'react'
 import { DatePicker, Form, Input, Select } from 'antd'
 import { FormInstance } from 'antd/lib/form'
@@ -14,6 +15,8 @@ interface IContestForm {
   contest?: IContest
   form?: FormInstance<IContest>
 }
+
+const MomentPicker = DatePicker.generatePicker<Moment>(momentGenerateConfig)
 
 function withTime(c?: IContest) {
   const startAt = c?.startAt && moment(c.startAt)
@@ -55,20 +58,20 @@ export function ContestForm({ contest, form }: IContestForm) {
       </Select>
     </Form.Item>
     <Form.Item name="startAt" hidden>
-      <DatePicker />
+      <MomentPicker />
     </Form.Item>
     <Form.Item name="endAt" hidden>
-      <DatePicker />
+      <MomentPicker />
     </Form.Item>
     <Form.Item label="Time" name="time" rules={[
       { required: true, message: 'Please select time' }
     ]} {...formItemLayout}>
-      <DatePicker.RangePicker showTime onChange={adjust} />
+      <MomentPicker.RangePicker showTime onChange={adjust} />
     </Form.Item>
     <Form.Item label="Freeze" name="freezeAt" rules={[
       { required: true, message: 'Please select freeze time' }
     ]} {...formItemLayout}>
-      <DatePicker showTime />
+      <MomentPicker showTime />
     </Form.Item>
     <Form.Item label="Description" name="description" {...formItemLayout}>
       <Input.TextArea />
