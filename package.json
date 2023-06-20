@@ -37,7 +37,6 @@
     "@types/marked": "^5.0.0",
     "@types/md5": "^2.3.2",
     "@types/nodemailer": "^6.4.8",
-    "@types/react": "^18.2.7",
     "@types/react-dom": "^18.2.4",
     "@types/ws": "^8.5.4",
     "ace-builds": "^1.22.0",
