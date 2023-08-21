@@ -1,10 +1,10 @@
 import { createI18n } from 'vue-i18n'
 import messages from '@intlify/unplugin-vue-i18n/messages'
 
-import en from 'element-plus/lib/locale/lang/en'
-import zhCN from 'element-plus/lib/locale/lang/zh-cn'
+import en from 'element-plus/es/locale/lang/en'
+import zhCN from 'element-plus/es/locale/lang/zh-cn'
 
-const lan = usePreferredLanguages().value.find(l => l in messages)
+const lan = usePreferredLanguages().value.find(l => l in (messages ?? {}))
 const locale = useLocalStorage('locale', lan ?? 'en')
 
 export const useI18nStore = defineStore('i18n', () => {

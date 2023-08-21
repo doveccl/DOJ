@@ -20,9 +20,9 @@ axios.get('/config').then(r => (registration.value = !!+r.data.registration))
 </script>
 
 <template lang="pug">
-el-dialog(v-model="dialog.signin" :title="$t('sign_in')")
+el-dialog(v-model="dialog.signin" append-to-body :title="$t('sign_in')")
   sign-in(@close="dialog.signin = false")
-el-dialog(v-model="dialog.signup" :title="$t('sign_up')")
+el-dialog(v-model="dialog.signup" append-to-body :title="$t('sign_up')")
   sign-up(@close="dialog.signup = false")
 el-dropdown(v-if="user.info.ID" @command="command")
   el-space
