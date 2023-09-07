@@ -1,5 +1,9 @@
 version: '3'
 
+networks:
+  default:
+    external: true
+
 volumes:
   db:
 
@@ -9,10 +13,9 @@ services:
     image: postgres
     pull_policy: always
     restart: unless-stopped
+    network_mode: host
     environment:
       POSTGRES_HOST_AUTH_METHOD: trust
-    ports:
-      - 5432:5432
     volumes:
       - db:/var/lib/postgresql/data
   adminer:
@@ -20,5 +23,4 @@ services:
     image: adminer
     pull_policy: always
     restart: unless-stopped
-    ports:
-      - 8080:8080
+    network_mode: host
