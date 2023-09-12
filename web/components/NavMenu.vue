@@ -1,27 +1,18 @@
 <script setup lang="ts">
 import { routes } from '@/route'
-import { Moon, Sunny } from '@element-plus/icons-vue'
-
 const dark = useDark()
-const route = useRoute()
-const router = useRouter()
+const switcher = { activeIcon: IEpMoon, inactiveIcon: IEpSunny }
 </script>
 
 <template lang="pug">
-el-menu#nav(mode="horizontal" :default-active="route.path" @select="router.push")
+el-menu#nav(mode="horizontal" :default-active="$route.path" @select="$router.push")
   el-menu-item.monospace(index="/")
     b(style="font-size: 2em") DOJ
   template(v-for="item in routes")
     el-menu-item(v-if="item.name" :index="item.path" :key="item.path") {{ $t(item.name) }}
   el-space#subnav(size="large")
     user-menu
-    el-switch(
-      v-model="dark"
-      active-color="var(--el-border-color)"
-      inline-prompt
-      :active-icon="Moon"
-      :inactive-icon="Sunny"
-    )
+    el-switch(v-bind="switcher" v-model="dark" active-color="var(--el-border-color)" inline-prompt)
     el-dropdown(@command="l => ($i18n.locale = l)")
       el-icon(:size="24")
         i-ion-language-outline

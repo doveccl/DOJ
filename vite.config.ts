@@ -31,13 +31,13 @@ export default defineConfig({
     Icons(),
     AutoImport({
       dts: 'web/imports.d.ts',
-      resolvers: [ElementPlusResolver()],
+      resolvers: [IconsResolver(), ElementPlusResolver()],
       imports: ['vue', 'vue-router', 'vue-i18n', 'pinia', '@vueuse/core', auto]
     }),
     Components({
       dirs: ['web/components'],
       dts: 'web/components.d.ts',
-      resolvers: [ElementPlusResolver(), IconsResolver()]
+      resolvers: [IconsResolver(), ElementPlusResolver()]
     })
   ],
   server: {

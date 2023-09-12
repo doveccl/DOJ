@@ -4,7 +4,7 @@ export const useUserStore = defineStore('user', () => {
 
   watchEffect(() => {
     const { common } = axios.defaults.headers
-    token.value ? (common.token = token.value) : delete common.token
+    token.value ? (common.authorization = `Bearer ${token.value}`) : delete common.token
     token.value && axios.get('/self').then(r => Object.assign(info, r.data), console.warn)
   })
 

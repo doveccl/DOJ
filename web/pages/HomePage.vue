@@ -7,5 +7,5 @@ setTimeout(() => {
 
 <template lang="pug">
 el-empty
-center(v-for="i in a") {{ i }}
+div(v-for="i in a") {{ i }}
 </template>

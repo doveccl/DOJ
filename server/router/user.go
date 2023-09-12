@@ -59,6 +59,5 @@ func register(c echo.Context) error {
 }
 
 func self(c echo.Context) error {
-	jwt := c.Get("user").(*database.UserJWT)
-	return c.JSON(http.StatusOK, database.GetUser(jwt.Uid))
+	return c.JSON(http.StatusOK, database.GetUser(c.Get("uid")))
 }

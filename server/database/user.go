@@ -3,7 +3,7 @@ package database
 import (
 	"time"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -18,9 +18,9 @@ type User struct {
 }
 
 type UserJWT struct {
-	Uid   uint
+	UID   uint
 	Group uint
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 var nameOrMail = "LOWER(name) = LOWER(?) OR LOWER(mail) = LOWER(?)"
@@ -46,8 +46,8 @@ func (u *User) Compare(p string) bool {
 func (u *User) GetToken() (string, error) {
 	m := jwt.SigningMethodHS256
 	k := []byte(ConfMap["secret"])
-	o := UserJWT{Uid: u.ID, Group: u.Group}
-	o.ExpiresAt = time.Now().Add(720 * time.Hour).Unix()
+	o := UserJWT{UID: u.ID, Group: u.Group}
+	o.ExpiresAt = jwt.NewNumericDate(time.Now().Add(720 * time.Hour))
 	return jwt.NewWithClaims(m, o).SignedString(k)
 }
 
@@ -57,10 +57,10 @@ func (u *User) Create() bool {
 
 func GetUser(u any) *User {
 	user := &User{}
-	if i, _ := u.(uint); i != 0 {
-		db.Find(user, i)
-	} else if s, _ := u.(string); s != "" {
+	if s, _ := u.(string); s != "" {
 		db.Find(user, nameOrMail, s, s)
+	} else { // whatever int or float
+		db.Find(user, u)
 	}
 	return user
 }
