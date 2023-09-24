@@ -1,0 +1,13 @@
+#include <cstdlib>
+#include <iostream>
+#include <vector>
+using namespace std;
+int main() {
+  // vector<long long> v(50000000);
+  // cout << v[v.size() - 1] << endl;
+  int a, b;
+  cin >> a >> b;
+  cout << a + b << endl;
+  cout << a + b << endl;
+  return 0;
+}
