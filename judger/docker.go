@@ -23,9 +23,9 @@ type buildOut struct {
 }
 
 type exec struct {
-	ID     string
-	Input  net.Conn
-	Output *bufio.Reader
+	ID   string
+	Conn net.Conn
+	Out  *bufio.Reader
 }
 
 var cli *client.Client
@@ -91,7 +91,7 @@ func newExec(cid string, cmd []string, root bool, env map[string]any) (x *exec, 
 	var h types.HijackedResponse
 	if r, e = cli.ContainerExecCreate(ctx, cid, conf); e == nil {
 		if h, e = cli.ContainerExecAttach(ctx, r.ID, types.ExecStartCheck{}); e == nil {
-			x = &exec{ID: r.ID, Output: h.Reader, Input: h.Conn}
+			x = &exec{ID: r.ID, Out: h.Reader, Conn: h.Conn}
 		}
 	}
 	return
@@ -106,10 +106,10 @@ func (e *exec) inspect() (types.ContainerExecInspect, error) {
 }
 
 func (e *exec) eof() {
-	if v, ok := e.Input.(interface{ CloseWrite() error }); ok {
+	if v, ok := e.Conn.(interface{ CloseWrite() error }); ok {
 		_ = v.CloseWrite()
 	} else { // will close output either
-		e.Input.Close()
+		e.Conn.Close()
 	}
 }
 

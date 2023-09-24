@@ -46,7 +46,7 @@ func (r Result) String() string {
 	if msg == "" {
 		return fmt.Sprintf("%v(%vms)", r.Status, r.Time)
 	}
-	return fmt.Sprintf("%v(%vms %v)", r.Status, r.Time, msg)
+	return fmt.Sprintf("%v(%vms: %v)", r.Status, r.Time, msg)
 }
 
 func test(jid string, tid string, env map[string]any, ttl time.Duration) (res Result) {
@@ -64,18 +64,26 @@ func test(jid string, tid string, env map[string]any, ttl time.Duration) (res Re
 	jch, tch := make(chan error), make(chan error)
 	go func() {
 		defer tester.eof()
-		_, e := stdcopy.StdCopy(tester.Input, buf, judger.Output)
+		_, e := stdcopy.StdCopy(tester.Conn, buf, judger.Out)
 		jch <- e
 	}()
 	go func() {
 		defer judger.eof()
-		_, e := stdcopy.StdCopy(judger.Input, buf, tester.Output)
+		_, e := stdcopy.StdCopy(judger.Conn, buf, tester.Out)
 		tch <- e
 	}()
 	if e := judger.start(); e != nil {
 		return Result{SE, 0, e.Error()}
 	}
 	defer clean(jid)
+	judgeDone := func() {
+		if r, e := judger.inspect(); e == nil {
+			res.Status = min(Status(r.ExitCode), SE)
+		} else {
+			res.Status = SE
+			res.Detail = e.Error()
+		}
+	}
 	start := time.Now()
 	if e := tester.start(); e != nil {
 		return Result{SE, 0, e.Error()}
@@ -84,27 +92,25 @@ func test(jid string, tid string, env map[string]any, ttl time.Duration) (res Re
 	select {
 	case <-time.NewTimer(ttl).C:
 		res.Status = TLE
+	case <-jch:
+		judgeDone()
 	case <-tch:
-		if r, e := tester.inspect(); e == nil {
-			if r.ExitCode == 137 { // OOM kill
-				res.Status = MLE
-			} else if r.ExitCode != 0 {
-				res.Status = RE
+		r, _ := tester.inspect()
+		if r.ExitCode == 137 { // OOM kill
+			res.Status = MLE
+		} else if r.ExitCode != 0 {
+			res.Status = RE
+		} else {
+			select {
+			case <-time.NewTimer(time.Second).C:
+				res.Status = SE
+				res.Detail = "judger timeout"
+			case <-jch:
+				judgeDone()
 			}
 		}
 	}
 	res.Time = int64(time.Since(start) / time.Millisecond)
-	if res.Status == AC {
-		select {
-		case <-time.NewTimer(time.Second).C:
-			res.Status = SE
-			res.Detail = "judger timeout"
-		case <-jch:
-			if r, e := judger.inspect(); e == nil {
-				res.Status = min(Status(r.ExitCode), SE)
-			}
-		}
-	}
 	if res.Detail == "" {
 		res.Detail = buf.String()
 	}
@@ -114,13 +120,15 @@ func test(jid string, tid string, env map[string]any, ttl time.Duration) (res Re
 func Judge(conf Config, ptar io.Reader, utar io.Reader, con io.Writer) (res Result, ps []Result) {
 	var err error
 	var code, jid, tid string
+	buf := &bytes.Buffer{}
+	con = io.MultiWriter(con, buf)
 	utar, code = tgzPick(utar, "source")
 	if jid, err = start(ptar, con, 0, 0); err != nil {
-		return Result{SE, 0, err.Error()}, nil
+		return Result{SE, 0, buf.String()}, nil
 	}
 	defer kill(jid)
 	if tid, err = start(utar, con, 1e9, conf.MemoryLimit<<20); err != nil {
-		return Result{SE, 0, err.Error()}, nil
+		return Result{CE, 0, buf.String()}, nil
 	}
 	defer kill(tid)
 	ttl := time.Duration(conf.TimeLimit) * time.Millisecond

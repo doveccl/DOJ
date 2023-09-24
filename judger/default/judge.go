@@ -7,16 +7,19 @@ import (
 	"os"
 	"regexp"
 	"strings"
+)
 
-	"github.com/doveccl/DOJ/judger"
+const (
+	WA = 1
+	SE = 8
 )
 
 var cas = os.Getenv("case")
 var num = regexp.MustCompile(`\d+`)
 
-func quit(s judger.Status, v ...any) {
+func quit(s int, v ...any) {
 	fmt.Fprintln(os.Stderr, v...)
-	os.Exit(int(s))
+	os.Exit(s)
 }
 
 func main() {
@@ -34,15 +37,19 @@ func main() {
 		}
 	}
 	if in == nil || ans == nil {
-		quit(judger.SE, "unable to get data")
+		quit(SE, "unable to get data")
 	}
 	if _, e := io.Copy(os.Stdout, in); e != nil {
-		quit(judger.SE, e)
+		quit(SE, e)
 	}
 	asc, osc := bufio.NewScanner(ans), bufio.NewScanner(os.Stdin)
-	for i := 0; asc.Scan() || osc.Scan(); i++ {
+	for i := 0; ; i++ { // do not use `asc.Scan() || osc.Scan()`
+		ok1, ok2 := asc.Scan(), osc.Scan()
+		if !ok1 && !ok2 {
+			break
+		}
 		if strings.TrimRight(asc.Text(), " \r\n") != strings.TrimRight(osc.Text(), " \r\n") {
-			quit(judger.WA, "wrong answer at line", i+1)
+			quit(WA, "wrong answer at line", i+1)
 		}
 	}
 }

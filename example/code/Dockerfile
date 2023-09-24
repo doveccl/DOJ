@@ -1,7 +1,7 @@
 FROM gcc
 WORKDIR /src
 COPY source main.cc
-RUN g++ -static main.cc -o main
+RUN g++ -static -O2 main.cc -o main
 
 FROM busybox
 WORKDIR /test

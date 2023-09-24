@@ -1,6 +1,6 @@
 FROM golang
 WORKDIR /src
-COPY judge.go .
+COPY . .
 RUN go build judge.go
 
 FROM busybox
