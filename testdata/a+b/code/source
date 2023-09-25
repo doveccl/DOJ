@@ -3,14 +3,12 @@ using namespace std;
 int main() {
   int a, b;
   cin >> a >> b;
-  if (a > 1e8) {
-    cout << a - b << endl;
-  } else if (a > 1e6) {
-    return 1;
-  } else if (a > 1e4) {
-    vector<int> v(1e8);
-  } else if (a > 1e2) {
+  if (a < 1e2) {
     while (true) continue;
+  } else if (a < 1e4) {
+    vector<int> v(1e8);
+  } else if (a < 1e6) {
+    return 1;
   }
   cout << a + b << endl;
   return 0;

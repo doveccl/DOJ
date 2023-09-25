@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -19,7 +19,6 @@ type buildOut struct {
 	Aux    struct{ ID string } `json:"aux"`
 	Error  string              `json:"error"`
 	Stream string              `json:"stream"`
-	Status string              `json:"status"`
 }
 
 type exec struct {
@@ -39,39 +38,39 @@ func init() {
 	}
 }
 
-func start(tar io.Reader, con io.Writer, cpu, mem int64) (string, error) {
-	iid, opt := "", types.ImageBuildOptions{Remove: true, ForceRemove: true}
-	res, err := cli.ImageBuild(ctx, tar, opt)
-	if err != nil {
-		return "", err
+func start(tar io.Reader, con io.Writer, cpu, mem int64, ceflag Status) (id string, s Status) {
+	r, e := cli.ImageBuild(ctx, tar, types.ImageBuildOptions{Remove: true, ForceRemove: true})
+	if e != nil {
+		fmt.Fprintln(con, e)
+		return "", SE
 	}
 
-	for sc := bufio.NewScanner(res.Body); sc.Scan(); {
+	for sc := bufio.NewScanner(r.Body); sc.Scan(); {
 		o := &buildOut{}
 		if json.Unmarshal(sc.Bytes(), o) == nil {
 			switch {
 			case o.Aux.ID != "":
-				iid = o.Aux.ID
+				id = o.Aux.ID
 			case o.Stream != "":
-				if _, e := con.Write([]byte(o.Stream)); e != nil {
-					log.Print(o.Stream)
-				}
+				fmt.Fprint(con, o.Stream)
 			case o.Error != "":
-				return "", errors.New(o.Error)
+				fmt.Fprintln(con, o.Error)
+				return "", ceflag
 			}
 		}
 	}
 
 	var c container.CreateResponse
-	cconf := &container.Config{Image: iid, NetworkDisabled: true, Cmd: []string{"sleep", "infinity"}}
+	cconf := &container.Config{Image: id, NetworkDisabled: true, Cmd: []string{"sleep", "infinity"}}
 	hconf := &container.HostConfig{Resources: container.Resources{NanoCPUs: cpu, Memory: mem}}
-	if c, err = cli.ContainerCreate(ctx, cconf, hconf, nil, nil, ""); err == nil {
-		if err = cli.ContainerStart(ctx, c.ID, types.ContainerStartOptions{}); err == nil {
-			return c.ID, nil
+	if c, e = cli.ContainerCreate(ctx, cconf, hconf, nil, nil, ""); e == nil {
+		if e = cli.ContainerStart(ctx, c.ID, types.ContainerStartOptions{}); e == nil {
+			return c.ID, AC
 		}
 	}
 
-	return "", err
+	fmt.Fprintln(con, e)
+	return "", SE
 }
 
 func newExec(cid string, cmd []string, root bool, env map[string]any) (x *exec, e error) {

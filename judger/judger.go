@@ -4,50 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
-	"strings"
 	"time"
 
 	"github.com/docker/docker/pkg/stdcopy"
 )
-
-type Status int
-
-const (
-	AC Status = iota
-	WA
-	PE
-	TLE
-	MLE
-	OLE
-	CE
-	RE
-	SE
-)
-
-type Config struct {
-	Points      int
-	TimeLimit   int64 // ms
-	MemoryLimit int64 // mbytes
-}
-
-type Result struct {
-	Status Status
-	Time   int64
-	Detail string
-}
-
-func (s Status) String() string {
-	return []string{"AC", "WA", "PE", "TLE", "MLE", "OLE", "CE", "RE", "SE"}[s]
-}
-
-func (r Result) String() string {
-	msg := strings.Trim(r.Detail, " \t\r\n")
-	if msg == "" {
-		return fmt.Sprintf("%v(%vms)", r.Status, r.Time)
-	}
-	return fmt.Sprintf("%v(%vms: %v)", r.Status, r.Time, msg)
-}
 
 func test(jid string, tid string, env map[string]any, ttl time.Duration) (res Result) {
 	var err error
@@ -69,7 +29,7 @@ func test(jid string, tid string, env map[string]any, ttl time.Duration) (res Re
 	}()
 	go func() {
 		defer judger.eof()
-		_, e := stdcopy.StdCopy(judger.Conn, buf, tester.Out)
+		_, e := stdcopy.StdCopy(judger.Conn, io.Discard, tester.Out)
 		tch <- e
 	}()
 	if e := judger.start(); e != nil {
@@ -81,7 +41,7 @@ func test(jid string, tid string, env map[string]any, ttl time.Duration) (res Re
 			res.Status = min(Status(r.ExitCode), SE)
 		} else {
 			res.Status = SE
-			res.Detail = e.Error()
+			fmt.Fprintln(buf, "Judger Inspect", e)
 		}
 	}
 	start := time.Now()
@@ -104,31 +64,30 @@ func test(jid string, tid string, env map[string]any, ttl time.Duration) (res Re
 			select {
 			case <-time.NewTimer(time.Second).C:
 				res.Status = SE
-				res.Detail = "judger timeout"
+				fmt.Fprintln(buf, "Judger Timeout (1s)")
 			case <-jch:
 				judgeDone()
 			}
 		}
 	}
 	res.Time = int64(time.Since(start) / time.Millisecond)
-	if res.Detail == "" {
-		res.Detail = buf.String()
-	}
+	res.Detail = buf.String()
 	return
 }
 
 func Judge(conf Config, ptar io.Reader, utar io.Reader, con io.Writer) (res Result, ps []Result) {
-	var err error
 	var code, jid, tid string
 	buf := &bytes.Buffer{}
 	con = io.MultiWriter(con, buf)
 	utar, code = tgzPick(utar, "source")
-	if jid, err = start(ptar, con, 0, 0); err != nil {
-		return Result{SE, 0, buf.String()}, nil
+	if jid, res.Status = start(ptar, con, 0, 0, SE); res.Status > 0 {
+		res.Detail = buf.String()
+		return
 	}
 	defer kill(jid)
-	if tid, err = start(utar, con, 1e9, conf.MemoryLimit<<20); err != nil {
-		return Result{CE, 0, buf.String()}, nil
+	if tid, res.Status = start(utar, con, 1e9, conf.MemoryLimit<<20, CE); res.Status > 0 {
+		res.Detail = buf.String()
+		return
 	}
 	defer kill(tid)
 	ttl := time.Duration(conf.TimeLimit) * time.Millisecond
@@ -137,7 +96,7 @@ func Judge(conf Config, ptar io.Reader, utar io.Reader, con io.Writer) (res Resu
 		p := test(jid, tid, env, ttl)
 		res.Status = max(res.Status, p.Status)
 		res.Time = max(res.Time, p.Time)
-		log.Println("Case", i, p)
+		fmt.Fprintf(con, "#%v %v\n", i, p)
 		ps = append(ps, p)
 	}
 	return
