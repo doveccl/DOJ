@@ -2,6 +2,7 @@ package judger
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"time"
@@ -9,7 +10,7 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 )
 
-func test(jid string, tid string, env map[string]any, ttl time.Duration) (res Result) {
+func test(jid string, tid string, ttl time.Duration, env []string) (res Result) {
 	var err error
 	var judger, tester *exec
 	judger, err = newExec(jid, nil, false, env)
@@ -62,9 +63,9 @@ func test(jid string, tid string, env map[string]any, ttl time.Duration) (res Re
 			res.Status = RE
 		} else {
 			select {
-			case <-time.NewTimer(time.Second).C:
+			case <-time.NewTimer(2 * time.Second).C:
 				res.Status = SE
-				fmt.Fprintln(buf, "Judger Timeout (1s)")
+				fmt.Fprintln(buf, "Judger Timeout (2s)")
 			case <-jch:
 				judgeDone()
 			}
@@ -77,26 +78,40 @@ func test(jid string, tid string, env map[string]any, ttl time.Duration) (res Re
 
 func Judge(conf Config, ptar io.Reader, utar io.Reader, con io.Writer) (res Result, ps []Result) {
 	var code, jid, tid string
-	buf := &bytes.Buffer{}
-	con = io.MultiWriter(con, buf)
+	defer func() { kill(jid, tid) }()
 	utar, code = tgzPick(utar, "source")
-	if jid, res.Status = start(ptar, con, 0, 0, SE); res.Status > 0 {
-		res.Detail = buf.String()
-		return
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	buildCh := make(chan Result)
+	go func() {
+		buf := &bytes.Buffer{}
+		r := start(ctx, ptar, buf, 0, 0, SE)
+		jid, r.Detail = r.Detail, buf.String()
+		buildCh <- r
+	}()
+	go func() {
+		buf := &bytes.Buffer{}
+		r := start(ctx, utar, buf, 1e9, conf.MemoryLimit<<20, CE)
+		tid, r.Detail = r.Detail, buf.String()
+		buildCh <- r
+	}()
+	for i := 0; i < 2; i++ {
+		select {
+		case <-ctx.Done():
+			return Result{SE, 0, "Build Timeout (10s)"}, nil
+		case r := <-buildCh:
+			fmt.Fprintln(con, r.Detail)
+			if r.Status != OK {
+				return r, nil
+			}
+		}
 	}
-	defer kill(jid)
-	if tid, res.Status = start(utar, con, 1e9, conf.MemoryLimit<<20, CE); res.Status > 0 {
-		res.Detail = buf.String()
-		return
-	}
-	defer kill(tid)
 	ttl := time.Duration(conf.TimeLimit) * time.Millisecond
 	for i := 0; i < conf.Points; i++ {
-		env := map[string]any{"case": i, "code": code}
-		p := test(jid, tid, env, ttl)
+		p := test(jid, tid, ttl, []string{fmt.Sprintf("case=%v", i), "code=" + code})
 		res.Status = max(res.Status, p.Status)
 		res.Time = max(res.Time, p.Time)
-		fmt.Fprintf(con, "#%v %v\n", i, p)
+		fmt.Fprintf(con, "Test #%v %v\n", i, p)
 		ps = append(ps, p)
 	}
 	return

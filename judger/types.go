@@ -7,6 +7,7 @@ import (
 
 type Status int
 
+const OK Status = 0 // alias AC
 const (
 	AC Status = iota
 	WA

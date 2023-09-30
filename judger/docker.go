@@ -38,43 +38,43 @@ func init() {
 	}
 }
 
-func start(tar io.Reader, con io.Writer, cpu, mem int64, ceflag Status) (id string, s Status) {
-	r, e := cli.ImageBuild(ctx, tar, types.ImageBuildOptions{Remove: true, ForceRemove: true})
+func start(ctx context.Context, tar io.Reader, con io.Writer, cpu, mem int64, ceflag Status) (r Result) {
+	s, e := cli.ImageBuild(ctx, tar, types.ImageBuildOptions{Remove: true, ForceRemove: true})
 	if e != nil {
 		fmt.Fprintln(con, e)
-		return "", SE
+		return Result{Status: SE}
 	}
 
-	for sc := bufio.NewScanner(r.Body); sc.Scan(); {
+	for sc := bufio.NewScanner(s.Body); sc.Scan(); {
 		o := &buildOut{}
 		if json.Unmarshal(sc.Bytes(), o) == nil {
 			switch {
 			case o.Aux.ID != "":
-				id = o.Aux.ID
+				r.Detail = o.Aux.ID
 			case o.Stream != "":
 				fmt.Fprint(con, o.Stream)
 			case o.Error != "":
 				fmt.Fprintln(con, o.Error)
-				return "", ceflag
+				return Result{Status: ceflag}
 			}
 		}
 	}
 
 	var c container.CreateResponse
-	cconf := &container.Config{Image: id, NetworkDisabled: true, Cmd: []string{"sleep", "infinity"}}
+	cconf := &container.Config{Image: r.Detail, NetworkDisabled: true, Cmd: []string{"sleep", "infinity"}}
 	hconf := &container.HostConfig{Resources: container.Resources{NanoCPUs: cpu, Memory: mem}}
 	if c, e = cli.ContainerCreate(ctx, cconf, hconf, nil, nil, ""); e == nil {
 		if e = cli.ContainerStart(ctx, c.ID, types.ContainerStartOptions{}); e == nil {
-			return c.ID, AC
+			return Result{Detail: c.ID}
 		}
 	}
 
 	fmt.Fprintln(con, e)
-	return "", SE
+	return Result{Status: SE}
 }
 
-func newExec(cid string, cmd []string, root bool, env map[string]any) (x *exec, e error) {
-	conf := types.ExecConfig{AttachStdin: true, AttachStdout: true, AttachStderr: true, Env: envList(env)}
+func newExec(cid string, cmd []string, root bool, env []string) (x *exec, e error) {
+	conf := types.ExecConfig{AttachStdin: true, AttachStdout: true, AttachStderr: true, Env: env}
 	if !root {
 		conf.User = "65534"
 	}
@@ -121,10 +121,13 @@ func clean(cid string) {
 	}
 }
 
-func kill(cid string) {
-	if cli.ContainerRemove(ctx, cid, types.ContainerRemoveOptions{Force: true}) == nil {
-		if _, e := cli.ImagesPrune(ctx, filters.Args{}); e != nil {
-			log.Println(e)
+func kill(cids ...string) {
+	opt := types.ContainerRemoveOptions{Force: true}
+	for _, cid := range cids {
+		if cid != "" && cli.ContainerRemove(ctx, cid, opt) == nil {
+			if _, e := cli.ImagesPrune(ctx, filters.Args{}); e != nil {
+				log.Println(e)
+			}
 		}
 	}
 }
