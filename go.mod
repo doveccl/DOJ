@@ -3,7 +3,7 @@ module github.com/doveccl/DOJ
 go 1.21
 
 require (
-	github.com/docker/docker v24.0.6+incompatible
+	github.com/docker/docker v24.0.7+incompatible
 	github.com/golang-jwt/jwt/v5 v5.0.0
 	github.com/google/uuid v1.3.1
 	github.com/gorilla/websocket v1.5.0
