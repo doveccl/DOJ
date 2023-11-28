@@ -80,7 +80,7 @@ func Judge(conf Config, ptar io.Reader, utar io.Reader, con io.Writer) (res Resu
 	var code, jid, tid string
 	defer func() { kill(jid, tid) }()
 	utar, code = tgzPick(utar, "source")
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	buildCh := make(chan Result)
 	go func() {
@@ -98,7 +98,7 @@ func Judge(conf Config, ptar io.Reader, utar io.Reader, con io.Writer) (res Resu
 	for i := 0; i < 2; i++ {
 		select {
 		case <-ctx.Done():
-			return Result{SE, 0, "Build Timeout (10s)"}, nil
+			return Result{SE, 0, "Build Timeout (30s)"}, nil
 		case r := <-buildCh:
 			fmt.Fprintln(con, r.Detail)
 			if r.Status != OK {
