@@ -16,9 +16,17 @@ import (
 )
 
 type buildOut struct {
-	Aux    struct{ ID string } `json:"aux"`
-	Error  string              `json:"error"`
-	Stream string              `json:"stream"`
+	ID     string
+	Status string
+	Error  string
+	Stream string
+	Aux    struct {
+		ID string
+	}
+	ProgressDetail struct {
+		Current int
+		Total   int
+	}
 }
 
 type exec struct {
@@ -56,6 +64,8 @@ func start(ctx context.Context, tar io.Reader, con io.Writer, cpu, mem int64, ce
 			case o.Error != "":
 				fmt.Fprintln(con, o.Error)
 				return Result{Status: ceflag}
+			default:
+				fmt.Println(o)
 			}
 		}
 	}
@@ -64,7 +74,7 @@ func start(ctx context.Context, tar io.Reader, con io.Writer, cpu, mem int64, ce
 	cconf := &container.Config{Image: r.Detail, NetworkDisabled: true, Cmd: []string{"sleep", "infinity"}}
 	hconf := &container.HostConfig{Resources: container.Resources{NanoCPUs: cpu, Memory: mem}}
 	if c, e = cli.ContainerCreate(ctx, cconf, hconf, nil, nil, ""); e == nil {
-		if e = cli.ContainerStart(ctx, c.ID, types.ContainerStartOptions{}); e == nil {
+		if e = cli.ContainerStart(ctx, c.ID, container.StartOptions{}); e == nil {
 			return Result{Detail: c.ID}
 		}
 	}
@@ -74,7 +84,7 @@ func start(ctx context.Context, tar io.Reader, con io.Writer, cpu, mem int64, ce
 }
 
 func newExec(cid string, cmd []string, root bool, env []string) (x *exec, e error) {
-	conf := types.ExecConfig{AttachStdin: true, AttachStdout: true, AttachStderr: true, Env: env}
+	conf := container.ExecOptions{AttachStdin: true, AttachStdout: true, AttachStderr: true, Env: env}
 	if !root {
 		conf.User = "65534"
 	}
@@ -89,7 +99,7 @@ func newExec(cid string, cmd []string, root bool, env []string) (x *exec, e erro
 	var r types.IDResponse
 	var h types.HijackedResponse
 	if r, e = cli.ContainerExecCreate(ctx, cid, conf); e == nil {
-		if h, e = cli.ContainerExecAttach(ctx, r.ID, types.ExecStartCheck{}); e == nil {
+		if h, e = cli.ContainerExecAttach(ctx, r.ID, container.ExecStartOptions{}); e == nil {
 			x = &exec{ID: r.ID, Out: h.Reader, Conn: h.Conn}
 		}
 	}
@@ -97,10 +107,10 @@ func newExec(cid string, cmd []string, root bool, env []string) (x *exec, e erro
 }
 
 func (e *exec) start() error {
-	return cli.ContainerExecStart(ctx, e.ID, types.ExecStartCheck{})
+	return cli.ContainerExecStart(ctx, e.ID, container.ExecStartOptions{})
 }
 
-func (e *exec) inspect() (types.ContainerExecInspect, error) {
+func (e *exec) inspect() (container.ExecInspect, error) {
 	return cli.ContainerExecInspect(ctx, e.ID)
 }
 
@@ -113,7 +123,7 @@ func (e *exec) eof() {
 }
 
 func clean(cid string) {
-	cmd := []string{"sh", "-c", "ps -o pid= | grep -v 1 | xargs kill -9"}
+	cmd := []string{"sh", "-c", "ps -Ao pid= | grep -v 1 | xargs kill -9"}
 	if x, e := newExec(cid, cmd, true, nil); e == nil {
 		if e = x.start(); e != nil {
 			log.Println(e)
@@ -122,7 +132,7 @@ func clean(cid string) {
 }
 
 func kill(cids ...string) {
-	opt := types.ContainerRemoveOptions{Force: true}
+	opt := container.RemoveOptions{Force: true}
 	for _, cid := range cids {
 		if cid != "" && cli.ContainerRemove(ctx, cid, opt) == nil {
 			if _, e := cli.ImagesPrune(ctx, filters.Args{}); e != nil {
