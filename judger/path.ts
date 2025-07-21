@@ -11,7 +11,7 @@ export const runRoot = `/tmp/doj/run_${now}`
 export const dataRoot = `/var/lib/doj/data_${now}`
 
 function chmodConfig(mode: number) {
-  const f = 'config.json'
+  const f = 'config.yaml'
   fs.existsSync(f) && fs.chmodSync(f, mode)
 }
 
@@ -27,6 +27,8 @@ export function initPath() {
   else flag = true
 
   chmodConfig(0o600)
+  fs.rmSync('/tmp/doj', { recursive: true })
+  fs.rmSync('/var/lib/doj', { recursive: true })
   fs.mkdirSync(runRoot, { recursive: true })
   fs.mkdirSync(dataRoot, { recursive: true })
 
