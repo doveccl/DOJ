@@ -4,6 +4,7 @@ import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { z, ZodError } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { enqueueJudgeTask } from '@doj/db/queue'
+import { DockerRunner } from '@doj/runner/docker-runner'
 import { config } from './config'
 import {
   authMiddleware,
@@ -378,6 +379,32 @@ app.post('/api/admin/runners', authMiddleware, async (c) => {
     .returning()
 
   return c.json(runner, 201)
+})
+
+app.post('/api/admin/runners/:id/check', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
+  const id = numericId.parse(c.req.param('id'))
+  const [runner] = await db
+    .select()
+    .from(schema.judgeRunners)
+    .where(eq(schema.judgeRunners.id, id))
+    .limit(1)
+  if (!runner) return c.notFound()
+  if (runner.kind !== 'docker') {
+    return c.json(
+      { code: 'UNSUPPORTED_RUNNER', message: `Unsupported runner kind: ${runner.kind}` },
+      400
+    )
+  }
+
+  const result = await new DockerRunner({
+    endpoint: runner.endpoint,
+    authHeader: runner.authHeader
+  }).check()
+
+  return c.json({ ok: true, runnerId: runner.id, ...result })
 })
 
 const dateString = z.string().refine((value) => !Number.isNaN(Date.parse(value)), {

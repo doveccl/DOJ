@@ -38,19 +38,34 @@ const runner = (await api('/api/admin/runners', {
   })
 })) as { key: string; endpoint: string | null; authHeader: string | null; enabled: boolean }
 
-if (runner.key !== 'remote-smoke' || runner.enabled || runner.endpoint !== 'https://docker.example.test') {
+if (
+  runner.key !== 'remote-smoke' ||
+  runner.enabled ||
+  runner.endpoint !== 'https://docker.example.test'
+) {
   throw new Error(`runner upsert mismatch: ${JSON.stringify(runner)}`)
 }
 
 const list = (await api('/api/admin/runners', {
   headers
-})) as { list: Array<{ key: string }> }
+})) as { list: Array<{ id: number; key: string }> }
 
-if (!list.list.some((item) => item.key === 'local-docker')) {
+const local = list.list.find((item) => item.key === 'local-docker')
+if (!local) {
   throw new Error(`local-docker runner missing: ${JSON.stringify(list.list)}`)
+}
+
+const check = (await api(`/api/admin/runners/${local.id}/check`, {
+  method: 'POST',
+  headers
+})) as { ok: boolean; version: string }
+
+if (!check.ok || !check.version) {
+  throw new Error(`local-docker runner check failed: ${JSON.stringify(check)}`)
 }
 
 console.log({
   runnerKey: runner.key,
-  total: list.list.length
+  total: list.list.length,
+  localDocker: check.version
 })

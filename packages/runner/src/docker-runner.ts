@@ -20,6 +20,17 @@ export class DockerRunner implements Runner {
     this.docker = createDockerClient(options)
   }
 
+  async check() {
+    await this.docker.ping()
+    const version = await this.docker.version()
+    return {
+      version: version.Version,
+      apiVersion: version.ApiVersion,
+      os: version.Os,
+      arch: version.Arch
+    }
+  }
+
   async build(input: BuildInput): Promise<BuildResult> {
     const tag = `doj-scope-${input.scopeId.toLowerCase()}:latest`
     const context = createBuildContext(input)

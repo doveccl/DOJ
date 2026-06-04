@@ -33,7 +33,9 @@ const auth = useAuthStore()
 const canManage = computed(() => auth.user?.groups.includes('admin') ?? false)
 const loading = ref(true)
 const saving = ref(false)
+const checkingId = ref<number | null>(null)
 const error = ref('')
+const checkMessage = ref('')
 const runners = ref<RunnerRow[]>([])
 const form = reactive({
   key: '',
@@ -71,9 +73,20 @@ const columns: DataTableColumns<RunnerRow> = [
   {
     title: 'Action',
     key: 'action',
-    width: 120,
+    width: 180,
     render(row) {
-      return h(NButton, { size: 'small', onClick: () => editRunner(row) }, () => 'Edit')
+      return h(NSpace, { size: 8 }, () => [
+        h(NButton, { size: 'small', onClick: () => editRunner(row) }, () => 'Edit'),
+        h(
+          NButton,
+          {
+            size: 'small',
+            loading: checkingId.value === row.id,
+            onClick: () => checkRunner(row)
+          },
+          () => 'Check'
+        )
+      ])
     }
   }
 ]
@@ -137,6 +150,25 @@ async function saveRunner() {
   }
 }
 
+async function checkRunner(runner: RunnerRow) {
+  checkingId.value = runner.id
+  checkMessage.value = ''
+  error.value = ''
+  try {
+    const result = await apiFetch<{ version: string; apiVersion: string }>(
+      `/api/admin/runners/${runner.id}/check`,
+      {
+        method: 'POST'
+      }
+    )
+    checkMessage.value = `${runner.key}: Docker ${result.version} / API ${result.apiVersion}`
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    checkingId.value = null
+  }
+}
+
 watch(canManage, (allowed) => {
   if (allowed) loadRunners()
 })
@@ -164,6 +196,9 @@ onMounted(() => {
     <n-alert v-if="error" type="error" class="page-alert">
       {{ error }}
     </n-alert>
+    <n-alert v-if="checkMessage" type="success" class="page-alert">
+      {{ checkMessage }}
+    </n-alert>
 
     <section v-if="canManage" class="admin-layout">
       <n-card title="Runner config" :bordered="false">
@@ -175,7 +210,10 @@ onMounted(() => {
             <n-input v-model:value="form.name" placeholder="Remote Docker 1" />
           </n-form-item>
           <n-form-item label="Docker endpoint">
-            <n-input v-model:value="form.endpoint" placeholder="unix:///var/run/docker.sock or https://host" />
+            <n-input
+              v-model:value="form.endpoint"
+              placeholder="unix:///var/run/docker.sock or https://host"
+            />
           </n-form-item>
           <n-form-item label="Authorization header">
             <n-input v-model:value="form.authHeader" placeholder="Bearer token or Basic ..." />
