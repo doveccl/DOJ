@@ -29,6 +29,47 @@ app.get('/api/problems', async (c) => {
   return c.json({ total: list.length, list })
 })
 
+const createProblemSchema = z.object({
+  title: z.string().min(1).max(160),
+  slug: z.string().min(1).max(160).optional(),
+  tags: z.array(z.string()).default([]),
+  statementMarkdown: z.string().min(1),
+  timeLimitMs: z.number().int().positive().default(1000),
+  memoryLimitBytes: z.number().int().positive().default(256 * 1024 * 1024),
+  outputLimitBytes: z.number().int().positive().default(64 * 1024 * 1024)
+})
+
+app.post('/api/problems', async (c) => {
+  const body = createProblemSchema.parse(await c.req.json())
+
+  const result = await db.transaction(async (tx) => {
+    const [problem] = await tx
+      .insert(schema.problems)
+      .values({
+        title: body.title,
+        slug: body.slug ?? null,
+        tags: body.tags
+      })
+      .returning()
+
+    const [version] = await tx
+      .insert(schema.problemVersions)
+      .values({
+        problemId: problem.id,
+        version: 1,
+        statementMarkdown: body.statementMarkdown,
+        timeLimitMs: body.timeLimitMs,
+        memoryLimitBytes: body.memoryLimitBytes,
+        outputLimitBytes: body.outputLimitBytes
+      })
+      .returning()
+
+    return { problem, version }
+  })
+
+  return c.json(result, 201)
+})
+
 app.get('/api/submissions', async (c) => {
   const list = await db
     .select()

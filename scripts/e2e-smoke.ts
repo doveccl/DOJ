@@ -14,25 +14,29 @@ try {
     })
     .returning()
 
-  const [problem] = await db
-    .insert(schema.problems)
-    .values({
+  const problemResponse = await fetch(`${apiBase}/api/problems`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
       title: `Smoke Problem ${runId.slice(0, 8)}`,
-      slug: `smoke-${runId}`
-    })
-    .returning()
-
-  const [version] = await db
-    .insert(schema.problemVersions)
-    .values({
-      problemId: problem.id,
-      version: 1,
+      slug: `smoke-${runId}`,
       statementMarkdown: '# Smoke Problem\n\nExit successfully.',
       timeLimitMs: 5000,
       memoryLimitBytes: 128 * 1024 * 1024,
       outputLimitBytes: 1024 * 1024
     })
-    .returning()
+  })
+
+  if (!problemResponse.ok) {
+    throw new Error(`problem API failed: ${problemResponse.status} ${await problemResponse.text()}`)
+  }
+
+  const { problem, version } = (await problemResponse.json()) as {
+    problem: { id: string }
+    version: { id: string }
+  }
 
   const response = await fetch(`${apiBase}/api/submissions`, {
     method: 'POST',
