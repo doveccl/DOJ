@@ -91,6 +91,14 @@ body {
   margin-bottom: 16px;
 }
 
+.full-width {
+  width: 100%;
+}
+
+.form-actions {
+  margin-top: 16px;
+}
+
 .stacked-card {
   margin-top: 16px;
 }

@@ -12,6 +12,7 @@ import {
   NModal,
   NSpace
 } from 'naive-ui'
+import type { MenuOption } from 'naive-ui'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -29,13 +30,20 @@ const loginForm = reactive({ user: '', password: '' })
 const registerForm = reactive({ name: '', email: '', password: '' })
 
 const menuOptions = computed(() => {
-  const options = [
+  const options: MenuOption[] = [
     { label: t('home'), key: '/' },
     { label: t('problems'), key: '/problems' },
     { label: t('submissions'), key: '/submissions' }
   ]
   if (auth.user?.groups.includes('admin')) {
-    options.push({ label: t('admin'), key: '/admin/groups' })
+    options.push({
+      label: t('admin'),
+      key: 'admin',
+      children: [
+        { label: t('groups'), key: '/admin/groups' },
+        { label: t('assignments'), key: '/admin/assignments' }
+      ]
+    })
   }
   return options
 })

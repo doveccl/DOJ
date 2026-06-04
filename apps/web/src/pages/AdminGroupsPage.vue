@@ -11,7 +11,7 @@ import {
   NTag
 } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import { h, onMounted, reactive, ref } from 'vue'
+import { h, onMounted, reactive, ref, watch } from 'vue'
 import { apiFetch } from '../api'
 import { useAuthStore } from '../stores/auth'
 
@@ -87,8 +87,19 @@ async function createGroup() {
   }
 }
 
+watch(
+  () => auth.signedIn,
+  (signedIn) => {
+    if (signedIn) loadGroups()
+  }
+)
+
 onMounted(() => {
-  loadGroups()
+  if (auth.signedIn) {
+    loadGroups()
+  } else {
+    loading.value = false
+  }
 })
 </script>
 
@@ -125,7 +136,9 @@ onMounted(() => {
             />
           </n-form-item>
           <n-space justify="end">
-            <n-button type="primary" :loading="saving" @click="createGroup">Create</n-button>
+            <n-button type="primary" :loading="saving" :disabled="!form.key || !form.name" @click="createGroup">
+              Create
+            </n-button>
           </n-space>
         </n-form>
       </n-card>
