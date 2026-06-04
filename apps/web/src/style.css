@@ -76,6 +76,21 @@ body {
   align-items: start;
 }
 
+.admin-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.admin-table {
+  min-width: 0;
+}
+
+.page-alert {
+  margin-bottom: 16px;
+}
+
 .stacked-card {
   margin-top: 16px;
 }
@@ -113,7 +128,8 @@ body {
 
 @media (max-width: 860px) {
   .problem-layout,
-  .submission-layout {
+  .submission-layout,
+  .admin-layout {
     grid-template-columns: 1fr;
   }
 }

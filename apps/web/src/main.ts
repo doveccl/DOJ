@@ -7,6 +7,7 @@ import {
   type RouteRecordRaw
 } from 'vue-router'
 import App from './App.vue'
+import AdminGroupsPage from './pages/AdminGroupsPage.vue'
 import HomePage from './pages/HomePage.vue'
 import ProblemDetailPage from './pages/ProblemDetailPage.vue'
 import ProblemListPage from './pages/ProblemListPage.vue'
@@ -19,7 +20,8 @@ const routes: RouteRecordRaw[] = [
   { path: '/problems', component: ProblemListPage },
   { path: '/problems/:id', component: ProblemDetailPage },
   { path: '/submissions', component: SubmissionListPage },
-  { path: '/submissions/:id', component: SubmissionDetailPage }
+  { path: '/submissions/:id', component: SubmissionDetailPage },
+  { path: '/admin/groups', component: AdminGroupsPage }
 ]
 
 const i18n = createI18n({
@@ -30,13 +32,15 @@ const i18n = createI18n({
       app: 'DOJ',
       problems: '题库',
       submissions: '提交',
-      home: '首页'
+      home: '首页',
+      admin: '管理'
     },
     en: {
       app: 'DOJ',
       problems: 'Problems',
       submissions: 'Submissions',
-      home: 'Home'
+      home: 'Home',
+      admin: 'Admin'
     }
   }
 })

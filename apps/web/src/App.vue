@@ -28,11 +28,17 @@ const authLoading = ref(false)
 const loginForm = reactive({ user: '', password: '' })
 const registerForm = reactive({ name: '', email: '', password: '' })
 
-const menuOptions = computed(() => [
-  { label: t('home'), key: '/' },
-  { label: t('problems'), key: '/problems' },
-  { label: t('submissions'), key: '/submissions' }
-])
+const menuOptions = computed(() => {
+  const options = [
+    { label: t('home'), key: '/' },
+    { label: t('problems'), key: '/problems' },
+    { label: t('submissions'), key: '/submissions' }
+  ]
+  if (auth.user?.groups.includes('admin')) {
+    options.push({ label: t('admin'), key: '/admin/groups' })
+  }
+  return options
+})
 
 const userMenuOptions = computed(() => [
   { label: auth.user?.email ?? '', key: 'email', disabled: true },
