@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { NCard, NDataTable, NSpin, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import { h, onMounted, ref } from 'vue'
+import { computed, h, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { apiFetch } from '../api'
 
@@ -26,10 +26,23 @@ interface ContestDetail {
   problems: ContestProblem[]
 }
 
+interface ScoreboardRow {
+  userId: number
+  userName: string
+  solved: number
+  penalty: number
+  problems: Record<string, { attempts: number; solved: boolean; penalty: number }>
+}
+
+interface Scoreboard {
+  rows: ScoreboardRow[]
+}
+
 const route = useRoute()
 const loading = ref(true)
 const error = ref('')
 const detail = ref<ContestDetail | null>(null)
+const scoreboard = ref<Scoreboard | null>(null)
 
 const columns: DataTableColumns<ContestProblem> = [
   { title: 'Key', key: 'key', width: 90 },
@@ -50,9 +63,38 @@ const columns: DataTableColumns<ContestProblem> = [
   { title: 'Score', key: 'score', width: 110 }
 ]
 
+const scoreboardColumns = computed<DataTableColumns<ScoreboardRow>>(() => [
+  {
+    title: '#',
+    key: 'rank',
+    width: 72,
+    render(_row, index) {
+      return String(index + 1)
+    }
+  },
+  { title: 'User', key: 'userName', minWidth: 160 },
+  { title: 'Solved', key: 'solved', width: 110 },
+  { title: 'Penalty', key: 'penalty', width: 110 },
+  ...(detail.value?.problems.map((problem) => ({
+    title: problem.key,
+    key: problem.key,
+    width: 110,
+    render(row: ScoreboardRow) {
+      const cell = row.problems[problem.key]
+      if (!cell?.attempts) return '-'
+      return cell.solved ? `+${cell.attempts > 1 ? cell.attempts - 1 : ''}` : `-${cell.attempts}`
+    }
+  })) ?? [])
+])
+
 onMounted(async () => {
   try {
-    detail.value = await apiFetch<ContestDetail>(`/api/contests/${route.params.id}`)
+    const [detailData, scoreboardData] = await Promise.all([
+      apiFetch<ContestDetail>(`/api/contests/${route.params.id}`),
+      apiFetch<Scoreboard>(`/api/contests/${route.params.id}/scoreboard`)
+    ])
+    detail.value = detailData
+    scoreboard.value = scoreboardData
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
@@ -84,6 +126,14 @@ onMounted(async () => {
           :bordered="false"
           class="stacked-card"
         />
+
+        <n-card title="Scoreboard" :bordered="false" class="stacked-card">
+          <n-data-table
+            :columns="scoreboardColumns"
+            :data="scoreboard?.rows ?? []"
+            :bordered="false"
+          />
+        </n-card>
       </template>
       <p v-else-if="error" class="form-error">{{ error }}</p>
     </n-spin>

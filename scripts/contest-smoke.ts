@@ -82,12 +82,21 @@ try {
     )
   }
 
+  const scoreboard = await api<{ rows: Array<{ userId: number; solved: number }> }>(
+    `/api/contests/${detail.contest.id}/scoreboard`
+  )
+  const row = scoreboard.rows.find((item) => item.userId === judged.userId)
+  if (!row || row.solved !== 1) {
+    throw new Error(`scoreboard missing solved row: ${JSON.stringify(scoreboard)}`)
+  }
+
   console.log({
     contestId: detail.contest.id,
     problemKey: detail.problems[0]?.key,
     submissionId: submission.id,
     status: judged.status,
-    coachStatus: coachResponse.status
+    coachStatus: coachResponse.status,
+    scoreboardSolved: row.solved
   })
 } finally {
   await closeDb()
