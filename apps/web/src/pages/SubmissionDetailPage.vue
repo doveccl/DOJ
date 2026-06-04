@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { NButton, NCard, NDescriptions, NDescriptionsItem, NSpin, NTag } from 'naive-ui'
+import { NButton, NCard, NDataTable, NDescriptions, NDescriptionsItem, NSpin, NTag } from 'naive-ui'
+import type { DataTableColumns } from 'naive-ui'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { apiFetch } from '../api'
@@ -13,6 +14,15 @@ interface Submission {
   memoryBytes: number
   message: string
   contestId: number | null
+  cases: SubmissionCase[]
+}
+
+interface SubmissionCase {
+  caseIndex: number
+  status: string
+  timeMs: number
+  memoryBytes: number
+  message: string
 }
 
 interface CoachingSession {
@@ -32,6 +42,34 @@ const canCoach = computed(() => {
   return !!status && !['AC', 'WAITING', 'JUDGING', 'FROZEN'].includes(status)
 })
 
+const caseColumns: DataTableColumns<SubmissionCase> = [
+  { title: '#', key: 'caseIndex', width: 72 },
+  {
+    title: 'Status',
+    key: 'status',
+    width: 120,
+    render(row) {
+      return row.status
+    }
+  },
+  { title: 'Time', key: 'timeMs', width: 120 },
+  {
+    title: 'Memory',
+    key: 'memoryBytes',
+    width: 140,
+    render(row) {
+      return `${Math.round(row.memoryBytes / 1024)} KB`
+    }
+  },
+  {
+    title: 'Message',
+    key: 'message',
+    ellipsis: {
+      tooltip: true
+    }
+  }
+]
+
 onMounted(load)
 
 async function load() {
@@ -50,9 +88,12 @@ async function getCoaching() {
   coachingLoading.value = true
   error.value = ''
   try {
-    const session = await apiFetch<CoachingSession>(`/api/submissions/${submission.value.id}/coach`, {
-      method: 'POST'
-    })
+    const session = await apiFetch<CoachingSession>(
+      `/api/submissions/${submission.value.id}/coach`,
+      {
+        method: 'POST'
+      }
+    )
     coaching.value = session.responseMarkdown
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : String(caught)
@@ -68,7 +109,7 @@ async function getCoaching() {
       <section v-if="submission" class="submission-layout">
         <div>
           <section class="page-header">
-      <h1>Submission {{ submission.id }}</h1>
+            <h1>Submission {{ submission.id }}</h1>
             <p>{{ submission.languageId }}</p>
           </section>
           <n-card :bordered="false">
@@ -88,14 +129,34 @@ async function getCoaching() {
           <n-card title="Source" :bordered="false" class="stacked-card">
             <pre class="code-block">{{ submission.sourceCode }}</pre>
           </n-card>
-          <n-card v-if="submission.message" title="Judge Message" :bordered="false" class="stacked-card">
+          <n-card
+            v-if="submission.message"
+            title="Judge Message"
+            :bordered="false"
+            class="stacked-card"
+          >
             <pre class="code-block">{{ submission.message }}</pre>
+          </n-card>
+          <n-card
+            v-if="submission.cases?.length"
+            title="Test Cases"
+            :bordered="false"
+            class="stacked-card"
+          >
+            <n-data-table :columns="caseColumns" :data="submission.cases" :bordered="false" />
           </n-card>
         </div>
         <n-card title="AI Coaching" :bordered="false">
-          <p v-if="!canCoach" class="muted">Coaching is available for non-AC submissions outside contests.</p>
+          <p v-if="!canCoach" class="muted">
+            Coaching is available for non-AC submissions outside contests.
+          </p>
           <p v-if="error" class="form-error">{{ error }}</p>
-          <n-button type="primary" :disabled="!canCoach" :loading="coachingLoading" @click="getCoaching">
+          <n-button
+            type="primary"
+            :disabled="!canCoach"
+            :loading="coachingLoading"
+            @click="getCoaching"
+          >
             Get coaching
           </n-button>
           <pre v-if="coaching" class="coaching-output">{{ coaching }}</pre>

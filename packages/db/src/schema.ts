@@ -13,6 +13,7 @@ import {
   uniqueIndex,
   varchar
 } from 'drizzle-orm/pg-core'
+import type { ProblemTestCase } from '@doj/shared/judge'
 
 export const judgeStatus = pgEnum('judge_status', [
   'WAITING',
@@ -30,7 +31,13 @@ export const judgeStatus = pgEnum('judge_status', [
 ])
 
 export const contestType = pgEnum('contest_type', ['OI', 'ICPC'])
-export const taskStatus = pgEnum('task_status', ['WAITING', 'RUNNING', 'DONE', 'FAILED', 'CANCELLED'])
+export const taskStatus = pgEnum('task_status', [
+  'WAITING',
+  'RUNNING',
+  'DONE',
+  'FAILED',
+  'CANCELLED'
+])
 
 const id = () => integer('id').primaryKey().generatedByDefaultAsIdentity()
 const problemPrimaryId = () =>
@@ -87,7 +94,10 @@ export const judgeLanguages = pgTable(
     enabled: boolean('enabled').default(true).notNull(),
     sourceFile: varchar('source_file', { length: 128 }).notNull(),
     dockerfile: text('dockerfile').notNull(),
-    command: text('command').array().default(sql`ARRAY[]::text[]`).notNull(),
+    command: text('command')
+      .array()
+      .default(sql`ARRAY[]::text[]`)
+      .notNull(),
     sortOrder: integer('sort_order').default(0).notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt()
@@ -161,7 +171,10 @@ export const problems = pgTable(
     legacyId: varchar('legacy_id', { length: 64 }),
     title: varchar('title', { length: 160 }).notNull(),
     slug: varchar('slug', { length: 160 }),
-    tags: text('tags').array().default(sql`ARRAY[]::text[]`).notNull(),
+    tags: text('tags')
+      .array()
+      .default(sql`ARRAY[]::text[]`)
+      .notNull(),
     visible: boolean('visible').default(true).notNull(),
     solvedCount: integer('solved_count').default(0).notNull(),
     submissionCount: integer('submission_count').default(0).notNull(),
@@ -187,6 +200,7 @@ export const problemVersions = pgTable(
     timeLimitMs: integer('time_limit_ms').default(1000).notNull(),
     memoryLimitBytes: bigint('memory_limit_bytes', { mode: 'number' }).default(268435456).notNull(),
     outputLimitBytes: integer('output_limit_bytes').default(67108864).notNull(),
+    testCases: jsonb('test_cases').$type<ProblemTestCase[]>().default([]).notNull(),
     testdataFileId: integer('testdata_file_id').references(() => files.id),
     checkerFileId: integer('checker_file_id').references(() => files.id),
     interactorFileId: integer('interactor_file_id').references(() => files.id),
@@ -344,7 +358,10 @@ export const bbsTopics = pgTable(
     id: id(),
     userId: integer('user_id').notNull(),
     title: varchar('title', { length: 160 }).notNull(),
-    tags: text('tags').array().default(sql`ARRAY[]::text[]`).notNull(),
+    tags: text('tags')
+      .array()
+      .default(sql`ARRAY[]::text[]`)
+      .notNull(),
     linkedProblemId: integer('linked_problem_id'),
     linkedContestId: integer('linked_contest_id'),
     createdAt: createdAt(),

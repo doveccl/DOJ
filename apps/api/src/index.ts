@@ -210,11 +210,20 @@ app.post('/api/groups/:id/users', authMiddleware, async (c) => {
   const groupId = numericId.parse(c.req.param('id'))
   const body = addGroupUserSchema.parse(await c.req.json())
   const [group, user] = await Promise.all([
-    db.select({ id: schema.groups.id }).from(schema.groups).where(eq(schema.groups.id, groupId)).limit(1),
-    db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.id, body.userId)).limit(1)
+    db
+      .select({ id: schema.groups.id })
+      .from(schema.groups)
+      .where(eq(schema.groups.id, groupId))
+      .limit(1),
+    db
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(eq(schema.users.id, body.userId))
+      .limit(1)
   ])
 
-  if (!group.length) return c.json({ code: 'GROUP_NOT_FOUND', message: 'Group does not exist' }, 404)
+  if (!group.length)
+    return c.json({ code: 'GROUP_NOT_FOUND', message: 'Group does not exist' }, 404)
   if (!user.length) return c.json({ code: 'USER_NOT_FOUND', message: 'User does not exist' }, 404)
 
   await db
@@ -376,7 +385,11 @@ app.get('/api/assignments', authMiddleware, async (c) => {
   const denied = await requireGroup(c, 'admin')
   if (denied) return denied
 
-  const list = await db.select().from(schema.assignments).orderBy(desc(schema.assignments.createdAt)).limit(50)
+  const list = await db
+    .select()
+    .from(schema.assignments)
+    .orderBy(desc(schema.assignments.createdAt))
+    .limit(50)
   return c.json({ total: list.length, list })
 })
 
@@ -389,8 +402,14 @@ app.post('/api/assignments', authMiddleware, async (c) => {
   const problemIds = [...new Set(body.problems.map((problem) => problem.problemId))]
 
   const [groups, problems] = await Promise.all([
-    db.select({ id: schema.groups.id }).from(schema.groups).where(inArray(schema.groups.id, groupIds)),
-    db.select({ id: schema.problems.id }).from(schema.problems).where(inArray(schema.problems.id, problemIds))
+    db
+      .select({ id: schema.groups.id })
+      .from(schema.groups)
+      .where(inArray(schema.groups.id, groupIds)),
+    db
+      .select({ id: schema.problems.id })
+      .from(schema.problems)
+      .where(inArray(schema.problems.id, problemIds))
   ])
 
   if (groups.length !== groupIds.length) {
@@ -458,7 +477,10 @@ app.get('/api/my/assignments', authMiddleware, async (c) => {
       createdAt: schema.assignments.createdAt
     })
     .from(schema.assignments)
-    .innerJoin(schema.assignmentGroups, eq(schema.assignmentGroups.assignmentId, schema.assignments.id))
+    .innerJoin(
+      schema.assignmentGroups,
+      eq(schema.assignmentGroups.assignmentId, schema.assignments.id)
+    )
     .innerJoin(
       schema.userGroups,
       and(
@@ -486,7 +508,11 @@ app.get('/api/problems', async (c) => {
 
 app.get('/api/problems/:id', async (c) => {
   const id = numericId.parse(c.req.param('id'))
-  const [problem] = await db.select().from(schema.problems).where(eq(schema.problems.id, id)).limit(1)
+  const [problem] = await db
+    .select()
+    .from(schema.problems)
+    .where(eq(schema.problems.id, id))
+    .limit(1)
   if (!problem) return c.notFound()
 
   const [version] = await db
@@ -496,7 +522,15 @@ app.get('/api/problems/:id', async (c) => {
     .orderBy(desc(schema.problemVersions.version))
     .limit(1)
 
-  return c.json({ problem, version })
+  return c.json({
+    problem,
+    version: version
+      ? {
+          ...version,
+          testCases: version.testCases.filter((testCase) => !testCase.hidden)
+        }
+      : null
+  })
 })
 
 const createProblemSchema = z.object({
@@ -505,8 +539,27 @@ const createProblemSchema = z.object({
   tags: z.array(z.string()).default([]),
   statementMarkdown: z.string().min(1),
   timeLimitMs: z.number().int().positive().default(1000),
-  memoryLimitBytes: z.number().int().positive().default(256 * 1024 * 1024),
-  outputLimitBytes: z.number().int().positive().default(64 * 1024 * 1024)
+  memoryLimitBytes: z
+    .number()
+    .int()
+    .positive()
+    .default(256 * 1024 * 1024),
+  outputLimitBytes: z
+    .number()
+    .int()
+    .positive()
+    .default(64 * 1024 * 1024),
+  testCases: z
+    .array(
+      z.object({
+        name: z.string().max(120).optional(),
+        input: z.string().max(256 * 1024),
+        output: z.string().max(256 * 1024),
+        hidden: z.boolean().default(false)
+      })
+    )
+    .max(100)
+    .default([])
 })
 
 app.post('/api/problems', async (c) => {
@@ -530,7 +583,8 @@ app.post('/api/problems', async (c) => {
         statementMarkdown: body.statementMarkdown,
         timeLimitMs: body.timeLimitMs,
         memoryLimitBytes: body.memoryLimitBytes,
-        outputLimitBytes: body.outputLimitBytes
+        outputLimitBytes: body.outputLimitBytes,
+        testCases: body.testCases
       })
       .returning()
 
@@ -554,7 +608,10 @@ const submitSchema = z.object({
   problemId: numericId,
   problemVersionId: numericId,
   languageId: z.string().min(1).max(64),
-  sourceCode: z.string().min(1).max(200 * 1024),
+  sourceCode: z
+    .string()
+    .min(1)
+    .max(200 * 1024),
   contestId: numericId.optional(),
   assignmentId: numericId.optional()
 })
@@ -565,7 +622,9 @@ app.post('/api/submissions', authMiddleware, async (c) => {
   const [language] = await db
     .select({ id: schema.judgeLanguages.id })
     .from(schema.judgeLanguages)
-    .where(and(eq(schema.judgeLanguages.id, body.languageId), eq(schema.judgeLanguages.enabled, true)))
+    .where(
+      and(eq(schema.judgeLanguages.id, body.languageId), eq(schema.judgeLanguages.enabled, true))
+    )
     .limit(1)
 
   if (!language) {
@@ -595,7 +654,13 @@ app.get('/api/submissions/:id', async (c) => {
     .limit(1)
 
   if (!submission) return c.notFound()
-  return c.json(submission)
+  const cases = await db
+    .select()
+    .from(schema.submissionCases)
+    .where(eq(schema.submissionCases.submissionId, submission.id))
+    .orderBy(asc(schema.submissionCases.caseIndex))
+
+  return c.json({ ...submission, cases })
 })
 
 app.post('/api/submissions/:id/coach', async (c) => {
@@ -608,7 +673,10 @@ app.post('/api/submissions/:id/coach', async (c) => {
 
   if (!submission) return c.notFound()
   if (submission.contestId) {
-    return c.json({ code: 'AI_DISABLED_IN_CONTEST', message: 'AI coaching is disabled in contests' }, 403)
+    return c.json(
+      { code: 'AI_DISABLED_IN_CONTEST', message: 'AI coaching is disabled in contests' },
+      403
+    )
   }
   if (['AC', 'WAITING', 'JUDGING', 'FROZEN'].includes(submission.status)) {
     return c.json(
@@ -681,7 +749,11 @@ function createCoachingResponse(status: string, message: string) {
 }
 
 async function getAssignmentDetail(id: number) {
-  const [assignment] = await db.select().from(schema.assignments).where(eq(schema.assignments.id, id)).limit(1)
+  const [assignment] = await db
+    .select()
+    .from(schema.assignments)
+    .where(eq(schema.assignments.id, id))
+    .limit(1)
   if (!assignment) return null
 
   const [groups, problems] = await Promise.all([
@@ -719,7 +791,10 @@ async function getUserAssignmentDetail(userId: number, assignmentId: number) {
   const [match] = await db
     .select({ id: schema.assignments.id })
     .from(schema.assignments)
-    .innerJoin(schema.assignmentGroups, eq(schema.assignmentGroups.assignmentId, schema.assignments.id))
+    .innerJoin(
+      schema.assignmentGroups,
+      eq(schema.assignmentGroups.assignmentId, schema.assignments.id)
+    )
     .innerJoin(
       schema.userGroups,
       and(

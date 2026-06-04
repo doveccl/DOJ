@@ -68,10 +68,18 @@ const adminName = process.env.DOJ_ADMIN_NAME ?? 'admin'
 const adminEmail = process.env.DOJ_ADMIN_EMAIL ?? 'admin@example.test'
 const adminPassword = process.env.DOJ_ADMIN_PASSWORD ?? 'admin12345'
 
-const [adminGroup] = await db.select().from(schema.groups).where(eq(schema.groups.key, 'admin')).limit(1)
+const [adminGroup] = await db
+  .select()
+  .from(schema.groups)
+  .where(eq(schema.groups.key, 'admin'))
+  .limit(1)
 if (!adminGroup) throw new Error('admin group missing after seed')
 
-const [existingAdmin] = await db.select().from(schema.users).where(eq(schema.users.name, adminName)).limit(1)
+const [existingAdmin] = await db
+  .select()
+  .from(schema.users)
+  .where(eq(schema.users.name, adminName))
+  .limit(1)
 if (!existingAdmin) {
   const [admin] = await db
     .insert(schema.users)
@@ -86,7 +94,9 @@ if (!existingAdmin) {
     })
     .returning()
 
-  await db.insert(schema.userGroups).values({ userId: admin.id, groupId: adminGroup.id, manager: true })
+  await db
+    .insert(schema.userGroups)
+    .values({ userId: admin.id, groupId: adminGroup.id, manager: true })
 }
 
 const starterProblems = [
@@ -97,7 +107,14 @@ const starterProblems = [
     statementMarkdown: '# Hello World\n\nPrint `Hello, World!`.',
     timeLimitMs: 1000,
     memoryLimitBytes: 128 * 1024 * 1024,
-    outputLimitBytes: 1024 * 1024
+    outputLimitBytes: 1024 * 1024,
+    testCases: [
+      {
+        name: 'sample',
+        input: '',
+        output: 'Hello, World!\n'
+      }
+    ]
   },
   {
     title: 'A+B Problem',
@@ -107,13 +124,42 @@ const starterProblems = [
       '# A+B Problem\n\nRead two integers `a` and `b`, then print their sum.\n\nInput: two integers separated by whitespace.\n\nOutput: one integer.',
     timeLimitMs: 1000,
     memoryLimitBytes: 128 * 1024 * 1024,
-    outputLimitBytes: 1024 * 1024
+    outputLimitBytes: 1024 * 1024,
+    testCases: [
+      {
+        name: 'sample',
+        input: '1 2\n',
+        output: '3\n'
+      },
+      {
+        name: 'negative',
+        input: '-5 8\n',
+        output: '3\n',
+        hidden: true
+      }
+    ]
   }
 ]
 
 for (const starter of starterProblems) {
-  const [existing] = await db.select().from(schema.problems).where(eq(schema.problems.slug, starter.slug)).limit(1)
-  if (existing) continue
+  const [existing] = await db
+    .select()
+    .from(schema.problems)
+    .where(eq(schema.problems.slug, starter.slug))
+    .limit(1)
+  if (existing) {
+    await db
+      .update(schema.problemVersions)
+      .set({
+        statementMarkdown: starter.statementMarkdown,
+        timeLimitMs: starter.timeLimitMs,
+        memoryLimitBytes: starter.memoryLimitBytes,
+        outputLimitBytes: starter.outputLimitBytes,
+        testCases: starter.testCases
+      })
+      .where(eq(schema.problemVersions.problemId, existing.id))
+    continue
+  }
 
   const [problem] = await db
     .insert(schema.problems)
@@ -130,7 +176,8 @@ for (const starter of starterProblems) {
     statementMarkdown: starter.statementMarkdown,
     timeLimitMs: starter.timeLimitMs,
     memoryLimitBytes: starter.memoryLimitBytes,
-    outputLimitBytes: starter.outputLimitBytes
+    outputLimitBytes: starter.outputLimitBytes,
+    testCases: starter.testCases
   })
 }
 

@@ -70,15 +70,26 @@ export class DockerRunner implements Runner {
     const stderr = new CappedTextBuffer(outputLimit)
     let peakMemoryBytes = 0
     let timedOut = false
+    const effectiveCommand =
+      input.stdin && !input.command?.length
+        ? await this.getImageCommand(input.imageId)
+        : input.command
+    const stdinCommand =
+      input.stdin && effectiveCommand?.length ? createStdinCommand(effectiveCommand) : null
 
     const container = await this.docker.createContainer({
       Image: input.imageId,
-      Cmd: input.command,
-      Env: Object.entries(input.env ?? {}).map(([key, value]) => `${key}=${value}`),
-      AttachStdin: true,
+      Cmd: stdinCommand?.command ?? input.command,
+      Env: Object.entries({
+        ...(input.env ?? {}),
+        ...(stdinCommand
+          ? { DOJ_STDIN_BASE64: Buffer.from(input.stdin ?? []).toString('base64') }
+          : {})
+      }).map(([key, value]) => `${key}=${value}`),
+      AttachStdin: !stdinCommand,
       AttachStdout: true,
       AttachStderr: true,
-      OpenStdin: !!input.stdin,
+      OpenStdin: !!input.stdin && !stdinCommand,
       StdinOnce: true,
       NetworkDisabled: true,
       Labels: {
@@ -96,10 +107,11 @@ export class DockerRunner implements Runner {
     try {
       const attach = await container.attach({
         stream: true,
-        stdin: !!input.stdin,
+        stdin: !!input.stdin && !stdinCommand,
         stdout: true,
         stderr: true
       })
+      patchDestroySoon(attach)
 
       this.docker.modem.demuxStream(
         attach,
@@ -109,7 +121,7 @@ export class DockerRunner implements Runner {
 
       await container.start()
 
-      if (input.stdin) {
+      if (input.stdin && !stdinCommand) {
         attach.write(Buffer.from(input.stdin))
         attach.end()
       }
@@ -135,7 +147,15 @@ export class DockerRunner implements Runner {
       const outputExceeded = stdout.truncated || stderr.truncated
 
       return {
-        status: timedOut ? 'TLE' : oomKilled ? 'MLE' : outputExceeded ? 'OLE' : exitCode === 0 ? 'AC' : 'RE',
+        status: timedOut
+          ? 'TLE'
+          : oomKilled
+            ? 'MLE'
+            : outputExceeded
+              ? 'OLE'
+              : exitCode === 0
+                ? 'AC'
+                : 'RE',
         timeMs,
         memoryBytes: peakMemoryBytes,
         exitCode,
@@ -154,14 +174,56 @@ export class DockerRunner implements Runner {
     const images = await this.docker.listImages({ filters: { label: [label] } })
 
     await Promise.all(
-      containers.map((item) => this.docker.getContainer(item.Id).remove({ force: true }).catch(() => {}))
+      containers.map((item) =>
+        this.docker
+          .getContainer(item.Id)
+          .remove({ force: true })
+          .catch(() => {})
+      )
     )
     await Promise.all(
       images.flatMap((item) =>
-        item.Id ? [this.docker.getImage(item.Id).remove({ force: true }).catch(() => {})] : []
+        item.Id
+          ? [
+              this.docker
+                .getImage(item.Id)
+                .remove({ force: true })
+                .catch(() => {})
+            ]
+          : []
       )
     )
   }
+
+  private async getImageCommand(imageId: string) {
+    try {
+      const inspect = await this.docker.getImage(imageId).inspect()
+      return inspect.Config?.Cmd ?? undefined
+    } catch {
+      return undefined
+    }
+  }
+}
+
+function createStdinCommand(command: string[]) {
+  return {
+    command: [
+      '/bin/sh',
+      '-lc',
+      'printf %s "$DOJ_STDIN_BASE64" | base64 -d | "$@"',
+      'doj-run',
+      ...command
+    ]
+  }
+}
+
+function patchDestroySoon(stream: unknown) {
+  const candidate = stream as {
+    socket?: { destroy?: () => void; destroySoon?: () => void }
+    _output?: { socket?: { destroy?: () => void; destroySoon?: () => void } }
+  }
+  const socket = candidate._output?.socket ?? candidate.socket
+  if (socket?.destroy && !socket.destroySoon) socket.destroySoon = socket.destroy.bind(socket)
 }
 
 function createDockerClient(options: DockerRunnerOptions = {}) {

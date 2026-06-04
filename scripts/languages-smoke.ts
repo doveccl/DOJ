@@ -37,8 +37,9 @@ await api('/api/admin/languages', {
     name: 'Python',
     enabled: false,
     sourceFile: 'main.py',
-    dockerfile: 'FROM python:latest\nWORKDIR /workspace\nCOPY main.py /workspace/main.py\nCMD ["python3", "/workspace/main.py"]',
-    command: [],
+    dockerfile:
+      'FROM python:latest\nWORKDIR /workspace\nCOPY main.py /workspace/main.py\nCMD ["python3", "/workspace/main.py"]',
+    command: ['python3', '/workspace/main.py'],
     sortOrder: 20
   })
 })
@@ -87,7 +88,9 @@ const submissionResponse = await fetch(`${apiBase}/api/submissions`, {
 })
 
 if (submissionResponse.ok) {
-  throw new Error(`disabled language submission unexpectedly succeeded: ${await submissionResponse.text()}`)
+  throw new Error(
+    `disabled language submission unexpectedly succeeded: ${await submissionResponse.text()}`
+  )
 }
 
 await api('/api/admin/languages', {
@@ -98,8 +101,9 @@ await api('/api/admin/languages', {
     name: 'Python',
     enabled: true,
     sourceFile: 'main.py',
-    dockerfile: 'FROM python:latest\nWORKDIR /workspace\nCOPY main.py /workspace/main.py\nCMD ["python3", "/workspace/main.py"]',
-    command: [],
+    dockerfile:
+      'FROM python:latest\nWORKDIR /workspace\nCOPY main.py /workspace/main.py\nCMD ["python3", "/workspace/main.py"]',
+    command: ['python3', '/workspace/main.py'],
     sortOrder: 20
   })
 })

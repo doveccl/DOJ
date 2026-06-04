@@ -14,14 +14,15 @@ export const defaultLanguageConfigs = [
     name: 'Shell',
     enabled: true,
     sourceFile: 'main.sh',
-    dockerfile: (sourceFile: string) => [
-      'FROM alpine:latest',
-      'WORKDIR /workspace',
-      `COPY ${sourceFile} /workspace/${sourceFile}`,
-      `RUN chmod +x /workspace/${sourceFile}`,
-      `CMD ["/workspace/${sourceFile}"]`
-    ].join('\n'),
-    command: [] as string[],
+    dockerfile: (sourceFile: string) =>
+      [
+        'FROM alpine:latest',
+        'WORKDIR /workspace',
+        `COPY ${sourceFile} /workspace/${sourceFile}`,
+        `RUN chmod +x /workspace/${sourceFile}`,
+        `CMD ["/workspace/${sourceFile}"]`
+      ].join('\n'),
+    command: ['/workspace/main.sh'] as string[],
     sortOrder: 10
   },
   {
@@ -29,13 +30,14 @@ export const defaultLanguageConfigs = [
     name: 'Python',
     enabled: true,
     sourceFile: 'main.py',
-    dockerfile: (sourceFile: string) => [
-      'FROM python:latest',
-      'WORKDIR /workspace',
-      `COPY ${sourceFile} /workspace/${sourceFile}`,
-      `CMD ["python3", "/workspace/${sourceFile}"]`
-    ].join('\n'),
-    command: [] as string[],
+    dockerfile: (sourceFile: string) =>
+      [
+        'FROM python:latest',
+        'WORKDIR /workspace',
+        `COPY ${sourceFile} /workspace/${sourceFile}`,
+        `CMD ["python3", "/workspace/${sourceFile}"]`
+      ].join('\n'),
+    command: ['python3', '/workspace/main.py'] as string[],
     sortOrder: 20
   }
 ] as const

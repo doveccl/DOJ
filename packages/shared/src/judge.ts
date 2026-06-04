@@ -6,6 +6,13 @@ export interface JudgeLimit {
   outputBytes: number
 }
 
+export interface ProblemTestCase {
+  name?: string
+  input: string
+  output: string
+  hidden?: boolean
+}
+
 export interface CaseResult {
   caseIndex: number
   status: JudgeStatus
