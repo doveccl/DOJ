@@ -6,9 +6,10 @@ import type { JudgeStatus } from '@doj/shared/status'
 import { getLanguage } from './languages'
 
 const workerId = `worker-${crypto.randomUUID()}`
-const concurrency = Number(process.env.DOJ_JUDGE_CONCURRENCY ?? 2)
 
-async function handleOne() {
+type JudgeRunnerConfig = typeof schema.judgeRunners.$inferSelect
+
+async function handleOne(runnerConfig: JudgeRunnerConfig) {
   const task = await claimJudgeTask({ workerId, leaseSeconds: 120 })
   if (!task) return false
   let submissionId = task.submissionId
@@ -32,7 +33,7 @@ async function handleOne() {
     if (!version) throw new Error(`problem version not found: ${submission.problemVersionId}`)
 
     const language = await getLanguage(submission.languageId)
-    const runner = await getRunner()
+    const runner = createRunner(runnerConfig)
     const scopeId = `submission-${submission.id}`
 
     await db
@@ -235,15 +236,18 @@ function preview(value: string) {
   return JSON.stringify(normalized.length > 120 ? `${normalized.slice(0, 120)}...` : normalized)
 }
 
-async function getRunner() {
-  const [runner] = await db
+async function getRunnerConfigs() {
+  const runners = await db
     .select()
     .from(schema.judgeRunners)
     .where(eq(schema.judgeRunners.enabled, true))
     .orderBy(asc(schema.judgeRunners.sortOrder), asc(schema.judgeRunners.id))
-    .limit(1)
 
-  if (!runner) throw new Error('no enabled judge runner')
+  if (!runners.length) throw new Error('no enabled judge runner')
+  return runners
+}
+
+function createRunner(runner: JudgeRunnerConfig) {
   if (runner.kind !== 'docker') throw new Error(`unsupported judge runner kind: ${runner.kind}`)
 
   return new DockerRunner({
@@ -252,17 +256,23 @@ async function getRunner() {
   })
 }
 
-async function loop(slot: number) {
-  console.log(`judge worker ${workerId} slot ${slot} started`)
+async function loop(slot: number, runnerConfig: JudgeRunnerConfig) {
+  console.log(`judge worker ${workerId} slot ${slot} started on runner ${runnerConfig.key}`)
   for (;;) {
-    const claimed = await handleOne()
+    const claimed = await handleOne(runnerConfig)
     if (!claimed) await Bun.sleep(1000)
   }
 }
 
+const runnerConfigs = await getRunnerConfigs()
+
 if (process.env.DOJ_WORKER_ONCE === '1') {
-  await handleOne()
+  await handleOne(runnerConfigs[0])
   process.exit(0)
 }
 
-await Promise.all(Array.from({ length: concurrency }, (_, i) => loop(i)))
+const slots = runnerConfigs.flatMap((runner) =>
+  Array.from({ length: runner.concurrency }, () => runner)
+)
+
+await Promise.all(slots.map((runner, index) => loop(index, runner)))
