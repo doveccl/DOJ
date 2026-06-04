@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { logger } from 'hono/logger'
-import { desc, eq } from 'drizzle-orm'
+import { desc, eq, inArray } from 'drizzle-orm'
 import { z, ZodError } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { enqueueJudgeTask } from '@doj/db/queue'
@@ -152,6 +152,100 @@ app.post('/api/groups', authMiddleware, async (c) => {
     .returning()
 
   return c.json(group, 201)
+})
+
+const dateString = z.string().refine((value) => !Number.isNaN(Date.parse(value)), {
+  message: 'Expected a valid date string'
+})
+
+const createAssignmentSchema = z.object({
+  title: z.string().min(1).max(160),
+  description: z.string().max(10_000).default(''),
+  startAt: dateString.optional(),
+  dueAt: dateString.optional(),
+  allowLate: z.boolean().default(false),
+  aiCoachingEnabled: z.boolean().default(true),
+  groupIds: z.array(z.string().uuid()).min(1),
+  problems: z
+    .array(
+      z.object({
+        problemId: z.string().uuid(),
+        score: z.number().int().positive().default(100)
+      })
+    )
+    .min(1)
+})
+
+app.get('/api/assignments', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
+  const list = await db.select().from(schema.assignments).orderBy(desc(schema.assignments.createdAt)).limit(50)
+  return c.json({ total: list.length, list })
+})
+
+app.post('/api/assignments', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
+  const body = createAssignmentSchema.parse(await c.req.json())
+  const groupIds = [...new Set(body.groupIds)]
+  const problemIds = [...new Set(body.problems.map((problem) => problem.problemId))]
+
+  const [groups, problems] = await Promise.all([
+    db.select({ id: schema.groups.id }).from(schema.groups).where(inArray(schema.groups.id, groupIds)),
+    db.select({ id: schema.problems.id }).from(schema.problems).where(inArray(schema.problems.id, problemIds))
+  ])
+
+  if (groups.length !== groupIds.length) {
+    return c.json({ code: 'GROUP_NOT_FOUND', message: 'One or more groups do not exist' }, 400)
+  }
+  if (problems.length !== problemIds.length) {
+    return c.json({ code: 'PROBLEM_NOT_FOUND', message: 'One or more problems do not exist' }, 400)
+  }
+
+  const result = await db.transaction(async (tx) => {
+    const [assignment] = await tx
+      .insert(schema.assignments)
+      .values({
+        title: body.title,
+        description: body.description,
+        startAt: body.startAt ? new Date(body.startAt) : null,
+        dueAt: body.dueAt ? new Date(body.dueAt) : null,
+        allowLate: body.allowLate,
+        aiCoachingEnabled: body.aiCoachingEnabled
+      })
+      .returning()
+
+    await tx.insert(schema.assignmentGroups).values(
+      groupIds.map((groupId) => ({
+        assignmentId: assignment.id,
+        groupId
+      }))
+    )
+
+    await tx.insert(schema.assignmentProblems).values(
+      body.problems.map((problem, index) => ({
+        assignmentId: assignment.id,
+        problemId: problem.problemId,
+        score: problem.score,
+        sortOrder: index
+      }))
+    )
+
+    return assignment
+  })
+
+  return c.json(await getAssignmentDetail(result.id), 201)
+})
+
+app.get('/api/assignments/:id', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
+  const assignment = await getAssignmentDetail(c.req.param('id'))
+  if (!assignment) return c.notFound()
+  return c.json(assignment)
 })
 
 app.get('/api/problems', async (c) => {
@@ -342,5 +436,40 @@ function createCoachingResponse(status: string, message: string) {
         '',
         message ? `Judge message:\n\n\`\`\`text\n${message.trim()}\n\`\`\`` : ''
       ].join('\n')
+  }
+}
+
+async function getAssignmentDetail(id: string) {
+  const [assignment] = await db.select().from(schema.assignments).where(eq(schema.assignments.id, id)).limit(1)
+  if (!assignment) return null
+
+  const [groups, problems] = await Promise.all([
+    db
+      .select({
+        id: schema.groups.id,
+        key: schema.groups.key,
+        name: schema.groups.name
+      })
+      .from(schema.assignmentGroups)
+      .innerJoin(schema.groups, eq(schema.assignmentGroups.groupId, schema.groups.id))
+      .where(eq(schema.assignmentGroups.assignmentId, id))
+      .orderBy(schema.groups.key),
+    db
+      .select({
+        id: schema.problems.id,
+        title: schema.problems.title,
+        score: schema.assignmentProblems.score,
+        sortOrder: schema.assignmentProblems.sortOrder
+      })
+      .from(schema.assignmentProblems)
+      .innerJoin(schema.problems, eq(schema.assignmentProblems.problemId, schema.problems.id))
+      .where(eq(schema.assignmentProblems.assignmentId, id))
+      .orderBy(schema.assignmentProblems.sortOrder)
+  ])
+
+  return {
+    assignment,
+    groups,
+    problems
   }
 }

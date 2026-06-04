@@ -67,6 +67,7 @@ bun run admin:smoke
 bun run runner:smoke
 bun run e2e:smoke
 bun run ai:smoke
+bun run assignment:smoke
 ```
 
 Default URLs:
