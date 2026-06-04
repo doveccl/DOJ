@@ -22,6 +22,7 @@ apps/
 packages/
   db/        Drizzle schema and PostgreSQL queue helpers
   runner/    Runner interface and Docker implementation
+  storage/   S3-compatible object storage helpers
   shared/    Shared domain types
 docs/        Architecture notes
 ```
@@ -45,6 +46,8 @@ Generate and apply database migrations:
 ```sh
 bun run db:generate
 bun run db:migrate
+bun run s3:ensure-bucket
+bun run db:seed
 ```
 
 Run services:
@@ -71,4 +74,4 @@ Default URLs:
 
 ## Current State
 
-This is an initial scaffold. API routing, schema, queue leasing, worker loop, and runner boundaries exist. The Docker runner still needs the real build/run implementation.
+The current implementation has a working API skeleton, PostgreSQL schema and queue, MinIO bucket bootstrap, Docker runner smoke path, and a worker path that can execute a simple `sh` submission through Docker and write the result back to PostgreSQL.

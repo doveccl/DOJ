@@ -12,12 +12,13 @@
     "dev:api": "bun run --cwd apps/api dev",
     "dev:web": "bun run --cwd apps/web dev",
     "dev:worker": "bun run --cwd apps/worker dev",
-    "check": "bun run --cwd packages/shared check && bun run --cwd packages/db check && bun run --cwd packages/runner check && bun run --cwd apps/api check && bun run --cwd apps/worker check && bun run --cwd apps/web check",
+    "check": "bun run --cwd packages/shared check && bun run --cwd packages/db check && bun run --cwd packages/storage check && bun run --cwd packages/runner check && bun run --cwd apps/api check && bun run --cwd apps/worker check && bun run --cwd apps/web check",
     "runner:smoke": "bun run packages/runner/src/smoke.ts",
     "e2e:smoke": "bun run scripts/e2e-smoke.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "bun run packages/db/src/seed.ts",
+    "s3:ensure-bucket": "bun run scripts/ensure-bucket.ts",
     "format": "prettier --write ."
   },
   "dependencies": {
