@@ -55,6 +55,13 @@ bun run dev:worker
 bun run dev:web
 ```
 
+Run checks:
+
+```sh
+bun run check
+bun run runner:smoke
+```
+
 Default URLs:
 
 - API: `http://localhost:7974`
