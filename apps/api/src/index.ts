@@ -463,6 +463,88 @@ app.get('/api/assignments/:id', authMiddleware, async (c) => {
   return c.json(assignment)
 })
 
+const createContestSchema = z.object({
+  title: z.string().min(1).max(160),
+  description: z.string().max(10_000).default(''),
+  type: z.enum(['OI', 'ICPC']).default('OI'),
+  startAt: dateString,
+  endAt: dateString,
+  freezeAt: dateString.optional(),
+  problems: z
+    .array(
+      z.object({
+        problemId: numericId,
+        key: z.string().min(1).max(32),
+        score: z.number().int().positive().default(100)
+      })
+    )
+    .min(1)
+})
+
+app.get('/api/contests', async (c) => {
+  const list = await db
+    .select()
+    .from(schema.contests)
+    .orderBy(desc(schema.contests.startAt))
+    .limit(50)
+  return c.json({ total: list.length, list })
+})
+
+app.post('/api/contests', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
+  const body = createContestSchema.parse(await c.req.json())
+  const startAt = new Date(body.startAt)
+  const endAt = new Date(body.endAt)
+  if (endAt <= startAt) {
+    return c.json({ code: 'INVALID_CONTEST_TIME', message: 'endAt must be after startAt' }, 400)
+  }
+
+  const problemIds = [...new Set(body.problems.map((problem) => problem.problemId))]
+  const problems = await db
+    .select({ id: schema.problems.id })
+    .from(schema.problems)
+    .where(inArray(schema.problems.id, problemIds))
+  if (problems.length !== problemIds.length) {
+    return c.json({ code: 'PROBLEM_NOT_FOUND', message: 'One or more problems do not exist' }, 400)
+  }
+
+  const result = await db.transaction(async (tx) => {
+    const [contest] = await tx
+      .insert(schema.contests)
+      .values({
+        title: body.title,
+        description: body.description,
+        type: body.type,
+        startAt,
+        endAt,
+        freezeAt: body.freezeAt ? new Date(body.freezeAt) : null
+      })
+      .returning()
+
+    await tx.insert(schema.contestProblems).values(
+      body.problems.map((problem, index) => ({
+        contestId: contest.id,
+        problemId: problem.problemId,
+        key: problem.key,
+        score: problem.score,
+        sortOrder: index
+      }))
+    )
+
+    return contest
+  })
+
+  return c.json(await getContestDetail(result.id), 201)
+})
+
+app.get('/api/contests/:id', async (c) => {
+  const contest = await getContestDetail(numericId.parse(c.req.param('id')))
+  if (!contest) return c.notFound()
+  return c.json(contest)
+})
+
 app.get('/api/my/assignments', authMiddleware, async (c) => {
   const user = await requireAuthUser(c)
   const list = await db
@@ -631,6 +713,12 @@ app.post('/api/submissions', authMiddleware, async (c) => {
     return c.json({ code: 'LANGUAGE_DISABLED', message: 'Language is not enabled' }, 400)
   }
 
+  if (body.contestId) {
+    const contestCheck = await validateContestSubmission(body.contestId, body.problemId)
+    if (contestCheck)
+      return c.json({ code: contestCheck.code, message: contestCheck.message }, contestCheck.status)
+  }
+
   const [submission] = await db
     .insert(schema.submissions)
     .values({
@@ -785,6 +873,72 @@ async function getAssignmentDetail(id: number) {
     groups,
     problems
   }
+}
+
+async function getContestDetail(id: number) {
+  const [contest] = await db
+    .select()
+    .from(schema.contests)
+    .where(eq(schema.contests.id, id))
+    .limit(1)
+  if (!contest) return null
+
+  const problems = await db
+    .select({
+      id: schema.problems.id,
+      title: schema.problems.title,
+      key: schema.contestProblems.key,
+      score: schema.contestProblems.score,
+      sortOrder: schema.contestProblems.sortOrder
+    })
+    .from(schema.contestProblems)
+    .innerJoin(schema.problems, eq(schema.contestProblems.problemId, schema.problems.id))
+    .where(eq(schema.contestProblems.contestId, id))
+    .orderBy(schema.contestProblems.sortOrder)
+
+  return {
+    contest,
+    problems
+  }
+}
+
+async function validateContestSubmission(contestId: number, problemId: number) {
+  const [contest] = await db
+    .select()
+    .from(schema.contests)
+    .where(eq(schema.contests.id, contestId))
+    .limit(1)
+  if (!contest)
+    return { status: 404 as const, code: 'CONTEST_NOT_FOUND', message: 'Contest does not exist' }
+
+  const now = new Date()
+  if (now < contest.startAt) {
+    return { status: 400 as const, code: 'CONTEST_NOT_STARTED', message: 'Contest has not started' }
+  }
+  if (now > contest.endAt) {
+    return { status: 400 as const, code: 'CONTEST_ENDED', message: 'Contest has ended' }
+  }
+
+  const [contestProblem] = await db
+    .select({ problemId: schema.contestProblems.problemId })
+    .from(schema.contestProblems)
+    .where(
+      and(
+        eq(schema.contestProblems.contestId, contestId),
+        eq(schema.contestProblems.problemId, problemId)
+      )
+    )
+    .limit(1)
+
+  if (!contestProblem) {
+    return {
+      status: 400 as const,
+      code: 'PROBLEM_NOT_IN_CONTEST',
+      message: 'Problem does not belong to this contest'
+    }
+  }
+
+  return null
 }
 
 async function getUserAssignmentDetail(userId: number, assignmentId: number) {

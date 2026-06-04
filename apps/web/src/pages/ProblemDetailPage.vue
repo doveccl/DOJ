@@ -42,13 +42,18 @@ const memoryMb = computed(() =>
 const assignmentId = computed(() =>
   typeof route.query.assignmentId === 'string' ? route.query.assignmentId : ''
 )
+const contestId = computed(() =>
+  typeof route.query.contestId === 'string' ? route.query.contestId : ''
+)
 
 onMounted(async () => {
   try {
     const data = await apiFetch<{ problem: Problem; version: ProblemVersion }>(
       `/api/problems/${route.params.id}`
     )
-    const languages = await apiFetch<{ list: Array<{ id: string; name: string }> }>('/api/languages')
+    const languages = await apiFetch<{ list: Array<{ id: string; name: string }> }>(
+      '/api/languages'
+    )
     problem.value = data.problem
     version.value = data.version
     languageOptions.value = languages.list.map((language) => ({
@@ -75,7 +80,8 @@ async function submit() {
         problemVersionId: version.value.id,
         languageId: languageId.value,
         sourceCode: sourceCode.value,
-        assignmentId: assignmentId.value || undefined
+        assignmentId: assignmentId.value || undefined,
+        contestId: contestId.value || undefined
       })
     })
     await router.push('/submissions')
@@ -101,6 +107,7 @@ function updateTemplate(value: string) {
             <h1>{{ problem.id }}. {{ problem.title }}</h1>
             <p>{{ version.timeLimitMs }} ms / {{ memoryMb }} MB</p>
             <p v-if="assignmentId" class="muted">Submitting for assignment {{ assignmentId }}</p>
+            <p v-if="contestId" class="muted">Submitting for contest {{ contestId }}</p>
           </section>
           <n-card :bordered="false">
             <pre class="statement">{{ version.statementMarkdown }}</pre>
@@ -122,7 +129,12 @@ function updateTemplate(value: string) {
             />
             <p v-if="!auth.signedIn" class="muted">Sign in to submit.</p>
             <p v-if="error" class="form-error">{{ error }}</p>
-            <n-button type="primary" :disabled="!auth.signedIn" :loading="submitting" @click="submit">
+            <n-button
+              type="primary"
+              :disabled="!auth.signedIn"
+              :loading="submitting"
+              @click="submit"
+            >
               Submit
             </n-button>
           </n-space>

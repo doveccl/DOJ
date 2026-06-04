@@ -34,6 +34,7 @@ const menuOptions = computed(() => {
     { label: t('home'), key: '/' },
     { label: t('problems'), key: '/problems' },
     { label: t('assignments'), key: '/assignments' },
+    { label: t('contests'), key: '/contests' },
     { label: t('submissions'), key: '/submissions' }
   ]
   if (auth.user?.groups.includes('admin')) {
@@ -43,6 +44,7 @@ const menuOptions = computed(() => {
       children: [
         { label: t('groups'), key: '/admin/groups' },
         { label: t('assignments'), key: '/admin/assignments' },
+        { label: t('contests'), key: '/admin/contests' },
         { label: t('languages'), key: '/admin/languages' },
         { label: t('runners'), key: '/admin/runners' }
       ]
