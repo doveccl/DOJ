@@ -754,6 +754,102 @@ app.get('/api/submissions/:id', async (c) => {
   return c.json({ ...submission, cases })
 })
 
+const createTopicSchema = z.object({
+  title: z.string().min(1).max(160),
+  contentMarkdown: z.string().min(1).max(20_000),
+  tags: z.array(z.string().min(1).max(40)).max(12).default([]),
+  linkedProblemId: numericId.optional(),
+  linkedContestId: numericId.optional()
+})
+
+app.get('/api/bbs/topics', async (c) => {
+  const list = await db
+    .select({
+      id: schema.bbsTopics.id,
+      title: schema.bbsTopics.title,
+      tags: schema.bbsTopics.tags,
+      linkedProblemId: schema.bbsTopics.linkedProblemId,
+      linkedContestId: schema.bbsTopics.linkedContestId,
+      createdAt: schema.bbsTopics.createdAt,
+      updatedAt: schema.bbsTopics.updatedAt,
+      userId: schema.users.id,
+      userName: schema.users.name
+    })
+    .from(schema.bbsTopics)
+    .innerJoin(schema.users, eq(schema.bbsTopics.userId, schema.users.id))
+    .orderBy(desc(schema.bbsTopics.updatedAt))
+    .limit(50)
+
+  return c.json({ total: list.length, list })
+})
+
+app.post('/api/bbs/topics', authMiddleware, async (c) => {
+  const user = await requireAuthUser(c)
+  const body = createTopicSchema.parse(await c.req.json())
+
+  const topic = await db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(schema.bbsTopics)
+      .values({
+        userId: user.id,
+        title: body.title,
+        tags: body.tags,
+        linkedProblemId: body.linkedProblemId ?? null,
+        linkedContestId: body.linkedContestId ?? null
+      })
+      .returning()
+
+    await tx.insert(schema.bbsReplies).values({
+      topicId: created.id,
+      userId: user.id,
+      contentMarkdown: body.contentMarkdown
+    })
+
+    return created
+  })
+
+  return c.json(await getTopicDetail(topic.id), 201)
+})
+
+app.get('/api/bbs/topics/:id', async (c) => {
+  const topic = await getTopicDetail(numericId.parse(c.req.param('id')))
+  if (!topic) return c.notFound()
+  return c.json(topic)
+})
+
+const createReplySchema = z.object({
+  contentMarkdown: z.string().min(1).max(20_000)
+})
+
+app.post('/api/bbs/topics/:id/replies', authMiddleware, async (c) => {
+  const user = await requireAuthUser(c)
+  const topicId = numericId.parse(c.req.param('id'))
+  const body = createReplySchema.parse(await c.req.json())
+
+  const [topic] = await db
+    .select()
+    .from(schema.bbsTopics)
+    .where(eq(schema.bbsTopics.id, topicId))
+    .limit(1)
+  if (!topic) return c.notFound()
+
+  const [reply] = await db
+    .insert(schema.bbsReplies)
+    .values({
+      topicId,
+      userId: user.id,
+      contentMarkdown: body.contentMarkdown
+    })
+    .returning()
+
+  await db
+    .update(schema.bbsTopics)
+    .set({ updatedAt: new Date() })
+    .where(eq(schema.bbsTopics.id, topicId))
+
+  return c.json(reply, 201)
+})
+
 app.post('/api/submissions/:id/coach', async (c) => {
   const id = numericId.parse(c.req.param('id'))
   const [submission] = await db
@@ -942,6 +1038,42 @@ async function validateContestSubmission(contestId: number, problemId: number) {
   }
 
   return null
+}
+
+async function getTopicDetail(id: number) {
+  const [topic] = await db
+    .select({
+      id: schema.bbsTopics.id,
+      title: schema.bbsTopics.title,
+      tags: schema.bbsTopics.tags,
+      linkedProblemId: schema.bbsTopics.linkedProblemId,
+      linkedContestId: schema.bbsTopics.linkedContestId,
+      createdAt: schema.bbsTopics.createdAt,
+      updatedAt: schema.bbsTopics.updatedAt,
+      userId: schema.users.id,
+      userName: schema.users.name
+    })
+    .from(schema.bbsTopics)
+    .innerJoin(schema.users, eq(schema.bbsTopics.userId, schema.users.id))
+    .where(eq(schema.bbsTopics.id, id))
+    .limit(1)
+
+  if (!topic) return null
+
+  const replies = await db
+    .select({
+      id: schema.bbsReplies.id,
+      contentMarkdown: schema.bbsReplies.contentMarkdown,
+      createdAt: schema.bbsReplies.createdAt,
+      userId: schema.users.id,
+      userName: schema.users.name
+    })
+    .from(schema.bbsReplies)
+    .innerJoin(schema.users, eq(schema.bbsReplies.userId, schema.users.id))
+    .where(eq(schema.bbsReplies.topicId, id))
+    .orderBy(asc(schema.bbsReplies.createdAt))
+
+  return { topic, replies }
 }
 
 async function getUserAssignmentDetail(userId: number, assignmentId: number) {

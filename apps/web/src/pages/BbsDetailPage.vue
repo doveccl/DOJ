@@ -1,0 +1,139 @@
+<script setup lang="ts">
+import { NAlert, NButton, NCard, NInput, NSpace, NSpin, NTag } from 'naive-ui'
+import { onMounted, ref } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
+import { apiFetch } from '../api'
+import { useAuthStore } from '../stores/auth'
+
+interface Topic {
+  id: number
+  title: string
+  tags: string[]
+  userName: string
+  linkedProblemId: number | null
+  linkedContestId: number | null
+  createdAt: string
+}
+
+interface Reply {
+  id: number
+  userName: string
+  contentMarkdown: string
+  createdAt: string
+}
+
+interface TopicDetail {
+  topic: Topic
+  replies: Reply[]
+}
+
+const route = useRoute()
+const auth = useAuthStore()
+const loading = ref(true)
+const replying = ref(false)
+const error = ref('')
+const detail = ref<TopicDetail | null>(null)
+const replyText = ref('')
+
+async function loadDetail() {
+  loading.value = true
+  error.value = ''
+  try {
+    detail.value = await apiFetch<TopicDetail>(`/api/bbs/topics/${route.params.id}`)
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function createReply() {
+  if (!detail.value) return
+
+  replying.value = true
+  error.value = ''
+  try {
+    await apiFetch(`/api/bbs/topics/${detail.value.topic.id}/replies`, {
+      method: 'POST',
+      body: JSON.stringify({ contentMarkdown: replyText.value })
+    })
+    replyText.value = ''
+    await loadDetail()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    replying.value = false
+  }
+}
+
+onMounted(loadDetail)
+</script>
+
+<template>
+  <main class="page">
+    <n-spin :show="loading">
+      <template v-if="detail">
+        <section class="page-header">
+          <h1>{{ detail.topic.title }}</h1>
+          <p>
+            by {{ detail.topic.userName }} · {{ new Date(detail.topic.createdAt).toLocaleString() }}
+          </p>
+        </section>
+
+        <div class="meta-row">
+          <n-tag v-for="tag in detail.topic.tags" :key="tag" :bordered="false">{{ tag }}</n-tag>
+          <RouterLink
+            v-if="detail.topic.linkedProblemId"
+            class="table-link"
+            :to="`/problems/${detail.topic.linkedProblemId}`"
+          >
+            Problem {{ detail.topic.linkedProblemId }}
+          </RouterLink>
+          <RouterLink
+            v-if="detail.topic.linkedContestId"
+            class="table-link"
+            :to="`/contests/${detail.topic.linkedContestId}`"
+          >
+            Contest {{ detail.topic.linkedContestId }}
+          </RouterLink>
+        </div>
+
+        <n-card
+          v-for="reply in detail.replies"
+          :key="reply.id"
+          :title="reply.userName"
+          :bordered="false"
+          class="stacked-card"
+        >
+          <pre class="statement">{{ reply.contentMarkdown }}</pre>
+          <p class="muted reply-time">{{ new Date(reply.createdAt).toLocaleString() }}</p>
+        </n-card>
+
+        <n-card title="Reply" :bordered="false" class="stacked-card">
+          <template v-if="auth.signedIn">
+            <n-input
+              v-model:value="replyText"
+              type="textarea"
+              :autosize="{ minRows: 4, maxRows: 8 }"
+            />
+            <n-space justify="end" class="form-actions">
+              <n-button
+                type="primary"
+                :loading="replying"
+                :disabled="!replyText"
+                @click="createReply"
+              >
+                Reply
+              </n-button>
+            </n-space>
+          </template>
+          <p v-else class="muted">Sign in to reply.</p>
+        </n-card>
+      </template>
+
+      <n-alert v-else-if="error" type="error" class="page-alert">
+        {{ error }}
+      </n-alert>
+    </n-spin>
+  </main>
+</template>

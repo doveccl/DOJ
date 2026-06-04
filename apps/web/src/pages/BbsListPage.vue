@@ -1,0 +1,171 @@
+<script setup lang="ts">
+import {
+  NAlert,
+  NButton,
+  NCard,
+  NDataTable,
+  NForm,
+  NFormItem,
+  NInput,
+  NSpace,
+  NTag
+} from 'naive-ui'
+import type { DataTableColumns } from 'naive-ui'
+import { h, onMounted, reactive, ref } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
+import { apiFetch } from '../api'
+import { useAuthStore } from '../stores/auth'
+
+interface TopicRow {
+  id: number
+  title: string
+  tags: string[]
+  userName: string
+  linkedProblemId: number | null
+  linkedContestId: number | null
+  updatedAt: string
+}
+
+const auth = useAuthStore()
+const router = useRouter()
+const loading = ref(true)
+const saving = ref(false)
+const error = ref('')
+const topics = ref<TopicRow[]>([])
+const form = reactive({
+  title: '',
+  contentMarkdown: '',
+  tags: '',
+  linkedProblemId: '',
+  linkedContestId: ''
+})
+
+const columns: DataTableColumns<TopicRow> = [
+  {
+    title: 'Topic',
+    key: 'title',
+    render(row) {
+      return h(RouterLink, { to: `/bbs/${row.id}`, class: 'table-link' }, () => row.title)
+    }
+  },
+  { title: 'Author', key: 'userName', width: 140 },
+  {
+    title: 'Tags',
+    key: 'tags',
+    render(row) {
+      return row.tags.length
+        ? row.tags.map((tag) => h(NTag, { bordered: false, style: 'margin-right: 6px' }, () => tag))
+        : '-'
+    }
+  },
+  {
+    title: 'Updated',
+    key: 'updatedAt',
+    width: 190,
+    render(row) {
+      return new Date(row.updatedAt).toLocaleString()
+    }
+  }
+]
+
+async function loadTopics() {
+  loading.value = true
+  error.value = ''
+  try {
+    const data = await apiFetch<{ list: TopicRow[] }>('/api/bbs/topics')
+    topics.value = data.list
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function createTopic() {
+  saving.value = true
+  error.value = ''
+  try {
+    const detail = await apiFetch<{ topic: { id: number } }>('/api/bbs/topics', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: form.title,
+        contentMarkdown: form.contentMarkdown,
+        tags: form.tags
+          .split(',')
+          .map((tag) => tag.trim())
+          .filter(Boolean),
+        linkedProblemId: form.linkedProblemId ? Number(form.linkedProblemId) : undefined,
+        linkedContestId: form.linkedContestId ? Number(form.linkedContestId) : undefined
+      })
+    })
+    await router.push(`/bbs/${detail.topic.id}`)
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    saving.value = false
+  }
+}
+
+onMounted(loadTopics)
+</script>
+
+<template>
+  <main class="page">
+    <section class="page-header">
+      <h1>Discussion</h1>
+    </section>
+
+    <n-alert v-if="error" type="error" class="page-alert">
+      {{ error }}
+    </n-alert>
+
+    <section class="admin-layout">
+      <n-card title="New topic" :bordered="false">
+        <template v-if="auth.signedIn">
+          <n-form :model="form" label-placement="top">
+            <n-form-item label="Title">
+              <n-input v-model:value="form.title" />
+            </n-form-item>
+            <n-form-item label="Content">
+              <n-input
+                v-model:value="form.contentMarkdown"
+                type="textarea"
+                :autosize="{ minRows: 5, maxRows: 10 }"
+              />
+            </n-form-item>
+            <n-form-item label="Tags">
+              <n-input v-model:value="form.tags" placeholder="problem, contest" />
+            </n-form-item>
+            <div class="form-grid two">
+              <n-form-item label="Problem ID">
+                <n-input v-model:value="form.linkedProblemId" />
+              </n-form-item>
+              <n-form-item label="Contest ID">
+                <n-input v-model:value="form.linkedContestId" />
+              </n-form-item>
+            </div>
+            <n-space justify="end" class="form-actions">
+              <n-button
+                type="primary"
+                :loading="saving"
+                :disabled="!form.title || !form.contentMarkdown"
+                @click="createTopic"
+              >
+                Publish
+              </n-button>
+            </n-space>
+          </n-form>
+        </template>
+        <p v-else class="muted">Sign in to start a topic.</p>
+      </n-card>
+
+      <n-data-table
+        :columns="columns"
+        :data="topics"
+        :bordered="false"
+        :loading="loading"
+        class="admin-table"
+      />
+    </section>
+  </main>
+</template>
