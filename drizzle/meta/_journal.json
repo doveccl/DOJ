@@ -8,6 +8,13 @@
       "when": 1780593477126,
       "tag": "0000_puzzling_miracleman",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780593887284,
+      "tag": "0001_faithful_pestilence",
+      "breakpoints": true
     }
   ]
 }

@@ -36,6 +36,7 @@ interface MemberRow extends UserRow {
 }
 
 const auth = useAuthStore()
+const canManage = computed(() => auth.user?.groups.includes('admin') ?? false)
 const loading = ref(true)
 const memberLoading = ref(false)
 const saving = ref(false)
@@ -181,18 +182,18 @@ async function addMember() {
 }
 
 watch(
-  () => auth.signedIn,
-  (signedIn) => {
-    if (signedIn) loadData()
+  canManage,
+  (allowed) => {
+    if (allowed) loadData()
   }
 )
 
 watch(selectedGroupId, () => {
-  if (auth.signedIn) loadMembers()
+  if (canManage.value) loadMembers()
 })
 
 onMounted(() => {
-  if (auth.signedIn) {
+  if (canManage.value) {
     loadData()
   } else {
     loading.value = false
@@ -207,7 +208,7 @@ onMounted(() => {
       <p>Manage coarse-grained access groups for the system.</p>
     </section>
 
-    <n-alert v-if="!auth.user?.groups.includes('admin')" type="warning" class="page-alert">
+    <n-alert v-if="!canManage" type="warning" class="page-alert">
       Admin group is required.
     </n-alert>
 
@@ -215,7 +216,7 @@ onMounted(() => {
       {{ error }}
     </n-alert>
 
-    <section class="admin-layout">
+    <section v-if="canManage" class="admin-layout">
       <div class="admin-stack">
         <n-card title="Create group" :bordered="false">
           <n-form :model="form" label-placement="top">

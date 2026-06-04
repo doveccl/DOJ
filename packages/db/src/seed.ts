@@ -1,5 +1,6 @@
 import { closeDb, db, schema } from './client'
 import { eq } from 'drizzle-orm'
+import { defaultLanguageConfigs } from '@doj/shared/languages'
 
 const builtinGroups = [
   { key: 'admin', name: 'Admin', description: 'System administrators', builtin: true },
@@ -11,6 +12,31 @@ await db
   .insert(schema.groups)
   .values(builtinGroups)
   .onConflictDoNothing({ target: schema.groups.key })
+
+for (const language of defaultLanguageConfigs) {
+  await db
+    .insert(schema.judgeLanguages)
+    .values({
+      id: language.id,
+      name: language.name,
+      enabled: language.enabled,
+      sourceFile: language.sourceFile,
+      dockerfile: language.dockerfile(language.sourceFile),
+      command: language.command,
+      sortOrder: language.sortOrder
+    })
+    .onConflictDoUpdate({
+      target: schema.judgeLanguages.id,
+      set: {
+        name: language.name,
+        sourceFile: language.sourceFile,
+        dockerfile: language.dockerfile(language.sourceFile),
+        command: language.command,
+        sortOrder: language.sortOrder,
+        updatedAt: new Date()
+      }
+    })
+}
 
 const adminName = process.env.DOJ_ADMIN_NAME ?? 'admin'
 const adminEmail = process.env.DOJ_ADMIN_EMAIL ?? 'admin@example.test'
@@ -82,6 +108,6 @@ for (const starter of starterProblems) {
   })
 }
 
-console.log('Seeded builtin groups, admin user, and starter problems.')
+console.log('Seeded builtin groups, judge languages, admin user, and starter problems.')
 
 await closeDb()

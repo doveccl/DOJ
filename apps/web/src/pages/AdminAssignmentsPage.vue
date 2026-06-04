@@ -14,7 +14,7 @@ import {
   NTag
 } from 'naive-ui'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
-import { h, onMounted, reactive, ref, watch } from 'vue'
+import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import { apiFetch } from '../api'
 import { useAuthStore } from '../stores/auth'
 
@@ -40,6 +40,7 @@ interface ProblemRow {
 }
 
 const auth = useAuthStore()
+const canManage = computed(() => auth.user?.groups.includes('admin') ?? false)
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
@@ -142,14 +143,14 @@ async function createAssignment() {
 }
 
 watch(
-  () => auth.signedIn,
-  (signedIn) => {
-    if (signedIn) loadData()
+  canManage,
+  (allowed) => {
+    if (allowed) loadData()
   }
 )
 
 onMounted(() => {
-  if (auth.signedIn) {
+  if (canManage.value) {
     loadData()
   } else {
     loading.value = false
@@ -164,7 +165,7 @@ onMounted(() => {
       <p>Publish problem sets to groups with optional deadlines.</p>
     </section>
 
-    <n-alert v-if="!auth.user?.groups.includes('admin')" type="warning" class="page-alert">
+    <n-alert v-if="!canManage" type="warning" class="page-alert">
       Admin group is required.
     </n-alert>
 
@@ -172,7 +173,7 @@ onMounted(() => {
       {{ error }}
     </n-alert>
 
-    <section class="admin-layout">
+    <section v-if="canManage" class="admin-layout">
       <n-card title="Create assignment" :bordered="false">
         <n-form :model="form" label-placement="top">
           <n-form-item label="Title">

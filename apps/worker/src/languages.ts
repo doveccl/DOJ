@@ -1,43 +1,27 @@
-import { languageDescriptors } from '@doj/shared/languages'
+import { and, eq } from 'drizzle-orm'
+import { db, schema } from '@doj/db/client'
 
 export interface LanguageRuntime {
   id: string
   name: string
   sourceFile: string
-  dockerfile(sourceFile: string): string
+  dockerfile: string
   command: string[]
 }
 
-export const languageList: LanguageRuntime[] = [
-  {
-    ...languageDescriptors.find((language) => language.id === 'sh')!,
-    dockerfile: (sourceFile) =>
-      [
-        'FROM alpine:latest',
-        'WORKDIR /work',
-        `COPY ${sourceFile} /work/${sourceFile}`,
-        `RUN chmod +x /work/${sourceFile}`,
-        `CMD ["/work/${sourceFile}"]`
-      ].join('\n'),
-    command: []
-  },
-  {
-    ...languageDescriptors.find((language) => language.id === 'py')!,
-    dockerfile: (sourceFile) =>
-      [
-        'FROM python:alpine',
-        'WORKDIR /work',
-        `COPY ${sourceFile} /work/${sourceFile}`,
-        `CMD ["python", "/work/${sourceFile}"]`
-      ].join('\n'),
-    command: []
-  }
-]
+export async function getLanguage(id: string): Promise<LanguageRuntime> {
+  const [language] = await db
+    .select({
+      id: schema.judgeLanguages.id,
+      name: schema.judgeLanguages.name,
+      sourceFile: schema.judgeLanguages.sourceFile,
+      dockerfile: schema.judgeLanguages.dockerfile,
+      command: schema.judgeLanguages.command
+    })
+    .from(schema.judgeLanguages)
+    .where(and(eq(schema.judgeLanguages.id, id), eq(schema.judgeLanguages.enabled, true)))
+    .limit(1)
 
-export const languages = new Map(languageList.map((language) => [language.id, language]))
-
-export function getLanguage(id: string) {
-  const language = languages.get(id)
-  if (!language) throw new Error(`unsupported language: ${id}`)
+  if (!language) throw new Error(`unsupported or disabled language: ${id}`)
   return language
 }

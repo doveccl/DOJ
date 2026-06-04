@@ -31,7 +31,7 @@ async function handleOne() {
 
     if (!version) throw new Error(`problem version not found: ${submission.problemVersionId}`)
 
-    const language = getLanguage(submission.languageId)
+    const language = await getLanguage(submission.languageId)
     const scopeId = `submission-${submission.id}`
 
     await db
@@ -41,7 +41,7 @@ async function handleOne() {
 
     const build = await runner.build({
       scopeId,
-      dockerfile: language.dockerfile(language.sourceFile),
+      dockerfile: language.dockerfile,
       files: {
         [language.sourceFile]: submission.sourceCode
       },

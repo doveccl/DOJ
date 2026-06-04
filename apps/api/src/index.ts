@@ -1,10 +1,9 @@
 import { Hono } from 'hono'
 import { logger } from 'hono/logger'
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import { z, ZodError } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { enqueueJudgeTask } from '@doj/db/queue'
-import { languageDescriptors } from '@doj/shared/languages'
 import { config } from './config'
 import {
   authMiddleware,
@@ -59,14 +58,19 @@ app.get('/api/config', (c) =>
   })
 )
 
-app.get('/api/languages', (c) =>
-  c.json({
-    list: languageDescriptors.map((language) => ({
-      id: language.id,
-      name: language.name
-    }))
-  })
-)
+app.get('/api/languages', async (c) => {
+  const list = await db
+    .select({
+      id: schema.judgeLanguages.id,
+      name: schema.judgeLanguages.name,
+      sourceFile: schema.judgeLanguages.sourceFile
+    })
+    .from(schema.judgeLanguages)
+    .where(eq(schema.judgeLanguages.enabled, true))
+    .orderBy(asc(schema.judgeLanguages.sortOrder), asc(schema.judgeLanguages.id))
+
+  return c.json({ list })
+})
 
 const registerSchema = z.object({
   name: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_]{2,31}$/),
@@ -224,6 +228,73 @@ app.post('/api/groups/:id/users', authMiddleware, async (c) => {
     })
 
   return c.json({ ok: true }, 201)
+})
+
+app.get('/api/admin/languages', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
+  const list = await db
+    .select()
+    .from(schema.judgeLanguages)
+    .orderBy(asc(schema.judgeLanguages.sortOrder), asc(schema.judgeLanguages.id))
+
+  return c.json({ total: list.length, list })
+})
+
+const languageConfigSchema = z.object({
+  id: z.string().regex(/^[a-z][a-z0-9_-]{1,63}$/),
+  name: z.string().min(1).max(128),
+  enabled: z.boolean().default(true),
+  sourceFile: z.string().min(1).max(128),
+  dockerfile: z.string().min(1).max(20_000),
+  command: z.array(z.string().min(1).max(200)).default([]),
+  sortOrder: z.number().int().min(0).default(100)
+})
+
+app.post('/api/admin/languages', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
+  const body = languageConfigSchema.parse(await c.req.json())
+  const [language] = await db
+    .insert(schema.judgeLanguages)
+    .values(body)
+    .onConflictDoUpdate({
+      target: schema.judgeLanguages.id,
+      set: {
+        name: body.name,
+        enabled: body.enabled,
+        sourceFile: body.sourceFile,
+        dockerfile: body.dockerfile,
+        command: body.command,
+        sortOrder: body.sortOrder,
+        updatedAt: new Date()
+      }
+    })
+    .returning()
+
+  return c.json(language, 201)
+})
+
+const updateLanguageConfigSchema = languageConfigSchema.omit({ id: true }).partial()
+
+app.patch('/api/admin/languages/:id', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
+  const body = updateLanguageConfigSchema.parse(await c.req.json())
+  const [language] = await db
+    .update(schema.judgeLanguages)
+    .set({
+      ...body,
+      updatedAt: new Date()
+    })
+    .where(eq(schema.judgeLanguages.id, c.req.param('id')))
+    .returning()
+
+  if (!language) return c.notFound()
+  return c.json(language)
 })
 
 const dateString = z.string().refine((value) => !Number.isNaN(Date.parse(value)), {
@@ -438,6 +509,16 @@ const submitSchema = z.object({
 app.post('/api/submissions', authMiddleware, async (c) => {
   const user = await requireAuthUser(c)
   const body = submitSchema.parse(await c.req.json())
+  const [language] = await db
+    .select({ id: schema.judgeLanguages.id })
+    .from(schema.judgeLanguages)
+    .where(and(eq(schema.judgeLanguages.id, body.languageId), eq(schema.judgeLanguages.enabled, true)))
+    .limit(1)
+
+  if (!language) {
+    return c.json({ code: 'LANGUAGE_DISABLED', message: 'Language is not enabled' }, 400)
+  }
+
   const [submission] = await db
     .insert(schema.submissions)
     .values({

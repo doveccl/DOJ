@@ -79,6 +79,24 @@ export const groups = pgTable(
   })
 )
 
+export const judgeLanguages = pgTable(
+  'judge_languages',
+  {
+    id: varchar('id', { length: 64 }).primaryKey(),
+    name: varchar('name', { length: 128 }).notNull(),
+    enabled: boolean('enabled').default(true).notNull(),
+    sourceFile: varchar('source_file', { length: 128 }).notNull(),
+    dockerfile: text('dockerfile').notNull(),
+    command: text('command').array().default(sql`ARRAY[]::text[]`).notNull(),
+    sortOrder: integer('sort_order').default(0).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt()
+  },
+  (t) => ({
+    enabledIdx: index('judge_languages_enabled_idx').on(t.enabled, t.sortOrder)
+  })
+)
+
 export const userGroups = pgTable(
   'user_groups',
   {
