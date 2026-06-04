@@ -331,6 +331,20 @@ export const submissionCases = pgTable(
   })
 )
 
+export const solvedProblems = pgTable(
+  'solved_problems',
+  {
+    userId: integer('user_id').notNull(),
+    problemId: integer('problem_id').notNull(),
+    firstSubmissionId: integer('first_submission_id').notNull(),
+    createdAt: createdAt()
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.userId, t.problemId] }),
+    problemIdx: index('solved_problems_problem_idx').on(t.problemId)
+  })
+)
+
 export const judgeTasks = pgTable(
   'judge_tasks',
   {

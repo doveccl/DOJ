@@ -36,6 +36,7 @@ const menuOptions = computed(() => {
     { label: t('assignments'), key: '/assignments' },
     { label: t('contests'), key: '/contests' },
     { label: t('discussion'), key: '/bbs' },
+    { label: t('rank'), key: '/rank' },
     { label: t('submissions'), key: '/submissions' }
   ]
   if (auth.user?.groups.includes('admin')) {

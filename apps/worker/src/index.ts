@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm'
+import { asc, eq, sql } from 'drizzle-orm'
 import { db, schema } from '@doj/db/client'
 import { claimJudgeTask, completeJudgeTask, failJudgeTask } from '@doj/db/queue'
 import { DockerRunner } from '@doj/runner/docker-runner'
@@ -103,6 +103,10 @@ async function handleOne() {
       )
     }
 
+    if (judged.status === 'AC') {
+      await recordSolved(submission.userId, submission.problemId, submission.id)
+    }
+
     await completeJudgeTask(task.id)
     await runner.cleanup({ scopeId })
   } catch (error) {
@@ -118,6 +122,27 @@ async function handleOne() {
   }
 
   return true
+}
+
+async function recordSolved(userId: number, problemId: number, submissionId: number) {
+  const inserted = await db
+    .insert(schema.solvedProblems)
+    .values({ userId, problemId, firstSubmissionId: submissionId })
+    .onConflictDoNothing()
+    .returning()
+
+  if (!inserted.length) return
+
+  await Promise.all([
+    db
+      .update(schema.users)
+      .set({ solvedCount: sql`${schema.users.solvedCount} + 1`, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId)),
+    db
+      .update(schema.problems)
+      .set({ solvedCount: sql`${schema.problems.solvedCount} + 1`, updatedAt: new Date() })
+      .where(eq(schema.problems.id, problemId))
+  ])
 }
 
 type RunInput = Parameters<DockerRunner['run']>[0]

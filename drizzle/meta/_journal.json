@@ -29,6 +29,13 @@
       "when": 1780594662673,
       "tag": "0003_married_steel_serpent",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1780595842007,
+      "tag": "0004_lazy_talos",
+      "breakpoints": true
     }
   ]
 }

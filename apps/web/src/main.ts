@@ -18,6 +18,7 @@ import ContestListPage from './pages/ContestListPage.vue'
 import HomePage from './pages/HomePage.vue'
 import ProblemDetailPage from './pages/ProblemDetailPage.vue'
 import ProblemListPage from './pages/ProblemListPage.vue'
+import RankPage from './pages/RankPage.vue'
 import SubmissionDetailPage from './pages/SubmissionDetailPage.vue'
 import SubmissionListPage from './pages/SubmissionListPage.vue'
 import './style.css'
@@ -32,6 +33,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/contests/:id', component: ContestDetailPage },
   { path: '/bbs', component: BbsListPage },
   { path: '/bbs/:id', component: BbsDetailPage },
+  { path: '/rank', component: RankPage },
   { path: '/submissions', component: SubmissionListPage },
   { path: '/submissions/:id', component: SubmissionDetailPage },
   { path: '/admin/groups', component: AdminGroupsPage },
@@ -52,6 +54,7 @@ const i18n = createI18n({
       assignments: '作业',
       contests: '比赛',
       discussion: '讨论',
+      rank: '排名',
       submissions: '提交',
       home: '首页',
       admin: '管理',
@@ -66,6 +69,7 @@ const i18n = createI18n({
       assignments: 'Assignments',
       contests: 'Contests',
       discussion: 'Discussion',
+      rank: 'Rank',
       submissions: 'Submissions',
       home: 'Home',
       admin: 'Admin',

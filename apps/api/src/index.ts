@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { logger } from 'hono/logger'
-import { and, asc, desc, eq, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { z, ZodError } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { enqueueJudgeTask } from '@doj/db/queue'
@@ -70,6 +70,26 @@ app.get('/api/languages', async (c) => {
     .orderBy(asc(schema.judgeLanguages.sortOrder), asc(schema.judgeLanguages.id))
 
   return c.json({ list })
+})
+
+app.get('/api/rank', async (c) => {
+  const list = await db
+    .select({
+      id: schema.users.id,
+      name: schema.users.name,
+      solvedCount: schema.users.solvedCount,
+      submissionCount: schema.users.submissionCount,
+      introduction: schema.users.introduction
+    })
+    .from(schema.users)
+    .orderBy(
+      desc(schema.users.solvedCount),
+      asc(schema.users.submissionCount),
+      asc(schema.users.id)
+    )
+    .limit(100)
+
+  return c.json({ total: list.length, list })
 })
 
 const registerSchema = z.object({
@@ -733,6 +753,19 @@ app.post('/api/submissions', authMiddleware, async (c) => {
     .returning()
 
   await enqueueJudgeTask(submission.id)
+  await Promise.all([
+    db
+      .update(schema.users)
+      .set({ submissionCount: sql`${schema.users.submissionCount} + 1`, updatedAt: new Date() })
+      .where(eq(schema.users.id, user.id)),
+    db
+      .update(schema.problems)
+      .set({
+        submissionCount: sql`${schema.problems.submissionCount} + 1`,
+        updatedAt: new Date()
+      })
+      .where(eq(schema.problems.id, body.problemId))
+  ])
   return c.json(submission, 201)
 })
 
