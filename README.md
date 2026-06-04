@@ -60,6 +60,7 @@ Run checks:
 ```sh
 bun run check
 bun run runner:smoke
+bun run e2e:smoke
 ```
 
 Default URLs:

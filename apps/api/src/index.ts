@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { logger } from 'hono/logger'
-import { eq } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { enqueueJudgeTask } from '@doj/db/queue'
@@ -26,6 +26,16 @@ app.get('/api/config', (c) =>
 
 app.get('/api/problems', async (c) => {
   const list = await db.select().from(schema.problems).limit(50)
+  return c.json({ total: list.length, list })
+})
+
+app.get('/api/submissions', async (c) => {
+  const list = await db
+    .select()
+    .from(schema.submissions)
+    .orderBy(desc(schema.submissions.createdAt))
+    .limit(50)
+
   return c.json({ total: list.length, list })
 })
 
