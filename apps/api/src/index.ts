@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { logger } from 'hono/logger'
 import { desc, eq } from 'drizzle-orm'
-import { z } from 'zod'
+import { z, ZodError } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { enqueueJudgeTask } from '@doj/db/queue'
 import { config } from './config'
@@ -9,6 +9,28 @@ import { config } from './config'
 const app = new Hono()
 
 app.use('*', logger())
+
+app.onError((error, c) => {
+  if (error instanceof ZodError) {
+    return c.json(
+      {
+        code: 'BAD_REQUEST',
+        message: 'Invalid request payload',
+        issues: error.issues
+      },
+      400
+    )
+  }
+
+  console.error(error)
+  return c.json(
+    {
+      code: 'INTERNAL_SERVER_ERROR',
+      message: error instanceof Error ? error.message : String(error)
+    },
+    500
+  )
+})
 
 app.get('/health', (c) =>
   c.json({
