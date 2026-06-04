@@ -39,6 +39,7 @@ Install dependencies:
 
 ```sh
 bun install
+cp .env.example .env
 ```
 
 Generate and apply database migrations:
