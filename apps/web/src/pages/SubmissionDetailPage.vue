@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { NButton, NCard, NDataTable, NDescriptions, NDescriptionsItem, NSpin, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { apiFetch } from '../api'
 
@@ -36,6 +36,7 @@ const coachingLoading = ref(false)
 const error = ref('')
 const coaching = ref('')
 const submission = ref<Submission | null>(null)
+let timer: number | undefined
 
 const canCoach = computed(() => {
   const status = submission.value?.status
@@ -70,9 +71,21 @@ const caseColumns: DataTableColumns<SubmissionCase> = [
   }
 ]
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  timer = window.setInterval(() => {
+    if (['WAITING', 'JUDGING'].includes(submission.value?.status ?? '')) {
+      load(false)
+    }
+  }, 2000)
+})
 
-async function load() {
+onUnmounted(() => {
+  if (timer) window.clearInterval(timer)
+})
+
+async function load(showLoading = true) {
+  if (showLoading) loading.value = true
   try {
     submission.value = await apiFetch<Submission>(`/api/submissions/${route.params.id}`)
   } catch (caught) {

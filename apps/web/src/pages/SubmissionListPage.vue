@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { NDataTable, NTag } from 'naive-ui'
-import { h, onMounted, ref } from 'vue'
+import { h, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { apiFetch } from '../api'
 
 interface SubmissionRow {
   id: number
@@ -33,14 +34,20 @@ const columns = [
     title: 'Status',
     key: 'status',
     render(row: SubmissionRow) {
-      return h(NTag, { bordered: false, type: statusType[row.status] ?? 'default' }, () => row.status)
+      return h(
+        NTag,
+        { bordered: false, type: statusType[row.status] ?? 'default' },
+        () => row.status
+      )
     }
   },
   {
     title: 'ID',
     key: 'id',
     render(row: SubmissionRow) {
-      return h(RouterLink, { to: `/submissions/${row.id}`, class: 'table-link' }, () => String(row.id))
+      return h(RouterLink, { to: `/submissions/${row.id}`, class: 'table-link' }, () =>
+        String(row.id)
+      )
     }
   },
   { title: 'Language', key: 'languageId' },
@@ -63,15 +70,25 @@ const columns = [
 
 const loading = ref(true)
 const submissions = ref<SubmissionRow[]>([])
+let timer: number | undefined
 
-onMounted(async () => {
+async function loadSubmissions(showLoading = false) {
+  if (showLoading) loading.value = true
   try {
-    const response = await fetch('/api/submissions')
-    const data = (await response.json()) as { list: SubmissionRow[] }
+    const data = await apiFetch<{ list: SubmissionRow[] }>('/api/submissions')
     submissions.value = data.list
   } finally {
     loading.value = false
   }
+}
+
+onMounted(async () => {
+  await loadSubmissions(true)
+  timer = window.setInterval(() => loadSubmissions(), 2500)
+})
+
+onUnmounted(() => {
+  if (timer) window.clearInterval(timer)
 })
 </script>
 
