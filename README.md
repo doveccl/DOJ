@@ -69,6 +69,7 @@ bun run e2e:smoke
 bun run ai:smoke
 bun run assignment:smoke
 bun run my-assignments:smoke
+bun run group-membership:smoke
 ```
 
 Default URLs:

@@ -154,6 +154,77 @@ app.post('/api/groups', authMiddleware, async (c) => {
   return c.json(group, 201)
 })
 
+app.get('/api/users', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
+  const list = await db
+    .select({
+      id: schema.users.id,
+      name: schema.users.name,
+      email: schema.users.email,
+      createdAt: schema.users.createdAt
+    })
+    .from(schema.users)
+    .orderBy(desc(schema.users.createdAt))
+    .limit(50)
+
+  return c.json({ total: list.length, list })
+})
+
+app.get('/api/groups/:id/users', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
+  const groupId = c.req.param('id')
+  const list = await db
+    .select({
+      id: schema.users.id,
+      name: schema.users.name,
+      email: schema.users.email,
+      manager: schema.userGroups.manager,
+      createdAt: schema.userGroups.createdAt
+    })
+    .from(schema.userGroups)
+    .innerJoin(schema.users, eq(schema.userGroups.userId, schema.users.id))
+    .where(eq(schema.userGroups.groupId, groupId))
+    .orderBy(schema.users.name)
+
+  return c.json({ total: list.length, list })
+})
+
+const addGroupUserSchema = z.object({
+  userId: z.string().uuid(),
+  manager: z.boolean().default(false)
+})
+
+app.post('/api/groups/:id/users', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
+  const groupId = c.req.param('id')
+  const body = addGroupUserSchema.parse(await c.req.json())
+  const [group, user] = await Promise.all([
+    db.select({ id: schema.groups.id }).from(schema.groups).where(eq(schema.groups.id, groupId)).limit(1),
+    db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.id, body.userId)).limit(1)
+  ])
+
+  if (!group.length) return c.json({ code: 'GROUP_NOT_FOUND', message: 'Group does not exist' }, 404)
+  if (!user.length) return c.json({ code: 'USER_NOT_FOUND', message: 'User does not exist' }, 404)
+
+  await db
+    .insert(schema.userGroups)
+    .values({ groupId, userId: body.userId, manager: body.manager })
+    .onConflictDoUpdate({
+      target: [schema.userGroups.userId, schema.userGroups.groupId],
+      set: {
+        manager: body.manager
+      }
+    })
+
+  return c.json({ ok: true }, 201)
+})
+
 const dateString = z.string().refine((value) => !Number.isNaN(Date.parse(value)), {
   message: 'Expected a valid date string'
 })
