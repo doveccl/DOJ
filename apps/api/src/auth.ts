@@ -72,6 +72,14 @@ export async function requireAuthUser(c: Context) {
   return user
 }
 
+export async function requireGroup(c: Context, group: string) {
+  const user = await requireAuthUser(c)
+  if (!user.groups.includes(group)) {
+    return c.json({ code: 'FORBIDDEN', message: `Requires ${group} group` }, 403)
+  }
+  return null
+}
+
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
   const header = c.req.header('authorization')
   const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : ''

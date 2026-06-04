@@ -17,6 +17,7 @@
     "e2e:smoke": "bun run scripts/e2e-smoke.ts",
     "ai:smoke": "bun run scripts/ai-coach-smoke.ts",
     "auth:smoke": "bun run scripts/auth-smoke.ts",
+    "admin:smoke": "bun run scripts/admin-smoke.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "bun run packages/db/src/seed.ts",

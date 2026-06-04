@@ -14,6 +14,7 @@ import {
   getGroupByKey,
   hashPassword,
   requireAuthUser,
+  requireGroup,
   verifyPassword
 } from './auth'
 
@@ -121,6 +122,37 @@ app.post('/api/auth/login', async (c) => {
 })
 
 app.get('/api/auth/self', authMiddleware, async (c) => c.json(await requireAuthUser(c)))
+
+app.get('/api/groups', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
+  const list = await db.select().from(schema.groups).orderBy(schema.groups.key)
+  return c.json({ total: list.length, list })
+})
+
+const createGroupSchema = z.object({
+  key: z.string().regex(/^[a-z][a-z0-9_-]{1,63}$/),
+  name: z.string().min(1).max(128),
+  description: z.string().max(500).default('')
+})
+
+app.post('/api/groups', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
+  const body = createGroupSchema.parse(await c.req.json())
+  const [group] = await db
+    .insert(schema.groups)
+    .values({
+      key: body.key,
+      name: body.name,
+      description: body.description
+    })
+    .returning()
+
+  return c.json(group, 201)
+})
 
 app.get('/api/problems', async (c) => {
   const list = await db.select().from(schema.problems).limit(50)

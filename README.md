@@ -63,6 +63,7 @@ Run checks:
 ```sh
 bun run check
 bun run auth:smoke
+bun run admin:smoke
 bun run runner:smoke
 bun run e2e:smoke
 bun run ai:smoke
