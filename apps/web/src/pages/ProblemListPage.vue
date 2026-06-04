@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { NDataTable, NEmpty } from 'naive-ui'
-import { onMounted, ref } from 'vue'
+import { h, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
+import { apiFetch } from '../api'
 
 interface ProblemRow {
   id: string
@@ -10,7 +12,13 @@ interface ProblemRow {
 }
 
 const columns = [
-  { title: 'Title', key: 'title' },
+  {
+    title: 'Title',
+    key: 'title',
+    render(row: ProblemRow) {
+      return h(RouterLink, { to: `/problems/${row.id}`, class: 'table-link' }, () => row.title)
+    }
+  },
   { title: 'Tags', key: 'tags' },
   { title: 'Solved', key: 'solvedCount' }
 ]
@@ -20,8 +28,7 @@ const problems = ref<ProblemRow[]>([])
 
 onMounted(async () => {
   try {
-    const response = await fetch('/api/problems')
-    const data = (await response.json()) as { list: ProblemRow[] }
+    const data = await apiFetch<{ list: ProblemRow[] }>('/api/problems')
     problems.value = data.list.map((item) => ({
       ...item,
       tags: item.tags.length ? item.tags : ['-']

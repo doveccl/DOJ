@@ -8,6 +8,7 @@ import {
 } from 'vue-router'
 import App from './App.vue'
 import HomePage from './pages/HomePage.vue'
+import ProblemDetailPage from './pages/ProblemDetailPage.vue'
 import ProblemListPage from './pages/ProblemListPage.vue'
 import SubmissionListPage from './pages/SubmissionListPage.vue'
 import './style.css'
@@ -15,6 +16,7 @@ import './style.css'
 const routes: RouteRecordRaw[] = [
   { path: '/', component: HomePage },
   { path: '/problems', component: ProblemListPage },
+  { path: '/problems/:id', component: ProblemDetailPage },
   { path: '/submissions', component: SubmissionListPage }
 ]
 

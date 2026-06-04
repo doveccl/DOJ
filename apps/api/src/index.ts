@@ -117,6 +117,21 @@ app.get('/api/problems', async (c) => {
   return c.json({ total: list.length, list })
 })
 
+app.get('/api/problems/:id', async (c) => {
+  const id = c.req.param('id')
+  const [problem] = await db.select().from(schema.problems).where(eq(schema.problems.id, id)).limit(1)
+  if (!problem) return c.notFound()
+
+  const [version] = await db
+    .select()
+    .from(schema.problemVersions)
+    .where(eq(schema.problemVersions.problemId, problem.id))
+    .orderBy(desc(schema.problemVersions.version))
+    .limit(1)
+
+  return c.json({ problem, version })
+})
+
 const createProblemSchema = z.object({
   title: z.string().min(1).max(160),
   slug: z.string().min(1).max(160).optional(),
@@ -169,7 +184,6 @@ app.get('/api/submissions', async (c) => {
 })
 
 const submitSchema = z.object({
-  userId: z.string().uuid(),
   problemId: z.string().uuid(),
   problemVersionId: z.string().uuid(),
   languageId: z.string().min(1).max(64),
@@ -178,12 +192,14 @@ const submitSchema = z.object({
   assignmentId: z.string().uuid().optional()
 })
 
-app.post('/api/submissions', async (c) => {
+app.post('/api/submissions', authMiddleware, async (c) => {
+  const user = await requireAuthUser(c)
   const body = submitSchema.parse(await c.req.json())
   const [submission] = await db
     .insert(schema.submissions)
     .values({
       ...body,
+      userId: user.id,
       contestId: body.contestId ?? null,
       assignmentId: body.assignmentId ?? null
     })

@@ -1,17 +1,26 @@
-import { closeDb, db, schema } from '../packages/db/src/client'
+import { closeDb } from '../packages/db/src/client'
 
 const apiBase = process.env.DOJ_API_BASE ?? 'http://localhost:7974'
 const runId = crypto.randomUUID()
 
 try {
-  const [user] = await db
-    .insert(schema.users)
-    .values({
+  const authResponse = await fetch(`${apiBase}/api/auth/register`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
       name: `coach_${runId.slice(0, 8)}`,
       email: `coach_${runId}@example.test`,
-      passwordHash: 'smoke'
+      password: 'password123'
     })
-    .returning()
+  })
+
+  if (!authResponse.ok) {
+    throw new Error(`auth API failed: ${authResponse.status} ${await authResponse.text()}`)
+  }
+
+  const auth = (await authResponse.json()) as { token: string }
 
   const problemResponse = await fetch(`${apiBase}/api/problems`, {
     method: 'POST',
@@ -40,10 +49,10 @@ try {
   const submissionResponse = await fetch(`${apiBase}/api/submissions`, {
     method: 'POST',
     headers: {
-      'content-type': 'application/json'
+      'content-type': 'application/json',
+      authorization: `Bearer ${auth.token}`
     },
     body: JSON.stringify({
-      userId: user.id,
       problemId: problem.id,
       problemVersionId: version.id,
       languageId: 'sh',

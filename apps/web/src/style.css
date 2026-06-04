@@ -61,3 +61,36 @@ body {
   margin: 0;
   color: #52616f;
 }
+
+.problem-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: 24px;
+  align-items: start;
+}
+
+.statement {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: inherit;
+}
+
+.muted {
+  margin: 0;
+  color: #697586;
+}
+
+.table-link {
+  color: #0f766e;
+  text-decoration: none;
+}
+
+.table-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 860px) {
+  .problem-layout {
+    grid-template-columns: 1fr;
+  }
+}
