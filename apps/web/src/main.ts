@@ -10,6 +10,7 @@ import App from './App.vue'
 import HomePage from './pages/HomePage.vue'
 import ProblemDetailPage from './pages/ProblemDetailPage.vue'
 import ProblemListPage from './pages/ProblemListPage.vue'
+import SubmissionDetailPage from './pages/SubmissionDetailPage.vue'
 import SubmissionListPage from './pages/SubmissionListPage.vue'
 import './style.css'
 
@@ -17,7 +18,8 @@ const routes: RouteRecordRaw[] = [
   { path: '/', component: HomePage },
   { path: '/problems', component: ProblemListPage },
   { path: '/problems/:id', component: ProblemDetailPage },
-  { path: '/submissions', component: SubmissionListPage }
+  { path: '/submissions', component: SubmissionListPage },
+  { path: '/submissions/:id', component: SubmissionDetailPage }
 ]
 
 const i18n = createI18n({

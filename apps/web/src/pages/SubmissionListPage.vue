@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { NDataTable, NTag } from 'naive-ui'
 import { h, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 
 interface SubmissionRow {
   id: string
@@ -33,6 +34,15 @@ const columns = [
     key: 'status',
     render(row: SubmissionRow) {
       return h(NTag, { bordered: false, type: statusType[row.status] ?? 'default' }, () => row.status)
+    }
+  },
+  {
+    title: 'ID',
+    key: 'id',
+    render(row: SubmissionRow) {
+      return h(RouterLink, { to: `/submissions/${row.id}`, class: 'table-link' }, () =>
+        row.id.slice(0, 8)
+      )
     }
   },
   { title: 'Language', key: 'languageId' },

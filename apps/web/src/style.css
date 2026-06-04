@@ -69,6 +69,28 @@ body {
   align-items: start;
 }
 
+.submission-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: 24px;
+  align-items: start;
+}
+
+.stacked-card {
+  margin-top: 16px;
+}
+
+.code-block,
+.coaching-output {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: "Cascadia Code", Menlo, Consolas, monospace;
+}
+
+.coaching-output {
+  margin-top: 16px;
+}
+
 .statement {
   margin: 0;
   white-space: pre-wrap;
@@ -90,7 +112,8 @@ body {
 }
 
 @media (max-width: 860px) {
-  .problem-layout {
+  .problem-layout,
+  .submission-layout {
     grid-template-columns: 1fr;
   }
 }
