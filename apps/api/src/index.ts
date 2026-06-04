@@ -644,7 +644,10 @@ const createProblemSchema = z.object({
     .default([])
 })
 
-app.post('/api/problems', async (c) => {
+app.post('/api/problems', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
   const body = createProblemSchema.parse(await c.req.json())
 
   const result = await db.transaction(async (tx) => {

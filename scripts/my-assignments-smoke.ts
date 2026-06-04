@@ -45,9 +45,7 @@ if (!userGroup) throw new Error('user group missing')
 
 const { problem } = (await api('/api/problems', {
   method: 'POST',
-  headers: {
-    'content-type': 'application/json'
-  },
+  headers: adminHeaders,
   body: JSON.stringify({
     title: `Student Assignment Problem ${runId.slice(0, 8)}`,
     slug: `student-assignment-${runId}`,

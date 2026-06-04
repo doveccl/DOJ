@@ -17,6 +17,7 @@ try {
     '/api/problems',
     {
       method: 'POST',
+      headers: adminHeaders,
       body: JSON.stringify({
         title: `Contest Smoke Problem ${runId.slice(0, 8)}`,
         slug: `contest-smoke-${runId}`,

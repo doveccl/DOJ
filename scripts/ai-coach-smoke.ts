@@ -2,6 +2,8 @@ import { eq } from 'drizzle-orm'
 import { closeDb, db, schema } from '../packages/db/src/client'
 
 const apiBase = process.env.DOJ_API_BASE ?? 'http://localhost:7974'
+const adminUser = process.env.DOJ_ADMIN_NAME ?? 'admin'
+const adminPassword = process.env.DOJ_ADMIN_PASSWORD ?? 'admin12345'
 const runId = crypto.randomUUID()
 
 try {
@@ -22,11 +24,25 @@ try {
   }
 
   const auth = (await authResponse.json()) as { token: string }
+  const adminResponse = await fetch(`${apiBase}/api/auth/login`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({ user: adminUser, password: adminPassword })
+  })
+
+  if (!adminResponse.ok) {
+    throw new Error(`admin auth API failed: ${adminResponse.status} ${await adminResponse.text()}`)
+  }
+
+  const admin = (await adminResponse.json()) as { token: string }
 
   const problemResponse = await fetch(`${apiBase}/api/problems`, {
     method: 'POST',
     headers: {
-      'content-type': 'application/json'
+      'content-type': 'application/json',
+      authorization: `Bearer ${admin.token}`
     },
     body: JSON.stringify({
       title: `Coach Problem ${runId.slice(0, 8)}`,

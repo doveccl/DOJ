@@ -36,9 +36,7 @@ const group = (await api('/api/groups', {
 
 const { problem } = (await api('/api/problems', {
   method: 'POST',
-  headers: {
-    'content-type': 'application/json'
-  },
+  headers,
   body: JSON.stringify({
     title: `Assignment Smoke Problem ${runId.slice(0, 8)}`,
     slug: `assignment-smoke-${runId}`,

@@ -2,11 +2,14 @@ import { eq } from 'drizzle-orm'
 import { closeDb, db, schema } from '../packages/db/src/client'
 
 const apiBase = process.env.DOJ_API_BASE ?? 'http://localhost:7974'
+const adminUser = process.env.DOJ_ADMIN_NAME ?? 'admin'
+const adminPassword = process.env.DOJ_ADMIN_PASSWORD ?? 'admin12345'
 const runId = crypto.randomUUID()
 
 try {
   const auth = await registerUser()
-  const { problem, version } = await createProblem()
+  const admin = await loginAdmin()
+  const { problem, version } = await createProblem(admin.token)
 
   const accepted = await submitAndJudge(
     auth.token,
@@ -60,11 +63,26 @@ async function registerUser() {
   return (await response.json()) as { token: string }
 }
 
-async function createProblem() {
-  const response = await fetch(`${apiBase}/api/problems`, {
+async function loginAdmin() {
+  const response = await fetch(`${apiBase}/api/auth/login`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json'
+    },
+    body: JSON.stringify({ user: adminUser, password: adminPassword })
+  })
+
+  if (!response.ok)
+    throw new Error(`admin auth API failed: ${response.status} ${await response.text()}`)
+  return (await response.json()) as { token: string }
+}
+
+async function createProblem(token: string) {
+  const response = await fetch(`${apiBase}/api/problems`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${token}`
     },
     body: JSON.stringify({
       title: `Case Problem ${runId.slice(0, 8)}`,

@@ -63,9 +63,7 @@ const auth = (await api('/api/auth/register', {
 
 const { problem, version } = (await api('/api/problems', {
   method: 'POST',
-  headers: {
-    'content-type': 'application/json'
-  },
+  headers: adminHeaders,
   body: JSON.stringify({
     title: `Language Smoke ${runId.slice(0, 8)}`,
     slug: `language-smoke-${runId}`,

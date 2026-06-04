@@ -7,6 +7,7 @@ import AdminAssignmentsPage from './pages/AdminAssignmentsPage.vue'
 import AdminContestsPage from './pages/AdminContestsPage.vue'
 import AdminGroupsPage from './pages/AdminGroupsPage.vue'
 import AdminLanguagesPage from './pages/AdminLanguagesPage.vue'
+import AdminProblemsPage from './pages/AdminProblemsPage.vue'
 import AdminRunnersPage from './pages/AdminRunnersPage.vue'
 import AssignmentDetailPage from './pages/AssignmentDetailPage.vue'
 import AssignmentListPage from './pages/AssignmentListPage.vue'
@@ -30,6 +31,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/submissions', component: SubmissionListPage },
   { path: '/submissions/:id', component: SubmissionDetailPage },
   { path: '/admin/groups', component: AdminGroupsPage },
+  { path: '/admin/problems', component: AdminProblemsPage },
   { path: '/admin/assignments', component: AdminAssignmentsPage },
   { path: '/admin/contests', component: AdminContestsPage },
   { path: '/admin/languages', component: AdminLanguagesPage },
@@ -49,6 +51,7 @@ const i18n = createI18n({
       home: '首页',
       admin: '管理',
       groups: '用户组',
+      manageProblems: '题目',
       languages: '语言',
       runners: '评测机'
     },
@@ -61,6 +64,7 @@ const i18n = createI18n({
       home: 'Home',
       admin: 'Admin',
       groups: 'Groups',
+      manageProblems: 'Problems',
       languages: 'Languages',
       runners: 'Runners'
     }
