@@ -19,7 +19,7 @@ import { apiFetch } from '../api'
 import { useAuthStore } from '../stores/auth'
 
 interface AssignmentRow {
-  id: string
+  id: number
   title: string
   description: string
   dueAt: string | null
@@ -29,13 +29,13 @@ interface AssignmentRow {
 }
 
 interface GroupRow {
-  id: string
+  id: number
   key: string
   name: string
 }
 
 interface ProblemRow {
-  id: string
+  id: number
   title: string
 }
 
@@ -49,8 +49,8 @@ const problemOptions = ref<SelectOption[]>([])
 const form = reactive({
   title: '',
   description: '',
-  groupIds: [] as string[],
-  problemIds: [] as string[],
+  groupIds: [] as number[],
+  problemIds: [] as number[],
   dueAt: null as number | null,
   allowLate: false,
   aiCoachingEnabled: true

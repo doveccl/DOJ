@@ -18,7 +18,7 @@ if (!registerResponse.ok) {
 
 const registered = (await registerResponse.json()) as {
   token: string
-  user: { id: string; name: string; email: string; groups: string[] }
+  user: { id: number; name: string; email: string; groups: string[] }
 }
 
 if (!registered.user.groups.includes('user')) {
@@ -35,7 +35,7 @@ if (!selfResponse.ok) {
   throw new Error(`self failed: ${selfResponse.status} ${await selfResponse.text()}`)
 }
 
-const self = (await selfResponse.json()) as { id: string }
+const self = (await selfResponse.json()) as { id: number }
 if (self.id !== registered.user.id) {
   throw new Error(`self returned wrong user: ${self.id}`)
 }
@@ -52,7 +52,7 @@ if (!loginResponse.ok) {
   throw new Error(`login failed: ${loginResponse.status} ${await loginResponse.text()}`)
 }
 
-const login = (await loginResponse.json()) as { user: { id: string } }
+const login = (await loginResponse.json()) as { user: { id: number } }
 if (login.user.id !== registered.user.id) {
   throw new Error(`login returned wrong user: ${login.user.id}`)
 }

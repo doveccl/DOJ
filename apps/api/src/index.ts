@@ -19,6 +19,7 @@ import {
 } from './auth'
 
 const app = new Hono()
+const numericId = z.coerce.number().int().positive()
 
 app.use('*', logger())
 
@@ -176,7 +177,7 @@ app.get('/api/groups/:id/users', authMiddleware, async (c) => {
   const denied = await requireGroup(c, 'admin')
   if (denied) return denied
 
-  const groupId = c.req.param('id')
+  const groupId = numericId.parse(c.req.param('id'))
   const list = await db
     .select({
       id: schema.users.id,
@@ -194,7 +195,7 @@ app.get('/api/groups/:id/users', authMiddleware, async (c) => {
 })
 
 const addGroupUserSchema = z.object({
-  userId: z.string().uuid(),
+  userId: numericId,
   manager: z.boolean().default(false)
 })
 
@@ -202,7 +203,7 @@ app.post('/api/groups/:id/users', authMiddleware, async (c) => {
   const denied = await requireGroup(c, 'admin')
   if (denied) return denied
 
-  const groupId = c.req.param('id')
+  const groupId = numericId.parse(c.req.param('id'))
   const body = addGroupUserSchema.parse(await c.req.json())
   const [group, user] = await Promise.all([
     db.select({ id: schema.groups.id }).from(schema.groups).where(eq(schema.groups.id, groupId)).limit(1),
@@ -236,11 +237,11 @@ const createAssignmentSchema = z.object({
   dueAt: dateString.optional(),
   allowLate: z.boolean().default(false),
   aiCoachingEnabled: z.boolean().default(true),
-  groupIds: z.array(z.string().uuid()).min(1),
+  groupIds: z.array(numericId).min(1),
   problems: z
     .array(
       z.object({
-        problemId: z.string().uuid(),
+        problemId: numericId,
         score: z.number().int().positive().default(100)
       })
     )
@@ -314,7 +315,7 @@ app.get('/api/assignments/:id', authMiddleware, async (c) => {
   const denied = await requireGroup(c, 'admin')
   if (denied) return denied
 
-  const assignment = await getAssignmentDetail(c.req.param('id'))
+  const assignment = await getAssignmentDetail(numericId.parse(c.req.param('id')))
   if (!assignment) return c.notFound()
   return c.json(assignment)
 })
@@ -349,7 +350,7 @@ app.get('/api/my/assignments', authMiddleware, async (c) => {
 
 app.get('/api/my/assignments/:id', authMiddleware, async (c) => {
   const user = await requireAuthUser(c)
-  const assignment = await getUserAssignmentDetail(user.id, c.req.param('id'))
+  const assignment = await getUserAssignmentDetail(user.id, numericId.parse(c.req.param('id')))
   if (!assignment) return c.notFound()
   return c.json(assignment)
 })
@@ -360,7 +361,7 @@ app.get('/api/problems', async (c) => {
 })
 
 app.get('/api/problems/:id', async (c) => {
-  const id = c.req.param('id')
+  const id = numericId.parse(c.req.param('id'))
   const [problem] = await db.select().from(schema.problems).where(eq(schema.problems.id, id)).limit(1)
   if (!problem) return c.notFound()
 
@@ -426,12 +427,12 @@ app.get('/api/submissions', async (c) => {
 })
 
 const submitSchema = z.object({
-  problemId: z.string().uuid(),
-  problemVersionId: z.string().uuid(),
+  problemId: numericId,
+  problemVersionId: numericId,
   languageId: z.string().min(1).max(64),
   sourceCode: z.string().min(1).max(200 * 1024),
-  contestId: z.string().uuid().optional(),
-  assignmentId: z.string().uuid().optional()
+  contestId: numericId.optional(),
+  assignmentId: numericId.optional()
 })
 
 app.post('/api/submissions', authMiddleware, async (c) => {
@@ -452,7 +453,7 @@ app.post('/api/submissions', authMiddleware, async (c) => {
 })
 
 app.get('/api/submissions/:id', async (c) => {
-  const id = c.req.param('id')
+  const id = numericId.parse(c.req.param('id'))
   const [submission] = await db
     .select()
     .from(schema.submissions)
@@ -464,7 +465,7 @@ app.get('/api/submissions/:id', async (c) => {
 })
 
 app.post('/api/submissions/:id/coach', async (c) => {
-  const id = c.req.param('id')
+  const id = numericId.parse(c.req.param('id'))
   const [submission] = await db
     .select()
     .from(schema.submissions)
@@ -545,7 +546,7 @@ function createCoachingResponse(status: string, message: string) {
   }
 }
 
-async function getAssignmentDetail(id: string) {
+async function getAssignmentDetail(id: number) {
   const [assignment] = await db.select().from(schema.assignments).where(eq(schema.assignments.id, id)).limit(1)
   if (!assignment) return null
 
@@ -580,7 +581,7 @@ async function getAssignmentDetail(id: string) {
   }
 }
 
-async function getUserAssignmentDetail(userId: string, assignmentId: string) {
+async function getUserAssignmentDetail(userId: number, assignmentId: number) {
   const [match] = await db
     .select({ id: schema.assignments.id })
     .from(schema.assignments)

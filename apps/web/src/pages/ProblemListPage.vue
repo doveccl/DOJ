@@ -5,13 +5,14 @@ import { RouterLink } from 'vue-router'
 import { apiFetch } from '../api'
 
 interface ProblemRow {
-  id: string
+  id: number
   title: string
   tags: string[]
   solvedCount: number
 }
 
 const columns = [
+  { title: 'ID', key: 'id', width: 96 },
   {
     title: 'Title',
     key: 'title',

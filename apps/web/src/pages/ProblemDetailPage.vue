@@ -6,13 +6,13 @@ import { apiFetch } from '../api'
 import { useAuthStore } from '../stores/auth'
 
 interface Problem {
-  id: string
+  id: number
   title: string
   tags: string[]
 }
 
 interface ProblemVersion {
-  id: string
+  id: number
   statementMarkdown: string
   timeLimitMs: number
   memoryLimitBytes: number
@@ -98,9 +98,9 @@ function updateTemplate(value: string) {
       <section v-if="problem && version" class="problem-layout">
         <div>
           <section class="page-header">
-            <h1>{{ problem.title }}</h1>
+            <h1>{{ problem.id }}. {{ problem.title }}</h1>
             <p>{{ version.timeLimitMs }} ms / {{ memoryMb }} MB</p>
-            <p v-if="assignmentId" class="muted">Submitting for assignment {{ assignmentId.slice(0, 8) }}</p>
+            <p v-if="assignmentId" class="muted">Submitting for assignment {{ assignmentId }}</p>
           </section>
           <n-card :bordered="false">
             <pre class="statement">{{ version.statementMarkdown }}</pre>

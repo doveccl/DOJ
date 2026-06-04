@@ -7,7 +7,7 @@ import { apiFetch } from '../api'
 import { useAuthStore } from '../stores/auth'
 
 interface AssignmentRow {
-  id: string
+  id: number
   title: string
   description: string
   dueAt: string | null

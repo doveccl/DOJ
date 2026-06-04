@@ -43,8 +43,8 @@ try {
   }
 
   const { problem, version } = (await problemResponse.json()) as {
-    problem: { id: string }
-    version: { id: string }
+    problem: { id: number }
+    version: { id: number }
   }
 
   const response = await fetch(`${apiBase}/api/submissions`, {
@@ -65,7 +65,7 @@ try {
     throw new Error(`submission API failed: ${response.status} ${await response.text()}`)
   }
 
-  const submission = (await response.json()) as { id: string }
+  const submission = (await response.json()) as { id: number }
   const judged = await waitForJudgement(submission.id)
 
   if (judged.status !== 'AC') {
@@ -83,7 +83,7 @@ try {
   await closeDb()
 }
 
-async function waitForJudgement(submissionId: string) {
+async function waitForJudgement(submissionId: number) {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     await runWorkerOnce()
 

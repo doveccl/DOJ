@@ -6,7 +6,7 @@ export interface ClaimJudgeTaskOptions {
   leaseSeconds: number
 }
 
-export async function enqueueJudgeTask(submissionId: string) {
+export async function enqueueJudgeTask(submissionId: number) {
   const [task] = await db
     .insert(schema.judgeTasks)
     .values({ submissionId })
@@ -54,14 +54,14 @@ export async function claimJudgeTask(options: ClaimJudgeTaskOptions) {
   })
 }
 
-export async function completeJudgeTask(id: string) {
+export async function completeJudgeTask(id: number) {
   await db
     .update(schema.judgeTasks)
     .set({ status: 'DONE', lockedBy: null, lockedUntil: null, updatedAt: new Date() })
     .where(eq(schema.judgeTasks.id, id))
 }
 
-export async function failJudgeTask(id: string, error: unknown) {
+export async function failJudgeTask(id: number, error: unknown) {
   await db
     .update(schema.judgeTasks)
     .set({

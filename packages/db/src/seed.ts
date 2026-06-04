@@ -37,6 +37,51 @@ if (!existingAdmin) {
   await db.insert(schema.userGroups).values({ userId: admin.id, groupId: adminGroup.id, manager: true })
 }
 
-console.log('Seeded builtin groups and admin user.')
+const starterProblems = [
+  {
+    title: 'Hello World',
+    slug: 'hello-world',
+    tags: ['beginner'],
+    statementMarkdown: '# Hello World\n\nPrint `Hello, World!`.',
+    timeLimitMs: 1000,
+    memoryLimitBytes: 128 * 1024 * 1024,
+    outputLimitBytes: 1024 * 1024
+  },
+  {
+    title: 'A+B Problem',
+    slug: 'a-plus-b',
+    tags: ['beginner'],
+    statementMarkdown:
+      '# A+B Problem\n\nRead two integers `a` and `b`, then print their sum.\n\nInput: two integers separated by whitespace.\n\nOutput: one integer.',
+    timeLimitMs: 1000,
+    memoryLimitBytes: 128 * 1024 * 1024,
+    outputLimitBytes: 1024 * 1024
+  }
+]
+
+for (const starter of starterProblems) {
+  const [existing] = await db.select().from(schema.problems).where(eq(schema.problems.slug, starter.slug)).limit(1)
+  if (existing) continue
+
+  const [problem] = await db
+    .insert(schema.problems)
+    .values({
+      title: starter.title,
+      slug: starter.slug,
+      tags: starter.tags
+    })
+    .returning()
+
+  await db.insert(schema.problemVersions).values({
+    problemId: problem.id,
+    version: 1,
+    statementMarkdown: starter.statementMarkdown,
+    timeLimitMs: starter.timeLimitMs,
+    memoryLimitBytes: starter.memoryLimitBytes,
+    outputLimitBytes: starter.outputLimitBytes
+  })
+}
+
+console.log('Seeded builtin groups, admin user, and starter problems.')
 
 await closeDb()

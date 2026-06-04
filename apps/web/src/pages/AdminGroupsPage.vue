@@ -18,7 +18,7 @@ import { apiFetch } from '../api'
 import { useAuthStore } from '../stores/auth'
 
 interface GroupRow {
-  id: string
+  id: number
   key: string
   name: string
   description: string
@@ -26,7 +26,7 @@ interface GroupRow {
 }
 
 interface UserRow {
-  id: string
+  id: number
   name: string
   email: string
 }
@@ -44,14 +44,14 @@ const error = ref('')
 const groups = ref<GroupRow[]>([])
 const users = ref<UserRow[]>([])
 const members = ref<MemberRow[]>([])
-const selectedGroupId = ref('')
+const selectedGroupId = ref<number | null>(null)
 const form = reactive({
   key: '',
   name: '',
   description: ''
 })
 const memberForm = reactive({
-  userId: '',
+  userId: null as number | null,
   manager: false
 })
 
@@ -170,7 +170,7 @@ async function addMember() {
       method: 'POST',
       body: JSON.stringify(memberForm)
     })
-    memberForm.userId = ''
+    memberForm.userId = null
     memberForm.manager = false
     await loadMembers()
   } catch (cause) {
@@ -254,7 +254,7 @@ onMounted(() => {
               <n-button
                 type="primary"
                 :loading="addingMember"
-                :disabled="!selectedGroupId || !memberForm.userId"
+              :disabled="!selectedGroupId || !memberForm.userId"
                 @click="addMember"
               >
                 Add

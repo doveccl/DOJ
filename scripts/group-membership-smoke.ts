@@ -21,7 +21,7 @@ const student = (await api('/api/auth/register', {
     email: `member_${runId}@example.test`,
     password: 'password123'
   })
-})) as { token: string; user: { id: string } }
+})) as { token: string; user: { id: number } }
 
 const admin = (await api('/api/auth/login', {
   method: 'POST',
@@ -43,7 +43,7 @@ const group = (await api('/api/groups', {
     key: `member_${runId.slice(0, 8)}`,
     name: 'Membership Smoke Group'
   })
-})) as { id: string; key: string }
+})) as { id: number; key: string }
 
 await api(`/api/groups/${group.id}/users`, {
   method: 'POST',
@@ -56,7 +56,7 @@ await api(`/api/groups/${group.id}/users`, {
 
 const members = (await api(`/api/groups/${group.id}/users`, {
   headers: adminHeaders
-})) as { list: Array<{ id: string; manager: boolean }> }
+})) as { list: Array<{ id: number; manager: boolean }> }
 
 const member = members.list.find((item) => item.id === student.user.id)
 if (!member?.manager) {

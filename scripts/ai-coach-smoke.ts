@@ -43,8 +43,8 @@ try {
   }
 
   const { problem, version } = (await problemResponse.json()) as {
-    problem: { id: string }
-    version: { id: string }
+    problem: { id: number }
+    version: { id: number }
   }
 
   const submissionResponse = await fetch(`${apiBase}/api/submissions`, {
@@ -67,7 +67,7 @@ try {
     )
   }
 
-  const submission = (await submissionResponse.json()) as { id: string }
+  const submission = (await submissionResponse.json()) as { id: number }
   const judged = await waitForJudgement(submission.id)
   if (judged.status !== 'RE') {
     throw new Error(`expected RE, got ${judged.status}: ${judged.message}`)
@@ -82,7 +82,7 @@ try {
   }
 
   const session = (await coachResponse.json()) as {
-    id: string
+    id: number
     model: string
     responseMarkdown: string
   }
@@ -96,7 +96,7 @@ try {
   await closeDb()
 }
 
-async function waitForJudgement(submissionId: string) {
+async function waitForJudgement(submissionId: number) {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     await runWorkerOnce()
 

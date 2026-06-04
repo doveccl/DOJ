@@ -5,18 +5,18 @@ import { useRoute } from 'vue-router'
 import { apiFetch } from '../api'
 
 interface Submission {
-  id: string
+  id: number
   languageId: string
   sourceCode: string
   status: string
   timeMs: number
   memoryBytes: number
   message: string
-  contestId: string | null
+  contestId: number | null
 }
 
 interface CoachingSession {
-  id: string
+  id: number
   responseMarkdown: string
 }
 
@@ -68,7 +68,7 @@ async function getCoaching() {
       <section v-if="submission" class="submission-layout">
         <div>
           <section class="page-header">
-            <h1>Submission {{ submission.id.slice(0, 8) }}</h1>
+      <h1>Submission {{ submission.id }}</h1>
             <p>{{ submission.languageId }}</p>
           </section>
           <n-card :bordered="false">

@@ -38,7 +38,7 @@ const adminHeaders = {
 
 const groups = (await api('/api/groups', {
   headers: adminHeaders
-})) as { list: Array<{ id: string; key: string }> }
+})) as { list: Array<{ id: number; key: string }> }
 
 const userGroup = groups.list.find((group) => group.key === 'user')
 if (!userGroup) throw new Error('user group missing')
@@ -53,7 +53,7 @@ const { problem } = (await api('/api/problems', {
     slug: `student-assignment-${runId}`,
     statementMarkdown: '# Student Assignment\n\nVisible to users.'
   })
-})) as { problem: { id: string } }
+})) as { problem: { id: number } }
 
 const created = (await api('/api/assignments', {
   method: 'POST',
@@ -63,13 +63,13 @@ const created = (await api('/api/assignments', {
     groupIds: [userGroup.id],
     problems: [{ problemId: problem.id, score: 100 }]
   })
-})) as { assignment: { id: string; title: string } }
+})) as { assignment: { id: number; title: string } }
 
 const mine = (await api('/api/my/assignments', {
   headers: {
     authorization: `Bearer ${student.token}`
   }
-})) as { list: Array<{ id: string; title: string }> }
+})) as { list: Array<{ id: number; title: string }> }
 
 if (!mine.list.some((assignment) => assignment.id === created.assignment.id)) {
   throw new Error(`student assignment missing: ${created.assignment.id}`)
@@ -79,14 +79,14 @@ const detail = (await api(`/api/my/assignments/${created.assignment.id}`, {
   headers: {
     authorization: `Bearer ${student.token}`
   }
-})) as { problems: Array<{ id: string }> }
+})) as { problems: Array<{ id: number }> }
 
 if (detail.problems.length !== 1) {
   throw new Error(`student assignment detail missing problems: ${JSON.stringify(detail)}`)
 }
 
 const problemDetail = (await api(`/api/problems/${detail.problems[0].id}`)) as {
-  version: { id: string }
+  version: { id: number }
 }
 
 const submission = (await api('/api/submissions', {
@@ -102,7 +102,7 @@ const submission = (await api('/api/submissions', {
     languageId: 'sh',
     sourceCode: '#!/bin/sh\necho accepted\n'
   })
-})) as { assignmentId: string | null }
+})) as { assignmentId: number | null }
 
 if (submission.assignmentId !== created.assignment.id) {
   throw new Error(`submission assignment id mismatch: ${submission.assignmentId}`)

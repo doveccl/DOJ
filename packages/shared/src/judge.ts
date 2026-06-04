@@ -23,9 +23,9 @@ export interface SubmissionResult {
 }
 
 export interface JudgeTaskPayload {
-  submissionId: string
-  problemId: string
-  problemVersionId: string
+  submissionId: number
+  problemId: number
+  problemVersionId: number
   testdataObjectKey: string
   languageId: string
   sourceCode: string

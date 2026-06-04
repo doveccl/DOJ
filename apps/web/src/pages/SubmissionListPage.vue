@@ -4,9 +4,9 @@ import { h, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
 interface SubmissionRow {
-  id: string
-  userId: string
-  problemId: string
+  id: number
+  userId: number
+  problemId: number
   languageId: string
   status: string
   timeMs: number
@@ -40,9 +40,7 @@ const columns = [
     title: 'ID',
     key: 'id',
     render(row: SubmissionRow) {
-      return h(RouterLink, { to: `/submissions/${row.id}`, class: 'table-link' }, () =>
-        row.id.slice(0, 8)
-      )
+      return h(RouterLink, { to: `/submissions/${row.id}`, class: 'table-link' }, () => String(row.id))
     }
   },
   { title: 'Language', key: 'languageId' },

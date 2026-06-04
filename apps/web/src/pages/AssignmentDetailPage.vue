@@ -7,7 +7,7 @@ import { apiFetch } from '../api'
 import { useAuthStore } from '../stores/auth'
 
 interface Assignment {
-  id: string
+  id: number
   title: string
   description: string
   dueAt: string | null
@@ -16,7 +16,7 @@ interface Assignment {
 }
 
 interface AssignmentProblem {
-  id: string
+  id: number
   title: string
   score: number
 }
@@ -33,6 +33,7 @@ const error = ref('')
 const detail = ref<AssignmentDetail | null>(null)
 
 const columns: DataTableColumns<AssignmentProblem> = [
+  { title: 'ID', key: 'id', width: 96 },
   {
     title: 'Problem',
     key: 'title',

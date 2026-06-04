@@ -11,7 +11,6 @@ import {
   text,
   timestamp,
   uniqueIndex,
-  uuid,
   varchar
 } from 'drizzle-orm/pg-core'
 
@@ -33,7 +32,12 @@ export const judgeStatus = pgEnum('judge_status', [
 export const contestType = pgEnum('contest_type', ['OI', 'ICPC'])
 export const taskStatus = pgEnum('task_status', ['WAITING', 'RUNNING', 'DONE', 'FAILED', 'CANCELLED'])
 
-const id = () => uuid('id').defaultRandom().primaryKey()
+const id = () => integer('id').primaryKey().generatedByDefaultAsIdentity()
+const problemPrimaryId = () =>
+  integer('id').primaryKey().generatedByDefaultAsIdentity({
+    startWith: 1000,
+    name: 'problems_id_seq'
+  })
 const createdAt = () => timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
 const updatedAt = () => timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
 
@@ -78,10 +82,10 @@ export const groups = pgTable(
 export const userGroups = pgTable(
   'user_groups',
   {
-    userId: uuid('user_id')
+    userId: integer('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    groupId: uuid('group_id')
+    groupId: integer('group_id')
       .notNull()
       .references(() => groups.id, { onDelete: 'cascade' }),
     manager: boolean('manager').default(false).notNull(),
@@ -114,7 +118,7 @@ export const files = pgTable(
 export const problems = pgTable(
   'problems',
   {
-    id: id(),
+    id: problemPrimaryId(),
     legacyId: varchar('legacy_id', { length: 64 }),
     title: varchar('title', { length: 160 }).notNull(),
     slug: varchar('slug', { length: 160 }),
@@ -136,7 +140,7 @@ export const problemVersions = pgTable(
   'problem_versions',
   {
     id: id(),
-    problemId: uuid('problem_id')
+    problemId: integer('problem_id')
       .notNull()
       .references(() => problems.id),
     version: integer('version').notNull(),
@@ -144,9 +148,9 @@ export const problemVersions = pgTable(
     timeLimitMs: integer('time_limit_ms').default(1000).notNull(),
     memoryLimitBytes: bigint('memory_limit_bytes', { mode: 'number' }).default(268435456).notNull(),
     outputLimitBytes: integer('output_limit_bytes').default(67108864).notNull(),
-    testdataFileId: uuid('testdata_file_id').references(() => files.id),
-    checkerFileId: uuid('checker_file_id').references(() => files.id),
-    interactorFileId: uuid('interactor_file_id').references(() => files.id),
+    testdataFileId: integer('testdata_file_id').references(() => files.id),
+    checkerFileId: integer('checker_file_id').references(() => files.id),
+    interactorFileId: integer('interactor_file_id').references(() => files.id),
     createdAt: createdAt()
   },
   (t) => ({
@@ -170,10 +174,10 @@ export const contests = pgTable('contests', {
 export const contestProblems = pgTable(
   'contest_problems',
   {
-    contestId: uuid('contest_id')
+    contestId: integer('contest_id')
       .notNull()
       .references(() => contests.id, { onDelete: 'cascade' }),
-    problemId: uuid('problem_id')
+    problemId: integer('problem_id')
       .notNull()
       .references(() => problems.id),
     key: varchar('key', { length: 32 }).notNull(),
@@ -201,10 +205,10 @@ export const assignments = pgTable('assignments', {
 export const assignmentGroups = pgTable(
   'assignment_groups',
   {
-    assignmentId: uuid('assignment_id')
+    assignmentId: integer('assignment_id')
       .notNull()
       .references(() => assignments.id, { onDelete: 'cascade' }),
-    groupId: uuid('group_id')
+    groupId: integer('group_id')
       .notNull()
       .references(() => groups.id, { onDelete: 'cascade' })
   },
@@ -216,10 +220,10 @@ export const assignmentGroups = pgTable(
 export const assignmentProblems = pgTable(
   'assignment_problems',
   {
-    assignmentId: uuid('assignment_id')
+    assignmentId: integer('assignment_id')
       .notNull()
       .references(() => assignments.id, { onDelete: 'cascade' }),
-    problemId: uuid('problem_id')
+    problemId: integer('problem_id')
       .notNull()
       .references(() => problems.id),
     score: integer('score').default(100).notNull(),
@@ -235,11 +239,11 @@ export const submissions = pgTable(
   {
     id: id(),
     legacyId: varchar('legacy_id', { length: 64 }),
-    userId: uuid('user_id').notNull(),
-    problemId: uuid('problem_id').notNull(),
-    problemVersionId: uuid('problem_version_id').notNull(),
-    contestId: uuid('contest_id'),
-    assignmentId: uuid('assignment_id'),
+    userId: integer('user_id').notNull(),
+    problemId: integer('problem_id').notNull(),
+    problemVersionId: integer('problem_version_id').notNull(),
+    contestId: integer('contest_id'),
+    assignmentId: integer('assignment_id'),
     languageId: varchar('language_id', { length: 64 }).notNull(),
     sourceCode: text('source_code').notNull(),
     open: boolean('open').default(false).notNull(),
@@ -262,7 +266,7 @@ export const submissions = pgTable(
 export const submissionCases = pgTable(
   'submission_cases',
   {
-    submissionId: uuid('submission_id').notNull(),
+    submissionId: integer('submission_id').notNull(),
     caseIndex: integer('case_index').notNull(),
     status: judgeStatus('status').notNull(),
     timeMs: integer('time_ms').default(0).notNull(),
@@ -278,7 +282,7 @@ export const judgeTasks = pgTable(
   'judge_tasks',
   {
     id: id(),
-    submissionId: uuid('submission_id').notNull(),
+    submissionId: integer('submission_id').notNull(),
     status: taskStatus('status').default('WAITING').notNull(),
     priority: integer('priority').default(0).notNull(),
     attempts: integer('attempts').default(0).notNull(),
@@ -299,11 +303,11 @@ export const bbsTopics = pgTable(
   'bbs_topics',
   {
     id: id(),
-    userId: uuid('user_id').notNull(),
+    userId: integer('user_id').notNull(),
     title: varchar('title', { length: 160 }).notNull(),
     tags: text('tags').array().default(sql`ARRAY[]::text[]`).notNull(),
-    linkedProblemId: uuid('linked_problem_id'),
-    linkedContestId: uuid('linked_contest_id'),
+    linkedProblemId: integer('linked_problem_id'),
+    linkedContestId: integer('linked_contest_id'),
     createdAt: createdAt(),
     updatedAt: updatedAt()
   },
@@ -316,10 +320,10 @@ export const bbsReplies = pgTable(
   'bbs_replies',
   {
     id: id(),
-    topicId: uuid('topic_id')
+    topicId: integer('topic_id')
       .notNull()
       .references(() => bbsTopics.id, { onDelete: 'cascade' }),
-    userId: uuid('user_id').notNull(),
+    userId: integer('user_id').notNull(),
     contentMarkdown: text('content_markdown').notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt()
@@ -333,8 +337,8 @@ export const aiCoachingSessions = pgTable(
   'ai_coaching_sessions',
   {
     id: id(),
-    userId: uuid('user_id').notNull(),
-    submissionId: uuid('submission_id').notNull(),
+    userId: integer('user_id').notNull(),
+    submissionId: integer('submission_id').notNull(),
     model: varchar('model', { length: 128 }).notNull(),
     promptVersion: varchar('prompt_version', { length: 64 }).notNull(),
     responseMarkdown: text('response_markdown').notNull(),

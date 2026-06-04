@@ -5,7 +5,7 @@ import { db, schema } from '@doj/db/client'
 import { config } from './config'
 
 export interface AuthUser {
-  id: string
+  id: number
   name: string
   email: string
   groups: string[]
@@ -23,17 +23,17 @@ export async function verifyPassword(password: string, hash: string) {
   return Bun.password.verify(password, hash)
 }
 
-export async function createToken(userId: string) {
+export async function createToken(userId: number) {
   return sign(
     {
-      sub: userId,
+      sub: String(userId),
       exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30
     },
     config.jwtSecret
   )
 }
 
-export async function getAuthUser(userId: string): Promise<AuthUser | null> {
+export async function getAuthUser(userId: number): Promise<AuthUser | null> {
   const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1)
   if (!user || user.disabledAt) return null
 
@@ -89,8 +89,8 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
 
   try {
     const payload = await verify(token, config.jwtSecret, 'HS256')
-    const userId = typeof payload.sub === 'string' ? payload.sub : ''
-    const user = userId ? await getAuthUser(userId) : null
+    const userId = typeof payload.sub === 'string' ? Number(payload.sub) : NaN
+    const user = Number.isInteger(userId) ? await getAuthUser(userId) : null
     if (!user) return c.json({ code: 'UNAUTHORIZED', message: 'Invalid bearer token' }, 401)
     c.set('authUser', user)
     await next()

@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { apiFetch } from '../api'
 
 export interface AuthUser {
-  id: string
+  id: number
   name: string
   email: string
   groups: string[]

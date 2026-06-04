@@ -32,7 +32,7 @@ const group = (await api('/api/groups', {
     name: 'Assignment Smoke Group',
     description: 'Created by assignment smoke.'
   })
-})) as { id: string }
+})) as { id: number }
 
 const { problem } = (await api('/api/problems', {
   method: 'POST',
@@ -44,7 +44,7 @@ const { problem } = (await api('/api/problems', {
     slug: `assignment-smoke-${runId}`,
     statementMarkdown: '# Assignment Smoke\n\nSolve the assigned task.'
   })
-})) as { problem: { id: string } }
+})) as { problem: { id: number } }
 
 const created = (await api('/api/assignments', {
   method: 'POST',
@@ -58,9 +58,9 @@ const created = (await api('/api/assignments', {
     aiCoachingEnabled: true
   })
 })) as {
-  assignment: { id: string; title: string }
-  groups: Array<{ id: string }>
-  problems: Array<{ id: string }>
+  assignment: { id: number; title: string }
+  groups: Array<{ id: number }>
+  problems: Array<{ id: number }>
 }
 
 if (created.groups.length !== 1 || created.problems.length !== 1) {
@@ -77,7 +77,7 @@ if (detail.assignment.id !== created.assignment.id) {
 
 const list = (await api('/api/assignments', {
   headers
-})) as { list: Array<{ id: string }> }
+})) as { list: Array<{ id: number }> }
 
 if (!list.list.some((assignment) => assignment.id === created.assignment.id)) {
   throw new Error(`created assignment missing from list: ${created.assignment.id}`)
