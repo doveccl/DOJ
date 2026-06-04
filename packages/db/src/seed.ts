@@ -38,6 +38,32 @@ for (const language of defaultLanguageConfigs) {
     })
 }
 
+await db
+  .insert(schema.judgeRunners)
+  .values({
+    key: 'local-docker',
+    name: 'Local Docker',
+    enabled: true,
+    kind: 'docker',
+    endpoint: process.env.DOCKER_HOST ?? null,
+    authHeader: null,
+    concurrency: Number(process.env.DOJ_JUDGE_CONCURRENCY ?? 2),
+    sortOrder: 10
+  })
+  .onConflictDoUpdate({
+    target: schema.judgeRunners.key,
+    set: {
+      name: 'Local Docker',
+      enabled: true,
+      kind: 'docker',
+      endpoint: process.env.DOCKER_HOST ?? null,
+      authHeader: null,
+      concurrency: Number(process.env.DOJ_JUDGE_CONCURRENCY ?? 2),
+      sortOrder: 10,
+      updatedAt: new Date()
+    }
+  })
+
 const adminName = process.env.DOJ_ADMIN_NAME ?? 'admin'
 const adminEmail = process.env.DOJ_ADMIN_EMAIL ?? 'admin@example.test'
 const adminPassword = process.env.DOJ_ADMIN_PASSWORD ?? 'admin12345'

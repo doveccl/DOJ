@@ -97,6 +97,27 @@ export const judgeLanguages = pgTable(
   })
 )
 
+export const judgeRunners = pgTable(
+  'judge_runners',
+  {
+    id: id(),
+    key: varchar('key', { length: 64 }).notNull(),
+    name: varchar('name', { length: 128 }).notNull(),
+    enabled: boolean('enabled').default(true).notNull(),
+    kind: varchar('kind', { length: 32 }).default('docker').notNull(),
+    endpoint: text('endpoint'),
+    authHeader: text('auth_header'),
+    concurrency: integer('concurrency').default(2).notNull(),
+    sortOrder: integer('sort_order').default(0).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt()
+  },
+  (t) => ({
+    keyUidx: uniqueIndex('judge_runners_key_uidx').on(t.key),
+    enabledIdx: index('judge_runners_enabled_idx').on(t.enabled, t.sortOrder)
+  })
+)
+
 export const userGroups = pgTable(
   'user_groups',
   {

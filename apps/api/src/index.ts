@@ -297,6 +297,59 @@ app.patch('/api/admin/languages/:id', authMiddleware, async (c) => {
   return c.json(language)
 })
 
+app.get('/api/admin/runners', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
+  const list = await db
+    .select()
+    .from(schema.judgeRunners)
+    .orderBy(asc(schema.judgeRunners.sortOrder), asc(schema.judgeRunners.id))
+
+  return c.json({ total: list.length, list })
+})
+
+const runnerConfigSchema = z.object({
+  key: z.string().regex(/^[a-z][a-z0-9_-]{1,63}$/),
+  name: z.string().min(1).max(128),
+  enabled: z.boolean().default(true),
+  kind: z.enum(['docker']).default('docker'),
+  endpoint: z.string().max(1000).optional(),
+  authHeader: z.string().max(2000).optional(),
+  concurrency: z.number().int().positive().default(2),
+  sortOrder: z.number().int().min(0).default(100)
+})
+
+app.post('/api/admin/runners', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
+  const body = runnerConfigSchema.parse(await c.req.json())
+  const [runner] = await db
+    .insert(schema.judgeRunners)
+    .values({
+      ...body,
+      endpoint: body.endpoint || null,
+      authHeader: body.authHeader || null
+    })
+    .onConflictDoUpdate({
+      target: schema.judgeRunners.key,
+      set: {
+        name: body.name,
+        enabled: body.enabled,
+        kind: body.kind,
+        endpoint: body.endpoint || null,
+        authHeader: body.authHeader || null,
+        concurrency: body.concurrency,
+        sortOrder: body.sortOrder,
+        updatedAt: new Date()
+      }
+    })
+    .returning()
+
+  return c.json(runner, 201)
+})
+
 const dateString = z.string().refine((value) => !Number.isNaN(Date.parse(value)), {
   message: 'Expected a valid date string'
 })

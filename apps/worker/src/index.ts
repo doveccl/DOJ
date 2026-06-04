@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { db, schema } from '@doj/db/client'
 import { claimJudgeTask, completeJudgeTask, failJudgeTask } from '@doj/db/queue'
 import { DockerRunner } from '@doj/runner/docker-runner'
@@ -6,7 +6,6 @@ import { getLanguage } from './languages'
 
 const workerId = `worker-${crypto.randomUUID()}`
 const concurrency = Number(process.env.DOJ_JUDGE_CONCURRENCY ?? 2)
-const runner = new DockerRunner()
 
 async function handleOne() {
   const task = await claimJudgeTask({ workerId, leaseSeconds: 120 })
@@ -32,6 +31,7 @@ async function handleOne() {
     if (!version) throw new Error(`problem version not found: ${submission.problemVersionId}`)
 
     const language = await getLanguage(submission.languageId)
+    const runner = await getRunner()
     const scopeId = `submission-${submission.id}`
 
     await db
@@ -102,6 +102,23 @@ async function handleOne() {
   }
 
   return true
+}
+
+async function getRunner() {
+  const [runner] = await db
+    .select()
+    .from(schema.judgeRunners)
+    .where(eq(schema.judgeRunners.enabled, true))
+    .orderBy(asc(schema.judgeRunners.sortOrder), asc(schema.judgeRunners.id))
+    .limit(1)
+
+  if (!runner) throw new Error('no enabled judge runner')
+  if (runner.kind !== 'docker') throw new Error(`unsupported judge runner kind: ${runner.kind}`)
+
+  return new DockerRunner({
+    endpoint: runner.endpoint,
+    authHeader: runner.authHeader
+  })
 }
 
 async function loop(slot: number) {

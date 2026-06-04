@@ -43,7 +43,8 @@ const menuOptions = computed(() => {
       children: [
         { label: t('groups'), key: '/admin/groups' },
         { label: t('assignments'), key: '/admin/assignments' },
-        { label: t('languages'), key: '/admin/languages' }
+        { label: t('languages'), key: '/admin/languages' },
+        { label: t('runners'), key: '/admin/runners' }
       ]
     })
   }

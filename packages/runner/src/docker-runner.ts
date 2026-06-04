@@ -8,8 +8,17 @@ import type { BuildInput, BuildResult, CleanupScope, RunInput, Runner, RunResult
 
 const defaultOutputLimitBytes = 64 * 1024 * 1024
 
+export interface DockerRunnerOptions {
+  endpoint?: string | null
+  authHeader?: string | null
+}
+
 export class DockerRunner implements Runner {
-  private readonly docker = createDockerClient()
+  private readonly docker: Docker
+
+  constructor(options: DockerRunnerOptions = {}) {
+    this.docker = createDockerClient(options)
+  }
 
   async build(input: BuildInput): Promise<BuildResult> {
     const tag = `doj-scope-${input.scopeId.toLowerCase()}:latest`
@@ -155,18 +164,29 @@ export class DockerRunner implements Runner {
   }
 }
 
-function createDockerClient() {
-  const host = process.env.DOCKER_HOST
+function createDockerClient(options: DockerRunnerOptions = {}) {
+  const host = options.endpoint || process.env.DOCKER_HOST
+  const headers = options.authHeader ? { Authorization: options.authHeader } : undefined
   if (host?.startsWith('unix://')) {
-    return new Docker({ socketPath: host.slice('unix://'.length) })
+    return new Docker({ socketPath: host.slice('unix://'.length), headers })
+  }
+
+  if (host?.startsWith('http://') || host?.startsWith('https://')) {
+    const url = new URL(host)
+    return new Docker({
+      protocol: url.protocol === 'https:' ? 'https' : 'http',
+      host: url.hostname,
+      port: url.port || (url.protocol === 'https:' ? 443 : 80),
+      headers
+    })
   }
 
   const colimaSocket = join(homedir(), '.colima/default/docker.sock')
   if (!host && existsSync(colimaSocket)) {
-    return new Docker({ socketPath: colimaSocket })
+    return new Docker({ socketPath: colimaSocket, headers })
   }
 
-  return new Docker()
+  return new Docker(headers ? { headers } : undefined)
 }
 
 function createBuildContext(input: BuildInput) {
