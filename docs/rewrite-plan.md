@@ -115,12 +115,12 @@ Do not port old low-usage `posts` directly. If discussion is needed, build a sim
 - Contest basics.
 - Lightweight BBS.
 - Rank list and first-AC solve tracking.
-- Non-AC AI coaching stub behind a feature flag.
+- Non-AC AI coaching with local-stub and optional OpenAI Responses API provider.
 - v3 JSON migration tool.
 
 ## Next Risks
 
 - S3-backed large testdata zip import is still needed for serious problem packages.
 - Runner memory metrics still use Docker stats polling; cgroup `memory.peak` calibration remains a follow-up.
-- AI coaching is still a local stub and needs a provider abstraction plus prompt redaction tests.
+- AI coaching still needs prompt redaction tests and provider-specific operational controls.
 - Contest scoreboard/freezing and assignment reports are not implemented yet.

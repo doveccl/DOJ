@@ -105,7 +105,7 @@ The current implementation includes:
 - Inline problem test cases, per-case submission results, and AC/WA/PE/TLE/MLE/OLE/RE/CE/SE aggregation.
 - Assignments for groups.
 - Contest basics with timed submissions and AI coaching disabled in contests.
-- Non-AC AI coaching stub.
+- Non-AC AI coaching with a provider abstraction: `local-stub` by default, optional OpenAI Responses API via `AI_PROVIDER=openai`.
 - Lightweight BBS topics/replies with optional problem/contest links.
 - Rank list backed by first-AC solve tracking.
 - Bun-native S3 object reads/writes with AWS-compatible bucket provisioning for MinIO/S3.

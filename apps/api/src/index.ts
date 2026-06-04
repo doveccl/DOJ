@@ -16,6 +16,7 @@ import {
   requireGroup,
   verifyPassword
 } from './auth'
+import { createCoachingResponse } from './ai'
 
 const app = new Hono()
 const numericId = z.coerce.number().int().positive()
@@ -908,17 +909,25 @@ app.post('/api/submissions/:id/coach', async (c) => {
     )
   }
 
+  const coaching = await createCoachingResponse({
+    status: submission.status,
+    message: submission.message,
+    languageId: submission.languageId,
+    sourceCode: submission.sourceCode
+  })
+
   const [session] = await db
     .insert(schema.aiCoachingSessions)
     .values({
       userId: submission.userId,
       submissionId: submission.id,
-      model: 'local-stub',
+      model: coaching.model,
       promptVersion: 'non-ac-v1',
-      responseMarkdown: createCoachingResponse(submission.status, submission.message),
+      responseMarkdown: coaching.responseMarkdown,
       metadata: {
         status: submission.status,
-        languageId: submission.languageId
+        languageId: submission.languageId,
+        provider: config.aiProvider
       }
     })
     .returning()
@@ -932,41 +941,6 @@ Bun.serve({
 })
 
 console.log(`DOJ API listening on http://localhost:${config.port}`)
-
-function createCoachingResponse(status: string, message: string) {
-  switch (status) {
-    case 'CE':
-      return [
-        '### Compile Error',
-        '',
-        'Your code did not compile. Start by reading the first compiler error, then check syntax, missing imports, and language version assumptions.',
-        '',
-        message ? `Compiler output:\n\n\`\`\`text\n${message.trim()}\n\`\`\`` : ''
-      ].join('\n')
-    case 'RE':
-      return [
-        '### Runtime Error',
-        '',
-        'Your program crashed or exited with a non-zero status. Check array bounds, division by zero, failed parsing, and assumptions about empty input.',
-        '',
-        message ? `Runtime output:\n\n\`\`\`text\n${message.trim()}\n\`\`\`` : ''
-      ].join('\n')
-    case 'TLE':
-      return '### Time Limit Exceeded\n\nYour solution ran too long. Revisit the algorithmic complexity and look for loops that may not terminate.'
-    case 'MLE':
-      return '### Memory Limit Exceeded\n\nYour solution used too much memory. Check large arrays, recursion depth, and accidental unbounded containers.'
-    case 'OLE':
-      return '### Output Limit Exceeded\n\nYour program printed too much output. Check debug prints and loops that keep writing after the answer is complete.'
-    default:
-      return [
-        `### ${status}`,
-        '',
-        'The submission did not pass. Compare your program against the statement, sample cases, and edge conditions before looking for implementation details.',
-        '',
-        message ? `Judge message:\n\n\`\`\`text\n${message.trim()}\n\`\`\`` : ''
-      ].join('\n')
-  }
-}
 
 async function getAssignmentDetail(id: number) {
   const [assignment] = await db
