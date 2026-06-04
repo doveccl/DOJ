@@ -139,9 +139,84 @@ app.get('/api/submissions/:id', async (c) => {
   return c.json(submission)
 })
 
+app.post('/api/submissions/:id/coach', async (c) => {
+  const id = c.req.param('id')
+  const [submission] = await db
+    .select()
+    .from(schema.submissions)
+    .where(eq(schema.submissions.id, id))
+    .limit(1)
+
+  if (!submission) return c.notFound()
+  if (submission.contestId) {
+    return c.json({ code: 'AI_DISABLED_IN_CONTEST', message: 'AI coaching is disabled in contests' }, 403)
+  }
+  if (['AC', 'WAITING', 'JUDGING', 'FROZEN'].includes(submission.status)) {
+    return c.json(
+      {
+        code: 'AI_COACHING_UNAVAILABLE',
+        message: `AI coaching is unavailable for ${submission.status} submissions`
+      },
+      400
+    )
+  }
+
+  const [session] = await db
+    .insert(schema.aiCoachingSessions)
+    .values({
+      userId: submission.userId,
+      submissionId: submission.id,
+      model: 'local-stub',
+      promptVersion: 'non-ac-v1',
+      responseMarkdown: createCoachingResponse(submission.status, submission.message),
+      metadata: {
+        status: submission.status,
+        languageId: submission.languageId
+      }
+    })
+    .returning()
+
+  return c.json(session, 201)
+})
+
 Bun.serve({
   port: config.port,
   fetch: app.fetch
 })
 
 console.log(`DOJ API listening on http://localhost:${config.port}`)
+
+function createCoachingResponse(status: string, message: string) {
+  switch (status) {
+    case 'CE':
+      return [
+        '### Compile Error',
+        '',
+        'Your code did not compile. Start by reading the first compiler error, then check syntax, missing imports, and language version assumptions.',
+        '',
+        message ? `Compiler output:\n\n\`\`\`text\n${message.trim()}\n\`\`\`` : ''
+      ].join('\n')
+    case 'RE':
+      return [
+        '### Runtime Error',
+        '',
+        'Your program crashed or exited with a non-zero status. Check array bounds, division by zero, failed parsing, and assumptions about empty input.',
+        '',
+        message ? `Runtime output:\n\n\`\`\`text\n${message.trim()}\n\`\`\`` : ''
+      ].join('\n')
+    case 'TLE':
+      return '### Time Limit Exceeded\n\nYour solution ran too long. Revisit the algorithmic complexity and look for loops that may not terminate.'
+    case 'MLE':
+      return '### Memory Limit Exceeded\n\nYour solution used too much memory. Check large arrays, recursion depth, and accidental unbounded containers.'
+    case 'OLE':
+      return '### Output Limit Exceeded\n\nYour program printed too much output. Check debug prints and loops that keep writing after the answer is complete.'
+    default:
+      return [
+        `### ${status}`,
+        '',
+        'The submission did not pass. Compare your program against the statement, sample cases, and edge conditions before looking for implementation details.',
+        '',
+        message ? `Judge message:\n\n\`\`\`text\n${message.trim()}\n\`\`\`` : ''
+      ].join('\n')
+  }
+}
