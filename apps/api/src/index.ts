@@ -4,6 +4,7 @@ import { desc, eq } from 'drizzle-orm'
 import { z, ZodError } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { enqueueJudgeTask } from '@doj/db/queue'
+import { languageDescriptors } from '@doj/shared/languages'
 import { config } from './config'
 import {
   authMiddleware,
@@ -53,6 +54,15 @@ app.get('/api/config', (c) =>
   c.json({
     registration: true,
     aiCoachingEnabled: config.aiCoachingEnabled
+  })
+)
+
+app.get('/api/languages', (c) =>
+  c.json({
+    list: languageDescriptors.map((language) => ({
+      id: language.id,
+      name: language.name
+    }))
   })
 )
 

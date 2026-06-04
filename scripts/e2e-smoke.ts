@@ -56,8 +56,8 @@ try {
     body: JSON.stringify({
       problemId: problem.id,
       problemVersionId: version.id,
-      languageId: 'sh',
-      sourceCode: '#!/bin/sh\necho accepted\nsleep 0.3\n'
+      languageId: 'py',
+      sourceCode: 'import time\nprint("accepted")\ntime.sleep(0.3)\n'
     })
   })
 

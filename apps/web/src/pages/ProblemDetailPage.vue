@@ -19,6 +19,11 @@ interface ProblemVersion {
   outputLimitBytes: number
 }
 
+interface LanguageOption {
+  label: string
+  value: string
+}
+
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
@@ -29,6 +34,7 @@ const problem = ref<Problem | null>(null)
 const version = ref<ProblemVersion | null>(null)
 const languageId = ref('sh')
 const sourceCode = ref('#!/bin/sh\necho accepted\n')
+const languageOptions = ref<LanguageOption[]>([])
 
 const memoryMb = computed(() =>
   version.value ? Math.round(version.value.memoryLimitBytes / 1024 / 1024) : 0
@@ -39,8 +45,13 @@ onMounted(async () => {
     const data = await apiFetch<{ problem: Problem; version: ProblemVersion }>(
       `/api/problems/${route.params.id}`
     )
+    const languages = await apiFetch<{ list: Array<{ id: string; name: string }> }>('/api/languages')
     problem.value = data.problem
     version.value = data.version
+    languageOptions.value = languages.list.map((language) => ({
+      label: language.name,
+      value: language.id
+    }))
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : String(caught)
   } finally {
@@ -70,6 +81,11 @@ async function submit() {
     submitting.value = false
   }
 }
+
+function updateTemplate(value: string) {
+  if (value === 'py') sourceCode.value = 'print("accepted")\n'
+  if (value === 'sh') sourceCode.value = '#!/bin/sh\necho accepted\n'
+}
 </script>
 
 <template>
@@ -89,8 +105,9 @@ async function submit() {
           <n-space vertical>
             <n-select
               v-model:value="languageId"
-              :options="[{ label: 'Shell', value: 'sh' }]"
+              :options="languageOptions"
               :disabled="!auth.signedIn"
+              @update:value="updateTemplate"
             />
             <n-input
               v-model:value="sourceCode"
