@@ -19,6 +19,7 @@
     "auth:smoke": "bun run scripts/auth-smoke.ts",
     "admin:smoke": "bun run scripts/admin-smoke.ts",
     "assignment:smoke": "bun run scripts/assignment-smoke.ts",
+    "my-assignments:smoke": "bun run scripts/my-assignments-smoke.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "bun run packages/db/src/seed.ts",

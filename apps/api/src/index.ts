@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { logger } from 'hono/logger'
-import { desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import { z, ZodError } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { enqueueJudgeTask } from '@doj/db/queue'
@@ -246,6 +246,34 @@ app.get('/api/assignments/:id', authMiddleware, async (c) => {
   const assignment = await getAssignmentDetail(c.req.param('id'))
   if (!assignment) return c.notFound()
   return c.json(assignment)
+})
+
+app.get('/api/my/assignments', authMiddleware, async (c) => {
+  const user = await requireAuthUser(c)
+  const list = await db
+    .selectDistinct({
+      id: schema.assignments.id,
+      title: schema.assignments.title,
+      description: schema.assignments.description,
+      startAt: schema.assignments.startAt,
+      dueAt: schema.assignments.dueAt,
+      allowLate: schema.assignments.allowLate,
+      aiCoachingEnabled: schema.assignments.aiCoachingEnabled,
+      createdAt: schema.assignments.createdAt
+    })
+    .from(schema.assignments)
+    .innerJoin(schema.assignmentGroups, eq(schema.assignmentGroups.assignmentId, schema.assignments.id))
+    .innerJoin(
+      schema.userGroups,
+      and(
+        eq(schema.userGroups.groupId, schema.assignmentGroups.groupId),
+        eq(schema.userGroups.userId, user.id)
+      )
+    )
+    .orderBy(desc(schema.assignments.createdAt))
+    .limit(50)
+
+  return c.json({ total: list.length, list })
 })
 
 app.get('/api/problems', async (c) => {

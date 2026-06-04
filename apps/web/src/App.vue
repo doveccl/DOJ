@@ -33,6 +33,7 @@ const menuOptions = computed(() => {
   const options: MenuOption[] = [
     { label: t('home'), key: '/' },
     { label: t('problems'), key: '/problems' },
+    { label: t('assignments'), key: '/assignments' },
     { label: t('submissions'), key: '/submissions' }
   ]
   if (auth.user?.groups.includes('admin')) {
