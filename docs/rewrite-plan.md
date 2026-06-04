@@ -1,0 +1,112 @@
+# Rewrite Plan
+
+## Baseline
+
+The new `main` branch starts from a blank implementation. v3 is the product and migration baseline. v4 is only a useful reference for Docker-based judging.
+
+## Queue
+
+Do not introduce a separate MQ for the first milestone. Use PostgreSQL as the queue backend because Postgres is already required and deploys cleanly with Docker Compose.
+
+The queue model is:
+
+- `submissions` stores product truth;
+- `judge_tasks` stores operational state;
+- workers claim tasks with a lease;
+- expired leases are recoverable;
+- startup recovery remains a safety net.
+
+If the queue later becomes an independent bottleneck, move to BullMQ + Valkey. Until then, keep the deployment small.
+
+## Groups
+
+Use a Linux-like model:
+
+- `users`
+- `groups`
+- `user_groups`
+
+Preseed `admin`, `user`, and optionally `guest`. Assignments and contests can target groups directly. Avoid separate class/course/member-group concepts until the product proves it needs them.
+
+## Foreign Keys
+
+Use physical foreign keys for stable metadata and mapping tables:
+
+- `user_groups`
+- `contest_problems`
+- `assignment_groups`
+- `assignment_problems`
+
+Use logical references plus indexes for historical high-write records:
+
+- `submissions`
+- `submission_cases`
+- `judge_tasks`
+- AI logs
+- audit logs
+
+This preserves historical records and makes migration easier while still letting the database protect core metadata.
+
+## Judge Runner
+
+Keep three boundaries:
+
+- API server: business APIs and queueing.
+- Judge worker: task lifecycle and result writes.
+- Runner: container build/run/cleanup, IO piping, limits, metrics.
+
+Docker is the first backend. Podman should only be added after Docker behavior is stable.
+
+## Memory Metrics
+
+MVP:
+
+- Docker memory limit;
+- OOMKilled or exit code 137 means MLE;
+- poll Docker stats every 100ms;
+- record highest observed memory value.
+
+This is simple and acceptable for the first implementation. It can miss short spikes, but memory-limit enforcement still catches fatal spikes.
+
+Enhancement:
+
+- add calibration tests for short memory spikes;
+- optionally read cgroup v2 `memory.peak` when available;
+- document deployment modes because DOJ itself may run inside Docker and may not see the host cgroup hierarchy.
+
+## AI
+
+First feature: non-AC coaching outside contests.
+
+Rules:
+
+- disabled during contests by default;
+- configurable per assignment or group;
+- no hidden tests or official answers in student-facing prompts;
+- every request logs user, problem, submission, prompt version, model, and response.
+
+Later ideas:
+
+- common wrong-answer clusters for teachers;
+- code style and complexity feedback;
+- statement translation and polishing;
+- checker/interactor review checklist;
+- edge-case suggestions;
+- plagiarism clustering summaries;
+- assignment reports.
+
+## BBS
+
+Do not port old low-usage `posts` directly. If discussion is needed, build a simple BBS with topics, replies, tags, and optional problem/contest links.
+
+## First Milestone
+
+- Bun workspace.
+- PostgreSQL schema and migrations.
+- Auth and group management.
+- Problem CRUD with S3-backed data.
+- Submission creation.
+- PostgreSQL-backed judge task queue.
+- Docker runner MVP.
+- Live judge status updates.
+- Non-AC AI coaching stub behind a feature flag.

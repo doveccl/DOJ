@@ -1,0 +1,15 @@
+{
+  "name": "@doj/worker",
+  "version": "5.0.0-alpha.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot src/index.ts",
+    "check": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@doj/db": "workspace:*",
+    "@doj/runner": "workspace:*",
+    "@doj/shared": "workspace:*"
+  }
+}
