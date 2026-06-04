@@ -73,12 +73,16 @@ bun run auth:smoke
 bun run admin:smoke
 bun run languages:smoke
 bun run runners:smoke
-bun run runner:smoke
-bun run e2e:smoke
-bun run ai:smoke
+bun run group-membership:smoke
 bun run assignment:smoke
 bun run my-assignments:smoke
-bun run group-membership:smoke
+bun run contest:smoke
+bun run bbs:smoke
+bun run rank:smoke
+bun run runner:smoke
+bun run e2e:smoke
+bun run testcases:smoke
+bun run ai:smoke
 ```
 
 Default URLs:
@@ -89,4 +93,20 @@ Default URLs:
 
 ## Current State
 
-The current implementation has a working API skeleton, PostgreSQL schema and queue, MinIO bucket bootstrap, Docker runner smoke path, and a worker path that can execute a simple `sh` submission through Docker and write the result back to PostgreSQL.
+The current implementation includes:
+
+- Auth with Argon2id password hashes and JWT sessions.
+- Linux-like users/groups/admin membership.
+- Numeric PostgreSQL IDs, with problems starting at 1000.
+- Admin-configurable judge languages.
+- Admin-configurable Docker runners, including local sockets and HTTP(S) Docker API endpoints with an optional auth header.
+- PostgreSQL-backed judge task queue with leases.
+- Docker runner build/run/cleanup with time, memory, and output limits.
+- Inline problem test cases, per-case submission results, and AC/WA/PE/TLE/MLE/OLE/RE/CE/SE aggregation.
+- Assignments for groups.
+- Contest basics with timed submissions and AI coaching disabled in contests.
+- Non-AC AI coaching stub.
+- Lightweight BBS topics/replies with optional problem/contest links.
+- Rank list backed by first-AC solve tracking.
+- Bun-native S3 object reads/writes with AWS-compatible bucket provisioning for MinIO/S3.
+- v3 JSON migration tool in `scripts/migrate-v3-json.ts`.

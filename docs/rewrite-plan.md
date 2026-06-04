@@ -99,14 +99,28 @@ Later ideas:
 
 Do not port old low-usage `posts` directly. If discussion is needed, build a simple BBS with topics, replies, tags, and optional problem/contest links.
 
-## First Milestone
+## Implemented Milestone
 
 - Bun workspace.
 - PostgreSQL schema and migrations.
 - Auth and group management.
-- Problem CRUD with S3-backed data.
+- Admin problem creation.
+- Configurable judge languages.
+- Configurable Docker runners with local socket or HTTP(S) endpoint plus optional auth header.
 - Submission creation.
 - PostgreSQL-backed judge task queue.
 - Docker runner MVP.
-- Live judge status updates.
+- Inline test cases and per-case submission results.
+- Assignments.
+- Contest basics.
+- Lightweight BBS.
+- Rank list and first-AC solve tracking.
 - Non-AC AI coaching stub behind a feature flag.
+- v3 JSON migration tool.
+
+## Next Risks
+
+- S3-backed large testdata zip import is still needed for serious problem packages.
+- Runner memory metrics still use Docker stats polling; cgroup `memory.peak` calibration remains a follow-up.
+- AI coaching is still a local stub and needs a provider abstraction plus prompt redaction tests.
+- Contest scoreboard/freezing and assignment reports are not implemented yet.
