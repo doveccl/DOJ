@@ -3,15 +3,17 @@ import {
   NAlert,
   NButton,
   NCard,
+  NCheckbox,
   NDataTable,
   NForm,
   NFormItem,
   NInput,
+  NSelect,
   NSpace,
   NTag
 } from 'naive-ui'
-import type { DataTableColumns } from 'naive-ui'
-import { h, onMounted, reactive, ref, watch } from 'vue'
+import type { DataTableColumns, SelectOption } from 'naive-ui'
+import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import { apiFetch } from '../api'
 import { useAuthStore } from '../stores/auth'
 
@@ -23,15 +25,34 @@ interface GroupRow {
   builtin: boolean
 }
 
+interface UserRow {
+  id: string
+  name: string
+  email: string
+}
+
+interface MemberRow extends UserRow {
+  manager: boolean
+}
+
 const auth = useAuthStore()
 const loading = ref(true)
+const memberLoading = ref(false)
 const saving = ref(false)
+const addingMember = ref(false)
 const error = ref('')
 const groups = ref<GroupRow[]>([])
+const users = ref<UserRow[]>([])
+const members = ref<MemberRow[]>([])
+const selectedGroupId = ref('')
 const form = reactive({
   key: '',
   name: '',
   description: ''
+})
+const memberForm = reactive({
+  userId: '',
+  manager: false
 })
 
 const columns: DataTableColumns<GroupRow> = [
@@ -55,12 +76,48 @@ const columns: DataTableColumns<GroupRow> = [
   }
 ]
 
-async function loadGroups() {
+const memberColumns: DataTableColumns<MemberRow> = [
+  { title: 'Name', key: 'name' },
+  { title: 'Email', key: 'email' },
+  {
+    title: 'Role',
+    key: 'manager',
+    render(row) {
+      return h(NTag, { bordered: false, type: row.manager ? 'success' : 'default' }, () =>
+        row.manager ? 'manager' : 'member'
+      )
+    }
+  }
+]
+
+const groupOptions = computed<SelectOption[]>(() =>
+  groups.value.map((group) => ({
+    label: `${group.name} (${group.key})`,
+    value: group.id
+  }))
+)
+
+const userOptions = computed<SelectOption[]>(() =>
+  users.value.map((user) => ({
+    label: `${user.name} (${user.email})`,
+    value: user.id
+  }))
+)
+
+async function loadData() {
   loading.value = true
   error.value = ''
   try {
-    const data = await apiFetch<{ list: GroupRow[] }>('/api/groups')
-    groups.value = data.list
+    const [groupData, userData] = await Promise.all([
+      apiFetch<{ list: GroupRow[] }>('/api/groups'),
+      apiFetch<{ list: UserRow[] }>('/api/users')
+    ])
+    groups.value = groupData.list
+    users.value = userData.list
+    if (!selectedGroupId.value && groupData.list.length) {
+      selectedGroupId.value = groupData.list[0].id
+    }
+    if (selectedGroupId.value) await loadMembers()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
@@ -72,14 +129,15 @@ async function createGroup() {
   saving.value = true
   error.value = ''
   try {
-    await apiFetch<GroupRow>('/api/groups', {
+    const group = await apiFetch<GroupRow>('/api/groups', {
       method: 'POST',
       body: JSON.stringify(form)
     })
     form.key = ''
     form.name = ''
     form.description = ''
-    await loadGroups()
+    selectedGroupId.value = group.id
+    await loadData()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
@@ -87,16 +145,55 @@ async function createGroup() {
   }
 }
 
+async function loadMembers() {
+  if (!selectedGroupId.value) return
+
+  memberLoading.value = true
+  error.value = ''
+  try {
+    const data = await apiFetch<{ list: MemberRow[] }>(`/api/groups/${selectedGroupId.value}/users`)
+    members.value = data.list
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    memberLoading.value = false
+  }
+}
+
+async function addMember() {
+  if (!selectedGroupId.value || !memberForm.userId) return
+
+  addingMember.value = true
+  error.value = ''
+  try {
+    await apiFetch(`/api/groups/${selectedGroupId.value}/users`, {
+      method: 'POST',
+      body: JSON.stringify(memberForm)
+    })
+    memberForm.userId = ''
+    memberForm.manager = false
+    await loadMembers()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    addingMember.value = false
+  }
+}
+
 watch(
   () => auth.signedIn,
   (signedIn) => {
-    if (signedIn) loadGroups()
+    if (signedIn) loadData()
   }
 )
 
+watch(selectedGroupId, () => {
+  if (auth.signedIn) loadMembers()
+})
+
 onMounted(() => {
   if (auth.signedIn) {
-    loadGroups()
+    loadData()
   } else {
     loading.value = false
   }
@@ -119,37 +216,70 @@ onMounted(() => {
     </n-alert>
 
     <section class="admin-layout">
-      <n-card title="Create group" :bordered="false">
-        <n-form :model="form" label-placement="top">
-          <n-form-item label="Key">
-            <n-input v-model:value="form.key" placeholder="team-alpha" />
-          </n-form-item>
-          <n-form-item label="Name">
-            <n-input v-model:value="form.name" placeholder="Team Alpha" />
-          </n-form-item>
-          <n-form-item label="Description">
-            <n-input
-              v-model:value="form.description"
-              type="textarea"
-              placeholder="Optional notes"
-              :autosize="{ minRows: 3, maxRows: 5 }"
-            />
-          </n-form-item>
-          <n-space justify="end">
-            <n-button type="primary" :loading="saving" :disabled="!form.key || !form.name" @click="createGroup">
-              Create
-            </n-button>
-          </n-space>
-        </n-form>
-      </n-card>
+      <div class="admin-stack">
+        <n-card title="Create group" :bordered="false">
+          <n-form :model="form" label-placement="top">
+            <n-form-item label="Key">
+              <n-input v-model:value="form.key" placeholder="team-alpha" />
+            </n-form-item>
+            <n-form-item label="Name">
+              <n-input v-model:value="form.name" placeholder="Team Alpha" />
+            </n-form-item>
+            <n-form-item label="Description">
+              <n-input
+                v-model:value="form.description"
+                type="textarea"
+                placeholder="Optional notes"
+                :autosize="{ minRows: 3, maxRows: 5 }"
+              />
+            </n-form-item>
+            <n-space justify="end">
+              <n-button type="primary" :loading="saving" :disabled="!form.key || !form.name" @click="createGroup">
+                Create
+              </n-button>
+            </n-space>
+          </n-form>
+        </n-card>
 
-      <n-data-table
-        :columns="columns"
-        :data="groups"
-        :bordered="false"
-        :loading="loading"
-        class="admin-table"
-      />
+        <n-card title="Add member" :bordered="false">
+          <n-form :model="memberForm" label-placement="top">
+            <n-form-item label="Group">
+              <n-select v-model:value="selectedGroupId" :options="groupOptions" filterable />
+            </n-form-item>
+            <n-form-item label="User">
+              <n-select v-model:value="memberForm.userId" :options="userOptions" filterable />
+            </n-form-item>
+            <n-checkbox v-model:checked="memberForm.manager">Group manager</n-checkbox>
+            <n-space justify="end" class="form-actions">
+              <n-button
+                type="primary"
+                :loading="addingMember"
+                :disabled="!selectedGroupId || !memberForm.userId"
+                @click="addMember"
+              >
+                Add
+              </n-button>
+            </n-space>
+          </n-form>
+        </n-card>
+      </div>
+
+      <div class="admin-stack">
+        <n-data-table
+          :columns="columns"
+          :data="groups"
+          :bordered="false"
+          :loading="loading"
+          class="admin-table"
+        />
+        <n-data-table
+          :columns="memberColumns"
+          :data="members"
+          :bordered="false"
+          :loading="memberLoading"
+          class="admin-table"
+        />
+      </div>
     </section>
   </main>
 </template>

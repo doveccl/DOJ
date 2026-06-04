@@ -87,6 +87,11 @@ body {
   min-width: 0;
 }
 
+.admin-stack {
+  display: grid;
+  gap: 16px;
+}
+
 .page-alert {
   margin-bottom: 16px;
 }
