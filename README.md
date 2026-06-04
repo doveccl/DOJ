@@ -63,6 +63,12 @@ Run checks:
 
 ```sh
 bun run check
+bun run smoke
+```
+
+Or run targeted smoke checks:
+
+```sh
 bun run auth:smoke
 bun run admin:smoke
 bun run runner:smoke

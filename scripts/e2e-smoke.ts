@@ -66,6 +66,42 @@ try {
   }
 
   const submission = (await response.json()) as { id: string }
+  const judged = await waitForJudgement(submission.id)
+
+  if (judged.status !== 'AC') {
+    throw new Error(`expected AC, got ${judged.status}: ${judged.message}`)
+  }
+
+  console.log({
+    submissionId: judged.id,
+    status: judged.status,
+    message: judged.message.trim(),
+    timeMs: judged.timeMs,
+    memoryBytes: judged.memoryBytes
+  })
+} finally {
+  await closeDb()
+}
+
+async function waitForJudgement(submissionId: string) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await runWorkerOnce()
+
+    const [judged] = await db
+      .select()
+      .from(schema.submissions)
+      .where(eq(schema.submissions.id, submissionId))
+      .limit(1)
+
+    if (!judged) throw new Error(`submission disappeared: ${submissionId}`)
+    if (!['WAITING', 'JUDGING'].includes(judged.status)) return judged
+    await Bun.sleep(200)
+  }
+
+  throw new Error(`submission did not finish judging: ${submissionId}`)
+}
+
+async function runWorkerOnce() {
   const worker = Bun.spawn(['bun', 'run', '--cwd', 'apps/worker', 'dev'], {
     env: {
       ...process.env,
@@ -85,25 +121,4 @@ try {
       ].join('\n')
     )
   }
-
-  const [judged] = await db
-    .select()
-    .from(schema.submissions)
-    .where(eq(schema.submissions.id, submission.id))
-    .limit(1)
-
-  if (!judged) throw new Error(`submission disappeared: ${submission.id}`)
-  if (judged.status !== 'AC') {
-    throw new Error(`expected AC, got ${judged.status}: ${judged.message}`)
-  }
-
-  console.log({
-    submissionId: judged.id,
-    status: judged.status,
-    message: judged.message.trim(),
-    timeMs: judged.timeMs,
-    memoryBytes: judged.memoryBytes
-  })
-} finally {
-  await closeDb()
 }

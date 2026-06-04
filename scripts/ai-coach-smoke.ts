@@ -1,4 +1,5 @@
-import { closeDb } from '../packages/db/src/client'
+import { eq } from 'drizzle-orm'
+import { closeDb, db, schema } from '../packages/db/src/client'
 
 const apiBase = process.env.DOJ_API_BASE ?? 'http://localhost:7974'
 const runId = crypto.randomUUID()
@@ -67,24 +68,9 @@ try {
   }
 
   const submission = (await submissionResponse.json()) as { id: string }
-  const worker = Bun.spawn(['bun', 'run', '--cwd', 'apps/worker', 'dev'], {
-    env: {
-      ...process.env,
-      DOJ_WORKER_ONCE: '1'
-    },
-    stdout: 'pipe',
-    stderr: 'pipe'
-  })
-
-  const exitCode = await worker.exited
-  if (exitCode !== 0) {
-    throw new Error(
-      [
-        `worker failed with exit ${exitCode}`,
-        await new Response(worker.stdout).text(),
-        await new Response(worker.stderr).text()
-      ].join('\n')
-    )
+  const judged = await waitForJudgement(submission.id)
+  if (judged.status !== 'RE') {
+    throw new Error(`expected RE, got ${judged.status}: ${judged.message}`)
   }
 
   const coachResponse = await fetch(`${apiBase}/api/submissions/${submission.id}/coach`, {
@@ -108,4 +94,44 @@ try {
   })
 } finally {
   await closeDb()
+}
+
+async function waitForJudgement(submissionId: string) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await runWorkerOnce()
+
+    const [judged] = await db
+      .select()
+      .from(schema.submissions)
+      .where(eq(schema.submissions.id, submissionId))
+      .limit(1)
+
+    if (!judged) throw new Error(`submission disappeared: ${submissionId}`)
+    if (!['WAITING', 'JUDGING'].includes(judged.status)) return judged
+    await Bun.sleep(200)
+  }
+
+  throw new Error(`submission did not finish judging: ${submissionId}`)
+}
+
+async function runWorkerOnce() {
+  const worker = Bun.spawn(['bun', 'run', '--cwd', 'apps/worker', 'dev'], {
+    env: {
+      ...process.env,
+      DOJ_WORKER_ONCE: '1'
+    },
+    stdout: 'pipe',
+    stderr: 'pipe'
+  })
+
+  const exitCode = await worker.exited
+  if (exitCode !== 0) {
+    throw new Error(
+      [
+        `worker failed with exit ${exitCode}`,
+        await new Response(worker.stdout).text(),
+        await new Response(worker.stderr).text()
+      ].join('\n')
+    )
+  }
 }
