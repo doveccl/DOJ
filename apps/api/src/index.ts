@@ -5,6 +5,16 @@ import { z, ZodError } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { enqueueJudgeTask } from '@doj/db/queue'
 import { config } from './config'
+import {
+  authMiddleware,
+  createToken,
+  findUserByNameOrEmail,
+  getAuthUser,
+  getGroupByKey,
+  hashPassword,
+  requireAuthUser,
+  verifyPassword
+} from './auth'
 
 const app = new Hono()
 
@@ -45,6 +55,62 @@ app.get('/api/config', (c) =>
     aiCoachingEnabled: config.aiCoachingEnabled
   })
 )
+
+const registerSchema = z.object({
+  name: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_]{2,31}$/),
+  email: z.email(),
+  password: z.string().min(8).max(128)
+})
+
+app.post('/api/auth/register', async (c) => {
+  const body = registerSchema.parse(await c.req.json())
+  const existing = await findUserByNameOrEmail(body.name)
+  if (existing || (await findUserByNameOrEmail(body.email))) {
+    return c.json({ code: 'USER_EXISTS', message: 'User name or email already exists' }, 409)
+  }
+
+  const group = await getGroupByKey('user')
+  if (!group) throw new Error('builtin group missing: user')
+
+  const result = await db.transaction(async (tx) => {
+    const [user] = await tx
+      .insert(schema.users)
+      .values({
+        name: body.name,
+        email: body.email,
+        passwordHash: await hashPassword(body.password)
+      })
+      .returning()
+
+    await tx.insert(schema.userGroups).values({ userId: user.id, groupId: group.id })
+    return user
+  })
+
+  const user = await getAuthUser(result.id)
+  if (!user) throw new Error('registered user missing')
+
+  return c.json({ token: await createToken(user.id), user }, 201)
+})
+
+const loginSchema = z.object({
+  user: z.string().min(1),
+  password: z.string().min(1)
+})
+
+app.post('/api/auth/login', async (c) => {
+  const body = loginSchema.parse(await c.req.json())
+  const record = await findUserByNameOrEmail(body.user)
+  if (!record || !(await verifyPassword(body.password, record.passwordHash))) {
+    return c.json({ code: 'INVALID_CREDENTIALS', message: 'Invalid user or password' }, 401)
+  }
+
+  const user = await getAuthUser(record.id)
+  if (!user) return c.json({ code: 'USER_DISABLED', message: 'User is disabled' }, 403)
+
+  return c.json({ token: await createToken(user.id), user })
+})
+
+app.get('/api/auth/self', authMiddleware, async (c) => c.json(await requireAuthUser(c)))
 
 app.get('/api/problems', async (c) => {
   const list = await db.select().from(schema.problems).limit(50)
