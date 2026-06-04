@@ -2,6 +2,7 @@
 import { NAlert, NDataTable, NEmpty, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { h, onMounted, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import { apiFetch } from '../api'
 import { useAuthStore } from '../stores/auth'
 
@@ -20,7 +21,13 @@ const error = ref('')
 const assignments = ref<AssignmentRow[]>([])
 
 const columns: DataTableColumns<AssignmentRow> = [
-  { title: 'Title', key: 'title' },
+  {
+    title: 'Title',
+    key: 'title',
+    render(row) {
+      return h(RouterLink, { to: `/assignments/${row.id}`, class: 'table-link' }, () => row.title)
+    }
+  },
   {
     title: 'Due',
     key: 'dueAt',

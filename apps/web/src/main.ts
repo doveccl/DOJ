@@ -9,6 +9,7 @@ import {
 import App from './App.vue'
 import AdminAssignmentsPage from './pages/AdminAssignmentsPage.vue'
 import AdminGroupsPage from './pages/AdminGroupsPage.vue'
+import AssignmentDetailPage from './pages/AssignmentDetailPage.vue'
 import AssignmentListPage from './pages/AssignmentListPage.vue'
 import HomePage from './pages/HomePage.vue'
 import ProblemDetailPage from './pages/ProblemDetailPage.vue'
@@ -22,6 +23,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/problems', component: ProblemListPage },
   { path: '/problems/:id', component: ProblemDetailPage },
   { path: '/assignments', component: AssignmentListPage },
+  { path: '/assignments/:id', component: AssignmentDetailPage },
   { path: '/submissions', component: SubmissionListPage },
   { path: '/submissions/:id', component: SubmissionDetailPage },
   { path: '/admin/groups', component: AdminGroupsPage },

@@ -91,6 +91,13 @@ body {
   margin-bottom: 16px;
 }
 
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
 .full-width {
   width: 100%;
 }

@@ -39,6 +39,9 @@ const languageOptions = ref<LanguageOption[]>([])
 const memoryMb = computed(() =>
   version.value ? Math.round(version.value.memoryLimitBytes / 1024 / 1024) : 0
 )
+const assignmentId = computed(() =>
+  typeof route.query.assignmentId === 'string' ? route.query.assignmentId : ''
+)
 
 onMounted(async () => {
   try {
@@ -71,7 +74,8 @@ async function submit() {
         problemId: problem.value.id,
         problemVersionId: version.value.id,
         languageId: languageId.value,
-        sourceCode: sourceCode.value
+        sourceCode: sourceCode.value,
+        assignmentId: assignmentId.value || undefined
       })
     })
     await router.push('/submissions')
@@ -96,6 +100,7 @@ function updateTemplate(value: string) {
           <section class="page-header">
             <h1>{{ problem.title }}</h1>
             <p>{{ version.timeLimitMs }} ms / {{ memoryMb }} MB</p>
+            <p v-if="assignmentId" class="muted">Submitting for assignment {{ assignmentId.slice(0, 8) }}</p>
           </section>
           <n-card :bordered="false">
             <pre class="statement">{{ version.statementMarkdown }}</pre>

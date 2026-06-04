@@ -75,6 +75,39 @@ if (!mine.list.some((assignment) => assignment.id === created.assignment.id)) {
   throw new Error(`student assignment missing: ${created.assignment.id}`)
 }
 
+const detail = (await api(`/api/my/assignments/${created.assignment.id}`, {
+  headers: {
+    authorization: `Bearer ${student.token}`
+  }
+})) as { problems: Array<{ id: string }> }
+
+if (detail.problems.length !== 1) {
+  throw new Error(`student assignment detail missing problems: ${JSON.stringify(detail)}`)
+}
+
+const problemDetail = (await api(`/api/problems/${detail.problems[0].id}`)) as {
+  version: { id: string }
+}
+
+const submission = (await api('/api/submissions', {
+  method: 'POST',
+  headers: {
+    'content-type': 'application/json',
+    authorization: `Bearer ${student.token}`
+  },
+  body: JSON.stringify({
+    problemId: detail.problems[0].id,
+    problemVersionId: problemDetail.version.id,
+    assignmentId: created.assignment.id,
+    languageId: 'sh',
+    sourceCode: '#!/bin/sh\necho accepted\n'
+  })
+})) as { assignmentId: string | null }
+
+if (submission.assignmentId !== created.assignment.id) {
+  throw new Error(`submission assignment id mismatch: ${submission.assignmentId}`)
+}
+
 console.log({
   assignmentId: created.assignment.id,
   title: created.assignment.title,

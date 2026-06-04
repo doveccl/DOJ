@@ -276,6 +276,13 @@ app.get('/api/my/assignments', authMiddleware, async (c) => {
   return c.json({ total: list.length, list })
 })
 
+app.get('/api/my/assignments/:id', authMiddleware, async (c) => {
+  const user = await requireAuthUser(c)
+  const assignment = await getUserAssignmentDetail(user.id, c.req.param('id'))
+  if (!assignment) return c.notFound()
+  return c.json(assignment)
+})
+
 app.get('/api/problems', async (c) => {
   const list = await db.select().from(schema.problems).limit(50)
   return c.json({ total: list.length, list })
@@ -500,4 +507,23 @@ async function getAssignmentDetail(id: string) {
     groups,
     problems
   }
+}
+
+async function getUserAssignmentDetail(userId: string, assignmentId: string) {
+  const [match] = await db
+    .select({ id: schema.assignments.id })
+    .from(schema.assignments)
+    .innerJoin(schema.assignmentGroups, eq(schema.assignmentGroups.assignmentId, schema.assignments.id))
+    .innerJoin(
+      schema.userGroups,
+      and(
+        eq(schema.userGroups.groupId, schema.assignmentGroups.groupId),
+        eq(schema.userGroups.userId, userId)
+      )
+    )
+    .where(eq(schema.assignments.id, assignmentId))
+    .limit(1)
+
+  if (!match) return null
+  return getAssignmentDetail(assignmentId)
 }
