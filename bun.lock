@@ -6,12 +6,10 @@
       "name": "doj",
       "dependencies": {
         "@aws-sdk/client-s3": "^3.1061.0",
-        "@hono/node-server": "^2.0.4",
         "dockerode": "^5.0.0",
         "drizzle-orm": "^0.45.2",
         "hono": "^4.12.23",
         "naive-ui": "^2.44.1",
-        "nanoid": "^5.1.11",
         "pinia": "^3.0.4",
         "postgres": "^3.4.9",
         "tar-stream": "^3.2.0",
@@ -239,8 +237,6 @@
     "@grpc/grpc-js": ["@grpc/grpc-js@1.14.4", "https://registry.npmmirror.com/@grpc/grpc-js/-/grpc-js-1.14.4.tgz", { "dependencies": { "@grpc/proto-loader": "^0.8.0", "@js-sdsl/ordered-map": "^4.4.2" } }, "sha512-k9Dj3DV/itK9D06Y8f190Qgop7/Ui+D0njFV3LHMPwPT75DpXLQohE9Wmz0QElrJnzsjB7KPWiKJbOl7IPDArQ=="],
 
     "@grpc/proto-loader": ["@grpc/proto-loader@0.7.15", "https://registry.npmmirror.com/@grpc/proto-loader/-/proto-loader-0.7.15.tgz", { "dependencies": { "lodash.camelcase": "^4.3.0", "long": "^5.0.0", "protobufjs": "^7.2.5", "yargs": "^17.7.2" }, "bin": { "proto-loader-gen-types": "build/bin/proto-loader-gen-types.js" } }, "sha512-tMXdRCfYVixjuFK+Hk0Q1s38gV9zDiDJfWL3h1rv4Qc39oILCu1TRTDt7+fGUI8K4G1Fj125Hx/ru3azECWTyQ=="],
-
-    "@hono/node-server": ["@hono/node-server@2.0.4", "https://registry.npmmirror.com/@hono/node-server/-/node-server-2.0.4.tgz", { "peerDependencies": { "hono": "^4" } }, "sha512-Ut3y0dMMPWy6bZ2kVfx25EOVbZlm15dhF4mOsezMlhpNHy+4MkU1qN9Y6lnruYi4wPmFzimGX2X7LF/FwHli4A=="],
 
     "@intlify/core-base": ["@intlify/core-base@11.4.4", "https://registry.npmmirror.com/@intlify/core-base/-/core-base-11.4.4.tgz", { "dependencies": { "@intlify/devtools-types": "11.4.4", "@intlify/message-compiler": "11.4.4", "@intlify/shared": "11.4.4" } }, "sha512-w/vItlylrAmhebkIbVl5YY8XMCtj8Mb2g70ttxktMYuf5AuRahgEHL2iLgLIsZBIbTSgs4hkUo7ucCL0uTJvOg=="],
 
@@ -584,7 +580,7 @@
 
     "nan": ["nan@2.27.0", "https://registry.npmmirror.com/nan/-/nan-2.27.0.tgz", {}, "sha512-hC+0LidcL3XE4rp1C4H54KujgXKzbfyTngZTwBByQxsOxCEKZT0MPQ4hOKUH2jU1OYstqdDH4onyHPDzcV0XdQ=="],
 
-    "nanoid": ["nanoid@5.1.11", "https://registry.npmmirror.com/nanoid/-/nanoid-5.1.11.tgz", { "bin": { "nanoid": "bin/nanoid.js" } }, "sha512-v+KEsUv2ps74PaSKv0gHTxTCgMXOIfBEbaqa6w6ISIGC7ZsvHN4N9oJ8d4cmf0n5oTzQz2SLmThbQWhjd/8eKg=="],
+    "nanoid": ["nanoid@3.3.12", "https://registry.npmmirror.com/nanoid/-/nanoid-3.3.12.tgz", { "bin": { "nanoid": "bin/nanoid.cjs" } }, "sha512-ZB9RH/39qpq5Vu6Y+NmUaFhQR6pp+M2Xt76XBnEwDaGcVAqhlvxrl3B2bKS5D3NH3QR76v3aSrKaF/Kiy7lEtQ=="],
 
     "once": ["once@1.4.0", "https://registry.npmmirror.com/once/-/once-1.4.0.tgz", { "dependencies": { "wrappy": "1" } }, "sha512-lNaJgI+2Q5URQBkccEKHTQOPaXdUxnZZElQTZY0MFUAuaEqe1E+Nyvgdz/aIyNi6Z9MzO5dv1H8n58/GELp3+w=="],
 
@@ -745,8 +741,6 @@
     "css-render/csstype": ["csstype@3.0.11", "https://registry.npmmirror.com/csstype/-/csstype-3.0.11.tgz", {}, "sha512-sa6P2wJ+CAbgyy4KFssIb/JNMLxFvKF1pCYCSXS8ZMuqZnMsrxqI2E5sPyoTpxoPU/gVZMzr2zjOfg8GIZOMsw=="],
 
     "mlly/pkg-types": ["pkg-types@1.3.1", "https://registry.npmmirror.com/pkg-types/-/pkg-types-1.3.1.tgz", { "dependencies": { "confbox": "^0.1.8", "mlly": "^1.7.4", "pathe": "^2.0.1" } }, "sha512-/Jm5M4RvtBFVkKWRu2BLUTNP8/M2a+UwuAX+ae4770q1qVGtfjG+WTCupoZixokjmHiry8uI+dlY8KXYV5HVVQ=="],
-
-    "postcss/nanoid": ["nanoid@3.3.12", "https://registry.npmmirror.com/nanoid/-/nanoid-3.3.12.tgz", { "bin": { "nanoid": "bin/nanoid.cjs" } }, "sha512-ZB9RH/39qpq5Vu6Y+NmUaFhQR6pp+M2Xt76XBnEwDaGcVAqhlvxrl3B2bKS5D3NH3QR76v3aSrKaF/Kiy7lEtQ=="],
 
     "tar-fs/tar-stream": ["tar-stream@2.2.0", "https://registry.npmmirror.com/tar-stream/-/tar-stream-2.2.0.tgz", { "dependencies": { "bl": "^4.0.3", "end-of-stream": "^1.4.1", "fs-constants": "^1.0.0", "inherits": "^2.0.3", "readable-stream": "^3.1.1" } }, "sha512-ujeqbceABgwMZxEJnk2HDY2DlnUZ+9oEcb1KzTVfYHio0UE6dG71n60d8D2I4qNvleWrrXpmjpt7vZeF1LnMZQ=="],
 

@@ -1,13 +1,18 @@
-import {
-  CreateBucketCommand,
-  GetObjectCommand,
-  HeadBucketCommand,
-  PutObjectCommand,
-  S3Client
-} from '@aws-sdk/client-s3'
+import { CreateBucketCommand, HeadBucketCommand, S3Client as AwsS3Client } from '@aws-sdk/client-s3'
+import { S3Client as BunS3Client } from 'bun'
 import { storageConfig } from './config'
 
-export const s3 = new S3Client({
+const credentials = {
+  accessKeyId: storageConfig.accessKeyId,
+  secretAccessKey: storageConfig.secretAccessKey,
+  region: storageConfig.region,
+  endpoint: storageConfig.endpoint,
+  bucket: storageConfig.bucket
+}
+
+export const s3 = new BunS3Client(credentials)
+
+const bucketAdmin = new AwsS3Client({
   endpoint: storageConfig.endpoint,
   region: storageConfig.region,
   forcePathStyle: true,
@@ -18,10 +23,11 @@ export const s3 = new S3Client({
 })
 
 export async function ensureBucket(bucket = storageConfig.bucket) {
+  // Bun's native S3 client is object-focused; bucket provisioning still needs the AWS-compatible admin API.
   try {
-    await s3.send(new HeadBucketCommand({ Bucket: bucket }))
+    await bucketAdmin.send(new HeadBucketCommand({ Bucket: bucket }))
   } catch {
-    await s3.send(new CreateBucketCommand({ Bucket: bucket }))
+    await bucketAdmin.send(new CreateBucketCommand({ Bucket: bucket }))
   }
 }
 
@@ -33,18 +39,14 @@ export interface PutObjectInput {
 }
 
 export async function putObject(input: PutObjectInput) {
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: input.bucket ?? storageConfig.bucket,
-      Key: input.key,
-      Body: input.body,
-      ContentType: input.contentType
-    })
-  )
+  const client =
+    input.bucket && input.bucket !== storageConfig.bucket
+      ? new BunS3Client({ ...credentials, bucket: input.bucket })
+      : s3
+  await client.write(input.key, input.body, { type: input.contentType })
 }
 
 export async function getObjectBytes(key: string, bucket = storageConfig.bucket) {
-  const output = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }))
-  if (!output.Body) return new Uint8Array()
-  return output.Body.transformToByteArray()
+  const client = bucket !== storageConfig.bucket ? new BunS3Client({ ...credentials, bucket }) : s3
+  return client.file(key).bytes()
 }
