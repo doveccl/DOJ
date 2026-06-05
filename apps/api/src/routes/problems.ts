@@ -95,7 +95,6 @@ export function registerProblemRoutes(app: Hono) {
           statementMarkdown: body.statementMarkdown ?? detail.version.statementMarkdown,
           timeLimitMs: body.timeLimitMs ?? detail.version.timeLimitMs,
           memoryLimitBytes: body.memoryLimitBytes ?? detail.version.memoryLimitBytes,
-          outputLimitBytes: detail.version.outputLimitBytes,
           testCases: body.testCases ?? detail.version.testCases,
           testdataFileId: 'testCases' in body ? null : detail.version.testdataFileId,
           checkerFileId: detail.version.checkerFileId,
@@ -115,7 +114,6 @@ export function registerProblemRoutes(app: Hono) {
     const denied = await requireGroup(c, 'admin')
     if (denied) return denied
 
-    const settings = await getRuntimeSettings()
     const body = createProblemSchema.parse(await c.req.json())
 
     const result = await db.transaction(async (tx) => {
@@ -135,7 +133,6 @@ export function registerProblemRoutes(app: Hono) {
           statementMarkdown: body.statementMarkdown,
           timeLimitMs: body.timeLimitMs,
           memoryLimitBytes: body.memoryLimitBytes,
-          outputLimitBytes: settings.outputLimitBytes,
           testCases: body.testCases
         })
         .returning()
@@ -290,7 +287,6 @@ function summarizeProblemVersion(version: ProblemVersionWithFile | null) {
     version: version.version,
     timeLimitMs: version.timeLimitMs,
     memoryLimitBytes: version.memoryLimitBytes,
-    outputLimitBytes: version.outputLimitBytes,
     testdata: summarizeTestdata(version),
     checkerEnabled: Boolean(version.checkerFileId),
     interactorEnabled: Boolean(version.interactorFileId),

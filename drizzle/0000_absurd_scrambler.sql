@@ -149,7 +149,6 @@ CREATE TABLE "problem_versions" (
 	"statement_markdown" text NOT NULL,
 	"time_limit_ms" integer DEFAULT 1000 NOT NULL,
 	"memory_limit_bytes" bigint DEFAULT 268435456 NOT NULL,
-	"output_limit_bytes" integer DEFAULT 67108864 NOT NULL,
 	"test_cases" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"testdata_file_id" integer,
 	"checker_file_id" integer,

@@ -28,7 +28,7 @@ This file is the working memory for autonomous coding on this branch. Keep it cu
    - Done: design and implement the judge-agent connection model.
 3. Judge and problem model.
    - Collapse seeded C/C++ into one default language.
-   - Remove per-problem max output configuration in favor of global/default behavior.
+   - Done: remove per-problem max output configuration in favor of global/default behavior.
    - Accept looser testdata file naming such as `1.in`, `input1.txt`, `ans01.txt`.
    - Done: improve Docker sandbox security and record the resource-metrics conclusion.
    - Done: replace raw test-case JSON UI with upload/inspection-oriented tooling.

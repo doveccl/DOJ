@@ -159,8 +159,7 @@ async function migrateProblems() {
           version: 1,
           statementMarkdown: stringValue(item.content, 'Legacy statement missing.'),
           timeLimitMs: numberValue(item.timeLimit, 1000),
-          memoryLimitBytes: numberValue(item.memoryLimit, 256 * 1024 * 1024),
-          outputLimitBytes: 64 * 1024 * 1024
+          memoryLimitBytes: numberValue(item.memoryLimit, 256 * 1024 * 1024)
         })
         .returning()
 

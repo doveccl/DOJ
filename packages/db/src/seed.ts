@@ -158,7 +158,6 @@ for (const starter of starterProblems) {
         statementMarkdown: starter.statementMarkdown,
         timeLimitMs: starter.timeLimitMs,
         memoryLimitBytes: starter.memoryLimitBytes,
-        outputLimitBytes: runtimeSettingsDefaults.outputLimitBytes,
         testCases: starter.testCases
       })
       .where(eq(schema.problemVersions.problemId, existing.id))
@@ -179,7 +178,6 @@ for (const starter of starterProblems) {
     statementMarkdown: starter.statementMarkdown,
     timeLimitMs: starter.timeLimitMs,
     memoryLimitBytes: starter.memoryLimitBytes,
-    outputLimitBytes: runtimeSettingsDefaults.outputLimitBytes,
     testCases: starter.testCases
   })
 }

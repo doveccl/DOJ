@@ -19,7 +19,6 @@ interface ProblemVersion {
   statementMarkdown: string
   timeLimitMs: number
   memoryLimitBytes: number
-  outputLimitBytes: number
 }
 
 interface LanguageOption {

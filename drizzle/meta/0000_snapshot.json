@@ -1,5 +1,5 @@
 {
-  "id": "0dd9854e-a934-4adb-9694-6e2aa13c1e27",
+  "id": "b7c826bb-11c3-476b-b566-ae2e0fa2d123",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1283,13 +1283,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": 268435456
-        },
-        "output_limit_bytes": {
-          "name": "output_limit_bytes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 67108864
         },
         "test_cases": {
           "name": "test_cases",

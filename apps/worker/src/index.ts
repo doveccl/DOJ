@@ -1,6 +1,7 @@
 import { eq, sql } from 'drizzle-orm'
 import { db, schema, sqlClient } from '@doj/db/client'
 import { claimJudgeTask, completeJudgeTask, failJudgeTask, judgeTaskChannel } from '@doj/db/queue'
+import { getRuntimeSettings } from '@doj/db/settings'
 import type { JudgeAgentPayload, JudgeAgentResult } from '@doj/shared/agent'
 import { getLanguage } from './languages'
 import { JudgeAgentServer } from './agent-server'
@@ -81,6 +82,7 @@ async function preparePayload(
 
   const language = await getLanguage(submission.languageId)
   const file = version.testdataFileId ? await getTestdataFileRef(version.testdataFileId) : null
+  const settings = await getRuntimeSettings()
 
   return {
     submissionId: submission.id,
@@ -96,7 +98,7 @@ async function preparePayload(
     limits: {
       timeMs: version.timeLimitMs,
       memoryBytes: version.memoryLimitBytes,
-      outputBytes: version.outputLimitBytes
+      outputBytes: settings.outputLimitBytes
     },
     testCases: file ? [] : version.testCases,
     testdataFile: file

@@ -207,7 +207,6 @@ export const problemVersions = pgTable(
     statementMarkdown: text('statement_markdown').notNull(),
     timeLimitMs: integer('time_limit_ms').default(1000).notNull(),
     memoryLimitBytes: bigint('memory_limit_bytes', { mode: 'number' }).default(268435456).notNull(),
-    outputLimitBytes: integer('output_limit_bytes').default(67108864).notNull(),
     testCases: jsonb('test_cases').$type<ProblemTestCase[]>().default([]).notNull(),
     testdataFileId: integer('testdata_file_id').references(() => files.id),
     checkerFileId: integer('checker_file_id').references(() => files.id),

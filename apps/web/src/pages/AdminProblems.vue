@@ -48,7 +48,6 @@ interface ProblemVersionSummary {
   version: number
   timeLimitMs: number
   memoryLimitBytes: number
-  outputLimitBytes: number
   testdata: TestdataSummary
   checkerEnabled: boolean
   interactorEnabled: boolean
