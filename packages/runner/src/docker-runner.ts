@@ -1,8 +1,9 @@
 import Docker from 'dockerode'
+import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { Readable, Writable } from 'node:stream'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import tar from 'tar-stream'
 import type { BuildInput, BuildResult, CleanupScope, RunInput, Runner, RunResult } from './types'
 
@@ -154,6 +155,10 @@ export class DockerRunner implements Runner {
       const inspect = await container.inspect()
       const exitCode = waitResult.StatusCode ?? inspect.State.ExitCode
       const timeMs = Date.now() - startedAt
+      peakMemoryBytes = Math.max(
+        peakMemoryBytes,
+        await readCgroupPeakMemoryBytes(inspect.State.Pid)
+      )
       const oomKilled = inspect.State.OOMKilled || exitCode === 137
       const outputExceeded = stdout.truncated || stderr.truncated
 
@@ -330,6 +335,53 @@ function readMemoryUsage(stats: unknown) {
 
   const inactiveFile = memory.stats?.inactive_file ?? memory.stats?.total_inactive_file ?? 0
   return Math.max(0, memory.usage - inactiveFile)
+}
+
+async function readCgroupPeakMemoryBytes(pid?: number) {
+  if (!pid || pid <= 0) return 0
+
+  try {
+    const cgroup = await readFile(`/proc/${pid}/cgroup`, 'utf8')
+    const lines = cgroup
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+
+    const cgroup2 = lines.find((line) => line.startsWith('0::'))
+    if (cgroup2) {
+      const peak = await readNumericFile(
+        cgroupFile('/sys/fs/cgroup', cgroup2.split(':')[2], 'memory.peak')
+      )
+      if (peak) return peak
+    }
+
+    const memoryLine = lines.find((line) => line.split(':')[1]?.split(',').includes('memory'))
+    if (memoryLine) {
+      const peak = await readNumericFile(
+        cgroupFile('/sys/fs/cgroup/memory', memoryLine.split(':')[2], 'memory.max_usage_in_bytes')
+      )
+      if (peak) return peak
+    }
+  } catch {
+    // Remote Docker daemons and Docker Desktop on macOS do not expose container cgroups here.
+  }
+
+  return 0
+}
+
+function cgroupFile(base: string, cgroupPath: string | undefined, filename: string) {
+  const root = resolve(base)
+  const candidate = resolve(root, (cgroupPath ?? '').replace(/^\/+/, ''), filename)
+  if (!candidate.startsWith(`${root}/`) && candidate !== root) {
+    throw new Error(`invalid cgroup path: ${cgroupPath}`)
+  }
+  return candidate
+}
+
+async function readNumericFile(path: string) {
+  const text = await readFile(path, 'utf8')
+  const value = Number.parseInt(text.trim(), 10)
+  return Number.isFinite(value) ? value : 0
 }
 
 class CappedBuffer {

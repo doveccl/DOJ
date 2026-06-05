@@ -101,7 +101,7 @@ The current implementation includes:
 - Admin-configurable judge languages.
 - Admin-configurable Docker runners, including local sockets and HTTP(S) Docker API endpoints with an optional auth header.
 - PostgreSQL-backed judge task queue with leases.
-- Docker runner build/run/cleanup with time, memory, and output limits.
+- Docker runner build/run/cleanup with time, output, and memory limits plus best-effort cgroup peak memory reads.
 - Inline problem test cases, per-case submission results, and AC/WA/PE/TLE/MLE/OLE/RE/CE/SE aggregation.
 - S3-backed problem testdata ZIP upload for `.in/.out` case pairs.
 - Assignments for groups.

@@ -71,7 +71,7 @@ This is simple and acceptable for the first implementation. It can miss short sp
 Enhancement:
 
 - add calibration tests for short memory spikes;
-- optionally read cgroup v2 `memory.peak` when available;
+- read cgroup v2 `memory.peak` when available, otherwise fall back to Docker stats;
 - document deployment modes because DOJ itself may run inside Docker and may not see the host cgroup hierarchy.
 
 ## AI
@@ -121,7 +121,7 @@ Do not port old low-usage `posts` directly. If discussion is needed, build a sim
 ## Next Risks
 
 - S3-backed `.in/.out` testdata zip import is implemented; checker/interactor package support remains a follow-up.
-- Runner memory metrics still use Docker stats polling; cgroup `memory.peak` calibration remains a follow-up.
+- Runner memory metrics use Docker stats plus best-effort cgroup `memory.peak`; platform calibration remains a follow-up.
 - AI coaching has hidden-test redaction coverage; provider-specific rate limits and operational controls remain follow-ups.
 - Checker/interactor support is still a follow-up for non-standard judging.
 - Contest scoreboard freeze/reveal and assignment reports are implemented; rolling reveal animation remains a future UX enhancement.
