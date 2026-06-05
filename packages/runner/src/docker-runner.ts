@@ -113,7 +113,14 @@ export class DockerRunner implements Runner {
         NetworkMode: 'none',
         Memory: input.limits.memoryBytes,
         PidsLimit: 256,
-        ReadonlyRootfs: false
+        ReadonlyRootfs: true,
+        CapDrop: ['ALL'],
+        SecurityOpt: ['no-new-privileges:true'],
+        IpcMode: 'none',
+        Tmpfs: {
+          '/tmp': 'rw,nosuid,nodev,size=64m',
+          '/run': 'rw,nosuid,nodev,size=16m'
+        }
       }
     })
 
