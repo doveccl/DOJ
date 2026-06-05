@@ -91,6 +91,7 @@ app.get('/api/dashboard', async (c) => {
     .from(schema.submissions)
     .innerJoin(schema.users, eq(schema.submissions.userId, schema.users.id))
     .innerJoin(schema.problems, eq(schema.submissions.problemId, schema.problems.id))
+    .where(eq(schema.problems.visible, true))
     .orderBy(desc(schema.submissions.createdAt))
     .limit(8)
 
@@ -1043,6 +1044,8 @@ app.get('/api/submissions', async (c) => {
       updatedAt: schema.submissions.updatedAt
     })
     .from(schema.submissions)
+    .innerJoin(schema.problems, eq(schema.submissions.problemId, schema.problems.id))
+    .where(eq(schema.problems.visible, true))
     .orderBy(desc(schema.submissions.createdAt))
     .limit(50)
   const list = rows.map((row) => ({

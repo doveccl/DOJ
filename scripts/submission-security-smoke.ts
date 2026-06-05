@@ -78,11 +78,31 @@ if ('sourceCode' in listedSubmission || JSON.stringify(listedSubmission).include
   throw new Error(`submission list leaked source code: ${JSON.stringify(listedSubmission)}`)
 }
 
+await api(`/api/problems/${visibleProblem.problem.id}`, {
+  method: 'PATCH',
+  headers: jsonAuth(admin.token),
+  body: JSON.stringify({ visible: false })
+})
+const listAfterHide = (await api('/api/submissions')) as {
+  list: Array<{ id: number }>
+}
+if (listAfterHide.list.some((item) => item.id === normalSubmission.id)) {
+  throw new Error(`hidden problem submission leaked in public list: ${normalSubmission.id}`)
+}
+const dashboardAfterHide = (await api('/api/dashboard')) as {
+  recentSubmissions: Array<{ id: number }>
+}
+if (dashboardAfterHide.recentSubmissions.some((item) => item.id === normalSubmission.id)) {
+  throw new Error(`hidden problem submission leaked in dashboard: ${normalSubmission.id}`)
+}
+
 console.log({
   versionMismatchStatus,
   hiddenStatus,
   assignmentStatus,
-  listedSubmissionId: normalSubmission.id
+  listedSubmissionId: normalSubmission.id,
+  hiddenListLeak: false,
+  hiddenDashboardLeak: false
 })
 
 async function login(user: string, password: string) {
