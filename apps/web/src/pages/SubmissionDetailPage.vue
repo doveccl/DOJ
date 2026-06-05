@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { NButton, NCard, NDataTable, NDescriptions, NDescriptionsItem, NSpin, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, h, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
@@ -43,6 +43,19 @@ const submission = ref<Submission | null>(null)
 const { t } = useI18n()
 let timer: number | undefined
 
+const statusType: Record<string, 'success' | 'warning' | 'error' | 'info'> = {
+  AC: 'success',
+  WAITING: 'info',
+  JUDGING: 'info',
+  CE: 'warning',
+  WA: 'error',
+  RE: 'error',
+  TLE: 'error',
+  MLE: 'error',
+  OLE: 'error',
+  SE: 'error'
+}
+
 const canCoach = computed(() => {
   const status = submission.value?.status
   return !!status && !['AC', 'WAITING', 'JUDGING', 'FROZEN'].includes(status)
@@ -55,7 +68,11 @@ const caseColumns = computed<DataTableColumns<SubmissionCase>>(() => [
     key: 'status',
     width: 120,
     render(row) {
-      return row.status
+      return h(
+        NTag,
+        { bordered: false, type: statusType[row.status] ?? 'default' },
+        () => row.status
+      )
     }
   },
   { title: t('common.time'), key: 'timeMs', width: 120 },
