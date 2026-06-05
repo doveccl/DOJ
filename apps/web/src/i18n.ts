@@ -68,7 +68,24 @@ const zhCNMessages = {
     empty: '还没有题目'
   },
   submissions: {
-    title: '提交记录'
+    title: '提交记录',
+    detailTitle: '提交',
+    contest: '比赛',
+    yes: '是',
+    no: '否',
+    source: '源码',
+    restricted: '比赛提交详情仅提交者和管理员可见。',
+    judgeMessage: '评测消息',
+    testCases: '测试点',
+    aiCoaching: 'AI 辅导',
+    coachingUnavailable: 'AI 辅导仅用于比赛外的非 AC 提交。',
+    getCoaching: '获取辅导'
+  },
+  problemDetail: {
+    assignmentContext: '正在提交作业',
+    contestContext: '正在提交比赛',
+    submit: '提交',
+    signIn: '登录后提交'
   },
   assignments: {
     title: '作业',
@@ -105,6 +122,21 @@ const zhCNMessages = {
   rank: {
     title: '排名',
     intro: '简介'
+  },
+  bbs: {
+    title: '讨论',
+    by: '作者',
+    problem: '题目',
+    contest: '比赛',
+    reply: '回复',
+    signInReply: '登录后回复。',
+    signInTopic: '登录后发帖。',
+    newTopic: '新主题',
+    topic: '主题',
+    author: '作者',
+    updated: '更新',
+    content: '内容',
+    publish: '发布'
   }
 }
 
@@ -167,7 +199,24 @@ const enMessages = {
     empty: 'No problems yet'
   },
   submissions: {
-    title: 'Submissions'
+    title: 'Submissions',
+    detailTitle: 'Submission',
+    contest: 'Contest',
+    yes: 'Yes',
+    no: 'No',
+    source: 'Source',
+    restricted: 'Contest submission details are visible to the owner and admins.',
+    judgeMessage: 'Judge Message',
+    testCases: 'Test Cases',
+    aiCoaching: 'AI Coaching',
+    coachingUnavailable: 'Coaching is available for non-AC submissions outside contests.',
+    getCoaching: 'Get coaching'
+  },
+  problemDetail: {
+    assignmentContext: 'Submitting for assignment',
+    contestContext: 'Submitting for contest',
+    submit: 'Submit',
+    signIn: 'Sign in to submit.'
   },
   assignments: {
     title: 'Assignments',
@@ -204,6 +253,21 @@ const enMessages = {
   rank: {
     title: 'Rank',
     intro: 'Intro'
+  },
+  bbs: {
+    title: 'Discussion',
+    by: 'by',
+    problem: 'Problem',
+    contest: 'Contest',
+    reply: 'Reply',
+    signInReply: 'Sign in to reply.',
+    signInTopic: 'Sign in to start a topic.',
+    newTopic: 'New topic',
+    topic: 'Topic',
+    author: 'Author',
+    updated: 'Updated',
+    content: 'Content',
+    publish: 'Publish'
   }
 }
 

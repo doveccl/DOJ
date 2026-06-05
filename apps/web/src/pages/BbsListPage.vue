@@ -12,8 +12,9 @@ import {
   NTag
 } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import { h, onMounted, reactive, ref } from 'vue'
+import { computed, h, onMounted, reactive, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 import { useAuthStore } from '../stores/auth'
 
@@ -34,6 +35,7 @@ const saving = ref(false)
 const error = ref('')
 const showCreateModal = ref(false)
 const topics = ref<TopicRow[]>([])
+const { t } = useI18n()
 const form = reactive({
   title: '',
   contentMarkdown: '',
@@ -42,17 +44,17 @@ const form = reactive({
   linkedContestId: ''
 })
 
-const columns: DataTableColumns<TopicRow> = [
+const columns = computed<DataTableColumns<TopicRow>>(() => [
   {
-    title: 'Topic',
+    title: t('bbs.topic'),
     key: 'title',
     render(row) {
       return h(RouterLink, { to: `/bbs/${row.id}`, class: 'table-link' }, () => row.title)
     }
   },
-  { title: 'Author', key: 'userName', width: 140 },
+  { title: t('bbs.author'), key: 'userName', width: 140 },
   {
-    title: 'Tags',
+    title: t('common.tags'),
     key: 'tags',
     render(row) {
       return row.tags.length
@@ -61,14 +63,14 @@ const columns: DataTableColumns<TopicRow> = [
     }
   },
   {
-    title: 'Updated',
+    title: t('bbs.updated'),
     key: 'updatedAt',
     width: 190,
     render(row) {
       return new Date(row.updatedAt).toLocaleString()
     }
   }
-]
+])
 
 async function loadTopics() {
   loading.value = true
@@ -115,7 +117,7 @@ onMounted(loadTopics)
 <template>
   <main class="page">
     <section class="page-header">
-      <h1>Discussion</h1>
+      <h1>{{ t('bbs.title') }}</h1>
     </section>
 
     <n-alert v-if="error" type="error" class="page-alert">
@@ -125,10 +127,10 @@ onMounted(loadTopics)
     <n-card :bordered="false">
       <n-space justify="end" class="table-toolbar">
         <n-button type="primary" :disabled="!auth.signedIn" @click="showCreateModal = true">
-          New topic
+          {{ t('bbs.newTopic') }}
         </n-button>
       </n-space>
-      <p v-if="!auth.signedIn" class="muted table-toolbar">Sign in to start a topic.</p>
+      <p v-if="!auth.signedIn" class="muted table-toolbar">{{ t('bbs.signInTopic') }}</p>
       <n-data-table
         :columns="columns"
         :data="topics"
@@ -138,26 +140,31 @@ onMounted(loadTopics)
       />
     </n-card>
 
-    <n-modal v-model:show="showCreateModal" preset="card" title="New topic" class="form-modal">
+    <n-modal
+      v-model:show="showCreateModal"
+      preset="card"
+      :title="t('bbs.newTopic')"
+      class="form-modal"
+    >
       <n-form :model="form" label-placement="top">
-        <n-form-item label="Title">
+        <n-form-item :label="t('common.title')">
           <n-input v-model:value="form.title" />
         </n-form-item>
-        <n-form-item label="Content">
+        <n-form-item :label="t('bbs.content')">
           <n-input
             v-model:value="form.contentMarkdown"
             type="textarea"
             :autosize="{ minRows: 7, maxRows: 14 }"
           />
         </n-form-item>
-        <n-form-item label="Tags">
+        <n-form-item :label="t('common.tags')">
           <n-input v-model:value="form.tags" placeholder="problem, contest" />
         </n-form-item>
         <div class="form-grid two">
-          <n-form-item label="Problem ID">
+          <n-form-item :label="`${t('bbs.problem')} ID`">
             <n-input v-model:value="form.linkedProblemId" />
           </n-form-item>
-          <n-form-item label="Contest ID">
+          <n-form-item :label="`${t('bbs.contest')} ID`">
             <n-input v-model:value="form.linkedContestId" />
           </n-form-item>
         </div>
@@ -169,7 +176,7 @@ onMounted(loadTopics)
             :disabled="!form.title || !form.contentMarkdown"
             @click="createTopic"
           >
-            Publish
+            {{ t('bbs.publish') }}
           </n-button>
         </n-space>
       </n-form>

@@ -2,6 +2,7 @@
 import { NButton, NCard, NSelect, NSpace, NSpin } from 'naive-ui'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 import CodeEditor from '../components/CodeEditor.vue'
 import MarkdownView from '../components/MarkdownView.vue'
@@ -29,6 +30,7 @@ interface LanguageOption {
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const { t } = useI18n()
 const loading = ref(true)
 const submitting = ref(false)
 const error = ref('')
@@ -118,14 +120,18 @@ function updateTemplate(value: string) {
           <section class="page-header">
             <h1>{{ problem.id }}. {{ problem.title }}</h1>
             <p>{{ version.timeLimitMs }} ms / {{ memoryMb }} MB</p>
-            <p v-if="assignmentId" class="muted">Submitting for assignment {{ assignmentId }}</p>
-            <p v-if="contestId" class="muted">Submitting for contest {{ contestId }}</p>
+            <p v-if="assignmentId" class="muted">
+              {{ t('problemDetail.assignmentContext') }} {{ assignmentId }}
+            </p>
+            <p v-if="contestId" class="muted">
+              {{ t('problemDetail.contestContext') }} {{ contestId }}
+            </p>
           </section>
           <n-card :bordered="false">
             <markdown-view :source="version.statementMarkdown" />
           </n-card>
         </div>
-        <n-card title="Submit" :bordered="false">
+        <n-card :title="t('problemDetail.submit')" :bordered="false">
           <n-space vertical>
             <n-select
               v-model:value="languageId"
@@ -138,7 +144,7 @@ function updateTemplate(value: string) {
               :language-id="languageId"
               :disabled="!auth.signedIn"
             />
-            <p v-if="!auth.signedIn" class="muted">Sign in to submit.</p>
+            <p v-if="!auth.signedIn" class="muted">{{ t('problemDetail.signIn') }}</p>
             <p v-if="error" class="form-error">{{ error }}</p>
             <n-button
               type="primary"
@@ -146,7 +152,7 @@ function updateTemplate(value: string) {
               :loading="submitting"
               @click="submit"
             >
-              Submit
+              {{ t('problemDetail.submit') }}
             </n-button>
           </n-space>
         </n-card>

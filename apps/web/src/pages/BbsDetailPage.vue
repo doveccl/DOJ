@@ -2,6 +2,7 @@
 import { NAlert, NButton, NCard, NInput, NSpace, NSpin, NTag } from 'naive-ui'
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 import MarkdownView from '../components/MarkdownView.vue'
 import { useAuthStore } from '../stores/auth'
@@ -35,6 +36,7 @@ const replying = ref(false)
 const error = ref('')
 const detail = ref<TopicDetail | null>(null)
 const replyText = ref('')
+const { t } = useI18n()
 
 async function loadDetail() {
   loading.value = true
@@ -77,7 +79,8 @@ onMounted(loadDetail)
         <section class="page-header">
           <h1>{{ detail.topic.title }}</h1>
           <p>
-            by {{ detail.topic.userName }} · {{ new Date(detail.topic.createdAt).toLocaleString() }}
+            {{ t('bbs.by') }} {{ detail.topic.userName }} ·
+            {{ new Date(detail.topic.createdAt).toLocaleString() }}
           </p>
         </section>
 
@@ -88,14 +91,14 @@ onMounted(loadDetail)
             class="table-link"
             :to="`/problems/${detail.topic.linkedProblemId}`"
           >
-            Problem {{ detail.topic.linkedProblemId }}
+            {{ t('bbs.problem') }} {{ detail.topic.linkedProblemId }}
           </RouterLink>
           <RouterLink
             v-if="detail.topic.linkedContestId"
             class="table-link"
             :to="`/contests/${detail.topic.linkedContestId}`"
           >
-            Contest {{ detail.topic.linkedContestId }}
+            {{ t('bbs.contest') }} {{ detail.topic.linkedContestId }}
           </RouterLink>
         </div>
 
@@ -110,7 +113,7 @@ onMounted(loadDetail)
           <p class="muted reply-time">{{ new Date(reply.createdAt).toLocaleString() }}</p>
         </n-card>
 
-        <n-card title="Reply" :bordered="false" class="stacked-card">
+        <n-card :title="t('bbs.reply')" :bordered="false" class="stacked-card">
           <template v-if="auth.signedIn">
             <n-input
               v-model:value="replyText"
@@ -124,11 +127,11 @@ onMounted(loadDetail)
                 :disabled="!replyText"
                 @click="createReply"
               >
-                Reply
+                {{ t('bbs.reply') }}
               </n-button>
             </n-space>
           </template>
-          <p v-else class="muted">Sign in to reply.</p>
+          <p v-else class="muted">{{ t('bbs.signInReply') }}</p>
         </n-card>
       </template>
 

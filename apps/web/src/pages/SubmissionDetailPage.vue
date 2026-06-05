@@ -3,6 +3,7 @@ import { NButton, NCard, NDataTable, NDescriptions, NDescriptionsItem, NSpin, NT
 import type { DataTableColumns } from 'naive-ui'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 import CodeEditor from '../components/CodeEditor.vue'
 import MarkdownView from '../components/MarkdownView.vue'
@@ -39,6 +40,7 @@ const coachingLoading = ref(false)
 const error = ref('')
 const coaching = ref('')
 const submission = ref<Submission | null>(null)
+const { t } = useI18n()
 let timer: number | undefined
 
 const canCoach = computed(() => {
@@ -46,19 +48,19 @@ const canCoach = computed(() => {
   return !!status && !['AC', 'WAITING', 'JUDGING', 'FROZEN'].includes(status)
 })
 
-const caseColumns: DataTableColumns<SubmissionCase> = [
+const caseColumns = computed<DataTableColumns<SubmissionCase>>(() => [
   { title: '#', key: 'caseIndex', width: 72 },
   {
-    title: 'Status',
+    title: t('common.status'),
     key: 'status',
     width: 120,
     render(row) {
       return row.status
     }
   },
-  { title: 'Time', key: 'timeMs', width: 120 },
+  { title: t('common.time'), key: 'timeMs', width: 120 },
   {
-    title: 'Memory',
+    title: t('common.memory'),
     key: 'memoryBytes',
     width: 140,
     render(row) {
@@ -66,13 +68,13 @@ const caseColumns: DataTableColumns<SubmissionCase> = [
     }
   },
   {
-    title: 'Message',
+    title: t('common.message'),
     key: 'message',
     ellipsis: {
       tooltip: true
     }
   }
-]
+])
 
 onMounted(async () => {
   await load()
@@ -125,26 +127,28 @@ async function getCoaching() {
       <section v-if="submission" class="submission-layout">
         <div>
           <section class="page-header">
-            <h1>Submission {{ submission.id }}</h1>
+            <h1>{{ t('submissions.detailTitle') }} {{ submission.id }}</h1>
             <p>{{ submission.languageId }}</p>
           </section>
           <n-card :bordered="false">
             <n-descriptions label-placement="left" bordered :column="2">
-              <n-descriptions-item label="Status">
+              <n-descriptions-item :label="t('common.status')">
                 <n-tag :bordered="false">{{ submission.status }}</n-tag>
               </n-descriptions-item>
-              <n-descriptions-item label="Time">{{ submission.timeMs }} ms</n-descriptions-item>
-              <n-descriptions-item label="Memory">
+              <n-descriptions-item :label="t('common.time')">
+                {{ submission.timeMs }} ms
+              </n-descriptions-item>
+              <n-descriptions-item :label="t('common.memory')">
                 {{ Math.round(submission.memoryBytes / 1024) }} KB
               </n-descriptions-item>
-              <n-descriptions-item label="Contest">
-                {{ submission.contestId ? 'Yes' : 'No' }}
+              <n-descriptions-item :label="t('submissions.contest')">
+                {{ submission.contestId ? t('submissions.yes') : t('submissions.no') }}
               </n-descriptions-item>
             </n-descriptions>
           </n-card>
           <n-card
             v-if="submission.sourceCode"
-            title="Source"
+            :title="t('submissions.source')"
             :bordered="false"
             class="stacked-card"
           >
@@ -156,15 +160,15 @@ async function getCoaching() {
           </n-card>
           <n-card
             v-else-if="submission.restricted"
-            title="Source"
+            :title="t('submissions.source')"
             :bordered="false"
             class="stacked-card"
           >
-            <p class="muted">Contest submission details are visible to the owner and admins.</p>
+            <p class="muted">{{ t('submissions.restricted') }}</p>
           </n-card>
           <n-card
             v-if="submission.message"
-            title="Judge Message"
+            :title="t('submissions.judgeMessage')"
             :bordered="false"
             class="stacked-card"
           >
@@ -172,16 +176,16 @@ async function getCoaching() {
           </n-card>
           <n-card
             v-if="submission.cases?.length"
-            title="Test Cases"
+            :title="t('submissions.testCases')"
             :bordered="false"
             class="stacked-card"
           >
             <n-data-table :columns="caseColumns" :data="submission.cases" :bordered="false" />
           </n-card>
         </div>
-        <n-card title="AI Coaching" :bordered="false">
+        <n-card :title="t('submissions.aiCoaching')" :bordered="false">
           <p v-if="!canCoach" class="muted">
-            Coaching is available for non-AC submissions outside contests.
+            {{ t('submissions.coachingUnavailable') }}
           </p>
           <p v-if="error" class="form-error">{{ error }}</p>
           <n-button
@@ -190,7 +194,7 @@ async function getCoaching() {
             :loading="coachingLoading"
             @click="getCoaching"
           >
-            Get coaching
+            {{ t('submissions.getCoaching') }}
           </n-button>
           <markdown-view v-if="coaching" :source="coaching" class="coaching-output" />
         </n-card>
