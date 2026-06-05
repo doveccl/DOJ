@@ -8,6 +8,7 @@ import {
   NForm,
   NFormItem,
   NInput,
+  NModal,
   NSelect,
   NSpace,
   NTag
@@ -36,6 +37,7 @@ const canManage = computed(() => auth.user?.groups.includes('admin') ?? false)
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
+const showCreateModal = ref(false)
 const contests = ref<ContestRow[]>([])
 const problemOptions = ref<SelectOption[]>([])
 const form = reactive({
@@ -125,6 +127,7 @@ async function createContest() {
     form.description = ''
     form.freezeAt = null
     form.problemIds = []
+    showCreateModal.value = false
     await loadData()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
@@ -160,65 +163,10 @@ onMounted(() => {
       {{ error }}
     </n-alert>
 
-    <section v-if="canManage" class="admin-layout">
-      <n-card title="Create contest" :bordered="false">
-        <n-form :model="form" label-placement="top">
-          <n-form-item label="Title">
-            <n-input v-model:value="form.title" placeholder="Weekly Contest" />
-          </n-form-item>
-          <n-form-item label="Type">
-            <n-select
-              v-model:value="form.type"
-              :options="[
-                { label: 'OI', value: 'OI' },
-                { label: 'ICPC', value: 'ICPC' }
-              ]"
-            />
-          </n-form-item>
-          <n-form-item label="Problems">
-            <n-select
-              v-model:value="form.problemIds"
-              multiple
-              filterable
-              :options="problemOptions"
-              placeholder="Select problems"
-            />
-          </n-form-item>
-          <n-form-item label="Start at">
-            <n-date-picker v-model:value="form.startAt" type="datetime" class="full-width" />
-          </n-form-item>
-          <n-form-item label="End at">
-            <n-date-picker v-model:value="form.endAt" type="datetime" class="full-width" />
-          </n-form-item>
-          <n-form-item label="Freeze at">
-            <n-date-picker
-              v-model:value="form.freezeAt"
-              type="datetime"
-              clearable
-              class="full-width"
-            />
-          </n-form-item>
-          <n-form-item label="Description">
-            <n-input
-              v-model:value="form.description"
-              type="textarea"
-              placeholder="Optional notes"
-              :autosize="{ minRows: 3, maxRows: 5 }"
-            />
-          </n-form-item>
-          <n-space justify="end" class="form-actions">
-            <n-button
-              type="primary"
-              :loading="saving"
-              :disabled="!form.title || !form.problemIds.length || form.endAt <= form.startAt"
-              @click="createContest"
-            >
-              Create
-            </n-button>
-          </n-space>
-        </n-form>
-      </n-card>
-
+    <n-card v-if="canManage" :bordered="false">
+      <n-space justify="end" class="table-toolbar">
+        <n-button type="primary" @click="showCreateModal = true">Create contest</n-button>
+      </n-space>
       <n-data-table
         :columns="columns"
         :data="contests"
@@ -226,6 +174,67 @@ onMounted(() => {
         :loading="loading"
         class="admin-table"
       />
-    </section>
+    </n-card>
+
+    <n-modal v-model:show="showCreateModal" preset="card" title="Create contest" class="form-modal">
+      <n-form :model="form" label-placement="top">
+        <n-form-item label="Title">
+          <n-input v-model:value="form.title" placeholder="Weekly Contest" />
+        </n-form-item>
+        <n-form-item label="Type">
+          <n-select
+            v-model:value="form.type"
+            :options="[
+              { label: 'OI', value: 'OI' },
+              { label: 'ICPC', value: 'ICPC' }
+            ]"
+          />
+        </n-form-item>
+        <n-form-item label="Problems">
+          <n-select
+            v-model:value="form.problemIds"
+            multiple
+            filterable
+            :options="problemOptions"
+            placeholder="Select problems"
+          />
+        </n-form-item>
+        <div class="form-grid">
+          <n-form-item label="Start at">
+            <n-date-picker v-model:value="form.startAt" type="datetime" class="full-width" />
+          </n-form-item>
+          <n-form-item label="End at">
+            <n-date-picker v-model:value="form.endAt" type="datetime" class="full-width" />
+          </n-form-item>
+        </div>
+        <n-form-item label="Freeze at">
+          <n-date-picker
+            v-model:value="form.freezeAt"
+            type="datetime"
+            clearable
+            class="full-width"
+          />
+        </n-form-item>
+        <n-form-item label="Description">
+          <n-input
+            v-model:value="form.description"
+            type="textarea"
+            placeholder="Optional notes"
+            :autosize="{ minRows: 3, maxRows: 5 }"
+          />
+        </n-form-item>
+        <n-space justify="end" class="form-actions">
+          <n-button @click="showCreateModal = false">Cancel</n-button>
+          <n-button
+            type="primary"
+            :loading="saving"
+            :disabled="!form.title || !form.problemIds.length || form.endAt <= form.startAt"
+            @click="createContest"
+          >
+            Create
+          </n-button>
+        </n-space>
+      </n-form>
+    </n-modal>
   </main>
 </template>
