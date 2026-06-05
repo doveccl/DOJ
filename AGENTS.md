@@ -38,7 +38,7 @@ This file is the working memory for autonomous coding on this branch. Keep it cu
    - Done: remove redundant discussion sign-in copy and use componentized topic tags.
    - Rework home, assignments, discussion, rank, submission detail, and admin layout.
    - Done: rename page components without the redundant `Page` suffix.
-   - Use CDN/dynamic language loading for editor/highlight support.
+   - Done: use CDN/dynamic language loading for editor/highlight support.
 
 ## User Preferences
 
