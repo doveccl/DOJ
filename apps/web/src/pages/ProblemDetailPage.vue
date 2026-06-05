@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { NButton, NCard, NInput, NSelect, NSpace, NSpin } from 'naive-ui'
+import { NButton, NCard, NSelect, NSpace, NSpin } from 'naive-ui'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiFetch } from '../api'
+import CodeEditor from '../components/CodeEditor.vue'
+import MarkdownView from '../components/MarkdownView.vue'
 import { useAuthStore } from '../stores/auth'
 
 interface Problem {
@@ -120,7 +122,7 @@ function updateTemplate(value: string) {
             <p v-if="contestId" class="muted">Submitting for contest {{ contestId }}</p>
           </section>
           <n-card :bordered="false">
-            <pre class="statement">{{ version.statementMarkdown }}</pre>
+            <markdown-view :source="version.statementMarkdown" />
           </n-card>
         </div>
         <n-card title="Submit" :bordered="false">
@@ -131,10 +133,9 @@ function updateTemplate(value: string) {
               :disabled="!auth.signedIn"
               @update:value="updateTemplate"
             />
-            <n-input
-              v-model:value="sourceCode"
-              type="textarea"
-              :autosize="{ minRows: 12, maxRows: 18 }"
+            <code-editor
+              v-model="sourceCode"
+              :language-id="languageId"
               :disabled="!auth.signedIn"
             />
             <p v-if="!auth.signedIn" class="muted">Sign in to submit.</p>

@@ -4,6 +4,8 @@ import type { DataTableColumns } from 'naive-ui'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { apiFetch } from '../api'
+import CodeEditor from '../components/CodeEditor.vue'
+import MarkdownView from '../components/MarkdownView.vue'
 
 interface Submission {
   id: number
@@ -140,7 +142,11 @@ async function getCoaching() {
             </n-descriptions>
           </n-card>
           <n-card title="Source" :bordered="false" class="stacked-card">
-            <pre class="code-block">{{ submission.sourceCode }}</pre>
+            <code-editor
+              :model-value="submission.sourceCode"
+              :language-id="submission.languageId"
+              readonly
+            />
           </n-card>
           <n-card
             v-if="submission.message"
@@ -172,7 +178,7 @@ async function getCoaching() {
           >
             Get coaching
           </n-button>
-          <pre v-if="coaching" class="coaching-output">{{ coaching }}</pre>
+          <markdown-view v-if="coaching" :source="coaching" class="coaching-output" />
         </n-card>
       </section>
       <p v-else-if="error" class="form-error">{{ error }}</p>

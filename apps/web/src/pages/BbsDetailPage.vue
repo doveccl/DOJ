@@ -3,6 +3,7 @@ import { NAlert, NButton, NCard, NInput, NSpace, NSpin, NTag } from 'naive-ui'
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { apiFetch } from '../api'
+import MarkdownView from '../components/MarkdownView.vue'
 import { useAuthStore } from '../stores/auth'
 
 interface Topic {
@@ -105,7 +106,7 @@ onMounted(loadDetail)
           :bordered="false"
           class="stacked-card"
         >
-          <pre class="statement">{{ reply.contentMarkdown }}</pre>
+          <markdown-view :source="reply.contentMarkdown" />
           <p class="muted reply-time">{{ new Date(reply.createdAt).toLocaleString() }}</p>
         </n-card>
 

@@ -203,10 +203,101 @@ body {
   margin-top: 16px;
 }
 
+.code-editor {
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.code-editor .cm-editor {
+  min-height: 320px;
+  font-size: 14px;
+}
+
+.code-editor .cm-scroller {
+  font-family: 'Cascadia Code', Menlo, Consolas, monospace;
+}
+
 .statement {
   margin: 0;
   white-space: pre-wrap;
   font-family: inherit;
+}
+
+.markdown-view {
+  line-height: 1.72;
+  color: var(--text-color);
+  overflow-wrap: anywhere;
+}
+
+.markdown-view > :first-child {
+  margin-top: 0;
+}
+
+.markdown-view > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-view h1,
+.markdown-view h2,
+.markdown-view h3 {
+  margin: 1.4em 0 0.6em;
+  line-height: 1.25;
+}
+
+.markdown-view p,
+.markdown-view ul,
+.markdown-view ol,
+.markdown-view blockquote,
+.markdown-view pre,
+.markdown-view table {
+  margin: 0.8em 0;
+}
+
+.markdown-view pre {
+  overflow-x: auto;
+  padding: 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text-color) 8%, transparent);
+}
+
+.markdown-view code {
+  padding: 0.12em 0.32em;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--text-color) 8%, transparent);
+  font-family: 'Cascadia Code', Menlo, Consolas, monospace;
+}
+
+.markdown-view pre code {
+  padding: 0;
+  background: transparent;
+}
+
+.markdown-view table {
+  width: 100%;
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+}
+
+.markdown-view th,
+.markdown-view td {
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+}
+
+.markdown-view blockquote {
+  padding-left: 14px;
+  color: var(--muted-color);
+  border-left: 3px solid var(--border-color);
+}
+
+.markdown-view .task-list-item {
+  list-style: none;
+}
+
+.markdown-view .task-list-item-checkbox {
+  margin-right: 8px;
 }
 
 .muted {
