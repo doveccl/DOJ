@@ -40,7 +40,7 @@
     "db:seed": "bun run packages/db/src/seed.ts",
     "migrate:v3-json": "bun run scripts/migrate-v3-json.ts",
     "s3:ensure-bucket": "bun run scripts/ensure-bucket.ts",
-    "format": "prettier --write ."
+    "format": "prettier --write . --ignore-unknown"
   },
   "dependencies": {
     "@codemirror/lang-cpp": "^6.0.3",
