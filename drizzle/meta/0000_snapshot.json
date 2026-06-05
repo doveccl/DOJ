@@ -123,12 +123,8 @@
           "name": "assignment_groups_assignment_id_assignments_id_fk",
           "tableFrom": "assignment_groups",
           "tableTo": "assignments",
-          "columnsFrom": [
-            "assignment_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["assignment_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -136,12 +132,8 @@
           "name": "assignment_groups_group_id_groups_id_fk",
           "tableFrom": "assignment_groups",
           "tableTo": "groups",
-          "columnsFrom": [
-            "group_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["group_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -149,10 +141,7 @@
       "compositePrimaryKeys": {
         "assignment_groups_assignment_id_group_id_pk": {
           "name": "assignment_groups_assignment_id_group_id_pk",
-          "columns": [
-            "assignment_id",
-            "group_id"
-          ]
+          "columns": ["assignment_id", "group_id"]
         }
       },
       "uniqueConstraints": {},
@@ -197,12 +186,8 @@
           "name": "assignment_problems_assignment_id_assignments_id_fk",
           "tableFrom": "assignment_problems",
           "tableTo": "assignments",
-          "columnsFrom": [
-            "assignment_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["assignment_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -210,12 +195,8 @@
           "name": "assignment_problems_problem_id_problems_id_fk",
           "tableFrom": "assignment_problems",
           "tableTo": "problems",
-          "columnsFrom": [
-            "problem_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["problem_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -223,10 +204,7 @@
       "compositePrimaryKeys": {
         "assignment_problems_assignment_id_problem_id_pk": {
           "name": "assignment_problems_assignment_id_problem_id_pk",
-          "columns": [
-            "assignment_id",
-            "problem_id"
-          ]
+          "columns": ["assignment_id", "problem_id"]
         }
       },
       "uniqueConstraints": {},
@@ -399,12 +377,8 @@
           "name": "bbs_replies_topic_id_bbs_topics_id_fk",
           "tableFrom": "bbs_replies",
           "tableTo": "bbs_topics",
-          "columnsFrom": [
-            "topic_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["topic_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -571,12 +545,8 @@
           "name": "contest_problems_contest_id_contests_id_fk",
           "tableFrom": "contest_problems",
           "tableTo": "contests",
-          "columnsFrom": [
-            "contest_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["contest_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -584,12 +554,8 @@
           "name": "contest_problems_problem_id_problems_id_fk",
           "tableFrom": "contest_problems",
           "tableTo": "problems",
-          "columnsFrom": [
-            "problem_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["problem_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -597,10 +563,7 @@
       "compositePrimaryKeys": {
         "contest_problems_contest_id_problem_id_pk": {
           "name": "contest_problems_contest_id_problem_id_pk",
-          "columns": [
-            "contest_id",
-            "problem_id"
-          ]
+          "columns": ["contest_id", "problem_id"]
         }
       },
       "uniqueConstraints": {},
@@ -1374,12 +1337,8 @@
           "name": "problem_versions_problem_id_problems_id_fk",
           "tableFrom": "problem_versions",
           "tableTo": "problems",
-          "columnsFrom": [
-            "problem_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["problem_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1387,12 +1346,8 @@
           "name": "problem_versions_testdata_file_id_files_id_fk",
           "tableFrom": "problem_versions",
           "tableTo": "files",
-          "columnsFrom": [
-            "testdata_file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["testdata_file_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1400,12 +1355,8 @@
           "name": "problem_versions_checker_file_id_files_id_fk",
           "tableFrom": "problem_versions",
           "tableTo": "files",
-          "columnsFrom": [
-            "checker_file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["checker_file_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1413,12 +1364,8 @@
           "name": "problem_versions_interactor_file_id_files_id_fk",
           "tableFrom": "problem_versions",
           "tableTo": "files",
-          "columnsFrom": [
-            "interactor_file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["interactor_file_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1607,10 +1554,7 @@
       "compositePrimaryKeys": {
         "solved_problems_user_id_problem_id_pk": {
           "name": "solved_problems_user_id_problem_id_pk",
-          "columns": [
-            "user_id",
-            "problem_id"
-          ]
+          "columns": ["user_id", "problem_id"]
         }
       },
       "uniqueConstraints": {},
@@ -1668,10 +1612,7 @@
       "compositePrimaryKeys": {
         "submission_cases_submission_id_case_index_pk": {
           "name": "submission_cases_submission_id_case_index_pk",
-          "columns": [
-            "submission_id",
-            "case_index"
-          ]
+          "columns": ["submission_id", "case_index"]
         }
       },
       "uniqueConstraints": {},
@@ -1992,12 +1933,8 @@
           "name": "user_groups_user_id_users_id_fk",
           "tableFrom": "user_groups",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2005,12 +1942,8 @@
           "name": "user_groups_group_id_groups_id_fk",
           "tableFrom": "user_groups",
           "tableTo": "groups",
-          "columnsFrom": [
-            "group_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["group_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2018,10 +1951,7 @@
       "compositePrimaryKeys": {
         "user_groups_user_id_group_id_pk": {
           "name": "user_groups_user_id_group_id_pk",
-          "columns": [
-            "user_id",
-            "group_id"
-          ]
+          "columns": ["user_id", "group_id"]
         }
       },
       "uniqueConstraints": {},
@@ -2181,10 +2111,7 @@
     "public.contest_type": {
       "name": "contest_type",
       "schema": "public",
-      "values": [
-        "OI",
-        "ICPC"
-      ]
+      "values": ["OI", "ICPC"]
     },
     "public.judge_status": {
       "name": "judge_status",
@@ -2207,13 +2134,7 @@
     "public.task_status": {
       "name": "task_status",
       "schema": "public",
-      "values": [
-        "WAITING",
-        "RUNNING",
-        "DONE",
-        "FAILED",
-        "CANCELLED"
-      ]
+      "values": ["WAITING", "RUNNING", "DONE", "FAILED", "CANCELLED"]
     }
   },
   "schemas": {},

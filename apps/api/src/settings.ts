@@ -8,7 +8,11 @@ export const runtimeSettingsSchema = z.object({
   aiCoachingEnabled: z.boolean().default(true),
   guestProblemsetVisible: z.boolean().default(true),
   sourceOpenDefault: z.boolean().default(false),
-  outputLimitBytes: z.number().int().positive().default(64 * 1024 * 1024)
+  outputLimitBytes: z
+    .number()
+    .int()
+    .positive()
+    .default(64 * 1024 * 1024)
 })
 
 const settingKeys = Object.keys(runtimeSettingsDefaults) as (keyof RuntimeSettings)[]
@@ -19,9 +23,7 @@ export async function getRuntimeSettings(): Promise<RuntimeSettings> {
     .from(schema.systemSettings)
     .where(inArray(schema.systemSettings.key, settingKeys))
 
-  return runtimeSettingsSchema.parse(
-    Object.fromEntries(rows.map((row) => [row.key, row.value]))
-  )
+  return runtimeSettingsSchema.parse(Object.fromEntries(rows.map((row) => [row.key, row.value])))
 }
 
 export async function updateRuntimeSettings(input: Partial<RuntimeSettings>) {
