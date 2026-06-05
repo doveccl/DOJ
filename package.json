@@ -25,10 +25,6 @@
     "format": "prettier --write . --ignore-unknown"
   },
   "dependencies": {
-    "@codemirror/lang-cpp": "^6.0.3",
-    "@codemirror/lang-javascript": "^6.2.5",
-    "@codemirror/lang-python": "^6.2.1",
-    "@codemirror/language": "^6.12.3",
     "@mdit/plugin-tasklist": "^0.23.2",
     "@vscode/markdown-it-katex": "^1.1.2",
     "dockerode": "^5.0.0",
@@ -41,7 +37,6 @@
     "postgres": "^3.4.9",
     "tar-stream": "^3.2.0",
     "vue": "^3.5.35",
-    "vue-codemirror6": "^1.5.2",
     "vue-i18n": "^11.4.4",
     "vue-router": "^5.1.0",
     "zod": "^4.4.3"
