@@ -31,10 +31,11 @@ This file is the working memory for autonomous coding on this branch. Keep it cu
    - Remove per-problem max output configuration in favor of global/default behavior.
    - Accept looser testdata file naming such as `1.in`, `input1.txt`, `ans01.txt`.
    - Done: improve Docker sandbox security and record the resource-metrics conclusion.
-   - Replace raw test-case JSON UI with upload/inspection-oriented tooling.
+   - Done: replace raw test-case JSON UI with upload/inspection-oriented tooling.
 4. Frontend and UX.
-   - Configure Naive UI locale/date locale.
+   - Done: configure Naive UI locale/date locale.
    - Hide auth-required menu items for anonymous users instead of showing dead-end pages.
+   - Done: remove redundant discussion sign-in copy and use componentized topic tags.
    - Rework home, assignments, discussion, rank, submission detail, and admin layout.
    - Done: rename page components without the redundant `Page` suffix.
    - Use CDN/dynamic language loading for editor/highlight support.

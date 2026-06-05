@@ -113,25 +113,22 @@ onMounted(loadDetail)
           <p class="muted reply-time">{{ new Date(reply.createdAt).toLocaleString() }}</p>
         </n-card>
 
-        <n-card :title="t('bbs.reply')" :bordered="false" class="stacked-card">
-          <template v-if="auth.signedIn">
-            <n-input
-              v-model:value="replyText"
-              type="textarea"
-              :autosize="{ minRows: 4, maxRows: 8 }"
-            />
-            <n-space justify="end" class="form-actions">
-              <n-button
-                type="primary"
-                :loading="replying"
-                :disabled="!replyText"
-                @click="createReply"
-              >
-                {{ t('bbs.reply') }}
-              </n-button>
-            </n-space>
-          </template>
-          <p v-else class="muted">{{ t('bbs.signInReply') }}</p>
+        <n-card v-if="auth.signedIn" :title="t('bbs.reply')" :bordered="false" class="stacked-card">
+          <n-input
+            v-model:value="replyText"
+            type="textarea"
+            :autosize="{ minRows: 4, maxRows: 8 }"
+          />
+          <n-space justify="end" class="form-actions">
+            <n-button
+              type="primary"
+              :loading="replying"
+              :disabled="!replyText"
+              @click="createReply"
+            >
+              {{ t('bbs.reply') }}
+            </n-button>
+          </n-space>
         </n-card>
       </template>
 

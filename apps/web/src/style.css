@@ -84,6 +84,10 @@ body,
   white-space: nowrap;
 }
 
+.tooltip-button-wrap {
+  display: inline-flex;
+}
+
 .locale-select {
   width: 116px;
 }

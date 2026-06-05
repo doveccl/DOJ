@@ -4,12 +4,15 @@ import {
   NButton,
   NCard,
   NDataTable,
+  NDynamicTags,
   NForm,
   NFormItem,
   NInput,
+  NInputNumber,
   NModal,
   NSpace,
-  NTag
+  NTag,
+  NTooltip
 } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { computed, h, onMounted, reactive, ref } from 'vue'
@@ -39,9 +42,9 @@ const { t } = useI18n()
 const form = reactive({
   title: '',
   contentMarkdown: '',
-  tags: '',
-  linkedProblemId: '',
-  linkedContestId: ''
+  tags: [] as string[],
+  linkedProblemId: null as number | null,
+  linkedContestId: null as number | null
 })
 
 const columns = computed<DataTableColumns<TopicRow>>(() => [
@@ -94,12 +97,9 @@ async function createTopic() {
       body: JSON.stringify({
         title: form.title,
         contentMarkdown: form.contentMarkdown,
-        tags: form.tags
-          .split(',')
-          .map((tag) => tag.trim())
-          .filter(Boolean),
-        linkedProblemId: form.linkedProblemId ? Number(form.linkedProblemId) : undefined,
-        linkedContestId: form.linkedContestId ? Number(form.linkedContestId) : undefined
+        tags: form.tags,
+        linkedProblemId: form.linkedProblemId ?? undefined,
+        linkedContestId: form.linkedContestId ?? undefined
       })
     })
     showCreateModal.value = false
@@ -126,11 +126,20 @@ onMounted(loadTopics)
 
     <n-card :bordered="false">
       <n-space justify="end" class="table-toolbar">
-        <n-button type="primary" :disabled="!auth.signedIn" @click="showCreateModal = true">
+        <n-button v-if="auth.signedIn" type="primary" @click="showCreateModal = true">
           {{ t('bbs.newTopic') }}
         </n-button>
+        <n-tooltip v-else trigger="hover">
+          <template #trigger>
+            <span class="tooltip-button-wrap">
+              <n-button type="primary" disabled>
+                {{ t('bbs.newTopic') }}
+              </n-button>
+            </span>
+          </template>
+          {{ t('bbs.signInTopic') }}
+        </n-tooltip>
       </n-space>
-      <p v-if="!auth.signedIn" class="muted table-toolbar">{{ t('bbs.signInTopic') }}</p>
       <n-data-table
         :columns="columns"
         :data="topics"
@@ -158,14 +167,14 @@ onMounted(loadTopics)
           />
         </n-form-item>
         <n-form-item :label="t('common.tags')">
-          <n-input v-model:value="form.tags" placeholder="problem, contest" />
+          <n-dynamic-tags v-model:value="form.tags" />
         </n-form-item>
         <div class="form-grid two">
           <n-form-item :label="`${t('bbs.problem')} ID`">
-            <n-input v-model:value="form.linkedProblemId" />
+            <n-input-number v-model:value="form.linkedProblemId" :min="1" class="full-width" />
           </n-form-item>
           <n-form-item :label="`${t('bbs.contest')} ID`">
-            <n-input v-model:value="form.linkedContestId" />
+            <n-input-number v-model:value="form.linkedContestId" :min="1" class="full-width" />
           </n-form-item>
         </div>
         <n-space justify="end" class="form-actions">
