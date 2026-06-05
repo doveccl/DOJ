@@ -1,6 +1,7 @@
 import { closeDb, db, schema } from './client'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { defaultLanguageConfigs } from '@doj/shared/languages'
+import { runtimeSettingsDefaults } from '@doj/shared/settings'
 
 const builtinGroups = [
   { key: 'admin', name: 'Admin', description: 'System administrators', builtin: true },
@@ -12,6 +13,22 @@ await db
   .insert(schema.groups)
   .values(builtinGroups)
   .onConflictDoNothing({ target: schema.groups.key })
+
+await db
+  .insert(schema.systemSettings)
+  .values(
+    Object.entries(runtimeSettingsDefaults).map(([key, value]) => ({
+      key,
+      value
+    }))
+  )
+  .onConflictDoUpdate({
+    target: schema.systemSettings.key,
+    set: {
+      value: sql`excluded.value`,
+      updatedAt: new Date()
+    }
+  })
 
 for (const language of defaultLanguageConfigs) {
   await db

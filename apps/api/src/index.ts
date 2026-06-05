@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { logger } from 'hono/logger'
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { z, ZodError } from 'zod'
@@ -9,6 +9,7 @@ import { parseZipTestCases } from '@doj/shared/testdata'
 import { putObject, storageConfig } from '@doj/shared/storage'
 import { config } from './config'
 import { checkRateLimit, clientIp } from './rate-limit'
+import { getRuntimeSettings, runtimeSettingsSchema, updateRuntimeSettings } from './settings'
 import {
   authMiddleware,
   createToken,
@@ -58,12 +59,15 @@ app.get('/health', (c) =>
   })
 )
 
-app.get('/api/config', (c) =>
-  c.json({
-    registration: config.registrationEnabled,
-    aiCoachingEnabled: config.aiCoachingEnabled
+app.get('/api/config', async (c) => {
+  const settings = await getRuntimeSettings()
+  return c.json({
+    registration: settings.registrationEnabled,
+    aiCoachingEnabled: settings.aiCoachingEnabled,
+    guestProblemsetVisible: settings.guestProblemsetVisible,
+    sourceOpenDefault: settings.sourceOpenDefault
   })
-)
+})
 
 app.get('/api/dashboard', async (c) => {
   const [problemStats, submissionStats, userStats, contestStats, assignmentStats] =
@@ -175,7 +179,8 @@ const registerSchema = z.object({
 })
 
 app.post('/api/auth/register', async (c) => {
-  if (!config.registrationEnabled) {
+  const settings = await getRuntimeSettings()
+  if (!settings.registrationEnabled) {
     return c.json({ code: 'REGISTRATION_DISABLED', message: 'Registration is disabled' }, 403)
   }
 
@@ -239,6 +244,23 @@ app.post('/api/auth/login', async (c) => {
 })
 
 app.get('/api/auth/self', authMiddleware, async (c) => c.json(await requireAuthUser(c)))
+
+const updateSettingsSchema = runtimeSettingsSchema.partial()
+
+app.get('/api/admin/settings', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
+  return c.json(await getRuntimeSettings())
+})
+
+app.patch('/api/admin/settings', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
+  const body = updateSettingsSchema.parse(await c.req.json())
+  return c.json(await updateRuntimeSettings(body))
+})
 
 app.get('/api/groups', authMiddleware, async (c) => {
   const denied = await requireGroup(c, 'admin')
@@ -769,6 +791,9 @@ app.get('/api/my/assignments/:id', authMiddleware, async (c) => {
 })
 
 app.get('/api/problems', async (c) => {
+  const denied = await denyGuestProblemset(c)
+  if (denied) return denied
+
   const list = await db
     .select()
     .from(schema.problems)
@@ -799,6 +824,9 @@ app.get('/api/admin/problems/:id', authMiddleware, async (c) => {
 })
 
 app.get('/api/problems/:id', async (c) => {
+  const denied = await denyGuestProblemset(c)
+  if (denied) return denied
+
   const detail = await getProblemDetail(numericId.parse(c.req.param('id')))
   if (!detail) return c.notFound()
   return c.json(detail)
@@ -1090,6 +1118,7 @@ const submitSchema = z.object({
     .string()
     .min(1)
     .max(200 * 1024),
+  open: z.boolean().optional(),
   contestId: numericId.optional(),
   assignmentId: numericId.optional()
 })
@@ -1097,6 +1126,7 @@ const submitSchema = z.object({
 app.post('/api/submissions', authMiddleware, async (c) => {
   const user = await requireAuthUser(c)
   const body = submitSchema.parse(await c.req.json())
+  const settings = await getRuntimeSettings()
   if (body.contestId && body.assignmentId) {
     return c.json(
       { code: 'AMBIGUOUS_SUBMISSION_CONTEXT', message: 'Choose contest or assignment, not both' },
@@ -1164,8 +1194,12 @@ app.post('/api/submissions', authMiddleware, async (c) => {
   const [submission] = await db
     .insert(schema.submissions)
     .values({
-      ...body,
       userId: user.id,
+      problemId: body.problemId,
+      problemVersionId: body.problemVersionId,
+      languageId: body.languageId,
+      sourceCode: body.sourceCode,
+      open: body.open ?? settings.sourceOpenDefault,
       contestId: body.contestId ?? null,
       assignmentId: body.assignmentId ?? null
     })
@@ -1364,6 +1398,10 @@ app.post('/api/submissions/:id/coach', authMiddleware, async (c) => {
       403
     )
   }
+  const settings = await getRuntimeSettings()
+  if (!settings.aiCoachingEnabled) {
+    return c.json({ code: 'AI_DISABLED', message: 'AI coaching is disabled' }, 403)
+  }
   if (submission.assignmentId) {
     const [assignment] = await db
       .select({ aiCoachingEnabled: schema.assignments.aiCoachingEnabled })
@@ -1475,6 +1513,14 @@ async function countVisibleSubmissions() {
     .innerJoin(schema.problems, eq(schema.submissions.problemId, schema.problems.id))
     .where(eq(schema.problems.visible, true))
   return row?.total ?? 0
+}
+
+async function denyGuestProblemset(c: Context) {
+  const settings = await getRuntimeSettings()
+  if (settings.guestProblemsetVisible) return null
+  const authUser = await getOptionalAuthUser(c)
+  if (authUser) return null
+  return c.json({ code: 'UNAUTHORIZED', message: 'Sign in to view the problemset' }, 401)
 }
 
 async function getAssignmentReport(id: number) {

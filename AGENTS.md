@@ -22,7 +22,7 @@ This file is the working memory for autonomous coding on this branch. Keep it cu
    - Done: simplify dev compose/env defaults.
 2. Backend architecture and infrastructure.
    - Split API routes/services out of the monolithic `apps/api/src/index.ts`.
-   - Add DB-backed runtime settings for non-secret behavior flags.
+   - Done: add DB-backed runtime settings for non-secret behavior flags.
    - Done: add Redis/Valkey for sessions and API rate limits through Bun native Redis.
    - Done: use PostgreSQL `LISTEN/NOTIFY` plus `FOR UPDATE SKIP LOCKED` for judge task wakeups.
    - Design and implement the judge-agent connection model.

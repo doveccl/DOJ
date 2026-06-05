@@ -86,6 +86,12 @@ export const groups = pgTable(
   })
 )
 
+export const systemSettings = pgTable('system_settings', {
+  key: varchar('key', { length: 128 }).primaryKey(),
+  value: jsonb('value').$type<unknown>().notNull(),
+  updatedAt: updatedAt()
+})
+
 export const judgeLanguages = pgTable(
   'judge_languages',
   {

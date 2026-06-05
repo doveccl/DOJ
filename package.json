@@ -20,7 +20,7 @@
     "db:seed": "bun run packages/db/src/seed.ts",
     "migrate:v3-json": "bun run scripts/migrate-v3-json.ts",
     "s3:ensure-bucket": "bun run scripts/ensure-bucket.ts",
-    "db:reset": "docker compose -f compose.dev.yml down -v && docker compose -f compose.dev.yml up -d && bun run db:migrate && bun run s3:ensure-bucket && bun run db:seed",
+    "db:reset": "docker compose -f compose.dev.yml down -v && docker compose -f compose.dev.yml up -d --wait && bun run db:migrate && bun run s3:ensure-bucket && bun run db:seed",
     "format": "prettier --write . --ignore-unknown"
   },
   "dependencies": {

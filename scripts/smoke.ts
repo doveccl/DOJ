@@ -17,6 +17,7 @@ const smokeTargets = {
   e2e: 'scripts/e2e-smoke.ts',
   'submission-security': 'scripts/submission-security-smoke.ts',
   'rate-limit': 'scripts/rate-limit-smoke.ts',
+  settings: 'scripts/settings-smoke.ts',
   testcases: 'scripts/testcases-smoke.ts',
   testdata: 'scripts/testdata-zip-smoke.ts',
   ai: 'scripts/ai-coach-smoke.ts'

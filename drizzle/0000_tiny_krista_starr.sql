@@ -208,6 +208,12 @@ CREATE TABLE "submissions" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "system_settings" (
+	"key" varchar(128) PRIMARY KEY NOT NULL,
+	"value" jsonb NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "user_groups" (
 	"user_id" integer NOT NULL,
 	"group_id" integer NOT NULL,
