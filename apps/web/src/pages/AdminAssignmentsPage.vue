@@ -39,12 +39,44 @@ interface ProblemRow {
   title: string
 }
 
+interface AssignmentReportProblem {
+  id: number
+  title: string
+  score: number
+}
+
+interface AssignmentReportRow {
+  userId: number
+  userName: string
+  email: string
+  solved: number
+  submitted: number
+  problems: Record<
+    string,
+    {
+      status: string
+      attempts: number
+      bestSubmissionId: number | null
+      lastSubmissionId: number | null
+      updatedAt: string | null
+    }
+  >
+}
+
+interface AssignmentReport {
+  assignment: AssignmentRow
+  problems: AssignmentReportProblem[]
+  rows: AssignmentReportRow[]
+}
+
 const auth = useAuthStore()
 const canManage = computed(() => auth.user?.groups.includes('admin') ?? false)
 const loading = ref(true)
 const saving = ref(false)
+const reportLoading = ref(false)
 const error = ref('')
 const assignments = ref<AssignmentRow[]>([])
+const report = ref<AssignmentReport | null>(null)
 const groupOptions = ref<SelectOption[]>([])
 const problemOptions = ref<SelectOption[]>([])
 const form = reactive({
@@ -79,12 +111,40 @@ const columns: DataTableColumns<AssignmentRow> = [
     title: 'AI',
     key: 'aiCoachingEnabled',
     render(row) {
-      return h(NTag, { bordered: false, type: row.aiCoachingEnabled ? 'success' : 'default' }, () =>
-        row.aiCoachingEnabled ? 'on' : 'off'
+      return h(
+        NTag,
+        { bordered: false, type: row.aiCoachingEnabled ? 'success' : 'default' },
+        () => (row.aiCoachingEnabled ? 'on' : 'off')
       )
+    }
+  },
+  {
+    title: 'Action',
+    key: 'action',
+    width: 120,
+    render(row) {
+      return h(NButton, { size: 'small', onClick: () => loadReport(row.id) }, () => 'Report')
     }
   }
 ]
+
+const reportColumns = computed<DataTableColumns<AssignmentReportRow>>(() => [
+  { title: 'Student', key: 'userName', minWidth: 140 },
+  { title: 'Solved', key: 'solved', width: 96 },
+  { title: 'Submitted', key: 'submitted', width: 110 },
+  ...(report.value?.problems.map((problem) => ({
+    title: String(problem.id),
+    key: String(problem.id),
+    width: 120,
+    render(row: AssignmentReportRow) {
+      const cell = row.problems[String(problem.id)]
+      if (!cell?.attempts) return '-'
+      const type =
+        cell.status === 'AC' ? 'success' : cell.status === 'WAITING' ? 'default' : 'warning'
+      return h(NTag, { bordered: false, type }, () => `${cell.status} (${cell.attempts})`)
+    }
+  })) ?? [])
+])
 
 async function loadData() {
   loading.value = true
@@ -142,12 +202,21 @@ async function createAssignment() {
   }
 }
 
-watch(
-  canManage,
-  (allowed) => {
-    if (allowed) loadData()
+async function loadReport(id: number) {
+  reportLoading.value = true
+  error.value = ''
+  try {
+    report.value = await apiFetch<AssignmentReport>(`/api/assignments/${id}/report`)
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    reportLoading.value = false
   }
-)
+}
+
+watch(canManage, (allowed) => {
+  if (allowed) loadData()
+})
 
 onMounted(() => {
   if (canManage.value) {
@@ -198,7 +267,12 @@ onMounted(() => {
             />
           </n-form-item>
           <n-form-item label="Due at">
-            <n-date-picker v-model:value="form.dueAt" type="datetime" clearable class="full-width" />
+            <n-date-picker
+              v-model:value="form.dueAt"
+              type="datetime"
+              clearable
+              class="full-width"
+            />
           </n-form-item>
           <n-form-item label="Description">
             <n-input
@@ -233,5 +307,19 @@ onMounted(() => {
         class="admin-table"
       />
     </section>
+
+    <n-card
+      v-if="canManage && report"
+      :title="`Report: ${report.assignment.title}`"
+      :bordered="false"
+      class="stacked-card"
+    >
+      <n-data-table
+        :columns="reportColumns"
+        :data="report.rows"
+        :bordered="false"
+        :loading="reportLoading"
+      />
+    </n-card>
   </main>
 </template>

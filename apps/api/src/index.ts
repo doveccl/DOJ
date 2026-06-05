@@ -511,6 +511,15 @@ app.get('/api/assignments/:id', authMiddleware, async (c) => {
   return c.json(assignment)
 })
 
+app.get('/api/assignments/:id/report', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
+  const report = await getAssignmentReport(numericId.parse(c.req.param('id')))
+  if (!report) return c.notFound()
+  return c.json(report)
+})
+
 const createContestSchema = z.object({
   title: z.string().min(1).max(160),
   description: z.string().max(10_000).default(''),
@@ -1011,6 +1020,90 @@ async function getAssignmentDetail(id: number) {
     assignment,
     groups,
     problems
+  }
+}
+
+async function getAssignmentReport(id: number) {
+  const detail = await getAssignmentDetail(id)
+  if (!detail) return null
+
+  const [students, submissions] = await Promise.all([
+    db
+      .selectDistinct({
+        id: schema.users.id,
+        name: schema.users.name,
+        email: schema.users.email
+      })
+      .from(schema.assignmentGroups)
+      .innerJoin(schema.userGroups, eq(schema.userGroups.groupId, schema.assignmentGroups.groupId))
+      .innerJoin(schema.users, eq(schema.users.id, schema.userGroups.userId))
+      .where(eq(schema.assignmentGroups.assignmentId, id))
+      .orderBy(schema.users.name),
+    db
+      .select({
+        id: schema.submissions.id,
+        userId: schema.submissions.userId,
+        problemId: schema.submissions.problemId,
+        status: schema.submissions.status,
+        createdAt: schema.submissions.createdAt
+      })
+      .from(schema.submissions)
+      .where(eq(schema.submissions.assignmentId, id))
+      .orderBy(asc(schema.submissions.createdAt))
+  ])
+
+  const problemIds = new Set(detail.problems.map((problem) => problem.id))
+  const rows = students.map((student) => ({
+    userId: student.id,
+    userName: student.name,
+    email: student.email,
+    solved: 0,
+    submitted: 0,
+    problems: Object.fromEntries(
+      detail.problems.map((problem) => [
+        String(problem.id),
+        {
+          status: 'WAITING',
+          attempts: 0,
+          bestSubmissionId: null as number | null,
+          lastSubmissionId: null as number | null,
+          updatedAt: null as string | null
+        }
+      ])
+    )
+  }))
+  const rowByUser = new Map(rows.map((row) => [row.userId, row]))
+
+  for (const submission of submissions) {
+    if (!problemIds.has(submission.problemId)) continue
+    const row = rowByUser.get(submission.userId)
+    if (!row) continue
+    const cell = row.problems[String(submission.problemId)]
+    if (!cell) continue
+
+    cell.attempts += 1
+    cell.lastSubmissionId = submission.id
+    cell.updatedAt = submission.createdAt.toISOString()
+    if (cell.status !== 'AC') {
+      cell.status = submission.status
+      cell.bestSubmissionId = submission.id
+    }
+    if (submission.status === 'AC') {
+      cell.status = 'AC'
+      cell.bestSubmissionId = submission.id
+    }
+  }
+
+  for (const row of rows) {
+    const cells = Object.values(row.problems)
+    row.submitted = cells.filter((cell) => cell.attempts > 0).length
+    row.solved = cells.filter((cell) => cell.status === 'AC').length
+  }
+
+  return {
+    assignment: detail.assignment,
+    problems: detail.problems,
+    rows
   }
 }
 

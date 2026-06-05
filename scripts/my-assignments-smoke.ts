@@ -106,8 +106,18 @@ if (submission.assignmentId !== created.assignment.id) {
   throw new Error(`submission assignment id mismatch: ${submission.assignmentId}`)
 }
 
+const report = (await api(`/api/assignments/${created.assignment.id}/report`, {
+  headers: adminHeaders
+})) as { rows: Array<{ userName: string; submitted: number }> }
+
+const reportRow = report.rows.find((row) => row.userName.startsWith(`student_${runId.slice(0, 8)}`))
+if (!reportRow || reportRow.submitted !== 1) {
+  throw new Error(`assignment report missing submitted row: ${JSON.stringify(report)}`)
+}
+
 console.log({
   assignmentId: created.assignment.id,
   title: created.assignment.title,
-  visibleCount: mine.list.length
+  visibleCount: mine.list.length,
+  reportSubmitted: reportRow.submitted
 })
