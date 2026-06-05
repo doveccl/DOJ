@@ -27,6 +27,7 @@ const app = new Hono()
 const numericId = z.coerce.number().int().positive()
 const maxTestdataUploadBytes = 64 * 1024 * 1024
 const rateLimitBuckets = new Map<string, number[]>()
+let rateLimitChecks = 0
 
 app.use('*', logger())
 
@@ -1485,6 +1486,9 @@ function clientIp(c: Context) {
 
 function checkRateLimit(c: Context, scope: string, key: string, limit: number, windowMs: number) {
   const now = Date.now()
+  rateLimitChecks += 1
+  if (rateLimitChecks % 1000 === 0) pruneRateLimitBuckets(now)
+
   const bucketKey = `${scope}:${key}`
   const recent = (rateLimitBuckets.get(bucketKey) ?? []).filter((time) => now - time < windowMs)
   if (recent.length >= limit) {
@@ -1498,6 +1502,17 @@ function checkRateLimit(c: Context, scope: string, key: string, limit: number, w
   recent.push(now)
   rateLimitBuckets.set(bucketKey, recent)
   return null
+}
+
+function pruneRateLimitBuckets(now: number) {
+  for (const [key, timestamps] of rateLimitBuckets.entries()) {
+    const recent = timestamps.filter((time) => now - time < 60 * 60 * 1000)
+    if (recent.length) {
+      rateLimitBuckets.set(key, recent)
+    } else {
+      rateLimitBuckets.delete(key)
+    }
+  }
 }
 
 async function getAssignmentReport(id: number) {
