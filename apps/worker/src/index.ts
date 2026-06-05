@@ -9,7 +9,7 @@ import { getObjectBytes } from '@doj/storage/client'
 import { getLanguage } from './languages'
 import { describeRunnerKeyFilter, filterRunnerConfigs } from './runner-filter'
 
-const workerId = `worker-${crypto.randomUUID()}`
+const workerId = process.env.DOJ_WORKER_ID || `worker-${crypto.randomUUID()}`
 
 type JudgeRunnerConfig = typeof schema.judgeRunners.$inferSelect
 

@@ -60,7 +60,7 @@ Docker is the first backend. Podman should only be added after Docker behavior i
 Remote runner modes:
 
 - The current remote runner support talks directly to a Docker API endpoint. The worker streams build context, source files, stdin, stdout, stderr, and Docker control traffic over that connection. This is convenient for one or a few trusted remote Docker hosts, especially behind HTTPS with URL credentials, but it is not the same deployment model as v3's remote worker.
-- For serious remote judging, deploy `apps/worker` on the judge host instead. The worker claims tasks from PostgreSQL, downloads S3 testdata locally, talks to the local Docker socket, and writes final results back. Set `DOJ_RUNNER_KEYS=judge-a` on that worker so it only uses the runner row for that host. This keeps large testdata/stdin/stdout traffic off the Docker API WAN path and matches the old v3 remote-worker deployment shape more closely.
+- For serious remote judging, deploy `apps/worker` on the judge host instead. The worker claims tasks from PostgreSQL, downloads S3 testdata locally, talks to the local Docker socket, and writes final results back. Set `DOJ_WORKER_ID=judge-a-1` and `DOJ_RUNNER_KEYS=judge-a` on that worker so logs, leases, and runner selection are stable for that host. This keeps large testdata/stdin/stdout traffic off the Docker API WAN path and matches the old v3 remote-worker deployment shape more closely.
 
 ## Memory Metrics
 
