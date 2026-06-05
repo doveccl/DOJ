@@ -15,6 +15,7 @@ import {
   findUserByNameOrEmail,
   getAuthUser,
   getGroupByKey,
+  getOptionalAuthUser,
   hashPassword,
   requireAuthUser,
   requireGroup,
@@ -1144,13 +1145,27 @@ app.get('/api/submissions/:id', async (c) => {
     .limit(1)
 
   if (!submission) return c.notFound()
-  const cases = await db
-    .select()
-    .from(schema.submissionCases)
-    .where(eq(schema.submissionCases.submissionId, submission.id))
-    .orderBy(asc(schema.submissionCases.caseIndex))
+  const authUser = await getOptionalAuthUser(c)
+  const canInspect =
+    !submission.contestId ||
+    submission.userId === authUser?.id ||
+    authUser?.groups.includes('admin') === true
 
-  return c.json({ ...submission, cases })
+  const cases = canInspect
+    ? await db
+        .select()
+        .from(schema.submissionCases)
+        .where(eq(schema.submissionCases.submissionId, submission.id))
+        .orderBy(asc(schema.submissionCases.caseIndex))
+    : []
+
+  return c.json({
+    ...submission,
+    sourceCode: canInspect ? submission.sourceCode : '',
+    message: canInspect ? submission.message : '',
+    cases,
+    restricted: !canInspect
+  })
 })
 
 const createTopicSchema = z.object({

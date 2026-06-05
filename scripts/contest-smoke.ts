@@ -75,6 +75,29 @@ try {
     throw new Error(`expected AC, got ${judged.status}: ${judged.message}`)
   }
 
+  const publicDetail = await api<{
+    sourceCode: string
+    message: string
+    cases: unknown[]
+    restricted: boolean
+  }>(`/api/submissions/${submission.id}`)
+  if (
+    !publicDetail.restricted ||
+    publicDetail.sourceCode ||
+    publicDetail.message ||
+    publicDetail.cases.length
+  ) {
+    throw new Error(`contest submission leaked public detail: ${JSON.stringify(publicDetail)}`)
+  }
+
+  const ownerDetail = await api<{ sourceCode: string; restricted: boolean }>(
+    `/api/submissions/${submission.id}`,
+    { headers: { authorization: `Bearer ${user.token}` } }
+  )
+  if (ownerDetail.restricted || !ownerDetail.sourceCode.includes('contest')) {
+    throw new Error(`contest owner detail was not available: ${JSON.stringify(ownerDetail)}`)
+  }
+
   const coachResponse = await fetch(`${apiBase}/api/submissions/${submission.id}/coach`, {
     method: 'POST',
     headers: {

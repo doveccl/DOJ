@@ -16,6 +16,7 @@ interface Submission {
   memoryBytes: number
   message: string
   contestId: number | null
+  restricted: boolean
   cases: SubmissionCase[]
 }
 
@@ -141,12 +142,25 @@ async function getCoaching() {
               </n-descriptions-item>
             </n-descriptions>
           </n-card>
-          <n-card title="Source" :bordered="false" class="stacked-card">
+          <n-card
+            v-if="submission.sourceCode"
+            title="Source"
+            :bordered="false"
+            class="stacked-card"
+          >
             <code-editor
               :model-value="submission.sourceCode"
               :language-id="submission.languageId"
               readonly
             />
+          </n-card>
+          <n-card
+            v-else-if="submission.restricted"
+            title="Source"
+            :bordered="false"
+            class="stacked-card"
+          >
+            <p class="muted">Contest submission details are visible to the owner and admins.</p>
           </n-card>
           <n-card
             v-if="submission.message"

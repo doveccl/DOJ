@@ -55,7 +55,9 @@ export async function findUserByNameOrEmail(value: string) {
   const [user] = await db
     .select()
     .from(schema.users)
-    .where(sql`lower(${schema.users.name}) = lower(${value}) or lower(${schema.users.email}) = lower(${value})`)
+    .where(
+      sql`lower(${schema.users.name}) = lower(${value}) or lower(${schema.users.email}) = lower(${value})`
+    )
     .limit(1)
 
   return user ?? null
@@ -78,6 +80,20 @@ export async function requireGroup(c: Context, group: string) {
     return c.json({ code: 'FORBIDDEN', message: `Requires ${group} group` }, 403)
   }
   return null
+}
+
+export async function getOptionalAuthUser(c: Context) {
+  const header = c.req.header('authorization')
+  const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : ''
+  if (!token) return null
+
+  try {
+    const payload = await verify(token, config.jwtSecret, 'HS256')
+    const userId = typeof payload.sub === 'string' ? Number(payload.sub) : NaN
+    return Number.isInteger(userId) ? await getAuthUser(userId) : null
+  } catch {
+    return null
+  }
 }
 
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
