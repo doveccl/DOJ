@@ -103,17 +103,16 @@ body,
 }
 
 .page-header {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .page-header h1 {
-  margin: 0 0 6px;
-  font-size: 24px;
+  margin: 0;
+  font-size: 18px;
 }
 
 .page-header p {
-  margin: 0;
-  color: var(--muted-color);
+  display: none;
 }
 
 .problem-layout {
