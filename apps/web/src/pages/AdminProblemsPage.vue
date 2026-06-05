@@ -9,6 +9,7 @@ import {
   NFormItem,
   NInput,
   NInputNumber,
+  NModal,
   NSpace
 } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
@@ -46,6 +47,9 @@ const uploading = ref(false)
 const error = ref('')
 const uploadMessage = ref('')
 const editMessage = ref('')
+const showCreateModal = ref(false)
+const showUploadModal = ref(false)
+const showEditModal = ref(false)
 const problems = ref<ProblemRow[]>([])
 const selectedFile = ref<File | null>(null)
 const form = reactive({
@@ -97,17 +101,32 @@ const columns: DataTableColumns<ProblemRow> = [
   {
     title: 'Action',
     key: 'action',
-    width: 100,
+    width: 180,
     render(row) {
-      return h(
-        NButton,
-        {
-          size: 'small',
-          secondary: true,
-          onClick: () => loadProblemForEdit(row.id)
-        },
-        () => 'Edit'
-      )
+      return h(NSpace, { size: 8 }, () => [
+        h(
+          NButton,
+          {
+            size: 'small',
+            secondary: true,
+            onClick: () => loadProblemForEdit(row.id)
+          },
+          () => 'Edit'
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
+            secondary: true,
+            onClick: () => {
+              uploadForm.problemId = row.id
+              selectedFile.value = null
+              showUploadModal.value = true
+            }
+          },
+          () => 'Testdata'
+        )
+      ])
     }
   }
 ]
@@ -141,6 +160,7 @@ async function loadProblemForEdit(problemId: number) {
     editForm.memoryLimitMb = Math.round(data.version.memoryLimitBytes / 1024 / 1024)
     editForm.outputLimitMb = Math.round(data.version.outputLimitBytes / 1024 / 1024)
     editForm.testCasesText = JSON.stringify(data.version.testCases, null, 2)
+    showEditModal.value = true
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
@@ -174,6 +194,7 @@ async function updateProblem() {
       })
     })
     editMessage.value = `Saved problem ${result.problem.id} as version ${result.version.version}.`
+    showEditModal.value = false
     await loadProblems()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
@@ -206,6 +227,7 @@ async function createProblem() {
     form.title = ''
     form.slug = ''
     form.tags = ''
+    showCreateModal.value = false
     await loadProblems()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
@@ -232,6 +254,7 @@ async function uploadTestdata() {
     )
     uploadMessage.value = `Uploaded ${result.caseCount} cases for problem ${uploadForm.problemId}.`
     selectedFile.value = null
+    showUploadModal.value = false
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
@@ -277,156 +300,11 @@ onMounted(() => {
       {{ editMessage }}
     </n-alert>
 
-    <section v-if="canManage" class="admin-layout">
-      <div class="admin-stack">
-        <n-card title="Create problem" :bordered="false">
-          <n-form :model="form" label-placement="top">
-            <n-form-item label="Title">
-              <n-input v-model:value="form.title" placeholder="A+B Problem" />
-            </n-form-item>
-            <n-form-item label="Slug">
-              <n-input v-model:value="form.slug" placeholder="a-plus-b" />
-            </n-form-item>
-            <n-form-item label="Tags">
-              <n-input v-model:value="form.tags" placeholder="math, beginner" />
-            </n-form-item>
-            <n-form-item label="Statement">
-              <n-input
-                v-model:value="form.statementMarkdown"
-                type="textarea"
-                :autosize="{ minRows: 6, maxRows: 12 }"
-              />
-            </n-form-item>
-            <div class="form-grid">
-              <n-form-item label="Time ms">
-                <n-input-number v-model:value="form.timeLimitMs" :min="100" class="full-width" />
-              </n-form-item>
-              <n-form-item label="Memory MB">
-                <n-input-number v-model:value="form.memoryLimitMb" :min="16" class="full-width" />
-              </n-form-item>
-              <n-form-item label="Output MB">
-                <n-input-number v-model:value="form.outputLimitMb" :min="1" class="full-width" />
-              </n-form-item>
-            </div>
-            <n-form-item label="Test cases JSON">
-              <n-input
-                v-model:value="form.testCasesText"
-                type="textarea"
-                :autosize="{ minRows: 7, maxRows: 12 }"
-              />
-            </n-form-item>
-            <n-space justify="end" class="form-actions">
-              <n-button
-                type="primary"
-                :loading="saving"
-                :disabled="!form.title"
-                @click="createProblem"
-              >
-                Create
-              </n-button>
-            </n-space>
-          </n-form>
-        </n-card>
-
-        <n-card title="Upload testdata" :bordered="false">
-          <n-form :model="uploadForm" label-placement="top">
-            <n-form-item label="Problem ID">
-              <n-input-number v-model:value="uploadForm.problemId" :min="1000" class="full-width" />
-            </n-form-item>
-            <n-form-item label="ZIP file">
-              <input type="file" accept=".zip,application/zip" @change="handleFileChange" />
-            </n-form-item>
-            <n-space justify="end" class="form-actions">
-              <n-button
-                type="primary"
-                :loading="uploading"
-                :disabled="!uploadForm.problemId || !selectedFile"
-                @click="uploadTestdata"
-              >
-                Upload
-              </n-button>
-            </n-space>
-          </n-form>
-        </n-card>
-
-        <n-card title="Edit problem" :bordered="false">
-          <n-form :model="editForm" label-placement="top">
-            <n-form-item label="Problem ID">
-              <n-input-number v-model:value="editForm.problemId" :min="1000" class="full-width" />
-            </n-form-item>
-            <n-space justify="end">
-              <n-button
-                secondary
-                :loading="editing"
-                :disabled="!editForm.problemId"
-                @click="editForm.problemId && loadProblemForEdit(editForm.problemId)"
-              >
-                Load
-              </n-button>
-            </n-space>
-            <n-form-item label="Title">
-              <n-input v-model:value="editForm.title" placeholder="A+B Problem" />
-            </n-form-item>
-            <n-form-item label="Slug">
-              <n-input v-model:value="editForm.slug" placeholder="a-plus-b" />
-            </n-form-item>
-            <n-form-item label="Visible">
-              <n-checkbox v-model:checked="editForm.visible">Show in public problem set</n-checkbox>
-            </n-form-item>
-            <n-form-item label="Tags">
-              <n-input v-model:value="editForm.tags" placeholder="math, beginner" />
-            </n-form-item>
-            <n-form-item label="Statement">
-              <n-input
-                v-model:value="editForm.statementMarkdown"
-                type="textarea"
-                :autosize="{ minRows: 6, maxRows: 12 }"
-              />
-            </n-form-item>
-            <div class="form-grid">
-              <n-form-item label="Time ms">
-                <n-input-number
-                  v-model:value="editForm.timeLimitMs"
-                  :min="100"
-                  class="full-width"
-                />
-              </n-form-item>
-              <n-form-item label="Memory MB">
-                <n-input-number
-                  v-model:value="editForm.memoryLimitMb"
-                  :min="16"
-                  class="full-width"
-                />
-              </n-form-item>
-              <n-form-item label="Output MB">
-                <n-input-number
-                  v-model:value="editForm.outputLimitMb"
-                  :min="1"
-                  class="full-width"
-                />
-              </n-form-item>
-            </div>
-            <n-form-item label="Test cases JSON">
-              <n-input
-                v-model:value="editForm.testCasesText"
-                type="textarea"
-                :autosize="{ minRows: 7, maxRows: 12 }"
-              />
-            </n-form-item>
-            <n-space justify="end" class="form-actions">
-              <n-button
-                type="primary"
-                :loading="editing"
-                :disabled="!editForm.problemId || !editForm.title"
-                @click="updateProblem"
-              >
-                Save new version
-              </n-button>
-            </n-space>
-          </n-form>
-        </n-card>
-      </div>
-
+    <n-card v-if="canManage" :bordered="false">
+      <n-space justify="end" class="table-toolbar">
+        <n-button secondary @click="showUploadModal = true">Upload testdata</n-button>
+        <n-button type="primary" @click="showCreateModal = true">Create problem</n-button>
+      </n-space>
       <n-data-table
         :columns="columns"
         :data="problems"
@@ -434,6 +312,144 @@ onMounted(() => {
         :loading="loading"
         class="admin-table"
       />
-    </section>
+    </n-card>
+
+    <n-modal v-model:show="showCreateModal" preset="card" title="Create problem" class="form-modal">
+      <n-form :model="form" label-placement="top">
+        <n-form-item label="Title">
+          <n-input v-model:value="form.title" placeholder="A+B Problem" />
+        </n-form-item>
+        <n-form-item label="Slug">
+          <n-input v-model:value="form.slug" placeholder="a-plus-b" />
+        </n-form-item>
+        <n-form-item label="Tags">
+          <n-input v-model:value="form.tags" placeholder="math, beginner" />
+        </n-form-item>
+        <n-form-item label="Statement">
+          <n-input
+            v-model:value="form.statementMarkdown"
+            type="textarea"
+            :autosize="{ minRows: 6, maxRows: 12 }"
+          />
+        </n-form-item>
+        <div class="form-grid">
+          <n-form-item label="Time ms">
+            <n-input-number v-model:value="form.timeLimitMs" :min="100" class="full-width" />
+          </n-form-item>
+          <n-form-item label="Memory MB">
+            <n-input-number v-model:value="form.memoryLimitMb" :min="16" class="full-width" />
+          </n-form-item>
+          <n-form-item label="Output MB">
+            <n-input-number v-model:value="form.outputLimitMb" :min="1" class="full-width" />
+          </n-form-item>
+        </div>
+        <n-form-item label="Test cases JSON">
+          <n-input
+            v-model:value="form.testCasesText"
+            type="textarea"
+            :autosize="{ minRows: 7, maxRows: 12 }"
+          />
+        </n-form-item>
+        <n-space justify="end" class="form-actions">
+          <n-button @click="showCreateModal = false">Cancel</n-button>
+          <n-button type="primary" :loading="saving" :disabled="!form.title" @click="createProblem">
+            Create
+          </n-button>
+        </n-space>
+      </n-form>
+    </n-modal>
+
+    <n-modal
+      v-model:show="showUploadModal"
+      preset="card"
+      title="Upload testdata"
+      class="form-modal narrow"
+    >
+      <n-form :model="uploadForm" label-placement="top">
+        <n-form-item label="Problem ID">
+          <n-input-number v-model:value="uploadForm.problemId" :min="1000" class="full-width" />
+        </n-form-item>
+        <n-form-item label="ZIP file">
+          <input type="file" accept=".zip,application/zip" @change="handleFileChange" />
+        </n-form-item>
+        <n-space justify="end" class="form-actions">
+          <n-button @click="showUploadModal = false">Cancel</n-button>
+          <n-button
+            type="primary"
+            :loading="uploading"
+            :disabled="!uploadForm.problemId || !selectedFile"
+            @click="uploadTestdata"
+          >
+            Upload
+          </n-button>
+        </n-space>
+      </n-form>
+    </n-modal>
+
+    <n-modal v-model:show="showEditModal" preset="card" title="Edit problem" class="form-modal">
+      <n-form :model="editForm" label-placement="top">
+        <n-form-item label="Problem ID">
+          <n-input-number v-model:value="editForm.problemId" :min="1000" class="full-width" />
+        </n-form-item>
+        <n-space justify="end">
+          <n-button
+            secondary
+            :loading="editing"
+            :disabled="!editForm.problemId"
+            @click="editForm.problemId && loadProblemForEdit(editForm.problemId)"
+          >
+            Load
+          </n-button>
+        </n-space>
+        <n-form-item label="Title">
+          <n-input v-model:value="editForm.title" placeholder="A+B Problem" />
+        </n-form-item>
+        <n-form-item label="Slug">
+          <n-input v-model:value="editForm.slug" placeholder="a-plus-b" />
+        </n-form-item>
+        <n-form-item label="Visible">
+          <n-checkbox v-model:checked="editForm.visible">Show in public problem set</n-checkbox>
+        </n-form-item>
+        <n-form-item label="Tags">
+          <n-input v-model:value="editForm.tags" placeholder="math, beginner" />
+        </n-form-item>
+        <n-form-item label="Statement">
+          <n-input
+            v-model:value="editForm.statementMarkdown"
+            type="textarea"
+            :autosize="{ minRows: 6, maxRows: 12 }"
+          />
+        </n-form-item>
+        <div class="form-grid">
+          <n-form-item label="Time ms">
+            <n-input-number v-model:value="editForm.timeLimitMs" :min="100" class="full-width" />
+          </n-form-item>
+          <n-form-item label="Memory MB">
+            <n-input-number v-model:value="editForm.memoryLimitMb" :min="16" class="full-width" />
+          </n-form-item>
+          <n-form-item label="Output MB">
+            <n-input-number v-model:value="editForm.outputLimitMb" :min="1" class="full-width" />
+          </n-form-item>
+        </div>
+        <n-form-item label="Test cases JSON">
+          <n-input
+            v-model:value="editForm.testCasesText"
+            type="textarea"
+            :autosize="{ minRows: 7, maxRows: 12 }"
+          />
+        </n-form-item>
+        <n-space justify="end" class="form-actions">
+          <n-button @click="showEditModal = false">Cancel</n-button>
+          <n-button
+            type="primary"
+            :loading="editing"
+            :disabled="!editForm.problemId || !editForm.title"
+            @click="updateProblem"
+          >
+            Save new version
+          </n-button>
+        </n-space>
+      </n-form>
+    </n-modal>
   </main>
 </template>

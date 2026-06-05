@@ -124,6 +124,10 @@ body {
   min-width: 0;
 }
 
+.table-toolbar {
+  margin-bottom: 12px;
+}
+
 .admin-stack {
   display: grid;
   gap: 16px;
@@ -160,6 +164,20 @@ body {
 
 .form-grid.two {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-modal {
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+}
+
+.form-modal.narrow {
+  width: min(460px, calc(100vw - 32px));
+}
+
+.form-modal .n-card__content {
+  max-height: calc(100vh - 144px);
+  overflow-y: auto;
 }
 
 .stacked-card {
