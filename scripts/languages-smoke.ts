@@ -24,11 +24,6 @@ const adminHeaders = {
   authorization: `Bearer ${admin.token}`
 }
 
-const before = (await api('/api/languages')) as { list: Array<{ id: string }> }
-if (!before.list.some((language) => language.id === 'py')) {
-  throw new Error(`py should be enabled before smoke: ${JSON.stringify(before.list)}`)
-}
-
 await api('/api/admin/languages', {
   method: 'POST',
   headers: adminHeaders,

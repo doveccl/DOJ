@@ -63,6 +63,47 @@ app.get('/api/config', (c) =>
   })
 )
 
+app.get('/api/dashboard', async (c) => {
+  const [problemStats, submissionStats, userStats, contestStats, assignmentStats] =
+    await Promise.all([
+      countRows(schema.problems, sql`${schema.problems.visible} = true`),
+      countRows(schema.submissions),
+      countRows(schema.users, sql`${schema.users.disabledAt} is null`),
+      countRows(schema.contests),
+      countRows(schema.assignments)
+    ])
+
+  const recentSubmissions = await db
+    .select({
+      id: schema.submissions.id,
+      status: schema.submissions.status,
+      languageId: schema.submissions.languageId,
+      timeMs: schema.submissions.timeMs,
+      memoryBytes: schema.submissions.memoryBytes,
+      createdAt: schema.submissions.createdAt,
+      userId: schema.users.id,
+      userName: schema.users.name,
+      problemId: schema.problems.id,
+      problemTitle: schema.problems.title
+    })
+    .from(schema.submissions)
+    .innerJoin(schema.users, eq(schema.submissions.userId, schema.users.id))
+    .innerJoin(schema.problems, eq(schema.submissions.problemId, schema.problems.id))
+    .orderBy(desc(schema.submissions.createdAt))
+    .limit(8)
+
+  return c.json({
+    stats: {
+      problems: problemStats,
+      submissions: submissionStats,
+      users: userStats,
+      contests: contestStats,
+      assignments: assignmentStats
+    },
+    recentSubmissions
+  })
+})
+
 app.get('/api/languages', async (c) => {
   const list = await db
     .select({
@@ -1262,6 +1303,12 @@ async function getAssignmentDetail(id: number) {
     groups,
     problems
   }
+}
+
+async function countRows(table: any, where?: any) {
+  const query = db.select({ total: sql<number>`count(*)::int` }).from(table)
+  const [row] = await (where ? query.where(where) : query)
+  return row?.total ?? 0
 }
 
 async function getAssignmentReport(id: number) {

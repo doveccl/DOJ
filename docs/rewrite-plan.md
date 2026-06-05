@@ -105,8 +105,8 @@ Do not port old low-usage `posts` directly. If discussion is needed, build a sim
 - PostgreSQL schema and migrations.
 - Auth, group management, and admin user suspension.
 - Admin problem creation, visibility control, versioned updates, and S3 testdata upload.
-- Configurable judge languages.
-- Configurable Docker runners with local socket or HTTP(S) endpoint plus optional auth header.
+- Configurable judge languages with C/C++ seeded by default.
+- Configurable Docker runners with local socket or HTTP(S) endpoint.
 - Submission creation.
 - PostgreSQL-backed judge task queue.
 - Docker runner MVP.
@@ -117,6 +117,7 @@ Do not port old low-usage `posts` directly. If discussion is needed, build a sim
 - Rank list and first-AC solve tracking.
 - Non-AC AI coaching with owner/admin authorization, hidden-test redaction, local-stub, and optional OpenAI Responses API provider.
 - v3 JSON migration tool.
+- One-command local development via Bun's native parallel script runner.
 
 ## Next Risks
 

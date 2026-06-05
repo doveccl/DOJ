@@ -41,8 +41,9 @@ try {
     body: JSON.stringify({
       problemId: problem.id,
       problemVersionId: version.id,
-      languageId: 'py',
-      sourceCode: 'print("rank")\n'
+      languageId: 'cpp',
+      sourceCode:
+        '#include <bits/stdc++.h>\nusing namespace std;\nint main(){ cout << "rank\\n"; }\n'
     })
   })
 

@@ -101,22 +101,6 @@ if (!existingAdmin) {
 
 const starterProblems = [
   {
-    title: 'Hello World',
-    slug: 'hello-world',
-    tags: ['beginner'],
-    statementMarkdown: '# Hello World\n\nPrint `Hello, World!`.',
-    timeLimitMs: 1000,
-    memoryLimitBytes: 128 * 1024 * 1024,
-    outputLimitBytes: 1024 * 1024,
-    testCases: [
-      {
-        name: 'sample',
-        input: '',
-        output: 'Hello, World!\n'
-      }
-    ]
-  },
-  {
     title: 'A+B Problem',
     slug: 'a-plus-b',
     tags: ['beginner'],
@@ -140,6 +124,11 @@ const starterProblems = [
     ]
   }
 ]
+
+await db
+  .update(schema.problems)
+  .set({ visible: false, updatedAt: new Date() })
+  .where(eq(schema.problems.slug, 'hello-world'))
 
 for (const starter of starterProblems) {
   const [existing] = await db

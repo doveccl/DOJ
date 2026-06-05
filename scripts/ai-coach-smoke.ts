@@ -81,8 +81,9 @@ try {
     body: JSON.stringify({
       problemId: problem.id,
       problemVersionId: version.id,
-      languageId: 'sh',
-      sourceCode: '#!/bin/sh\necho wrong\n'
+      languageId: 'cpp',
+      sourceCode:
+        '#include <bits/stdc++.h>\nusing namespace std;\nint main(){ cout << "wrong\\n"; }\n'
     })
   })
 

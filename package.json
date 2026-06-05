@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "echo \"Run dev:api, dev:worker, and dev:web in separate terminals.\"",
+    "dev": "bun run --parallel 'dev:*'",
     "dev:api": "bun run --cwd apps/api dev",
     "dev:web": "bun run --cwd apps/web dev",
     "dev:worker": "bun run --cwd apps/worker dev",
@@ -39,7 +39,6 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1061.0",
     "dockerode": "^5.0.0",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.23",

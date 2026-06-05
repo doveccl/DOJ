@@ -32,8 +32,10 @@ const submitting = ref(false)
 const error = ref('')
 const problem = ref<Problem | null>(null)
 const version = ref<ProblemVersion | null>(null)
-const languageId = ref('sh')
-const sourceCode = ref('#!/bin/sh\necho accepted\n')
+const languageId = ref('cpp')
+const sourceCode = ref(
+  '#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n  long long a, b;\n  if (cin >> a >> b) cout << a + b << "\\n";\n  return 0;\n}\n'
+)
 const languageOptions = ref<LanguageOption[]>([])
 
 const memoryMb = computed(() =>
@@ -93,7 +95,15 @@ async function submit() {
 }
 
 function updateTemplate(value: string) {
-  if (value === 'py') sourceCode.value = 'print("accepted")\n'
+  if (value === 'c') {
+    sourceCode.value =
+      '#include <stdio.h>\n\nint main(void) {\n  long long a, b;\n  if (scanf("%lld%lld", &a, &b) == 2) printf("%lld\\n", a + b);\n  return 0;\n}\n'
+  }
+  if (value === 'cpp') {
+    sourceCode.value =
+      '#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n  long long a, b;\n  if (cin >> a >> b) cout << a + b << "\\n";\n  return 0;\n}\n'
+  }
+  if (value === 'py') sourceCode.value = 'a, b = map(int, input().split())\nprint(a + b)\n'
   if (value === 'sh') sourceCode.value = '#!/bin/sh\necho accepted\n'
 }
 </script>

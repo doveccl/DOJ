@@ -15,13 +15,18 @@ try {
     auth.token,
     problem.id,
     version.id,
-    'print(int(input()) * 2)\n'
+    '#include <bits/stdc++.h>\nusing namespace std;\nint main(){ long long x; cin >> x; cout << x * 2 << "\\n"; }\n'
   )
   if (accepted.status !== 'AC') {
     throw new Error(`expected AC, got ${accepted.status}: ${accepted.message}`)
   }
 
-  const wrong = await submitAndJudge(auth.token, problem.id, version.id, 'print(0)\n')
+  const wrong = await submitAndJudge(
+    auth.token,
+    problem.id,
+    version.id,
+    '#include <bits/stdc++.h>\nusing namespace std;\nint main(){ cout << 0 << "\\n"; }\n'
+  )
   if (wrong.status !== 'WA') {
     throw new Error(`expected WA, got ${wrong.status}: ${wrong.message}`)
   }
@@ -127,7 +132,7 @@ async function submitAndJudge(
     body: JSON.stringify({
       problemId,
       problemVersionId,
-      languageId: 'py',
+      languageId: 'cpp',
       sourceCode
     })
   })

@@ -97,8 +97,9 @@ const submission = (await api('/api/submissions', {
     problemId: detail.problems[0].id,
     problemVersionId: problemDetail.version.id,
     assignmentId: created.assignment.id,
-    languageId: 'sh',
-    sourceCode: '#!/bin/sh\necho accepted\n'
+    languageId: 'cpp',
+    sourceCode:
+      '#include <bits/stdc++.h>\nusing namespace std;\nint main(){ cout << "accepted\\n"; }\n'
   })
 })) as { assignmentId: number | null }
 

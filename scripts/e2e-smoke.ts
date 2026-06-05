@@ -72,8 +72,9 @@ try {
     body: JSON.stringify({
       problemId: problem.id,
       problemVersionId: version.id,
-      languageId: 'py',
-      sourceCode: 'import time\nprint("accepted")\ntime.sleep(0.3)\n'
+      languageId: 'cpp',
+      sourceCode:
+        '#include <bits/stdc++.h>\nusing namespace std;\nint main(){ cout << "accepted\\n"; return 0; }\n'
     })
   })
 

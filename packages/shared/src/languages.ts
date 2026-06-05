@@ -10,34 +10,35 @@ export interface JudgeLanguageConfig {
 
 export const defaultLanguageConfigs = [
   {
-    id: 'sh',
-    name: 'Shell',
+    id: 'c',
+    name: 'C',
     enabled: true,
-    sourceFile: 'main.sh',
+    sourceFile: 'main.c',
     dockerfile: (sourceFile: string) =>
       [
-        'FROM alpine:latest',
+        'FROM gcc:latest',
         'WORKDIR /workspace',
         `COPY ${sourceFile} /workspace/${sourceFile}`,
-        `RUN chmod +x /workspace/${sourceFile}`,
-        `CMD ["/workspace/${sourceFile}"]`
+        `RUN gcc -std=c17 -O2 -pipe -static -s ${sourceFile} -o main`,
+        'CMD ["/workspace/main"]'
       ].join('\n'),
-    command: ['/workspace/main.sh'] as string[],
+    command: ['/workspace/main'] as string[],
     sortOrder: 10
   },
   {
-    id: 'py',
-    name: 'Python',
+    id: 'cpp',
+    name: 'C++',
     enabled: true,
-    sourceFile: 'main.py',
+    sourceFile: 'main.cpp',
     dockerfile: (sourceFile: string) =>
       [
-        'FROM python:latest',
+        'FROM gcc:latest',
         'WORKDIR /workspace',
         `COPY ${sourceFile} /workspace/${sourceFile}`,
-        `CMD ["python3", "/workspace/${sourceFile}"]`
+        `RUN g++ -std=c++20 -O2 -pipe -static -s ${sourceFile} -o main`,
+        'CMD ["/workspace/main"]'
       ].join('\n'),
-    command: ['python3', '/workspace/main.py'] as string[],
+    command: ['/workspace/main'] as string[],
     sortOrder: 20
   }
 ] as const

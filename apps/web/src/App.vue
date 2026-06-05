@@ -15,7 +15,7 @@ import {
 } from 'naive-ui'
 import type { MenuOption } from 'naive-ui'
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { setLocale, supportedLocales, type SupportedLocale } from './i18n'
 import { useAuthStore } from './stores/auth'
@@ -37,7 +37,6 @@ const localeValue = computed({
 
 const menuOptions = computed(() => {
   const options: MenuOption[] = [
-    { label: t('nav.home'), key: '/' },
     { label: t('nav.problems'), key: '/problems' },
     { label: t('nav.assignments'), key: '/assignments' },
     { label: t('nav.contests'), key: '/contests' },
@@ -103,7 +102,7 @@ function handleUserCommand(key: string) {
   <n-config-provider>
     <n-layout class="app-shell">
       <header class="topbar">
-        <div class="brand">{{ t('app.brand') }}</div>
+        <router-link to="/" class="brand">{{ t('app.brand') }}</router-link>
         <n-menu
           mode="horizontal"
           :value="route.path"

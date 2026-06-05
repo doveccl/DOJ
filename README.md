@@ -54,9 +54,7 @@ bun run db:seed
 Run services:
 
 ```sh
-bun run dev:api
-bun run dev:worker
-bun run dev:web
+bun run dev
 ```
 
 Run checks:
@@ -98,7 +96,7 @@ The current implementation includes:
 - Auth with Argon2id password hashes and JWT sessions.
 - Linux-like users/groups/admin membership with admin user suspension.
 - Numeric PostgreSQL IDs, with problems starting at 1000.
-- Admin-configurable judge languages.
+- Admin-configurable judge languages, with C/C++ as the default seeded languages.
 - Admin-configurable Docker runners, including local sockets and HTTP(S) Docker API endpoints with an optional auth header.
 - PostgreSQL-backed judge task queue with leases.
 - Docker runner build/run/cleanup with time, output, and memory limits plus best-effort cgroup peak memory reads.
@@ -109,5 +107,5 @@ The current implementation includes:
 - Non-AC AI coaching with owner/admin authorization, hidden-test redaction, and a provider abstraction: `local-stub` by default, optional OpenAI Responses API via `AI_PROVIDER=openai`.
 - Lightweight BBS topics/replies with optional problem/contest links.
 - Rank list backed by first-AC solve tracking.
-- Bun-native S3 object reads/writes with AWS-compatible bucket provisioning for MinIO/S3.
+- Bun-native S3 object reads/writes and bucket provisioning for MinIO/S3.
 - v3 JSON migration tool in `scripts/migrate-v3-json.ts`.
