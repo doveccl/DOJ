@@ -7,6 +7,7 @@ import {
   NForm,
   NFormItem,
   NInput,
+  NModal,
   NSpace,
   NTag
 } from 'naive-ui'
@@ -31,6 +32,7 @@ const router = useRouter()
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
+const showCreateModal = ref(false)
 const topics = ref<TopicRow[]>([])
 const form = reactive({
   title: '',
@@ -98,6 +100,7 @@ async function createTopic() {
         linkedContestId: form.linkedContestId ? Number(form.linkedContestId) : undefined
       })
     })
+    showCreateModal.value = false
     await router.push(`/bbs/${detail.topic.id}`)
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
@@ -119,46 +122,13 @@ onMounted(loadTopics)
       {{ error }}
     </n-alert>
 
-    <section class="admin-layout">
-      <n-card title="New topic" :bordered="false">
-        <template v-if="auth.signedIn">
-          <n-form :model="form" label-placement="top">
-            <n-form-item label="Title">
-              <n-input v-model:value="form.title" />
-            </n-form-item>
-            <n-form-item label="Content">
-              <n-input
-                v-model:value="form.contentMarkdown"
-                type="textarea"
-                :autosize="{ minRows: 5, maxRows: 10 }"
-              />
-            </n-form-item>
-            <n-form-item label="Tags">
-              <n-input v-model:value="form.tags" placeholder="problem, contest" />
-            </n-form-item>
-            <div class="form-grid two">
-              <n-form-item label="Problem ID">
-                <n-input v-model:value="form.linkedProblemId" />
-              </n-form-item>
-              <n-form-item label="Contest ID">
-                <n-input v-model:value="form.linkedContestId" />
-              </n-form-item>
-            </div>
-            <n-space justify="end" class="form-actions">
-              <n-button
-                type="primary"
-                :loading="saving"
-                :disabled="!form.title || !form.contentMarkdown"
-                @click="createTopic"
-              >
-                Publish
-              </n-button>
-            </n-space>
-          </n-form>
-        </template>
-        <p v-else class="muted">Sign in to start a topic.</p>
-      </n-card>
-
+    <n-card :bordered="false">
+      <n-space justify="end" class="table-toolbar">
+        <n-button type="primary" :disabled="!auth.signedIn" @click="showCreateModal = true">
+          New topic
+        </n-button>
+      </n-space>
+      <p v-if="!auth.signedIn" class="muted table-toolbar">Sign in to start a topic.</p>
       <n-data-table
         :columns="columns"
         :data="topics"
@@ -166,6 +136,43 @@ onMounted(loadTopics)
         :loading="loading"
         class="admin-table"
       />
-    </section>
+    </n-card>
+
+    <n-modal v-model:show="showCreateModal" preset="card" title="New topic" class="form-modal">
+      <n-form :model="form" label-placement="top">
+        <n-form-item label="Title">
+          <n-input v-model:value="form.title" />
+        </n-form-item>
+        <n-form-item label="Content">
+          <n-input
+            v-model:value="form.contentMarkdown"
+            type="textarea"
+            :autosize="{ minRows: 7, maxRows: 14 }"
+          />
+        </n-form-item>
+        <n-form-item label="Tags">
+          <n-input v-model:value="form.tags" placeholder="problem, contest" />
+        </n-form-item>
+        <div class="form-grid two">
+          <n-form-item label="Problem ID">
+            <n-input v-model:value="form.linkedProblemId" />
+          </n-form-item>
+          <n-form-item label="Contest ID">
+            <n-input v-model:value="form.linkedContestId" />
+          </n-form-item>
+        </div>
+        <n-space justify="end" class="form-actions">
+          <n-button @click="showCreateModal = false">Cancel</n-button>
+          <n-button
+            type="primary"
+            :loading="saving"
+            :disabled="!form.title || !form.contentMarkdown"
+            @click="createTopic"
+          >
+            Publish
+          </n-button>
+        </n-space>
+      </n-form>
+    </n-modal>
   </main>
 </template>
