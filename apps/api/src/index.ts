@@ -69,7 +69,7 @@ app.get('/api/dashboard', async (c) => {
   const [problemStats, submissionStats, userStats, contestStats, assignmentStats] =
     await Promise.all([
       countRows(schema.problems, sql`${schema.problems.visible} = true`),
-      countRows(schema.submissions),
+      countVisibleSubmissions(),
       countRows(schema.users, sql`${schema.users.disabledAt} is null`),
       countRows(schema.contests),
       countRows(schema.assignments)
@@ -1168,17 +1168,39 @@ app.post('/api/submissions', authMiddleware, async (c) => {
 app.get('/api/submissions/:id', async (c) => {
   const id = numericId.parse(c.req.param('id'))
   const [submission] = await db
-    .select()
+    .select({
+      id: schema.submissions.id,
+      userId: schema.submissions.userId,
+      problemId: schema.submissions.problemId,
+      problemVersionId: schema.submissions.problemVersionId,
+      languageId: schema.submissions.languageId,
+      sourceCode: schema.submissions.sourceCode,
+      status: schema.submissions.status,
+      timeMs: schema.submissions.timeMs,
+      memoryBytes: schema.submissions.memoryBytes,
+      message: schema.submissions.message,
+      contestId: schema.submissions.contestId,
+      assignmentId: schema.submissions.assignmentId,
+      createdAt: schema.submissions.createdAt,
+      updatedAt: schema.submissions.updatedAt,
+      problemVisible: schema.problems.visible
+    })
     .from(schema.submissions)
+    .innerJoin(schema.problems, eq(schema.submissions.problemId, schema.problems.id))
     .where(eq(schema.submissions.id, id))
     .limit(1)
 
   if (!submission) return c.notFound()
   const authUser = await getOptionalAuthUser(c)
+  const canManageHiddenProblem =
+    submission.userId === authUser?.id || authUser?.groups.includes('admin') === true
+  if (!submission.problemVisible && !canManageHiddenProblem) return c.notFound()
+
   const canInspect =
     !submission.contestId ||
     submission.userId === authUser?.id ||
     authUser?.groups.includes('admin') === true
+  const { problemVisible: _problemVisible, ...payload } = submission
 
   const cases = canInspect
     ? await db
@@ -1189,7 +1211,7 @@ app.get('/api/submissions/:id', async (c) => {
     : []
 
   return c.json({
-    ...submission,
+    ...payload,
     sourceCode: canInspect ? submission.sourceCode : '',
     message: canInspect ? submission.message : '',
     cases,
@@ -1435,6 +1457,15 @@ async function getAssignmentDetail(id: number) {
 async function countRows(table: any, where?: any) {
   const query = db.select({ total: sql<number>`count(*)::int` }).from(table)
   const [row] = await (where ? query.where(where) : query)
+  return row?.total ?? 0
+}
+
+async function countVisibleSubmissions() {
+  const [row] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(schema.submissions)
+    .innerJoin(schema.problems, eq(schema.submissions.problemId, schema.problems.id))
+    .where(eq(schema.problems.visible, true))
   return row?.total ?? 0
 }
 

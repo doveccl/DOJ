@@ -77,6 +77,9 @@ if (!listedSubmission) {
 if ('sourceCode' in listedSubmission || JSON.stringify(listedSubmission).includes(sourceMarker)) {
   throw new Error(`submission list leaked source code: ${JSON.stringify(listedSubmission)}`)
 }
+const dashboardBeforeHide = (await api('/api/dashboard')) as {
+  stats: { submissions: number }
+}
 
 await api(`/api/problems/${visibleProblem.problem.id}`, {
   method: 'PATCH',
@@ -90,10 +93,27 @@ if (listAfterHide.list.some((item) => item.id === normalSubmission.id)) {
   throw new Error(`hidden problem submission leaked in public list: ${normalSubmission.id}`)
 }
 const dashboardAfterHide = (await api('/api/dashboard')) as {
+  stats: { submissions: number }
   recentSubmissions: Array<{ id: number }>
 }
 if (dashboardAfterHide.recentSubmissions.some((item) => item.id === normalSubmission.id)) {
   throw new Error(`hidden problem submission leaked in dashboard: ${normalSubmission.id}`)
+}
+if (dashboardAfterHide.stats.submissions !== dashboardBeforeHide.stats.submissions - 1) {
+  throw new Error(
+    `hidden problem submission counted in dashboard stats: before ${dashboardBeforeHide.stats.submissions}, after ${dashboardAfterHide.stats.submissions}`
+  )
+}
+
+const hiddenDetailStatus = await fetch(`${apiBase}/api/submissions/${normalSubmission.id}`)
+if (hiddenDetailStatus.status !== 404) {
+  throw new Error(`hidden problem submission detail leaked: ${hiddenDetailStatus.status}`)
+}
+const ownerHiddenDetail = (await api(`/api/submissions/${normalSubmission.id}`, {
+  headers: { authorization: `Bearer ${user.token}` }
+})) as { sourceCode: string; restricted: boolean }
+if (ownerHiddenDetail.restricted || !ownerHiddenDetail.sourceCode.includes(sourceMarker)) {
+  throw new Error(`owner could not inspect hidden problem submission`)
 }
 
 console.log({
@@ -102,7 +122,8 @@ console.log({
   assignmentStatus,
   listedSubmissionId: normalSubmission.id,
   hiddenListLeak: false,
-  hiddenDashboardLeak: false
+  hiddenDashboardLeak: false,
+  hiddenDetailLeak: false
 })
 
 async function login(user: string, password: string) {

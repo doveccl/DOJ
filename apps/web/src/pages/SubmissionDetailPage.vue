@@ -57,6 +57,7 @@ const statusType: Record<string, 'success' | 'warning' | 'error' | 'info'> = {
 }
 
 const canCoach = computed(() => {
+  if (submission.value?.contestId || submission.value?.restricted) return false
   const status = submission.value?.status
   return !!status && !['AC', 'WAITING', 'JUDGING', 'FROZEN'].includes(status)
 })
