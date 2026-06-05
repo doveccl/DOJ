@@ -1031,7 +1031,9 @@ app.get('/api/submissions', async (c) => {
     .select({
       id: schema.submissions.id,
       userId: schema.submissions.userId,
+      userName: schema.users.name,
       problemId: schema.submissions.problemId,
+      problemTitle: schema.problems.title,
       problemVersionId: schema.submissions.problemVersionId,
       languageId: schema.submissions.languageId,
       status: schema.submissions.status,
@@ -1045,6 +1047,7 @@ app.get('/api/submissions', async (c) => {
     })
     .from(schema.submissions)
     .innerJoin(schema.problems, eq(schema.submissions.problemId, schema.problems.id))
+    .innerJoin(schema.users, eq(schema.submissions.userId, schema.users.id))
     .where(eq(schema.problems.visible, true))
     .orderBy(desc(schema.submissions.createdAt))
     .limit(50)

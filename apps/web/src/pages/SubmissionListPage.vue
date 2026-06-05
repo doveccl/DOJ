@@ -8,7 +8,9 @@ import { apiFetch } from '../api'
 interface SubmissionRow {
   id: number
   userId: number
+  userName: string
   problemId: number
+  problemTitle: string
   languageId: string
   status: string
   timeMs: number
@@ -47,14 +49,35 @@ const columns = computed(() => [
   {
     title: t('common.id'),
     key: 'id',
+    width: 84,
     render(row: SubmissionRow) {
       return h(RouterLink, { to: `/submissions/${row.id}`, class: 'table-link' }, () =>
         String(row.id)
       )
     }
   },
+  {
+    title: t('common.problem'),
+    key: 'problemTitle',
+    minWidth: 220,
+    render(row: SubmissionRow) {
+      return h(
+        RouterLink,
+        { to: `/problems/${row.problemId}`, class: 'table-link' },
+        () => row.problemTitle
+      )
+    }
+  },
+  { title: t('common.user'), key: 'userName', minWidth: 140 },
   { title: t('common.language'), key: 'languageId' },
-  { title: t('common.time'), key: 'timeMs' },
+  {
+    title: t('common.time'),
+    key: 'timeMs',
+    width: 100,
+    render(row: SubmissionRow) {
+      return `${row.timeMs} ms`
+    }
+  },
   {
     title: t('common.memory'),
     key: 'memoryBytes',
