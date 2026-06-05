@@ -11,6 +11,7 @@ const defaultOutputLimitBytes = 64 * 1024 * 1024
 
 export interface DockerRunnerOptions {
   endpoint?: string | null
+  /** @deprecated Prefer endpoint credentials, for example https://user:pass@docker.example.com. */
   authHeader?: string | null
 }
 
@@ -244,7 +245,11 @@ function patchDestroySoon(stream: unknown) {
 
 function createDockerClient(options: DockerRunnerOptions = {}) {
   const host = options.endpoint || process.env.DOCKER_HOST
-  const headers = options.authHeader ? { Authorization: options.authHeader } : undefined
+  const endpointAuth = host ? readEndpointAuth(host) : undefined
+  const headers =
+    endpointAuth || options.authHeader
+      ? { Authorization: endpointAuth ?? options.authHeader ?? '' }
+      : undefined
   if (host?.startsWith('unix://')) {
     return new Docker({ socketPath: host.slice('unix://'.length), headers })
   }
@@ -265,6 +270,15 @@ function createDockerClient(options: DockerRunnerOptions = {}) {
   }
 
   return new Docker(headers ? { headers } : undefined)
+}
+
+function readEndpointAuth(endpoint: string) {
+  if (!endpoint.startsWith('http://') && !endpoint.startsWith('https://')) return undefined
+  const url = new URL(endpoint)
+  if (!url.username && !url.password) return undefined
+  const user = decodeURIComponent(url.username)
+  const password = decodeURIComponent(url.password)
+  return `Basic ${Buffer.from(`${user}:${password}`).toString('base64')}`
 }
 
 function createBuildContext(input: BuildInput) {

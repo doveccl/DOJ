@@ -24,7 +24,6 @@ interface RunnerRow {
   enabled: boolean
   kind: string
   endpoint: string | null
-  authHeader: string | null
   concurrency: number
   sortOrder: number
 }
@@ -42,7 +41,6 @@ const form = reactive({
   name: '',
   enabled: true,
   endpoint: '',
-  authHeader: '',
   concurrency: 2,
   sortOrder: 100
 })
@@ -110,7 +108,6 @@ function editRunner(runner: RunnerRow) {
   form.name = runner.name
   form.enabled = runner.enabled
   form.endpoint = runner.endpoint ?? ''
-  form.authHeader = runner.authHeader ?? ''
   form.concurrency = runner.concurrency
   form.sortOrder = runner.sortOrder
 }
@@ -119,8 +116,7 @@ function newRunner() {
   form.key = ''
   form.name = ''
   form.enabled = true
-  form.endpoint = 'https://docker.example.com'
-  form.authHeader = ''
+  form.endpoint = 'https://user:pass@docker.example.com'
   form.concurrency = 1
   form.sortOrder = 100
 }
@@ -137,7 +133,6 @@ async function saveRunner() {
         enabled: form.enabled,
         kind: 'docker',
         endpoint: form.endpoint || undefined,
-        authHeader: form.authHeader || undefined,
         concurrency: form.concurrency,
         sortOrder: form.sortOrder
       })
@@ -212,11 +207,8 @@ onMounted(() => {
           <n-form-item label="Docker endpoint">
             <n-input
               v-model:value="form.endpoint"
-              placeholder="unix:///var/run/docker.sock or https://host"
+              placeholder="unix:///var/run/docker.sock or https://user:pass@host"
             />
-          </n-form-item>
-          <n-form-item label="Authorization header">
-            <n-input v-model:value="form.authHeader" placeholder="Bearer token or Basic ..." />
           </n-form-item>
           <n-form-item label="Concurrency">
             <n-input-number v-model:value="form.concurrency" class="full-width" :min="1" />

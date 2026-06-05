@@ -57,6 +57,11 @@ Keep three boundaries:
 
 Docker is the first backend. Podman should only be added after Docker behavior is stable.
 
+Remote runner modes:
+
+- The current remote runner support talks directly to a Docker API endpoint. The worker streams build context, source files, stdin, stdout, stderr, and Docker control traffic over that connection. This is convenient for one or a few trusted remote Docker hosts, especially behind HTTPS with URL credentials, but it is not the same deployment model as v3's remote worker.
+- For larger deployments, add an agent mode later: a lightweight worker runs on the judge host, claims tasks from the server, downloads S3 testdata locally, talks to the local Docker socket, and posts only final results back. That avoids Docker API WAN IO becoming part of judge time.
+
 ## Memory Metrics
 
 MVP:
@@ -106,7 +111,7 @@ Do not port old low-usage `posts` directly. If discussion is needed, build a sim
 - Auth, group management, and admin user suspension.
 - Admin problem creation, visibility control, versioned updates, and S3 testdata upload.
 - Configurable judge languages with C/C++ seeded by default.
-- Configurable Docker runners with local socket or HTTP(S) endpoint.
+- Configurable Docker runners with local socket or HTTP(S) endpoint; URL credentials are supported for reverse-proxied Docker APIs.
 - Submission creation.
 - PostgreSQL-backed judge task queue.
 - Docker runner MVP.

@@ -429,7 +429,6 @@ const runnerConfigSchema = z.object({
   enabled: z.boolean().default(true),
   kind: z.enum(['docker']).default('docker'),
   endpoint: z.string().max(1000).optional(),
-  authHeader: z.string().max(2000).optional(),
   concurrency: z.number().int().positive().default(2),
   sortOrder: z.number().int().min(0).default(100)
 })
@@ -444,7 +443,7 @@ app.post('/api/admin/runners', authMiddleware, async (c) => {
     .values({
       ...body,
       endpoint: body.endpoint || null,
-      authHeader: body.authHeader || null
+      authHeader: null
     })
     .onConflictDoUpdate({
       target: schema.judgeRunners.key,
@@ -453,7 +452,7 @@ app.post('/api/admin/runners', authMiddleware, async (c) => {
         enabled: body.enabled,
         kind: body.kind,
         endpoint: body.endpoint || null,
-        authHeader: body.authHeader || null,
+        authHeader: null,
         concurrency: body.concurrency,
         sortOrder: body.sortOrder,
         updatedAt: new Date()

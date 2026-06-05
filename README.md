@@ -97,7 +97,7 @@ The current implementation includes:
 - Linux-like users/groups/admin membership with admin user suspension.
 - Numeric PostgreSQL IDs, with problems starting at 1000.
 - Admin-configurable judge languages, with C/C++ as the default seeded languages.
-- Admin-configurable Docker runners, including local sockets and HTTP(S) Docker API endpoints with an optional auth header.
+- Admin-configurable Docker runners, including local sockets and HTTP(S) Docker API endpoints. Remote endpoint credentials can be embedded in the URL, for example `https://user:pass@docker.example.com`.
 - PostgreSQL-backed judge task queue with leases.
 - Docker runner build/run/cleanup with time, output, and memory limits plus best-effort cgroup peak memory reads.
 - Inline problem test cases, per-case submission results, and AC/WA/PE/TLE/MLE/OLE/RE/CE/SE aggregation.
