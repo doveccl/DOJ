@@ -9,8 +9,67 @@ export type SupportedLocale = (typeof supportedLocales)[number]['value']
 
 const fallbackLocale: SupportedLocale = 'zh-CN'
 
+const zhCNMessages = {
+  app: {
+    brand: 'DOJ',
+    signIn: '登录',
+    signUp: '注册',
+    signOut: '退出登录',
+    cancel: '取消',
+    user: '用户名或邮箱',
+    userName: '用户名',
+    email: '邮箱',
+    password: '密码',
+    locale: '语言'
+  },
+  nav: {
+    home: '首页',
+    problems: '题库',
+    assignments: '作业',
+    contests: '比赛',
+    discussion: '讨论',
+    rank: '排名',
+    submissions: '提交',
+    admin: '管理',
+    groups: '用户组',
+    manageProblems: '题目',
+    languages: '语言',
+    runners: '评测机'
+  }
+}
+
+const enMessages = {
+  app: {
+    brand: 'DOJ',
+    signIn: 'Sign in',
+    signUp: 'Sign up',
+    signOut: 'Sign out',
+    cancel: 'Cancel',
+    user: 'User or email',
+    userName: 'Name',
+    email: 'Email',
+    password: 'Password',
+    locale: 'Language'
+  },
+  nav: {
+    home: 'Home',
+    problems: 'Problems',
+    assignments: 'Assignments',
+    contests: 'Contests',
+    discussion: 'Discussion',
+    rank: 'Rank',
+    submissions: 'Submissions',
+    admin: 'Admin',
+    groups: 'Groups',
+    manageProblems: 'Problems',
+    languages: 'Languages',
+    runners: 'Runners'
+  }
+}
+
 function getInitialLocale(): SupportedLocale {
   const saved = localStorage.getItem('doj.locale')
+  if (saved === 'zh') return 'zh-CN'
   if (saved === 'zh-CN' || saved === 'en') return saved
   if (navigator.language.toLowerCase().startsWith('en')) return 'en'
   return fallbackLocale
@@ -21,62 +80,9 @@ export const i18n = createI18n({
   locale: getInitialLocale(),
   fallbackLocale,
   messages: {
-    'zh-CN': {
-      app: {
-        brand: 'DOJ',
-        signIn: '登录',
-        signUp: '注册',
-        signOut: '退出登录',
-        cancel: '取消',
-        user: '用户名或邮箱',
-        userName: '用户名',
-        email: '邮箱',
-        password: '密码',
-        locale: '语言'
-      },
-      nav: {
-        home: '首页',
-        problems: '题库',
-        assignments: '作业',
-        contests: '比赛',
-        discussion: '讨论',
-        rank: '排名',
-        submissions: '提交',
-        admin: '管理',
-        groups: '用户组',
-        manageProblems: '题目',
-        languages: '语言',
-        runners: '评测机'
-      }
-    },
-    en: {
-      app: {
-        brand: 'DOJ',
-        signIn: 'Sign in',
-        signUp: 'Sign up',
-        signOut: 'Sign out',
-        cancel: 'Cancel',
-        user: 'User or email',
-        userName: 'Name',
-        email: 'Email',
-        password: 'Password',
-        locale: 'Language'
-      },
-      nav: {
-        home: 'Home',
-        problems: 'Problems',
-        assignments: 'Assignments',
-        contests: 'Contests',
-        discussion: 'Discussion',
-        rank: 'Rank',
-        submissions: 'Submissions',
-        admin: 'Admin',
-        groups: 'Groups',
-        manageProblems: 'Problems',
-        languages: 'Languages',
-        runners: 'Runners'
-      }
-    }
+    zh: zhCNMessages,
+    'zh-CN': zhCNMessages,
+    en: enMessages
   }
 })
 
