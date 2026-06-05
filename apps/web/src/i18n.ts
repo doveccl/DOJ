@@ -61,7 +61,12 @@ const zhCNMessages = {
     users: '用户',
     contests: '比赛',
     assignments: '作业',
-    recentSubmissions: '最近提交'
+    recentSubmissions: '最近提交',
+    recentProblems: '最近题目',
+    recentTopics: '最新讨论',
+    myAssignments: '我的作业',
+    noAssignments: '登录后会显示分配给你的作业。',
+    noTopics: '还没有讨论'
   },
   problems: {
     title: '题库',
@@ -315,7 +320,12 @@ const enMessages = {
     users: 'Users',
     contests: 'Contests',
     assignments: 'Assignments',
-    recentSubmissions: 'Recent submissions'
+    recentSubmissions: 'Recent submissions',
+    recentProblems: 'Recent problems',
+    recentTopics: 'Latest discussions',
+    myAssignments: 'My assignments',
+    noAssignments: 'Assigned work appears here after sign-in.',
+    noTopics: 'No discussions yet'
   },
   problems: {
     title: 'Problems',

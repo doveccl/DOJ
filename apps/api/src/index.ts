@@ -95,6 +95,21 @@ app.get('/api/dashboard', async (c) => {
     .where(eq(schema.problems.visible, true))
     .orderBy(desc(schema.submissions.createdAt))
     .limit(8)
+  const recentProblems = await db
+    .select({
+      id: schema.problems.id,
+      title: schema.problems.title,
+      tags: schema.problems.tags,
+      solvedCount: schema.problems.solvedCount,
+      createdAt: schema.problems.createdAt
+    })
+    .from(schema.problems)
+    .where(eq(schema.problems.visible, true))
+    .orderBy(desc(schema.problems.createdAt), desc(schema.problems.id))
+    .limit(6)
+  const recentTopics = await getRecentBbsTopics(6)
+  const authUser = await getOptionalAuthUser(c)
+  const myAssignments = authUser ? await getUserAssignments(authUser.id, 5) : []
 
   return c.json({
     stats: {
@@ -104,7 +119,10 @@ app.get('/api/dashboard', async (c) => {
       contests: contestStats,
       assignments: assignmentStats
     },
-    recentSubmissions
+    recentSubmissions,
+    recentProblems,
+    recentTopics,
+    myAssignments
   })
 })
 
@@ -739,31 +757,7 @@ app.get('/api/contests/:id/scoreboard/reveal', authMiddleware, async (c) => {
 
 app.get('/api/my/assignments', authMiddleware, async (c) => {
   const user = await requireAuthUser(c)
-  const list = await db
-    .selectDistinct({
-      id: schema.assignments.id,
-      title: schema.assignments.title,
-      description: schema.assignments.description,
-      startAt: schema.assignments.startAt,
-      dueAt: schema.assignments.dueAt,
-      allowLate: schema.assignments.allowLate,
-      aiCoachingEnabled: schema.assignments.aiCoachingEnabled,
-      createdAt: schema.assignments.createdAt
-    })
-    .from(schema.assignments)
-    .innerJoin(
-      schema.assignmentGroups,
-      eq(schema.assignmentGroups.assignmentId, schema.assignments.id)
-    )
-    .innerJoin(
-      schema.userGroups,
-      and(
-        eq(schema.userGroups.groupId, schema.assignmentGroups.groupId),
-        eq(schema.userGroups.userId, user.id)
-      )
-    )
-    .orderBy(desc(schema.assignments.createdAt))
-    .limit(50)
+  const list = await getUserAssignments(user.id, 50)
 
   return c.json({ total: list.length, list })
 })
@@ -1250,28 +1244,7 @@ const createTopicSchema = z.object({
 })
 
 app.get('/api/bbs/topics', async (c) => {
-  const rows = await db
-    .select({
-      id: schema.bbsTopics.id,
-      title: schema.bbsTopics.title,
-      tags: schema.bbsTopics.tags,
-      linkedProblemId: schema.bbsTopics.linkedProblemId,
-      linkedContestId: schema.bbsTopics.linkedContestId,
-      createdAt: schema.bbsTopics.createdAt,
-      updatedAt: schema.bbsTopics.updatedAt,
-      problemVisible: schema.problems.visible,
-      userId: schema.users.id,
-      userName: schema.users.name
-    })
-    .from(schema.bbsTopics)
-    .innerJoin(schema.users, eq(schema.bbsTopics.userId, schema.users.id))
-    .leftJoin(schema.problems, eq(schema.bbsTopics.linkedProblemId, schema.problems.id))
-    .orderBy(desc(schema.bbsTopics.updatedAt))
-    .limit(50)
-  const list = rows.map(({ problemVisible, ...row }) => ({
-    ...row,
-    linkedProblemId: row.linkedProblemId && problemVisible ? row.linkedProblemId : null
-  }))
+  const list = await getRecentBbsTopics(50)
 
   return c.json({ total: list.length, list })
 })
@@ -1878,6 +1851,60 @@ async function getTopicDetail(id: number) {
     },
     replies
   }
+}
+
+async function getRecentBbsTopics(limit: number) {
+  const rows = await db
+    .select({
+      id: schema.bbsTopics.id,
+      title: schema.bbsTopics.title,
+      tags: schema.bbsTopics.tags,
+      linkedProblemId: schema.bbsTopics.linkedProblemId,
+      linkedContestId: schema.bbsTopics.linkedContestId,
+      createdAt: schema.bbsTopics.createdAt,
+      updatedAt: schema.bbsTopics.updatedAt,
+      problemVisible: schema.problems.visible,
+      userId: schema.users.id,
+      userName: schema.users.name
+    })
+    .from(schema.bbsTopics)
+    .innerJoin(schema.users, eq(schema.bbsTopics.userId, schema.users.id))
+    .leftJoin(schema.problems, eq(schema.bbsTopics.linkedProblemId, schema.problems.id))
+    .orderBy(desc(schema.bbsTopics.updatedAt))
+    .limit(limit)
+
+  return rows.map(({ problemVisible, ...row }) => ({
+    ...row,
+    linkedProblemId: row.linkedProblemId && problemVisible ? row.linkedProblemId : null
+  }))
+}
+
+async function getUserAssignments(userId: number, limit: number) {
+  return db
+    .selectDistinct({
+      id: schema.assignments.id,
+      title: schema.assignments.title,
+      description: schema.assignments.description,
+      startAt: schema.assignments.startAt,
+      dueAt: schema.assignments.dueAt,
+      allowLate: schema.assignments.allowLate,
+      aiCoachingEnabled: schema.assignments.aiCoachingEnabled,
+      createdAt: schema.assignments.createdAt
+    })
+    .from(schema.assignments)
+    .innerJoin(
+      schema.assignmentGroups,
+      eq(schema.assignmentGroups.assignmentId, schema.assignments.id)
+    )
+    .innerJoin(
+      schema.userGroups,
+      and(
+        eq(schema.userGroups.groupId, schema.assignmentGroups.groupId),
+        eq(schema.userGroups.userId, userId)
+      )
+    )
+    .orderBy(desc(schema.assignments.createdAt))
+    .limit(limit)
 }
 
 async function getUserAssignmentDetail(userId: number, assignmentId: number) {
