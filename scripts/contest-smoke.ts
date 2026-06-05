@@ -75,7 +75,10 @@ try {
   }
 
   const coachResponse = await fetch(`${apiBase}/api/submissions/${submission.id}/coach`, {
-    method: 'POST'
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${user.token}`
+    }
   })
   if (coachResponse.status !== 403) {
     throw new Error(

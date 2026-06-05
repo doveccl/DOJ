@@ -106,7 +106,7 @@ The current implementation includes:
 - S3-backed problem testdata ZIP upload for `.in/.out` case pairs.
 - Assignments for groups.
 - Contest basics with timed submissions and AI coaching disabled in contests.
-- Non-AC AI coaching with a provider abstraction: `local-stub` by default, optional OpenAI Responses API via `AI_PROVIDER=openai`.
+- Non-AC AI coaching with owner/admin authorization, hidden-test redaction, and a provider abstraction: `local-stub` by default, optional OpenAI Responses API via `AI_PROVIDER=openai`.
 - Lightweight BBS topics/replies with optional problem/contest links.
 - Rank list backed by first-AC solve tracking.
 - Bun-native S3 object reads/writes with AWS-compatible bucket provisioning for MinIO/S3.

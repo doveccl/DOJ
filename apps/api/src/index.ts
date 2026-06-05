@@ -1108,7 +1108,8 @@ app.post('/api/bbs/topics/:id/replies', authMiddleware, async (c) => {
   return c.json(reply, 201)
 })
 
-app.post('/api/submissions/:id/coach', async (c) => {
+app.post('/api/submissions/:id/coach', authMiddleware, async (c) => {
+  const user = await requireAuthUser(c)
   const id = numericId.parse(c.req.param('id'))
   const [submission] = await db
     .select()
@@ -1117,11 +1118,30 @@ app.post('/api/submissions/:id/coach', async (c) => {
     .limit(1)
 
   if (!submission) return c.notFound()
+  if (submission.userId !== user.id && !user.groups.includes('admin')) {
+    return c.json({ code: 'FORBIDDEN', message: 'Cannot coach another user submission' }, 403)
+  }
   if (submission.contestId) {
     return c.json(
       { code: 'AI_DISABLED_IN_CONTEST', message: 'AI coaching is disabled in contests' },
       403
     )
+  }
+  if (submission.assignmentId) {
+    const [assignment] = await db
+      .select({ aiCoachingEnabled: schema.assignments.aiCoachingEnabled })
+      .from(schema.assignments)
+      .where(eq(schema.assignments.id, submission.assignmentId))
+      .limit(1)
+    if (assignment && !assignment.aiCoachingEnabled) {
+      return c.json(
+        {
+          code: 'AI_DISABLED_IN_ASSIGNMENT',
+          message: 'AI coaching is disabled in this assignment'
+        },
+        403
+      )
+    }
   }
   if (['AC', 'WAITING', 'JUDGING', 'FROZEN'].includes(submission.status)) {
     return c.json(

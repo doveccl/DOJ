@@ -5,6 +5,7 @@ const apiBase = process.env.DOJ_API_BASE ?? 'http://localhost:7974'
 const adminUser = process.env.DOJ_ADMIN_NAME ?? 'admin'
 const adminPassword = process.env.DOJ_ADMIN_PASSWORD ?? 'admin12345'
 const runId = crypto.randomUUID()
+const hiddenExpected = `SECRET_EXPECTED_${runId}`
 
 try {
   const authResponse = await fetch(`${apiBase}/api/auth/register`, {
@@ -50,7 +51,15 @@ try {
       statementMarkdown: '# Coach Problem\n\nFail intentionally.',
       timeLimitMs: 5000,
       memoryLimitBytes: 128 * 1024 * 1024,
-      outputLimitBytes: 1024 * 1024
+      outputLimitBytes: 1024 * 1024,
+      testCases: [
+        {
+          name: 'hidden-secret',
+          input: '',
+          output: `${hiddenExpected}\n`,
+          hidden: true
+        }
+      ]
     })
   })
 
@@ -73,7 +82,7 @@ try {
       problemId: problem.id,
       problemVersionId: version.id,
       languageId: 'sh',
-      sourceCode: '#!/bin/sh\necho boom >&2\nexit 42\n'
+      sourceCode: '#!/bin/sh\necho wrong\n'
     })
   })
 
@@ -85,12 +94,33 @@ try {
 
   const submission = (await submissionResponse.json()) as { id: number }
   const judged = await waitForJudgement(submission.id)
-  if (judged.status !== 'RE') {
-    throw new Error(`expected RE, got ${judged.status}: ${judged.message}`)
+  if (judged.status !== 'WA') {
+    throw new Error(`expected WA, got ${judged.status}: ${judged.message}`)
+  }
+  assertNoSecret('submission message', judged.message)
+
+  const [caseResult] = await db
+    .select()
+    .from(schema.submissionCases)
+    .where(eq(schema.submissionCases.submissionId, submission.id))
+    .limit(1)
+  if (!caseResult) throw new Error('expected a submission case result')
+  assertNoSecret('case message', caseResult.message)
+
+  const anonymousCoach = await fetch(`${apiBase}/api/submissions/${submission.id}/coach`, {
+    method: 'POST'
+  })
+  if (anonymousCoach.status !== 401) {
+    throw new Error(
+      `expected anonymous coach 401, got ${anonymousCoach.status}: ${await anonymousCoach.text()}`
+    )
   }
 
   const coachResponse = await fetch(`${apiBase}/api/submissions/${submission.id}/coach`, {
-    method: 'POST'
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${auth.token}`
+    }
   })
 
   if (!coachResponse.ok) {
@@ -102,14 +132,24 @@ try {
     model: string
     responseMarkdown: string
   }
+  assertNoSecret('coach response', session.responseMarkdown)
 
   console.log({
     sessionId: session.id,
     model: session.model,
+    anonymousStatus: anonymousCoach.status,
+    submissionMessage: judged.message,
+    caseMessage: caseResult.message,
     preview: session.responseMarkdown.split('\n').slice(0, 3).join(' ')
   })
 } finally {
   await closeDb()
+}
+
+function assertNoSecret(label: string, value: string) {
+  if (value.includes(hiddenExpected)) {
+    throw new Error(`${label} leaked hidden expected output: ${value}`)
+  }
 }
 
 async function waitForJudgement(submissionId: number) {

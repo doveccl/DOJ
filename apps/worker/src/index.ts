@@ -198,7 +198,11 @@ async function judgeCases(input: JudgeCasesInput) {
 
     const compared = compareOutput(result.stdout, testCase.output)
     const caseStatus = result.status === 'AC' ? compared.status : result.status
-    const caseMessage = result.status === 'AC' ? compared.message : result.stderr
+    const caseMessage = buildCaseMessage({
+      status: caseStatus,
+      hidden: testCase.hidden === true,
+      message: result.status === 'AC' ? compared.message : result.stderr
+    })
     timeMs = Math.max(timeMs, result.timeMs)
     memoryBytes = Math.max(memoryBytes, result.memoryBytes)
     cases.push({
@@ -239,6 +243,18 @@ function compareOutput(stdout: Uint8Array, expected: string) {
     status: 'WA' as const,
     message: `wrong answer: expected ${preview(expected)}, got ${preview(actual)}`
   }
+}
+
+function buildCaseMessage(input: { status: JudgeStatus; hidden: boolean; message: string }) {
+  if (!input.hidden) return input.message
+  if (input.status === 'AC') return 'accepted'
+  if (input.status === 'PE') return 'presentation error on hidden test'
+  if (input.status === 'WA') return 'wrong answer on hidden test'
+  if (input.status === 'TLE') return 'time limit exceeded on hidden test'
+  if (input.status === 'MLE') return 'memory limit exceeded on hidden test'
+  if (input.status === 'OLE') return 'output limit exceeded on hidden test'
+  if (input.status === 'RE') return 'runtime error on hidden test'
+  return `${input.status.toLowerCase()} on hidden test`
 }
 
 function normalizeEnd(value: string) {
