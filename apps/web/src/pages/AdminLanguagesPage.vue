@@ -8,6 +8,7 @@ import {
   NFormItem,
   NInput,
   NInputNumber,
+  NModal,
   NSpace,
   NSwitch,
   NTag
@@ -15,6 +16,7 @@ import {
 import type { DataTableColumns } from 'naive-ui'
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import { apiFetch } from '../api'
+import CodeEditor from '../components/CodeEditor.vue'
 import { useAuthStore } from '../stores/auth'
 
 interface LanguageRow {
@@ -32,6 +34,7 @@ const canManage = computed(() => auth.user?.groups.includes('admin') ?? false)
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
+const showConfigModal = ref(false)
 const languages = ref<LanguageRow[]>([])
 const form = reactive({
   id: '',
@@ -80,7 +83,7 @@ async function loadLanguages() {
   try {
     const data = await apiFetch<{ list: LanguageRow[] }>('/api/admin/languages')
     languages.value = data.list
-    if (!form.id && data.list.length) editLanguage(data.list[0])
+    if (!form.id && data.list.length) editLanguage(data.list[0], false)
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
@@ -88,7 +91,7 @@ async function loadLanguages() {
   }
 }
 
-function editLanguage(language: LanguageRow) {
+function editLanguage(language: LanguageRow, open = true) {
   form.id = language.id
   form.name = language.name
   form.enabled = language.enabled
@@ -96,6 +99,7 @@ function editLanguage(language: LanguageRow) {
   form.dockerfile = language.dockerfile
   form.commandText = language.command.join('\n')
   form.sortOrder = language.sortOrder
+  showConfigModal.value = open
 }
 
 function newLanguage() {
@@ -103,9 +107,11 @@ function newLanguage() {
   form.name = ''
   form.enabled = true
   form.sourceFile = 'main.cpp'
-  form.dockerfile = 'FROM gcc:latest\nWORKDIR /workspace\nCOPY main.cpp /workspace/main.cpp\nRUN g++ -std=c++20 -O2 -pipe -static -s main.cpp -o main\nCMD ["/workspace/main"]'
+  form.dockerfile =
+    'FROM gcc:latest\nWORKDIR /workspace\nCOPY main.cpp /workspace/main.cpp\nRUN g++ -std=c++20 -O2 -pipe -static -s main.cpp -o main\nCMD ["/workspace/main"]'
   form.commandText = ''
   form.sortOrder = 100
+  showConfigModal.value = true
 }
 
 async function saveLanguage() {
@@ -127,6 +133,7 @@ async function saveLanguage() {
         sortOrder: form.sortOrder
       })
     })
+    showConfigModal.value = false
     await loadLanguages()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
@@ -135,12 +142,9 @@ async function saveLanguage() {
   }
 }
 
-watch(
-  canManage,
-  (allowed) => {
-    if (allowed) loadLanguages()
-  }
-)
+watch(canManage, (allowed) => {
+  if (allowed) loadLanguages()
+})
 
 onMounted(() => {
   if (canManage.value) {
@@ -166,56 +170,10 @@ onMounted(() => {
       {{ error }}
     </n-alert>
 
-    <section v-if="canManage" class="admin-layout">
-      <n-card title="Language config" :bordered="false">
-        <n-form :model="form" label-placement="top">
-          <n-form-item label="ID">
-            <n-input v-model:value="form.id" placeholder="cpp" />
-          </n-form-item>
-          <n-form-item label="Name">
-            <n-input v-model:value="form.name" placeholder="C++ 20" />
-          </n-form-item>
-          <n-form-item label="Source file">
-            <n-input v-model:value="form.sourceFile" placeholder="main.cpp" />
-          </n-form-item>
-          <n-form-item label="Sort order">
-            <n-input-number v-model:value="form.sortOrder" class="full-width" :min="0" />
-          </n-form-item>
-          <n-form-item label="Dockerfile">
-            <n-input
-              v-model:value="form.dockerfile"
-              type="textarea"
-              :autosize="{ minRows: 10, maxRows: 18 }"
-            />
-          </n-form-item>
-          <n-form-item label="Command override">
-            <n-input
-              v-model:value="form.commandText"
-              type="textarea"
-              placeholder="One argv item per line; leave empty to use Docker CMD"
-              :autosize="{ minRows: 3, maxRows: 8 }"
-            />
-          </n-form-item>
-          <n-space align="center" justify="space-between">
-            <n-space align="center">
-              <n-switch v-model:value="form.enabled" />
-              <span>{{ form.enabled ? 'Enabled' : 'Disabled' }}</span>
-            </n-space>
-            <n-space>
-              <n-button @click="newLanguage">New</n-button>
-              <n-button
-                type="primary"
-                :loading="saving"
-                :disabled="!form.id || !form.name || !form.sourceFile || !form.dockerfile"
-                @click="saveLanguage"
-              >
-                Save
-              </n-button>
-            </n-space>
-          </n-space>
-        </n-form>
-      </n-card>
-
+    <n-card v-if="canManage" :bordered="false">
+      <n-space justify="end" class="table-toolbar">
+        <n-button type="primary" @click="newLanguage">New language</n-button>
+      </n-space>
       <n-data-table
         :columns="columns"
         :data="languages"
@@ -223,6 +181,60 @@ onMounted(() => {
         :loading="loading"
         class="admin-table"
       />
-    </section>
+    </n-card>
+
+    <n-modal
+      v-model:show="showConfigModal"
+      preset="card"
+      title="Language config"
+      class="form-modal"
+    >
+      <n-form :model="form" label-placement="top">
+        <div class="form-grid two">
+          <n-form-item label="ID">
+            <n-input v-model:value="form.id" placeholder="cpp" />
+          </n-form-item>
+          <n-form-item label="Name">
+            <n-input v-model:value="form.name" placeholder="C++ 20" />
+          </n-form-item>
+        </div>
+        <div class="form-grid two">
+          <n-form-item label="Source file">
+            <n-input v-model:value="form.sourceFile" placeholder="main.cpp" />
+          </n-form-item>
+          <n-form-item label="Sort order">
+            <n-input-number v-model:value="form.sortOrder" class="full-width" :min="0" />
+          </n-form-item>
+        </div>
+        <n-form-item label="Dockerfile">
+          <code-editor v-model="form.dockerfile" />
+        </n-form-item>
+        <n-form-item label="Command override">
+          <n-input
+            v-model:value="form.commandText"
+            type="textarea"
+            placeholder="One argv item per line; leave empty to use Docker CMD"
+            :autosize="{ minRows: 3, maxRows: 8 }"
+          />
+        </n-form-item>
+        <n-space align="center" justify="space-between" class="form-actions">
+          <n-space align="center">
+            <n-switch v-model:value="form.enabled" />
+            <span>{{ form.enabled ? 'Enabled' : 'Disabled' }}</span>
+          </n-space>
+          <n-space>
+            <n-button @click="showConfigModal = false">Cancel</n-button>
+            <n-button
+              type="primary"
+              :loading="saving"
+              :disabled="!form.id || !form.name || !form.sourceFile || !form.dockerfile"
+              @click="saveLanguage"
+            >
+              Save
+            </n-button>
+          </n-space>
+        </n-space>
+      </n-form>
+    </n-modal>
   </main>
 </template>
