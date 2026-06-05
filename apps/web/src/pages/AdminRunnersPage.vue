@@ -8,6 +8,7 @@ import {
   NFormItem,
   NInput,
   NInputNumber,
+  NModal,
   NSpace,
   NSwitch,
   NTag
@@ -35,6 +36,7 @@ const saving = ref(false)
 const checkingId = ref<number | null>(null)
 const error = ref('')
 const checkMessage = ref('')
+const showConfigModal = ref(false)
 const runners = ref<RunnerRow[]>([])
 const form = reactive({
   key: '',
@@ -95,7 +97,7 @@ async function loadRunners() {
   try {
     const data = await apiFetch<{ list: RunnerRow[] }>('/api/admin/runners')
     runners.value = data.list
-    if (!form.key && data.list.length) editRunner(data.list[0])
+    if (!form.key && data.list.length) editRunner(data.list[0], false)
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
@@ -103,13 +105,14 @@ async function loadRunners() {
   }
 }
 
-function editRunner(runner: RunnerRow) {
+function editRunner(runner: RunnerRow, open = true) {
   form.key = runner.key
   form.name = runner.name
   form.enabled = runner.enabled
   form.endpoint = runner.endpoint ?? ''
   form.concurrency = runner.concurrency
   form.sortOrder = runner.sortOrder
+  showConfigModal.value = open
 }
 
 function newRunner() {
@@ -119,6 +122,7 @@ function newRunner() {
   form.endpoint = 'https://user:pass@docker.example.com'
   form.concurrency = 1
   form.sortOrder = 100
+  showConfigModal.value = true
 }
 
 async function saveRunner() {
@@ -137,6 +141,7 @@ async function saveRunner() {
         sortOrder: form.sortOrder
       })
     })
+    showConfigModal.value = false
     await loadRunners()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
@@ -195,47 +200,10 @@ onMounted(() => {
       {{ checkMessage }}
     </n-alert>
 
-    <section v-if="canManage" class="admin-layout">
-      <n-card title="Runner config" :bordered="false">
-        <n-form :model="form" label-placement="top">
-          <n-form-item label="Key">
-            <n-input v-model:value="form.key" placeholder="remote-1" />
-          </n-form-item>
-          <n-form-item label="Name">
-            <n-input v-model:value="form.name" placeholder="Remote Docker 1" />
-          </n-form-item>
-          <n-form-item label="Docker endpoint">
-            <n-input
-              v-model:value="form.endpoint"
-              placeholder="unix:///var/run/docker.sock or https://user:pass@host"
-            />
-          </n-form-item>
-          <n-form-item label="Concurrency">
-            <n-input-number v-model:value="form.concurrency" class="full-width" :min="1" />
-          </n-form-item>
-          <n-form-item label="Sort order">
-            <n-input-number v-model:value="form.sortOrder" class="full-width" :min="0" />
-          </n-form-item>
-          <n-space align="center" justify="space-between">
-            <n-space align="center">
-              <n-switch v-model:value="form.enabled" />
-              <span>{{ form.enabled ? 'Enabled' : 'Disabled' }}</span>
-            </n-space>
-            <n-space>
-              <n-button @click="newRunner">New</n-button>
-              <n-button
-                type="primary"
-                :loading="saving"
-                :disabled="!form.key || !form.name"
-                @click="saveRunner"
-              >
-                Save
-              </n-button>
-            </n-space>
-          </n-space>
-        </n-form>
-      </n-card>
-
+    <n-card v-if="canManage" :bordered="false">
+      <n-space justify="end" class="table-toolbar">
+        <n-button type="primary" @click="newRunner">New runner</n-button>
+      </n-space>
       <n-data-table
         :columns="columns"
         :data="runners"
@@ -243,6 +211,48 @@ onMounted(() => {
         :loading="loading"
         class="admin-table"
       />
-    </section>
+    </n-card>
+
+    <n-modal v-model:show="showConfigModal" preset="card" title="Runner config" class="form-modal">
+      <n-form :model="form" label-placement="top">
+        <n-form-item label="Key">
+          <n-input v-model:value="form.key" placeholder="remote-1" />
+        </n-form-item>
+        <n-form-item label="Name">
+          <n-input v-model:value="form.name" placeholder="Remote Docker 1" />
+        </n-form-item>
+        <n-form-item label="Docker endpoint">
+          <n-input
+            v-model:value="form.endpoint"
+            placeholder="unix:///var/run/docker.sock or https://user:pass@host"
+          />
+        </n-form-item>
+        <div class="form-grid two">
+          <n-form-item label="Concurrency">
+            <n-input-number v-model:value="form.concurrency" class="full-width" :min="1" />
+          </n-form-item>
+          <n-form-item label="Sort order">
+            <n-input-number v-model:value="form.sortOrder" class="full-width" :min="0" />
+          </n-form-item>
+        </div>
+        <n-space align="center" justify="space-between" class="form-actions">
+          <n-space align="center">
+            <n-switch v-model:value="form.enabled" />
+            <span>{{ form.enabled ? 'Enabled' : 'Disabled' }}</span>
+          </n-space>
+          <n-space>
+            <n-button @click="showConfigModal = false">Cancel</n-button>
+            <n-button
+              type="primary"
+              :loading="saving"
+              :disabled="!form.key || !form.name"
+              @click="saveRunner"
+            >
+              Save
+            </n-button>
+          </n-space>
+        </n-space>
+      </n-form>
+    </n-modal>
   </main>
 </template>

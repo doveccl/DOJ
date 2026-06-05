@@ -8,6 +8,7 @@ import {
   NForm,
   NFormItem,
   NInput,
+  NModal,
   NSelect,
   NSpace,
   NTag
@@ -42,6 +43,8 @@ const memberLoading = ref(false)
 const saving = ref(false)
 const addingMember = ref(false)
 const error = ref('')
+const showCreateModal = ref(false)
+const showMemberModal = ref(false)
 const groups = ref<GroupRow[]>([])
 const users = ref<UserRow[]>([])
 const members = ref<MemberRow[]>([])
@@ -138,6 +141,7 @@ async function createGroup() {
     form.name = ''
     form.description = ''
     selectedGroupId.value = group.id
+    showCreateModal.value = false
     await loadData()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
@@ -173,6 +177,7 @@ async function addMember() {
     })
     memberForm.userId = null
     memberForm.manager = false
+    showMemberModal.value = false
     await loadMembers()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
@@ -181,12 +186,9 @@ async function addMember() {
   }
 }
 
-watch(
-  canManage,
-  (allowed) => {
-    if (allowed) loadData()
-  }
-)
+watch(canManage, (allowed) => {
+  if (allowed) loadData()
+})
 
 watch(selectedGroupId, () => {
   if (canManage.value) loadMembers()
@@ -216,56 +218,17 @@ onMounted(() => {
       {{ error }}
     </n-alert>
 
-    <section v-if="canManage" class="admin-layout">
-      <div class="admin-stack">
-        <n-card title="Create group" :bordered="false">
-          <n-form :model="form" label-placement="top">
-            <n-form-item label="Key">
-              <n-input v-model:value="form.key" placeholder="team-alpha" />
-            </n-form-item>
-            <n-form-item label="Name">
-              <n-input v-model:value="form.name" placeholder="Team Alpha" />
-            </n-form-item>
-            <n-form-item label="Description">
-              <n-input
-                v-model:value="form.description"
-                type="textarea"
-                placeholder="Optional notes"
-                :autosize="{ minRows: 3, maxRows: 5 }"
-              />
-            </n-form-item>
-            <n-space justify="end">
-              <n-button type="primary" :loading="saving" :disabled="!form.key || !form.name" @click="createGroup">
-                Create
-              </n-button>
-            </n-space>
-          </n-form>
-        </n-card>
-
-        <n-card title="Add member" :bordered="false">
-          <n-form :model="memberForm" label-placement="top">
-            <n-form-item label="Group">
-              <n-select v-model:value="selectedGroupId" :options="groupOptions" filterable />
-            </n-form-item>
-            <n-form-item label="User">
-              <n-select v-model:value="memberForm.userId" :options="userOptions" filterable />
-            </n-form-item>
-            <n-checkbox v-model:checked="memberForm.manager">Group manager</n-checkbox>
-            <n-space justify="end" class="form-actions">
-              <n-button
-                type="primary"
-                :loading="addingMember"
-              :disabled="!selectedGroupId || !memberForm.userId"
-                @click="addMember"
-              >
-                Add
-              </n-button>
-            </n-space>
-          </n-form>
-        </n-card>
-      </div>
-
-      <div class="admin-stack">
+    <section v-if="canManage" class="admin-stack">
+      <n-card :bordered="false">
+        <n-space justify="space-between" align="center" class="table-toolbar">
+          <n-select
+            v-model:value="selectedGroupId"
+            :options="groupOptions"
+            filterable
+            class="toolbar-select"
+          />
+          <n-button type="primary" @click="showCreateModal = true">Create group</n-button>
+        </n-space>
         <n-data-table
           :columns="columns"
           :data="groups"
@@ -273,6 +236,14 @@ onMounted(() => {
           :loading="loading"
           class="admin-table"
         />
+      </n-card>
+
+      <n-card title="Members" :bordered="false">
+        <n-space justify="end" class="table-toolbar">
+          <n-button type="primary" :disabled="!selectedGroupId" @click="showMemberModal = true">
+            Add member
+          </n-button>
+        </n-space>
         <n-data-table
           :columns="memberColumns"
           :data="members"
@@ -280,7 +251,65 @@ onMounted(() => {
           :loading="memberLoading"
           class="admin-table"
         />
-      </div>
+      </n-card>
     </section>
+
+    <n-modal v-model:show="showCreateModal" preset="card" title="Create group" class="form-modal">
+      <n-form :model="form" label-placement="top">
+        <n-form-item label="Key">
+          <n-input v-model:value="form.key" placeholder="team-alpha" />
+        </n-form-item>
+        <n-form-item label="Name">
+          <n-input v-model:value="form.name" placeholder="Team Alpha" />
+        </n-form-item>
+        <n-form-item label="Description">
+          <n-input
+            v-model:value="form.description"
+            type="textarea"
+            placeholder="Optional notes"
+            :autosize="{ minRows: 3, maxRows: 5 }"
+          />
+        </n-form-item>
+        <n-space justify="end" class="form-actions">
+          <n-button @click="showCreateModal = false">Cancel</n-button>
+          <n-button
+            type="primary"
+            :loading="saving"
+            :disabled="!form.key || !form.name"
+            @click="createGroup"
+          >
+            Create
+          </n-button>
+        </n-space>
+      </n-form>
+    </n-modal>
+
+    <n-modal
+      v-model:show="showMemberModal"
+      preset="card"
+      title="Add member"
+      class="form-modal narrow"
+    >
+      <n-form :model="memberForm" label-placement="top">
+        <n-form-item label="Group">
+          <n-select v-model:value="selectedGroupId" :options="groupOptions" filterable />
+        </n-form-item>
+        <n-form-item label="User">
+          <n-select v-model:value="memberForm.userId" :options="userOptions" filterable />
+        </n-form-item>
+        <n-checkbox v-model:checked="memberForm.manager">Group manager</n-checkbox>
+        <n-space justify="end" class="form-actions">
+          <n-button @click="showMemberModal = false">Cancel</n-button>
+          <n-button
+            type="primary"
+            :loading="addingMember"
+            :disabled="!selectedGroupId || !memberForm.userId"
+            @click="addMember"
+          >
+            Add
+          </n-button>
+        </n-space>
+      </n-form>
+    </n-modal>
   </main>
 </template>

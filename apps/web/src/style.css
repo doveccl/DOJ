@@ -128,6 +128,10 @@ body {
   margin-bottom: 12px;
 }
 
+.toolbar-select {
+  width: min(360px, 100%);
+}
+
 .admin-stack {
   display: grid;
   gap: 16px;
