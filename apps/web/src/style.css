@@ -107,6 +107,10 @@ body {
   margin-bottom: 16px;
 }
 
+.card-alert {
+  margin-bottom: 12px;
+}
+
 .meta-row {
   display: flex;
   flex-wrap: wrap;

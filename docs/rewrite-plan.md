@@ -123,4 +123,4 @@ Do not port old low-usage `posts` directly. If discussion is needed, build a sim
 - S3-backed `.in/.out` testdata zip import is implemented; checker/interactor package support remains a follow-up.
 - Runner memory metrics still use Docker stats polling; cgroup `memory.peak` calibration remains a follow-up.
 - AI coaching still needs prompt redaction tests and provider-specific operational controls.
-- Contest scoreboard/freezing and assignment reports are not implemented yet.
+- Contest scoreboard freeze/reveal and assignment reports are implemented; rolling reveal animation remains a future UX enhancement.

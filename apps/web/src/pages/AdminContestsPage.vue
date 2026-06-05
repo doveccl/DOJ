@@ -23,6 +23,7 @@ interface ContestRow {
   type: 'OI' | 'ICPC'
   startAt: string
   endAt: string
+  freezeAt: string | null
 }
 
 interface ProblemRow {
@@ -43,6 +44,7 @@ const form = reactive({
   type: 'OI' as 'OI' | 'ICPC',
   startAt: Date.now(),
   endAt: Date.now() + 2 * 60 * 60 * 1000,
+  freezeAt: null as number | null,
   problemIds: [] as number[]
 })
 
@@ -68,6 +70,13 @@ const columns: DataTableColumns<ContestRow> = [
     key: 'endAt',
     render(row) {
       return new Date(row.endAt).toLocaleString()
+    }
+  },
+  {
+    title: 'Freeze',
+    key: 'freezeAt',
+    render(row) {
+      return row.freezeAt ? new Date(row.freezeAt).toLocaleString() : '-'
     }
   }
 ]
@@ -104,6 +113,7 @@ async function createContest() {
         type: form.type,
         startAt: new Date(form.startAt).toISOString(),
         endAt: new Date(form.endAt).toISOString(),
+        freezeAt: form.freezeAt ? new Date(form.freezeAt).toISOString() : undefined,
         problems: form.problemIds.map((problemId, index) => ({
           problemId,
           key: String.fromCharCode(65 + index),
@@ -113,6 +123,7 @@ async function createContest() {
     })
     form.title = ''
     form.description = ''
+    form.freezeAt = null
     form.problemIds = []
     await loadData()
   } catch (cause) {
@@ -178,6 +189,14 @@ onMounted(() => {
           </n-form-item>
           <n-form-item label="End at">
             <n-date-picker v-model:value="form.endAt" type="datetime" class="full-width" />
+          </n-form-item>
+          <n-form-item label="Freeze at">
+            <n-date-picker
+              v-model:value="form.freezeAt"
+              type="datetime"
+              clearable
+              class="full-width"
+            />
           </n-form-item>
           <n-form-item label="Description">
             <n-input

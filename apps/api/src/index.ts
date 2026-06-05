@@ -557,8 +557,15 @@ app.post('/api/contests', authMiddleware, async (c) => {
   const body = createContestSchema.parse(await c.req.json())
   const startAt = new Date(body.startAt)
   const endAt = new Date(body.endAt)
+  const freezeAt = body.freezeAt ? new Date(body.freezeAt) : null
   if (endAt <= startAt) {
     return c.json({ code: 'INVALID_CONTEST_TIME', message: 'endAt must be after startAt' }, 400)
+  }
+  if (freezeAt && (freezeAt <= startAt || freezeAt >= endAt)) {
+    return c.json(
+      { code: 'INVALID_CONTEST_FREEZE', message: 'freezeAt must be between startAt and endAt' },
+      400
+    )
   }
 
   const problemIds = [...new Set(body.problems.map((problem) => problem.problemId))]
@@ -579,7 +586,7 @@ app.post('/api/contests', authMiddleware, async (c) => {
         type: body.type,
         startAt,
         endAt,
-        freezeAt: body.freezeAt ? new Date(body.freezeAt) : null
+        freezeAt
       })
       .returning()
 
@@ -607,6 +614,17 @@ app.get('/api/contests/:id', async (c) => {
 
 app.get('/api/contests/:id/scoreboard', async (c) => {
   const scoreboard = await getContestScoreboard(numericId.parse(c.req.param('id')))
+  if (!scoreboard) return c.notFound()
+  return c.json(scoreboard)
+})
+
+app.get('/api/contests/:id/scoreboard/reveal', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
+  const scoreboard = await getContestScoreboard(numericId.parse(c.req.param('id')), {
+    reveal: true
+  })
   if (!scoreboard) return c.notFound()
   return c.json(scoreboard)
 })
@@ -1197,9 +1215,12 @@ async function getContestDetail(id: number) {
   }
 }
 
-async function getContestScoreboard(id: number) {
+async function getContestScoreboard(id: number, options: { reveal?: boolean } = {}) {
   const detail = await getContestDetail(id)
   if (!detail) return null
+  const freezeAt = detail.contest.freezeAt
+  const frozen = !!freezeAt && Date.now() >= freezeAt.getTime()
+  const reveal = options.reveal === true
 
   const submissions = await db
     .select({
@@ -1223,7 +1244,10 @@ async function getContestScoreboard(id: number) {
       userName: string
       solved: number
       penalty: number
-      problems: Record<string, { attempts: number; solved: boolean; penalty: number }>
+      problems: Record<
+        string,
+        { attempts: number; solved: boolean; penalty: number; frozenAttempts: number }
+      >
     }
   >()
 
@@ -1240,7 +1264,18 @@ async function getContestScoreboard(id: number) {
     }
     rows.set(submission.userId, row)
 
-    const cell = row.problems[key] ?? { attempts: 0, solved: false, penalty: 0 }
+    const cell = row.problems[key] ?? {
+      attempts: 0,
+      solved: false,
+      penalty: 0,
+      frozenAttempts: 0
+    }
+    row.problems[key] = cell
+
+    if (frozen && !reveal && freezeAt && submission.createdAt >= freezeAt) {
+      cell.frozenAttempts += 1
+      continue
+    }
     if (cell.solved) continue
 
     cell.attempts += 1
@@ -1255,11 +1290,13 @@ async function getContestScoreboard(id: number) {
       row.solved += 1
       row.penalty += cell.penalty
     }
-    row.problems[key] = cell
   }
 
   return {
     contest: detail.contest,
+    frozen,
+    revealed: reveal,
+    visibleUntil: frozen && !reveal ? freezeAt?.toISOString() : null,
     problems: detail.problems.map((problem) => ({
       id: problem.id,
       key: problem.key,

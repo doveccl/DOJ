@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { NCard, NDataTable, NSpin, NTag } from 'naive-ui'
+import { NAlert, NCard, NDataTable, NSpin, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { computed, h, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { apiFetch } from '../api'
+import { useAuthStore } from '../stores/auth'
 
 interface Contest {
   id: number
@@ -12,6 +13,7 @@ interface Contest {
   type: 'OI' | 'ICPC'
   startAt: string
   endAt: string
+  freezeAt: string | null
 }
 
 interface ContestProblem {
@@ -31,18 +33,26 @@ interface ScoreboardRow {
   userName: string
   solved: number
   penalty: number
-  problems: Record<string, { attempts: number; solved: boolean; penalty: number }>
+  problems: Record<
+    string,
+    { attempts: number; solved: boolean; penalty: number; frozenAttempts: number }
+  >
 }
 
 interface Scoreboard {
+  frozen: boolean
+  revealed: boolean
+  visibleUntil: string | null
   rows: ScoreboardRow[]
 }
 
 const route = useRoute()
+const auth = useAuthStore()
 const loading = ref(true)
 const error = ref('')
 const detail = ref<ContestDetail | null>(null)
 const scoreboard = ref<Scoreboard | null>(null)
+const canReveal = computed(() => auth.user?.groups.includes('admin') ?? false)
 
 const columns: DataTableColumns<ContestProblem> = [
   { title: 'Key', key: 'key', width: 90 },
@@ -81,7 +91,8 @@ const scoreboardColumns = computed<DataTableColumns<ScoreboardRow>>(() => [
     width: 110,
     render(row: ScoreboardRow) {
       const cell = row.problems[problem.key]
-      if (!cell?.attempts) return '-'
+      if (!cell?.attempts && !cell?.frozenAttempts) return '-'
+      if (!cell?.attempts && cell?.frozenAttempts) return h(NTag, { bordered: false }, () => '?')
       return cell.solved ? `+${cell.attempts > 1 ? cell.attempts - 1 : ''}` : `-${cell.attempts}`
     }
   })) ?? [])
@@ -91,7 +102,9 @@ onMounted(async () => {
   try {
     const [detailData, scoreboardData] = await Promise.all([
       apiFetch<ContestDetail>(`/api/contests/${route.params.id}`),
-      apiFetch<Scoreboard>(`/api/contests/${route.params.id}/scoreboard`)
+      apiFetch<Scoreboard>(
+        `/api/contests/${route.params.id}/scoreboard${canReveal.value ? '/reveal' : ''}`
+      )
     ])
     detail.value = detailData
     scoreboard.value = scoreboardData
@@ -117,6 +130,9 @@ onMounted(async () => {
             <n-tag :bordered="false">{{ detail.contest.type }}</n-tag>
             <span class="muted">{{ new Date(detail.contest.startAt).toLocaleString() }}</span>
             <span class="muted">to {{ new Date(detail.contest.endAt).toLocaleString() }}</span>
+            <n-tag v-if="detail.contest.freezeAt" :bordered="false" type="warning">
+              freezes {{ new Date(detail.contest.freezeAt).toLocaleString() }}
+            </n-tag>
           </div>
         </n-card>
 
@@ -128,6 +144,22 @@ onMounted(async () => {
         />
 
         <n-card title="Scoreboard" :bordered="false" class="stacked-card">
+          <n-alert
+            v-if="scoreboard?.frozen && !scoreboard.revealed"
+            type="warning"
+            class="card-alert"
+          >
+            Scoreboard is frozen. Submissions after
+            {{ scoreboard.visibleUntil ? new Date(scoreboard.visibleUntil).toLocaleString() : '' }}
+            are hidden until reveal.
+          </n-alert>
+          <n-alert
+            v-else-if="scoreboard?.frozen && scoreboard.revealed"
+            type="info"
+            class="card-alert"
+          >
+            Admin reveal view is showing final standings.
+          </n-alert>
           <n-data-table
             :columns="scoreboardColumns"
             :data="scoreboard?.rows ?? []"

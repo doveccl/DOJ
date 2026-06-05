@@ -38,6 +38,7 @@ try {
       description: 'Smoke contest',
       type: 'ICPC',
       startAt: new Date(now - 60_000).toISOString(),
+      freezeAt: new Date(now - 30_000).toISOString(),
       endAt: new Date(now + 60 * 60_000).toISOString(),
       problems: [{ problemId: problem.id, key: 'A', score: 100 }]
     })
@@ -82,12 +83,33 @@ try {
     )
   }
 
-  const scoreboard = await api<{ rows: Array<{ userId: number; solved: number }> }>(
-    `/api/contests/${detail.contest.id}/scoreboard`
-  )
-  const row = scoreboard.rows.find((item) => item.userId === judged.userId)
-  if (!row || row.solved !== 1) {
-    throw new Error(`scoreboard missing solved row: ${JSON.stringify(scoreboard)}`)
+  const scoreboard = await api<{
+    frozen: boolean
+    revealed: boolean
+    rows: Array<{
+      userId: number
+      solved: number
+      problems: Record<string, { attempts: number; frozenAttempts: number }>
+    }>
+  }>(`/api/contests/${detail.contest.id}/scoreboard`)
+  const frozenRow = scoreboard.rows.find((item) => item.userId === judged.userId)
+  if (
+    !scoreboard.frozen ||
+    scoreboard.revealed ||
+    !frozenRow ||
+    frozenRow.solved !== 0 ||
+    frozenRow.problems.A?.frozenAttempts !== 1
+  ) {
+    throw new Error(`scoreboard did not hide frozen submission: ${JSON.stringify(scoreboard)}`)
+  }
+
+  const revealed = await api<{
+    revealed: boolean
+    rows: Array<{ userId: number; solved: number }>
+  }>(`/api/contests/${detail.contest.id}/scoreboard/reveal`, { headers: adminHeaders })
+  const revealedRow = revealed.rows.find((item) => item.userId === judged.userId)
+  if (!revealed.revealed || !revealedRow || revealedRow.solved !== 1) {
+    throw new Error(`scoreboard reveal missing solved row: ${JSON.stringify(revealed)}`)
   }
 
   console.log({
@@ -96,7 +118,8 @@ try {
     submissionId: submission.id,
     status: judged.status,
     coachStatus: coachResponse.status,
-    scoreboardSolved: row.solved
+    frozenSolved: frozenRow.solved,
+    revealedSolved: revealedRow.solved
   })
 } finally {
   await closeDb()
