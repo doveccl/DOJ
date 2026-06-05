@@ -6,14 +6,16 @@ import {
   NForm,
   NFormItem,
   NInput,
-  NLayout,
-  NLayoutContent,
   NMenu,
   NModal,
   NSelect,
   NSpace,
   NSwitch,
-  darkTheme
+  darkTheme,
+  dateEnUS,
+  dateZhCN,
+  enUS,
+  zhCN
 } from 'naive-ui'
 import type { MenuOption } from 'naive-ui'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
@@ -31,7 +33,12 @@ const auth = useAuthStore()
 const authMode = ref<'login' | 'register' | null>(null)
 const authError = ref('')
 const authLoading = ref(false)
-const appConfig = ref({ registration: true, aiCoachingEnabled: true })
+const appConfig = ref({
+  registration: true,
+  aiCoachingEnabled: true,
+  guestProblemsetVisible: true,
+  sourceOpenDefault: false
+})
 const colorMode = ref<'light' | 'dark'>(
   localStorage.getItem('doj.colorMode') === 'dark' ? 'dark' : 'light'
 )
@@ -42,16 +49,23 @@ const localeValue = computed({
   set: (value: SupportedLocale) => setLocale(value)
 })
 const naiveTheme = computed(() => (colorMode.value === 'dark' ? darkTheme : null))
+const naiveLocale = computed(() => (locale.value === 'en' ? enUS : zhCN))
+const naiveDateLocale = computed(() => (locale.value === 'en' ? dateEnUS : dateZhCN))
 
 const menuOptions = computed(() => {
-  const options: MenuOption[] = [
-    { label: t('nav.problems'), key: '/problems' },
-    { label: t('nav.assignments'), key: '/assignments' },
+  const options: MenuOption[] = []
+  if (appConfig.value.guestProblemsetVisible || auth.signedIn) {
+    options.push({ label: t('nav.problems'), key: '/problems' })
+  }
+  if (auth.signedIn) {
+    options.push({ label: t('nav.assignments'), key: '/assignments' })
+  }
+  options.push(
     { label: t('nav.contests'), key: '/contests' },
     { label: t('nav.discussion'), key: '/bbs' },
     { label: t('nav.rank'), key: '/rank' },
     { label: t('nav.submissions'), key: '/submissions' }
-  ]
+  )
   if (auth.user?.groups.includes('admin')) {
     options.push({
       label: t('nav.admin'),
@@ -80,7 +94,12 @@ onMounted(async () => {
   try {
     appConfig.value = await apiFetch<typeof appConfig.value>('/api/config')
   } catch {
-    appConfig.value = { registration: true, aiCoachingEnabled: true }
+    appConfig.value = {
+      registration: true,
+      aiCoachingEnabled: true,
+      guestProblemsetVisible: true,
+      sourceOpenDefault: false
+    }
   }
 })
 
@@ -122,8 +141,8 @@ function handleUserCommand(key: string) {
 </script>
 
 <template>
-  <n-config-provider :theme="naiveTheme">
-    <n-layout class="app-shell">
+  <n-config-provider :theme="naiveTheme" :locale="naiveLocale" :date-locale="naiveDateLocale">
+    <div class="app-shell">
       <header class="topbar">
         <router-link to="/" class="brand">{{ t('app.brand') }}</router-link>
         <n-menu
@@ -169,10 +188,10 @@ function handleUserCommand(key: string) {
           </n-space>
         </n-space>
       </header>
-      <n-layout-content class="content">
+      <main class="content">
         <router-view />
-      </n-layout-content>
-    </n-layout>
+      </main>
+    </div>
 
     <n-modal
       :show="!!authMode"

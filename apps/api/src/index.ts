@@ -105,6 +105,17 @@ app.get('/api/dashboard', async (c) => {
     .orderBy(desc(schema.problems.createdAt), desc(schema.problems.id))
     .limit(6)
   const recentTopics = await getRecentBbsTopics(6)
+  const recentContests = await db
+    .select({
+      id: schema.contests.id,
+      title: schema.contests.title,
+      type: schema.contests.type,
+      startAt: schema.contests.startAt,
+      endAt: schema.contests.endAt
+    })
+    .from(schema.contests)
+    .orderBy(desc(schema.contests.startAt), desc(schema.contests.createdAt))
+    .limit(5)
   const authUser = await getOptionalAuthUser(c)
   const myAssignments = authUser ? await getUserAssignments(authUser.id, 5) : []
 
@@ -119,6 +130,7 @@ app.get('/api/dashboard', async (c) => {
     recentSubmissions,
     recentProblems,
     recentTopics,
+    recentContests,
     myAssignments
   })
 })

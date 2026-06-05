@@ -1,17 +1,6 @@
 <script setup lang="ts">
-import {
-  NCard,
-  NDataTable,
-  NEmpty,
-  NGrid,
-  NGridItem,
-  NSpace,
-  NSpin,
-  NStatistic,
-  NTag
-} from 'naive-ui'
-import type { DataTableColumns } from 'naive-ui'
-import { computed, h, onMounted, ref } from 'vue'
+import { NCard, NSpace, NSpin, NTag } from 'naive-ui'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
@@ -50,6 +39,13 @@ interface Dashboard {
     userName: string
     updatedAt: string
   }>
+  recentContests: Array<{
+    id: number
+    title: string
+    type: string
+    startAt: string
+    endAt: string
+  }>
   myAssignments: Array<{
     id: number
     title: string
@@ -66,51 +62,16 @@ const dateTime = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
   timeStyle: 'short'
 })
-
-const submissionColumns = computed<DataTableColumns<Dashboard['recentSubmissions'][number]>>(() => [
-  {
-    title: t('common.id'),
-    key: 'id',
-    width: 84,
-    render(row) {
-      return h(RouterLink, { to: `/submissions/${row.id}`, class: 'table-link' }, () => row.id)
-    }
-  },
-  {
-    title: t('common.problem'),
-    key: 'problemTitle',
-    minWidth: 220,
-    render(row) {
-      return h(
-        RouterLink,
-        { to: `/problems/${row.problemId}`, class: 'table-link' },
-        () => row.problemTitle
-      )
-    }
-  },
-  { title: t('common.user'), key: 'userName', minWidth: 140 },
-  {
-    title: t('common.status'),
-    key: 'status',
-    width: 110,
-    render(row) {
-      return h(
-        NTag,
-        { bordered: false, type: row.status === 'AC' ? 'success' : 'warning' },
-        () => row.status
-      )
-    }
-  },
-  { title: t('common.language'), key: 'languageId', width: 100 },
-  {
-    title: t('common.time'),
-    key: 'timeMs',
-    width: 100,
-    render(row) {
-      return `${row.timeMs} ms`
-    }
-  }
-])
+const hasCards = computed(() => {
+  const data = dashboard.value
+  return Boolean(
+    data &&
+    (data.recentProblems.length ||
+      data.myAssignments.length ||
+      data.recentContests.length ||
+      data.recentTopics.length)
+  )
+})
 
 function formatDateTime(value: string | null) {
   return value ? dateTime.format(new Date(value)) : '-'
@@ -129,19 +90,18 @@ onMounted(async () => {
 
 <template>
   <main class="page">
-    <section class="page-header">
-      <h1>{{ t('dashboard.title') }}</h1>
-      <p>{{ t('dashboard.subtitle') }}</p>
-    </section>
-
     <n-spin :show="loading">
       <p v-if="error" class="form-error">{{ error }}</p>
       <template v-else-if="dashboard">
-        <section class="dashboard-main">
-          <n-card :title="t('dashboard.recentProblems')" :bordered="false">
-            <div v-if="dashboard.recentProblems.length" class="dashboard-list">
+        <section v-if="hasCards" class="dashboard-main">
+          <n-card
+            v-if="dashboard.recentProblems.length"
+            :title="t('dashboard.recentProblems')"
+            :bordered="false"
+          >
+            <div class="dashboard-list">
               <router-link
-                v-for="problem in dashboard.recentProblems"
+                v-for="problem in dashboard.recentProblems.slice(0, 5)"
                 :key="problem.id"
                 :to="`/problems/${problem.id}`"
                 class="dashboard-list-item"
@@ -155,13 +115,16 @@ onMounted(async () => {
                 </n-space>
               </router-link>
             </div>
-            <n-empty v-else :description="t('problems.empty')" />
           </n-card>
 
-          <n-card :title="t('dashboard.myAssignments')" :bordered="false">
-            <div v-if="dashboard.myAssignments.length" class="dashboard-list">
+          <n-card
+            v-if="dashboard.myAssignments.length"
+            :title="t('dashboard.myAssignments')"
+            :bordered="false"
+          >
+            <div class="dashboard-list">
               <router-link
-                v-for="assignment in dashboard.myAssignments"
+                v-for="assignment in dashboard.myAssignments.slice(0, 5)"
                 :key="assignment.id"
                 :to="`/assignments/${assignment.id}`"
                 class="dashboard-list-item"
@@ -172,13 +135,36 @@ onMounted(async () => {
                 </span>
               </router-link>
             </div>
-            <n-empty v-else :description="t('dashboard.noAssignments')" />
           </n-card>
 
-          <n-card :title="t('dashboard.recentTopics')" :bordered="false">
-            <div v-if="dashboard.recentTopics.length" class="dashboard-list">
+          <n-card
+            v-if="dashboard.recentContests.length"
+            :title="t('dashboard.recentContests')"
+            :bordered="false"
+          >
+            <div class="dashboard-list">
               <router-link
-                v-for="topic in dashboard.recentTopics"
+                v-for="contest in dashboard.recentContests.slice(0, 5)"
+                :key="contest.id"
+                :to="`/contests/${contest.id}`"
+                class="dashboard-list-item"
+              >
+                <span class="dashboard-item-title">{{ contest.title }}</span>
+                <span class="muted">
+                  {{ contest.type }} · {{ formatDateTime(contest.startAt) }}
+                </span>
+              </router-link>
+            </div>
+          </n-card>
+
+          <n-card
+            v-if="dashboard.recentTopics.length"
+            :title="t('dashboard.recentTopics')"
+            :bordered="false"
+          >
+            <div class="dashboard-list">
+              <router-link
+                v-for="topic in dashboard.recentTopics.slice(0, 5)"
                 :key="topic.id"
                 :to="`/bbs/${topic.id}`"
                 class="dashboard-list-item"
@@ -189,58 +175,8 @@ onMounted(async () => {
                 </span>
               </router-link>
             </div>
-            <n-empty v-else :description="t('dashboard.noTopics')" />
           </n-card>
         </section>
-
-        <n-grid
-          :cols="5"
-          :x-gap="16"
-          :y-gap="16"
-          responsive="screen"
-          item-responsive
-          class="stacked-card"
-        >
-          <n-grid-item span="1 m:1 s:2 xs:5">
-            <n-card :bordered="false">
-              <n-statistic :label="t('dashboard.problems')" :value="dashboard.stats.problems" />
-            </n-card>
-          </n-grid-item>
-          <n-grid-item span="1 m:1 s:2 xs:5">
-            <n-card :bordered="false">
-              <n-statistic
-                :label="t('dashboard.submissions')"
-                :value="dashboard.stats.submissions"
-              />
-            </n-card>
-          </n-grid-item>
-          <n-grid-item span="1 m:1 s:2 xs:5">
-            <n-card :bordered="false">
-              <n-statistic :label="t('dashboard.users')" :value="dashboard.stats.users" />
-            </n-card>
-          </n-grid-item>
-          <n-grid-item span="1 m:1 s:2 xs:5">
-            <n-card :bordered="false">
-              <n-statistic :label="t('dashboard.contests')" :value="dashboard.stats.contests" />
-            </n-card>
-          </n-grid-item>
-          <n-grid-item span="1 m:1 s:2 xs:5">
-            <n-card :bordered="false">
-              <n-statistic
-                :label="t('dashboard.assignments')"
-                :value="dashboard.stats.assignments"
-              />
-            </n-card>
-          </n-grid-item>
-        </n-grid>
-
-        <n-card :title="t('dashboard.recentSubmissions')" :bordered="false" class="stacked-card">
-          <n-data-table
-            :columns="submissionColumns"
-            :data="dashboard.recentSubmissions"
-            :bordered="false"
-          />
-        </n-card>
       </template>
     </n-spin>
   </main>
