@@ -343,12 +343,21 @@ async function watchStats(container: Docker.Container, update: (memoryBytes: num
 }
 
 function readMemoryUsage(stats: unknown) {
-  const memory = (stats as { memory_stats?: { usage?: number; stats?: Record<string, number> } })
-    .memory_stats
-  if (!memory?.usage) return 0
+  const memory = (
+    stats as {
+      memory_stats?: { usage?: number; max_usage?: number; stats?: Record<string, number> }
+    }
+  ).memory_stats
+  if (!memory?.usage && !memory?.max_usage) return 0
 
+  const usage = memory.usage ?? 0
+  const maxUsage = memory.max_usage ?? memory.stats?.max_usage ?? 0
   const inactiveFile = memory.stats?.inactive_file ?? memory.stats?.total_inactive_file ?? 0
-  return Math.max(0, memory.usage - inactiveFile)
+  return Math.max(adjustMemoryUsage(usage, inactiveFile), adjustMemoryUsage(maxUsage, inactiveFile))
+}
+
+function adjustMemoryUsage(usage: number, inactiveFile: number) {
+  return Math.max(0, usage - inactiveFile)
 }
 
 async function readCgroupPeakMemoryBytes(pid?: number) {
