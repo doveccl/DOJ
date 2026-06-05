@@ -7,6 +7,7 @@ import { parseZipTestCases } from '@doj/shared/testdata'
 import type { JudgeStatus } from '@doj/shared/status'
 import { getObjectBytes } from '@doj/storage/client'
 import { getLanguage } from './languages'
+import { describeRunnerKeyFilter, filterRunnerConfigs } from './runner-filter'
 
 const workerId = `worker-${crypto.randomUUID()}`
 
@@ -282,7 +283,13 @@ async function getRunnerConfigs() {
     .orderBy(asc(schema.judgeRunners.sortOrder), asc(schema.judgeRunners.id))
 
   if (!runners.length) throw new Error('no enabled judge runner')
-  return runners
+
+  const filtered = filterRunnerConfigs(runners)
+  if (!filtered.length) {
+    throw new Error(`no enabled judge runner matched DOJ_RUNNER_KEYS=${describeRunnerKeyFilter()}`)
+  }
+
+  return filtered
 }
 
 function createRunner(runner: JudgeRunnerConfig) {
