@@ -2,48 +2,29 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import App from './App.vue'
-import AdminAssignmentsPage from './pages/AdminAssignmentsPage.vue'
-import AdminContestsPage from './pages/AdminContestsPage.vue'
-import AdminGroupsPage from './pages/AdminGroupsPage.vue'
-import AdminLanguagesPage from './pages/AdminLanguagesPage.vue'
-import AdminProblemsPage from './pages/AdminProblemsPage.vue'
-import AdminRunnersPage from './pages/AdminRunnersPage.vue'
-import AdminUsersPage from './pages/AdminUsersPage.vue'
-import AssignmentDetailPage from './pages/AssignmentDetailPage.vue'
-import AssignmentListPage from './pages/AssignmentListPage.vue'
-import BbsDetailPage from './pages/BbsDetailPage.vue'
-import BbsListPage from './pages/BbsListPage.vue'
-import ContestDetailPage from './pages/ContestDetailPage.vue'
-import ContestListPage from './pages/ContestListPage.vue'
-import HomePage from './pages/HomePage.vue'
-import ProblemDetailPage from './pages/ProblemDetailPage.vue'
-import ProblemListPage from './pages/ProblemListPage.vue'
-import RankPage from './pages/RankPage.vue'
-import SubmissionDetailPage from './pages/SubmissionDetailPage.vue'
-import SubmissionListPage from './pages/SubmissionListPage.vue'
 import { i18n } from './i18n'
 import './style.css'
 
 const routes: RouteRecordRaw[] = [
-  { path: '/', component: HomePage },
-  { path: '/problems', component: ProblemListPage },
-  { path: '/problems/:id', component: ProblemDetailPage },
-  { path: '/assignments', component: AssignmentListPage },
-  { path: '/assignments/:id', component: AssignmentDetailPage },
-  { path: '/contests', component: ContestListPage },
-  { path: '/contests/:id', component: ContestDetailPage },
-  { path: '/bbs', component: BbsListPage },
-  { path: '/bbs/:id', component: BbsDetailPage },
-  { path: '/rank', component: RankPage },
-  { path: '/submissions', component: SubmissionListPage },
-  { path: '/submissions/:id', component: SubmissionDetailPage },
-  { path: '/admin/groups', component: AdminGroupsPage },
-  { path: '/admin/users', component: AdminUsersPage },
-  { path: '/admin/problems', component: AdminProblemsPage },
-  { path: '/admin/assignments', component: AdminAssignmentsPage },
-  { path: '/admin/contests', component: AdminContestsPage },
-  { path: '/admin/languages', component: AdminLanguagesPage },
-  { path: '/admin/runners', component: AdminRunnersPage }
+  { path: '/', component: () => import('./pages/HomePage.vue') },
+  { path: '/problems', component: () => import('./pages/ProblemListPage.vue') },
+  { path: '/problems/:id', component: () => import('./pages/ProblemDetailPage.vue') },
+  { path: '/assignments', component: () => import('./pages/AssignmentListPage.vue') },
+  { path: '/assignments/:id', component: () => import('./pages/AssignmentDetailPage.vue') },
+  { path: '/contests', component: () => import('./pages/ContestListPage.vue') },
+  { path: '/contests/:id', component: () => import('./pages/ContestDetailPage.vue') },
+  { path: '/bbs', component: () => import('./pages/BbsListPage.vue') },
+  { path: '/bbs/:id', component: () => import('./pages/BbsDetailPage.vue') },
+  { path: '/rank', component: () => import('./pages/RankPage.vue') },
+  { path: '/submissions', component: () => import('./pages/SubmissionListPage.vue') },
+  { path: '/submissions/:id', component: () => import('./pages/SubmissionDetailPage.vue') },
+  { path: '/admin/groups', component: () => import('./pages/AdminGroupsPage.vue') },
+  { path: '/admin/users', component: () => import('./pages/AdminUsersPage.vue') },
+  { path: '/admin/problems', component: () => import('./pages/AdminProblemsPage.vue') },
+  { path: '/admin/assignments', component: () => import('./pages/AdminAssignmentsPage.vue') },
+  { path: '/admin/contests', component: () => import('./pages/AdminContestsPage.vue') },
+  { path: '/admin/languages', component: () => import('./pages/AdminLanguagesPage.vue') },
+  { path: '/admin/runners', component: () => import('./pages/AdminRunnersPage.vue') }
 ]
 
 const router = createRouter({
