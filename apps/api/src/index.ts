@@ -122,6 +122,13 @@ app.get('/api/languages', async (c) => {
 })
 
 app.get('/api/rank', async (c) => {
+  const query = z
+    .object({
+      page: z.coerce.number().int().positive().default(1),
+      pageSize: z.coerce.number().int().min(1).max(500).default(100)
+    })
+    .parse(c.req.query())
+  const total = await countRows(schema.users, sql`${schema.users.disabledAt} is null`)
   const list = await db
     .select({
       id: schema.users.id,
@@ -131,14 +138,16 @@ app.get('/api/rank', async (c) => {
       introduction: schema.users.introduction
     })
     .from(schema.users)
+    .where(sql`${schema.users.disabledAt} is null`)
     .orderBy(
       desc(schema.users.solvedCount),
       asc(schema.users.submissionCount),
       asc(schema.users.id)
     )
-    .limit(100)
+    .limit(query.pageSize)
+    .offset((query.page - 1) * query.pageSize)
 
-  return c.json({ total: list.length, list })
+  return c.json({ total, page: query.page, pageSize: query.pageSize, list })
 })
 
 const registerSchema = z.object({

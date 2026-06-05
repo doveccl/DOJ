@@ -15,6 +15,9 @@ interface RankRow {
 
 const loading = ref(true)
 const rows = ref<RankRow[]>([])
+const page = ref(1)
+const pageSize = ref(20)
+const total = ref(0)
 const { t } = useI18n()
 
 const columns = computed<DataTableColumns<RankRow>>(() => [
@@ -23,7 +26,7 @@ const columns = computed<DataTableColumns<RankRow>>(() => [
     key: 'rank',
     width: 72,
     render(_row, index) {
-      return String(index + 1)
+      return String((page.value - 1) * pageSize.value + index + 1)
     }
   },
   { title: t('common.user'), key: 'name' },
@@ -38,14 +41,20 @@ const columns = computed<DataTableColumns<RankRow>>(() => [
   }
 ])
 
-onMounted(async () => {
+onMounted(load)
+
+async function load() {
+  loading.value = true
   try {
-    const data = await apiFetch<{ list: RankRow[] }>('/api/rank')
+    const data = await apiFetch<{ list: RankRow[]; total: number }>(
+      `/api/rank?page=${page.value}&pageSize=${pageSize.value}`
+    )
     rows.value = data.list
+    total.value = data.total
   } finally {
     loading.value = false
   }
-})
+}
 </script>
 
 <template>
@@ -53,6 +62,27 @@ onMounted(async () => {
     <section class="page-header">
       <h1>{{ t('rank.title') }}</h1>
     </section>
-    <n-data-table :columns="columns" :data="rows" :bordered="false" :loading="loading" />
+    <n-data-table
+      :columns="columns"
+      :data="rows"
+      :bordered="false"
+      :loading="loading"
+      :pagination="{
+        page,
+        pageSize,
+        itemCount: total,
+        showSizePicker: true,
+        pageSizes: [20, 50, 100],
+        onUpdatePage: (nextPage: number) => {
+          page = nextPage
+          load()
+        },
+        onUpdatePageSize: (nextPageSize: number) => {
+          pageSize = nextPageSize
+          page = 1
+          load()
+        }
+      }"
+    />
   </main>
 </template>

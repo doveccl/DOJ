@@ -52,7 +52,7 @@ try {
 
   const rank = await api<{
     list: Array<{ id: number; solvedCount: number; submissionCount: number }>
-  }>('/api/rank')
+  }>('/api/rank?pageSize=500')
   const row = rank.list.find((item) => item.id === user.user.id)
   if (!row || row.solvedCount < 1 || row.submissionCount < 1) {
     throw new Error(`rank row did not update: ${JSON.stringify(row)}`)
