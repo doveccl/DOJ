@@ -45,6 +45,10 @@ body {
   justify-content: end;
 }
 
+.locale-select {
+  width: 116px;
+}
+
 .form-error {
   margin: 0;
   color: #c03221;

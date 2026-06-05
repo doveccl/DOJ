@@ -1,5 +1,4 @@
 import { createApp } from 'vue'
-import { createI18n } from 'vue-i18n'
 import { createPinia } from 'pinia'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import App from './App.vue'
@@ -21,6 +20,7 @@ import ProblemListPage from './pages/ProblemListPage.vue'
 import RankPage from './pages/RankPage.vue'
 import SubmissionDetailPage from './pages/SubmissionDetailPage.vue'
 import SubmissionListPage from './pages/SubmissionListPage.vue'
+import { i18n } from './i18n'
 import './style.css'
 
 const routes: RouteRecordRaw[] = [
@@ -43,43 +43,6 @@ const routes: RouteRecordRaw[] = [
   { path: '/admin/languages', component: AdminLanguagesPage },
   { path: '/admin/runners', component: AdminRunnersPage }
 ]
-
-const i18n = createI18n({
-  legacy: false,
-  locale: 'zh-CN',
-  messages: {
-    'zh-CN': {
-      app: 'DOJ',
-      problems: '题库',
-      assignments: '作业',
-      contests: '比赛',
-      discussion: '讨论',
-      rank: '排名',
-      submissions: '提交',
-      home: '首页',
-      admin: '管理',
-      groups: '用户组',
-      manageProblems: '题目',
-      languages: '语言',
-      runners: '评测机'
-    },
-    en: {
-      app: 'DOJ',
-      problems: 'Problems',
-      assignments: 'Assignments',
-      contests: 'Contests',
-      discussion: 'Discussion',
-      rank: 'Rank',
-      submissions: 'Submissions',
-      home: 'Home',
-      admin: 'Admin',
-      groups: 'Groups',
-      manageProblems: 'Problems',
-      languages: 'Languages',
-      runners: 'Runners'
-    }
-  }
-})
 
 const router = createRouter({
   history: createWebHistory(),
