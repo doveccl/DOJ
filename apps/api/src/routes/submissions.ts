@@ -6,6 +6,7 @@ import { enqueueJudgeTask } from '@doj/db/queue'
 import { createCoachingResponse } from '../ai'
 import { authMiddleware, getOptionalAuthUser, requireAuthUser } from '../auth'
 import { config } from '../config'
+import { checkRateLimit } from '../rate-limit'
 import { validateAssignmentSubmission } from '../services/assignments'
 import { validateContestSubmission } from '../services/contests'
 import { countVisibleSubmissions } from '../services/stats'
@@ -69,6 +70,15 @@ export function registerSubmissionRoutes(app: Hono) {
 
   app.post('/api/submissions', authMiddleware, async (c) => {
     const user = await requireAuthUser(c)
+    const rateLimited = await checkRateLimit(
+      c,
+      'submission:create',
+      `user:${user.id}`,
+      120,
+      10 * 60 * 1000
+    )
+    if (rateLimited) return rateLimited
+
     const body = submitSchema.parse(await c.req.json())
     const settings = await getRuntimeSettings()
     if (body.contestId && body.assignmentId) {
@@ -227,6 +237,15 @@ export function registerSubmissionRoutes(app: Hono) {
 
   app.post('/api/submissions/:id/coach', authMiddleware, async (c) => {
     const user = await requireAuthUser(c)
+    const rateLimited = await checkRateLimit(
+      c,
+      'submission:coach',
+      `user:${user.id}`,
+      20,
+      60 * 60 * 1000
+    )
+    if (rateLimited) return rateLimited
+
     const id = numericId.parse(c.req.param('id'))
     const [submission] = await db
       .select()

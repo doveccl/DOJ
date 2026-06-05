@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { authMiddleware, requireAuthUser } from '../auth'
+import { checkRateLimit } from '../rate-limit'
 import { getRecentBbsTopics, getTopicDetail } from '../services/bbs'
 import { numericId } from '../validation'
 
@@ -15,6 +16,9 @@ export function registerBbsRoutes(app: Hono) {
 
   app.post('/api/bbs/topics', authMiddleware, async (c) => {
     const user = await requireAuthUser(c)
+    const rateLimited = await checkRateLimit(c, 'bbs:topic', `user:${user.id}`, 30, 60 * 60 * 1000)
+    if (rateLimited) return rateLimited
+
     const body = createTopicSchema.parse(await c.req.json())
 
     if (body.linkedProblemId) {
@@ -71,6 +75,9 @@ export function registerBbsRoutes(app: Hono) {
 
   app.post('/api/bbs/topics/:id/replies', authMiddleware, async (c) => {
     const user = await requireAuthUser(c)
+    const rateLimited = await checkRateLimit(c, 'bbs:reply', `user:${user.id}`, 120, 60 * 60 * 1000)
+    if (rateLimited) return rateLimited
+
     const topicId = numericId.parse(c.req.param('id'))
     const body = createReplySchema.parse(await c.req.json())
 
