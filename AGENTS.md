@@ -6,7 +6,7 @@ This file is the working memory for autonomous coding on this branch. Keep it cu
 
 - The current `main` branch is an early rewrite branch. Database history can be reset freely until a formal release.
 - Prefer Bun for backend runtime and tooling, Vue 3 + Naive UI for the frontend, PostgreSQL for durable state, Redis for session/rate-limit/cache concerns, and S3-compatible object storage for large artifacts.
-- Judging should move toward separately deployed judge agents that connect to the central service. Production remote judging should avoid streaming large testdata/stdin/stdout over a remote Docker API.
+- Judging now uses a central worker plus separately deployed judge agents over WebSocket. Production remote judging should avoid remote Docker APIs; agents fetch testdata from S3-compatible storage and execute on local Docker.
 - The UI should be compact and task-focused. Avoid page-header boilerplate, redundant explanatory subtitles, and admin-looking dashboard copy on student-facing pages.
 
 ## Milestones
@@ -25,12 +25,12 @@ This file is the working memory for autonomous coding on this branch. Keep it cu
    - Done: add DB-backed runtime settings for non-secret behavior flags.
    - Done: add Redis/Valkey for sessions and API rate limits through Bun native Redis.
    - Done: use PostgreSQL `LISTEN/NOTIFY` plus `FOR UPDATE SKIP LOCKED` for judge task wakeups.
-   - Design and implement the judge-agent connection model.
+   - Done: design and implement the judge-agent connection model.
 3. Judge and problem model.
    - Collapse seeded C/C++ into one default language.
    - Remove per-problem max output configuration in favor of global/default behavior.
    - Accept looser testdata file naming such as `1.in`, `input1.txt`, `ans01.txt`.
-   - Improve Docker sandbox security and record the resource-metrics conclusion.
+   - Done: improve Docker sandbox security and record the resource-metrics conclusion.
    - Replace raw test-case JSON UI with upload/inspection-oriented tooling.
 4. Frontend and UX.
    - Configure Naive UI locale/date locale.

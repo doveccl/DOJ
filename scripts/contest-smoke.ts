@@ -1,5 +1,5 @@
-import { eq } from 'drizzle-orm'
-import { closeDb, db, schema } from '../packages/db/src/client'
+import { closeDb } from '../packages/db/src/client'
+import { ensureJudgeServices, stopSpawnedJudgeServices, waitForJudgement } from './judge-services'
 
 const apiBase = process.env.DOJ_API_BASE ?? 'http://localhost:7974'
 const adminUser = process.env.DOJ_ADMIN_NAME ?? 'admin'
@@ -7,6 +7,7 @@ const adminPassword = process.env.DOJ_ADMIN_PASSWORD ?? 'admin12345'
 const runId = crypto.randomUUID()
 
 try {
+  await ensureJudgeServices()
   const admin = await api<{ token: string }>('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify({ user: adminUser, password: adminPassword })
@@ -20,7 +21,6 @@ try {
       headers: adminHeaders,
       body: JSON.stringify({
         title: `Contest Smoke Problem ${runId.slice(0, 8)}`,
-        slug: `contest-smoke-${runId}`,
         statementMarkdown: '# Contest Smoke\n\nExit successfully.'
       })
     }
@@ -149,6 +149,7 @@ try {
     revealedSolved: revealedRow.solved
   })
 } finally {
+  await stopSpawnedJudgeServices()
   await closeDb()
 }
 
@@ -164,45 +165,5 @@ function authHeaders(token: string) {
   return {
     'content-type': 'application/json',
     authorization: `Bearer ${token}`
-  }
-}
-
-async function waitForJudgement(submissionId: number) {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    await runWorkerOnce()
-
-    const [judged] = await db
-      .select()
-      .from(schema.submissions)
-      .where(eq(schema.submissions.id, submissionId))
-      .limit(1)
-
-    if (!judged) throw new Error(`submission disappeared: ${submissionId}`)
-    if (!['WAITING', 'JUDGING'].includes(judged.status)) return judged
-    await Bun.sleep(200)
-  }
-
-  throw new Error(`submission did not finish judging: ${submissionId}`)
-}
-
-async function runWorkerOnce() {
-  const worker = Bun.spawn(['bun', 'run', '--cwd', 'apps/worker', 'dev'], {
-    env: {
-      ...process.env,
-      DOJ_WORKER_ONCE: '1'
-    },
-    stdout: 'pipe',
-    stderr: 'pipe'
-  })
-
-  const exitCode = await worker.exited
-  if (exitCode !== 0) {
-    throw new Error(
-      [
-        `worker failed with exit ${exitCode}`,
-        await new Response(worker.stdout).text(),
-        await new Response(worker.stderr).text()
-      ].join('\n')
-    )
   }
 }

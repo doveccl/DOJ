@@ -39,7 +39,6 @@ const { problem } = (await api('/api/problems', {
   headers,
   body: JSON.stringify({
     title: `Assignment Smoke Problem ${runId.slice(0, 8)}`,
-    slug: `assignment-smoke-${runId}`,
     statementMarkdown: '# Assignment Smoke\n\nSolve the assigned task.'
   })
 })) as { problem: { id: number } }

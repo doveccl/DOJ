@@ -61,7 +61,6 @@ const { problem, version } = (await api('/api/problems', {
   headers: adminHeaders,
   body: JSON.stringify({
     title: `Language Smoke ${runId.slice(0, 8)}`,
-    slug: `language-smoke-${runId}`,
     statementMarkdown: '# Language Smoke\n\nLanguage must be enabled.'
   })
 })) as { problem: { id: number }; version: { id: number } }

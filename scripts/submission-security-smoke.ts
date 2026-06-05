@@ -152,7 +152,6 @@ async function createProblem(token: string, title: string) {
     headers: jsonAuth(token),
     body: JSON.stringify({
       title,
-      slug: `${title.toLowerCase().replaceAll(' ', '-')}-${runId}`,
       statementMarkdown: '# Security Smoke\n\nReturn zero.',
       testCases: [{ input: '', output: '', hidden: false }]
     })

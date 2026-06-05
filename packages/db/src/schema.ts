@@ -113,24 +113,28 @@ export const judgeLanguages = pgTable(
   })
 )
 
-export const judgeRunners = pgTable(
-  'judge_runners',
+export const judgeAgents = pgTable(
+  'judge_agents',
   {
     id: id(),
     key: varchar('key', { length: 64 }).notNull(),
     name: varchar('name', { length: 128 }).notNull(),
     enabled: boolean('enabled').default(true).notNull(),
-    kind: varchar('kind', { length: 32 }).default('docker').notNull(),
-    endpoint: text('endpoint'),
-    authHeader: text('auth_header'),
+    tokenHash: text('token_hash').notNull(),
+    labels: text('labels')
+      .array()
+      .default(sql`ARRAY[]::text[]`)
+      .notNull(),
     concurrency: integer('concurrency').default(2).notNull(),
     sortOrder: integer('sort_order').default(0).notNull(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt()
   },
   (t) => ({
-    keyUidx: uniqueIndex('judge_runners_key_uidx').on(t.key),
-    enabledIdx: index('judge_runners_enabled_idx').on(t.enabled, t.sortOrder)
+    keyUidx: uniqueIndex('judge_agents_key_uidx').on(t.key),
+    enabledIdx: index('judge_agents_enabled_idx').on(t.enabled, t.sortOrder),
+    lastSeenIdx: index('judge_agents_last_seen_idx').on(t.lastSeenAt)
   })
 )
 

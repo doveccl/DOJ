@@ -35,7 +35,6 @@ const hiddenProblem = await api<{ problem: { id: number } }>('/api/problems', {
   headers: authHeaders(admin.token),
   body: JSON.stringify({
     title: `BBS Hidden ${runId.slice(0, 8)}`,
-    slug: `bbs-hidden-${runId}`,
     statementMarkdown: '# Hidden\n\nThis should not be linked.',
     testCases: []
   })

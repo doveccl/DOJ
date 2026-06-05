@@ -38,7 +38,7 @@ const zhCNMessages = {
     users: '用户',
     manageProblems: '题目',
     languages: '语言',
-    runners: '评测机'
+    agents: '评测机'
   },
   common: {
     id: '编号',
@@ -199,17 +199,21 @@ const zhCNMessages = {
       commandOverride: '命令覆盖',
       commandPlaceholder: '每行一个 argv 项；留空则使用 Docker CMD'
     },
-    runners: {
+    agents: {
       title: '评测机',
-      subtitle: '配置本地或远程 Docker API 评测后端。',
-      remoteNote:
-        '远程 Docker API 会传输构建上下文、测试输入和输出。生产远程评测建议在 judge 主机运行 worker，并用 DOJ_RUNNER_KEYS 绑定本机评测机。',
+      subtitle: '管理连接到 worker 的独立评测 agent。',
       new: '新增评测机',
       config: '评测机配置',
-      endpoint: 'Docker 端点',
-      local: '本地',
+      labels: '标签',
+      token: '连接密钥',
+      tokenPlaceholder: '留空则自动生成新密钥',
       concurrency: '并发',
-      check: '检查'
+      online: '在线',
+      offline: '离线',
+      never: '从未连接',
+      lastSeen: '最近心跳',
+      rotate: '换密钥',
+      rotateHint: '生成新密钥后旧 agent 需要重启。'
     },
     problems: {
       title: '题目',
@@ -297,7 +301,7 @@ const enMessages = {
     users: 'Users',
     manageProblems: 'Problems',
     languages: 'Languages',
-    runners: 'Runners'
+    agents: 'Judge agents'
   },
   common: {
     id: 'ID',
@@ -458,17 +462,21 @@ const enMessages = {
       commandOverride: 'Command override',
       commandPlaceholder: 'One argv item per line; leave empty to use Docker CMD'
     },
-    runners: {
-      title: 'Runners',
-      subtitle: 'Configure local or remote Docker API judging backends.',
-      remoteNote:
-        'Remote Docker API mode streams build context, test input, and output. For production remote judges, run the worker on the judge host and bind it with DOJ_RUNNER_KEYS.',
-      new: 'New runner',
-      config: 'Runner config',
-      endpoint: 'Docker endpoint',
-      local: 'local',
+    agents: {
+      title: 'Judge agents',
+      subtitle: 'Manage standalone judge agents connected to the worker.',
+      new: 'New agent',
+      config: 'Agent config',
+      labels: 'Labels',
+      token: 'Connection token',
+      tokenPlaceholder: 'Leave empty to generate a new token',
       concurrency: 'Concurrency',
-      check: 'Check'
+      online: 'Online',
+      offline: 'Offline',
+      never: 'Never',
+      lastSeen: 'Last seen',
+      rotate: 'Rotate',
+      rotateHint: 'After rotating the token, the old agent must be restarted.'
     },
     problems: {
       title: 'Problems',

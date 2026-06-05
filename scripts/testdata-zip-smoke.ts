@@ -1,5 +1,5 @@
-import { eq } from 'drizzle-orm'
-import { closeDb, db, schema } from '../packages/db/src/client'
+import { closeDb } from '../packages/db/src/client'
+import { ensureJudgeServices, stopSpawnedJudgeServices, waitForJudgement } from './judge-services'
 
 const apiBase = process.env.DOJ_API_BASE ?? 'http://localhost:7974'
 const adminUser = process.env.DOJ_ADMIN_NAME ?? 'admin'
@@ -8,6 +8,7 @@ const runId = crypto.randomUUID()
 let crcTable: Uint32Array | undefined
 
 try {
+  await ensureJudgeServices()
   const [admin, user] = await Promise.all([loginAdmin(), registerUser()])
   const { problem, version } = await createProblem(admin.token)
   const upload = await uploadTestdata(admin.token, problem.id)
@@ -38,6 +39,7 @@ try {
     wrong: wrong.status
   })
 } finally {
+  await stopSpawnedJudgeServices()
   await closeDb()
 }
 
@@ -75,11 +77,9 @@ async function createProblem(token: string) {
     },
     body: JSON.stringify({
       title: `Zip Testdata ${runId.slice(0, 8)}`,
-      slug: `zip-testdata-${runId}`,
       statementMarkdown: '# Zip Testdata\n\nTriple the input integer.',
       timeLimitMs: 5000,
-      memoryLimitBytes: 128 * 1024 * 1024,
-      outputLimitBytes: 1024 * 1024
+      memoryLimitBytes: 128 * 1024 * 1024
     })
   })
   if (!response.ok)
@@ -140,42 +140,6 @@ async function submitAndJudge(
     throw new Error(`submission API failed: ${response.status} ${await response.text()}`)
   const submission = (await response.json()) as { id: number }
   return waitForJudgement(submission.id)
-}
-
-async function waitForJudgement(submissionId: number) {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    await runWorkerOnce()
-    const [judged] = await db
-      .select()
-      .from(schema.submissions)
-      .where(eq(schema.submissions.id, submissionId))
-      .limit(1)
-    if (!judged) throw new Error(`submission disappeared: ${submissionId}`)
-    if (!['WAITING', 'JUDGING'].includes(judged.status)) return judged
-    await Bun.sleep(200)
-  }
-  throw new Error(`submission did not finish judging: ${submissionId}`)
-}
-
-async function runWorkerOnce() {
-  const worker = Bun.spawn(['bun', 'run', '--cwd', 'apps/worker', 'dev'], {
-    env: {
-      ...process.env,
-      DOJ_WORKER_ONCE: '1'
-    },
-    stdout: 'pipe',
-    stderr: 'pipe'
-  })
-  const exitCode = await worker.exited
-  if (exitCode !== 0) {
-    throw new Error(
-      [
-        `worker failed with exit ${exitCode}`,
-        await new Response(worker.stdout).text(),
-        await new Response(worker.stderr).text()
-      ].join('\n')
-    )
-  }
 }
 
 function createStoreZip(files: Record<string, string>) {

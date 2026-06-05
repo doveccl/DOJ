@@ -1,0 +1,13 @@
+{
+  "name": "@doj/agent",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot src/index.ts",
+    "check": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@doj/runner": "workspace:*",
+    "@doj/shared": "workspace:*"
+  }
+}

@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "bun run --parallel 'dev:*'",
     "dev:api": "bun run --cwd apps/api dev",
+    "dev:agent": "bun run --cwd apps/agent dev",
     "dev:web": "bun run --cwd apps/web dev",
     "dev:worker": "bun run --cwd apps/worker dev",
     "check": "bun run scripts/check.ts",

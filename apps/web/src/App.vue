@@ -77,7 +77,7 @@ const menuOptions = computed(() => {
         { label: t('nav.assignments'), key: '/admin/assignments' },
         { label: t('nav.contests'), key: '/admin/contests' },
         { label: t('nav.languages'), key: '/admin/languages' },
-        { label: t('nav.runners'), key: '/admin/runners' }
+        { label: t('nav.agents'), key: '/admin/agents' }
       ]
     })
   }

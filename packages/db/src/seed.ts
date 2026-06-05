@@ -55,26 +55,31 @@ for (const language of defaultLanguageConfigs) {
     })
 }
 
+const localAgentToken = process.env.DOJ_AGENT_TOKEN ?? 'local-agent-token'
+const localAgentTokenHash = await Bun.password.hash(localAgentToken, {
+  algorithm: 'argon2id',
+  memoryCost: 19456,
+  timeCost: 2
+})
+
 await db
-  .insert(schema.judgeRunners)
+  .insert(schema.judgeAgents)
   .values({
-    key: 'local-docker',
-    name: 'Local Docker',
+    key: 'local-agent',
+    name: 'Local Agent',
     enabled: true,
-    kind: 'docker',
-    endpoint: process.env.DOCKER_HOST ?? null,
-    authHeader: null,
+    tokenHash: localAgentTokenHash,
+    labels: ['local'],
     concurrency: Number(process.env.DOJ_JUDGE_CONCURRENCY ?? 2),
     sortOrder: 10
   })
   .onConflictDoUpdate({
-    target: schema.judgeRunners.key,
+    target: schema.judgeAgents.key,
     set: {
-      name: 'Local Docker',
+      name: 'Local Agent',
       enabled: true,
-      kind: 'docker',
-      endpoint: process.env.DOCKER_HOST ?? null,
-      authHeader: null,
+      tokenHash: localAgentTokenHash,
+      labels: ['local'],
       concurrency: Number(process.env.DOJ_JUDGE_CONCURRENCY ?? 2),
       sortOrder: 10,
       updatedAt: new Date()

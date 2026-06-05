@@ -47,37 +47,37 @@ Use logical references plus indexes for historical high-write records:
 
 This preserves historical records and makes migration easier while still letting the database protect core metadata.
 
-## Judge Runner
+## Judge Agents
 
 Keep three boundaries:
 
 - API server: business APIs and queueing.
-- Judge worker: task lifecycle and result writes.
-- Runner: container build/run/cleanup, IO piping, limits, metrics.
+- Judge worker: task lifecycle, PG notifications, agent WebSocket coordination, and result writes.
+- Judge agent: separately deployed process that connects to the worker, downloads testdata from S3-compatible storage, and executes on local Docker.
+- Runner: in-process library for container build/run/cleanup, IO piping, limits, and metrics.
 
 Docker is the first backend. Podman should only be added after Docker behavior is stable.
 
-Remote runner modes:
+Remote judging conclusion:
 
-- The current remote runner support talks directly to a Docker API endpoint. The worker streams build context, source files, stdin, stdout, stderr, and Docker control traffic over that connection. This is convenient for one or a few trusted remote Docker hosts, especially behind HTTPS with URL credentials, but it is not the same deployment model as v3's remote worker.
-- For serious remote judging, deploy `apps/worker` on the judge host instead. The worker claims tasks from PostgreSQL, downloads S3 testdata locally, talks to the local Docker socket, and writes final results back. Set `DOJ_WORKER_ID=judge-a-1` and `DOJ_RUNNER_KEYS=judge-a` on that worker so logs, leases, and runner selection are stable for that host. This keeps large testdata/stdin/stdout traffic off the Docker API WAN path and matches the old v3 remote-worker deployment shape more closely.
+- Do not use a remote Docker API as the production deployment model. It moves Docker control traffic and build/run IO onto the network path and can make time-limit behavior harder to reason about.
+- Run `apps/worker` centrally and deploy one or more `apps/agent` processes on judge machines. Each agent authenticates by key/token over WebSocket, fetches testdata from S3/MinIO before the timed run, and talks only to its local Docker socket.
+- Keep `packages/runner` as a library rather than another deployed service. The agent owns networking, authentication, heartbeats, and task protocol; the runner owns sandbox execution.
 
 ## Memory Metrics
 
-MVP:
+Current implementation:
 
 - Docker memory limit;
 - OOMKilled or exit code 137 means MLE;
-- poll Docker stats every 100ms;
-- record highest observed memory value.
+- Docker stats stream records the highest observed memory value;
+- local Linux deployments additionally try cgroup v2 `memory.peak` or cgroup v1 `memory.max_usage_in_bytes`.
 
-This is simple and acceptable for the first implementation. It can miss short spikes, but memory-limit enforcement still catches fatal spikes.
+Conclusion:
 
-Enhancement:
-
-- add calibration tests for short memory spikes;
-- read cgroup v2 `memory.peak` when available, otherwise fall back to Docker stats;
-- document deployment modes because DOJ itself may run inside Docker and may not see the host cgroup hierarchy.
+- Docker stats is the portable baseline and works for Docker Desktop, remote daemons, and DOJ itself running inside Docker.
+- Host cgroup peak files are more exact on local Linux when the agent can see the daemon's container cgroups, but they are best-effort only.
+- Keep timeout and memory limit enforcement in Docker. Short peaks that exceed the configured limit are still caught by OOMKilled even if the sampled peak value is lower than the true instantaneous peak.
 
 ## AI
 
@@ -111,8 +111,7 @@ Do not port old low-usage `posts` directly. If discussion is needed, build a sim
 - Auth, group management, and admin user suspension.
 - Admin problem creation, visibility control, versioned updates, and S3 testdata upload.
 - Configurable judge languages with C/C++ seeded by default.
-- Configurable Docker runners with local socket or HTTP(S) endpoint; URL credentials are supported for reverse-proxied Docker APIs.
-- Worker-side `DOJ_RUNNER_KEYS` filtering for remote judge hosts that run their own worker against local Docker.
+- WebSocket judge agents with key/token authentication, online status, token rotation, and local Docker execution.
 - Submission creation.
 - PostgreSQL-backed judge task queue.
 - Docker runner MVP.
@@ -123,16 +122,15 @@ Do not port old low-usage `posts` directly. If discussion is needed, build a sim
 - Rank list and first-AC solve tracking.
 - Non-AC AI coaching with owner/admin authorization, hidden-test redaction, local-rules, and optional OpenAI Responses API provider.
 - v3 JSON migration tool.
-- One-command local development via Bun's native parallel script runner.
+- One-command local development via Bun's native parallel script runner for API, web, worker, and local agent.
 
 ## Storage
 
-Object reads and writes use Bun's native `S3Client`; the AWS SDK is intentionally not included. The small SigV4 helper in `@doj/shared/storage` is only for bucket control-plane calls used by `s3:ensure-bucket` (`HEAD`/`PUT` bucket), because the runtime S3 client covers object operations but not bucket creation. In normal judging flow, workers fetch testdata through the Bun client with the configured endpoint, access key, secret key, region, and bucket.
+Object reads and writes use Bun's native `S3Client`; the AWS SDK is intentionally not included. The small SigV4 helper in `@doj/shared/storage` is only for bucket control-plane calls used by `s3:ensure-bucket` (`HEAD`/`PUT` bucket), because the runtime S3 client covers object operations but not bucket creation. In normal judging flow, agents fetch testdata through the Bun client with the configured endpoint, access key, secret key, region, and bucket before timed execution starts.
 
 ## Next Risks
 
 - S3-backed `.in/.out` testdata zip import is implemented; checker/interactor package support remains a follow-up.
-- Direct remote Docker API remains a convenience mode; production remote judge hosts should run `apps/worker` locally with `DOJ_RUNNER_KEYS` to avoid network IO affecting time limits.
 - Runner memory metrics use Docker stats plus best-effort cgroup `memory.peak`; platform calibration remains a follow-up.
 - AI coaching has hidden-test redaction coverage; provider-specific rate limits and operational controls remain follow-ups.
 - Checker/interactor support is still a follow-up for non-standard judging.

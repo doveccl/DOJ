@@ -17,12 +17,10 @@ const created = await api<{
   headers,
   body: JSON.stringify({
     title: `Editable Problem ${runId.slice(0, 8)}`,
-    slug: `editable-${runId}`,
     tags: ['smoke'],
     statementMarkdown: '# Editable\n\nVersion one.',
     timeLimitMs: 1000,
     memoryLimitBytes: 64 * 1024 * 1024,
-    outputLimitBytes: 1024 * 1024,
     testCases: [{ name: 'sample', input: '1\n', output: '1\n', hidden: false }]
   })
 })

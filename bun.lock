@@ -46,6 +46,13 @@
         "vue-tsc": "^3.3.3",
       },
     },
+    "apps/agent": {
+      "name": "@doj/agent",
+      "dependencies": {
+        "@doj/runner": "workspace:*",
+        "@doj/shared": "workspace:*",
+      },
+    },
     "apps/api": {
       "name": "@doj/api",
       "dependencies": {
@@ -116,6 +123,8 @@
     "@css-render/plugin-bem": ["@css-render/plugin-bem@0.15.14", "https://registry.npmmirror.com/@css-render/plugin-bem/-/plugin-bem-0.15.14.tgz", { "peerDependencies": { "css-render": "~0.15.14" } }, "sha512-QK513CJ7yEQxm/P3EwsI+d+ha8kSOcjGvD6SevM41neEMxdULE+18iuQK6tEChAWMOQNQPLG/Rw3Khb69r5neg=="],
 
     "@css-render/vue3-ssr": ["@css-render/vue3-ssr@0.15.14", "https://registry.npmmirror.com/@css-render/vue3-ssr/-/vue3-ssr-0.15.14.tgz", { "peerDependencies": { "vue": "^3.0.11" } }, "sha512-//8027GSbxE9n3QlD73xFY6z4ZbHbvrOVB7AO6hsmrEzGbg+h2A09HboUyDgu+xsmj7JnvJD39Irt+2D0+iV8g=="],
+
+    "@doj/agent": ["@doj/agent@workspace:apps/agent"],
 
     "@doj/api": ["@doj/api@workspace:apps/api"],
 

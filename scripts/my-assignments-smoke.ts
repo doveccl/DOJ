@@ -48,7 +48,6 @@ const { problem } = (await api('/api/problems', {
   headers: adminHeaders,
   body: JSON.stringify({
     title: `Student Assignment Problem ${runId.slice(0, 8)}`,
-    slug: `student-assignment-${runId}`,
     statementMarkdown: '# Student Assignment\n\nVisible to users.'
   })
 })) as { problem: { id: number } }

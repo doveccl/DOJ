@@ -24,7 +24,8 @@ const routes: RouteRecordRaw[] = [
   { path: '/admin/assignments', component: () => import('./pages/AdminAssignments.vue') },
   { path: '/admin/contests', component: () => import('./pages/AdminContests.vue') },
   { path: '/admin/languages', component: () => import('./pages/AdminLanguages.vue') },
-  { path: '/admin/runners', component: () => import('./pages/AdminRunners.vue') }
+  { path: '/admin/agents', component: () => import('./pages/AdminAgents.vue') },
+  { path: '/admin/runners', redirect: '/admin/agents' }
 ]
 
 const router = createRouter({
