@@ -104,15 +104,15 @@ Do not port old low-usage `posts` directly. If discussion is needed, build a sim
 - Bun workspace.
 - PostgreSQL schema and migrations.
 - Auth and group management.
-- Admin problem creation.
+- Admin problem creation, visibility control, versioned updates, and S3 testdata upload.
 - Configurable judge languages.
 - Configurable Docker runners with local socket or HTTP(S) endpoint plus optional auth header.
 - Submission creation.
 - PostgreSQL-backed judge task queue.
 - Docker runner MVP.
 - Inline test cases and per-case submission results.
-- Assignments.
-- Contest basics.
+- Assignments with student views and progress reports.
+- Contest basics with ICPC scoreboard freeze/reveal.
 - Lightweight BBS.
 - Rank list and first-AC solve tracking.
 - Non-AC AI coaching with local-stub and optional OpenAI Responses API provider.
@@ -123,4 +123,5 @@ Do not port old low-usage `posts` directly. If discussion is needed, build a sim
 - S3-backed `.in/.out` testdata zip import is implemented; checker/interactor package support remains a follow-up.
 - Runner memory metrics still use Docker stats polling; cgroup `memory.peak` calibration remains a follow-up.
 - AI coaching still needs prompt redaction tests and provider-specific operational controls.
+- Checker/interactor support is still a follow-up for non-standard judging.
 - Contest scoreboard freeze/reveal and assignment reports are implemented; rolling reveal animation remains a future UX enhancement.
