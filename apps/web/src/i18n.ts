@@ -32,6 +32,7 @@ const zhCNMessages = {
     submissions: '提交',
     admin: '管理',
     groups: '用户组',
+    users: '用户',
     manageProblems: '题目',
     languages: '语言',
     runners: '评测机'
@@ -61,6 +62,7 @@ const enMessages = {
     submissions: 'Submissions',
     admin: 'Admin',
     groups: 'Groups',
+    users: 'Users',
     manageProblems: 'Problems',
     languages: 'Languages',
     runners: 'Runners'

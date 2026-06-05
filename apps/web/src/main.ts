@@ -8,6 +8,7 @@ import AdminGroupsPage from './pages/AdminGroupsPage.vue'
 import AdminLanguagesPage from './pages/AdminLanguagesPage.vue'
 import AdminProblemsPage from './pages/AdminProblemsPage.vue'
 import AdminRunnersPage from './pages/AdminRunnersPage.vue'
+import AdminUsersPage from './pages/AdminUsersPage.vue'
 import AssignmentDetailPage from './pages/AssignmentDetailPage.vue'
 import AssignmentListPage from './pages/AssignmentListPage.vue'
 import BbsDetailPage from './pages/BbsDetailPage.vue'
@@ -37,6 +38,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/submissions', component: SubmissionListPage },
   { path: '/submissions/:id', component: SubmissionDetailPage },
   { path: '/admin/groups', component: AdminGroupsPage },
+  { path: '/admin/users', component: AdminUsersPage },
   { path: '/admin/problems', component: AdminProblemsPage },
   { path: '/admin/assignments', component: AdminAssignmentsPage },
   { path: '/admin/contests', component: AdminContestsPage },

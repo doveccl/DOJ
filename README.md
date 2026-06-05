@@ -96,7 +96,7 @@ Default URLs:
 The current implementation includes:
 
 - Auth with Argon2id password hashes and JWT sessions.
-- Linux-like users/groups/admin membership.
+- Linux-like users/groups/admin membership with admin user suspension.
 - Numeric PostgreSQL IDs, with problems starting at 1000.
 - Admin-configurable judge languages.
 - Admin-configurable Docker runners, including local sockets and HTTP(S) Docker API endpoints with an optional auth header.

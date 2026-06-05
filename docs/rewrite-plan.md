@@ -103,7 +103,7 @@ Do not port old low-usage `posts` directly. If discussion is needed, build a sim
 
 - Bun workspace.
 - PostgreSQL schema and migrations.
-- Auth and group management.
+- Auth, group management, and admin user suspension.
 - Admin problem creation, visibility control, versioned updates, and S3 testdata upload.
 - Configurable judge languages.
 - Configurable Docker runners with local socket or HTTP(S) endpoint plus optional auth header.

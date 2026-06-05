@@ -51,6 +51,7 @@ const menuOptions = computed(() => {
       key: 'admin',
       children: [
         { label: t('nav.groups'), key: '/admin/groups' },
+        { label: t('nav.users'), key: '/admin/users' },
         { label: t('nav.manageProblems'), key: '/admin/problems' },
         { label: t('nav.assignments'), key: '/admin/assignments' },
         { label: t('nav.contests'), key: '/admin/contests' },
