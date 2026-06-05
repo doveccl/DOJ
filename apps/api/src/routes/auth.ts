@@ -14,6 +14,7 @@ import {
   verifyPassword
 } from '../auth'
 import { getRuntimeSettings, runtimeSettingsSchema, updateRuntimeSettings } from '../settings'
+import { destroySession } from '../session'
 
 export function registerAuthRoutes(app: Hono) {
   app.post('/api/auth/register', async (c) => {
@@ -77,6 +78,12 @@ export function registerAuthRoutes(app: Hono) {
   })
 
   app.get('/api/auth/self', authMiddleware, async (c) => c.json(await requireAuthUser(c)))
+
+  app.post('/api/auth/logout', authMiddleware, async (c) => {
+    const token = c.req.header('authorization')?.slice('Bearer '.length) ?? ''
+    if (token) await destroySession(token)
+    return c.json({ ok: true })
+  })
 
   app.get('/api/admin/settings', authMiddleware, async (c) => {
     const denied = await requireGroup(c, 'admin')

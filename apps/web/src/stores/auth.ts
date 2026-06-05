@@ -53,7 +53,10 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function logout() {
+  async function logout() {
+    if (token.value) {
+      await apiFetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
+    }
     token.value = ''
     user.value = null
     localStorage.removeItem('doj.token')

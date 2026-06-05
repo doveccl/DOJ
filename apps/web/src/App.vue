@@ -130,7 +130,7 @@ async function submitAuth() {
 }
 
 function handleUserCommand(key: string) {
-  if (key === 'logout') auth.logout()
+  if (key === 'logout') void auth.logout()
 }
 </script>
 

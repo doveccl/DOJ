@@ -61,13 +61,33 @@ if (!loginResponse.ok) {
   throw new Error(`login failed: ${loginResponse.status} ${await loginResponse.text()}`)
 }
 
-const login = (await loginResponse.json()) as { user: { id: number } }
+const login = (await loginResponse.json()) as { token: string; user: { id: number } }
 if (login.user.id !== registered.user.id) {
   throw new Error(`login returned wrong user: ${login.user.id}`)
+}
+
+const logoutResponse = await fetch(`${apiBase}/api/auth/logout`, {
+  method: 'POST',
+  headers: {
+    authorization: `Bearer ${login.token}`
+  }
+})
+if (!logoutResponse.ok) {
+  throw new Error(`logout failed: ${logoutResponse.status} ${await logoutResponse.text()}`)
+}
+
+const loggedOutSelfResponse = await fetch(`${apiBase}/api/auth/self`, {
+  headers: {
+    authorization: `Bearer ${login.token}`
+  }
+})
+if (loggedOutSelfResponse.status !== 401) {
+  throw new Error(`expected logged-out token 401, got ${loggedOutSelfResponse.status}`)
 }
 
 console.log({
   id: registered.user.id,
   name: registered.user.name,
-  groups: registered.user.groups
+  groups: registered.user.groups,
+  logoutStatus: logoutResponse.status
 })
