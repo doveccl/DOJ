@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { NAlert, NDataTable, NEmpty, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import { h, onMounted, ref, watch } from 'vue'
+import { computed, h, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 import { useAuthStore } from '../stores/auth'
 
@@ -19,41 +20,44 @@ const auth = useAuthStore()
 const loading = ref(true)
 const error = ref('')
 const assignments = ref<AssignmentRow[]>([])
+const { t } = useI18n()
 
-const columns: DataTableColumns<AssignmentRow> = [
+const columns = computed<DataTableColumns<AssignmentRow>>(() => [
   {
-    title: 'Title',
+    title: t('common.title'),
     key: 'title',
     render(row) {
       return h(RouterLink, { to: `/assignments/${row.id}`, class: 'table-link' }, () => row.title)
     }
   },
   {
-    title: 'Due',
+    title: t('assignments.due'),
     key: 'dueAt',
     render(row) {
       return row.dueAt ? new Date(row.dueAt).toLocaleString() : '-'
     }
   },
   {
-    title: 'Late',
+    title: t('assignments.late'),
     key: 'allowLate',
     render(row) {
       return h(NTag, { bordered: false, type: row.allowLate ? 'warning' : 'default' }, () =>
-        row.allowLate ? 'allowed' : 'closed'
+        row.allowLate ? t('assignments.allowed') : t('assignments.closed')
       )
     }
   },
   {
-    title: 'AI',
+    title: t('assignments.ai'),
     key: 'aiCoachingEnabled',
     render(row) {
-      return h(NTag, { bordered: false, type: row.aiCoachingEnabled ? 'success' : 'default' }, () =>
-        row.aiCoachingEnabled ? 'on' : 'off'
+      return h(
+        NTag,
+        { bordered: false, type: row.aiCoachingEnabled ? 'success' : 'default' },
+        () => (row.aiCoachingEnabled ? t('assignments.on') : t('assignments.off'))
       )
     }
   }
-]
+])
 
 async function loadAssignments() {
   loading.value = true
@@ -87,12 +91,12 @@ onMounted(() => {
 <template>
   <main class="page">
     <section class="page-header">
-      <h1>Assignments</h1>
-      <p>Your assigned problem sets.</p>
+      <h1>{{ t('assignments.title') }}</h1>
+      <p>{{ t('assignments.subtitle') }}</p>
     </section>
 
     <n-alert v-if="!auth.signedIn" type="warning" class="page-alert">
-      Sign in to view assignments.
+      {{ t('assignments.signIn') }}
     </n-alert>
 
     <n-alert v-if="error" type="error" class="page-alert">
@@ -101,7 +105,7 @@ onMounted(() => {
 
     <n-data-table :columns="columns" :data="assignments" :bordered="false" :loading="loading">
       <template #empty>
-        <n-empty description="No assignments yet" />
+        <n-empty :description="t('assignments.empty')" />
       </template>
     </n-data-table>
   </main>

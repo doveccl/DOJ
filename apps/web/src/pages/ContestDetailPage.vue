@@ -3,6 +3,7 @@ import { NAlert, NCard, NDataTable, NSpin, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { computed, h, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 import { useAuthStore } from '../stores/auth'
 
@@ -53,11 +54,12 @@ const error = ref('')
 const detail = ref<ContestDetail | null>(null)
 const scoreboard = ref<Scoreboard | null>(null)
 const canReveal = computed(() => auth.user?.groups.includes('admin') ?? false)
+const { t } = useI18n()
 
-const columns: DataTableColumns<ContestProblem> = [
-  { title: 'Key', key: 'key', width: 90 },
+const columns = computed<DataTableColumns<ContestProblem>>(() => [
+  { title: t('contests.key'), key: 'key', width: 90 },
   {
-    title: 'Problem',
+    title: t('common.problem'),
     key: 'title',
     render(row) {
       return h(
@@ -70,8 +72,8 @@ const columns: DataTableColumns<ContestProblem> = [
       )
     }
   },
-  { title: 'Score', key: 'score', width: 110 }
-]
+  { title: t('contests.score'), key: 'score', width: 110 }
+])
 
 const scoreboardColumns = computed<DataTableColumns<ScoreboardRow>>(() => [
   {
@@ -82,9 +84,9 @@ const scoreboardColumns = computed<DataTableColumns<ScoreboardRow>>(() => [
       return String(index + 1)
     }
   },
-  { title: 'User', key: 'userName', minWidth: 160 },
-  { title: 'Solved', key: 'solved', width: 110 },
-  { title: 'Penalty', key: 'penalty', width: 110 },
+  { title: t('common.user'), key: 'userName', minWidth: 160 },
+  { title: t('common.solved'), key: 'solved', width: 110 },
+  { title: t('contests.penalty'), key: 'penalty', width: 110 },
   ...(detail.value?.problems.map((problem) => ({
     title: problem.key,
     key: problem.key,
@@ -122,16 +124,18 @@ onMounted(async () => {
       <template v-if="detail">
         <section class="page-header">
           <h1>{{ detail.contest.title }}</h1>
-          <p>{{ detail.contest.description || 'Contest problem set.' }}</p>
+          <p>{{ detail.contest.description || t('contests.fallback') }}</p>
         </section>
 
         <n-card :bordered="false" class="stacked-card">
           <div class="meta-row">
             <n-tag :bordered="false">{{ detail.contest.type }}</n-tag>
             <span class="muted">{{ new Date(detail.contest.startAt).toLocaleString() }}</span>
-            <span class="muted">to {{ new Date(detail.contest.endAt).toLocaleString() }}</span>
+            <span class="muted"
+              >{{ t('contests.to') }} {{ new Date(detail.contest.endAt).toLocaleString() }}</span
+            >
             <n-tag v-if="detail.contest.freezeAt" :bordered="false" type="warning">
-              freezes {{ new Date(detail.contest.freezeAt).toLocaleString() }}
+              {{ t('contests.freezes') }} {{ new Date(detail.contest.freezeAt).toLocaleString() }}
             </n-tag>
           </div>
         </n-card>
@@ -143,22 +147,21 @@ onMounted(async () => {
           class="stacked-card"
         />
 
-        <n-card title="Scoreboard" :bordered="false" class="stacked-card">
+        <n-card :title="t('contests.scoreboard')" :bordered="false" class="stacked-card">
           <n-alert
             v-if="scoreboard?.frozen && !scoreboard.revealed"
             type="warning"
             class="card-alert"
           >
-            Scoreboard is frozen. Submissions after
+            {{ t('contests.frozen') }}
             {{ scoreboard.visibleUntil ? new Date(scoreboard.visibleUntil).toLocaleString() : '' }}
-            are hidden until reveal.
           </n-alert>
           <n-alert
             v-else-if="scoreboard?.frozen && scoreboard.revealed"
             type="info"
             class="card-alert"
           >
-            Admin reveal view is showing final standings.
+            {{ t('contests.revealed') }}
           </n-alert>
           <n-data-table
             :columns="scoreboardColumns"

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { NDataTable, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import { h, onMounted, ref } from 'vue'
+import { computed, h, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 
 interface ContestRow {
@@ -15,17 +16,18 @@ interface ContestRow {
 
 const loading = ref(true)
 const contests = ref<ContestRow[]>([])
+const { t } = useI18n()
 
-const columns: DataTableColumns<ContestRow> = [
+const columns = computed<DataTableColumns<ContestRow>>(() => [
   {
-    title: 'Title',
+    title: t('common.title'),
     key: 'title',
     render(row) {
       return h(RouterLink, { to: `/contests/${row.id}`, class: 'table-link' }, () => row.title)
     }
   },
   {
-    title: 'Type',
+    title: t('contests.type'),
     key: 'type',
     width: 110,
     render(row) {
@@ -33,20 +35,20 @@ const columns: DataTableColumns<ContestRow> = [
     }
   },
   {
-    title: 'Start',
+    title: t('contests.start'),
     key: 'startAt',
     render(row) {
       return new Date(row.startAt).toLocaleString()
     }
   },
   {
-    title: 'End',
+    title: t('contests.end'),
     key: 'endAt',
     render(row) {
       return new Date(row.endAt).toLocaleString()
     }
   }
-]
+])
 
 onMounted(async () => {
   try {
@@ -61,7 +63,7 @@ onMounted(async () => {
 <template>
   <main class="page">
     <section class="page-header">
-      <h1>Contests</h1>
+      <h1>{{ t('contests.title') }}</h1>
     </section>
     <n-data-table :columns="columns" :data="contests" :bordered="false" :loading="loading" />
   </main>

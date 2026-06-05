@@ -69,6 +69,42 @@ const zhCNMessages = {
   },
   submissions: {
     title: '提交记录'
+  },
+  assignments: {
+    title: '作业',
+    subtitle: '分配给你的题目集。',
+    signIn: '登录后查看作业。',
+    empty: '还没有作业',
+    due: '截止',
+    late: '补交',
+    allowed: '允许',
+    closed: '关闭',
+    ai: 'AI',
+    on: '开',
+    off: '关',
+    fallback: '作业题目集。',
+    lateAllowed: '允许补交',
+    lateClosed: '补交关闭',
+    duePrefix: '截止'
+  },
+  contests: {
+    title: '比赛',
+    type: '类型',
+    start: '开始',
+    end: '结束',
+    key: '编号',
+    score: '分值',
+    fallback: '比赛题目集。',
+    to: '至',
+    freezes: '封榜',
+    scoreboard: '榜单',
+    frozen: '榜单已冻结。封榜后的提交将在揭榜前隐藏。',
+    revealed: '管理员揭榜视图正在显示最终排名。',
+    penalty: '罚时'
+  },
+  rank: {
+    title: '排名',
+    intro: '简介'
   }
 }
 
@@ -132,6 +168,42 @@ const enMessages = {
   },
   submissions: {
     title: 'Submissions'
+  },
+  assignments: {
+    title: 'Assignments',
+    subtitle: 'Your assigned problem sets.',
+    signIn: 'Sign in to view assignments.',
+    empty: 'No assignments yet',
+    due: 'Due',
+    late: 'Late',
+    allowed: 'allowed',
+    closed: 'closed',
+    ai: 'AI',
+    on: 'on',
+    off: 'off',
+    fallback: 'Assigned problem set.',
+    lateAllowed: 'late allowed',
+    lateClosed: 'late closed',
+    duePrefix: 'Due'
+  },
+  contests: {
+    title: 'Contests',
+    type: 'Type',
+    start: 'Start',
+    end: 'End',
+    key: 'Key',
+    score: 'Score',
+    fallback: 'Contest problem set.',
+    to: 'to',
+    freezes: 'freezes',
+    scoreboard: 'Scoreboard',
+    frozen: 'Scoreboard is frozen. Submissions after the freeze are hidden until reveal.',
+    revealed: 'Admin reveal view is showing final standings.',
+    penalty: 'Penalty'
+  },
+  rank: {
+    title: 'Rank',
+    intro: 'Intro'
   }
 }
 

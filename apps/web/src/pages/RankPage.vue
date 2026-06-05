@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { NDataTable } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 
 interface RankRow {
@@ -14,8 +15,9 @@ interface RankRow {
 
 const loading = ref(true)
 const rows = ref<RankRow[]>([])
+const { t } = useI18n()
 
-const columns: DataTableColumns<RankRow> = [
+const columns = computed<DataTableColumns<RankRow>>(() => [
   {
     title: '#',
     key: 'rank',
@@ -24,17 +26,17 @@ const columns: DataTableColumns<RankRow> = [
       return String(index + 1)
     }
   },
-  { title: 'User', key: 'name' },
-  { title: 'Solved', key: 'solvedCount', width: 120 },
-  { title: 'Submissions', key: 'submissionCount', width: 140 },
+  { title: t('common.user'), key: 'name' },
+  { title: t('common.solved'), key: 'solvedCount', width: 120 },
+  { title: t('dashboard.submissions'), key: 'submissionCount', width: 140 },
   {
-    title: 'Intro',
+    title: t('rank.intro'),
     key: 'introduction',
     ellipsis: {
       tooltip: true
     }
   }
-]
+])
 
 onMounted(async () => {
   try {
@@ -49,7 +51,7 @@ onMounted(async () => {
 <template>
   <main class="page">
     <section class="page-header">
-      <h1>Rank</h1>
+      <h1>{{ t('rank.title') }}</h1>
     </section>
     <n-data-table :columns="columns" :data="rows" :bordered="false" :loading="loading" />
   </main>

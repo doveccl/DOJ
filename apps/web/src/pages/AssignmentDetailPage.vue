@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { NAlert, NCard, NDataTable, NSpin, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import { h, onMounted, ref, watch } from 'vue'
+import { computed, h, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 import { useAuthStore } from '../stores/auth'
 
@@ -31,11 +32,12 @@ const auth = useAuthStore()
 const loading = ref(true)
 const error = ref('')
 const detail = ref<AssignmentDetail | null>(null)
+const { t } = useI18n()
 
-const columns: DataTableColumns<AssignmentProblem> = [
-  { title: 'ID', key: 'id', width: 96 },
+const columns = computed<DataTableColumns<AssignmentProblem>>(() => [
+  { title: t('common.id'), key: 'id', width: 96 },
   {
-    title: 'Problem',
+    title: t('common.problem'),
     key: 'title',
     render(row) {
       return h(
@@ -48,8 +50,8 @@ const columns: DataTableColumns<AssignmentProblem> = [
       )
     }
   },
-  { title: 'Score', key: 'score' }
-]
+  { title: t('contests.score'), key: 'score' }
+])
 
 async function loadDetail() {
   loading.value = true
@@ -85,19 +87,33 @@ onMounted(() => {
       <template v-if="detail">
         <section class="page-header">
           <h1>{{ detail.assignment.title }}</h1>
-          <p>{{ detail.assignment.description || 'Assigned problem set.' }}</p>
+          <p>{{ detail.assignment.description || t('assignments.fallback') }}</p>
         </section>
 
         <n-card :bordered="false" class="stacked-card">
           <div class="meta-row">
             <n-tag :bordered="false" :type="detail.assignment.allowLate ? 'warning' : 'default'">
-              {{ detail.assignment.allowLate ? 'late allowed' : 'late closed' }}
+              {{
+                detail.assignment.allowLate
+                  ? t('assignments.lateAllowed')
+                  : t('assignments.lateClosed')
+              }}
             </n-tag>
-            <n-tag :bordered="false" :type="detail.assignment.aiCoachingEnabled ? 'success' : 'default'">
-              {{ detail.assignment.aiCoachingEnabled ? 'AI on' : 'AI off' }}
+            <n-tag
+              :bordered="false"
+              :type="detail.assignment.aiCoachingEnabled ? 'success' : 'default'"
+            >
+              {{
+                detail.assignment.aiCoachingEnabled
+                  ? `AI ${t('assignments.on')}`
+                  : `AI ${t('assignments.off')}`
+              }}
             </n-tag>
             <span class="muted">
-              Due {{ detail.assignment.dueAt ? new Date(detail.assignment.dueAt).toLocaleString() : '-' }}
+              {{ t('assignments.duePrefix') }}
+              {{
+                detail.assignment.dueAt ? new Date(detail.assignment.dueAt).toLocaleString() : '-'
+              }}
             </span>
           </div>
         </n-card>
@@ -111,7 +127,7 @@ onMounted(() => {
       </template>
 
       <n-alert v-else-if="!auth.signedIn" type="warning" class="page-alert">
-        Sign in to view this assignment.
+        {{ t('assignments.signIn') }}
       </n-alert>
       <n-alert v-else-if="error" type="error" class="page-alert">
         {{ error }}
