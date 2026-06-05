@@ -1043,6 +1043,13 @@ app.post('/api/problems/:id/testdata', authMiddleware, async (c) => {
 })
 
 app.get('/api/submissions', async (c) => {
+  const query = z
+    .object({
+      page: z.coerce.number().int().positive().default(1),
+      pageSize: z.coerce.number().int().min(1).max(100).default(50)
+    })
+    .parse(c.req.query())
+  const total = await countVisibleSubmissions()
   const rows = await db
     .select({
       id: schema.submissions.id,
@@ -1066,13 +1073,14 @@ app.get('/api/submissions', async (c) => {
     .innerJoin(schema.users, eq(schema.submissions.userId, schema.users.id))
     .where(eq(schema.problems.visible, true))
     .orderBy(desc(schema.submissions.createdAt))
-    .limit(50)
+    .limit(query.pageSize)
+    .offset((query.page - 1) * query.pageSize)
   const list = rows.map((row) => ({
     ...row,
     message: row.contestId ? '' : row.message
   }))
 
-  return c.json({ total: list.length, list })
+  return c.json({ total, page: query.page, pageSize: query.pageSize, list })
 })
 
 const submitSchema = z.object({

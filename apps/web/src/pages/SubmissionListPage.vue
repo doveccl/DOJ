@@ -98,16 +98,33 @@ const columns = computed(() => [
 
 const loading = ref(true)
 const submissions = ref<SubmissionRow[]>([])
+const page = ref(1)
+const pageSize = ref(20)
+const total = ref(0)
 let timer: number | undefined
 
 async function loadSubmissions(showLoading = false) {
   if (showLoading) loading.value = true
   try {
-    const data = await apiFetch<{ list: SubmissionRow[] }>('/api/submissions')
+    const data = await apiFetch<{ list: SubmissionRow[]; total: number }>(
+      `/api/submissions?page=${page.value}&pageSize=${pageSize.value}`
+    )
     submissions.value = data.list
+    total.value = data.total
   } finally {
     loading.value = false
   }
+}
+
+function changePage(nextPage: number) {
+  page.value = nextPage
+  loadSubmissions(true)
+}
+
+function changePageSize(nextPageSize: number) {
+  pageSize.value = nextPageSize
+  page.value = 1
+  loadSubmissions(true)
 }
 
 onMounted(async () => {
@@ -125,6 +142,20 @@ onUnmounted(() => {
     <section class="page-header">
       <h1>{{ t('submissions.title') }}</h1>
     </section>
-    <n-data-table :columns="columns" :data="submissions" :bordered="false" :loading="loading" />
+    <n-data-table
+      :columns="columns"
+      :data="submissions"
+      :bordered="false"
+      :loading="loading"
+      :pagination="{
+        page,
+        pageSize,
+        itemCount: total,
+        showSizePicker: true,
+        pageSizes: [20, 50, 100],
+        onUpdatePage: changePage,
+        onUpdatePageSize: changePageSize
+      }"
+    />
   </main>
 </template>
