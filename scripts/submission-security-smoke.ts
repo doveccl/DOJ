@@ -61,10 +61,28 @@ if (assignmentStatus !== 404) {
   throw new Error(`expected non-member assignment 404, got ${assignmentStatus}`)
 }
 
+const sourceMarker = `LIST_LEAK_${runId}`
+const normalSubmission = await submit(user.token, {
+  problemId: visibleProblem.problem.id,
+  problemVersionId: visibleProblem.version.id,
+  sourceCode: `#include <bits/stdc++.h>\n// ${sourceMarker}\nint main(){return 0;}\n`
+})
+const submissionList = (await api('/api/submissions')) as {
+  list: Array<Record<string, unknown> & { id: number }>
+}
+const listedSubmission = submissionList.list.find((item) => item.id === normalSubmission.id)
+if (!listedSubmission) {
+  throw new Error(`created submission missing from public list: ${normalSubmission.id}`)
+}
+if ('sourceCode' in listedSubmission || JSON.stringify(listedSubmission).includes(sourceMarker)) {
+  throw new Error(`submission list leaked source code: ${JSON.stringify(listedSubmission)}`)
+}
+
 console.log({
   versionMismatchStatus,
   hiddenStatus,
-  assignmentStatus
+  assignmentStatus,
+  listedSubmissionId: normalSubmission.id
 })
 
 async function login(user: string, password: string) {
@@ -114,6 +132,20 @@ async function submitStatus(
     })
   })
   return response.status
+}
+
+async function submit(
+  token: string,
+  body: { problemId: number; problemVersionId: number; sourceCode: string }
+) {
+  return api('/api/submissions', {
+    method: 'POST',
+    headers: jsonAuth(token),
+    body: JSON.stringify({
+      ...body,
+      languageId: 'cpp'
+    })
+  }) as Promise<{ id: number }>
 }
 
 async function api(path: string, init: RequestInit = {}) {

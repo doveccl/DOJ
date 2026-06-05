@@ -1022,11 +1022,29 @@ app.post('/api/problems/:id/testdata', authMiddleware, async (c) => {
 })
 
 app.get('/api/submissions', async (c) => {
-  const list = await db
-    .select()
+  const rows = await db
+    .select({
+      id: schema.submissions.id,
+      userId: schema.submissions.userId,
+      problemId: schema.submissions.problemId,
+      problemVersionId: schema.submissions.problemVersionId,
+      languageId: schema.submissions.languageId,
+      status: schema.submissions.status,
+      timeMs: schema.submissions.timeMs,
+      memoryBytes: schema.submissions.memoryBytes,
+      message: schema.submissions.message,
+      contestId: schema.submissions.contestId,
+      assignmentId: schema.submissions.assignmentId,
+      createdAt: schema.submissions.createdAt,
+      updatedAt: schema.submissions.updatedAt
+    })
     .from(schema.submissions)
     .orderBy(desc(schema.submissions.createdAt))
     .limit(50)
+  const list = rows.map((row) => ({
+    ...row,
+    message: row.contestId ? '' : row.message
+  }))
 
   return c.json({ total: list.length, list })
 })
