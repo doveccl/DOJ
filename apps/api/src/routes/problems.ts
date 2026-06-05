@@ -69,7 +69,6 @@ export function registerProblemRoutes(app: Hono) {
       'statementMarkdown',
       'timeLimitMs',
       'memoryLimitBytes',
-      'outputLimitBytes',
       'testCases'
     ].some((key) => key in body)
 
@@ -91,7 +90,7 @@ export function registerProblemRoutes(app: Hono) {
           statementMarkdown: body.statementMarkdown ?? detail.version.statementMarkdown,
           timeLimitMs: body.timeLimitMs ?? detail.version.timeLimitMs,
           memoryLimitBytes: body.memoryLimitBytes ?? detail.version.memoryLimitBytes,
-          outputLimitBytes: body.outputLimitBytes ?? detail.version.outputLimitBytes,
+          outputLimitBytes: detail.version.outputLimitBytes,
           testCases: body.testCases ?? detail.version.testCases,
           testdataFileId: 'testCases' in body ? null : detail.version.testdataFileId,
           checkerFileId: detail.version.checkerFileId,
@@ -111,6 +110,7 @@ export function registerProblemRoutes(app: Hono) {
     const denied = await requireGroup(c, 'admin')
     if (denied) return denied
 
+    const settings = await getRuntimeSettings()
     const body = createProblemSchema.parse(await c.req.json())
 
     const result = await db.transaction(async (tx) => {
@@ -131,7 +131,7 @@ export function registerProblemRoutes(app: Hono) {
           statementMarkdown: body.statementMarkdown,
           timeLimitMs: body.timeLimitMs,
           memoryLimitBytes: body.memoryLimitBytes,
-          outputLimitBytes: body.outputLimitBytes,
+          outputLimitBytes: settings.outputLimitBytes,
           testCases: body.testCases
         })
         .returning()
@@ -278,11 +278,6 @@ const createProblemSchema = z.object({
     .int()
     .positive()
     .default(256 * 1024 * 1024),
-  outputLimitBytes: z
-    .number()
-    .int()
-    .positive()
-    .default(64 * 1024 * 1024),
   testCases: z.array(problemTestCaseSchema).max(100).default([])
 })
 
@@ -295,7 +290,6 @@ const updateProblemSchema = z
     statementMarkdown: z.string().min(1).optional(),
     timeLimitMs: z.number().int().positive().optional(),
     memoryLimitBytes: z.number().int().positive().optional(),
-    outputLimitBytes: z.number().int().positive().optional(),
     testCases: z.array(problemTestCaseSchema).max(100).optional()
   })
   .refine((value) => Object.keys(value).length > 0, {

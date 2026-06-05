@@ -94,10 +94,10 @@ async function uploadTestdata(token: string, problemId: number) {
     new File(
       [
         createStoreZip({
-          '1.in': '7\n',
-          '1.out': '21\n',
+          'input1.txt': '7\n',
+          'ans01.txt': '21\n',
           '2.in': '-4\n',
-          '2.out': '-12\n'
+          'output2.txt': '-12\n'
         })
       ],
       'testdata.zip',

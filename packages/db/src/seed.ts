@@ -125,7 +125,6 @@ const starterProblems = [
       '# A+B Problem\n\nRead two integers `a` and `b`, then print their sum.\n\nInput: two integers separated by whitespace.\n\nOutput: one integer.',
     timeLimitMs: 1000,
     memoryLimitBytes: 128 * 1024 * 1024,
-    outputLimitBytes: 1024 * 1024,
     testCases: [
       {
         name: 'sample',
@@ -160,7 +159,7 @@ for (const starter of starterProblems) {
         statementMarkdown: starter.statementMarkdown,
         timeLimitMs: starter.timeLimitMs,
         memoryLimitBytes: starter.memoryLimitBytes,
-        outputLimitBytes: starter.outputLimitBytes,
+        outputLimitBytes: runtimeSettingsDefaults.outputLimitBytes,
         testCases: starter.testCases
       })
       .where(eq(schema.problemVersions.problemId, existing.id))
@@ -182,11 +181,11 @@ for (const starter of starterProblems) {
     statementMarkdown: starter.statementMarkdown,
     timeLimitMs: starter.timeLimitMs,
     memoryLimitBytes: starter.memoryLimitBytes,
-    outputLimitBytes: starter.outputLimitBytes,
+    outputLimitBytes: runtimeSettingsDefaults.outputLimitBytes,
     testCases: starter.testCases
   })
 }
 
-console.log('Seeded builtin groups, judge languages, admin user, and starter problems.')
+console.log('Seeded builtin groups, judge language, admin user, and P1000 A+B Problem.')
 
 await closeDb()
