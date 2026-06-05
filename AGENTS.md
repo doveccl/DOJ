@@ -21,7 +21,7 @@ This file is the working memory for autonomous coding on this branch. Keep it cu
    - Done: remove `packages/storage`; keep storage runtime helpers close to shared backend code.
    - Done: simplify dev compose/env defaults.
 2. Backend architecture and infrastructure.
-   - In progress: split API routes/services out of the monolithic `apps/api/src/index.ts`; auth, admin core, problems, and BBS are split.
+   - Done: split API routes/services out of the monolithic `apps/api/src/index.ts`.
    - Done: add DB-backed runtime settings for non-secret behavior flags.
    - Done: add Redis/Valkey for sessions and API rate limits through Bun native Redis.
    - Done: use PostgreSQL `LISTEN/NOTIFY` plus `FOR UPDATE SKIP LOCKED` for judge task wakeups.
