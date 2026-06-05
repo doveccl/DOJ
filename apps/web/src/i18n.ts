@@ -229,7 +229,7 @@ const zhCNMessages = {
     },
     problems: {
       title: '题目',
-      subtitle: '创建题面版本并管理内联测试点。',
+      subtitle: '维护题面、标签和测试数据。',
       create: '创建题目',
       edit: '编辑题目',
       uploadTestdata: '上传测试数据',
@@ -239,14 +239,25 @@ const zhCNMessages = {
       statement: '题面',
       timeMs: '时间 ms',
       memoryMb: '内存 MB',
-      outputMb: '输出 MB',
-      testCasesJson: '测试点 JSON',
+      limits: '限制',
       problemId: '题目编号',
       zipFile: 'ZIP 文件',
       publicVisible: '在公开题库显示',
       saved: '题目 {id} 已保存为版本 {version}。',
       uploaded: '已为题目 {id} 上传 {count} 个测试点。',
-      testdata: '测试数据'
+      testdata: '测试数据',
+      caseCount: '{count} 组',
+      checker: 'Checker',
+      interactor: '交互器',
+      noData: '当前还没有测试数据',
+      currentData: '当前 {count} 组，{size}',
+      dropZip: '拖入 ZIP 或点击选择',
+      dropZipHint: '支持 1.in / input1.txt / 1.out / ans01.txt 等常见命名',
+      testdataMode: {
+        zip: 'ZIP 测试数据',
+        inline: '内联样例',
+        none: '没有测试数据'
+      }
     },
     assignments: {
       title: '作业',
@@ -504,7 +515,7 @@ const enMessages = {
     },
     problems: {
       title: 'Problems',
-      subtitle: 'Create statement versions with inline test cases.',
+      subtitle: 'Maintain statements, tags, and testdata.',
       create: 'Create problem',
       edit: 'Edit problem',
       uploadTestdata: 'Upload testdata',
@@ -514,14 +525,25 @@ const enMessages = {
       statement: 'Statement',
       timeMs: 'Time ms',
       memoryMb: 'Memory MB',
-      outputMb: 'Output MB',
-      testCasesJson: 'Test cases JSON',
+      limits: 'Limits',
       problemId: 'Problem ID',
       zipFile: 'ZIP file',
       publicVisible: 'Show in public problem set',
       saved: 'Saved problem {id} as version {version}.',
       uploaded: 'Uploaded {count} cases for problem {id}.',
-      testdata: 'Testdata'
+      testdata: 'Testdata',
+      caseCount: '{count} cases',
+      checker: 'Checker',
+      interactor: 'Interactor',
+      noData: 'No testdata yet',
+      currentData: 'Current: {count} cases, {size}',
+      dropZip: 'Drop ZIP here or click to choose',
+      dropZipHint: 'Accepts common names like 1.in, input1.txt, 1.out, ans01.txt',
+      testdataMode: {
+        zip: 'ZIP testdata',
+        inline: 'Inline cases',
+        none: 'No testdata'
+      }
     },
     assignments: {
       title: 'Assignments',

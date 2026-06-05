@@ -226,6 +226,42 @@ body,
   align-items: center;
 }
 
+.compact-stack {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.testdata-cell {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.testdata-line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-summary {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-bg) 90%, var(--link-color) 10%);
+}
+
+.upload-dragger-content {
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+  text-align: center;
+}
+
 .full-width {
   width: 100%;
 }

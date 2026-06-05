@@ -12,7 +12,9 @@ import {
   NInputNumber,
   NModal,
   NSpace,
-  NUpload
+  NTag,
+  NUpload,
+  NUploadDragger
 } from 'naive-ui'
 import type { DataTableColumns, UploadFileInfo } from 'naive-ui'
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
@@ -26,6 +28,7 @@ interface ProblemRow {
   tags: string[]
   solvedCount: number
   visible: boolean
+  version: ProblemVersionSummary | null
 }
 
 interface ProblemDetail {
@@ -36,7 +39,37 @@ interface ProblemDetail {
     statementMarkdown: string
     timeLimitMs: number
     memoryLimitBytes: number
+    testdata: TestdataSummary
   }
+}
+
+interface ProblemVersionSummary {
+  id: number
+  version: number
+  timeLimitMs: number
+  memoryLimitBytes: number
+  outputLimitBytes: number
+  testdata: TestdataSummary
+  checkerEnabled: boolean
+  interactorEnabled: boolean
+}
+
+interface TestdataSummary {
+  mode: 'zip' | 'inline' | 'none'
+  caseCount: number
+  totalInputBytes: number
+  totalOutputBytes: number
+  cases: Array<{
+    name: string
+    inputBytes: number
+    outputBytes: number
+  }>
+  file: {
+    id: number
+    filename: string
+    sizeBytes: number
+    createdAt: string
+  } | null
 }
 
 const auth = useAuthStore()
@@ -73,6 +106,9 @@ const editForm = reactive({
   timeLimitMs: 1000,
   memoryLimitMb: 256
 })
+const selectedUploadProblem = computed(() =>
+  problems.value.find((problem) => problem.id === uploadForm.problemId)
+)
 
 const columns = computed<DataTableColumns<ProblemRow>>(() => [
   { title: t('common.id'), key: 'id', width: 96 },
@@ -82,7 +118,31 @@ const columns = computed<DataTableColumns<ProblemRow>>(() => [
     key: 'visible',
     width: 110,
     render(row) {
-      return row.visible ? t('admin.problems.yes') : t('admin.problems.no')
+      return h(
+        NTag,
+        { bordered: false, type: row.visible ? 'success' : 'default', size: 'small' },
+        () => (row.visible ? t('admin.problems.yes') : t('admin.problems.no'))
+      )
+    }
+  },
+  {
+    title: t('admin.problems.limits'),
+    key: 'limits',
+    width: 150,
+    render(row) {
+      if (!row.version) return '-'
+      return h('div', { class: 'compact-stack' }, [
+        h('span', `${row.version.timeLimitMs} ms`),
+        h('span', formatBytes(row.version.memoryLimitBytes))
+      ])
+    }
+  },
+  {
+    title: t('admin.problems.testdata'),
+    key: 'testdata',
+    minWidth: 260,
+    render(row) {
+      return renderTestdataSummary(row.version)
     }
   },
   {
@@ -90,7 +150,12 @@ const columns = computed<DataTableColumns<ProblemRow>>(() => [
     key: 'tags',
     minWidth: 160,
     render(row) {
-      return row.tags.join(', ') || '-'
+      if (!row.tags.length) return '-'
+      return h(NSpace, { size: 6, wrapItem: false }, () =>
+        row.tags.map((tag) =>
+          h(NTag, { key: tag, size: 'small', bordered: false, type: 'info' }, () => tag)
+        )
+      )
     }
   },
   { title: t('common.solved'), key: 'solvedCount', width: 110 },
@@ -117,6 +182,7 @@ const columns = computed<DataTableColumns<ProblemRow>>(() => [
             onClick: () => {
               uploadForm.problemId = row.id
               selectedFile.value = null
+              uploadMessage.value = ''
               showUploadModal.value = true
             }
           },
@@ -239,6 +305,7 @@ async function uploadTestdata() {
     })
     selectedFile.value = null
     showUploadModal.value = false
+    await loadProblems()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
@@ -248,6 +315,66 @@ async function uploadTestdata() {
 
 function handleUploadChange(options: { fileList: UploadFileInfo[] }) {
   selectedFile.value = options.fileList[0]?.file ?? null
+}
+
+function renderTestdataSummary(version: ProblemVersionSummary | null) {
+  if (!version) return '-'
+  const testdata = version.testdata
+  const tags = [
+    h(
+      NTag,
+      {
+        bordered: false,
+        type: testdata.caseCount ? 'success' : 'warning',
+        size: 'small'
+      },
+      () => t('admin.problems.caseCount', { count: testdata.caseCount })
+    )
+  ]
+  if (version.checkerEnabled) {
+    tags.push(
+      h(NTag, { bordered: false, type: 'info', size: 'small' }, () => t('admin.problems.checker'))
+    )
+  }
+  if (version.interactorEnabled) {
+    tags.push(
+      h(NTag, { bordered: false, type: 'info', size: 'small' }, () =>
+        t('admin.problems.interactor')
+      )
+    )
+  }
+
+  return h('div', { class: 'testdata-cell' }, [
+    h(NSpace, { size: 6 }, () => tags),
+    h(
+      'p',
+      { class: 'muted testdata-line' },
+      testdata.file
+        ? `${testdata.file.filename} · ${formatBytes(testdata.file.sizeBytes)}`
+        : t(`admin.problems.testdataMode.${testdata.mode}`)
+    ),
+    testdata.cases.length
+      ? h(
+          'p',
+          { class: 'muted testdata-line' },
+          testdata.cases
+            .slice(0, 3)
+            .map(
+              (testCase) =>
+                `${testCase.name}: ${formatBytes(testCase.inputBytes)} / ${formatBytes(testCase.outputBytes)}`
+            )
+            .join(', ')
+        )
+      : null
+  ])
+}
+
+function formatBytes(bytes: number | null | undefined) {
+  if (!bytes || bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+  const value = bytes / 1024 ** index
+  return `${value >= 10 || index === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[index]}`
 }
 
 watch(canManage, (allowed) => {
@@ -342,6 +469,24 @@ onMounted(() => {
       class="form-modal narrow"
     >
       <n-form :model="uploadForm" label-placement="top">
+        <div v-if="selectedUploadProblem" class="upload-summary">
+          <strong>P{{ selectedUploadProblem.id }} {{ selectedUploadProblem.title }}</strong>
+          <div class="muted">
+            {{
+              selectedUploadProblem.version
+                ? t('admin.problems.currentData', {
+                    count: selectedUploadProblem.version.testdata.caseCount,
+                    size: selectedUploadProblem.version.testdata.file
+                      ? formatBytes(selectedUploadProblem.version.testdata.file.sizeBytes)
+                      : formatBytes(
+                          selectedUploadProblem.version.testdata.totalInputBytes +
+                            selectedUploadProblem.version.testdata.totalOutputBytes
+                        )
+                  })
+                : t('admin.problems.noData')
+            }}
+          </div>
+        </div>
         <n-form-item :label="t('admin.problems.zipFile')">
           <n-upload
             :max="1"
@@ -349,7 +494,12 @@ onMounted(() => {
             :default-upload="false"
             @change="handleUploadChange"
           >
-            <n-button>{{ t('admin.upload') }}</n-button>
+            <n-upload-dragger>
+              <div class="upload-dragger-content">
+                <strong>{{ t('admin.problems.dropZip') }}</strong>
+                <span class="muted">{{ t('admin.problems.dropZipHint') }}</span>
+              </div>
+            </n-upload-dragger>
           </n-upload>
         </n-form-item>
         <n-space justify="end" class="form-actions">

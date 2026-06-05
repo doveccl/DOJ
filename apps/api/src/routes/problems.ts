@@ -29,7 +29,13 @@ export function registerProblemRoutes(app: Hono) {
     if (denied) return denied
 
     const list = await db.select().from(schema.problems).orderBy(asc(schema.problems.id)).limit(100)
-    return c.json({ total: list.length, list })
+    const enriched = await Promise.all(
+      list.map(async (problem) => ({
+        ...problem,
+        version: summarizeProblemVersion(await getLatestProblemVersion(problem.id))
+      }))
+    )
+    return c.json({ total: enriched.length, list: enriched })
   })
 
   app.get('/api/admin/problems/:id', authMiddleware, async (c) => {
@@ -201,11 +207,7 @@ export function registerProblemRoutes(app: Hono) {
         filename: upload.name || `problem-${problemId}-testdata.zip`,
         contentType: upload.type || 'application/zip',
         sizeBytes: bytes.byteLength,
-        metadata: {
-          problemId,
-          caseCount: cases.length,
-          kind: 'problem-testdata'
-        }
+        metadata: createTestdataMetadata(problemId, cases)
       })
       .returning()
 
@@ -238,24 +240,147 @@ async function getProblemDetail(
     .limit(1)
   if (!problem || (!problem.visible && !options.includeHiddenProblem)) return null
 
-  const [version] = await db
-    .select()
-    .from(schema.problemVersions)
-    .where(eq(schema.problemVersions.problemId, problem.id))
-    .orderBy(desc(schema.problemVersions.version))
-    .limit(1)
+  const version = await getLatestProblemVersion(problem.id)
 
   return {
     problem,
     version: version
       ? {
           ...version,
+          testdata: summarizeTestdata(version),
+          checkerEnabled: Boolean(version.checkerFileId),
+          interactorEnabled: Boolean(version.interactorFileId),
           testCases: options.includeHiddenCases
             ? version.testCases
             : version.testCases.filter((testCase) => !testCase.hidden)
         }
       : null
   }
+}
+
+type ProblemVersion = typeof schema.problemVersions.$inferSelect
+type StoredFile = typeof schema.files.$inferSelect
+type ProblemVersionWithFile = ProblemVersion & { testdataFile: StoredFile | null }
+
+async function getLatestProblemVersion(problemId: number): Promise<ProblemVersionWithFile | null> {
+  const [version] = await db
+    .select()
+    .from(schema.problemVersions)
+    .where(eq(schema.problemVersions.problemId, problemId))
+    .orderBy(desc(schema.problemVersions.version))
+    .limit(1)
+
+  if (!version) return null
+
+  const [testdataFile] = version.testdataFileId
+    ? await db
+        .select()
+        .from(schema.files)
+        .where(eq(schema.files.id, version.testdataFileId))
+        .limit(1)
+    : []
+
+  return { ...version, testdataFile: testdataFile ?? null }
+}
+
+function summarizeProblemVersion(version: ProblemVersionWithFile | null) {
+  if (!version) return null
+  return {
+    id: version.id,
+    version: version.version,
+    timeLimitMs: version.timeLimitMs,
+    memoryLimitBytes: version.memoryLimitBytes,
+    outputLimitBytes: version.outputLimitBytes,
+    testdata: summarizeTestdata(version),
+    checkerEnabled: Boolean(version.checkerFileId),
+    interactorEnabled: Boolean(version.interactorFileId),
+    createdAt: version.createdAt
+  }
+}
+
+function summarizeTestdata(version: ProblemVersionWithFile) {
+  const metadata = readTestdataMetadata(version.testdataFile?.metadata)
+  const inlineCases = version.testCases.map((testCase, index) => ({
+    name: testCase.name ?? String(index + 1),
+    inputBytes: byteLength(testCase.input),
+    outputBytes: byteLength(testCase.output)
+  }))
+  const cases = metadata.cases.length ? metadata.cases : inlineCases
+  const totalInputBytes =
+    metadata.totalInputBytes ?? cases.reduce((total, item) => total + item.inputBytes, 0)
+  const totalOutputBytes =
+    metadata.totalOutputBytes ?? cases.reduce((total, item) => total + item.outputBytes, 0)
+
+  return {
+    mode: version.testdataFile ? 'zip' : cases.length ? 'inline' : 'none',
+    caseCount: metadata.caseCount ?? cases.length,
+    cases,
+    totalInputBytes,
+    totalOutputBytes,
+    file: version.testdataFile
+      ? {
+          id: version.testdataFile.id,
+          filename: version.testdataFile.filename,
+          contentType: version.testdataFile.contentType,
+          sizeBytes: version.testdataFile.sizeBytes,
+          createdAt: version.testdataFile.createdAt
+        }
+      : null
+  }
+}
+
+function createTestdataMetadata(
+  problemId: number,
+  cases: Array<{ name?: string; input: string; output: string }>
+) {
+  const caseSummaries = cases.map((testCase, index) => ({
+    name: testCase.name ?? String(index + 1),
+    inputBytes: byteLength(testCase.input),
+    outputBytes: byteLength(testCase.output)
+  }))
+
+  return {
+    problemId,
+    kind: 'problem-testdata',
+    caseCount: cases.length,
+    cases: caseSummaries,
+    totalInputBytes: caseSummaries.reduce((total, item) => total + item.inputBytes, 0),
+    totalOutputBytes: caseSummaries.reduce((total, item) => total + item.outputBytes, 0)
+  }
+}
+
+function readTestdataMetadata(metadata: Record<string, unknown> | undefined) {
+  const caseCount = typeof metadata?.caseCount === 'number' ? metadata.caseCount : undefined
+  const totalInputBytes =
+    typeof metadata?.totalInputBytes === 'number' ? metadata.totalInputBytes : undefined
+  const totalOutputBytes =
+    typeof metadata?.totalOutputBytes === 'number' ? metadata.totalOutputBytes : undefined
+  const cases = Array.isArray(metadata?.cases)
+    ? metadata.cases.flatMap((item) => {
+        if (!item || typeof item !== 'object') return []
+        const candidate = item as Record<string, unknown>
+        if (
+          typeof candidate.name !== 'string' ||
+          typeof candidate.inputBytes !== 'number' ||
+          typeof candidate.outputBytes !== 'number'
+        ) {
+          return []
+        }
+        return [
+          {
+            name: candidate.name,
+            inputBytes: candidate.inputBytes,
+            outputBytes: candidate.outputBytes
+          }
+        ]
+      })
+    : []
+
+  return { caseCount, cases, totalInputBytes, totalOutputBytes }
+}
+
+function byteLength(value: string) {
+  return new TextEncoder().encode(value).byteLength
 }
 
 const problemTestCaseSchema = z.object({

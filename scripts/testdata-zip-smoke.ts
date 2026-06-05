@@ -13,6 +13,21 @@ try {
   const { problem, version } = await createProblem(admin.token)
   const upload = await uploadTestdata(admin.token, problem.id)
   if (upload.caseCount !== 2) throw new Error(`expected 2 cases, got ${upload.caseCount}`)
+  const adminProblem = await getAdminProblem(admin.token, problem.id)
+  if (adminProblem.version?.testdata.caseCount !== 2) {
+    throw new Error(`admin testdata summary missing: ${JSON.stringify(adminProblem)}`)
+  }
+  const [firstCase, secondCase] = adminProblem.version.testdata.cases
+  if (
+    firstCase?.name !== '1' ||
+    firstCase.inputBytes !== 2 ||
+    firstCase.outputBytes !== 3 ||
+    secondCase?.name !== '2' ||
+    secondCase.inputBytes !== 3 ||
+    secondCase.outputBytes !== 4
+  ) {
+    throw new Error(`admin testdata case sizes are wrong: ${JSON.stringify(adminProblem)}`)
+  }
 
   const accepted = await submitAndJudge(
     user.token,
@@ -35,6 +50,7 @@ try {
     problemId: problem.id,
     fileId: upload.file.id,
     caseCount: upload.caseCount,
+    summaryCases: adminProblem.version.testdata.cases.length,
     accepted: accepted.status,
     wrong: wrong.status
   })
@@ -115,6 +131,30 @@ async function uploadTestdata(token: string, problemId: number) {
   if (!response.ok)
     throw new Error(`testdata API failed: ${response.status} ${await response.text()}`)
   return (await response.json()) as { caseCount: number; file: { id: number } }
+}
+
+async function getAdminProblem(token: string, problemId: number) {
+  const response = await fetch(`${apiBase}/api/admin/problems`, {
+    headers: {
+      authorization: `Bearer ${token}`
+    }
+  })
+  if (!response.ok)
+    throw new Error(`admin problems API failed: ${response.status} ${await response.text()}`)
+  const payload = (await response.json()) as {
+    list: Array<{
+      id: number
+      version: {
+        testdata: {
+          caseCount: number
+          cases: Array<{ name: string; inputBytes: number; outputBytes: number }>
+        }
+      } | null
+    }>
+  }
+  const problem = payload.list.find((item) => item.id === problemId)
+  if (!problem) throw new Error(`problem ${problemId} missing from admin list`)
+  return problem
 }
 
 async function submitAndJudge(
