@@ -16,7 +16,7 @@ export async function createCoachingResponse(input: CoachingInput): Promise<Coac
   if (config.aiProvider === 'openai') return createOpenAiCoachingResponse(input)
 
   return {
-    model: 'local-stub',
+    model: 'local-rules',
     responseMarkdown: createLocalCoachingResponse(input.status, input.message)
   }
 }

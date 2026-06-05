@@ -121,7 +121,7 @@ Do not port old low-usage `posts` directly. If discussion is needed, build a sim
 - Contest basics with ICPC scoreboard freeze/reveal.
 - Lightweight BBS.
 - Rank list and first-AC solve tracking.
-- Non-AC AI coaching with owner/admin authorization, hidden-test redaction, local-stub, and optional OpenAI Responses API provider.
+- Non-AC AI coaching with owner/admin authorization, hidden-test redaction, local-rules, and optional OpenAI Responses API provider.
 - v3 JSON migration tool.
 - One-command local development via Bun's native parallel script runner.
 

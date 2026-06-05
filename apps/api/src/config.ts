@@ -3,7 +3,7 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET ?? 'dev-secret',
   registrationEnabled: process.env.REGISTRATION_ENABLED !== '0',
   aiCoachingEnabled: process.env.AI_COACHING_ENABLED !== '0',
-  aiProvider: process.env.AI_PROVIDER ?? 'local-stub',
+  aiProvider: process.env.AI_PROVIDER ?? 'local-rules',
   openaiApiKey: process.env.OPENAI_API_KEY ?? '',
   openaiModel: process.env.OPENAI_MODEL ?? 'gpt-5-mini'
 }
