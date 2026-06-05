@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { NCard, NDataTable, NGrid, NGridItem, NSpin, NStatistic, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import { h, onMounted, ref } from 'vue'
+import { computed, h, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 
 interface Dashboard {
@@ -30,10 +31,11 @@ interface Dashboard {
 const loading = ref(true)
 const error = ref('')
 const dashboard = ref<Dashboard | null>(null)
+const { t } = useI18n()
 
-const submissionColumns: DataTableColumns<Dashboard['recentSubmissions'][number]> = [
+const submissionColumns = computed<DataTableColumns<Dashboard['recentSubmissions'][number]>>(() => [
   {
-    title: 'ID',
+    title: t('common.id'),
     key: 'id',
     width: 84,
     render(row) {
@@ -41,7 +43,7 @@ const submissionColumns: DataTableColumns<Dashboard['recentSubmissions'][number]
     }
   },
   {
-    title: 'Problem',
+    title: t('common.problem'),
     key: 'problemTitle',
     minWidth: 220,
     render(row) {
@@ -52,9 +54,9 @@ const submissionColumns: DataTableColumns<Dashboard['recentSubmissions'][number]
       )
     }
   },
-  { title: 'User', key: 'userName', minWidth: 140 },
+  { title: t('common.user'), key: 'userName', minWidth: 140 },
   {
-    title: 'Status',
+    title: t('common.status'),
     key: 'status',
     width: 110,
     render(row) {
@@ -65,16 +67,16 @@ const submissionColumns: DataTableColumns<Dashboard['recentSubmissions'][number]
       )
     }
   },
-  { title: 'Lang', key: 'languageId', width: 90 },
+  { title: t('common.language'), key: 'languageId', width: 100 },
   {
-    title: 'Time',
+    title: t('common.time'),
     key: 'timeMs',
     width: 100,
     render(row) {
       return `${row.timeMs} ms`
     }
   }
-]
+])
 
 onMounted(async () => {
   try {
@@ -90,8 +92,8 @@ onMounted(async () => {
 <template>
   <main class="page">
     <section class="page-header">
-      <h1>Dashboard</h1>
-      <p>System activity, workload, and recent judging results.</p>
+      <h1>{{ t('dashboard.title') }}</h1>
+      <p>{{ t('dashboard.subtitle') }}</p>
     </section>
 
     <n-spin :show="loading">
@@ -100,32 +102,38 @@ onMounted(async () => {
         <n-grid :cols="5" :x-gap="16" :y-gap="16" responsive="screen" item-responsive>
           <n-grid-item span="1 m:1 s:2 xs:5">
             <n-card :bordered="false">
-              <n-statistic label="Problems" :value="dashboard.stats.problems" />
+              <n-statistic :label="t('dashboard.problems')" :value="dashboard.stats.problems" />
             </n-card>
           </n-grid-item>
           <n-grid-item span="1 m:1 s:2 xs:5">
             <n-card :bordered="false">
-              <n-statistic label="Submissions" :value="dashboard.stats.submissions" />
+              <n-statistic
+                :label="t('dashboard.submissions')"
+                :value="dashboard.stats.submissions"
+              />
             </n-card>
           </n-grid-item>
           <n-grid-item span="1 m:1 s:2 xs:5">
             <n-card :bordered="false">
-              <n-statistic label="Users" :value="dashboard.stats.users" />
+              <n-statistic :label="t('dashboard.users')" :value="dashboard.stats.users" />
             </n-card>
           </n-grid-item>
           <n-grid-item span="1 m:1 s:2 xs:5">
             <n-card :bordered="false">
-              <n-statistic label="Contests" :value="dashboard.stats.contests" />
+              <n-statistic :label="t('dashboard.contests')" :value="dashboard.stats.contests" />
             </n-card>
           </n-grid-item>
           <n-grid-item span="1 m:1 s:2 xs:5">
             <n-card :bordered="false">
-              <n-statistic label="Assignments" :value="dashboard.stats.assignments" />
+              <n-statistic
+                :label="t('dashboard.assignments')"
+                :value="dashboard.stats.assignments"
+              />
             </n-card>
           </n-grid-item>
         </n-grid>
 
-        <n-card title="Recent submissions" :bordered="false" class="stacked-card">
+        <n-card :title="t('dashboard.recentSubmissions')" :bordered="false" class="stacked-card">
           <n-data-table
             :columns="submissionColumns"
             :data="dashboard.recentSubmissions"

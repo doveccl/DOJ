@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { NDataTable, NEmpty } from 'naive-ui'
-import { h, onMounted, ref } from 'vue'
+import { computed, h, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 
 interface ProblemRow {
@@ -11,18 +12,20 @@ interface ProblemRow {
   solvedCount: number
 }
 
-const columns = [
-  { title: 'ID', key: 'id', width: 96 },
+const { t } = useI18n()
+
+const columns = computed(() => [
+  { title: t('common.id'), key: 'id', width: 96 },
   {
-    title: 'Title',
+    title: t('common.title'),
     key: 'title',
     render(row: ProblemRow) {
       return h(RouterLink, { to: `/problems/${row.id}`, class: 'table-link' }, () => row.title)
     }
   },
-  { title: 'Tags', key: 'tags' },
-  { title: 'Solved', key: 'solvedCount' }
-]
+  { title: t('common.tags'), key: 'tags' },
+  { title: t('common.solved'), key: 'solvedCount' }
+])
 
 const loading = ref(true)
 const problems = ref<ProblemRow[]>([])
@@ -43,11 +46,11 @@ onMounted(async () => {
 <template>
   <main class="page">
     <section class="page-header">
-      <h1>Problems</h1>
+      <h1>{{ t('problems.title') }}</h1>
     </section>
     <n-data-table :columns="columns" :data="problems" :bordered="false" :loading="loading">
       <template #empty>
-        <n-empty description="No problems yet" />
+        <n-empty :description="t('problems.empty')" />
       </template>
     </n-data-table>
   </main>

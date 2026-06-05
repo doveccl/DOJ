@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { NDataTable, NTag } from 'naive-ui'
-import { h, onMounted, onUnmounted, ref } from 'vue'
+import { computed, h, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 
 interface SubmissionRow {
@@ -29,9 +30,11 @@ const statusType: Record<string, 'success' | 'warning' | 'error' | 'info'> = {
   SE: 'error'
 }
 
-const columns = [
+const { t } = useI18n()
+
+const columns = computed(() => [
   {
-    title: 'Status',
+    title: t('common.status'),
     key: 'status',
     render(row: SubmissionRow) {
       return h(
@@ -42,7 +45,7 @@ const columns = [
     }
   },
   {
-    title: 'ID',
+    title: t('common.id'),
     key: 'id',
     render(row: SubmissionRow) {
       return h(RouterLink, { to: `/submissions/${row.id}`, class: 'table-link' }, () =>
@@ -50,23 +53,23 @@ const columns = [
       )
     }
   },
-  { title: 'Language', key: 'languageId' },
-  { title: 'Time', key: 'timeMs' },
+  { title: t('common.language'), key: 'languageId' },
+  { title: t('common.time'), key: 'timeMs' },
   {
-    title: 'Memory',
+    title: t('common.memory'),
     key: 'memoryBytes',
     render(row: SubmissionRow) {
       return `${Math.round(row.memoryBytes / 1024)} KB`
     }
   },
   {
-    title: 'Message',
+    title: t('common.message'),
     key: 'message',
     ellipsis: {
       tooltip: true
     }
   }
-]
+])
 
 const loading = ref(true)
 const submissions = ref<SubmissionRow[]>([])
@@ -95,7 +98,7 @@ onUnmounted(() => {
 <template>
   <main class="page">
     <section class="page-header">
-      <h1>Submissions</h1>
+      <h1>{{ t('submissions.title') }}</h1>
     </section>
     <n-data-table :columns="columns" :data="submissions" :bordered="false" :loading="loading" />
   </main>
