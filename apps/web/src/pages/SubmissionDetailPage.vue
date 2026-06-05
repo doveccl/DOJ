@@ -48,6 +48,8 @@ const statusType: Record<string, 'success' | 'warning' | 'error' | 'info'> = {
   WAITING: 'info',
   JUDGING: 'info',
   CE: 'warning',
+  PE: 'warning',
+  FROZEN: 'info',
   WA: 'error',
   RE: 'error',
   TLE: 'error',
