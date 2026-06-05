@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NButton, NCard, NSelect, NSpace, NSpin } from 'naive-ui'
+import { NButton, NCard, NCheckbox, NSelect, NSpace, NSpin } from 'naive-ui'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -27,6 +27,10 @@ interface LanguageOption {
   value: string
 }
 
+interface AppConfig {
+  sourceOpenDefault: boolean
+}
+
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
@@ -37,6 +41,7 @@ const error = ref('')
 const problem = ref<Problem | null>(null)
 const version = ref<ProblemVersion | null>(null)
 const languageId = ref('cpp')
+const sourceOpen = ref(false)
 const sourceCode = ref(
   '#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n  long long a, b;\n  if (cin >> a >> b) cout << a + b << "\\n";\n  return 0;\n}\n'
 )
@@ -54,14 +59,14 @@ const contestId = computed(() =>
 
 onMounted(async () => {
   try {
-    const data = await apiFetch<{ problem: Problem; version: ProblemVersion }>(
-      `/api/problems/${route.params.id}`
-    )
-    const languages = await apiFetch<{ list: Array<{ id: string; name: string }> }>(
-      '/api/languages'
-    )
+    const [data, languages, config] = await Promise.all([
+      apiFetch<{ problem: Problem; version: ProblemVersion }>(`/api/problems/${route.params.id}`),
+      apiFetch<{ list: Array<{ id: string; name: string }> }>('/api/languages'),
+      apiFetch<AppConfig>('/api/config')
+    ])
     problem.value = data.problem
     version.value = data.version
+    sourceOpen.value = config.sourceOpenDefault
     languageOptions.value = languages.list.map((language) => ({
       label: language.name,
       value: language.id
@@ -86,6 +91,7 @@ async function submit() {
         problemVersionId: version.value.id,
         languageId: languageId.value,
         sourceCode: sourceCode.value,
+        open: sourceOpen.value,
         assignmentId: assignmentId.value || undefined,
         contestId: contestId.value || undefined
       })
@@ -144,6 +150,9 @@ function updateTemplate(value: string) {
               :language-id="languageId"
               :disabled="!auth.signedIn"
             />
+            <n-checkbox v-model:checked="sourceOpen" :disabled="!auth.signedIn">
+              {{ t('problemDetail.sourceOpen') }}
+            </n-checkbox>
             <p v-if="!auth.signedIn" class="muted">{{ t('problemDetail.signIn') }}</p>
             <p v-if="error" class="form-error">{{ error }}</p>
             <n-button

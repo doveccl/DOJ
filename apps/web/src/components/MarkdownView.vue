@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import MarkdownIt from 'markdown-it'
-import katexPlugin from '@vscode/markdown-it-katex'
+import katexPluginModule from '@vscode/markdown-it-katex'
 import { tasklist } from '@mdit/plugin-tasklist'
 import { computed } from 'vue'
 import 'katex/dist/katex.min.css'
@@ -8,6 +8,13 @@ import 'katex/dist/katex.min.css'
 const props = defineProps<{
   source: string
 }>()
+
+type MarkdownPlugin = (md: MarkdownIt, options?: unknown) => void
+
+const katexPlugin =
+  typeof katexPluginModule === 'function'
+    ? (katexPluginModule as MarkdownPlugin)
+    : ((katexPluginModule as unknown as { default: MarkdownPlugin }).default as MarkdownPlugin)
 
 const markdown = new MarkdownIt({
   html: false,

@@ -179,6 +179,7 @@ export function registerSubmissionRoutes(app: Hono) {
         problemVersionId: schema.submissions.problemVersionId,
         languageId: schema.submissions.languageId,
         sourceCode: schema.submissions.sourceCode,
+        open: schema.submissions.open,
         status: schema.submissions.status,
         timeMs: schema.submissions.timeMs,
         memoryBytes: schema.submissions.memoryBytes,
@@ -200,10 +201,10 @@ export function registerSubmissionRoutes(app: Hono) {
       submission.userId === authUser?.id || authUser?.groups.includes('admin') === true
     if (!submission.problemVisible && !canManageHiddenProblem) return c.notFound()
 
-    const canInspect =
-      !submission.contestId ||
-      submission.userId === authUser?.id ||
-      authUser?.groups.includes('admin') === true
+    const isOwnerOrAdmin =
+      submission.userId === authUser?.id || authUser?.groups.includes('admin') === true
+    const canInspect = !submission.contestId || isOwnerOrAdmin
+    const canInspectSource = (!submission.contestId && submission.open) || isOwnerOrAdmin
     const { problemVisible: _problemVisible, ...payload } = submission
 
     const cases = canInspect
@@ -216,10 +217,11 @@ export function registerSubmissionRoutes(app: Hono) {
 
     return c.json({
       ...payload,
-      sourceCode: canInspect ? submission.sourceCode : '',
+      sourceCode: canInspectSource ? submission.sourceCode : '',
       message: canInspect ? submission.message : '',
       cases,
-      restricted: !canInspect
+      restricted: !canInspect,
+      sourceRestricted: !canInspectSource
     })
   })
 

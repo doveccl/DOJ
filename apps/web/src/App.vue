@@ -51,6 +51,9 @@ const localeValue = computed({
 const naiveTheme = computed(() => (colorMode.value === 'dark' ? darkTheme : null))
 const naiveLocale = computed(() => (locale.value === 'en' ? enUS : zhCN))
 const naiveDateLocale = computed(() => (locale.value === 'en' ? dateEnUS : dateZhCN))
+const topMenuValue = computed(() =>
+  route.path.startsWith('/admin') ? '/admin/settings' : route.path
+)
 
 const menuOptions = computed(() => {
   const options: MenuOption[] = []
@@ -69,16 +72,7 @@ const menuOptions = computed(() => {
   if (auth.user?.groups.includes('admin')) {
     options.push({
       label: t('nav.admin'),
-      key: 'admin',
-      children: [
-        { label: t('nav.groups'), key: '/admin/groups' },
-        { label: t('nav.users'), key: '/admin/users' },
-        { label: t('nav.manageProblems'), key: '/admin/problems' },
-        { label: t('nav.assignments'), key: '/admin/assignments' },
-        { label: t('nav.contests'), key: '/admin/contests' },
-        { label: t('nav.languages'), key: '/admin/languages' },
-        { label: t('nav.agents'), key: '/admin/agents' }
-      ]
+      key: '/admin/settings'
     })
   }
   return options
@@ -147,7 +141,7 @@ function handleUserCommand(key: string) {
         <router-link to="/" class="brand">{{ t('app.brand') }}</router-link>
         <n-menu
           mode="horizontal"
-          :value="route.path"
+          :value="topMenuValue"
           :options="menuOptions"
           @update:value="(path: string) => router.push(path)"
         />

@@ -34,6 +34,7 @@ const zhCNMessages = {
     rank: '排名',
     submissions: '提交',
     admin: '管理',
+    settings: '设置',
     groups: '用户组',
     users: '用户',
     manageProblems: '题目',
@@ -81,6 +82,7 @@ const zhCNMessages = {
     no: '否',
     source: '源码',
     restricted: '比赛提交详情仅提交者和管理员可见。',
+    sourcePrivate: '源码未公开。',
     judgeMessage: '评测消息',
     testCases: '测试点',
     aiCoaching: 'AI 辅导',
@@ -91,6 +93,7 @@ const zhCNMessages = {
     assignmentContext: '正在提交作业',
     contestContext: '正在提交比赛',
     submit: '提交',
+    sourceOpen: '公开源码',
     signIn: '登录后提交'
   },
   assignments: {
@@ -199,6 +202,15 @@ const zhCNMessages = {
       commandOverride: '命令覆盖',
       commandPlaceholder: '每行一个 argv 项；留空则使用 Docker CMD'
     },
+    settings: {
+      title: '系统设置',
+      saved: '设置已保存。',
+      registrationEnabled: '允许注册',
+      guestProblemsetVisible: '游客可看题库',
+      aiCoachingEnabled: '启用 AI 辅导',
+      sourceOpenDefault: '默认公开源码',
+      outputLimitMb: '全局输出限制 MB'
+    },
     agents: {
       title: '评测机',
       subtitle: '管理连接到 worker 的独立评测 agent。',
@@ -297,6 +309,7 @@ const enMessages = {
     rank: 'Rank',
     submissions: 'Submissions',
     admin: 'Admin',
+    settings: 'Settings',
     groups: 'Groups',
     users: 'Users',
     manageProblems: 'Problems',
@@ -344,6 +357,7 @@ const enMessages = {
     no: 'No',
     source: 'Source',
     restricted: 'Contest submission details are visible to the owner and admins.',
+    sourcePrivate: 'Source code is private.',
     judgeMessage: 'Judge Message',
     testCases: 'Test Cases',
     aiCoaching: 'AI Coaching',
@@ -354,6 +368,7 @@ const enMessages = {
     assignmentContext: 'Submitting for assignment',
     contestContext: 'Submitting for contest',
     submit: 'Submit',
+    sourceOpen: 'Open source code',
     signIn: 'Sign in to submit.'
   },
   assignments: {
@@ -461,6 +476,15 @@ const enMessages = {
       dockerfile: 'Dockerfile',
       commandOverride: 'Command override',
       commandPlaceholder: 'One argv item per line; leave empty to use Docker CMD'
+    },
+    settings: {
+      title: 'System settings',
+      saved: 'Settings saved.',
+      registrationEnabled: 'Allow registration',
+      guestProblemsetVisible: 'Guest problemset access',
+      aiCoachingEnabled: 'Enable AI coaching',
+      sourceOpenDefault: 'Open source by default',
+      outputLimitMb: 'Global output limit MB'
     },
     agents: {
       title: 'Judge agents',

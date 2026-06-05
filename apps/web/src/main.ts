@@ -18,13 +18,21 @@ const routes: RouteRecordRaw[] = [
   { path: '/rank', component: () => import('./pages/Rank.vue') },
   { path: '/submissions', component: () => import('./pages/SubmissionList.vue') },
   { path: '/submissions/:id', component: () => import('./pages/SubmissionDetail.vue') },
-  { path: '/admin/groups', component: () => import('./pages/AdminGroups.vue') },
-  { path: '/admin/users', component: () => import('./pages/AdminUsers.vue') },
-  { path: '/admin/problems', component: () => import('./pages/AdminProblems.vue') },
-  { path: '/admin/assignments', component: () => import('./pages/AdminAssignments.vue') },
-  { path: '/admin/contests', component: () => import('./pages/AdminContests.vue') },
-  { path: '/admin/languages', component: () => import('./pages/AdminLanguages.vue') },
-  { path: '/admin/agents', component: () => import('./pages/AdminAgents.vue') },
+  {
+    path: '/admin',
+    component: () => import('./pages/AdminLayout.vue'),
+    redirect: '/admin/settings',
+    children: [
+      { path: 'settings', component: () => import('./pages/AdminSettings.vue') },
+      { path: 'groups', component: () => import('./pages/AdminGroups.vue') },
+      { path: 'users', component: () => import('./pages/AdminUsers.vue') },
+      { path: 'problems', component: () => import('./pages/AdminProblems.vue') },
+      { path: 'assignments', component: () => import('./pages/AdminAssignments.vue') },
+      { path: 'contests', component: () => import('./pages/AdminContests.vue') },
+      { path: 'languages', component: () => import('./pages/AdminLanguages.vue') },
+      { path: 'agents', component: () => import('./pages/AdminAgents.vue') }
+    ]
+  },
   { path: '/admin/runners', redirect: '/admin/agents' }
 ]
 

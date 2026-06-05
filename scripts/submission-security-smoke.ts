@@ -67,6 +67,27 @@ const normalSubmission = await submit(user.token, {
   problemVersionId: visibleProblem.version.id,
   sourceCode: `#include <bits/stdc++.h>\n// ${sourceMarker}\nint main(){return 0;}\n`
 })
+const privateDetail = (await api(`/api/submissions/${normalSubmission.id}`)) as {
+  sourceCode: string
+  sourceRestricted: boolean
+  restricted: boolean
+}
+if (privateDetail.restricted || !privateDetail.sourceRestricted || privateDetail.sourceCode) {
+  throw new Error(`private source leaked: ${JSON.stringify(privateDetail)}`)
+}
+const openSubmission = await submit(user.token, {
+  problemId: visibleProblem.problem.id,
+  problemVersionId: visibleProblem.version.id,
+  sourceCode: `#include <bits/stdc++.h>\n// OPEN_${sourceMarker}\nint main(){return 0;}\n`,
+  open: true
+})
+const openDetail = (await api(`/api/submissions/${openSubmission.id}`)) as {
+  sourceCode: string
+  sourceRestricted: boolean
+}
+if (openDetail.sourceRestricted || !openDetail.sourceCode.includes(`OPEN_${sourceMarker}`)) {
+  throw new Error(`open source was not public: ${JSON.stringify(openDetail)}`)
+}
 const submissionList = (await api('/api/submissions')) as {
   list: Array<Record<string, unknown> & { id: number }>
 }
@@ -99,7 +120,7 @@ const dashboardAfterHide = (await api('/api/dashboard')) as {
 if (dashboardAfterHide.recentSubmissions.some((item) => item.id === normalSubmission.id)) {
   throw new Error(`hidden problem submission leaked in dashboard: ${normalSubmission.id}`)
 }
-if (dashboardAfterHide.stats.submissions !== dashboardBeforeHide.stats.submissions - 1) {
+if (dashboardAfterHide.stats.submissions !== dashboardBeforeHide.stats.submissions - 2) {
   throw new Error(
     `hidden problem submission counted in dashboard stats: before ${dashboardBeforeHide.stats.submissions}, after ${dashboardAfterHide.stats.submissions}`
   )
@@ -121,6 +142,8 @@ console.log({
   hiddenStatus,
   assignmentStatus,
   listedSubmissionId: normalSubmission.id,
+  privateSourceHidden: true,
+  openSourceVisible: true,
   hiddenListLeak: false,
   hiddenDashboardLeak: false,
   hiddenDetailLeak: false
@@ -176,7 +199,7 @@ async function submitStatus(
 
 async function submit(
   token: string,
-  body: { problemId: number; problemVersionId: number; sourceCode: string }
+  body: { problemId: number; problemVersionId: number; sourceCode: string; open?: boolean }
 ) {
   return api('/api/submissions', {
     method: 'POST',

@@ -5,7 +5,6 @@ import { computed, h, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
-import CodeEditor from '../components/CodeEditor.vue'
 import MarkdownView from '../components/MarkdownView.vue'
 
 interface Submission {
@@ -18,6 +17,7 @@ interface Submission {
   message: string
   contestId: number | null
   restricted: boolean
+  sourceRestricted: boolean
   cases: SubmissionCase[]
 }
 
@@ -62,6 +62,11 @@ const canCoach = computed(() => {
   if (submission.value?.contestId || submission.value?.restricted) return false
   const status = submission.value?.status
   return !!status && !['AC', 'WAITING', 'JUDGING', 'FROZEN'].includes(status)
+})
+const sourceMarkdown = computed(() => {
+  if (!submission.value?.sourceCode) return ''
+  const fence = submission.value.sourceCode.includes('```') ? '~~~~' : '```'
+  return `${fence}${submission.value.languageId}\n${submission.value.sourceCode}\n${fence}`
 })
 
 const caseColumns = computed<DataTableColumns<SubmissionCase>>(() => [
@@ -172,19 +177,14 @@ async function getCoaching() {
             :bordered="false"
             class="stacked-card"
           >
-            <code-editor
-              :model-value="submission.sourceCode"
-              :language-id="submission.languageId"
-              readonly
-            />
+            <markdown-view :source="sourceMarkdown" class="source-markdown" />
           </n-card>
-          <n-card
-            v-else-if="submission.restricted"
-            :title="t('submissions.source')"
-            :bordered="false"
-            class="stacked-card"
-          >
-            <p class="muted">{{ t('submissions.restricted') }}</p>
+          <n-card v-else :title="t('submissions.source')" :bordered="false" class="stacked-card">
+            <p class="muted">
+              {{
+                submission.restricted ? t('submissions.restricted') : t('submissions.sourcePrivate')
+              }}
+            </p>
           </n-card>
           <n-card
             v-if="submission.message"

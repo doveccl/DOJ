@@ -131,9 +131,31 @@ body,
 
 .admin-layout {
   display: grid;
-  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  grid-template-columns: 220px minmax(0, 1fr);
   gap: 24px;
   align-items: start;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+.admin-layout-plain {
+  grid-template-columns: 1fr;
+}
+
+.admin-sidebar {
+  position: sticky;
+  top: 80px;
+  min-width: 0;
+  padding: 8px 0;
+  border-right: 1px solid var(--border-color);
+}
+
+.admin-workspace {
+  min-width: 0;
+}
+
+.admin-workspace .page {
+  max-width: none;
 }
 
 .admin-table {
@@ -208,6 +230,10 @@ body,
   width: 100%;
 }
 
+.settings-number {
+  width: 180px;
+}
+
 .form-actions {
   margin-top: 16px;
 }
@@ -249,6 +275,10 @@ body,
   margin: 0;
   white-space: pre-wrap;
   font-family: 'Cascadia Code', Menlo, Consolas, monospace;
+}
+
+.source-markdown {
+  font-size: 14px;
 }
 
 .coaching-output {
@@ -395,6 +425,13 @@ body,
   .admin-layout,
   .dashboard-main {
     grid-template-columns: 1fr;
+  }
+
+  .admin-sidebar {
+    position: static;
+    padding: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--border-color);
   }
 
   .form-grid {
