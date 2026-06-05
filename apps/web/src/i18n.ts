@@ -20,7 +20,10 @@ const zhCNMessages = {
     userName: '用户名',
     email: '邮箱',
     password: '密码',
-    locale: '语言'
+    locale: '语言',
+    colorMode: '颜色模式',
+    light: '亮',
+    dark: '暗'
   },
   nav: {
     home: '首页',
@@ -50,7 +53,10 @@ const enMessages = {
     userName: 'Name',
     email: 'Email',
     password: 'Password',
-    locale: 'Language'
+    locale: 'Language',
+    colorMode: 'Color mode',
+    light: 'Light',
+    dark: 'Dark'
   },
   nav: {
     home: 'Home',

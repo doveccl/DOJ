@@ -11,10 +11,12 @@ import {
   NMenu,
   NModal,
   NSelect,
-  NSpace
+  NSpace,
+  NSwitch,
+  darkTheme
 } from 'naive-ui'
 import type { MenuOption } from 'naive-ui'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { setLocale, supportedLocales, type SupportedLocale } from './i18n'
@@ -28,12 +30,16 @@ const auth = useAuthStore()
 const authMode = ref<'login' | 'register' | null>(null)
 const authError = ref('')
 const authLoading = ref(false)
+const colorMode = ref<'light' | 'dark'>(
+  localStorage.getItem('doj.colorMode') === 'dark' ? 'dark' : 'light'
+)
 const loginForm = reactive({ user: '', password: '' })
 const registerForm = reactive({ name: '', email: '', password: '' })
 const localeValue = computed({
   get: () => locale.value as SupportedLocale,
   set: (value: SupportedLocale) => setLocale(value)
 })
+const naiveTheme = computed(() => (colorMode.value === 'dark' ? darkTheme : null))
 
 const menuOptions = computed(() => {
   const options: MenuOption[] = [
@@ -71,6 +77,15 @@ onMounted(() => {
   auth.restore()
 })
 
+watch(
+  colorMode,
+  (value) => {
+    localStorage.setItem('doj.colorMode', value)
+    document.documentElement.dataset.theme = value
+  },
+  { immediate: true }
+)
+
 function openAuth(mode: 'login' | 'register') {
   authError.value = ''
   authMode.value = mode
@@ -99,7 +114,7 @@ function handleUserCommand(key: string) {
 </script>
 
 <template>
-  <n-config-provider>
+  <n-config-provider :theme="naiveTheme">
     <n-layout class="app-shell">
       <header class="topbar">
         <router-link to="/" class="brand">{{ t('app.brand') }}</router-link>
@@ -117,6 +132,15 @@ function handleUserCommand(key: string) {
             class="locale-select"
             :aria-label="t('app.locale')"
           />
+          <n-switch
+            v-model:value="colorMode"
+            checked-value="dark"
+            unchecked-value="light"
+            :aria-label="t('app.colorMode')"
+          >
+            <template #checked>{{ t('app.dark') }}</template>
+            <template #unchecked>{{ t('app.light') }}</template>
+          </n-switch>
           <template v-if="auth.signedIn">
             <n-dropdown :options="userMenuOptions" @select="handleUserCommand">
               <n-button text>{{ auth.user?.name }}</n-button>
