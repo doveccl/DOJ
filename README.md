@@ -1,6 +1,6 @@
 # DOJ
 
-DOJ is a new Bun-based rewrite of the online judge used by the older `v3` branch. The rewrite keeps Docker-based judging as the core execution model while moving the product stack to PostgreSQL, Vue 3, Naive UI, and configurable judge languages/runners.
+DOJ is a new Bun-based rewrite of the online judge used by the older `v3` branch. The rewrite keeps Docker-based judging as the core execution model while moving the product stack to PostgreSQL, Redis/Valkey, Vue 3, Naive UI, and configurable judge languages/runners.
 
 The `main` branch is still pre-release. Database migrations may be regenerated from a fresh baseline until the first stable release.
 
@@ -9,6 +9,7 @@ The `main` branch is still pre-release. Database migrations may be regenerated f
 - Runtime and tooling: Bun
 - API: Hono
 - Database: PostgreSQL + Drizzle
+- Cache and sessions: Redis-compatible Valkey through Bun's native Redis client
 - Frontend: Vue 3, Vite, Naive UI, vue-i18n
 - Judging: Docker runner, moving toward separately deployed judge agents
 - Object storage: S3-compatible storage via Bun's native `S3Client`
@@ -63,7 +64,7 @@ bun run db:reset
 
 ## 中文说明
 
-DOJ 是基于 Bun 的新版在线评测系统重写分支，目标是替代旧的 `v3` 实现。新版继续以 Docker 作为评测执行核心，同时迁移到 PostgreSQL、Vue 3、Naive UI，并支持可配置的评测语言和评测机。
+DOJ 是基于 Bun 的新版在线评测系统重写分支，目标是替代旧的 `v3` 实现。新版继续以 Docker 作为评测执行核心，同时迁移到 PostgreSQL、Redis/Valkey、Vue 3、Naive UI，并支持可配置的评测语言和评测机。
 
 当前 `main` 分支仍处于正式发布前阶段。第一次稳定版发布前，数据库迁移可以按需要清空并重新生成基线。
 
@@ -72,6 +73,7 @@ DOJ 是基于 Bun 的新版在线评测系统重写分支，目标是替代旧�
 - 运行时与工具链：Bun
 - API：Hono
 - 数据库：PostgreSQL + Drizzle
+- 缓存与会话：通过 Bun 原生 Redis 客户端连接 Redis 兼容的 Valkey
 - 前端：Vue 3、Vite、Naive UI、vue-i18n
 - 评测：Docker runner，并逐步迁移到独立部署的 judge agent
 - 对象存储：通过 Bun 原生 `S3Client` 访问 S3 兼容存储

@@ -1,4 +1,4 @@
-import { Hono, type Context } from 'hono'
+import { Hono } from 'hono'
 import { logger } from 'hono/logger'
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { z, ZodError } from 'zod'
@@ -8,6 +8,7 @@ import { DockerRunner } from '@doj/runner/docker-runner'
 import { parseZipTestCases } from '@doj/shared/testdata'
 import { putObject, storageConfig } from '@doj/shared/storage'
 import { config } from './config'
+import { checkRateLimit, clientIp } from './rate-limit'
 import {
   authMiddleware,
   createToken,
@@ -25,8 +26,6 @@ import { createCoachingResponse } from './ai'
 const app = new Hono()
 const numericId = z.coerce.number().int().positive()
 const maxTestdataUploadBytes = 64 * 1024 * 1024
-const rateLimitBuckets = new Map<string, number[]>()
-let rateLimitChecks = 0
 
 app.use('*', logger())
 
@@ -181,7 +180,7 @@ app.post('/api/auth/register', async (c) => {
   }
 
   const body = registerSchema.parse(await c.req.json())
-  const rateLimited = checkRateLimit(c, 'register', clientIp(c), 200, 60 * 60 * 1000)
+  const rateLimited = await checkRateLimit(c, 'register', clientIp(c), 200, 60 * 60 * 1000)
   if (rateLimited) return rateLimited
 
   const existing = await findUserByNameOrEmail(body.name)
@@ -219,7 +218,7 @@ const loginSchema = z.object({
 
 app.post('/api/auth/login', async (c) => {
   const body = loginSchema.parse(await c.req.json())
-  const rateLimited = checkRateLimit(
+  const rateLimited = await checkRateLimit(
     c,
     'login',
     `${clientIp(c)}:${body.user.toLowerCase()}`,
@@ -1476,42 +1475,6 @@ async function countVisibleSubmissions() {
     .innerJoin(schema.problems, eq(schema.submissions.problemId, schema.problems.id))
     .where(eq(schema.problems.visible, true))
   return row?.total ?? 0
-}
-
-function clientIp(c: Context) {
-  const forwardedFor = c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
-  return forwardedFor || c.req.header('x-real-ip') || 'local'
-}
-
-function checkRateLimit(c: Context, scope: string, key: string, limit: number, windowMs: number) {
-  const now = Date.now()
-  rateLimitChecks += 1
-  if (rateLimitChecks % 1000 === 0) pruneRateLimitBuckets(now)
-
-  const bucketKey = `${scope}:${key}`
-  const recent = (rateLimitBuckets.get(bucketKey) ?? []).filter((time) => now - time < windowMs)
-  if (recent.length >= limit) {
-    const retryAfterSeconds = Math.max(1, Math.ceil((windowMs - (now - recent[0])) / 1000))
-    c.header('retry-after', String(retryAfterSeconds))
-    return c.json(
-      { code: 'RATE_LIMITED', message: 'Too many attempts. Please try again later.' },
-      429
-    )
-  }
-  recent.push(now)
-  rateLimitBuckets.set(bucketKey, recent)
-  return null
-}
-
-function pruneRateLimitBuckets(now: number) {
-  for (const [key, timestamps] of rateLimitBuckets.entries()) {
-    const recent = timestamps.filter((time) => now - time < 60 * 60 * 1000)
-    if (recent.length) {
-      rateLimitBuckets.set(key, recent)
-    } else {
-      rateLimitBuckets.delete(key)
-    }
-  }
 }
 
 async function getAssignmentReport(id: number) {

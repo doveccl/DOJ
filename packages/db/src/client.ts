@@ -4,8 +4,8 @@ import * as schema from './schema'
 
 const url = process.env.DATABASE_URL ?? 'postgres://postgres@localhost:5432/postgres'
 
-const client = postgres(url)
+export const sqlClient = postgres(url)
 
-export const db = drizzle(client, { schema })
-export const closeDb = () => client.end()
+export const db = drizzle(sqlClient, { schema })
+export const closeDb = () => sqlClient.end()
 export { schema }

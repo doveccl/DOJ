@@ -1,5 +1,7 @@
 import { and, asc, eq, lt, or, sql } from 'drizzle-orm'
-import { db, schema } from './client'
+import { db, schema, sqlClient } from './client'
+
+export const judgeTaskChannel = 'doj_judge_tasks'
 
 export interface ClaimJudgeTaskOptions {
   workerId: string
@@ -8,8 +10,17 @@ export interface ClaimJudgeTaskOptions {
 
 export async function enqueueJudgeTask(submissionId: number) {
   const [task] = await db.insert(schema.judgeTasks).values({ submissionId }).returning()
+  await notifyJudgeTask(task.id, submissionId)
 
   return task
+}
+
+export async function notifyJudgeTask(taskId: number, submissionId: number) {
+  try {
+    await sqlClient.notify(judgeTaskChannel, JSON.stringify({ taskId, submissionId }))
+  } catch (error) {
+    console.warn(`failed to notify judge task ${taskId}:`, error)
+  }
 }
 
 export async function claimJudgeTask(options: ClaimJudgeTaskOptions) {

@@ -1,8 +1,7 @@
 import { eq, sql } from 'drizzle-orm'
-import { sign, verify } from 'hono/jwt'
 import type { Context, MiddlewareHandler } from 'hono'
 import { db, schema } from '@doj/db/client'
-import { config } from './config'
+import { createSession, getSessionUserId } from './session'
 
 export interface AuthUser {
   id: number
@@ -24,13 +23,7 @@ export async function verifyPassword(password: string, hash: string) {
 }
 
 export async function createToken(userId: number) {
-  return sign(
-    {
-      sub: String(userId),
-      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30
-    },
-    config.jwtSecret
-  )
+  return createSession(userId)
 }
 
 export async function getAuthUser(userId: number): Promise<AuthUser | null> {
@@ -87,13 +80,8 @@ export async function getOptionalAuthUser(c: Context) {
   const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : ''
   if (!token) return null
 
-  try {
-    const payload = await verify(token, config.jwtSecret, 'HS256')
-    const userId = typeof payload.sub === 'string' ? Number(payload.sub) : NaN
-    return Number.isInteger(userId) ? await getAuthUser(userId) : null
-  } catch {
-    return null
-  }
+  const userId = await getSessionUserId(token)
+  return userId === null ? null : await getAuthUser(userId)
 }
 
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
@@ -103,14 +91,9 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
     return c.json({ code: 'UNAUTHORIZED', message: 'Missing bearer token' }, 401)
   }
 
-  try {
-    const payload = await verify(token, config.jwtSecret, 'HS256')
-    const userId = typeof payload.sub === 'string' ? Number(payload.sub) : NaN
-    const user = Number.isInteger(userId) ? await getAuthUser(userId) : null
-    if (!user) return c.json({ code: 'UNAUTHORIZED', message: 'Invalid bearer token' }, 401)
-    c.set('authUser', user)
-    await next()
-  } catch {
-    return c.json({ code: 'UNAUTHORIZED', message: 'Invalid bearer token' }, 401)
-  }
+  const userId = await getSessionUserId(token)
+  const user = userId === null ? null : await getAuthUser(userId)
+  if (!user) return c.json({ code: 'UNAUTHORIZED', message: 'Invalid bearer token' }, 401)
+  c.set('authUser', user)
+  await next()
 }

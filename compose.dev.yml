@@ -23,6 +23,12 @@ services:
     volumes:
       - minio-data:/data
 
+  valkey:
+    image: valkey/valkey:latest
+    restart: unless-stopped
+    network_mode: host
+    command: valkey-server --save "" --appendonly no
+
 volumes:
   postgres-data:
   minio-data:

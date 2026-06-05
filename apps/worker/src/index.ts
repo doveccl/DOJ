@@ -1,6 +1,6 @@
 import { asc, eq, sql } from 'drizzle-orm'
-import { db, schema } from '@doj/db/client'
-import { claimJudgeTask, completeJudgeTask, failJudgeTask } from '@doj/db/queue'
+import { db, schema, sqlClient } from '@doj/db/client'
+import { claimJudgeTask, completeJudgeTask, failJudgeTask, judgeTaskChannel } from '@doj/db/queue'
 import { DockerRunner } from '@doj/runner/docker-runner'
 import type { ProblemTestCase } from '@doj/shared/judge'
 import { parseZipTestCases } from '@doj/shared/testdata'
@@ -10,6 +10,10 @@ import { getLanguage } from './languages'
 import { describeRunnerKeyFilter, filterRunnerConfigs } from './runner-filter'
 
 const workerId = process.env.DOJ_WORKER_ID || `worker-${crypto.randomUUID()}`
+const wakePollMs = Number(process.env.DOJ_WORKER_POLL_MS ?? 1000)
+
+let wakeResolver: () => void = () => {}
+let wakePromise = createWakePromise()
 
 type JudgeRunnerConfig = typeof schema.judgeRunners.$inferSelect
 
@@ -305,11 +309,35 @@ async function loop(slot: number, runnerConfig: JudgeRunnerConfig) {
   console.log(`judge worker ${workerId} slot ${slot} started on runner ${runnerConfig.key}`)
   for (;;) {
     const claimed = await handleOne(runnerConfig)
-    if (!claimed) await Bun.sleep(1000)
+    if (!claimed) await waitForWake()
   }
 }
 
+function createWakePromise() {
+  return new Promise<void>((resolve) => {
+    wakeResolver = resolve
+  })
+}
+
+function wakeWorkers() {
+  wakeResolver()
+  wakePromise = createWakePromise()
+}
+
+async function waitForWake() {
+  await Promise.race([wakePromise, Bun.sleep(wakePollMs)])
+}
+
 const runnerConfigs = await getRunnerConfigs()
+
+await sqlClient.listen(
+  judgeTaskChannel,
+  () => wakeWorkers(),
+  () => {
+    console.log(`judge worker ${workerId} listening on ${judgeTaskChannel}`)
+    wakeWorkers()
+  }
+)
 
 if (process.env.DOJ_WORKER_ONCE === '1') {
   await handleOne(runnerConfigs[0])

@@ -12,19 +12,19 @@ This file is the working memory for autonomous coding on this branch. Keep it cu
 ## Milestones
 
 1. Repository hygiene and developer experience.
-   - Rewrite README as bilingual project/dev/deploy docs.
-   - Keep agent-only notes in `AGENTS.md`.
-   - Remove noisy root smoke scripts; use a single smoke runner with named targets.
-   - Remove subpackage `version` fields.
-   - Add ESLint alongside Prettier.
-   - Reset Drizzle migration history to a fresh baseline while the schema is still fluid.
-   - Remove `packages/storage`; keep storage runtime helpers close to shared backend code.
-   - Simplify dev compose/env defaults.
+   - Done: rewrite README as bilingual project/dev/deploy docs.
+   - Done: keep agent-only notes in `AGENTS.md`.
+   - Done: remove noisy root smoke scripts; use a single smoke runner with named targets.
+   - Done: remove subpackage `version` fields.
+   - Done: add ESLint alongside Prettier.
+   - Done: reset Drizzle migration history to a fresh baseline while the schema is still fluid.
+   - Done: remove `packages/storage`; keep storage runtime helpers close to shared backend code.
+   - Done: simplify dev compose/env defaults.
 2. Backend architecture and infrastructure.
    - Split API routes/services out of the monolithic `apps/api/src/index.ts`.
    - Add DB-backed runtime settings for non-secret behavior flags.
-   - Add Redis for sessions, API rate limits, and small cached counters.
-   - Use PostgreSQL `LISTEN/NOTIFY` plus `FOR UPDATE SKIP LOCKED` for judge task wakeups.
+   - Done: add Redis/Valkey for sessions and API rate limits through Bun native Redis.
+   - Done: use PostgreSQL `LISTEN/NOTIFY` plus `FOR UPDATE SKIP LOCKED` for judge task wakeups.
    - Design and implement the judge-agent connection model.
 3. Judge and problem model.
    - Collapse seeded C/C++ into one default language.
@@ -36,7 +36,7 @@ This file is the working memory for autonomous coding on this branch. Keep it cu
    - Configure Naive UI locale/date locale.
    - Hide auth-required menu items for anonymous users instead of showing dead-end pages.
    - Rework home, assignments, discussion, rank, submission detail, and admin layout.
-   - Rename page components without the redundant `Page` suffix.
+   - Done: rename page components without the redundant `Page` suffix.
    - Use CDN/dynamic language loading for editor/highlight support.
 
 ## User Preferences
