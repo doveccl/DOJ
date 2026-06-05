@@ -1,10 +1,7 @@
 <script setup lang="ts">
-import { cpp } from '@codemirror/lang-cpp'
-import { javascript } from '@codemirror/lang-javascript'
-import { python } from '@codemirror/lang-python'
 import type { LanguageSupport } from '@codemirror/language'
 import CodeMirror from 'vue-codemirror6'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 
 const props = defineProps<{
   modelValue: string
@@ -18,16 +15,33 @@ const emit = defineEmits<{
 }>()
 
 const isDark = ref(false)
+const language = ref<LanguageSupport>()
 let observer: MutationObserver | undefined
+let languageLoadId = 0
 
-const language = computed<LanguageSupport | undefined>(() => {
-  if (props.languageId === 'c' || props.languageId === 'cpp') return cpp()
-  if (props.languageId === 'py' || props.languageId === 'python') return python()
-  if (props.languageId === 'js' || props.languageId === 'javascript' || props.languageId === 'ts') {
-    return javascript({ typescript: props.languageId === 'ts' })
-  }
-  return undefined
-})
+watch(
+  () => props.languageId,
+  async (languageId) => {
+    const loadId = ++languageLoadId
+    language.value = undefined
+    if (languageId === 'c' || languageId === 'cpp') {
+      const { cpp } = await import('@codemirror/lang-cpp')
+      if (loadId === languageLoadId) language.value = cpp()
+      return
+    }
+    if (languageId === 'py' || languageId === 'python') {
+      const { python } = await import('@codemirror/lang-python')
+      if (loadId === languageLoadId) language.value = python()
+      return
+    }
+    if (languageId === 'js' || languageId === 'javascript' || languageId === 'ts') {
+      const { javascript } = await import('@codemirror/lang-javascript')
+      if (loadId === languageLoadId)
+        language.value = javascript({ typescript: languageId === 'ts' })
+    }
+  },
+  { immediate: true }
+)
 
 onMounted(() => {
   const updateTheme = () => {
