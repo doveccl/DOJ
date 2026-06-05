@@ -72,6 +72,7 @@ Current implementation:
 - OOMKilled or exit code 137 means MLE;
 - Docker stats stream records the highest observed memory value;
 - local Linux deployments additionally try cgroup v2 `memory.peak` or cgroup v1 `memory.max_usage_in_bytes`.
+- Run containers disable networking, run as `nobody:nogroup`, drop all Linux capabilities, enable `no-new-privileges`, use a read-only root filesystem, limit pids, and expose only small `/tmp` and `/run` tmpfs mounts.
 
 Conclusion:
 

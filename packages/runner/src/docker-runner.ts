@@ -93,6 +93,7 @@ export class DockerRunner implements Runner {
     const container = await this.docker.createContainer({
       Image: input.imageId,
       Cmd: stdinCommand?.command ?? input.command,
+      User: '65534:65534',
       Env: Object.entries({
         ...(input.env ?? {}),
         ...(stdinCommand
