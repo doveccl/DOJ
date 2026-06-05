@@ -43,6 +43,12 @@ Run the API, web app, worker, and local judge agent together:
 bun run dev
 ```
 
+Judge deployment model:
+
+- `apps/worker` runs centrally and listens for judge agents on `DOJ_WORKER_AGENT_PORT`.
+- `apps/agent` runs on each judge machine, keeps Docker local, downloads testdata from S3/MinIO, and connects to the worker with `DOJ_WORKER_WS_URL`.
+- Agent credentials are managed in the admin UI. The worker accepts query credentials, Bearer tokens, or Basic auth, so reverse proxies can use URLs such as `wss://key:token@example.com/agents/connect`.
+
 Default local URLs:
 
 - Web: `http://localhost:28080`
@@ -106,6 +112,12 @@ bun run db:seed
 ```sh
 bun run dev
 ```
+
+评测部署模型：
+
+- `apps/worker` 集中部署，通过 `DOJ_WORKER_AGENT_PORT` 等待评测 agent 连接。
+- `apps/agent` 部署在每台评测机器上，Docker 始终走本机 socket，测试数据从 S3/MinIO 下载后再开始计时评测。
+- agent 凭据在管理后台维护。worker 支持 query、Bearer 和 Basic auth，因此反代场景可以使用 `wss://key:token@example.com/agents/connect` 这样的连接地址。
 
 默认本地地址：
 
