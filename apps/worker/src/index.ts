@@ -43,6 +43,9 @@ async function handleOne(runnerConfig: JudgeRunnerConfig) {
       .update(schema.submissions)
       .set({ status: 'JUDGING', updatedAt: new Date() })
       .where(eq(schema.submissions.id, submission.id))
+    await db
+      .delete(schema.submissionCases)
+      .where(eq(schema.submissionCases.submissionId, submission.id))
 
     const build = await runner.build({
       scopeId,
