@@ -4,5 +4,5 @@ export const config = {
   aiCoachingEnabled: process.env.AI_COACHING_ENABLED !== '0',
   aiProvider: process.env.AI_PROVIDER ?? 'local-stub',
   openaiApiKey: process.env.OPENAI_API_KEY ?? '',
-  openaiModel: process.env.OPENAI_MODEL ?? 'gpt-5.5'
+  openaiModel: process.env.OPENAI_MODEL ?? 'gpt-5-mini'
 }
