@@ -6,8 +6,7 @@ import { db, schema } from '@doj/db/client'
 import { enqueueJudgeTask } from '@doj/db/queue'
 import { DockerRunner } from '@doj/runner/docker-runner'
 import { parseZipTestCases } from '@doj/shared/testdata'
-import { putObject } from '@doj/storage/client'
-import { storageConfig } from '@doj/storage/config'
+import { putObject, storageConfig } from '@doj/shared/storage'
 import { config } from './config'
 import {
   authMiddleware,

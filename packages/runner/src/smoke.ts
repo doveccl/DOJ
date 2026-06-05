@@ -2,7 +2,13 @@ import { DockerRunner } from './docker-runner'
 
 const runner = new DockerRunner()
 
-async function runCase(name: string, script: string, expected: string, timeMs = 2000, outputBytes = 1024 * 1024) {
+async function runCase(
+  name: string,
+  script: string,
+  expected: string,
+  timeMs = 2000,
+  outputBytes = 1024 * 1024
+) {
   const scopeId = `smoke-${name}-${crypto.randomUUID()}`
   const build = await runner.build({
     scopeId,

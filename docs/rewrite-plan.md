@@ -127,7 +127,7 @@ Do not port old low-usage `posts` directly. If discussion is needed, build a sim
 
 ## Storage
 
-Object reads and writes use Bun's native `S3Client`; the AWS SDK is intentionally not included. The small SigV4 helper in `packages/storage` is only for bucket control-plane calls used by `s3:ensure-bucket` (`HEAD`/`PUT` bucket), because the runtime S3 client covers object operations but not bucket creation. In normal judging flow, workers fetch testdata through the Bun client with the configured endpoint, access key, secret key, region, and bucket.
+Object reads and writes use Bun's native `S3Client`; the AWS SDK is intentionally not included. The small SigV4 helper in `@doj/shared/storage` is only for bucket control-plane calls used by `s3:ensure-bucket` (`HEAD`/`PUT` bucket), because the runtime S3 client covers object operations but not bucket creation. In normal judging flow, workers fetch testdata through the Bun client with the configured endpoint, access key, secret key, region, and bucket.
 
 ## Next Risks
 

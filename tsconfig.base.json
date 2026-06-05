@@ -14,7 +14,6 @@
     "paths": {
       "@doj/db/*": ["packages/db/src/*"],
       "@doj/runner/*": ["packages/runner/src/*"],
-      "@doj/storage/*": ["packages/storage/src/*"],
       "@doj/shared/*": ["packages/shared/src/*"]
     }
   }

@@ -5,7 +5,7 @@ import { DockerRunner } from '@doj/runner/docker-runner'
 import type { ProblemTestCase } from '@doj/shared/judge'
 import { parseZipTestCases } from '@doj/shared/testdata'
 import type { JudgeStatus } from '@doj/shared/status'
-import { getObjectBytes } from '@doj/storage/client'
+import { getObjectBytes } from '@doj/shared/storage'
 import { getLanguage } from './languages'
 import { describeRunnerKeyFilter, filterRunnerConfigs } from './runner-filter'
 

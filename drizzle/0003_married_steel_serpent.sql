@@ -1,1 +1,0 @@
-ALTER TABLE "problem_versions" ADD COLUMN "test_cases" jsonb DEFAULT '[]'::jsonb NOT NULL;

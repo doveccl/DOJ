@@ -1,111 +1,125 @@
 # DOJ
 
-New implementation line for DOJ, built from a blank `main` branch.
+DOJ is a new Bun-based rewrite of the online judge used by the older `v3` branch. The rewrite keeps Docker-based judging as the core execution model while moving the product stack to PostgreSQL, Vue 3, Naive UI, and configurable judge languages/runners.
 
-## Direction
+The `main` branch is still pre-release. Database migrations may be regenerated from a fresh baseline until the first stable release.
 
-- Bun for API, worker, and tooling.
-- PostgreSQL as the primary database and initial queue backend.
-- MinIO/S3 for problem data, images, and attachments.
-- Docker runner as the first judging backend.
-- Vue 3, Vite, Naive UI, and vue-i18n for the frontend.
+## Stack
 
-The v3 branch remains the migration and product baseline. The v4 branch is treated as a Docker judging experiment.
-
-## Layout
-
-```text
-apps/
-  api/       Hono API server
-  web/       Vue + Naive UI frontend
-  worker/    Judge task worker
-packages/
-  db/        Drizzle schema and PostgreSQL queue helpers
-  runner/    Runner interface and Docker implementation
-  storage/   S3-compatible object storage helpers
-  shared/    Shared domain types
-docs/        Architecture notes
-```
+- Runtime and tooling: Bun
+- API: Hono
+- Database: PostgreSQL + Drizzle
+- Frontend: Vue 3, Vite, Naive UI, vue-i18n
+- Judging: Docker runner, moving toward separately deployed judge agents
+- Object storage: S3-compatible storage via Bun's native `S3Client`
 
 ## Local Development
 
-Start infrastructure:
+Start local infrastructure:
 
 ```sh
 docker compose -f compose.dev.yml up -d
 ```
 
-Install dependencies:
+Install dependencies and copy the example environment:
 
 ```sh
 bun install
 cp .env.example .env
 ```
 
-Generate and apply database migrations:
+Prepare the database and object bucket:
 
 ```sh
-bun run db:generate
 bun run db:migrate
 bun run s3:ensure-bucket
 bun run db:seed
 ```
 
-Run services:
+Run the API, web app, and worker together:
 
 ```sh
 bun run dev
 ```
 
-Run checks:
+Default local URLs:
+
+- Web: `http://localhost:28080`
+- API: `http://localhost:7974`
+- MinIO console: `http://localhost:9001`
+
+## Useful Commands
 
 ```sh
 bun run check
+bun run lint
+bun run format
 bun run smoke
+bun run smoke -- auth
+bun run db:reset
 ```
 
-Or run targeted smoke checks:
+`bun run smoke -- <name>` runs one smoke target. Run `bun run smoke -- unknown` to print the available target names.
+
+## 中文说明
+
+DOJ 是基于 Bun 的新版在线评测系统重写分支，目标是替代旧的 `v3` 实现。新版继续以 Docker 作为评测执行核心，同时迁移到 PostgreSQL、Vue 3、Naive UI，并支持可配置的评测语言和评测机。
+
+当前 `main` 分支仍处于正式发布前阶段。第一次稳定版发布前，数据库迁移可以按需要清空并重新生成基线。
+
+## 技术栈
+
+- 运行时与工具链：Bun
+- API：Hono
+- 数据库：PostgreSQL + Drizzle
+- 前端：Vue 3、Vite、Naive UI、vue-i18n
+- 评测：Docker runner，并逐步迁移到独立部署的 judge agent
+- 对象存储：通过 Bun 原生 `S3Client` 访问 S3 兼容存储
+
+## 本地开发
+
+启动本地基础设施：
 
 ```sh
-bun run auth:smoke
-bun run admin:smoke
-bun run languages:smoke
-bun run runners:smoke
-bun run group-membership:smoke
-bun run assignment:smoke
-bun run my-assignments:smoke
-bun run contest:smoke
-bun run bbs:smoke
-bun run rank:smoke
-bun run runner:smoke
-bun run e2e:smoke
-bun run testcases:smoke
-bun run ai:smoke
+docker compose -f compose.dev.yml up -d
 ```
 
-Default URLs:
+安装依赖并复制环境变量：
 
-- API: `http://localhost:7974`
-- Web: `http://localhost:28080`
-- MinIO console: `http://localhost:9001`
+```sh
+bun install
+cp .env.example .env
+```
 
-## Current State
+初始化数据库和对象存储桶：
 
-The current implementation includes:
+```sh
+bun run db:migrate
+bun run s3:ensure-bucket
+bun run db:seed
+```
 
-- Auth with Argon2id password hashes and JWT sessions.
-- Linux-like users/groups/admin membership with admin user suspension.
-- Numeric PostgreSQL IDs, with problems starting at 1000.
-- Admin-configurable judge languages, with C/C++ as the default seeded languages.
-- Admin-configurable Docker runners, including local sockets and HTTP(S) Docker API endpoints. Remote endpoint credentials can be embedded in the URL, for example `https://user:pass@docker.example.com`.
-- PostgreSQL-backed judge task queue with leases.
-- Docker runner build/run/cleanup with time, output, and memory limits plus best-effort cgroup peak memory reads.
-- Inline problem test cases, per-case submission results, and AC/WA/PE/TLE/MLE/OLE/RE/CE/SE aggregation.
-- S3-backed problem testdata ZIP upload for `.in/.out` case pairs.
-- Assignments for groups.
-- Contest basics with timed submissions and AI coaching disabled in contests.
-- Non-AC AI coaching with owner/admin authorization, hidden-test redaction, and a provider abstraction: `local-stub` by default, optional OpenAI Responses API via `AI_PROVIDER=openai` and `OPENAI_MODEL` (default `gpt-5-mini`).
-- Lightweight BBS topics/replies with optional problem/contest links.
-- Rank list backed by first-AC solve tracking.
-- Bun-native S3 object reads/writes and bucket provisioning for MinIO/S3.
-- v3 JSON migration tool in `scripts/migrate-v3-json.ts`.
+同时启动 API、前端和 worker：
+
+```sh
+bun run dev
+```
+
+默认本地地址：
+
+- 前端：`http://localhost:28080`
+- API：`http://localhost:7974`
+- MinIO 控制台：`http://localhost:9001`
+
+## 常用命令
+
+```sh
+bun run check
+bun run lint
+bun run format
+bun run smoke
+bun run smoke -- auth
+bun run db:reset
+```
+
+`bun run smoke -- <名称>` 可以运行单个冒烟测试目标。传入未知名称时会打印可用目标列表。

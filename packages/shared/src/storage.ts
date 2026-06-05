@@ -1,6 +1,13 @@
 import { S3Client as BunS3Client } from 'bun'
-import { createHmac, createHash } from 'node:crypto'
-import { storageConfig } from './config'
+import { createHash, createHmac } from 'node:crypto'
+
+export const storageConfig = {
+  endpoint: process.env.S3_ENDPOINT ?? 'http://localhost:9000',
+  region: process.env.S3_REGION ?? 'us-east-1',
+  accessKeyId: process.env.S3_ACCESS_KEY_ID ?? 'minioadmin',
+  secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? 'minioadmin',
+  bucket: process.env.S3_BUCKET ?? 'doj'
+}
 
 const credentials = {
   accessKeyId: storageConfig.accessKeyId,
@@ -10,7 +17,14 @@ const credentials = {
   bucket: storageConfig.bucket
 }
 
-export const s3 = new BunS3Client(credentials)
+const s3 = new BunS3Client(credentials)
+
+export interface PutObjectInput {
+  key: string
+  body: Uint8Array | string
+  contentType: string
+  bucket?: string
+}
 
 export async function ensureBucket(bucket = storageConfig.bucket) {
   const head = await signedBucketRequest('HEAD', bucket)
@@ -23,13 +37,6 @@ export async function ensureBucket(bucket = storageConfig.bucket) {
   if (!put.ok && put.status !== 409) {
     throw new Error(`S3 bucket create failed: ${put.status} ${await put.text()}`)
   }
-}
-
-export interface PutObjectInput {
-  key: string
-  body: Uint8Array | string
-  contentType: string
-  bucket?: string
 }
 
 export async function putObject(input: PutObjectInput) {

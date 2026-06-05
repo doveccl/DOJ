@@ -1,4 +1,4 @@
-import { ensureBucket, putObject, storageConfig } from '../packages/storage/src'
+import { ensureBucket, putObject, storageConfig } from '../packages/shared/src/storage'
 
 await ensureBucket()
 await putObject({

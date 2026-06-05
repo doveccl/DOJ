@@ -5,36 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1780593477126,
-      "tag": "0000_puzzling_miracleman",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1780593887284,
-      "tag": "0001_faithful_pestilence",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1780594283756,
-      "tag": "0002_overconfident_otto_octavius",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1780594662673,
-      "tag": "0003_married_steel_serpent",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1780595842007,
-      "tag": "0004_lazy_talos",
+      "when": 1780684293528,
+      "tag": "0000_bumpy_sentry",
       "breakpoints": true
     }
   ]
