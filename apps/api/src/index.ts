@@ -753,6 +753,7 @@ app.get('/api/problems', async (c) => {
     .select()
     .from(schema.problems)
     .where(eq(schema.problems.visible, true))
+    .orderBy(asc(schema.problems.id))
     .limit(50)
   return c.json({ total: list.length, list })
 })
@@ -761,7 +762,7 @@ app.get('/api/admin/problems', authMiddleware, async (c) => {
   const denied = await requireGroup(c, 'admin')
   if (denied) return denied
 
-  const list = await db.select().from(schema.problems).limit(100)
+  const list = await db.select().from(schema.problems).orderBy(asc(schema.problems.id)).limit(100)
   return c.json({ total: list.length, list })
 })
 
