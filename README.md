@@ -103,6 +103,7 @@ The current implementation includes:
 - PostgreSQL-backed judge task queue with leases.
 - Docker runner build/run/cleanup with time, memory, and output limits.
 - Inline problem test cases, per-case submission results, and AC/WA/PE/TLE/MLE/OLE/RE/CE/SE aggregation.
+- S3-backed problem testdata ZIP upload for `.in/.out` case pairs.
 - Assignments for groups.
 - Contest basics with timed submissions and AI coaching disabled in contests.
 - Non-AC AI coaching with a provider abstraction: `local-stub` by default, optional OpenAI Responses API via `AI_PROVIDER=openai`.

@@ -5,6 +5,9 @@ import { z, ZodError } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { enqueueJudgeTask } from '@doj/db/queue'
 import { DockerRunner } from '@doj/runner/docker-runner'
+import { parseZipTestCases } from '@doj/shared/testdata'
+import { putObject } from '@doj/storage/client'
+import { storageConfig } from '@doj/storage/config'
 import { config } from './config'
 import {
   authMiddleware,
@@ -740,6 +743,66 @@ app.post('/api/problems', authMiddleware, async (c) => {
   })
 
   return c.json(result, 201)
+})
+
+app.post('/api/problems/:id/testdata', authMiddleware, async (c) => {
+  const denied = await requireGroup(c, 'admin')
+  if (denied) return denied
+
+  const problemId = numericId.parse(c.req.param('id'))
+  const [version] = await db
+    .select()
+    .from(schema.problemVersions)
+    .where(eq(schema.problemVersions.problemId, problemId))
+    .orderBy(desc(schema.problemVersions.version))
+    .limit(1)
+  if (!version) return c.notFound()
+
+  const form = await c.req.formData()
+  const upload = form.get('file')
+  if (!(upload instanceof File)) {
+    return c.json(
+      { code: 'MISSING_FILE', message: 'Expected multipart file field named file' },
+      400
+    )
+  }
+
+  const bytes = new Uint8Array(await upload.arrayBuffer())
+  const cases = parseZipTestCases(bytes)
+  if (!cases.length) {
+    return c.json({ code: 'EMPTY_TESTDATA', message: 'ZIP must contain .in/.out case pairs' }, 400)
+  }
+
+  const objectKey = `problems/${problemId}/testdata/${crypto.randomUUID()}.zip`
+  await putObject({
+    key: objectKey,
+    body: bytes,
+    contentType: upload.type || 'application/zip'
+  })
+
+  const [file] = await db
+    .insert(schema.files)
+    .values({
+      bucket: storageConfig.bucket,
+      objectKey,
+      filename: upload.name || `problem-${problemId}-testdata.zip`,
+      contentType: upload.type || 'application/zip',
+      sizeBytes: bytes.byteLength,
+      metadata: {
+        problemId,
+        caseCount: cases.length,
+        kind: 'problem-testdata'
+      }
+    })
+    .returning()
+
+  const [updated] = await db
+    .update(schema.problemVersions)
+    .set({ testdataFileId: file.id })
+    .where(eq(schema.problemVersions.id, version.id))
+    .returning()
+
+  return c.json({ file, version: updated, caseCount: cases.length }, 201)
 })
 
 app.get('/api/submissions', async (c) => {

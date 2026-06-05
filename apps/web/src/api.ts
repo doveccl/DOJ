@@ -11,7 +11,9 @@ export class ApiError extends Error {
 export async function apiFetch<T>(path: string, init: RequestInit = {}) {
   const token = localStorage.getItem('doj.token')
   const headers = new Headers(init.headers)
-  if (!headers.has('content-type') && init.body) headers.set('content-type', 'application/json')
+  if (!headers.has('content-type') && init.body && !(init.body instanceof FormData)) {
+    headers.set('content-type', 'application/json')
+  }
   if (token) headers.set('authorization', `Bearer ${token}`)
 
   const response = await fetch(path, {

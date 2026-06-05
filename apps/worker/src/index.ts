@@ -2,7 +2,10 @@ import { asc, eq, sql } from 'drizzle-orm'
 import { db, schema } from '@doj/db/client'
 import { claimJudgeTask, completeJudgeTask, failJudgeTask } from '@doj/db/queue'
 import { DockerRunner } from '@doj/runner/docker-runner'
+import type { ProblemTestCase } from '@doj/shared/judge'
+import { parseZipTestCases } from '@doj/shared/testdata'
 import type { JudgeStatus } from '@doj/shared/status'
+import { getObjectBytes } from '@doj/storage/client'
 import { getLanguage } from './languages'
 
 const workerId = `worker-${crypto.randomUUID()}`
@@ -72,7 +75,7 @@ async function handleOne(runnerConfig: JudgeRunnerConfig) {
       scopeId,
       imageId: build.imageId,
       command: language.command.length ? language.command : undefined,
-      testCases: version.testCases,
+      testCases: await getVersionTestCases(version),
       limits: {
         timeMs: version.timeLimitMs,
         memoryBytes: version.memoryLimitBytes,
@@ -146,10 +149,25 @@ async function recordSolved(userId: number, problemId: number, submissionId: num
   ])
 }
 
+async function getVersionTestCases(version: typeof schema.problemVersions.$inferSelect) {
+  if (!version.testdataFileId) return version.testCases
+
+  const [file] = await db
+    .select()
+    .from(schema.files)
+    .where(eq(schema.files.id, version.testdataFileId))
+    .limit(1)
+  if (!file) throw new Error(`testdata file not found: ${version.testdataFileId}`)
+  const bytes = await getObjectBytes(file.objectKey, file.bucket)
+  const cases = parseZipTestCases(bytes)
+  if (!cases.length) throw new Error(`testdata file has no cases: ${file.objectKey}`)
+  return cases
+}
+
 type RunInput = Parameters<DockerRunner['run']>[0]
 type JudgeCasesInput = RunInput & {
   runner: DockerRunner
-  testCases: Array<{ name?: string; input: string; output: string }>
+  testCases: ProblemTestCase[]
 }
 
 async function judgeCases(input: JudgeCasesInput) {

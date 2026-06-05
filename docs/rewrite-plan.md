@@ -120,7 +120,7 @@ Do not port old low-usage `posts` directly. If discussion is needed, build a sim
 
 ## Next Risks
 
-- S3-backed large testdata zip import is still needed for serious problem packages.
+- S3-backed `.in/.out` testdata zip import is implemented; checker/interactor package support remains a follow-up.
 - Runner memory metrics still use Docker stats polling; cgroup `memory.peak` calibration remains a follow-up.
 - AI coaching still needs prompt redaction tests and provider-specific operational controls.
 - Contest scoreboard/freezing and assignment reports are not implemented yet.
