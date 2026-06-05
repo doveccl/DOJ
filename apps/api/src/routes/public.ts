@@ -9,6 +9,7 @@ import { countRows, countVisibleSubmissions } from '../services/stats'
 
 export function registerPublicRoutes(app: Hono) {
   app.get('/api/dashboard', async (c) => {
+    const authUser = await getOptionalAuthUser(c)
     const [problemStats, submissionStats, userStats, contestStats, assignmentStats] =
       await Promise.all([
         countRows(schema.problems, sql`${schema.problems.visible} = true`),
@@ -46,7 +47,15 @@ export function registerPublicRoutes(app: Hono) {
         createdAt: schema.problems.createdAt
       })
       .from(schema.problems)
-      .where(eq(schema.problems.visible, true))
+      .where(
+        authUser
+          ? sql`${schema.problems.visible} = true and not exists (
+              select 1 from ${schema.solvedProblems}
+              where ${schema.solvedProblems.userId} = ${authUser.id}
+                and ${schema.solvedProblems.problemId} = ${schema.problems.id}
+            )`
+          : eq(schema.problems.visible, true)
+      )
       .orderBy(desc(schema.problems.createdAt), desc(schema.problems.id))
       .limit(6)
     const recentTopics = await getRecentBbsTopics(6)
@@ -61,7 +70,6 @@ export function registerPublicRoutes(app: Hono) {
       .from(schema.contests)
       .orderBy(desc(schema.contests.startAt), desc(schema.contests.createdAt))
       .limit(5)
-    const authUser = await getOptionalAuthUser(c)
     const myAssignments = authUser ? await getUserAssignments(authUser.id, 5) : []
 
     return c.json({

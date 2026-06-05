@@ -89,6 +89,23 @@ try {
     throw new Error(`expected AC, got ${judged.status}: ${judged.message}`)
   }
 
+  const dashboardResponse = await fetch(`${apiBase}/api/dashboard`, {
+    headers: {
+      authorization: `Bearer ${auth.token}`
+    }
+  })
+  if (!dashboardResponse.ok) {
+    throw new Error(
+      `dashboard API failed: ${dashboardResponse.status} ${await dashboardResponse.text()}`
+    )
+  }
+  const dashboard = (await dashboardResponse.json()) as {
+    recentProblems: Array<{ id: number }>
+  }
+  if (dashboard.recentProblems.some((item) => item.id === problem.id)) {
+    throw new Error(`solved problem leaked into dashboard recommendations: ${problem.id}`)
+  }
+
   console.log({
     submissionId: judged.id,
     status: judged.status,
