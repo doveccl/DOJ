@@ -1,5 +1,5 @@
 {
-  "id": "58dd3c26-41c8-47e8-b0fc-82cb99e9cd35",
+  "id": "a97b110f-9349-414b-9e45-6af819a266d7",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1409,12 +1409,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "slug": {
-          "name": "slug",
-          "type": "varchar(160)",
-          "primaryKey": false,
-          "notNull": false
-        },
         "tags": {
           "name": "tags",
           "type": "text[]",
@@ -1465,21 +1459,6 @@
         }
       },
       "indexes": {
-        "problems_slug_uidx": {
-          "name": "problems_slug_uidx",
-          "columns": [
-            {
-              "expression": "slug",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "problems_visible_idx": {
           "name": "problems_visible_idx",
           "columns": [

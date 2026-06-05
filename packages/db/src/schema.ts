@@ -176,7 +176,6 @@ export const problems = pgTable(
     id: problemPrimaryId(),
     legacyId: varchar('legacy_id', { length: 64 }),
     title: varchar('title', { length: 160 }).notNull(),
-    slug: varchar('slug', { length: 160 }),
     tags: text('tags')
       .array()
       .default(sql`ARRAY[]::text[]`)
@@ -189,7 +188,6 @@ export const problems = pgTable(
     deletedAt: timestamp('deleted_at', { withTimezone: true })
   },
   (t) => ({
-    slugUidx: uniqueIndex('problems_slug_uidx').on(t.slug),
     visibleIdx: index('problems_visible_idx').on(t.visible)
   })
 )

@@ -119,7 +119,6 @@ if (!existingAdmin) {
 const starterProblems = [
   {
     title: 'A+B Problem',
-    slug: 'a-plus-b',
     tags: ['beginner'],
     statementMarkdown:
       '# A+B Problem\n\nRead two integers `a` and `b`, then print their sum.\n\nInput: two integers separated by whitespace.\n\nOutput: one integer.',
@@ -141,16 +140,11 @@ const starterProblems = [
   }
 ]
 
-await db
-  .update(schema.problems)
-  .set({ visible: false, updatedAt: new Date() })
-  .where(eq(schema.problems.slug, 'hello-world'))
-
 for (const starter of starterProblems) {
   const [existing] = await db
     .select()
     .from(schema.problems)
-    .where(eq(schema.problems.slug, starter.slug))
+    .where(eq(schema.problems.id, 1000))
     .limit(1)
   if (existing) {
     await db
@@ -170,7 +164,6 @@ for (const starter of starterProblems) {
     .insert(schema.problems)
     .values({
       title: starter.title,
-      slug: starter.slug,
       tags: starter.tags
     })
     .returning()

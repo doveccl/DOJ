@@ -75,7 +75,6 @@ export function registerProblemRoutes(app: Hono) {
     await db.transaction(async (tx) => {
       const problemPatch: Partial<typeof schema.problems.$inferInsert> = {}
       if ('title' in body) problemPatch.title = body.title
-      if ('slug' in body) problemPatch.slug = body.slug ?? null
       if ('tags' in body) problemPatch.tags = body.tags ?? []
       if ('visible' in body) problemPatch.visible = body.visible
       if (Object.keys(problemPatch).length) {
@@ -118,7 +117,6 @@ export function registerProblemRoutes(app: Hono) {
         .insert(schema.problems)
         .values({
           title: body.title,
-          slug: body.slug ?? null,
           tags: body.tags
         })
         .returning()
@@ -269,7 +267,6 @@ const problemTestCaseSchema = z.object({
 
 const createProblemSchema = z.object({
   title: z.string().min(1).max(160),
-  slug: z.string().min(1).max(160).optional(),
   tags: z.array(z.string()).default([]),
   statementMarkdown: z.string().min(1),
   timeLimitMs: z.number().int().positive().default(1000),
@@ -284,7 +281,6 @@ const createProblemSchema = z.object({
 const updateProblemSchema = z
   .object({
     title: z.string().min(1).max(160).optional(),
-    slug: z.string().min(1).max(160).optional(),
     tags: z.array(z.string()).optional(),
     visible: z.boolean().optional(),
     statementMarkdown: z.string().min(1).optional(),
