@@ -19,6 +19,7 @@ import type { MenuOption } from 'naive-ui'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { apiFetch } from './api'
 import { setLocale, supportedLocales, type SupportedLocale } from './i18n'
 import { useAuthStore } from './stores/auth'
 
@@ -30,6 +31,7 @@ const auth = useAuthStore()
 const authMode = ref<'login' | 'register' | null>(null)
 const authError = ref('')
 const authLoading = ref(false)
+const appConfig = ref({ registration: true, aiCoachingEnabled: true })
 const colorMode = ref<'light' | 'dark'>(
   localStorage.getItem('doj.colorMode') === 'dark' ? 'dark' : 'light'
 )
@@ -73,8 +75,13 @@ const userMenuOptions = computed(() => [
   { label: t('app.signOut'), key: 'logout' }
 ])
 
-onMounted(() => {
+onMounted(async () => {
   auth.restore()
+  try {
+    appConfig.value = await apiFetch<typeof appConfig.value>('/api/config')
+  } catch {
+    appConfig.value = { registration: true, aiCoachingEnabled: true }
+  }
 })
 
 watch(
@@ -87,6 +94,7 @@ watch(
 )
 
 function openAuth(mode: 'login' | 'register') {
+  if (mode === 'register' && !appConfig.value.registration) return
   authError.value = ''
   authMode.value = mode
 }
@@ -150,7 +158,12 @@ function handleUserCommand(key: string) {
             <n-button secondary size="small" @click="openAuth('login')">
               {{ t('app.signIn') }}
             </n-button>
-            <n-button type="primary" size="small" @click="openAuth('register')">
+            <n-button
+              v-if="appConfig.registration"
+              type="primary"
+              size="small"
+              @click="openAuth('register')"
+            >
               {{ t('app.signUp') }}
             </n-button>
           </n-space>

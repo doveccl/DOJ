@@ -4,6 +4,15 @@ const name = `auth_${runId.slice(0, 12).replaceAll('-', '_')}`
 const email = `${name}@example.test`
 const password = 'password123'
 
+const configResponse = await fetch(`${apiBase}/api/config`)
+if (!configResponse.ok) {
+  throw new Error(`config failed: ${configResponse.status} ${await configResponse.text()}`)
+}
+const config = (await configResponse.json()) as { registration: boolean }
+if (!config.registration) {
+  throw new Error('registration should be enabled for auth smoke')
+}
+
 const registerResponse = await fetch(`${apiBase}/api/auth/register`, {
   method: 'POST',
   headers: {

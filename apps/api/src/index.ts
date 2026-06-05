@@ -60,7 +60,7 @@ app.get('/health', (c) =>
 
 app.get('/api/config', (c) =>
   c.json({
-    registration: true,
+    registration: config.registrationEnabled,
     aiCoachingEnabled: config.aiCoachingEnabled
   })
 )
@@ -147,6 +147,10 @@ const registerSchema = z.object({
 })
 
 app.post('/api/auth/register', async (c) => {
+  if (!config.registrationEnabled) {
+    return c.json({ code: 'REGISTRATION_DISABLED', message: 'Registration is disabled' }, 403)
+  }
+
   const body = registerSchema.parse(await c.req.json())
   const existing = await findUserByNameOrEmail(body.name)
   if (existing || (await findUserByNameOrEmail(body.email))) {
