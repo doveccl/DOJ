@@ -1,0 +1,130 @@
+const apiBase = process.env.DOJ_API_BASE ?? 'http://localhost:7974'
+const adminUser = process.env.DOJ_ADMIN_NAME ?? 'admin'
+const adminPassword = process.env.DOJ_ADMIN_PASSWORD ?? 'admin12345'
+const runId = crypto.randomUUID()
+
+const admin = await login(adminUser, adminPassword)
+const user = await registerUser()
+const otherProblem = await createProblem(admin.token, `Other ${runId.slice(0, 8)}`)
+const hiddenProblem = await createProblem(admin.token, `Hidden ${runId.slice(0, 8)}`)
+const visibleProblem = await createProblem(admin.token, `Visible ${runId.slice(0, 8)}`)
+
+await api(`/api/problems/${hiddenProblem.problem.id}`, {
+  method: 'PATCH',
+  headers: jsonAuth(admin.token),
+  body: JSON.stringify({ visible: false })
+})
+
+const group = (await api('/api/groups', {
+  method: 'POST',
+  headers: jsonAuth(admin.token),
+  body: JSON.stringify({
+    key: `security_${runId.slice(0, 8)}`,
+    name: 'Submission Security Smoke',
+    description: 'Created by submission security smoke.'
+  })
+})) as { id: number }
+
+const assignment = (await api('/api/assignments', {
+  method: 'POST',
+  headers: jsonAuth(admin.token),
+  body: JSON.stringify({
+    title: `Submission Security ${runId.slice(0, 8)}`,
+    groupIds: [group.id],
+    problems: [{ problemId: visibleProblem.problem.id, score: 100 }],
+    allowLate: true
+  })
+})) as { assignment: { id: number } }
+
+const versionMismatchStatus = await submitStatus(user.token, {
+  problemId: visibleProblem.problem.id,
+  problemVersionId: otherProblem.version.id
+})
+if (versionMismatchStatus !== 400) {
+  throw new Error(`expected version mismatch 400, got ${versionMismatchStatus}`)
+}
+
+const hiddenStatus = await submitStatus(user.token, {
+  problemId: hiddenProblem.problem.id,
+  problemVersionId: hiddenProblem.version.id
+})
+if (hiddenStatus !== 404) {
+  throw new Error(`expected hidden problem 404, got ${hiddenStatus}`)
+}
+
+const assignmentStatus = await submitStatus(user.token, {
+  problemId: visibleProblem.problem.id,
+  problemVersionId: visibleProblem.version.id,
+  assignmentId: assignment.assignment.id
+})
+if (assignmentStatus !== 404) {
+  throw new Error(`expected non-member assignment 404, got ${assignmentStatus}`)
+}
+
+console.log({
+  versionMismatchStatus,
+  hiddenStatus,
+  assignmentStatus
+})
+
+async function login(user: string, password: string) {
+  return api('/api/auth/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ user, password })
+  }) as Promise<{ token: string }>
+}
+
+async function registerUser() {
+  return api('/api/auth/register', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      name: `security_${runId.slice(0, 8)}`,
+      email: `security_${runId}@example.test`,
+      password: 'password123'
+    })
+  }) as Promise<{ token: string }>
+}
+
+async function createProblem(token: string, title: string) {
+  return api('/api/problems', {
+    method: 'POST',
+    headers: jsonAuth(token),
+    body: JSON.stringify({
+      title,
+      slug: `${title.toLowerCase().replaceAll(' ', '-')}-${runId}`,
+      statementMarkdown: '# Security Smoke\n\nReturn zero.',
+      testCases: [{ input: '', output: '', hidden: false }]
+    })
+  }) as Promise<{ problem: { id: number }; version: { id: number } }>
+}
+
+async function submitStatus(
+  token: string,
+  body: { problemId: number; problemVersionId: number; assignmentId?: number }
+) {
+  const response = await fetch(`${apiBase}/api/submissions`, {
+    method: 'POST',
+    headers: jsonAuth(token),
+    body: JSON.stringify({
+      ...body,
+      languageId: 'cpp',
+      sourceCode: '#include <bits/stdc++.h>\nint main(){return 0;}\n'
+    })
+  })
+  return response.status
+}
+
+async function api(path: string, init: RequestInit = {}) {
+  const response = await fetch(`${apiBase}${path}`, init)
+  if (!response.ok) throw new Error(`${path} failed: ${response.status} ${await response.text()}`)
+  return response.json()
+}
+
+function jsonAuth(token: string) {
+  return {
+    'content-type': 'application/json',
+    authorization: `Bearer ${token}`
+  }
+}

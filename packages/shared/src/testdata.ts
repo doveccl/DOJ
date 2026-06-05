@@ -6,8 +6,24 @@ interface ZipEntry {
   bytes: Uint8Array
 }
 
-export function parseZipTestCases(bytes: Uint8Array): ProblemTestCase[] {
-  const entries = readZipEntries(bytes)
+export interface ParseZipTestCasesOptions {
+  maxEntries?: number
+  maxEntryBytes?: number
+  maxTotalBytes?: number
+}
+
+const defaultZipLimits = {
+  maxEntries: 240,
+  maxEntryBytes: 2 * 1024 * 1024,
+  maxTotalBytes: 32 * 1024 * 1024
+}
+
+export function parseZipTestCases(
+  bytes: Uint8Array,
+  options: ParseZipTestCasesOptions = {}
+): ProblemTestCase[] {
+  const limits = { ...defaultZipLimits, ...options }
+  const entries = readZipEntries(bytes, limits)
   const byName = new Map(entries.map((entry) => [normalizeName(entry.name), entry.bytes]))
   const inputNames = [...byName.keys()]
     .filter((name) => name.endsWith('.in'))
@@ -31,10 +47,11 @@ export function parseZipTestCases(bytes: Uint8Array): ProblemTestCase[] {
   })
 }
 
-function readZipEntries(bytes: Uint8Array) {
+function readZipEntries(bytes: Uint8Array, limits: Required<ParseZipTestCasesOptions>) {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   const entries: ZipEntry[] = []
   let offset = 0
+  let totalBytes = 0
 
   while (offset + 30 <= bytes.length) {
     const signature = view.getUint32(offset, true)
@@ -56,9 +73,18 @@ function readZipEntries(bytes: Uint8Array) {
 
     const name = new TextDecoder().decode(bytes.slice(offset + 30, offset + 30 + filenameLength))
     if (!name.endsWith('/')) {
+      if (entries.length >= limits.maxEntries) throw new Error('ZIP contains too many files.')
+      const decoded = decodeEntry(method, bytes.slice(dataStart, dataEnd))
+      if (decoded.byteLength > limits.maxEntryBytes) {
+        throw new Error(`ZIP entry is too large: ${name}`)
+      }
+      totalBytes += decoded.byteLength
+      if (totalBytes > limits.maxTotalBytes) {
+        throw new Error('ZIP uncompressed data is too large.')
+      }
       entries.push({
         name,
-        bytes: decodeEntry(method, bytes.slice(dataStart, dataEnd))
+        bytes: decoded
       })
     }
 

@@ -24,6 +24,7 @@ import { createCoachingResponse } from './ai'
 
 const app = new Hono()
 const numericId = z.coerce.number().int().positive()
+const maxTestdataUploadBytes = 64 * 1024 * 1024
 
 app.use('*', logger())
 
@@ -966,7 +967,22 @@ app.post('/api/problems/:id/testdata', authMiddleware, async (c) => {
   }
 
   const bytes = new Uint8Array(await upload.arrayBuffer())
-  const cases = parseZipTestCases(bytes)
+  if (bytes.byteLength > maxTestdataUploadBytes) {
+    return c.json({ code: 'FILE_TOO_LARGE', message: 'Testdata ZIP is too large' }, 413)
+  }
+
+  let cases
+  try {
+    cases = parseZipTestCases(bytes)
+  } catch (cause) {
+    return c.json(
+      {
+        code: 'INVALID_TESTDATA_ZIP',
+        message: cause instanceof Error ? cause.message : 'Invalid ZIP testdata'
+      },
+      400
+    )
+  }
   if (!cases.length) {
     return c.json({ code: 'EMPTY_TESTDATA', message: 'ZIP must contain .in/.out case pairs' }, 400)
   }
@@ -1028,6 +1044,13 @@ const submitSchema = z.object({
 app.post('/api/submissions', authMiddleware, async (c) => {
   const user = await requireAuthUser(c)
   const body = submitSchema.parse(await c.req.json())
+  if (body.contestId && body.assignmentId) {
+    return c.json(
+      { code: 'AMBIGUOUS_SUBMISSION_CONTEXT', message: 'Choose contest or assignment, not both' },
+      400
+    )
+  }
+
   const [language] = await db
     .select({ id: schema.judgeLanguages.id })
     .from(schema.judgeLanguages)
@@ -1040,10 +1063,49 @@ app.post('/api/submissions', authMiddleware, async (c) => {
     return c.json({ code: 'LANGUAGE_DISABLED', message: 'Language is not enabled' }, 400)
   }
 
+  const [target] = await db
+    .select({
+      problemId: schema.problems.id,
+      visible: schema.problems.visible,
+      versionId: schema.problemVersions.id
+    })
+    .from(schema.problemVersions)
+    .innerJoin(schema.problems, eq(schema.problemVersions.problemId, schema.problems.id))
+    .where(
+      and(
+        eq(schema.problemVersions.id, body.problemVersionId),
+        eq(schema.problemVersions.problemId, body.problemId)
+      )
+    )
+    .limit(1)
+  if (!target) {
+    return c.json(
+      {
+        code: 'PROBLEM_VERSION_NOT_FOUND',
+        message: 'Problem version does not belong to this problem'
+      },
+      400
+    )
+  }
+
   if (body.contestId) {
     const contestCheck = await validateContestSubmission(body.contestId, body.problemId)
     if (contestCheck)
       return c.json({ code: contestCheck.code, message: contestCheck.message }, contestCheck.status)
+  } else if (body.assignmentId) {
+    const assignmentCheck = await validateAssignmentSubmission(
+      user.id,
+      body.assignmentId,
+      body.problemId
+    )
+    if (assignmentCheck) {
+      return c.json(
+        { code: assignmentCheck.code, message: assignmentCheck.message },
+        assignmentCheck.status
+      )
+    }
+  } else if (!target.visible) {
+    return c.notFound()
   }
 
   const [submission] = await db
@@ -1547,6 +1609,79 @@ async function validateContestSubmission(contestId: number, problemId: number) {
       status: 400 as const,
       code: 'PROBLEM_NOT_IN_CONTEST',
       message: 'Problem does not belong to this contest'
+    }
+  }
+
+  return null
+}
+
+async function validateAssignmentSubmission(
+  userId: number,
+  assignmentId: number,
+  problemId: number
+) {
+  const [assignment] = await db
+    .select({
+      id: schema.assignments.id,
+      startAt: schema.assignments.startAt,
+      dueAt: schema.assignments.dueAt,
+      allowLate: schema.assignments.allowLate
+    })
+    .from(schema.assignments)
+    .innerJoin(
+      schema.assignmentGroups,
+      eq(schema.assignmentGroups.assignmentId, schema.assignments.id)
+    )
+    .innerJoin(
+      schema.userGroups,
+      and(
+        eq(schema.userGroups.groupId, schema.assignmentGroups.groupId),
+        eq(schema.userGroups.userId, userId)
+      )
+    )
+    .where(eq(schema.assignments.id, assignmentId))
+    .limit(1)
+
+  if (!assignment) {
+    return {
+      status: 404 as const,
+      code: 'ASSIGNMENT_NOT_FOUND',
+      message: 'Assignment does not exist for this user'
+    }
+  }
+
+  const now = new Date()
+  if (assignment.startAt && now < assignment.startAt) {
+    return {
+      status: 400 as const,
+      code: 'ASSIGNMENT_NOT_STARTED',
+      message: 'Assignment has not started'
+    }
+  }
+  if (assignment.dueAt && !assignment.allowLate && now > assignment.dueAt) {
+    return {
+      status: 400 as const,
+      code: 'ASSIGNMENT_CLOSED',
+      message: 'Assignment deadline has passed'
+    }
+  }
+
+  const [assignmentProblem] = await db
+    .select({ problemId: schema.assignmentProblems.problemId })
+    .from(schema.assignmentProblems)
+    .where(
+      and(
+        eq(schema.assignmentProblems.assignmentId, assignmentId),
+        eq(schema.assignmentProblems.problemId, problemId)
+      )
+    )
+    .limit(1)
+
+  if (!assignmentProblem) {
+    return {
+      status: 400 as const,
+      code: 'PROBLEM_NOT_IN_ASSIGNMENT',
+      message: 'Problem does not belong to this assignment'
     }
   }
 

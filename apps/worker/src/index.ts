@@ -215,7 +215,8 @@ async function judgeCases(input: JudgeCasesInput) {
 
     if (caseStatus !== 'AC') {
       status = caseStatus
-      message = `case ${index + 1}${testCase.name ? ` (${testCase.name})` : ''}: ${caseMessage}`
+      const caseName = testCase.hidden ? '' : testCase.name
+      message = `case ${index + 1}${caseName ? ` (${caseName})` : ''}: ${caseMessage}`
       break
     }
   }

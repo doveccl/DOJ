@@ -99,6 +99,7 @@ try {
     throw new Error(`expected WA, got ${judged.status}: ${judged.message}`)
   }
   assertNoSecret('submission message', judged.message)
+  assertNoHiddenCaseName('submission message', judged.message)
 
   const [caseResult] = await db
     .select()
@@ -107,6 +108,7 @@ try {
     .limit(1)
   if (!caseResult) throw new Error('expected a submission case result')
   assertNoSecret('case message', caseResult.message)
+  assertNoHiddenCaseName('case message', caseResult.message)
 
   const anonymousCoach = await fetch(`${apiBase}/api/submissions/${submission.id}/coach`, {
     method: 'POST'
@@ -150,6 +152,12 @@ try {
 function assertNoSecret(label: string, value: string) {
   if (value.includes(hiddenExpected)) {
     throw new Error(`${label} leaked hidden expected output: ${value}`)
+  }
+}
+
+function assertNoHiddenCaseName(label: string, value: string) {
+  if (value.includes('hidden-secret')) {
+    throw new Error(`${label} leaked hidden case name: ${value}`)
   }
 }
 
