@@ -146,12 +146,14 @@ function handleUserCommand(key: string) {
               <n-button text>{{ auth.user?.name }}</n-button>
             </n-dropdown>
           </template>
-          <template v-else>
-            <n-button text @click="openAuth('login')">{{ t('app.signIn') }}</n-button>
+          <n-space v-else align="center" :size="8" class="auth-actions">
+            <n-button secondary size="small" @click="openAuth('login')">
+              {{ t('app.signIn') }}
+            </n-button>
             <n-button type="primary" size="small" @click="openAuth('register')">
               {{ t('app.signUp') }}
             </n-button>
-          </template>
+          </n-space>
         </n-space>
       </header>
       <n-layout-content class="content">

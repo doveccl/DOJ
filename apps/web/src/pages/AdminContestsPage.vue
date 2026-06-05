@@ -15,6 +15,7 @@ import {
 } from 'naive-ui'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 import { useAuthStore } from '../stores/auth'
 
@@ -33,6 +34,7 @@ interface ProblemRow {
 }
 
 const auth = useAuthStore()
+const { t } = useI18n()
 const canManage = computed(() => auth.user?.groups.includes('admin') ?? false)
 const loading = ref(true)
 const saving = ref(false)
@@ -50,10 +52,10 @@ const form = reactive({
   problemIds: [] as number[]
 })
 
-const columns: DataTableColumns<ContestRow> = [
-  { title: 'Title', key: 'title' },
+const columns = computed<DataTableColumns<ContestRow>>(() => [
+  { title: t('common.title'), key: 'title' },
   {
-    title: 'Type',
+    title: t('admin.contests.type'),
     key: 'type',
     width: 100,
     render(row) {
@@ -61,27 +63,27 @@ const columns: DataTableColumns<ContestRow> = [
     }
   },
   {
-    title: 'Start',
+    title: t('admin.contests.start'),
     key: 'startAt',
     render(row) {
       return new Date(row.startAt).toLocaleString()
     }
   },
   {
-    title: 'End',
+    title: t('admin.contests.end'),
     key: 'endAt',
     render(row) {
       return new Date(row.endAt).toLocaleString()
     }
   },
   {
-    title: 'Freeze',
+    title: t('admin.contests.freeze'),
     key: 'freezeAt',
     render(row) {
       return row.freezeAt ? new Date(row.freezeAt).toLocaleString() : '-'
     }
   }
-]
+])
 
 async function loadData() {
   loading.value = true
@@ -152,12 +154,12 @@ onMounted(() => {
 <template>
   <main class="page">
     <section class="page-header">
-      <h1>Contests</h1>
-      <p>Create timed problem sets with contest-only submissions.</p>
+      <h1>{{ t('admin.contests.title') }}</h1>
+      <p>{{ t('admin.contests.subtitle') }}</p>
     </section>
 
     <n-alert v-if="!canManage" type="warning" class="page-alert">
-      Admin group is required.
+      {{ t('admin.requireAdmin') }}
     </n-alert>
     <n-alert v-if="error" type="error" class="page-alert">
       {{ error }}
@@ -165,7 +167,9 @@ onMounted(() => {
 
     <n-card v-if="canManage" :bordered="false">
       <n-space justify="end" class="table-toolbar">
-        <n-button type="primary" @click="showCreateModal = true">Create contest</n-button>
+        <n-button type="primary" @click="showCreateModal = true">
+          {{ t('admin.contests.create') }}
+        </n-button>
       </n-space>
       <n-data-table
         :columns="columns"
@@ -176,12 +180,17 @@ onMounted(() => {
       />
     </n-card>
 
-    <n-modal v-model:show="showCreateModal" preset="card" title="Create contest" class="form-modal">
+    <n-modal
+      v-model:show="showCreateModal"
+      preset="card"
+      :title="t('admin.contests.create')"
+      class="form-modal"
+    >
       <n-form :model="form" label-placement="top">
-        <n-form-item label="Title">
+        <n-form-item :label="t('common.title')">
           <n-input v-model:value="form.title" placeholder="Weekly Contest" />
         </n-form-item>
-        <n-form-item label="Type">
+        <n-form-item :label="t('admin.contests.type')">
           <n-select
             v-model:value="form.type"
             :options="[
@@ -190,24 +199,24 @@ onMounted(() => {
             ]"
           />
         </n-form-item>
-        <n-form-item label="Problems">
+        <n-form-item :label="t('nav.problems')">
           <n-select
             v-model:value="form.problemIds"
             multiple
             filterable
             :options="problemOptions"
-            placeholder="Select problems"
+            :placeholder="t('admin.contests.selectProblems')"
           />
         </n-form-item>
         <div class="form-grid">
-          <n-form-item label="Start at">
+          <n-form-item :label="t('admin.contests.startAt')">
             <n-date-picker v-model:value="form.startAt" type="datetime" class="full-width" />
           </n-form-item>
-          <n-form-item label="End at">
+          <n-form-item :label="t('admin.contests.endAt')">
             <n-date-picker v-model:value="form.endAt" type="datetime" class="full-width" />
           </n-form-item>
         </div>
-        <n-form-item label="Freeze at">
+        <n-form-item :label="t('admin.contests.freezeAt')">
           <n-date-picker
             v-model:value="form.freezeAt"
             type="datetime"
@@ -215,23 +224,23 @@ onMounted(() => {
             class="full-width"
           />
         </n-form-item>
-        <n-form-item label="Description">
+        <n-form-item :label="t('admin.description')">
           <n-input
             v-model:value="form.description"
             type="textarea"
-            placeholder="Optional notes"
+            :placeholder="t('admin.optionalNotes')"
             :autosize="{ minRows: 3, maxRows: 5 }"
           />
         </n-form-item>
         <n-space justify="end" class="form-actions">
-          <n-button @click="showCreateModal = false">Cancel</n-button>
+          <n-button @click="showCreateModal = false">{{ t('admin.cancel') }}</n-button>
           <n-button
             type="primary"
             :loading="saving"
             :disabled="!form.title || !form.problemIds.length || form.endAt <= form.startAt"
             @click="createContest"
           >
-            Create
+            {{ t('admin.create') }}
           </n-button>
         </n-space>
       </n-form>

@@ -16,6 +16,7 @@ import {
 } from 'naive-ui'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 import { useAuthStore } from '../stores/auth'
 
@@ -71,6 +72,7 @@ interface AssignmentReport {
 }
 
 const auth = useAuthStore()
+const { t } = useI18n()
 const canManage = computed(() => auth.user?.groups.includes('admin') ?? false)
 const loading = ref(true)
 const saving = ref(false)
@@ -91,49 +93,51 @@ const form = reactive({
   aiCoachingEnabled: true
 })
 
-const columns: DataTableColumns<AssignmentRow> = [
-  { title: 'Title', key: 'title' },
+const columns = computed<DataTableColumns<AssignmentRow>>(() => [
+  { title: t('common.title'), key: 'title' },
   {
-    title: 'Due',
+    title: t('admin.assignments.due'),
     key: 'dueAt',
     render(row) {
       return row.dueAt ? new Date(row.dueAt).toLocaleString() : '-'
     }
   },
   {
-    title: 'Late',
+    title: t('admin.assignments.late'),
     key: 'allowLate',
     render(row) {
       return h(NTag, { bordered: false, type: row.allowLate ? 'warning' : 'default' }, () =>
-        row.allowLate ? 'allowed' : 'closed'
+        row.allowLate ? t('admin.assignments.allowed') : t('admin.assignments.closed')
       )
     }
   },
   {
-    title: 'AI',
+    title: t('admin.assignments.ai'),
     key: 'aiCoachingEnabled',
     render(row) {
       return h(
         NTag,
         { bordered: false, type: row.aiCoachingEnabled ? 'success' : 'default' },
-        () => (row.aiCoachingEnabled ? 'on' : 'off')
+        () => (row.aiCoachingEnabled ? t('admin.assignments.on') : t('admin.assignments.off'))
       )
     }
   },
   {
-    title: 'Action',
+    title: t('admin.actions'),
     key: 'action',
     width: 120,
     render(row) {
-      return h(NButton, { size: 'small', onClick: () => loadReport(row.id) }, () => 'Report')
+      return h(NButton, { size: 'small', onClick: () => loadReport(row.id) }, () =>
+        t('admin.assignments.report')
+      )
     }
   }
-]
+])
 
 const reportColumns = computed<DataTableColumns<AssignmentReportRow>>(() => [
-  { title: 'Student', key: 'userName', minWidth: 140 },
-  { title: 'Solved', key: 'solved', width: 96 },
-  { title: 'Submitted', key: 'submitted', width: 110 },
+  { title: t('admin.assignments.student'), key: 'userName', minWidth: 140 },
+  { title: t('common.solved'), key: 'solved', width: 96 },
+  { title: t('admin.assignments.submitted'), key: 'submitted', width: 110 },
   ...(report.value?.problems.map((problem) => ({
     title: String(problem.id),
     key: String(problem.id),
@@ -233,12 +237,12 @@ onMounted(() => {
 <template>
   <main class="page">
     <section class="page-header">
-      <h1>Assignments</h1>
-      <p>Publish problem sets to groups with optional deadlines.</p>
+      <h1>{{ t('admin.assignments.title') }}</h1>
+      <p>{{ t('admin.assignments.subtitle') }}</p>
     </section>
 
     <n-alert v-if="!canManage" type="warning" class="page-alert">
-      Admin group is required.
+      {{ t('admin.requireAdmin') }}
     </n-alert>
 
     <n-alert v-if="error" type="error" class="page-alert">
@@ -247,7 +251,9 @@ onMounted(() => {
 
     <n-card v-if="canManage" :bordered="false">
       <n-space justify="end" class="table-toolbar">
-        <n-button type="primary" @click="showCreateModal = true">Create assignment</n-button>
+        <n-button type="primary" @click="showCreateModal = true">
+          {{ t('admin.assignments.create') }}
+        </n-button>
       </n-space>
       <n-data-table
         :columns="columns"
@@ -261,55 +267,59 @@ onMounted(() => {
     <n-modal
       v-model:show="showCreateModal"
       preset="card"
-      title="Create assignment"
+      :title="t('admin.assignments.create')"
       class="form-modal"
     >
       <n-form :model="form" label-placement="top">
-        <n-form-item label="Title">
+        <n-form-item :label="t('common.title')">
           <n-input v-model:value="form.title" placeholder="Week 1 Practice" />
         </n-form-item>
-        <n-form-item label="Groups">
+        <n-form-item :label="t('nav.groups')">
           <n-select
             v-model:value="form.groupIds"
             multiple
             filterable
             :options="groupOptions"
-            placeholder="Select groups"
+            :placeholder="t('admin.assignments.selectGroups')"
           />
         </n-form-item>
-        <n-form-item label="Problems">
+        <n-form-item :label="t('nav.problems')">
           <n-select
             v-model:value="form.problemIds"
             multiple
             filterable
             :options="problemOptions"
-            placeholder="Select problems"
+            :placeholder="t('admin.assignments.selectProblems')"
           />
         </n-form-item>
-        <n-form-item label="Due at">
+        <n-form-item :label="t('admin.assignments.dueAt')">
           <n-date-picker v-model:value="form.dueAt" type="datetime" clearable class="full-width" />
         </n-form-item>
-        <n-form-item label="Description">
+        <n-form-item :label="t('admin.description')">
           <n-input
             v-model:value="form.description"
             type="textarea"
-            placeholder="Optional notes"
+            :placeholder="t('admin.optionalNotes')"
             :autosize="{ minRows: 3, maxRows: 5 }"
           />
         </n-form-item>
         <n-space vertical>
-          <n-checkbox v-model:checked="form.allowLate">Allow late submissions</n-checkbox>
-          <n-checkbox v-model:checked="form.aiCoachingEnabled">Enable AI coaching</n-checkbox>
+          <n-checkbox v-model:checked="form.allowLate">
+            {{ t('admin.assignments.allowLate') }}
+          </n-checkbox>
+          <n-checkbox v-model:checked="form.aiCoachingEnabled">
+            {{ t('admin.assignments.aiCoaching') }}
+          </n-checkbox>
         </n-space>
         <n-space justify="end" class="form-actions">
-          <n-button @click="showCreateModal = false">Cancel</n-button>
+          <n-button @click="showCreateModal = false">{{ t('admin.cancel') }}</n-button>
           <n-button
             type="primary"
             :loading="saving"
             :disabled="!form.title || !form.groupIds.length || !form.problemIds.length"
             @click="createAssignment"
           >
-            Create
+            {{ t('admin.create') }}
           </n-button>
         </n-space>
       </n-form>
@@ -317,7 +327,7 @@ onMounted(() => {
 
     <n-card
       v-if="canManage && report"
-      :title="`Report: ${report.assignment.title}`"
+      :title="`${t('admin.assignments.report')}: ${report.assignment.title}`"
       :bordered="false"
       class="stacked-card"
     >

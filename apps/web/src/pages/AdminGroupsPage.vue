@@ -15,6 +15,7 @@ import {
 } from 'naive-ui'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 import { useAuthStore } from '../stores/auth'
 
@@ -37,6 +38,7 @@ interface MemberRow extends UserRow {
 }
 
 const auth = useAuthStore()
+const { t } = useI18n()
 const canManage = computed(() => auth.user?.groups.includes('admin') ?? false)
 const loading = ref(true)
 const memberLoading = ref(false)
@@ -59,40 +61,40 @@ const memberForm = reactive({
   manager: false
 })
 
-const columns: DataTableColumns<GroupRow> = [
-  { title: 'Key', key: 'key' },
-  { title: 'Name', key: 'name' },
+const columns = computed<DataTableColumns<GroupRow>>(() => [
+  { title: t('admin.key'), key: 'key' },
+  { title: t('admin.name'), key: 'name' },
   {
-    title: 'Description',
+    title: t('admin.description'),
     key: 'description',
     ellipsis: {
       tooltip: true
     }
   },
   {
-    title: 'Type',
+    title: t('admin.groups.type'),
     key: 'builtin',
     render(row) {
       return h(NTag, { bordered: false, type: row.builtin ? 'info' : 'default' }, () =>
-        row.builtin ? 'builtin' : 'custom'
+        row.builtin ? t('admin.groups.builtin') : t('admin.groups.custom')
       )
     }
   }
-]
+])
 
-const memberColumns: DataTableColumns<MemberRow> = [
-  { title: 'Name', key: 'name' },
-  { title: 'Email', key: 'email' },
+const memberColumns = computed<DataTableColumns<MemberRow>>(() => [
+  { title: t('admin.name'), key: 'name' },
+  { title: t('app.email'), key: 'email' },
   {
-    title: 'Role',
+    title: t('admin.groups.role'),
     key: 'manager',
     render(row) {
       return h(NTag, { bordered: false, type: row.manager ? 'success' : 'default' }, () =>
-        row.manager ? 'manager' : 'member'
+        row.manager ? t('admin.groups.manager') : t('admin.groups.member')
       )
     }
   }
-]
+])
 
 const groupOptions = computed<SelectOption[]>(() =>
   groups.value.map((group) => ({
@@ -206,12 +208,12 @@ onMounted(() => {
 <template>
   <main class="page">
     <section class="page-header">
-      <h1>Groups</h1>
-      <p>Manage coarse-grained access groups for the system.</p>
+      <h1>{{ t('admin.groups.title') }}</h1>
+      <p>{{ t('admin.groups.subtitle') }}</p>
     </section>
 
     <n-alert v-if="!canManage" type="warning" class="page-alert">
-      Admin group is required.
+      {{ t('admin.requireAdmin') }}
     </n-alert>
 
     <n-alert v-if="error" type="error" class="page-alert">
@@ -227,7 +229,9 @@ onMounted(() => {
             filterable
             class="toolbar-select"
           />
-          <n-button type="primary" @click="showCreateModal = true">Create group</n-button>
+          <n-button type="primary" @click="showCreateModal = true">
+            {{ t('admin.groups.create') }}
+          </n-button>
         </n-space>
         <n-data-table
           :columns="columns"
@@ -238,10 +242,10 @@ onMounted(() => {
         />
       </n-card>
 
-      <n-card title="Members" :bordered="false">
+      <n-card :title="t('admin.groups.members')" :bordered="false">
         <n-space justify="end" class="table-toolbar">
           <n-button type="primary" :disabled="!selectedGroupId" @click="showMemberModal = true">
-            Add member
+            {{ t('admin.groups.addMember') }}
           </n-button>
         </n-space>
         <n-data-table
@@ -254,31 +258,36 @@ onMounted(() => {
       </n-card>
     </section>
 
-    <n-modal v-model:show="showCreateModal" preset="card" title="Create group" class="form-modal">
+    <n-modal
+      v-model:show="showCreateModal"
+      preset="card"
+      :title="t('admin.groups.create')"
+      class="form-modal"
+    >
       <n-form :model="form" label-placement="top">
-        <n-form-item label="Key">
+        <n-form-item :label="t('admin.key')">
           <n-input v-model:value="form.key" placeholder="team-alpha" />
         </n-form-item>
-        <n-form-item label="Name">
+        <n-form-item :label="t('admin.name')">
           <n-input v-model:value="form.name" placeholder="Team Alpha" />
         </n-form-item>
-        <n-form-item label="Description">
+        <n-form-item :label="t('admin.description')">
           <n-input
             v-model:value="form.description"
             type="textarea"
-            placeholder="Optional notes"
+            :placeholder="t('admin.optionalNotes')"
             :autosize="{ minRows: 3, maxRows: 5 }"
           />
         </n-form-item>
         <n-space justify="end" class="form-actions">
-          <n-button @click="showCreateModal = false">Cancel</n-button>
+          <n-button @click="showCreateModal = false">{{ t('admin.cancel') }}</n-button>
           <n-button
             type="primary"
             :loading="saving"
             :disabled="!form.key || !form.name"
             @click="createGroup"
           >
-            Create
+            {{ t('admin.create') }}
           </n-button>
         </n-space>
       </n-form>
@@ -287,26 +296,28 @@ onMounted(() => {
     <n-modal
       v-model:show="showMemberModal"
       preset="card"
-      title="Add member"
+      :title="t('admin.groups.addMember')"
       class="form-modal narrow"
     >
       <n-form :model="memberForm" label-placement="top">
-        <n-form-item label="Group">
+        <n-form-item :label="t('admin.groups.group')">
           <n-select v-model:value="selectedGroupId" :options="groupOptions" filterable />
         </n-form-item>
-        <n-form-item label="User">
+        <n-form-item :label="t('common.user')">
           <n-select v-model:value="memberForm.userId" :options="userOptions" filterable />
         </n-form-item>
-        <n-checkbox v-model:checked="memberForm.manager">Group manager</n-checkbox>
+        <n-checkbox v-model:checked="memberForm.manager">
+          {{ t('admin.groups.groupManager') }}
+        </n-checkbox>
         <n-space justify="end" class="form-actions">
-          <n-button @click="showMemberModal = false">Cancel</n-button>
+          <n-button @click="showMemberModal = false">{{ t('admin.cancel') }}</n-button>
           <n-button
             type="primary"
             :loading="addingMember"
             :disabled="!selectedGroupId || !memberForm.userId"
             @click="addMember"
           >
-            Add
+            {{ t('admin.groups.addMember') }}
           </n-button>
         </n-space>
       </n-form>

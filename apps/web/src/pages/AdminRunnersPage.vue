@@ -15,6 +15,7 @@ import {
 } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 import { useAuthStore } from '../stores/auth'
 
@@ -30,6 +31,7 @@ interface RunnerRow {
 }
 
 const auth = useAuthStore()
+const { t } = useI18n()
 const canManage = computed(() => auth.user?.groups.includes('admin') ?? false)
 const loading = ref(true)
 const saving = ref(false)
@@ -47,36 +49,36 @@ const form = reactive({
   sortOrder: 100
 })
 
-const columns: DataTableColumns<RunnerRow> = [
-  { title: 'Key', key: 'key', width: 140 },
-  { title: 'Name', key: 'name', width: 160 },
+const columns = computed<DataTableColumns<RunnerRow>>(() => [
+  { title: t('admin.key'), key: 'key', width: 140 },
+  { title: t('admin.name'), key: 'name', width: 160 },
   {
-    title: 'Endpoint',
+    title: t('admin.runners.endpoint'),
     key: 'endpoint',
     ellipsis: {
       tooltip: true
     },
     render(row) {
-      return row.endpoint || 'local'
+      return row.endpoint || t('admin.runners.local')
     }
   },
   {
-    title: 'Status',
+    title: t('admin.status'),
     key: 'enabled',
     render(row) {
       return h(NTag, { bordered: false, type: row.enabled ? 'success' : 'default' }, () =>
-        row.enabled ? 'enabled' : 'disabled'
+        row.enabled ? t('admin.enabled') : t('admin.disabled')
       )
     }
   },
-  { title: 'Concurrency', key: 'concurrency', width: 128 },
+  { title: t('admin.runners.concurrency'), key: 'concurrency', width: 128 },
   {
-    title: 'Action',
+    title: t('admin.actions'),
     key: 'action',
     width: 180,
     render(row) {
       return h(NSpace, { size: 8 }, () => [
-        h(NButton, { size: 'small', onClick: () => editRunner(row) }, () => 'Edit'),
+        h(NButton, { size: 'small', onClick: () => editRunner(row) }, () => t('admin.edit')),
         h(
           NButton,
           {
@@ -84,12 +86,12 @@ const columns: DataTableColumns<RunnerRow> = [
             loading: checkingId.value === row.id,
             onClick: () => checkRunner(row)
           },
-          () => 'Check'
+          () => t('admin.runners.check')
         )
       ])
     }
   }
-]
+])
 
 async function loadRunners() {
   loading.value = true
@@ -185,12 +187,12 @@ onMounted(() => {
 <template>
   <main class="page">
     <section class="page-header">
-      <h1>Runners</h1>
-      <p>Configure local or remote Docker API judging backends.</p>
+      <h1>{{ t('admin.runners.title') }}</h1>
+      <p>{{ t('admin.runners.subtitle') }}</p>
     </section>
 
     <n-alert v-if="!canManage" type="warning" class="page-alert">
-      Admin group is required.
+      {{ t('admin.requireAdmin') }}
     </n-alert>
 
     <n-alert v-if="error" type="error" class="page-alert">
@@ -202,7 +204,7 @@ onMounted(() => {
 
     <n-card v-if="canManage" :bordered="false">
       <n-space justify="end" class="table-toolbar">
-        <n-button type="primary" @click="newRunner">New runner</n-button>
+        <n-button type="primary" @click="newRunner">{{ t('admin.runners.new') }}</n-button>
       </n-space>
       <n-data-table
         :columns="columns"
@@ -213,42 +215,47 @@ onMounted(() => {
       />
     </n-card>
 
-    <n-modal v-model:show="showConfigModal" preset="card" title="Runner config" class="form-modal">
+    <n-modal
+      v-model:show="showConfigModal"
+      preset="card"
+      :title="t('admin.runners.config')"
+      class="form-modal"
+    >
       <n-form :model="form" label-placement="top">
-        <n-form-item label="Key">
+        <n-form-item :label="t('admin.key')">
           <n-input v-model:value="form.key" placeholder="remote-1" />
         </n-form-item>
-        <n-form-item label="Name">
+        <n-form-item :label="t('admin.name')">
           <n-input v-model:value="form.name" placeholder="Remote Docker 1" />
         </n-form-item>
-        <n-form-item label="Docker endpoint">
+        <n-form-item :label="t('admin.runners.endpoint')">
           <n-input
             v-model:value="form.endpoint"
             placeholder="unix:///var/run/docker.sock or https://user:pass@host"
           />
         </n-form-item>
         <div class="form-grid two">
-          <n-form-item label="Concurrency">
+          <n-form-item :label="t('admin.runners.concurrency')">
             <n-input-number v-model:value="form.concurrency" class="full-width" :min="1" />
           </n-form-item>
-          <n-form-item label="Sort order">
+          <n-form-item :label="t('admin.sortOrder')">
             <n-input-number v-model:value="form.sortOrder" class="full-width" :min="0" />
           </n-form-item>
         </div>
         <n-space align="center" justify="space-between" class="form-actions">
           <n-space align="center">
             <n-switch v-model:value="form.enabled" />
-            <span>{{ form.enabled ? 'Enabled' : 'Disabled' }}</span>
+            <span>{{ form.enabled ? t('admin.enabled') : t('admin.disabled') }}</span>
           </n-space>
           <n-space>
-            <n-button @click="showConfigModal = false">Cancel</n-button>
+            <n-button @click="showConfigModal = false">{{ t('admin.cancel') }}</n-button>
             <n-button
               type="primary"
               :loading="saving"
               :disabled="!form.key || !form.name"
               @click="saveRunner"
             >
-              Save
+              {{ t('admin.save') }}
             </n-button>
           </n-space>
         </n-space>

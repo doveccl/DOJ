@@ -65,6 +65,12 @@ body {
   display: flex;
   align-items: center;
   justify-content: end;
+  min-width: 0;
+}
+
+.auth-actions {
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .locale-select {
@@ -326,6 +332,14 @@ body {
   .topbar .n-menu {
     grid-column: 1 / -1;
     order: 3;
+  }
+
+  .topbar-actions {
+    justify-self: end;
+  }
+
+  .locale-select {
+    width: 104px;
   }
 }
 

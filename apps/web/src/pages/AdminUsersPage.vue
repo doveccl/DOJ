@@ -2,6 +2,7 @@
 import { NAlert, NButton, NCard, NDataTable, NSpace, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { computed, h, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 import { useAuthStore } from '../stores/auth'
 
@@ -16,30 +17,31 @@ interface UserRow {
 }
 
 const auth = useAuthStore()
+const { t } = useI18n()
 const canManage = computed(() => auth.user?.groups.includes('admin') ?? false)
 const loading = ref(true)
 const savingUserId = ref<number | null>(null)
 const error = ref('')
 const users = ref<UserRow[]>([])
 
-const columns: DataTableColumns<UserRow> = [
-  { title: 'ID', key: 'id', width: 80 },
-  { title: 'Name', key: 'name', minWidth: 140 },
-  { title: 'Email', key: 'email', minWidth: 220 },
-  { title: 'Solved', key: 'solvedCount', width: 100 },
-  { title: 'Submissions', key: 'submissionCount', width: 120 },
+const columns = computed<DataTableColumns<UserRow>>(() => [
+  { title: t('common.id'), key: 'id', width: 80 },
+  { title: t('admin.name'), key: 'name', minWidth: 140 },
+  { title: t('app.email'), key: 'email', minWidth: 220 },
+  { title: t('admin.users.solved'), key: 'solvedCount', width: 100 },
+  { title: t('admin.users.submissions'), key: 'submissionCount', width: 120 },
   {
-    title: 'Status',
+    title: t('admin.status'),
     key: 'disabledAt',
     width: 120,
     render(row) {
       return h(NTag, { bordered: false, type: row.disabledAt ? 'error' : 'success' }, () =>
-        row.disabledAt ? 'disabled' : 'active'
+        row.disabledAt ? t('admin.disabled') : t('admin.active')
       )
     }
   },
   {
-    title: 'Joined',
+    title: t('admin.users.joined'),
     key: 'createdAt',
     minWidth: 160,
     render(row) {
@@ -47,7 +49,7 @@ const columns: DataTableColumns<UserRow> = [
     }
   },
   {
-    title: 'Action',
+    title: t('admin.actions'),
     key: 'action',
     width: 120,
     render(row) {
@@ -62,11 +64,11 @@ const columns: DataTableColumns<UserRow> = [
           loading: savingUserId.value === row.id,
           onClick: () => updateUserStatus(row)
         },
-        () => (row.disabledAt ? 'Enable' : 'Disable')
+        () => (row.disabledAt ? t('admin.enable') : t('admin.disable'))
       )
     }
   }
-]
+])
 
 async function loadUsers() {
   loading.value = true
@@ -113,12 +115,12 @@ onMounted(() => {
 <template>
   <main class="page">
     <section class="page-header">
-      <h1>Users</h1>
-      <p>Review accounts and suspend access when needed.</p>
+      <h1>{{ t('admin.users.title') }}</h1>
+      <p>{{ t('admin.users.subtitle') }}</p>
     </section>
 
     <n-alert v-if="!canManage" type="warning" class="page-alert">
-      Admin group is required.
+      {{ t('admin.requireAdmin') }}
     </n-alert>
     <n-alert v-if="error" type="error" class="page-alert">
       {{ error }}

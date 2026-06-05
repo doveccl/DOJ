@@ -15,6 +15,7 @@ import {
 } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 import CodeEditor from '../components/CodeEditor.vue'
 import { useAuthStore } from '../stores/auth'
@@ -30,6 +31,7 @@ interface LanguageRow {
 }
 
 const auth = useAuthStore()
+const { t } = useI18n()
 const canManage = computed(() => auth.user?.groups.includes('admin') ?? false)
 const loading = ref(true)
 const saving = ref(false)
@@ -46,22 +48,22 @@ const form = reactive({
   sortOrder: 100
 })
 
-const columns: DataTableColumns<LanguageRow> = [
-  { title: 'ID', key: 'id', width: 96 },
-  { title: 'Name', key: 'name' },
-  { title: 'Source', key: 'sourceFile' },
+const columns = computed<DataTableColumns<LanguageRow>>(() => [
+  { title: t('common.id'), key: 'id', width: 96 },
+  { title: t('admin.name'), key: 'name' },
+  { title: t('admin.languages.source'), key: 'sourceFile' },
   {
-    title: 'Status',
+    title: t('admin.status'),
     key: 'enabled',
     render(row) {
       return h(NTag, { bordered: false, type: row.enabled ? 'success' : 'default' }, () =>
-        row.enabled ? 'enabled' : 'disabled'
+        row.enabled ? t('admin.enabled') : t('admin.disabled')
       )
     }
   },
-  { title: 'Order', key: 'sortOrder', width: 96 },
+  { title: t('admin.sortOrder'), key: 'sortOrder', width: 96 },
   {
-    title: 'Action',
+    title: t('admin.actions'),
     key: 'action',
     width: 120,
     render(row) {
@@ -71,11 +73,11 @@ const columns: DataTableColumns<LanguageRow> = [
           size: 'small',
           onClick: () => editLanguage(row)
         },
-        () => 'Edit'
+        () => t('admin.edit')
       )
     }
   }
-]
+])
 
 async function loadLanguages() {
   loading.value = true
@@ -158,12 +160,12 @@ onMounted(() => {
 <template>
   <main class="page">
     <section class="page-header">
-      <h1>Languages</h1>
-      <p>Configure enabled judging languages and their Docker build recipes.</p>
+      <h1>{{ t('admin.languages.title') }}</h1>
+      <p>{{ t('admin.languages.subtitle') }}</p>
     </section>
 
     <n-alert v-if="!canManage" type="warning" class="page-alert">
-      Admin group is required.
+      {{ t('admin.requireAdmin') }}
     </n-alert>
 
     <n-alert v-if="error" type="error" class="page-alert">
@@ -172,7 +174,7 @@ onMounted(() => {
 
     <n-card v-if="canManage" :bordered="false">
       <n-space justify="end" class="table-toolbar">
-        <n-button type="primary" @click="newLanguage">New language</n-button>
+        <n-button type="primary" @click="newLanguage">{{ t('admin.languages.new') }}</n-button>
       </n-space>
       <n-data-table
         :columns="columns"
@@ -186,51 +188,51 @@ onMounted(() => {
     <n-modal
       v-model:show="showConfigModal"
       preset="card"
-      title="Language config"
+      :title="t('admin.languages.config')"
       class="form-modal"
     >
       <n-form :model="form" label-placement="top">
         <div class="form-grid two">
-          <n-form-item label="ID">
+          <n-form-item :label="t('common.id')">
             <n-input v-model:value="form.id" placeholder="cpp" />
           </n-form-item>
-          <n-form-item label="Name">
+          <n-form-item :label="t('admin.name')">
             <n-input v-model:value="form.name" placeholder="C++ 20" />
           </n-form-item>
         </div>
         <div class="form-grid two">
-          <n-form-item label="Source file">
+          <n-form-item :label="t('admin.languages.sourceFile')">
             <n-input v-model:value="form.sourceFile" placeholder="main.cpp" />
           </n-form-item>
-          <n-form-item label="Sort order">
+          <n-form-item :label="t('admin.sortOrder')">
             <n-input-number v-model:value="form.sortOrder" class="full-width" :min="0" />
           </n-form-item>
         </div>
-        <n-form-item label="Dockerfile">
+        <n-form-item :label="t('admin.languages.dockerfile')">
           <code-editor v-model="form.dockerfile" />
         </n-form-item>
-        <n-form-item label="Command override">
+        <n-form-item :label="t('admin.languages.commandOverride')">
           <n-input
             v-model:value="form.commandText"
             type="textarea"
-            placeholder="One argv item per line; leave empty to use Docker CMD"
+            :placeholder="t('admin.languages.commandPlaceholder')"
             :autosize="{ minRows: 3, maxRows: 8 }"
           />
         </n-form-item>
         <n-space align="center" justify="space-between" class="form-actions">
           <n-space align="center">
             <n-switch v-model:value="form.enabled" />
-            <span>{{ form.enabled ? 'Enabled' : 'Disabled' }}</span>
+            <span>{{ form.enabled ? t('admin.enabled') : t('admin.disabled') }}</span>
           </n-space>
           <n-space>
-            <n-button @click="showConfigModal = false">Cancel</n-button>
+            <n-button @click="showConfigModal = false">{{ t('admin.cancel') }}</n-button>
             <n-button
               type="primary"
               :loading="saving"
               :disabled="!form.id || !form.name || !form.sourceFile || !form.dockerfile"
               @click="saveLanguage"
             >
-              Save
+              {{ t('admin.save') }}
             </n-button>
           </n-space>
         </n-space>

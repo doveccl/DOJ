@@ -14,6 +14,7 @@ import {
 } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 import { useAuthStore } from '../stores/auth'
 
@@ -39,6 +40,7 @@ interface ProblemDetail {
 }
 
 const auth = useAuthStore()
+const { t } = useI18n()
 const canManage = computed(() => auth.user?.groups.includes('admin') ?? false)
 const loading = ref(true)
 const saving = ref(false)
@@ -78,28 +80,28 @@ const editForm = reactive({
   testCasesText: '[]'
 })
 
-const columns: DataTableColumns<ProblemRow> = [
-  { title: 'ID', key: 'id', width: 96 },
-  { title: 'Title', key: 'title', minWidth: 240 },
+const columns = computed<DataTableColumns<ProblemRow>>(() => [
+  { title: t('common.id'), key: 'id', width: 96 },
+  { title: t('common.title'), key: 'title', minWidth: 240 },
   {
-    title: 'Visible',
+    title: t('admin.problems.visible'),
     key: 'visible',
     width: 110,
     render(row) {
-      return row.visible ? 'Yes' : 'No'
+      return row.visible ? t('admin.problems.yes') : t('admin.problems.no')
     }
   },
   {
-    title: 'Tags',
+    title: t('common.tags'),
     key: 'tags',
     minWidth: 160,
     render(row) {
       return row.tags.join(', ') || '-'
     }
   },
-  { title: 'Solved', key: 'solvedCount', width: 110 },
+  { title: t('common.solved'), key: 'solvedCount', width: 110 },
   {
-    title: 'Action',
+    title: t('admin.actions'),
     key: 'action',
     width: 180,
     render(row) {
@@ -111,7 +113,7 @@ const columns: DataTableColumns<ProblemRow> = [
             secondary: true,
             onClick: () => loadProblemForEdit(row.id)
           },
-          () => 'Edit'
+          () => t('admin.edit')
         ),
         h(
           NButton,
@@ -124,12 +126,12 @@ const columns: DataTableColumns<ProblemRow> = [
               showUploadModal.value = true
             }
           },
-          () => 'Testdata'
+          () => t('admin.problems.testdata')
         )
       ])
     }
   }
-]
+])
 
 async function loadProblems() {
   loading.value = true
@@ -193,7 +195,10 @@ async function updateProblem() {
         testCases
       })
     })
-    editMessage.value = `Saved problem ${result.problem.id} as version ${result.version.version}.`
+    editMessage.value = t('admin.problems.saved', {
+      id: result.problem.id,
+      version: result.version.version
+    })
     showEditModal.value = false
     await loadProblems()
   } catch (cause) {
@@ -252,7 +257,10 @@ async function uploadTestdata() {
         body: formData
       }
     )
-    uploadMessage.value = `Uploaded ${result.caseCount} cases for problem ${uploadForm.problemId}.`
+    uploadMessage.value = t('admin.problems.uploaded', {
+      count: result.caseCount,
+      id: uploadForm.problemId
+    })
     selectedFile.value = null
     showUploadModal.value = false
   } catch (cause) {
@@ -283,12 +291,12 @@ onMounted(() => {
 <template>
   <main class="page">
     <section class="page-header">
-      <h1>Problems</h1>
-      <p>Create statement versions with inline test cases.</p>
+      <h1>{{ t('admin.problems.title') }}</h1>
+      <p>{{ t('admin.problems.subtitle') }}</p>
     </section>
 
     <n-alert v-if="!canManage" type="warning" class="page-alert">
-      Admin group is required.
+      {{ t('admin.requireAdmin') }}
     </n-alert>
     <n-alert v-if="error" type="error" class="page-alert">
       {{ error }}
@@ -302,8 +310,12 @@ onMounted(() => {
 
     <n-card v-if="canManage" :bordered="false">
       <n-space justify="end" class="table-toolbar">
-        <n-button secondary @click="showUploadModal = true">Upload testdata</n-button>
-        <n-button type="primary" @click="showCreateModal = true">Create problem</n-button>
+        <n-button secondary @click="showUploadModal = true">
+          {{ t('admin.problems.uploadTestdata') }}
+        </n-button>
+        <n-button type="primary" @click="showCreateModal = true">
+          {{ t('admin.problems.create') }}
+        </n-button>
       </n-space>
       <n-data-table
         :columns="columns"
@@ -314,18 +326,23 @@ onMounted(() => {
       />
     </n-card>
 
-    <n-modal v-model:show="showCreateModal" preset="card" title="Create problem" class="form-modal">
+    <n-modal
+      v-model:show="showCreateModal"
+      preset="card"
+      :title="t('admin.problems.create')"
+      class="form-modal"
+    >
       <n-form :model="form" label-placement="top">
-        <n-form-item label="Title">
+        <n-form-item :label="t('common.title')">
           <n-input v-model:value="form.title" placeholder="A+B Problem" />
         </n-form-item>
-        <n-form-item label="Slug">
+        <n-form-item :label="t('admin.problems.slug')">
           <n-input v-model:value="form.slug" placeholder="a-plus-b" />
         </n-form-item>
-        <n-form-item label="Tags">
+        <n-form-item :label="t('common.tags')">
           <n-input v-model:value="form.tags" placeholder="math, beginner" />
         </n-form-item>
-        <n-form-item label="Statement">
+        <n-form-item :label="t('admin.problems.statement')">
           <n-input
             v-model:value="form.statementMarkdown"
             type="textarea"
@@ -333,17 +350,17 @@ onMounted(() => {
           />
         </n-form-item>
         <div class="form-grid">
-          <n-form-item label="Time ms">
+          <n-form-item :label="t('admin.problems.timeMs')">
             <n-input-number v-model:value="form.timeLimitMs" :min="100" class="full-width" />
           </n-form-item>
-          <n-form-item label="Memory MB">
+          <n-form-item :label="t('admin.problems.memoryMb')">
             <n-input-number v-model:value="form.memoryLimitMb" :min="16" class="full-width" />
           </n-form-item>
-          <n-form-item label="Output MB">
+          <n-form-item :label="t('admin.problems.outputMb')">
             <n-input-number v-model:value="form.outputLimitMb" :min="1" class="full-width" />
           </n-form-item>
         </div>
-        <n-form-item label="Test cases JSON">
+        <n-form-item :label="t('admin.problems.testCasesJson')">
           <n-input
             v-model:value="form.testCasesText"
             type="textarea"
@@ -351,9 +368,9 @@ onMounted(() => {
           />
         </n-form-item>
         <n-space justify="end" class="form-actions">
-          <n-button @click="showCreateModal = false">Cancel</n-button>
+          <n-button @click="showCreateModal = false">{{ t('admin.cancel') }}</n-button>
           <n-button type="primary" :loading="saving" :disabled="!form.title" @click="createProblem">
-            Create
+            {{ t('admin.create') }}
           </n-button>
         </n-space>
       </n-form>
@@ -362,33 +379,38 @@ onMounted(() => {
     <n-modal
       v-model:show="showUploadModal"
       preset="card"
-      title="Upload testdata"
+      :title="t('admin.problems.uploadTestdata')"
       class="form-modal narrow"
     >
       <n-form :model="uploadForm" label-placement="top">
-        <n-form-item label="Problem ID">
+        <n-form-item :label="t('admin.problems.problemId')">
           <n-input-number v-model:value="uploadForm.problemId" :min="1000" class="full-width" />
         </n-form-item>
-        <n-form-item label="ZIP file">
+        <n-form-item :label="t('admin.problems.zipFile')">
           <input type="file" accept=".zip,application/zip" @change="handleFileChange" />
         </n-form-item>
         <n-space justify="end" class="form-actions">
-          <n-button @click="showUploadModal = false">Cancel</n-button>
+          <n-button @click="showUploadModal = false">{{ t('admin.cancel') }}</n-button>
           <n-button
             type="primary"
             :loading="uploading"
             :disabled="!uploadForm.problemId || !selectedFile"
             @click="uploadTestdata"
           >
-            Upload
+            {{ t('admin.upload') }}
           </n-button>
         </n-space>
       </n-form>
     </n-modal>
 
-    <n-modal v-model:show="showEditModal" preset="card" title="Edit problem" class="form-modal">
+    <n-modal
+      v-model:show="showEditModal"
+      preset="card"
+      :title="t('admin.problems.edit')"
+      class="form-modal"
+    >
       <n-form :model="editForm" label-placement="top">
-        <n-form-item label="Problem ID">
+        <n-form-item :label="t('admin.problems.problemId')">
           <n-input-number v-model:value="editForm.problemId" :min="1000" class="full-width" />
         </n-form-item>
         <n-space justify="end">
@@ -398,22 +420,24 @@ onMounted(() => {
             :disabled="!editForm.problemId"
             @click="editForm.problemId && loadProblemForEdit(editForm.problemId)"
           >
-            Load
+            {{ t('admin.load') }}
           </n-button>
         </n-space>
-        <n-form-item label="Title">
+        <n-form-item :label="t('common.title')">
           <n-input v-model:value="editForm.title" placeholder="A+B Problem" />
         </n-form-item>
-        <n-form-item label="Slug">
+        <n-form-item :label="t('admin.problems.slug')">
           <n-input v-model:value="editForm.slug" placeholder="a-plus-b" />
         </n-form-item>
-        <n-form-item label="Visible">
-          <n-checkbox v-model:checked="editForm.visible">Show in public problem set</n-checkbox>
+        <n-form-item :label="t('admin.problems.visible')">
+          <n-checkbox v-model:checked="editForm.visible">
+            {{ t('admin.problems.publicVisible') }}
+          </n-checkbox>
         </n-form-item>
-        <n-form-item label="Tags">
+        <n-form-item :label="t('common.tags')">
           <n-input v-model:value="editForm.tags" placeholder="math, beginner" />
         </n-form-item>
-        <n-form-item label="Statement">
+        <n-form-item :label="t('admin.problems.statement')">
           <n-input
             v-model:value="editForm.statementMarkdown"
             type="textarea"
@@ -421,17 +445,17 @@ onMounted(() => {
           />
         </n-form-item>
         <div class="form-grid">
-          <n-form-item label="Time ms">
+          <n-form-item :label="t('admin.problems.timeMs')">
             <n-input-number v-model:value="editForm.timeLimitMs" :min="100" class="full-width" />
           </n-form-item>
-          <n-form-item label="Memory MB">
+          <n-form-item :label="t('admin.problems.memoryMb')">
             <n-input-number v-model:value="editForm.memoryLimitMb" :min="16" class="full-width" />
           </n-form-item>
-          <n-form-item label="Output MB">
+          <n-form-item :label="t('admin.problems.outputMb')">
             <n-input-number v-model:value="editForm.outputLimitMb" :min="1" class="full-width" />
           </n-form-item>
         </div>
-        <n-form-item label="Test cases JSON">
+        <n-form-item :label="t('admin.problems.testCasesJson')">
           <n-input
             v-model:value="editForm.testCasesText"
             type="textarea"
@@ -439,14 +463,14 @@ onMounted(() => {
           />
         </n-form-item>
         <n-space justify="end" class="form-actions">
-          <n-button @click="showEditModal = false">Cancel</n-button>
+          <n-button @click="showEditModal = false">{{ t('admin.cancel') }}</n-button>
           <n-button
             type="primary"
             :loading="editing"
             :disabled="!editForm.problemId || !editForm.title"
             @click="updateProblem"
           >
-            Save new version
+            {{ t('admin.saveNewVersion') }}
           </n-button>
         </n-space>
       </n-form>
