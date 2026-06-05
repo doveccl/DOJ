@@ -1227,6 +1227,28 @@ app.post('/api/bbs/topics', authMiddleware, async (c) => {
   const user = await requireAuthUser(c)
   const body = createTopicSchema.parse(await c.req.json())
 
+  if (body.linkedProblemId) {
+    const [problem] = await db
+      .select({ id: schema.problems.id })
+      .from(schema.problems)
+      .where(and(eq(schema.problems.id, body.linkedProblemId), eq(schema.problems.visible, true)))
+      .limit(1)
+    if (!problem) {
+      return c.json({ code: 'PROBLEM_NOT_FOUND', message: 'Linked problem is not visible' }, 404)
+    }
+  }
+
+  if (body.linkedContestId) {
+    const [contest] = await db
+      .select({ id: schema.contests.id })
+      .from(schema.contests)
+      .where(eq(schema.contests.id, body.linkedContestId))
+      .limit(1)
+    if (!contest) {
+      return c.json({ code: 'CONTEST_NOT_FOUND', message: 'Linked contest does not exist' }, 404)
+    }
+  }
+
   const topic = await db.transaction(async (tx) => {
     const [created] = await tx
       .insert(schema.bbsTopics)
