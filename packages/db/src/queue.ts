@@ -7,10 +7,7 @@ export interface ClaimJudgeTaskOptions {
 }
 
 export async function enqueueJudgeTask(submissionId: number) {
-  const [task] = await db
-    .insert(schema.judgeTasks)
-    .values({ submissionId })
-    .returning()
+  const [task] = await db.insert(schema.judgeTasks).values({ submissionId }).returning()
 
   return task
 }
@@ -62,10 +59,17 @@ export async function completeJudgeTask(id: number) {
 }
 
 export async function failJudgeTask(id: number, error: unknown) {
+  const [task] = await db
+    .select({ attempts: schema.judgeTasks.attempts, maxAttempts: schema.judgeTasks.maxAttempts })
+    .from(schema.judgeTasks)
+    .where(eq(schema.judgeTasks.id, id))
+    .limit(1)
+  const retry = task ? task.attempts < task.maxAttempts : false
+
   await db
     .update(schema.judgeTasks)
     .set({
-      status: 'FAILED',
+      status: retry ? 'WAITING' : 'FAILED',
       lockedBy: null,
       lockedUntil: null,
       lastError: error instanceof Error ? error.message : String(error),
