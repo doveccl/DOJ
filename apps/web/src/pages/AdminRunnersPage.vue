@@ -201,6 +201,9 @@ onMounted(() => {
     <n-alert v-if="checkMessage" type="success" class="page-alert">
       {{ checkMessage }}
     </n-alert>
+    <n-alert v-if="canManage" type="warning" class="page-alert">
+      {{ t('admin.runners.remoteNote') }}
+    </n-alert>
 
     <n-card v-if="canManage" :bordered="false">
       <n-space justify="end" class="table-toolbar">

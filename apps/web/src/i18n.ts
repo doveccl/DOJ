@@ -196,6 +196,8 @@ const zhCNMessages = {
     runners: {
       title: '评测机',
       subtitle: '配置本地或远程 Docker API 评测后端。',
+      remoteNote:
+        '远程 Docker API 会传输构建上下文、测试输入和输出。生产远程评测建议在 judge 主机运行 worker，并用 DOJ_RUNNER_KEYS 绑定本机评测机。',
       new: '新增评测机',
       config: '评测机配置',
       endpoint: 'Docker 端点',
@@ -448,6 +450,8 @@ const enMessages = {
     runners: {
       title: 'Runners',
       subtitle: 'Configure local or remote Docker API judging backends.',
+      remoteNote:
+        'Remote Docker API mode streams build context, test input, and output. For production remote judges, run the worker on the judge host and bind it with DOJ_RUNNER_KEYS.',
       new: 'New runner',
       config: 'Runner config',
       endpoint: 'Docker endpoint',
