@@ -1237,7 +1237,7 @@ const createTopicSchema = z.object({
 })
 
 app.get('/api/bbs/topics', async (c) => {
-  const list = await db
+  const rows = await db
     .select({
       id: schema.bbsTopics.id,
       title: schema.bbsTopics.title,
@@ -1246,13 +1246,19 @@ app.get('/api/bbs/topics', async (c) => {
       linkedContestId: schema.bbsTopics.linkedContestId,
       createdAt: schema.bbsTopics.createdAt,
       updatedAt: schema.bbsTopics.updatedAt,
+      problemVisible: schema.problems.visible,
       userId: schema.users.id,
       userName: schema.users.name
     })
     .from(schema.bbsTopics)
     .innerJoin(schema.users, eq(schema.bbsTopics.userId, schema.users.id))
+    .leftJoin(schema.problems, eq(schema.bbsTopics.linkedProblemId, schema.problems.id))
     .orderBy(desc(schema.bbsTopics.updatedAt))
     .limit(50)
+  const list = rows.map(({ problemVisible, ...row }) => ({
+    ...row,
+    linkedProblemId: row.linkedProblemId && problemVisible ? row.linkedProblemId : null
+  }))
 
   return c.json({ total: list.length, list })
 })
@@ -1804,15 +1810,18 @@ async function getTopicDetail(id: number) {
       linkedContestId: schema.bbsTopics.linkedContestId,
       createdAt: schema.bbsTopics.createdAt,
       updatedAt: schema.bbsTopics.updatedAt,
+      problemVisible: schema.problems.visible,
       userId: schema.users.id,
       userName: schema.users.name
     })
     .from(schema.bbsTopics)
     .innerJoin(schema.users, eq(schema.bbsTopics.userId, schema.users.id))
+    .leftJoin(schema.problems, eq(schema.bbsTopics.linkedProblemId, schema.problems.id))
     .where(eq(schema.bbsTopics.id, id))
     .limit(1)
 
   if (!topic) return null
+  const { problemVisible: _problemVisible, ...topicPayload } = topic
 
   const replies = await db
     .select({
@@ -1827,7 +1836,13 @@ async function getTopicDetail(id: number) {
     .where(eq(schema.bbsReplies.topicId, id))
     .orderBy(asc(schema.bbsReplies.createdAt))
 
-  return { topic, replies }
+  return {
+    topic: {
+      ...topicPayload,
+      linkedProblemId: topic.linkedProblemId && topic.problemVisible ? topic.linkedProblemId : null
+    },
+    replies
+  }
 }
 
 async function getUserAssignmentDetail(userId: number, assignmentId: number) {

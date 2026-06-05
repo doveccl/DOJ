@@ -169,7 +169,7 @@ onMounted(loadTopics)
           </n-form-item>
         </div>
         <n-space justify="end" class="form-actions">
-          <n-button @click="showCreateModal = false">Cancel</n-button>
+          <n-button @click="showCreateModal = false">{{ t('admin.cancel') }}</n-button>
           <n-button
             type="primary"
             :loading="saving"
