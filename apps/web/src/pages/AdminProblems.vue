@@ -41,6 +41,8 @@ interface ProblemDetail {
     timeLimitMs: number
     memoryLimitBytes: number
     testdata: TestdataSummary
+    checkerEnabled: boolean
+    checkerSource?: string
   }
 }
 
@@ -85,6 +87,7 @@ const editMessage = ref('')
 const showCreateModal = ref(false)
 const showUploadModal = ref(false)
 const showEditModal = ref(false)
+const showCheckerModal = ref(false)
 const problems = ref<ProblemRow[]>([])
 const selectedFiles = ref<File[]>([])
 const pagination = reactive({
@@ -103,6 +106,12 @@ const form = reactive({
 })
 const uploadForm = reactive({
   problemId: null as number | null
+})
+const checkerForm = reactive({
+  problemId: null as number | null,
+  title: '',
+  sourceCode: '',
+  enabled: false
 })
 const editForm = reactive({
   problemId: null as number | null,
@@ -169,7 +178,7 @@ const columns = computed<DataTableColumns<ProblemRow>>(() => [
   {
     title: t('admin.actions'),
     key: 'action',
-    width: 180,
+    width: 260,
     render(row) {
       return h(NSpace, { size: 8 }, () => [
         h(
@@ -194,6 +203,15 @@ const columns = computed<DataTableColumns<ProblemRow>>(() => [
             }
           },
           () => t('admin.problems.testdata')
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
+            secondary: true,
+            onClick: () => openCheckerModal(row.id)
+          },
+          () => t('admin.problems.checker')
         )
       ])
     }
@@ -338,6 +356,43 @@ function handleUploadChange(options: { fileList: UploadFileInfo[] }) {
   selectedFiles.value = options.fileList
     .map((item) => item.file)
     .filter((file): file is File => !!file)
+}
+
+async function openCheckerModal(problemId: number) {
+  error.value = ''
+  uploadMessage.value = ''
+  try {
+    const data = await apiFetch<ProblemDetail>(`/api/admin/problems/${problemId}`)
+    checkerForm.problemId = data.problem.id
+    checkerForm.title = data.problem.title
+    checkerForm.enabled = data.version.checkerEnabled
+    checkerForm.sourceCode = data.version.checkerSource ?? ''
+    showCheckerModal.value = true
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  }
+}
+
+async function saveChecker(remove = false) {
+  if (!checkerForm.problemId) return
+  uploading.value = true
+  error.value = ''
+  uploadMessage.value = ''
+  try {
+    await apiFetch(`/api/problems/${checkerForm.problemId}/checker`, {
+      method: 'POST',
+      body: JSON.stringify({ sourceCode: remove ? null : checkerForm.sourceCode })
+    })
+    uploadMessage.value = remove
+      ? t('admin.problems.checkerRemoved', { id: checkerForm.problemId })
+      : t('admin.problems.checkerSaved', { id: checkerForm.problemId })
+    showCheckerModal.value = false
+    await loadProblems()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    uploading.value = false
+  }
 }
 
 function renderTestdataSummary(version: ProblemVersionSummary | null) {
@@ -590,6 +645,57 @@ onMounted(() => {
           >
             {{ t('admin.saveNewVersion') }}
           </n-button>
+        </n-space>
+      </n-form>
+    </n-modal>
+
+    <n-modal
+      v-model:show="showCheckerModal"
+      preset="card"
+      :title="t('admin.problems.checkerTitle')"
+      class="form-modal"
+    >
+      <n-form :model="checkerForm" label-placement="top">
+        <div class="upload-summary">
+          <strong>P{{ checkerForm.problemId }} {{ checkerForm.title }}</strong>
+          <div class="muted">
+            {{
+              checkerForm.enabled
+                ? t('admin.problems.checkerEnabledHint')
+                : t('admin.problems.checkerDisabledHint')
+            }}
+          </div>
+        </div>
+        <n-form-item :label="t('admin.problems.checkerSource')">
+          <n-input
+            v-model:value="checkerForm.sourceCode"
+            type="textarea"
+            :autosize="{ minRows: 8, maxRows: 20 }"
+            placeholder="// argv: input output answer; exit 0=AC, 2=PE, else WA"
+          />
+        </n-form-item>
+        <n-space justify="space-between" class="form-actions">
+          <n-button
+            v-if="checkerForm.enabled"
+            type="error"
+            secondary
+            :loading="uploading"
+            @click="saveChecker(true)"
+          >
+            {{ t('admin.problems.checkerRemove') }}
+          </n-button>
+          <span v-else />
+          <n-space>
+            <n-button @click="showCheckerModal = false">{{ t('admin.cancel') }}</n-button>
+            <n-button
+              type="primary"
+              :loading="uploading"
+              :disabled="!checkerForm.sourceCode.trim()"
+              @click="saveChecker(false)"
+            >
+              {{ t('admin.save') }}
+            </n-button>
+          </n-space>
         </n-space>
       </n-form>
     </n-modal>

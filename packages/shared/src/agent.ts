@@ -35,6 +35,14 @@ export interface JudgeAgentPayload {
   }
   testCases: ProblemTestCase[]
   testdataFile?: JudgeAgentFileRef | null
+  checker?: JudgeAgentChecker | null
+}
+
+export interface JudgeAgentChecker {
+  // Special-judge source. Compiled with C++ and invoked per case as
+  // `checker <input> <output> <answer>` (testlib-compatible exit codes:
+  // 0 = accepted, 2 = presentation error, anything else = wrong answer).
+  sourceCode: string
 }
 
 export interface JudgeAgentCaseResult {

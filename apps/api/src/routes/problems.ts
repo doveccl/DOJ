@@ -3,7 +3,7 @@ import { asc, desc, eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { buildStoredZip, parseLooseTestCases, parseZipTestCases } from '@doj/shared/testdata'
-import { putObject, storageConfig } from '@doj/shared/storage'
+import { putObject, getObjectBytes, storageConfig } from '@doj/shared/storage'
 import { authMiddleware, getOptionalAuthUser, requireGroup } from '../auth'
 import { getRuntimeSettings } from '../settings'
 import { countRows } from '../services/stats'
@@ -251,7 +251,59 @@ export function registerProblemRoutes(app: Hono) {
 
     return c.json({ file, version: updated, caseCount: cases.length }, 201)
   })
+
+  app.post('/api/problems/:id/checker', authMiddleware, async (c) => {
+    const denied = await requireGroup(c, 'admin')
+    if (denied) return denied
+
+    const problemId = numericId.parse(c.req.param('id'))
+    const [version] = await db
+      .select()
+      .from(schema.problemVersions)
+      .where(eq(schema.problemVersions.problemId, problemId))
+      .orderBy(desc(schema.problemVersions.version))
+      .limit(1)
+    if (!version) return c.notFound()
+
+    const body = checkerSchema.parse(await c.req.json())
+
+    if (body.sourceCode === null) {
+      const [updated] = await db
+        .update(schema.problemVersions)
+        .set({ checkerFileId: null })
+        .where(eq(schema.problemVersions.id, version.id))
+        .returning()
+      return c.json({ version: updated, checkerEnabled: false })
+    }
+
+    const bytes = new TextEncoder().encode(body.sourceCode)
+    const objectKey = `problems/${problemId}/checker/${crypto.randomUUID()}.cc`
+    await putObject({ key: objectKey, body: bytes, contentType: 'text/x-c++src' })
+
+    const [file] = await db
+      .insert(schema.files)
+      .values({
+        bucket: storageConfig.bucket,
+        objectKey,
+        filename: 'checker.cc',
+        contentType: 'text/x-c++src',
+        sizeBytes: bytes.byteLength
+      })
+      .returning()
+
+    const [updated] = await db
+      .update(schema.problemVersions)
+      .set({ checkerFileId: file.id })
+      .where(eq(schema.problemVersions.id, version.id))
+      .returning()
+
+    return c.json({ file, version: updated, checkerEnabled: true }, 201)
+  })
 }
+
+const checkerSchema = z.object({
+  sourceCode: z.string().min(1).max(200_000).nullable()
+})
 
 async function denyGuestProblemset(c: Context) {
   const settings = await getRuntimeSettings()
@@ -274,6 +326,11 @@ async function getProblemDetail(
 
   const version = await getLatestProblemVersion(problem.id)
 
+  const checkerSource =
+    options.includeHiddenProblem && version?.checkerFileId
+      ? await readFileText(version.checkerFileId)
+      : undefined
+
   return {
     problem,
     version: version
@@ -281,6 +338,7 @@ async function getProblemDetail(
           ...version,
           testdata: summarizeTestdata(version),
           checkerEnabled: Boolean(version.checkerFileId),
+          checkerSource,
           interactorEnabled: Boolean(version.interactorFileId),
           testCases: options.includeHiddenCases
             ? version.testCases
@@ -288,6 +346,13 @@ async function getProblemDetail(
         }
       : null
   }
+}
+
+async function readFileText(fileId: number) {
+  const [file] = await db.select().from(schema.files).where(eq(schema.files.id, fileId)).limit(1)
+  if (!file) return undefined
+  const bytes = await getObjectBytes(file.objectKey, file.bucket)
+  return Buffer.from(bytes).toString('utf8')
 }
 
 type ProblemVersion = typeof schema.problemVersions.$inferSelect

@@ -3,6 +3,7 @@ import { db, schema, sqlClient } from '@doj/db/client'
 import { claimJudgeTask, completeJudgeTask, failJudgeTask, judgeTaskChannel } from '@doj/db/queue'
 import { getRuntimeSettings } from '@doj/db/settings'
 import type { JudgeAgentPayload, JudgeAgentResult } from '@doj/shared/agent'
+import { getObjectBytes } from '@doj/shared/storage'
 import { getLanguage } from './languages'
 import { JudgeAgentServer } from './agent-server'
 
@@ -82,6 +83,7 @@ async function preparePayload(
 
   const language = await getLanguage(submission.languageId)
   const file = version.testdataFileId ? await getTestdataFileRef(version.testdataFileId) : null
+  const checker = version.checkerFileId ? await getCheckerSource(version.checkerFileId) : null
   const settings = await getRuntimeSettings()
 
   return {
@@ -101,8 +103,16 @@ async function preparePayload(
       outputBytes: settings.outputLimitBytes
     },
     testCases: file ? [] : version.testCases,
-    testdataFile: file
+    testdataFile: file,
+    checker
   }
+}
+
+async function getCheckerSource(fileId: number) {
+  const [file] = await db.select().from(schema.files).where(eq(schema.files.id, fileId)).limit(1)
+  if (!file) throw new Error(`checker file not found: ${fileId}`)
+  const bytes = await getObjectBytes(file.objectKey, file.bucket)
+  return { sourceCode: Buffer.from(bytes).toString('utf8') }
 }
 
 async function getTestdataFileRef(fileId: number) {

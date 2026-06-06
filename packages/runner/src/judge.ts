@@ -19,6 +19,8 @@ export async function judgePayload(
     }
   })
 
+  const checkerScopeId = `${input.scopeId}-checker`
+
   try {
     if (!build.ok || !build.imageId) {
       return {
@@ -30,27 +32,61 @@ export async function judgePayload(
       }
     }
 
+    let checkerImageId: string | undefined
+    if (input.checker) {
+      const checkerBuild = await runner.build({
+        scopeId: checkerScopeId,
+        dockerfile: checkerDockerfile,
+        files: { 'checker.cc': input.checker.sourceCode },
+        limits: {
+          timeMs: input.limits.timeMs,
+          memoryBytes: input.limits.memoryBytes
+        }
+      })
+      if (!checkerBuild.ok || !checkerBuild.imageId) {
+        return {
+          status: 'SE',
+          timeMs: 0,
+          memoryBytes: 0,
+          message: `checker compile failed:\n${checkerBuild.logs}`,
+          cases: []
+        }
+      }
+      checkerImageId = checkerBuild.imageId
+    }
+
     return await judgeCases({
       runner,
       scopeId: input.scopeId,
       imageId: build.imageId,
       command: input.language.command?.length ? input.language.command : undefined,
       testCases: input.testCases,
-      limits: input.limits
+      limits: input.limits,
+      checkerImageId
     })
   } finally {
     await runner.cleanup({ scopeId: input.scopeId })
+    if (input.checker) await runner.cleanup({ scopeId: checkerScopeId })
   }
 }
+
+const checkerDockerfile = [
+  'FROM gcc:latest',
+  'WORKDIR /workspace',
+  'COPY checker.cc /workspace/checker.cc',
+  'RUN g++ -std=c++20 -O2 -pipe -o checker checker.cc',
+  'CMD ["/workspace/checker"]'
+].join('\n')
 
 type RunInput = Parameters<Runner['run']>[0]
 type JudgeCasesInput = RunInput & {
   runner: Runner
   testCases: ProblemTestCase[]
+  checkerImageId?: string
 }
 
 async function judgeCases(input: JudgeCasesInput): Promise<JudgeAgentResult> {
-  const { runner, testCases, ...runInput } = input
+  const { runner, testCases, checkerImageId, ...runInput } = input
 
   if (!input.testCases.length) {
     const result = await runner.run(runInput)
@@ -75,12 +111,25 @@ async function judgeCases(input: JudgeCasesInput): Promise<JudgeAgentResult> {
       stdin: new TextEncoder().encode(testCase.input)
     })
 
-    const compared = compareOutput(result.stdout, testCase.output)
-    const caseStatus = result.status === 'AC' ? compared.status : result.status
+    const compared =
+      result.status === 'AC'
+        ? checkerImageId
+          ? await runChecker({
+              runner,
+              scopeId: runInput.scopeId,
+              checkerImageId,
+              limits: runInput.limits,
+              input: testCase.input,
+              output: new TextDecoder().decode(result.stdout),
+              answer: testCase.output
+            })
+          : compareOutput(result.stdout, testCase.output)
+        : { status: result.status, message: result.stderr }
+    const caseStatus = compared.status
     const caseMessage = buildCaseMessage({
       status: caseStatus,
       hidden: testCase.hidden === true,
-      message: result.status === 'AC' ? compared.message : result.stderr
+      message: compared.message
     })
     timeMs = Math.max(timeMs, result.timeMs)
     memoryBytes = Math.max(memoryBytes, result.memoryBytes)
@@ -107,6 +156,55 @@ async function judgeCases(input: JudgeCasesInput): Promise<JudgeAgentResult> {
     message,
     cases
   }
+}
+
+interface RunCheckerInput {
+  runner: Runner
+  scopeId: string
+  checkerImageId: string
+  limits: RunInput['limits']
+  input: string
+  output: string
+  answer: string
+}
+
+async function runChecker(
+  input: RunCheckerInput
+): Promise<{ status: JudgeStatus; message: string }> {
+  // Decode the three artifacts from env into files, then invoke the checker as
+  // `checker <input> <output> <answer>` (testlib exit codes).
+  const command = [
+    '/bin/sh',
+    '-lc',
+    [
+      'set -e',
+      'printf %s "$DOJ_CHK_INPUT" | base64 -d > /tmp/input.txt',
+      'printf %s "$DOJ_CHK_OUTPUT" | base64 -d > /tmp/output.txt',
+      'printf %s "$DOJ_CHK_ANSWER" | base64 -d > /tmp/answer.txt',
+      '/workspace/checker /tmp/input.txt /tmp/output.txt /tmp/answer.txt'
+    ].join('\n')
+  ]
+
+  const result = await input.runner.run({
+    scopeId: input.scopeId,
+    imageId: input.checkerImageId,
+    command,
+    limits: input.limits,
+    env: {
+      DOJ_CHK_INPUT: Buffer.from(input.input).toString('base64'),
+      DOJ_CHK_OUTPUT: Buffer.from(input.output).toString('base64'),
+      DOJ_CHK_ANSWER: Buffer.from(input.answer).toString('base64')
+    }
+  })
+
+  const detail = result.stderr.trim() || Buffer.from(result.stdout).toString('utf8').trim()
+  if (result.exitCode === 0) {
+    return { status: 'AC', message: detail || 'accepted' }
+  }
+  if (result.exitCode === 2) {
+    return { status: 'PE', message: detail || 'presentation error' }
+  }
+  return { status: 'WA', message: detail || 'wrong answer' }
 }
 
 function compareOutput(stdout: Uint8Array, expected: string) {
