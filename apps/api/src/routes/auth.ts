@@ -36,19 +36,27 @@ export function registerAuthRoutes(app: Hono) {
     const group = await getGroupByKey('user')
     if (!group) throw new Error('builtin group missing: user')
 
-    const result = await db.transaction(async (tx) => {
-      const [user] = await tx
-        .insert(schema.users)
-        .values({
-          name: body.name,
-          email: body.email,
-          passwordHash: await hashPassword(body.password)
-        })
-        .returning()
+    const result = await db
+      .transaction(async (tx) => {
+        const [user] = await tx
+          .insert(schema.users)
+          .values({
+            name: body.name,
+            email: body.email,
+            passwordHash: await hashPassword(body.password)
+          })
+          .returning()
 
-      await tx.insert(schema.userGroups).values({ userId: user.id, groupId: group.id })
-      return user
-    })
+        await tx.insert(schema.userGroups).values({ userId: user.id, groupId: group.id })
+        return user
+      })
+      .catch((error: unknown) => {
+        if (isUniqueViolation(error)) return null
+        throw error
+      })
+    if (!result) {
+      return c.json({ code: 'USER_EXISTS', message: 'User name or email already exists' }, 409)
+    }
 
     const user = await getAuthUser(result.id)
     if (!user) throw new Error('registered user missing')
@@ -58,10 +66,14 @@ export function registerAuthRoutes(app: Hono) {
 
   app.post('/api/auth/login', async (c) => {
     const body = loginSchema.parse(await c.req.json())
+    const ip = clientIp(c)
+    const ipLimited = await checkRateLimit(c, 'login-ip', ip, 120, 10 * 60 * 1000)
+    if (ipLimited) return ipLimited
+
     const rateLimited = await checkRateLimit(
       c,
       'login',
-      `${clientIp(c)}:${body.user.toLowerCase()}`,
+      `${ip}:${body.user.toLowerCase()}`,
       40,
       10 * 60 * 1000
     )
@@ -144,3 +156,12 @@ const updateProfileSchema = z.object({
 })
 
 const updateSettingsSchema = runtimeSettingsSchema.partial()
+
+function isUniqueViolation(error: unknown) {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === '23505'
+  )
+}

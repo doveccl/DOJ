@@ -11,6 +11,7 @@ const wakePollMs = Number(process.env.DOJ_WORKER_POLL_MS ?? 1000)
 const workerSlots = Number(process.env.DOJ_WORKER_SLOTS ?? 4)
 const agentPort = Number(process.env.DOJ_WORKER_AGENT_PORT ?? 7975)
 const agentJobTimeoutMs = Number(process.env.DOJ_AGENT_JOB_TIMEOUT_MS ?? 120_000)
+const judgeTaskLeaseSeconds = Math.ceil(agentJobTimeoutMs / 1000) + 60
 
 let wakeResolver: () => void = () => {}
 let wakePromise = createWakePromise()
@@ -24,12 +25,16 @@ agentServer.start()
 console.log(`DOJ worker listening for judge agents on ws://localhost:${agentPort}/agents/connect`)
 
 async function handleOne() {
-  const agent = agentServer.pickAvailableAgent()
+  const agent = agentServer.reserveAvailableAgent()
   if (!agent) return false
 
-  const task = await claimJudgeTask({ workerId, leaseSeconds: 120 })
-  if (!task) return false
+  const task = await claimJudgeTask({ workerId, leaseSeconds: judgeTaskLeaseSeconds })
+  if (!task) {
+    agentServer.releaseAgent(agent)
+    return false
+  }
   let submissionId = task.submissionId
+  let sentToAgent = false
 
   try {
     const payload = await preparePayload(task.submissionId)
@@ -43,6 +48,7 @@ async function handleOne() {
       .delete(schema.submissionCases)
       .where(eq(schema.submissionCases.submissionId, payload.submissionId))
 
+    sentToAgent = true
     const judged = await agentServer.runJob(agent, payload)
     await persistJudgeResult(payload.submissionId, payload.problemId, judged)
     await completeJudgeTask(task.id)
@@ -56,6 +62,7 @@ async function handleOne() {
       })
       .where(eq(schema.submissions.id, submissionId))
     await failJudgeTask(task.id, error)
+    if (!sentToAgent) agentServer.releaseAgent(agent)
   }
 
   return true

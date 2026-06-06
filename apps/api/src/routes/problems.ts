@@ -9,6 +9,7 @@ import { countRows } from '../services/stats'
 import { listQuerySchema, numericId, pageOffset } from '../validation'
 
 const maxPackageFileBytes = 64 * 1024 * 1024
+const maxPackageRequestBytes = maxPackageFileBytes + 1024 * 1024
 
 export function registerProblemRoutes(app: Hono) {
   app.get('/api/problems', async (c) => {
@@ -166,10 +167,18 @@ export function registerProblemRoutes(app: Hono) {
     if (denied) return denied
 
     const problemId = numericId.parse(c.req.param('id'))
+    const contentLength = Number(c.req.header('content-length') ?? 0)
+    if (Number.isFinite(contentLength) && contentLength > maxPackageRequestBytes) {
+      return c.json({ code: 'FILE_TOO_LARGE', message: 'Package upload is too large' }, 413)
+    }
+
     const form = await c.req.formData()
     const uploads = form.getAll('file').filter((item): item is File => item instanceof File)
     if (!uploads.length) {
-      return c.json({ code: 'MISSING_FILE', message: 'Expected multipart file field named file' }, 400)
+      return c.json(
+        { code: 'MISSING_FILE', message: 'Expected multipart file field named file' },
+        400
+      )
     }
     const prefix = (form.get('prefix') as string | null) ?? ''
     const totalBytes = uploads.reduce((sum, file) => sum + file.size, 0)
@@ -317,18 +326,12 @@ async function deletePackageFile(problemId: number, path: string) {
     .where(eq(schema.problemFiles.problemId, problemId))
   const match = existing.find((row) => row.path === normalized)
   if (!match) return
-  await db
-    .delete(schema.problemFiles)
-    .where(eq(schema.problemFiles.fileId, match.fileId))
+  await db.delete(schema.problemFiles).where(eq(schema.problemFiles.fileId, match.fileId))
 }
 
 // Restrict to a safe relative path inside the build context.
 function normalizePackagePath(path: string) {
-  const cleaned = path
-    .replace(/\\/g, '/')
-    .replace(/^\/+/, '')
-    .replace(/\.\.+/g, '.')
-    .trim()
+  const cleaned = path.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\.\.+/g, '.').trim()
   if (!cleaned) throw new Error('invalid package path')
   return cleaned
 }

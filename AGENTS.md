@@ -67,10 +67,10 @@ These were found during a whole-system review. The current iteration focuses on 
 ### Security (do first when picking up backend work)
 
 - [DONE] Submission detail/list endpoints IDOR. Detail (`apps/api/src/routes/submissions.ts`) gates `message`/`cases` to owner/admin for contests, `sourceCode` to owner/admin or open, hidden-problem submissions 404 for non-owners, and assignment submissions 404 unless owner/admin. Public submission list hides judge messages from non-owner/non-admin and excludes assignment submissions unless owner/admin. Covered by `submission-security` smoke.
-- [MED] Login rate-limit key includes username (`apps/api/src/routes/auth.ts:58-67`), so credential-stuffing across usernames from one IP bypasses it. Add an IP-wide login limit.
-- [MED] Testdata upload buffers the whole file into memory before size check (`apps/api/src/routes/problems.ts:159-171`). Stream or check `Content-Length` first.
+- [DONE] Added an IP-wide login rate limit in addition to the existing IP+username bucket (`routes/auth.ts`), so credential-stuffing across usernames from one IP is throttled. Covered by `rate-limit` smoke.
+- [DONE] Package upload now checks `Content-Length` before parsing multipart form data and still validates summed uploaded file sizes after parse (`routes/problems.ts`). Covered by `testdata` smoke.
 - [MED] Rate-limit/session degrade to per-process in-memory `Map` when Redis is briefly down (`session.ts:11-16`, `rate-limit.ts:34-55`, `redis.ts`), bypassable across instances in multi-instance deploys.
-- [LOW] 500 responses echo internal `error.message` (`apps/api/src/index.ts:31-38`). Register race returns 500 instead of 409 (`routes/auth.ts:30-50`). Contest problem list is public before `startAt` (`routes/contests.ts:96-100`). Login user-enumeration via timing + 409 on register. Rate-limit `incr`+`expire` non-atomic (`redis.ts:50-55`).
+- [PARTIAL] Low-risk auth/API hardening: 500 responses now return a generic message, register unique races map to 409, contest detail hides problem list before `startAt` for non-admin viewers, and rate-limit `incr`+`expire` is atomic via Redis Lua. REMAINING: login user-enumeration via timing and 409-on-register semantics.
 
 ### Performance
 
@@ -90,8 +90,8 @@ These were found during a whole-system review. The current iteration focuses on 
 - [MED] No real-time judging progress: agent returns one final `result`, no per-case progress message in the protocol (`packages/shared/src/agent.ts:66-83`). Submission sits at JUDGING with no "testing case N".
 - [MED] No compile cache (rebuilds image per submission) and no agent-side package/testdata cache (re-downloads S3 objects every job, `apps/agent/src/index.ts`).
 - [DONE] Package build success/failure uses Docker build stream errors, not regex (`buildPackage` in `packages/runner/src/docker-runner.ts`). Legacy `build()` still exists for older paths and retains the old log heuristic.
-- [MED] Agent concurrency selection has TOCTOU: `pickAvailableAgent` reads `activeJobs` before `runJob` increments it (`apps/worker/src/index.ts:27-30` vs `agent-server.ts:147`); can over-dispatch.
-- [MED] Job timeout (`agentJobTimeoutMs`=120000) equals claim lease (120s); near-timeout judging can be re-claimed -> duplicate judging. Job timeout does not tell the agent to cancel, leaking the agent-side container (`agent-server.ts:149-152`).
+- [DONE] Agent concurrency selection TOCTOU fixed: worker reserves an agent slot before claiming a task and releases it if no task is claimed, so concurrent worker slots cannot over-dispatch the same agent (`reserveAvailableAgent`/`releaseAgent` in `apps/worker/src/agent-server.ts`).
+- [PARTIAL] Job timeout no longer equals claim lease: task lease is now `agentJobTimeoutMs + 60s`, preventing near-timeout jobs from being immediately re-claimed and duplicated. REMAINING: timed-out jobs still do not send an explicit cancel to the agent, so agent-side work may continue until its local process exits.
 - [LOW] Hand-written zip parser rejects data-descriptor streams and relies on filename heuristics (`packages/shared/src/testdata.ts`). Inline vs zip test-case visibility semantics differ.
 - [LOW] Dead/duplicate type `JudgeTaskPayload` (`packages/shared/src/judge.ts:32-40`) — actual flow uses `JudgeAgentPayload`. `cgroup` peak memory unreadable on Docker Desktop/remote (`docker-runner.ts:371-401`), falls back to sampling (may miss peaks). `patchDestroySoon` monkey-patch is fragile (`docker-runner.ts:245-252`). Single-process in-memory agent registry assumes one worker (`agent-server.ts:44`).
 

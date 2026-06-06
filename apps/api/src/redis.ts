@@ -49,8 +49,12 @@ export async function redisDel(key: string) {
 
 export async function redisIncrWithTtl(key: string, ttlSeconds: number) {
   return withRedis(async (redis) => {
-    const count = await redis.incr(key)
-    if (count === 1) await redis.expire(key, ttlSeconds)
-    return count
+    const result = await redis.send('EVAL', [
+      "local value = redis.call('INCR', KEYS[1]); if value == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]); end; return value",
+      '1',
+      key,
+      String(ttlSeconds)
+    ])
+    return typeof result === 'number' ? result : Number(result)
   })
 }

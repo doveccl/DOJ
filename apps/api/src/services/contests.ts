@@ -7,7 +7,7 @@ import { redisGet, redisSet } from '../redis'
 // recomputes into one DB read every few seconds; admin reveal stays uncached.
 const scoreboardCacheTtlSeconds = 5
 
-export async function getContestDetail(id: number) {
+export async function getContestDetail(id: number, options: { includeProblems?: boolean } = {}) {
   const [contest] = await db
     .select()
     .from(schema.contests)
@@ -15,18 +15,21 @@ export async function getContestDetail(id: number) {
     .limit(1)
   if (!contest) return null
 
-  const problems = await db
-    .select({
-      id: schema.problems.id,
-      title: schema.problems.title,
-      key: schema.contestProblems.key,
-      score: schema.contestProblems.score,
-      sortOrder: schema.contestProblems.sortOrder
-    })
-    .from(schema.contestProblems)
-    .innerJoin(schema.problems, eq(schema.contestProblems.problemId, schema.problems.id))
-    .where(eq(schema.contestProblems.contestId, id))
-    .orderBy(schema.contestProblems.sortOrder)
+  const problems =
+    options.includeProblems === false
+      ? []
+      : await db
+          .select({
+            id: schema.problems.id,
+            title: schema.problems.title,
+            key: schema.contestProblems.key,
+            score: schema.contestProblems.score,
+            sortOrder: schema.contestProblems.sortOrder
+          })
+          .from(schema.contestProblems)
+          .innerJoin(schema.problems, eq(schema.contestProblems.problemId, schema.problems.id))
+          .where(eq(schema.contestProblems.contestId, id))
+          .orderBy(schema.contestProblems.sortOrder)
 
   return {
     contest,

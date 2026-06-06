@@ -38,6 +38,27 @@ if (otherIpStatus.status !== 401) {
   throw new Error(`expected other IP to avoid rate limit, got ${otherIpStatus.status}`)
 }
 
+const stuffingIp = `198.51.101.${Math.floor(Math.random() * 200) + 1}`
+let stuffingStatus = 0
+for (let attempt = 0; attempt < 121; attempt += 1) {
+  const response = await fetch(`${apiBase}/api/auth/login`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-forwarded-for': stuffingIp
+    },
+    body: JSON.stringify({
+      user: `stuff_${runId}_${attempt}`,
+      password: 'wrong-password'
+    })
+  })
+  stuffingStatus = response.status
+}
+
+if (stuffingStatus !== 429) {
+  throw new Error(`expected IP-wide stuffing rate limit 429, got ${stuffingStatus}`)
+}
+
 const userResponse = await fetch(`${apiBase}/api/auth/register`, {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
@@ -76,5 +97,7 @@ console.log({
   loginIp,
   limitedStatus: lastStatus,
   otherIpStatus: otherIpStatus.status,
+  stuffingIp,
+  stuffingStatus,
   discussionStatus
 })

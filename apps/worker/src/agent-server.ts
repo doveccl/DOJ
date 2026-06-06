@@ -121,6 +121,20 @@ export class JudgeAgentServer {
     return available[0] ?? null
   }
 
+  reserveAvailableAgent() {
+    const agent = this.pickAvailableAgent()
+    if (!agent) return null
+    agent.activeJobs += 1
+    return agent
+  }
+
+  releaseAgent(agent: ConnectedJudgeAgent) {
+    const current = this.agents.get(agent.key)
+    if (!current) return
+    current.activeJobs = Math.max(0, current.activeJobs - 1)
+    this.options.onWake()
+  }
+
   hasAvailableAgent() {
     return this.pickAvailableAgent() !== null
   }
@@ -144,7 +158,6 @@ export class JudgeAgentServer {
       payload
     }
 
-    agent.activeJobs += 1
     const promise = new Promise<JudgeAgentResult>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pendingJobs.delete(jobId)

@@ -25,6 +25,38 @@ try {
   })
 
   const now = Date.now()
+  const futureDetail = await api<{
+    contest: { id: number }
+    problems: Array<{ id: number; key: string }>
+  }>('/api/contests', {
+    method: 'POST',
+    headers: adminHeaders,
+    body: JSON.stringify({
+      title: `Future Contest ${runId.slice(0, 8)}`,
+      description: 'Future smoke contest',
+      type: 'ICPC',
+      startAt: new Date(now + 60 * 60_000).toISOString(),
+      freezeAt: new Date(now + 90 * 60_000).toISOString(),
+      endAt: new Date(now + 120 * 60_000).toISOString(),
+      problems: [{ problemId: problem.id, key: 'A', score: 100 }]
+    })
+  })
+  const futurePublic = await api<{ problems: Array<{ id: number }> }>(
+    `/api/contests/${futureDetail.contest.id}`
+  )
+  if (futurePublic.problems.length !== 0) {
+    throw new Error(`future contest leaked problems publicly: ${JSON.stringify(futurePublic)}`)
+  }
+  const futureAdmin = await api<{ problems: Array<{ id: number }> }>(
+    `/api/contests/${futureDetail.contest.id}`,
+    { headers: adminHeaders }
+  )
+  if (futureAdmin.problems.length !== 1) {
+    throw new Error(
+      `admin could not inspect future contest problems: ${JSON.stringify(futureAdmin)}`
+    )
+  }
+
   const detail = await api<{
     contest: { id: number }
     problems: Array<{ id: number; key: string }>
@@ -142,6 +174,7 @@ try {
     submissionId: submission.id,
     status: judged.status,
     coachStatus: coachResponse.status,
+    futurePublicProblems: futurePublic.problems.length,
     frozenSolved: frozenRow.solved,
     revealedSolved: revealedRow.solved
   })

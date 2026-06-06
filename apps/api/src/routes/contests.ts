@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { desc, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { db, schema } from '@doj/db/client'
-import { authMiddleware, requireGroup } from '../auth'
+import { authMiddleware, getOptionalAuthUser, requireGroup } from '../auth'
 import { getContestDetail, getContestScoreboard } from '../services/contests'
 import { countRows } from '../services/stats'
 import { dateString, listQuerySchema, numericId, pageOffset } from '../validation'
@@ -98,8 +98,13 @@ export function registerContestRoutes(app: Hono) {
   })
 
   app.get('/api/contests/:id', async (c) => {
+    const authUser = await getOptionalAuthUser(c)
+    const isAdmin = authUser?.groups.includes('admin') === true
     const contest = await getContestDetail(numericId.parse(c.req.param('id')))
     if (!contest) return c.notFound()
+    if (!isAdmin && Date.now() < contest.contest.startAt.getTime()) {
+      return c.json({ ...contest, problems: [] })
+    }
     return c.json(contest)
   })
 
