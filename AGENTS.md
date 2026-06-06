@@ -74,11 +74,11 @@ These were found during a whole-system review. The current iteration focuses on 
 ### Performance
 
 - [DONE] Admin problem list N+1: replaced per-problem latest-version+file queries with two batched queries (`getLatestProblemVersions` uses `DISTINCT ON` + a single `files` lookup) in `apps/api/src/routes/problems.ts`.
-- [HIGH] Scoreboard/assignment report fetch ALL submissions into memory with no limit/cache, on a public hot path (`services/contests.ts:38-50`, `services/assignments.ts:59-70`). Aggregate in DB or cache.
-- [HIGH] Global submission list + dashboard sort by `createdAt` but composite indexes lead with other columns, causing full sort (`routes/submissions.ts:56-62`, `routes/public.ts:35-40`). Add `submissions(created_at desc)` index.
-- [PARTIAL] Fake pagination: `problems`/`admin-problems` now do real count + offset pagination (`routes/problems.ts`). STILL TODO: contests/assignments/admin-users/admin-groups/discussion.
-- [MED] Dashboard runs 5 independent queries serially (`routes/public.ts:22-73`); parallelize. Submission list count+data are serial (`routes/submissions.ts:37-62`); `Promise.all`.
-- [MED] Missing indexes for common sorts: `bbs_topics.updated_at`, `contests.start_at`, `assignments.created_at`, `problems.created_at`, `users.created_at`.
+- [PARTIAL] Scoreboard/assignment report fetch ALL submissions into memory. Public contest scoreboard now has a 5s Redis cache (`getContestScoreboard` in `services/contests.ts`, key `scoreboard:<id>`, admin reveal bypasses it) to collapse live-contest refresh bursts. Assignment report left as a direct admin-only computation (low concurrency). STILL TODO if scale demands: DB-side aggregation instead of loading all rows.
+- [DONE] Added btree sort index `submissions(created_at)` (plus problems/contests/assignments/users/discussion_topics) so dashboard/list `ORDER BY created_at` no longer full-sorts.
+- [DONE] Real pagination (count + offset) now on problems/admin-problems/contests/assignments/admin-users/discussion via shared `listQuerySchema`+`pageOffset` (`apps/api/src/validation.ts`). Frontend tables use Naive remote pagination. STILL TODO: admin-groups list (small, capped) and the admin contest/assignment management tables only read page 1 in the UI.
+- [DONE] Dashboard recent* queries and submission list count+data now run in `Promise.all` (`routes/public.ts`, `routes/submissions.ts`); stat counts were already parallel.
+- [DONE] Missing sort indexes added: `contests.start_at`, `assignments.created_at`, `problems.created_at`, `users.created_at`, `discussion_topics.updated_at`.
 - [MED] `countVisibleSubmissions` does `count(*)` over `submissions ⋈ problems` on hot paths (`services/stats.ts:10-16`).
 
 ### Judging core (vs v4 experimental work)
