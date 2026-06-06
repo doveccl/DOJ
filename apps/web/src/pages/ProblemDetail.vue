@@ -12,10 +12,6 @@ interface Problem {
   id: number
   title: string
   tags: string[]
-}
-
-interface ProblemVersion {
-  id: number
   statementMarkdown: string
   timeLimitMs: number
   memoryLimitBytes: number
@@ -38,7 +34,6 @@ const loading = ref(true)
 const submitting = ref(false)
 const error = ref('')
 const problem = ref<Problem | null>(null)
-const version = ref<ProblemVersion | null>(null)
 const languageId = ref('cc')
 const sourceOpen = ref(false)
 const sourceCode = ref(
@@ -47,7 +42,7 @@ const sourceCode = ref(
 const languageOptions = ref<LanguageOption[]>([])
 
 const memoryMb = computed(() =>
-  version.value ? Math.round(version.value.memoryLimitBytes / 1024 / 1024) : 0
+  problem.value ? Math.round(problem.value.memoryLimitBytes / 1024 / 1024) : 0
 )
 const assignmentId = computed(() =>
   typeof route.query.assignmentId === 'string' ? route.query.assignmentId : ''
@@ -59,12 +54,11 @@ const contestId = computed(() =>
 onMounted(async () => {
   try {
     const [data, languages, config] = await Promise.all([
-      apiFetch<{ problem: Problem; version: ProblemVersion }>(`/api/problems/${route.params.id}`),
+      apiFetch<{ problem: Problem }>(`/api/problems/${route.params.id}`),
       apiFetch<{ list: Array<{ id: string; name: string }> }>('/api/languages'),
       apiFetch<AppConfig>('/api/config')
     ])
     problem.value = data.problem
-    version.value = data.version
     sourceOpen.value = config.sourceOpenDefault
     languageOptions.value = languages.list.map((language) => ({
       label: language.name,
@@ -78,7 +72,7 @@ onMounted(async () => {
 })
 
 async function submit() {
-  if (!auth.user || !problem.value || !version.value) return
+  if (!auth.user || !problem.value) return
 
   error.value = ''
   submitting.value = true
@@ -87,7 +81,6 @@ async function submit() {
       method: 'POST',
       body: JSON.stringify({
         problemId: problem.value.id,
-        problemVersionId: version.value.id,
         languageId: languageId.value,
         sourceCode: sourceCode.value,
         open: sourceOpen.value,
@@ -120,11 +113,11 @@ function updateTemplate(value: string) {
 <template>
   <main class="page">
     <n-spin :show="loading">
-      <section v-if="problem && version" class="problem-layout">
+      <section v-if="problem" class="problem-layout">
         <div>
           <section class="page-header">
             <h1>{{ problem.id }}. {{ problem.title }}</h1>
-            <p>{{ version.timeLimitMs }} ms / {{ memoryMb }} MB</p>
+            <p>{{ problem.timeLimitMs }} ms / {{ memoryMb }} MB</p>
             <p v-if="assignmentId" class="muted">
               {{ t('problemDetail.assignmentContext') }} {{ assignmentId }}
             </p>
@@ -133,7 +126,7 @@ function updateTemplate(value: string) {
             </p>
           </section>
           <n-card :bordered="false">
-            <markdown-view :source="version.statementMarkdown" />
+            <markdown-view :source="problem.statementMarkdown" />
           </n-card>
         </div>
         <n-card :title="t('problemDetail.submit')" :bordered="false">

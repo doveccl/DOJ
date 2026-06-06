@@ -153,28 +153,21 @@ for (const starter of starterProblems) {
     .limit(1)
   if (existing) {
     await db
-      .update(schema.problemVersions)
+      .update(schema.problems)
       .set({
         statementMarkdown: starter.statementMarkdown,
         timeLimitMs: starter.timeLimitMs,
         memoryLimitBytes: starter.memoryLimitBytes,
-        testCases: starter.testCases
+        testCases: starter.testCases,
+        updatedAt: new Date()
       })
-      .where(eq(schema.problemVersions.problemId, existing.id))
+      .where(eq(schema.problems.id, existing.id))
     continue
   }
 
-  const [problem] = await db
-    .insert(schema.problems)
-    .values({
-      title: starter.title,
-      tags: starter.tags
-    })
-    .returning()
-
-  await db.insert(schema.problemVersions).values({
-    problemId: problem.id,
-    version: 1,
+  await db.insert(schema.problems).values({
+    title: starter.title,
+    tags: starter.tags,
     statementMarkdown: starter.statementMarkdown,
     timeLimitMs: starter.timeLimitMs,
     memoryLimitBytes: starter.memoryLimitBytes,

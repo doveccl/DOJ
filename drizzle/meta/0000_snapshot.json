@@ -1,5 +1,5 @@
 {
-  "id": "e97b81fb-cb15-4c63-82ee-3272a1c9bb4e",
+  "id": "72204397-7313-4ab2-ae43-2b5587a05071",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1315,83 +1315,27 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.problem_versions": {
-      "name": "problem_versions",
+    "public.problem_files": {
+      "name": "problem_files",
       "schema": "",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "byDefault",
-            "name": "problem_versions_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
-        },
         "problem_id": {
           "name": "problem_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
-        "version": {
-          "name": "version",
-          "type": "integer",
+        "path": {
+          "name": "path",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
         },
-        "statement_markdown": {
-          "name": "statement_markdown",
-          "type": "text",
+        "file_id": {
+          "name": "file_id",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true
-        },
-        "time_limit_ms": {
-          "name": "time_limit_ms",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1000
-        },
-        "memory_limit_bytes": {
-          "name": "memory_limit_bytes",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 268435456
-        },
-        "test_cases": {
-          "name": "test_cases",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "testdata_file_id": {
-          "name": "testdata_file_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "checker_file_id": {
-          "name": "checker_file_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "interactor_file_id": {
-          "name": "interactor_file_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -1399,35 +1343,20 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
-      "indexes": {
-        "problem_versions_problem_version_uidx": {
-          "name": "problem_versions_problem_version_uidx",
-          "columns": [
-            {
-              "expression": "problem_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "version",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
-        "problem_versions_problem_id_problems_id_fk": {
-          "name": "problem_versions_problem_id_problems_id_fk",
-          "tableFrom": "problem_versions",
+        "problem_files_problem_id_problems_id_fk": {
+          "name": "problem_files_problem_id_problems_id_fk",
+          "tableFrom": "problem_files",
           "tableTo": "problems",
           "columnsFrom": [
             "problem_id"
@@ -1435,41 +1364,15 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "problem_versions_testdata_file_id_files_id_fk": {
-          "name": "problem_versions_testdata_file_id_files_id_fk",
-          "tableFrom": "problem_versions",
+        "problem_files_file_id_files_id_fk": {
+          "name": "problem_files_file_id_files_id_fk",
+          "tableFrom": "problem_files",
           "tableTo": "files",
           "columnsFrom": [
-            "testdata_file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "problem_versions_checker_file_id_files_id_fk": {
-          "name": "problem_versions_checker_file_id_files_id_fk",
-          "tableFrom": "problem_versions",
-          "tableTo": "files",
-          "columnsFrom": [
-            "checker_file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "problem_versions_interactor_file_id_files_id_fk": {
-          "name": "problem_versions_interactor_file_id_files_id_fk",
-          "tableFrom": "problem_versions",
-          "tableTo": "files",
-          "columnsFrom": [
-            "interactor_file_id"
+            "file_id"
           ],
           "columnsTo": [
             "id"
@@ -1478,7 +1381,15 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "problem_files_problem_id_path_pk": {
+          "name": "problem_files_problem_id_path_pk",
+          "columns": [
+            "problem_id",
+            "path"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -1516,6 +1427,41 @@
           "type": "varchar(160)",
           "primaryKey": false,
           "notNull": true
+        },
+        "statement_markdown": {
+          "name": "statement_markdown",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "time_limit_ms": {
+          "name": "time_limit_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1000
+        },
+        "memory_limit_bytes": {
+          "name": "memory_limit_bytes",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 268435456
+        },
+        "case_count": {
+          "name": "case_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "test_cases": {
+          "name": "test_cases",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
         },
         "tags": {
           "name": "tags",
@@ -1770,12 +1716,6 @@
         },
         "problem_id": {
           "name": "problem_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "problem_version_id": {
-          "name": "problem_version_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true

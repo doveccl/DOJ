@@ -67,9 +67,8 @@ try {
     throw new Error(`problem API failed: ${problemResponse.status} ${await problemResponse.text()}`)
   }
 
-  const { problem, version } = (await problemResponse.json()) as {
+  const { problem } = (await problemResponse.json()) as {
     problem: { id: number }
-    version: { id: number }
   }
 
   const submissionResponse = await fetch(`${apiBase}/api/submissions`, {
@@ -80,7 +79,6 @@ try {
     },
     body: JSON.stringify({
       problemId: problem.id,
-      problemVersionId: version.id,
       languageId: 'cc',
       sourceCode:
         '#include <bits/stdc++.h>\nusing namespace std;\nint main(){ cout << "wrong\\n"; }\n'

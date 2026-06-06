@@ -48,7 +48,8 @@ const { problem } = (await api('/api/problems', {
   headers: adminHeaders,
   body: JSON.stringify({
     title: `Student Assignment Problem ${runId.slice(0, 8)}`,
-    statementMarkdown: '# Student Assignment\n\nVisible to users.'
+    statementMarkdown: '# Student Assignment\n\nVisible to users.',
+    testCases: [{ name: 'sample', input: '', output: 'accepted\n' }]
   })
 })) as { problem: { id: number } }
 
@@ -82,10 +83,6 @@ if (detail.problems.length !== 1) {
   throw new Error(`student assignment detail missing problems: ${JSON.stringify(detail)}`)
 }
 
-const problemDetail = (await api(`/api/problems/${detail.problems[0].id}`)) as {
-  version: { id: number }
-}
-
 const submission = (await api('/api/submissions', {
   method: 'POST',
   headers: {
@@ -94,7 +91,6 @@ const submission = (await api('/api/submissions', {
   },
   body: JSON.stringify({
     problemId: detail.problems[0].id,
-    problemVersionId: problemDetail.version.id,
     assignmentId: created.assignment.id,
     languageId: 'cc',
     sourceCode:

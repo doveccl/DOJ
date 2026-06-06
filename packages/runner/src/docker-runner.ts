@@ -19,6 +19,9 @@ import type {
 } from './types'
 
 const defaultOutputLimitBytes = 64 * 1024 * 1024
+// Compiling untrusted submissions needs far more memory than the program's
+// runtime limit (e.g. cc1plus), so build-time memory is a separate generous cap.
+const buildMemoryBytes = 2 * 1024 * 1024 * 1024
 
 export interface DockerRunnerOptions {
   endpoint?: string | null
@@ -101,8 +104,9 @@ export class DockerRunner implements Runner {
       rm: true
     }
     if (!input.trusted && input.limits) {
-      // Cap build-time resources for untrusted submission packages.
-      buildOptions.memory = input.limits.memoryBytes
+      // Cap build-time CPU for untrusted submission packages. Memory uses a
+      // generous build cap (not the runtime limit) so the compiler isn't OOM-killed.
+      buildOptions.memory = buildMemoryBytes
       buildOptions.cpuperiod = 100_000
       buildOptions.cpuquota = 100_000
     }
@@ -421,7 +425,10 @@ export class DockerRunner implements Runner {
     } finally {
       await judge.remove({ force: true }).catch(() => {})
       await tester.remove({ force: true }).catch(() => {})
-      await this.docker.getVolume(volumeName).remove({ force: true }).catch(() => {})
+      await this.docker
+        .getVolume(volumeName)
+        .remove({ force: true })
+        .catch(() => {})
     }
   }
 
@@ -450,7 +457,6 @@ export class DockerRunner implements Runner {
       return ''
     }
   }
-
 
   async cleanup(input: CleanupScope): Promise<void> {
     const label = `doj.scope=${input.scopeId}`

@@ -32,6 +32,14 @@ export function parseLooseTestCases(entries: ZipEntry[]): ProblemTestCase[] {
   return buildCasesFromEntries(entries)
 }
 
+// Pair input/output data files (any naming) into ordered test cases. Used by the
+// agent to derive default-mode cases from a problem package's `data/` files.
+export function buildCasesFromPackageData(
+  files: Array<{ path: string; bytes: Uint8Array }>
+): ProblemTestCase[] {
+  return buildCasesFromEntries(files.map((file) => ({ name: file.path, bytes: file.bytes })))
+}
+
 function buildCasesFromEntries(entries: ZipEntry[]): ProblemTestCase[] {
   const inputs = new Map<string, ZipEntry>()
   const outputs = new Map<string, ZipEntry>()

@@ -14,17 +14,15 @@ try {
   })
   const adminHeaders = authHeaders(admin.token)
 
-  const { problem, version } = await api<{ problem: { id: number }; version: { id: number } }>(
-    '/api/problems',
-    {
-      method: 'POST',
-      headers: adminHeaders,
-      body: JSON.stringify({
-        title: `Contest Smoke Problem ${runId.slice(0, 8)}`,
-        statementMarkdown: '# Contest Smoke\n\nExit successfully.'
-      })
-    }
-  )
+  const { problem } = await api<{ problem: { id: number } }>('/api/problems', {
+    method: 'POST',
+    headers: adminHeaders,
+    body: JSON.stringify({
+      title: `Contest Smoke Problem ${runId.slice(0, 8)}`,
+      statementMarkdown: '# Contest Smoke\n\nExit successfully.',
+      testCases: [{ name: 'sample', input: '', output: 'contest\n' }]
+    })
+  })
 
   const now = Date.now()
   const detail = await api<{
@@ -58,7 +56,6 @@ try {
     headers: authHeaders(user.token),
     body: JSON.stringify({
       problemId: problem.id,
-      problemVersionId: version.id,
       contestId: detail.contest.id,
       languageId: 'cc',
       sourceCode:

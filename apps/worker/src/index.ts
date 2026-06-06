@@ -3,7 +3,6 @@ import { db, schema, sqlClient } from '@doj/db/client'
 import { claimJudgeTask, completeJudgeTask, failJudgeTask, judgeTaskChannel } from '@doj/db/queue'
 import { getRuntimeSettings } from '@doj/db/settings'
 import type { JudgeAgentPayload, JudgeAgentResult } from '@doj/shared/agent'
-import { getObjectBytes } from '@doj/shared/storage'
 import { getLanguage } from './languages'
 import { JudgeAgentServer } from './agent-server'
 
@@ -73,57 +72,50 @@ async function preparePayload(
 
   if (!submission) throw new Error(`submission not found: ${submissionId}`)
 
-  const [version] = await db
+  const [problem] = await db
     .select()
-    .from(schema.problemVersions)
-    .where(eq(schema.problemVersions.id, submission.problemVersionId))
+    .from(schema.problems)
+    .where(eq(schema.problems.id, submission.problemId))
     .limit(1)
 
-  if (!version) throw new Error(`problem version not found: ${submission.problemVersionId}`)
+  if (!problem) throw new Error(`problem not found: ${submission.problemId}`)
 
   const language = await getLanguage(submission.languageId)
-  const file = version.testdataFileId ? await getTestdataFileRef(version.testdataFileId) : null
-  const checker = version.checkerFileId ? await getCheckerSource(version.checkerFileId) : null
+  const packageFiles = await getProblemPackageFiles(problem.id)
   const settings = await getRuntimeSettings()
 
   return {
     submissionId: submission.id,
     problemId: submission.problemId,
     scopeId: `submission-${submission.id}`,
-    sourceCode: submission.sourceCode,
-    language: {
-      id: language.id,
-      sourceFile: language.sourceFile,
-      dockerfile: language.dockerfile,
-      command: language.command
-    },
+    code: submission.sourceCode,
     limits: {
-      timeMs: version.timeLimitMs,
-      memoryBytes: version.memoryLimitBytes,
+      timeMs: problem.timeLimitMs,
+      memoryBytes: problem.memoryLimitBytes,
       outputBytes: settings.outputLimitBytes
     },
-    testCases: file ? [] : version.testCases,
-    testdataFile: file,
-    checker
+    // Submission (B) build context.
+    testerFiles: {
+      Dockerfile: language.dockerfile,
+      [language.sourceFile]: submission.sourceCode
+    },
+    problemFiles: packageFiles,
+    inlineTestCases: problem.testCases,
+    caseCount: problem.caseCount
   }
 }
 
-async function getCheckerSource(fileId: number) {
-  const [file] = await db.select().from(schema.files).where(eq(schema.files.id, fileId)).limit(1)
-  if (!file) throw new Error(`checker file not found: ${fileId}`)
-  const bytes = await getObjectBytes(file.objectKey, file.bucket)
-  return { sourceCode: Buffer.from(bytes).toString('utf8') }
-}
-
-async function getTestdataFileRef(fileId: number) {
-  const [file] = await db.select().from(schema.files).where(eq(schema.files.id, fileId)).limit(1)
-  if (!file) throw new Error(`testdata file not found: ${fileId}`)
-  return {
-    bucket: file.bucket,
-    objectKey: file.objectKey,
-    filename: file.filename,
-    sizeBytes: file.sizeBytes
-  }
+async function getProblemPackageFiles(problemId: number) {
+  const rows = await db
+    .select({
+      path: schema.problemFiles.path,
+      bucket: schema.files.bucket,
+      objectKey: schema.files.objectKey
+    })
+    .from(schema.problemFiles)
+    .innerJoin(schema.files, eq(schema.problemFiles.fileId, schema.files.id))
+    .where(eq(schema.problemFiles.problemId, problemId))
+  return rows.map((row) => ({ path: row.path, bucket: row.bucket, objectKey: row.objectKey }))
 }
 
 async function persistJudgeResult(

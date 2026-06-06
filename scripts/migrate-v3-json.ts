@@ -19,7 +19,6 @@ if (!inputDir) {
 const maps = {
   users: new Map<string, number>(),
   problems: new Map<string, number>(),
-  versions: new Map<string, number>(),
   contests: new Map<string, number>(),
   topics: new Map<string, number>()
 }
@@ -129,12 +128,6 @@ async function migrateProblems() {
       .limit(1)
     if (existing) {
       maps.problems.set(legacyId, existing.id)
-      const [version] = await db
-        .select()
-        .from(schema.problemVersions)
-        .where(eq(schema.problemVersions.problemId, existing.id))
-        .limit(1)
-      if (version) maps.versions.set(legacyId, version.id)
       continue
     }
 
@@ -145,6 +138,9 @@ async function migrateProblems() {
           legacyId,
           title: stringValue(item.title, `Legacy Problem ${legacyId.slice(-8)}`).slice(0, 160),
           tags: Array.isArray(item.tags) ? item.tags.map(String) : [],
+          statementMarkdown: stringValue(item.content, 'Legacy statement missing.'),
+          timeLimitMs: numberValue(item.timeLimit, 1000),
+          memoryLimitBytes: numberValue(item.memoryLimit, 256 * 1024 * 1024),
           solvedCount: numberValue(item.solve),
           submissionCount: numberValue(item.submit),
           createdAt: dateValue(item.createdAt),
@@ -152,22 +148,10 @@ async function migrateProblems() {
         })
         .returning()
 
-      const [version] = await tx
-        .insert(schema.problemVersions)
-        .values({
-          problemId: problem.id,
-          version: 1,
-          statementMarkdown: stringValue(item.content, 'Legacy statement missing.'),
-          timeLimitMs: numberValue(item.timeLimit, 1000),
-          memoryLimitBytes: numberValue(item.memoryLimit, 256 * 1024 * 1024)
-        })
-        .returning()
-
-      return { problem, version }
+      return { problem }
     })
 
     maps.problems.set(legacyId, result.problem.id)
-    maps.versions.set(legacyId, result.version.id)
 
     const contestLegacyId = legacy(item.contest?.id, '')
     const contestId = contestLegacyId ? maps.contests.get(contestLegacyId) : undefined
@@ -194,9 +178,8 @@ async function migrateSubmissions() {
     const userId = maps.users.get(legacy(item.uid, ''))
     const problemLegacyId = legacy(item.pid, '')
     const problemId = maps.problems.get(problemLegacyId)
-    const problemVersionId = maps.versions.get(problemLegacyId)
     const languageId = languageMap[String(item.language)]
-    if (!userId || !problemId || !problemVersionId || !languageId) continue
+    if (!userId || !problemId || !languageId) continue
 
     const legacyId = legacy(item)
     const [existing] = await db
@@ -213,7 +196,6 @@ async function migrateSubmissions() {
         legacyId,
         userId,
         problemId,
-        problemVersionId,
         contestId,
         languageId,
         sourceCode: stringValue(item.code, ''),

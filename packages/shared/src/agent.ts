@@ -16,33 +16,35 @@ export interface JudgeAgentFileRef {
   sizeBytes: number
 }
 
-export interface JudgeAgentLanguage {
-  id: string
-  sourceFile: string
-  dockerfile: string
-  command?: string[]
+// A single file in a problem's judging package, addressed by its path inside the
+// build context (e.g. `Dockerfile`, `data/1.in`, `judge.cc`).
+export interface JudgeAgentPackageFile {
+  path: string
+  bucket: string
+  objectKey: string
 }
 
 export interface JudgeAgentPayload {
   submissionId: number
   scopeId: string
-  sourceCode: string
-  language: JudgeAgentLanguage
+  // Submission source, also exposed to the problem (A) container as `code`.
+  code: string
   limits: {
     timeMs: number
     memoryBytes: number
     outputBytes: number
   }
-  testCases: ProblemTestCase[]
-  testdataFile?: JudgeAgentFileRef | null
-  checker?: JudgeAgentChecker | null
-}
-
-export interface JudgeAgentChecker {
-  // Special-judge source. Compiled with C++ and invoked per case as
-  // `checker <input> <output> <answer>` (testlib-compatible exit codes:
-  // 0 = accepted, 2 = presentation error, anything else = wrong answer).
-  sourceCode: string
+  // The submission (B) build context, inline: { Dockerfile, <sourceFile> }.
+  testerFiles: Record<string, string>
+  // The problem (A) package files, fetched from S3 by the agent. When the
+  // package contains a `Dockerfile` the run is custom (A is interactor+checker);
+  // otherwise the engine runs default mode against the data/inline cases.
+  problemFiles: JudgeAgentPackageFile[]
+  // Inline sample cases (used as default-mode data + per-case weights when the
+  // package ships no data/*.in files).
+  inlineTestCases: ProblemTestCase[]
+  // For custom packages whose A generates its own data, how many cases to run.
+  caseCount: number
 }
 
 export interface JudgeAgentCaseResult {

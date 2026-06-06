@@ -181,6 +181,15 @@ export const problems = pgTable(
     id: problemPrimaryId(),
     legacyId: varchar('legacy_id', { length: 64 }),
     title: varchar('title', { length: 160 }).notNull(),
+    statementMarkdown: text('statement_markdown').default('').notNull(),
+    timeLimitMs: integer('time_limit_ms').default(1000).notNull(),
+    memoryLimitBytes: bigint('memory_limit_bytes', { mode: 'number' }).default(268435456).notNull(),
+    // For custom packages whose A generates its own data, the number of cases to
+    // run. 0 means "derive from data files / inline cases".
+    caseCount: integer('case_count').default(0).notNull(),
+    // Inline sample cases (small, default mode). Larger data lives as package
+    // files in `problem_files`.
+    testCases: jsonb('test_cases').$type<ProblemTestCase[]>().default([]).notNull(),
     tags: text('tags')
       .array()
       .default(sql`ARRAY[]::text[]`)
@@ -198,25 +207,24 @@ export const problems = pgTable(
   })
 )
 
-export const problemVersions = pgTable(
-  'problem_versions',
+// A problem's judging "package": loose files (Dockerfile, data/1.in, data/1.out,
+// judge sources, assets) addressed by path. Each row points at a stored S3
+// object. Mode is auto-detected by whether a `Dockerfile` path exists.
+export const problemFiles = pgTable(
+  'problem_files',
   {
-    id: id(),
     problemId: integer('problem_id')
       .notNull()
-      .references(() => problems.id),
-    version: integer('version').notNull(),
-    statementMarkdown: text('statement_markdown').notNull(),
-    timeLimitMs: integer('time_limit_ms').default(1000).notNull(),
-    memoryLimitBytes: bigint('memory_limit_bytes', { mode: 'number' }).default(268435456).notNull(),
-    testCases: jsonb('test_cases').$type<ProblemTestCase[]>().default([]).notNull(),
-    testdataFileId: integer('testdata_file_id').references(() => files.id),
-    checkerFileId: integer('checker_file_id').references(() => files.id),
-    interactorFileId: integer('interactor_file_id').references(() => files.id),
-    createdAt: createdAt()
+      .references(() => problems.id, { onDelete: 'cascade' }),
+    path: varchar('path', { length: 255 }).notNull(),
+    fileId: integer('file_id')
+      .notNull()
+      .references(() => files.id),
+    createdAt: createdAt(),
+    updatedAt: updatedAt()
   },
   (t) => ({
-    versionUidx: uniqueIndex('problem_versions_problem_version_uidx').on(t.problemId, t.version)
+    pk: primaryKey({ columns: [t.problemId, t.path] })
   })
 )
 
@@ -315,7 +323,6 @@ export const submissions = pgTable(
     legacyId: varchar('legacy_id', { length: 64 }),
     userId: integer('user_id').notNull(),
     problemId: integer('problem_id').notNull(),
-    problemVersionId: integer('problem_version_id').notNull(),
     contestId: integer('contest_id'),
     assignmentId: integer('assignment_id'),
     languageId: varchar('language_id', { length: 64 }).notNull(),
@@ -454,5 +461,5 @@ export const groupsRelations = relations(groups, ({ many }) => ({
 }))
 
 export const problemsRelations = relations(problems, ({ many }) => ({
-  versions: many(problemVersions)
+  files: many(problemFiles)
 }))

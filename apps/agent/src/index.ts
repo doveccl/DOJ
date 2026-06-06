@@ -4,9 +4,9 @@ import type {
   WorkerToAgentMessage
 } from '@doj/shared/agent'
 import { getObjectBytes } from '@doj/shared/storage'
-import { parseZipTestCases } from '@doj/shared/testdata'
+import { buildCasesFromPackageData } from '@doj/shared/testdata'
 import { DockerRunner } from '@doj/runner/docker-runner'
-import { judgePayload } from '@doj/runner/judge'
+import { judgePackage } from '@doj/runner/judge'
 
 const key = process.env.DOJ_AGENT_KEY ?? 'local-agent'
 const token = process.env.DOJ_AGENT_TOKEN ?? 'local-agent-token'
@@ -72,8 +72,7 @@ async function connectOnce() {
 async function runJob(socket: WebSocket, message: Extract<WorkerToAgentMessage, { type: 'run' }>) {
   activeJobs.add(message.jobId)
   try {
-    const payload = await hydratePayload(message.payload)
-    const result = await judgePayload(runner, payload)
+    const result = await runPackage(message.payload)
     send(socket, {
       type: 'result',
       jobId: message.jobId,
@@ -90,19 +89,47 @@ async function runJob(socket: WebSocket, message: Extract<WorkerToAgentMessage, 
   }
 }
 
-async function hydratePayload(payload: JudgeAgentPayload): Promise<JudgeAgentPayload> {
-  if (!payload.testdataFile) return payload
+async function runPackage(payload: JudgeAgentPayload) {
+  // Fetch the problem package files from S3.
+  const fetched = await Promise.all(
+    payload.problemFiles.map(async (file) => ({
+      path: file.path,
+      bytes: await getObjectBytes(file.objectKey, file.bucket)
+    }))
+  )
 
-  const bytes = await getObjectBytes(payload.testdataFile.objectKey, payload.testdataFile.bucket)
-  const testCases = parseZipTestCases(bytes)
+  const hasDockerfile = fetched.some((file) => file.path === 'Dockerfile')
+
+  if (hasDockerfile) {
+    // Custom mode: A is the problem package (interactor + checker).
+    const problemFiles: Record<string, Uint8Array> = {}
+    for (const file of fetched) problemFiles[file.path] = file.bytes
+    return judgePackage(runner, {
+      scopeId: payload.scopeId,
+      testerFiles: payload.testerFiles,
+      problemFiles,
+      testCases: payload.inlineTestCases,
+      caseCount: payload.caseCount || payload.inlineTestCases.length || 1,
+      limits: payload.limits,
+      code: payload.code
+    })
+  }
+
+  // Default mode: derive cases from packaged `data/` files, else inline cases.
+  const dataFiles = fetched.filter((file) => file.path.startsWith('data/'))
+  const dataCases = dataFiles.length ? buildCasesFromPackageData(dataFiles) : []
+  const testCases = dataCases.length ? dataCases : payload.inlineTestCases
   if (!testCases.length) {
-    throw new Error(`testdata file has no cases: ${payload.testdataFile.filename}`)
+    throw new Error('problem has no test cases (no data files and no inline cases)')
   }
-
-  return {
-    ...payload,
-    testCases
-  }
+  return judgePackage(runner, {
+    scopeId: payload.scopeId,
+    testerFiles: payload.testerFiles,
+    problemFiles: null,
+    testCases,
+    limits: payload.limits,
+    code: payload.code
+  })
 }
 
 function buildWorkerUrl() {

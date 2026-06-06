@@ -11,12 +11,11 @@ try {
   await ensureJudgeServices()
   const auth = await registerUser()
   const admin = await loginAdmin()
-  const { problem, version } = await createProblem(admin.token)
+  const { problem } = await createProblem(admin.token)
 
   const accepted = await submitAndJudge(
     auth.token,
     problem.id,
-    version.id,
     '#include <bits/stdc++.h>\nusing namespace std;\nint main(){ long long x; cin >> x; cout << x * 2 << "\\n"; }\n'
   )
   if (accepted.status !== 'AC') {
@@ -26,7 +25,6 @@ try {
   const wrong = await submitAndJudge(
     auth.token,
     problem.id,
-    version.id,
     '#include <bits/stdc++.h>\nusing namespace std;\nint main(){ cout << 0 << "\\n"; }\n'
   )
   if (wrong.status !== 'WA') {
@@ -115,15 +113,10 @@ async function createProblem(token: string) {
 
   if (!response.ok)
     throw new Error(`problem API failed: ${response.status} ${await response.text()}`)
-  return (await response.json()) as { problem: { id: number }; version: { id: number } }
+  return (await response.json()) as { problem: { id: number } }
 }
 
-async function submitAndJudge(
-  token: string,
-  problemId: number,
-  problemVersionId: number,
-  sourceCode: string
-) {
+async function submitAndJudge(token: string, problemId: number, sourceCode: string) {
   const response = await fetch(`${apiBase}/api/submissions`, {
     method: 'POST',
     headers: {
@@ -132,7 +125,6 @@ async function submitAndJudge(
     },
     body: JSON.stringify({
       problemId,
-      problemVersionId,
       languageId: 'cc',
       sourceCode
     })

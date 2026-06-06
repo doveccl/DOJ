@@ -23,24 +23,21 @@ try {
       })
     }
   )
-  const { problem, version } = await api<{ problem: { id: number }; version: { id: number } }>(
-    '/api/problems',
-    {
-      method: 'POST',
-      headers: authHeaders(admin.token),
-      body: JSON.stringify({
-        title: `Rank Smoke ${runId.slice(0, 8)}`,
-        statementMarkdown: '# Rank Smoke\n\nExit successfully.'
-      })
-    }
-  )
+  const { problem } = await api<{ problem: { id: number } }>('/api/problems', {
+    method: 'POST',
+    headers: authHeaders(admin.token),
+    body: JSON.stringify({
+      title: `Rank Smoke ${runId.slice(0, 8)}`,
+      statementMarkdown: '# Rank Smoke\n\nExit successfully.',
+      testCases: [{ name: 'sample', input: '', output: 'rank\n' }]
+    })
+  })
 
   const submission = await api<{ id: number }>('/api/submissions', {
     method: 'POST',
     headers: authHeaders(user.token),
     body: JSON.stringify({
       problemId: problem.id,
-      problemVersionId: version.id,
       languageId: 'cc',
       sourceCode:
         '#include <bits/stdc++.h>\nusing namespace std;\nint main(){ cout << "rank\\n"; }\n'

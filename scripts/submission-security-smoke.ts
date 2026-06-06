@@ -5,7 +5,6 @@ const runId = crypto.randomUUID()
 
 const admin = await login(adminUser, adminPassword)
 const user = await registerUser()
-const otherProblem = await createProblem(admin.token, `Other ${runId.slice(0, 8)}`)
 const hiddenProblem = await createProblem(admin.token, `Hidden ${runId.slice(0, 8)}`)
 const visibleProblem = await createProblem(admin.token, `Visible ${runId.slice(0, 8)}`)
 
@@ -36,17 +35,8 @@ const assignment = (await api('/api/assignments', {
   })
 })) as { assignment: { id: number } }
 
-const versionMismatchStatus = await submitStatus(user.token, {
-  problemId: visibleProblem.problem.id,
-  problemVersionId: otherProblem.version.id
-})
-if (versionMismatchStatus !== 400) {
-  throw new Error(`expected version mismatch 400, got ${versionMismatchStatus}`)
-}
-
 const hiddenStatus = await submitStatus(user.token, {
-  problemId: hiddenProblem.problem.id,
-  problemVersionId: hiddenProblem.version.id
+  problemId: hiddenProblem.problem.id
 })
 if (hiddenStatus !== 404) {
   throw new Error(`expected hidden problem 404, got ${hiddenStatus}`)
@@ -54,7 +44,6 @@ if (hiddenStatus !== 404) {
 
 const assignmentStatus = await submitStatus(user.token, {
   problemId: visibleProblem.problem.id,
-  problemVersionId: visibleProblem.version.id,
   assignmentId: assignment.assignment.id
 })
 if (assignmentStatus !== 404) {
@@ -64,7 +53,6 @@ if (assignmentStatus !== 404) {
 const sourceMarker = `LIST_LEAK_${runId}`
 const normalSubmission = await submit(user.token, {
   problemId: visibleProblem.problem.id,
-  problemVersionId: visibleProblem.version.id,
   sourceCode: `#include <bits/stdc++.h>\n// ${sourceMarker}\nint main(){return 0;}\n`
 })
 const privateDetail = (await api(`/api/submissions/${normalSubmission.id}`)) as {
@@ -77,7 +65,6 @@ if (privateDetail.restricted || !privateDetail.sourceRestricted || privateDetail
 }
 const openSubmission = await submit(user.token, {
   problemId: visibleProblem.problem.id,
-  problemVersionId: visibleProblem.version.id,
   sourceCode: `#include <bits/stdc++.h>\n// OPEN_${sourceMarker}\nint main(){return 0;}\n`,
   open: true
 })
@@ -155,7 +142,6 @@ if (ownerHiddenDetail.restricted || !ownerHiddenDetail.sourceCode.includes(sourc
 }
 
 console.log({
-  versionMismatchStatus,
   hiddenStatus,
   assignmentStatus,
   listedSubmissionId: normalSubmission.id,
@@ -195,12 +181,12 @@ async function createProblem(token: string, title: string) {
       statementMarkdown: '# Security Smoke\n\nReturn zero.',
       testCases: [{ input: '', output: '', hidden: false }]
     })
-  }) as Promise<{ problem: { id: number }; version: { id: number } }>
+  }) as Promise<{ problem: { id: number } }>
 }
 
 async function submitStatus(
   token: string,
-  body: { problemId: number; problemVersionId: number; assignmentId?: number }
+  body: { problemId: number; assignmentId?: number }
 ) {
   const response = await fetch(`${apiBase}/api/submissions`, {
     method: 'POST',
@@ -216,7 +202,7 @@ async function submitStatus(
 
 async function submit(
   token: string,
-  body: { problemId: number; problemVersionId: number; sourceCode: string; open?: boolean }
+  body: { problemId: number; sourceCode: string; open?: boolean }
 ) {
   return api('/api/submissions', {
     method: 'POST',

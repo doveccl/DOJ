@@ -14,7 +14,6 @@ import { numericId } from '../validation'
 
 const submitSchema = z.object({
   problemId: numericId,
-  problemVersionId: numericId,
   languageId: z.string().min(1).max(64),
   sourceCode: z
     .string()
@@ -44,7 +43,6 @@ export function registerSubmissionRoutes(app: Hono) {
           userName: schema.users.name,
           problemId: schema.submissions.problemId,
           problemTitle: schema.problems.title,
-          problemVersionId: schema.submissions.problemVersionId,
           languageId: schema.submissions.languageId,
           status: schema.submissions.status,
           timeMs: schema.submissions.timeMs,
@@ -108,23 +106,16 @@ export function registerSubmissionRoutes(app: Hono) {
     const [target] = await db
       .select({
         problemId: schema.problems.id,
-        visible: schema.problems.visible,
-        versionId: schema.problemVersions.id
+        visible: schema.problems.visible
       })
-      .from(schema.problemVersions)
-      .innerJoin(schema.problems, eq(schema.problemVersions.problemId, schema.problems.id))
-      .where(
-        and(
-          eq(schema.problemVersions.id, body.problemVersionId),
-          eq(schema.problemVersions.problemId, body.problemId)
-        )
-      )
+      .from(schema.problems)
+      .where(eq(schema.problems.id, body.problemId))
       .limit(1)
     if (!target) {
       return c.json(
         {
-          code: 'PROBLEM_VERSION_NOT_FOUND',
-          message: 'Problem version does not belong to this problem'
+          code: 'PROBLEM_NOT_FOUND',
+          message: 'Problem does not exist'
         },
         400
       )
@@ -158,7 +149,6 @@ export function registerSubmissionRoutes(app: Hono) {
       .values({
         userId: user.id,
         problemId: body.problemId,
-        problemVersionId: body.problemVersionId,
         languageId: body.languageId,
         sourceCode: body.sourceCode,
         open: body.open ?? settings.sourceOpenDefault,
@@ -191,7 +181,6 @@ export function registerSubmissionRoutes(app: Hono) {
         id: schema.submissions.id,
         userId: schema.submissions.userId,
         problemId: schema.submissions.problemId,
-        problemVersionId: schema.submissions.problemVersionId,
         languageId: schema.submissions.languageId,
         sourceCode: schema.submissions.sourceCode,
         open: schema.submissions.open,

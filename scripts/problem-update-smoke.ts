@@ -11,7 +11,6 @@ const headers = authHeaders(admin.token)
 
 const created = await api<{
   problem: { id: number; title: string; visible: boolean }
-  version: { id: number; version: number }
 }>('/api/problems', {
   method: 'POST',
   headers,
@@ -26,8 +25,8 @@ const created = await api<{
 })
 
 const hidden = await api<{
-  problem: { visible: boolean; title: string }
-  version: { version: number; statementMarkdown: string; testCases: unknown[] }
+  problem: { visible: boolean; title: string; statementMarkdown: string }
+  testCases: Array<{ hidden: boolean }>
 }>(`/api/problems/${created.problem.id}`, {
   method: 'PATCH',
   headers,
@@ -39,7 +38,7 @@ const hidden = await api<{
   })
 })
 
-if (hidden.problem.visible || hidden.version.version !== 2) {
+if (hidden.problem.visible || !hidden.problem.statementMarkdown.includes('Version two')) {
   throw new Error(`problem update failed: ${JSON.stringify(hidden)}`)
 }
 
@@ -52,42 +51,35 @@ if (publicHiddenResponse.status !== 404) {
 
 const adminDetail = await api<{
   problem: { visible: boolean }
-  version: { version: number; testCases: Array<{ hidden: boolean }> }
+  testCases: Array<{ hidden: boolean }>
 }>(`/api/admin/problems/${created.problem.id}`, { headers })
-if (
-  adminDetail.problem.visible ||
-  adminDetail.version.version !== 2 ||
-  adminDetail.version.testCases[0]?.hidden !== true
-) {
-  throw new Error(
-    `admin detail did not include hidden latest version: ${JSON.stringify(adminDetail)}`
-  )
+if (adminDetail.problem.visible || adminDetail.testCases[0]?.hidden !== true) {
+  throw new Error(`admin detail did not include hidden test cases: ${JSON.stringify(adminDetail)}`)
 }
 
-const visible = await api<{ problem: { visible: boolean }; version: { version: number } }>(
-  `/api/problems/${created.problem.id}`,
-  {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify({ visible: true })
-  }
-)
-if (!visible.problem.visible || visible.version.version !== 2) {
-  throw new Error(`visibility-only update should not create a version: ${JSON.stringify(visible)}`)
+const visible = await api<{ problem: { visible: boolean } }>(`/api/problems/${created.problem.id}`, {
+  method: 'PATCH',
+  headers,
+  body: JSON.stringify({ visible: true })
+})
+if (!visible.problem.visible) {
+  throw new Error(`visibility update failed: ${JSON.stringify(visible)}`)
 }
 
 const publicDetail = await api<{
   problem: { id: number; visible: boolean }
-  version: { version: number }
+  testCases: Array<{ hidden: boolean }>
 }>(`/api/problems/${created.problem.id}`)
-if (!publicDetail.problem.visible || publicDetail.version.version !== 2) {
+if (!publicDetail.problem.visible) {
   throw new Error(`visible problem missing from public detail: ${JSON.stringify(publicDetail)}`)
+}
+if (publicDetail.testCases.length !== 0) {
+  throw new Error(`hidden test cases leaked publicly: ${JSON.stringify(publicDetail)}`)
 }
 
 console.log({
   problemId: created.problem.id,
-  initialVersion: created.version.version,
-  editedVersion: hidden.version.version,
+  hiddenVisible: hidden.problem.visible,
   publicHiddenStatus: publicHiddenResponse.status,
   visible: visible.problem.visible
 })

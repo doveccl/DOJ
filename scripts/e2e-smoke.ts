@@ -50,7 +50,8 @@ try {
       title: `Smoke Problem ${runId.slice(0, 8)}`,
       statementMarkdown: '# Smoke Problem\n\nExit successfully.',
       timeLimitMs: 5000,
-      memoryLimitBytes: 128 * 1024 * 1024
+      memoryLimitBytes: 128 * 1024 * 1024,
+      testCases: [{ name: 'sample', input: '', output: 'accepted\n' }]
     })
   })
 
@@ -58,9 +59,8 @@ try {
     throw new Error(`problem API failed: ${problemResponse.status} ${await problemResponse.text()}`)
   }
 
-  const { problem, version } = (await problemResponse.json()) as {
+  const { problem } = (await problemResponse.json()) as {
     problem: { id: number }
-    version: { id: number }
   }
 
   const response = await fetch(`${apiBase}/api/submissions`, {
@@ -71,7 +71,6 @@ try {
     },
     body: JSON.stringify({
       problemId: problem.id,
-      problemVersionId: version.id,
       languageId: 'cc',
       sourceCode:
         '#include <bits/stdc++.h>\nusing namespace std;\nint main(){ cout << "accepted\\n"; return 0; }\n'

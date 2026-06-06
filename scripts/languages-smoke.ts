@@ -56,14 +56,14 @@ const auth = (await api('/api/auth/register', {
   })
 })) as { token: string }
 
-const { problem, version } = (await api('/api/problems', {
+const { problem } = (await api('/api/problems', {
   method: 'POST',
   headers: adminHeaders,
   body: JSON.stringify({
     title: `Language Smoke ${runId.slice(0, 8)}`,
     statementMarkdown: '# Language Smoke\n\nLanguage must be enabled.'
   })
-})) as { problem: { id: number }; version: { id: number } }
+})) as { problem: { id: number } }
 
 const submissionResponse = await fetch(`${apiBase}/api/submissions`, {
   method: 'POST',
@@ -73,7 +73,6 @@ const submissionResponse = await fetch(`${apiBase}/api/submissions`, {
   },
   body: JSON.stringify({
     problemId: problem.id,
-    problemVersionId: version.id,
     languageId: 'py',
     sourceCode: 'print("accepted")\n'
   })
