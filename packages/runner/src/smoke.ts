@@ -61,5 +61,9 @@ async function runCase(
 
 await runCase('ac', '#!/bin/sh\necho "hello from runner"\nsleep 0.3\n', 'AC')
 await runCase('re', '#!/bin/sh\necho "runtime boom" >&2\nexit 42\n', 'RE')
-await runCase('tle', '#!/bin/sh\nsleep 2\n', 'TLE', 300)
+// CPU-time limit: a busy loop burns CPU and must trip TLE.
+await runCase('tle', '#!/bin/sh\nwhile :; do :; done\n', 'TLE', 300)
+// Sleeping burns no CPU time, so it is AC under CPU-time judging even though
+// wall-clock time exceeds the limit.
+await runCase('sleep-ac', '#!/bin/sh\nsleep 1\n', 'AC', 300)
 await runCase('ole', '#!/bin/sh\nyes x | head -c 2048\n', 'OLE', 2000, 128)

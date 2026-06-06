@@ -82,6 +82,7 @@ export class DockerRunner implements Runner {
     const stdout = new CappedBuffer(outputLimit)
     const stderr = new CappedTextBuffer(outputLimit)
     let peakMemoryBytes = 0
+    let cpuTimeNs = 0
     let timedOut = false
     const effectiveCommand =
       input.stdin && !input.command?.length
@@ -113,6 +114,7 @@ export class DockerRunner implements Runner {
         AutoRemove: false,
         NetworkMode: 'none',
         Memory: input.limits.memoryBytes,
+        NanoCpus: 1_000_000_000,
         PidsLimit: 256,
         ReadonlyRootfs: true,
         CapDrop: ['ALL'],
@@ -147,14 +149,26 @@ export class DockerRunner implements Runner {
         attach.end()
       }
 
-      const stats = await watchStats(container, (memoryBytes) => {
-        peakMemoryBytes = Math.max(peakMemoryBytes, memoryBytes)
+      const stats = await watchStats(container, {
+        memory: (memoryBytes) => {
+          peakMemoryBytes = Math.max(peakMemoryBytes, memoryBytes)
+        },
+        cpu: (totalCpuNs) => {
+          cpuTimeNs = Math.max(cpuTimeNs, totalCpuNs)
+          if (cpuTimeNs >= input.limits.timeMs * 1_000_000) {
+            timedOut = true
+            container.kill().catch(() => {})
+          }
+        }
       })
 
+      // Wall-clock safety net: a program that sleeps without burning CPU would
+      // never trip the CPU-time limit, so cap real time generously above it.
+      const wallClockCapMs = Math.max(input.limits.timeMs * 3, input.limits.timeMs + 5_000)
       const timeout = setTimeout(() => {
         timedOut = true
         container.kill().catch(() => {})
-      }, input.limits.timeMs)
+      }, wallClockCapMs)
 
       const waitResult = await container.wait()
       clearTimeout(timeout)
@@ -163,24 +177,29 @@ export class DockerRunner implements Runner {
 
       const inspect = await container.inspect()
       const exitCode = waitResult.StatusCode ?? inspect.State.ExitCode
-      const timeMs = Date.now() - startedAt
+      const wallMs = Date.now() - startedAt
+      // Prefer CPU time for reproducibility; fall back to wall-clock if the
+      // stats stream never reported usage (very short-lived containers).
+      const timeMs = cpuTimeNs > 0 ? Math.round(cpuTimeNs / 1_000_000) : wallMs
       peakMemoryBytes = Math.max(
         peakMemoryBytes,
         await readCgroupPeakMemoryBytes(inspect.State.Pid)
       )
       const oomKilled = inspect.State.OOMKilled || exitCode === 137
       const outputExceeded = stdout.truncated || stderr.truncated
+      const cpuExceeded = cpuTimeNs >= input.limits.timeMs * 1_000_000
 
       return {
-        status: timedOut
-          ? 'TLE'
-          : oomKilled
-            ? 'MLE'
-            : outputExceeded
-              ? 'OLE'
-              : exitCode === 0
-                ? 'AC'
-                : 'RE',
+        status:
+          timedOut || cpuExceeded
+            ? 'TLE'
+            : oomKilled
+              ? 'MLE'
+              : outputExceeded
+                ? 'OLE'
+                : exitCode === 0
+                  ? 'AC'
+                  : 'RE',
         timeMs,
         memoryBytes: peakMemoryBytes,
         exitCode,
@@ -310,9 +329,18 @@ function writableFrom(write: (chunk: Buffer) => void) {
   })
 }
 
-async function watchStats(container: Docker.Container, update: (memoryBytes: number) => void) {
+async function watchStats(
+  container: Docker.Container,
+  update: { memory: (memoryBytes: number) => void; cpu: (totalCpuNs: number) => void }
+) {
   const stream = (await container.stats({ stream: true })) as Readable
   let buffer = ''
+
+  const handle = (raw: string) => {
+    const stats = JSON.parse(raw)
+    update.memory(readMemoryUsage(stats))
+    update.cpu(readCpuUsageNs(stats))
+  }
 
   const done = new Promise<void>((resolve) => {
     stream.on('data', (chunk) => {
@@ -323,7 +351,7 @@ async function watchStats(container: Docker.Container, update: (memoryBytes: num
       for (const line of lines) {
         if (!line.trim()) continue
         try {
-          update(readMemoryUsage(JSON.parse(line)))
+          handle(line)
         } catch {
           // Docker can split JSON across chunks; incomplete data is kept in buffer.
         }
@@ -341,13 +369,22 @@ async function watchStats(container: Docker.Container, update: (memoryBytes: num
       stream.destroy()
       if (buffer.trim()) {
         try {
-          update(readMemoryUsage(JSON.parse(buffer)))
+          handle(buffer)
         } catch {
           // Ignore trailing partial JSON.
         }
       }
     }
   }
+}
+
+function readCpuUsageNs(stats: unknown) {
+  const cpu = (
+    stats as {
+      cpu_stats?: { cpu_usage?: { total_usage?: number } }
+    }
+  ).cpu_stats
+  return cpu?.cpu_usage?.total_usage ?? 0
 }
 
 function readMemoryUsage(stats: unknown) {
