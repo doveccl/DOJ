@@ -31,13 +31,3 @@ export interface SubmissionResult {
   message?: string
   cases: CaseResult[]
 }
-
-export interface JudgeTaskPayload {
-  submissionId: number
-  problemId: number
-  problemVersionId: number
-  testdataObjectKey: string
-  languageId: string
-  sourceCode: string
-  limits: JudgeLimit
-}

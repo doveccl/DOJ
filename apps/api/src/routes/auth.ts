@@ -12,7 +12,7 @@ import {
   hashPassword,
   requireAuthUser,
   requireGroup,
-  verifyPassword
+  verifyPasswordOrDummy
 } from '../auth'
 import { getRuntimeSettings, runtimeSettingsSchema, updateRuntimeSettings } from '../settings'
 import { destroySession } from '../session'
@@ -80,7 +80,8 @@ export function registerAuthRoutes(app: Hono) {
     if (rateLimited) return rateLimited
 
     const record = await findUserByNameOrEmail(body.user)
-    if (!record || !(await verifyPassword(body.password, record.passwordHash))) {
+    const passwordOk = await verifyPasswordOrDummy(body.password, record?.passwordHash)
+    if (!record || !passwordOk) {
       return c.json({ code: 'INVALID_CREDENTIALS', message: 'Invalid user or password' }, 401)
     }
 

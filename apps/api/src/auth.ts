@@ -23,6 +23,12 @@ export async function verifyPassword(password: string, hash: string) {
   return Bun.password.verify(password, hash)
 }
 
+const dummyPasswordHash = hashPassword('doj-dummy-password')
+
+export async function verifyPasswordOrDummy(password: string, hash: string | null | undefined) {
+  return verifyPassword(password, hash ?? (await dummyPasswordHash))
+}
+
 export async function createToken(userId: number) {
   return createSession(userId)
 }

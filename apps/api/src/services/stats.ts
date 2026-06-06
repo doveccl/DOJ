@@ -9,9 +9,8 @@ export async function countRows(table: any, where?: any) {
 
 export async function countVisibleSubmissions() {
   const [row] = await db
-    .select({ total: sql<number>`count(*)::int` })
-    .from(schema.submissions)
-    .innerJoin(schema.problems, eq(schema.submissions.problemId, schema.problems.id))
+    .select({ total: sql<number>`coalesce(sum(${schema.problems.submissionCount}), 0)::int` })
+    .from(schema.problems)
     .where(eq(schema.problems.visible, true))
   return row?.total ?? 0
 }

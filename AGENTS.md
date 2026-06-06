@@ -70,17 +70,17 @@ These were found during a whole-system review. The current iteration focuses on 
 - [DONE] Added an IP-wide login rate limit in addition to the existing IP+username bucket (`routes/auth.ts`), so credential-stuffing across usernames from one IP is throttled. Covered by `rate-limit` smoke.
 - [DONE] Package upload now checks `Content-Length` before parsing multipart form data and still validates summed uploaded file sizes after parse (`routes/problems.ts`). Covered by `testdata` smoke.
 - [MED] Rate-limit/session degrade to per-process in-memory `Map` when Redis is briefly down (`session.ts:11-16`, `rate-limit.ts:34-55`, `redis.ts`), bypassable across instances in multi-instance deploys.
-- [PARTIAL] Low-risk auth/API hardening: 500 responses now return a generic message, register unique races map to 409, contest detail hides problem list before `startAt` for non-admin viewers, and rate-limit `incr`+`expire` is atomic via Redis Lua. REMAINING: login user-enumeration via timing and 409-on-register semantics.
+- [PARTIAL] Low-risk auth/API hardening: 500 responses now return a generic message, register unique races map to 409, missing-user login attempts run a dummy Argon2 verify to reduce timing enumeration, contest detail hides problem list before `startAt` for non-admin viewers, and rate-limit `incr`+`expire` is atomic via Redis Lua. REMAINING: register still intentionally returns 409 for duplicate name/email.
 
 ### Performance
 
-- [DONE] Admin problem list N+1: replaced per-problem latest-version+file queries with two batched queries (`getLatestProblemVersions` uses `DISTINCT ON` + a single `files` lookup) in `apps/api/src/routes/problems.ts`.
+- [DONE] Admin problem list N+1 eliminated by the versionless problem model; admin list reads `problems` directly and package files are loaded only for detail/package editor requests (`routes/problems.ts`, `AdminProblems.vue`).
 - [PARTIAL] Scoreboard/assignment report fetch ALL submissions into memory. Public contest scoreboard now has a 5s Redis cache (`getContestScoreboard` in `services/contests.ts`, key `scoreboard:<id>`, admin reveal bypasses it) to collapse live-contest refresh bursts. Assignment report left as a direct admin-only computation (low concurrency). STILL TODO if scale demands: DB-side aggregation instead of loading all rows.
 - [DONE] Added btree sort index `submissions(created_at)` (plus problems/contests/assignments/users/discussion_topics) so dashboard/list `ORDER BY created_at` no longer full-sorts.
 - [DONE] Real pagination (count + offset) now on problems/admin-problems/contests/assignments/admin-users/discussion via shared `listQuerySchema`+`pageOffset` (`apps/api/src/validation.ts`). Frontend tables use Naive remote pagination. STILL TODO: admin-groups list (small, capped) and the admin contest/assignment management tables only read page 1 in the UI.
 - [DONE] Dashboard recent* queries and submission list count+data now run in `Promise.all` (`routes/public.ts`, `routes/submissions.ts`); stat counts were already parallel.
 - [DONE] Missing sort indexes added: `contests.start_at`, `assignments.created_at`, `problems.created_at`, `users.created_at`, `discussion_topics.updated_at`.
-- [MED] `countVisibleSubmissions` does `count(*)` over `submissions ⋈ problems` on hot paths (`services/stats.ts:10-16`).
+- [DONE] `countVisibleSubmissions` no longer counts over `submissions ⋈ problems`; dashboard stats sum `problems.submissionCount` for visible problems (`services/stats.ts`).
 
 ### Judging core (vs v4 experimental work)
 
@@ -92,8 +92,8 @@ These were found during a whole-system review. The current iteration focuses on 
 - [DONE] Package build success/failure uses Docker build stream errors, not regex (`buildPackage` in `packages/runner/src/docker-runner.ts`). Legacy `build()` still exists for older paths and retains the old log heuristic.
 - [DONE] Agent concurrency selection TOCTOU fixed: worker reserves an agent slot before claiming a task and releases it if no task is claimed, so concurrent worker slots cannot over-dispatch the same agent (`reserveAvailableAgent`/`releaseAgent` in `apps/worker/src/agent-server.ts`).
 - [PARTIAL] Job timeout no longer equals claim lease: task lease is now `agentJobTimeoutMs + 60s`, preventing near-timeout jobs from being immediately re-claimed and duplicated. REMAINING: timed-out jobs still do not send an explicit cancel to the agent, so agent-side work may continue until its local process exits.
-- [LOW] Hand-written zip parser rejects data-descriptor streams and relies on filename heuristics (`packages/shared/src/testdata.ts`). Inline vs zip test-case visibility semantics differ.
-- [LOW] Dead/duplicate type `JudgeTaskPayload` (`packages/shared/src/judge.ts:32-40`) — actual flow uses `JudgeAgentPayload`. `cgroup` peak memory unreadable on Docker Desktop/remote (`docker-runner.ts:371-401`), falls back to sampling (may miss peaks). `patchDestroySoon` monkey-patch is fragile (`docker-runner.ts:245-252`). Single-process in-memory agent registry assumes one worker (`agent-server.ts:44`).
+- [DONE] Removed unused hand-written ZIP parser/ZIP repack helpers from `packages/shared/src/testdata.ts`; default-mode package cases now derive from already-fetched loose `data/` files.
+- [PARTIAL] Removed dead duplicate `JudgeTaskPayload`; actual flow uses `JudgeAgentPayload`. REMAINING: `cgroup` peak memory unreadable on Docker Desktop/remote (`docker-runner.ts`), falls back to sampling (may miss peaks). `patchDestroySoon` monkey-patch is fragile. Single-process in-memory agent registry assumes one worker.
 
 ### Structure / naming
 
