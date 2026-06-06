@@ -1,4 +1,5 @@
 import type { CaseResult, JudgeLimit } from '@doj/shared/judge'
+import type { JudgeStatus } from '@doj/shared/status'
 
 export interface BuildInput {
   scopeId: string
@@ -33,8 +34,38 @@ export interface CleanupScope {
   scopeId: string
 }
 
+export interface PackageBuildInput {
+  scopeId: string
+  // Files that make up a build context. One of them MUST be `Dockerfile`.
+  files: Record<string, string | Uint8Array>
+  limits?: Pick<JudgeLimit, 'timeMs' | 'memoryBytes'>
+  // Trusted (problem-author) images skip CPU/memory caps; untrusted (submission)
+  // images get the configured limits applied at build time.
+  trusted: boolean
+}
+
+export interface DuelInput {
+  scopeId: string
+  // Problem image A (interactor + checker) and submission image B.
+  judgeImageId: string
+  testerImageId: string
+  limits: JudgeLimit
+  // Extra env for A only (e.g. `case`, `code`).
+  judgeEnv?: Record<string, string>
+}
+
+export interface DuelResult {
+  status: JudgeStatus
+  timeMs: number
+  memoryBytes: number
+  score: number | null
+  message: string
+}
+
 export interface Runner {
   build(input: BuildInput): Promise<BuildResult>
   run(input: RunInput): Promise<RunResult>
   cleanup(scope: CleanupScope): Promise<void>
+  buildPackage(input: PackageBuildInput): Promise<BuildResult>
+  duel(input: DuelInput): Promise<DuelResult>
 }

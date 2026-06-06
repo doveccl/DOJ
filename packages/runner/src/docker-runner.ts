@@ -5,7 +5,18 @@ import { homedir } from 'node:os'
 import { Readable, Writable } from 'node:stream'
 import { join, resolve } from 'node:path'
 import tar from 'tar-stream'
-import type { BuildInput, BuildResult, CleanupScope, RunInput, Runner, RunResult } from './types'
+import type { JudgeStatus } from '@doj/shared/status'
+import type {
+  BuildInput,
+  BuildResult,
+  CleanupScope,
+  DuelInput,
+  DuelResult,
+  PackageBuildInput,
+  RunInput,
+  Runner,
+  RunResult
+} from './types'
 
 const defaultOutputLimitBytes = 64 * 1024 * 1024
 
@@ -72,6 +83,60 @@ export class DockerRunner implements Runner {
     return {
       ok: !failed,
       imageId,
+      logs: logs.join('')
+    }
+  }
+
+  // Build an image from an arbitrary file set (a "package"). One file MUST be
+  // `Dockerfile`. Unlike build(), success/failure is detected from the build
+  // stream's error event (not a log regex), and untrusted packages get CPU/mem
+  // build caps. Used for the A (problem) / B (submission) container model.
+  async buildPackage(input: PackageBuildInput): Promise<BuildResult> {
+    const tag = `doj-scope-${input.scopeId.toLowerCase()}:latest`
+    const context = createFilesBuildContext(input.files)
+    const buildOptions: Docker.ImageBuildOptions = {
+      t: tag,
+      labels: { 'doj.scope': input.scopeId },
+      forcerm: true,
+      rm: true
+    }
+    if (!input.trusted && input.limits) {
+      // Cap build-time resources for untrusted submission packages.
+      buildOptions.memory = input.limits.memoryBytes
+      buildOptions.cpuperiod = 100_000
+      buildOptions.cpuquota = 100_000
+    }
+    const stream = await this.docker.buildImage(context, buildOptions)
+
+    const logs: string[] = []
+    let imageId = tag
+    let buildError: string | null = null
+
+    await new Promise<void>((resolve, reject) => {
+      this.docker.modem.followProgress(
+        stream,
+        (error: Error | null, output: Array<Record<string, unknown>>) => {
+          if (error) {
+            reject(error)
+            return
+          }
+          for (const item of output) {
+            if (typeof item.stream === 'string') logs.push(item.stream)
+            if (typeof item.error === 'string') {
+              logs.push(item.error)
+              buildError = item.error
+            }
+            const aux = item.aux as { ID?: string } | undefined
+            if (aux?.ID) imageId = aux.ID
+          }
+          resolve()
+        }
+      )
+    })
+
+    return {
+      ok: buildError === null,
+      imageId: buildError === null ? imageId : undefined,
       logs: logs.join('')
     }
   }
@@ -212,6 +277,163 @@ export class DockerRunner implements Runner {
     }
   }
 
+  // The A (problem) / B (submission) duel. A and B each run once; A.stdout is
+  // wired to B.stdin and B.stdout to A.stdin (bidirectional). A.stderr is the
+  // message; B.stderr is discarded. A is the interactor + checker: its verdict
+  // comes from /tmp/result.json if present, else from its exit code (testlib
+  // enum 0=AC,1=WA,2=PE,3=TLE,4=MLE,5=OLE,6=CE,7=RE,8=SE). B (untrusted) is
+  // CPU/memory limited; B OOM -> MLE, B nonzero exit -> RE.
+  async duel(input: DuelInput): Promise<DuelResult> {
+    const startedAt = Date.now()
+    const message = new CappedTextBuffer(input.limits.outputBytes || defaultOutputLimitBytes)
+    let peakMemoryBytes = 0
+    let cpuTimeNs = 0
+    let timedOut = false
+
+    const judge = await this.docker.createContainer({
+      Image: input.judgeImageId,
+      Cmd: await this.getImageCommand(input.judgeImageId),
+      Env: Object.entries(input.judgeEnv ?? {}).map(([key, value]) => `${key}=${value}`),
+      AttachStdin: true,
+      AttachStdout: true,
+      AttachStderr: true,
+      OpenStdin: true,
+      NetworkDisabled: true,
+      Labels: { 'doj.scope': input.scopeId },
+      HostConfig: {
+        NetworkMode: 'none',
+        PidsLimit: 256,
+        IpcMode: 'none',
+        Tmpfs: { '/tmp': 'rw,nosuid,nodev,size=64m' }
+      }
+    })
+    const tester = await this.docker.createContainer({
+      Image: input.testerImageId,
+      Cmd: await this.getImageCommand(input.testerImageId),
+      User: '65534:65534',
+      AttachStdin: true,
+      AttachStdout: true,
+      AttachStderr: true,
+      OpenStdin: true,
+      NetworkDisabled: true,
+      Labels: { 'doj.scope': input.scopeId },
+      HostConfig: {
+        NetworkMode: 'none',
+        Memory: input.limits.memoryBytes,
+        NanoCpus: 1_000_000_000,
+        PidsLimit: 256,
+        ReadonlyRootfs: true,
+        CapDrop: ['ALL'],
+        SecurityOpt: ['no-new-privileges:true'],
+        IpcMode: 'none',
+        Tmpfs: {
+          '/tmp': 'rw,nosuid,nodev,size=64m',
+          '/run': 'rw,nosuid,nodev,size=16m'
+        }
+      }
+    })
+
+    try {
+      const judgeAttach = await judge.attach({
+        stream: true,
+        stdin: true,
+        stdout: true,
+        stderr: true
+      })
+      const testerAttach = await tester.attach({
+        stream: true,
+        stdin: true,
+        stdout: true,
+        stderr: true
+      })
+      patchDestroySoon(judgeAttach)
+      patchDestroySoon(testerAttach)
+
+      // A.stdout -> B.stdin, A.stderr -> message buffer.
+      this.docker.modem.demuxStream(
+        judgeAttach,
+        writableFrom((chunk) => safeWrite(testerAttach, chunk)),
+        writableFrom((chunk) => message.push(chunk))
+      )
+      // B.stdout -> A.stdin, B.stderr -> discarded.
+      this.docker.modem.demuxStream(
+        testerAttach,
+        writableFrom((chunk) => safeWrite(judgeAttach, chunk)),
+        writableFrom(() => {})
+      )
+      // When one side's output ends (its process exited), close the other's
+      // stdin so a peer blocked on read-until-EOF can finish.
+      judgeAttach.on('end', () => safeEnd(testerAttach))
+      testerAttach.on('end', () => safeEnd(judgeAttach))
+
+      await judge.start()
+      await tester.start()
+
+      const stats = await watchStats(tester, {
+        memory: (memoryBytes) => {
+          peakMemoryBytes = Math.max(peakMemoryBytes, memoryBytes)
+        },
+        cpu: (totalCpuNs) => {
+          cpuTimeNs = Math.max(cpuTimeNs, totalCpuNs)
+          if (cpuTimeNs >= input.limits.timeMs * 1_000_000) {
+            timedOut = true
+            tester.kill().catch(() => {})
+            judge.kill().catch(() => {})
+          }
+        }
+      })
+
+      const wallClockCapMs = Math.max(input.limits.timeMs * 3, input.limits.timeMs + 5_000)
+      const timeout = setTimeout(() => {
+        timedOut = true
+        tester.kill().catch(() => {})
+        judge.kill().catch(() => {})
+      }, wallClockCapMs)
+
+      const [judgeWait, testerWait] = await Promise.all([judge.wait(), tester.wait()])
+      clearTimeout(timeout)
+      stats.stop()
+      await stats.done
+
+      const testerInspect = await tester.inspect()
+      const testerExit = testerWait.StatusCode ?? testerInspect.State.ExitCode
+      peakMemoryBytes = Math.max(
+        peakMemoryBytes,
+        await readCgroupPeakMemoryBytes(testerInspect.State.Pid)
+      )
+      const timeMs = cpuTimeNs > 0 ? Math.round(cpuTimeNs / 1_000_000) : Date.now() - startedAt
+      const testerOom = testerInspect.State.OOMKilled || testerExit === 137
+
+      let status: JudgeStatus
+      let score: number | null = null
+      let detail = message.text().trim()
+
+      if (timedOut) {
+        status = 'TLE'
+      } else if (testerOom) {
+        status = 'MLE'
+      } else if (testerExit !== 0) {
+        status = 'RE'
+      } else {
+        const resultFile = await readResultFile(judge)
+        if (resultFile) {
+          status = resultFile.status
+          score = resultFile.score
+          if (resultFile.message) detail = resultFile.message
+        } else {
+          const judgeInspect = await judge.inspect()
+          const judgeExit = judgeWait.StatusCode ?? judgeInspect.State.ExitCode
+          status = exitCodeToStatus(judgeExit)
+        }
+      }
+
+      return { status, timeMs, memoryBytes: peakMemoryBytes, score, message: detail }
+    } finally {
+      await judge.remove({ force: true }).catch(() => {})
+      await tester.remove({ force: true }).catch(() => {})
+    }
+  }
+
   async cleanup(input: CleanupScope): Promise<void> {
     const label = `doj.scope=${input.scopeId}`
     const containers = await this.docker.listContainers({ all: true, filters: { label: [label] } })
@@ -318,6 +540,84 @@ function createBuildContext(input: BuildInput) {
 
   pack.finalize()
   return pack
+}
+
+// Build a tar context from an arbitrary file set (the package must already
+// include its own `Dockerfile` entry).
+function createFilesBuildContext(files: Record<string, string | Uint8Array>) {
+  const pack = tar.pack()
+  for (const [name, content] of Object.entries(files)) {
+    pack.entry({ name }, typeof content === 'string' ? content : Buffer.from(content))
+  }
+  pack.finalize()
+  return pack
+}
+
+const statusByExitCode: JudgeStatus[] = ['AC', 'WA', 'PE', 'TLE', 'MLE', 'OLE', 'CE', 'RE', 'SE']
+
+function exitCodeToStatus(exitCode: number | null): JudgeStatus {
+  if (exitCode === null) return 'SE'
+  return statusByExitCode[exitCode] ?? 'SE'
+}
+
+function safeWrite(attach: { write?: (chunk: Buffer) => void }, chunk: Buffer) {
+  try {
+    attach.write?.(chunk)
+  } catch {
+    // Peer container may have already exited and closed the stream.
+  }
+}
+
+function safeEnd(attach: { end?: () => void }) {
+  try {
+    attach.end?.()
+  } catch {
+    // Already closed.
+  }
+}
+
+// Read the optional /tmp/result.json the problem (A) container may write to
+// express a per-case verdict + partial score.
+async function readResultFile(container: Docker.Container) {
+  try {
+    const stream = await container.getArchive({ path: '/tmp/result.json' })
+    const content = await extractSingleFile(stream as unknown as Readable)
+    if (!content) return null
+    const parsed = JSON.parse(content) as {
+      status?: string
+      score?: number
+      message?: string
+    }
+    const status = (parsed.status ?? '').toUpperCase()
+    if (!statusByExitCode.includes(status as JudgeStatus)) return null
+    return {
+      status: status as JudgeStatus,
+      score: typeof parsed.score === 'number' ? parsed.score : null,
+      message: typeof parsed.message === 'string' ? parsed.message : ''
+    }
+  } catch {
+    return null
+  }
+}
+
+// getArchive returns a tar stream containing the single requested file.
+async function extractSingleFile(stream: Readable): Promise<string | null> {
+  const extract = tar.extract()
+  return new Promise<string | null>((resolve) => {
+    let result: string | null = null
+    extract.on('entry', (_header, entryStream, next) => {
+      const chunks: Buffer[] = []
+      entryStream.on('data', (chunk) => chunks.push(Buffer.from(chunk)))
+      entryStream.on('end', () => {
+        result = Buffer.concat(chunks).toString('utf8')
+        next()
+      })
+      entryStream.resume()
+    })
+    extract.on('finish', () => resolve(result))
+    extract.on('error', () => resolve(null))
+    stream.pipe(extract)
+  })
 }
 
 function writableFrom(write: (chunk: Buffer) => void) {

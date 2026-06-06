@@ -1,7 +1,250 @@
 import type { JudgeAgentPayload, JudgeAgentResult } from '@doj/shared/agent'
-import type { ProblemTestCase } from '@doj/shared/judge'
+import type { JudgeLimit, ProblemTestCase } from '@doj/shared/judge'
 import type { JudgeStatus } from '@doj/shared/status'
 import type { Runner } from './types'
+
+export interface PackageJudgeInput {
+  scopeId: string
+  // Submission (B) build context; must include a `Dockerfile`.
+  testerFiles: Record<string, string | Uint8Array>
+  // Problem (A) build context; must include a `Dockerfile`. When omitted, the
+  // engine runs the default mode (engine-controlled stdin/stdout compare).
+  problemFiles?: Record<string, string | Uint8Array> | null
+  // Test cases (used in default mode for input/answer; in custom mode only the
+  // count and optional per-case `points` weights matter — A reads its own data).
+  testCases: ProblemTestCase[]
+  limits: JudgeLimit
+  // Submission source, exposed to A as the `code` env (e.g. Quine checkers).
+  code?: string
+}
+
+// Package-based judging with the A (problem) / B (submission) container model.
+// Mode is auto-detected by whether the problem package ships a Dockerfile:
+//   - custom mode: build A and B, duel per case (A is interactor + checker).
+//   - default mode: build B only, engine pipes input -> B -> compare answer.
+export async function judgePackage(
+  runner: Runner,
+  input: PackageJudgeInput
+): Promise<JudgeAgentResult> {
+  const testerScope = `${input.scopeId}-b`
+  const problemScope = `${input.scopeId}-a`
+  const custom = !!input.problemFiles && 'Dockerfile' in input.problemFiles
+
+  const testerBuild = await runner.buildPackage({
+    scopeId: testerScope,
+    files: input.testerFiles,
+    limits: { timeMs: input.limits.timeMs, memoryBytes: input.limits.memoryBytes },
+    trusted: false
+  })
+
+  try {
+    if (!testerBuild.ok || !testerBuild.imageId) {
+      return {
+        status: 'CE',
+        timeMs: 0,
+        memoryBytes: 0,
+        score: 0,
+        maxScore: 100,
+        message: testerBuild.logs,
+        cases: []
+      }
+    }
+
+    if (!custom) {
+      return await judgeDefaultCases({
+        runner,
+        scopeId: testerScope,
+        imageId: testerBuild.imageId,
+        testCases: input.testCases,
+        limits: input.limits
+      })
+    }
+
+    const problemBuild = await runner.buildPackage({
+      scopeId: problemScope,
+      files: input.problemFiles as Record<string, string | Uint8Array>,
+      trusted: true
+    })
+    if (!problemBuild.ok || !problemBuild.imageId) {
+      return {
+        status: 'SE',
+        timeMs: 0,
+        memoryBytes: 0,
+        score: 0,
+        maxScore: 100,
+        message: `problem package build failed:\n${problemBuild.logs}`,
+        cases: []
+      }
+    }
+
+    return await judgeCustomCases({
+      runner,
+      scopeId: input.scopeId,
+      judgeImageId: problemBuild.imageId,
+      testerImageId: testerBuild.imageId,
+      testCases: input.testCases,
+      limits: input.limits,
+      code: input.code ?? ''
+    })
+  } finally {
+    await runner.cleanup({ scopeId: testerScope })
+    if (custom) await runner.cleanup({ scopeId: problemScope })
+  }
+}
+
+interface DefaultCasesInput {
+  runner: Runner
+  scopeId: string
+  imageId: string
+  testCases: ProblemTestCase[]
+  limits: JudgeLimit
+}
+
+async function judgeDefaultCases(input: DefaultCasesInput): Promise<JudgeAgentResult> {
+  const { runner, testCases, limits, imageId, scopeId } = input
+  const weights = caseWeights(testCases)
+  const maxScore = weights.reduce((total, weight) => total + weight, 0) || 100
+
+  const cases = []
+  let score = 0
+  let timeMs = 0
+  let memoryBytes = 0
+  let firstFailure: { index: number; status: JudgeStatus; message: string; name?: string } | null =
+    null
+
+  for (const [index, testCase] of testCases.entries()) {
+    const result = await runner.run({
+      scopeId,
+      imageId,
+      limits,
+      stdin: new TextEncoder().encode(testCase.input)
+    })
+    const compared =
+      result.status === 'AC'
+        ? compareOutput(result.stdout, testCase.output)
+        : { status: result.status, message: result.stderr }
+    const caseStatus = compared.status
+    const caseScore = caseStatus === 'AC' ? weights[index] : 0
+    const caseMessage = buildCaseMessage({
+      status: caseStatus,
+      hidden: testCase.hidden === true,
+      message: compared.message
+    })
+    score += caseScore
+    timeMs = Math.max(timeMs, result.timeMs)
+    memoryBytes = Math.max(memoryBytes, result.memoryBytes)
+    cases.push({
+      caseIndex: index + 1,
+      status: caseStatus,
+      timeMs: result.timeMs,
+      memoryBytes: result.memoryBytes,
+      score: caseScore,
+      message: caseMessage
+    })
+    if (caseStatus !== 'AC' && !firstFailure) {
+      firstFailure = {
+        index,
+        status: caseStatus,
+        message: caseMessage,
+        name: testCase.hidden ? undefined : testCase.name
+      }
+    }
+  }
+
+  return finalizeResult({ cases, score, maxScore, timeMs, memoryBytes, firstFailure })
+}
+
+interface CustomCasesInput {
+  runner: Runner
+  scopeId: string
+  judgeImageId: string
+  testerImageId: string
+  testCases: ProblemTestCase[]
+  limits: JudgeLimit
+  code: string
+}
+
+async function judgeCustomCases(input: CustomCasesInput): Promise<JudgeAgentResult> {
+  const { runner, testCases, limits } = input
+  const weights = caseWeights(testCases)
+  const maxScore = weights.reduce((total, weight) => total + weight, 0) || 100
+
+  const cases = []
+  let score = 0
+  let timeMs = 0
+  let memoryBytes = 0
+  let firstFailure: { index: number; status: JudgeStatus; message: string; name?: string } | null =
+    null
+
+  for (const [index, testCase] of testCases.entries()) {
+    const result = await runner.duel({
+      scopeId: `${input.scopeId}-case-${index}`,
+      judgeImageId: input.judgeImageId,
+      testerImageId: input.testerImageId,
+      limits,
+      judgeEnv: { case: String(index), code: input.code }
+    })
+    const caseStatus = result.status
+    // A may report partial score via its result file; otherwise full weight on AC.
+    const caseScore =
+      result.score !== null
+        ? Math.max(0, Math.min(weights[index], Math.round(result.score)))
+        : caseStatus === 'AC'
+          ? weights[index]
+          : 0
+    const caseMessage = buildCaseMessage({
+      status: caseStatus,
+      hidden: testCase.hidden === true,
+      message: result.message
+    })
+    score += caseScore
+    timeMs = Math.max(timeMs, result.timeMs)
+    memoryBytes = Math.max(memoryBytes, result.memoryBytes)
+    cases.push({
+      caseIndex: index + 1,
+      status: caseStatus,
+      timeMs: result.timeMs,
+      memoryBytes: result.memoryBytes,
+      score: caseScore,
+      message: caseMessage
+    })
+    if (caseStatus !== 'AC' && !firstFailure) {
+      firstFailure = {
+        index,
+        status: caseStatus,
+        message: caseMessage,
+        name: testCase.hidden ? undefined : testCase.name
+      }
+    }
+  }
+
+  return finalizeResult({ cases, score, maxScore, timeMs, memoryBytes, firstFailure })
+}
+
+function finalizeResult(input: {
+  cases: JudgeAgentResult['cases']
+  score: number
+  maxScore: number
+  timeMs: number
+  memoryBytes: number
+  firstFailure: { index: number; status: JudgeStatus; message: string; name?: string } | null
+}): JudgeAgentResult {
+  const { firstFailure, score, maxScore } = input
+  const status: JudgeStatus = firstFailure ? firstFailure.status : 'AC'
+  const message = firstFailure
+    ? `score ${score}/${maxScore} — case ${firstFailure.index + 1}` +
+      `${firstFailure.name ? ` (${firstFailure.name})` : ''}: ${firstFailure.message}`
+    : 'accepted'
+  return {
+    status,
+    timeMs: input.timeMs,
+    memoryBytes: input.memoryBytes,
+    score,
+    maxScore,
+    message,
+    cases: input.cases
+  }
+}
 
 export async function judgePayload(
   runner: Runner,
