@@ -4,7 +4,8 @@ const adminPassword = process.env.DOJ_ADMIN_PASSWORD ?? 'admin12345'
 const runId = crypto.randomUUID()
 
 const admin = await login(adminUser, adminPassword)
-const user = await registerUser()
+const user = await registerUser('security')
+const intruder = await registerUser('intruder')
 const hiddenProblem = await createProblem(admin.token, `Hidden ${runId.slice(0, 8)}`)
 const visibleProblem = await createProblem(admin.token, `Visible ${runId.slice(0, 8)}`)
 
@@ -23,6 +24,12 @@ const group = (await api('/api/groups', {
     description: 'Created by submission security smoke.'
   })
 })) as { id: number }
+
+await api(`/api/groups/${group.id}/users`, {
+  method: 'POST',
+  headers: jsonAuth(admin.token),
+  body: JSON.stringify({ userId: user.user.id, manager: false })
+})
 
 const assignment = (await api('/api/assignments', {
   method: 'POST',
@@ -46,11 +53,54 @@ const assignmentStatus = await submitStatus(user.token, {
   problemId: visibleProblem.problem.id,
   assignmentId: assignment.assignment.id
 })
-if (assignmentStatus !== 404) {
-  throw new Error(`expected non-member assignment 404, got ${assignmentStatus}`)
+if (assignmentStatus !== 201) {
+  throw new Error(`expected member assignment submission 201, got ${assignmentStatus}`)
+}
+
+const nonMemberAssignmentStatus = await submitStatus(intruder.token, {
+  problemId: visibleProblem.problem.id,
+  assignmentId: assignment.assignment.id
+})
+if (nonMemberAssignmentStatus !== 404) {
+  throw new Error(`expected non-member assignment 404, got ${nonMemberAssignmentStatus}`)
 }
 
 const sourceMarker = `LIST_LEAK_${runId}`
+const assignmentSubmission = await submit(user.token, {
+  problemId: visibleProblem.problem.id,
+  assignmentId: assignment.assignment.id,
+  sourceCode: `#include <bits/stdc++.h>\n// ASSIGNMENT_${sourceMarker}\nint main(){return 0;}\n`,
+  open: true
+})
+const anonymousAssignmentDetail = await fetch(
+  `${apiBase}/api/submissions/${assignmentSubmission.id}`
+)
+if (anonymousAssignmentDetail.status !== 404) {
+  throw new Error(
+    `anonymous assignment submission detail leaked: ${anonymousAssignmentDetail.status}`
+  )
+}
+const intruderAssignmentDetail = await fetch(
+  `${apiBase}/api/submissions/${assignmentSubmission.id}`,
+  {
+    headers: { authorization: `Bearer ${intruder.token}` }
+  }
+)
+if (intruderAssignmentDetail.status !== 404) {
+  throw new Error(
+    `non-member assignment submission detail leaked: ${intruderAssignmentDetail.status}`
+  )
+}
+const ownerAssignmentDetail = (await api(`/api/submissions/${assignmentSubmission.id}`, {
+  headers: { authorization: `Bearer ${user.token}` }
+})) as { sourceCode: string; restricted: boolean }
+if (
+  ownerAssignmentDetail.restricted ||
+  !ownerAssignmentDetail.sourceCode.includes(`ASSIGNMENT_${sourceMarker}`)
+) {
+  throw new Error(`owner could not inspect own assignment submission`)
+}
+
 const normalSubmission = await submit(user.token, {
   problemId: visibleProblem.problem.id,
   sourceCode: `#include <bits/stdc++.h>\n// ${sourceMarker}\nint main(){return 0;}\n`
@@ -90,6 +140,15 @@ if (listedSubmission.message) {
     `submission list leaked judge message to anonymous viewer: ${listedSubmission.message}`
   )
 }
+if (submissionList.list.some((item) => item.id === assignmentSubmission.id)) {
+  throw new Error(`assignment submission leaked in anonymous list: ${assignmentSubmission.id}`)
+}
+const intruderList = (await api('/api/submissions', {
+  headers: { authorization: `Bearer ${intruder.token}` }
+})) as { list: Array<{ id: number }> }
+if (intruderList.list.some((item) => item.id === assignmentSubmission.id)) {
+  throw new Error(`assignment submission leaked in non-member list: ${assignmentSubmission.id}`)
+}
 const ownerListSubmission = (
   (await api('/api/submissions', {
     headers: { authorization: `Bearer ${user.token}` }
@@ -97,6 +156,14 @@ const ownerListSubmission = (
 ).list.find((item) => item.id === normalSubmission.id)
 if (!ownerListSubmission || typeof ownerListSubmission.message !== 'string') {
   throw new Error(`owner could not read own submission message from list`)
+}
+const ownerAssignmentListSubmission = (
+  (await api('/api/submissions', {
+    headers: { authorization: `Bearer ${user.token}` }
+  })) as { list: Array<{ id: number }> }
+).list.find((item) => item.id === assignmentSubmission.id)
+if (!ownerAssignmentListSubmission) {
+  throw new Error(`owner could not see own assignment submission in list`)
 }
 const dashboardBeforeHide = (await api('/api/dashboard', {
   headers: { authorization: `Bearer ${admin.token}` }
@@ -124,7 +191,7 @@ const dashboardAfterHide = (await api('/api/dashboard', {
 if (dashboardAfterHide.recentSubmissions.some((item) => item.id === normalSubmission.id)) {
   throw new Error(`hidden problem submission leaked in dashboard: ${normalSubmission.id}`)
 }
-if (dashboardAfterHide.stats.submissions !== dashboardBeforeHide.stats.submissions - 2) {
+if (dashboardAfterHide.stats.submissions !== dashboardBeforeHide.stats.submissions - 4) {
   throw new Error(
     `hidden problem submission counted in dashboard stats: before ${dashboardBeforeHide.stats.submissions}, after ${dashboardAfterHide.stats.submissions}`
   )
@@ -144,9 +211,12 @@ if (ownerHiddenDetail.restricted || !ownerHiddenDetail.sourceCode.includes(sourc
 console.log({
   hiddenStatus,
   assignmentStatus,
+  nonMemberAssignmentStatus,
   listedSubmissionId: normalSubmission.id,
   privateSourceHidden: true,
   openSourceVisible: true,
+  assignmentDetailLeak: false,
+  assignmentListLeak: false,
   hiddenListLeak: false,
   hiddenDashboardLeak: false,
   hiddenDetailLeak: false
@@ -160,16 +230,16 @@ async function login(user: string, password: string) {
   }) as Promise<{ token: string }>
 }
 
-async function registerUser() {
+async function registerUser(prefix: string) {
   return api('/api/auth/register', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      name: `security_${runId.slice(0, 8)}`,
-      email: `security_${runId}@example.test`,
+      name: `${prefix}_${runId.slice(0, 8)}`,
+      email: `${prefix}_${runId}@example.test`,
       password: 'password123'
     })
-  }) as Promise<{ token: string }>
+  }) as Promise<{ token: string; user: { id: number } }>
 }
 
 async function createProblem(token: string, title: string) {
@@ -184,10 +254,7 @@ async function createProblem(token: string, title: string) {
   }) as Promise<{ problem: { id: number } }>
 }
 
-async function submitStatus(
-  token: string,
-  body: { problemId: number; assignmentId?: number }
-) {
+async function submitStatus(token: string, body: { problemId: number; assignmentId?: number }) {
   const response = await fetch(`${apiBase}/api/submissions`, {
     method: 'POST',
     headers: jsonAuth(token),
@@ -202,7 +269,7 @@ async function submitStatus(
 
 async function submit(
   token: string,
-  body: { problemId: number; sourceCode: string; open?: boolean }
+  body: { problemId: number; assignmentId?: number; sourceCode: string; open?: boolean }
 ) {
   return api('/api/submissions', {
     method: 'POST',

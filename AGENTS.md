@@ -66,7 +66,7 @@ These were found during a whole-system review. The current iteration focuses on 
 
 ### Security (do first when picking up backend work)
 
-- [HIGH] Submission detail/list endpoints IDOR. Detail (`apps/api/src/routes/submissions.ts:181-235`) is now gated: `message`/`cases` require owner/admin (`canInspect`), `sourceCode` requires owner/admin or `open`, hidden-problem submissions 404 for non-owners. List (`:29-71`) now also gates `message` to owner/admin. REMAINING: assignment submissions are still readable by walking ids if the problem is visible (no assignment-membership scope on the public list/detail); decide whether to scope assignment submissions to members.
+- [DONE] Submission detail/list endpoints IDOR. Detail (`apps/api/src/routes/submissions.ts`) gates `message`/`cases` to owner/admin for contests, `sourceCode` to owner/admin or open, hidden-problem submissions 404 for non-owners, and assignment submissions 404 unless owner/admin. Public submission list hides judge messages from non-owner/non-admin and excludes assignment submissions unless owner/admin. Covered by `submission-security` smoke.
 - [MED] Login rate-limit key includes username (`apps/api/src/routes/auth.ts:58-67`), so credential-stuffing across usernames from one IP bypasses it. Add an IP-wide login limit.
 - [MED] Testdata upload buffers the whole file into memory before size check (`apps/api/src/routes/problems.ts:159-171`). Stream or check `Content-Length` first.
 - [MED] Rate-limit/session degrade to per-process in-memory `Map` when Redis is briefly down (`session.ts:11-16`, `rate-limit.ts:34-55`, `redis.ts`), bypassable across instances in multi-instance deploys.

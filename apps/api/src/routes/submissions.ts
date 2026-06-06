@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { and, asc, desc, eq, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { enqueueJudgeTask } from '@doj/db/queue'
@@ -8,7 +8,6 @@ import { authMiddleware, getOptionalAuthUser, requireAuthUser } from '../auth'
 import { checkRateLimit } from '../rate-limit'
 import { validateAssignmentSubmission } from '../services/assignments'
 import { validateContestSubmission } from '../services/contests'
-import { countVisibleSubmissions } from '../services/stats'
 import { getRuntimeSettings } from '../settings'
 import { numericId } from '../validation'
 
@@ -34,8 +33,9 @@ export function registerSubmissionRoutes(app: Hono) {
       .parse(c.req.query())
     const authUser = await getOptionalAuthUser(c)
     const isAdmin = authUser?.groups.includes('admin') ?? false
+    const where = visibleSubmissionListWhere(authUser?.id, isAdmin)
     const [total, rows] = await Promise.all([
-      countVisibleSubmissions(),
+      countSubmissionRows(where),
       db
         .select({
           id: schema.submissions.id,
@@ -57,7 +57,7 @@ export function registerSubmissionRoutes(app: Hono) {
         .from(schema.submissions)
         .innerJoin(schema.problems, eq(schema.submissions.problemId, schema.problems.id))
         .innerJoin(schema.users, eq(schema.submissions.userId, schema.users.id))
-        .where(eq(schema.problems.visible, true))
+        .where(where)
         .orderBy(desc(schema.submissions.createdAt))
         .limit(query.pageSize)
         .offset((query.page - 1) * query.pageSize)
@@ -202,12 +202,13 @@ export function registerSubmissionRoutes(app: Hono) {
 
     if (!submission) return c.notFound()
     const authUser = await getOptionalAuthUser(c)
+    const isOwnerOrAdmin =
+      submission.userId === authUser?.id || authUser?.groups.includes('admin') === true
     const canManageHiddenProblem =
       submission.userId === authUser?.id || authUser?.groups.includes('admin') === true
     if (!submission.problemVisible && !canManageHiddenProblem) return c.notFound()
+    if (submission.assignmentId && !isOwnerOrAdmin) return c.notFound()
 
-    const isOwnerOrAdmin =
-      submission.userId === authUser?.id || authUser?.groups.includes('admin') === true
     const canInspect = !submission.contestId || isOwnerOrAdmin
     const canInspectSource = (!submission.contestId && submission.open) || isOwnerOrAdmin
     const { problemVisible: _problemVisible, ...payload } = submission
@@ -313,4 +314,22 @@ export function registerSubmissionRoutes(app: Hono) {
 
     return c.json(session, 201)
   })
+}
+
+function visibleSubmissionListWhere(userId: number | undefined, isAdmin: boolean) {
+  const base = eq(schema.problems.visible, true)
+  if (isAdmin) return base
+  const assignmentScope = userId
+    ? or(isNull(schema.submissions.assignmentId), eq(schema.submissions.userId, userId))
+    : isNull(schema.submissions.assignmentId)
+  return and(base, assignmentScope)
+}
+
+async function countSubmissionRows(where: ReturnType<typeof visibleSubmissionListWhere>) {
+  const [row] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(schema.submissions)
+    .innerJoin(schema.problems, eq(schema.submissions.problemId, schema.problems.id))
+    .where(where)
+  return row?.total ?? 0
 }
