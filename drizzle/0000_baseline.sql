@@ -183,6 +183,7 @@ CREATE TABLE "submission_cases" (
 	"status" "judge_status" NOT NULL,
 	"time_ms" integer DEFAULT 0 NOT NULL,
 	"memory_bytes" bigint DEFAULT 0 NOT NULL,
+	"score" integer DEFAULT 0 NOT NULL,
 	"message" text DEFAULT '' NOT NULL,
 	CONSTRAINT "submission_cases_submission_id_case_index_pk" PRIMARY KEY("submission_id","case_index")
 );
@@ -201,6 +202,7 @@ CREATE TABLE "submissions" (
 	"status" "judge_status" DEFAULT 'WAITING' NOT NULL,
 	"time_ms" integer DEFAULT 0 NOT NULL,
 	"memory_bytes" bigint DEFAULT 0 NOT NULL,
+	"score" integer DEFAULT 0 NOT NULL,
 	"message" text DEFAULT '' NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL

@@ -11,6 +11,7 @@ export interface ProblemTestCase {
   input: string
   output: string
   hidden?: boolean
+  points?: number
 }
 
 export interface CaseResult {
@@ -18,6 +19,7 @@ export interface CaseResult {
   status: JudgeStatus
   timeMs: number
   memoryBytes: number
+  score?: number
   message?: string
 }
 
@@ -25,6 +27,7 @@ export interface SubmissionResult {
   status: JudgeStatus
   timeMs: number
   memoryBytes: number
+  score?: number
   message?: string
   cases: CaseResult[]
 }

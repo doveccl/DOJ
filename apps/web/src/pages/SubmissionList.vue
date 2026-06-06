@@ -15,6 +15,7 @@ interface SubmissionRow {
   status: string
   timeMs: number
   memoryBytes: number
+  score: number
   message: string
   createdAt: string
 }
@@ -93,6 +94,14 @@ const columns = computed(() => [
     key: 'memoryBytes',
     render(row: SubmissionRow) {
       return `${Math.round(row.memoryBytes / 1024)} KB`
+    }
+  },
+  {
+    title: t('submissions.score'),
+    key: 'score',
+    width: 90,
+    render(row: SubmissionRow) {
+      return row.score
     }
   }
 ])

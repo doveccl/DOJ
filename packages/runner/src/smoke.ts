@@ -70,6 +70,7 @@ await runCase('sleep-ac', '#!/bin/sh\nsleep 1\n', 'AC', 300)
 await runCase('ole', '#!/bin/sh\nyes x | head -c 2048\n', 'OLE', 2000, 128)
 
 await runCheckerCase()
+await runPartialScoreCase()
 
 // Special judge: a checker that accepts any answer within +/-1 of the expected
 // value. The submission prints answer+1, which exact-compare would reject but
@@ -116,4 +117,49 @@ async function runCheckerCase() {
     throw new Error(`case checker: expected AC, got ${result.status} (${result.message})`)
   }
   console.log({ name: 'checker', status: result.status, message: result.message })
+}
+
+// Partial score: a program that only succeeds when a+b is even. With three
+// cases (even, odd, even) it should pass 2/3 and earn partial score without
+// stopping at the first failure.
+async function runPartialScoreCase() {
+  const scopeId = `smoke-partial-${crypto.randomUUID()}`
+  const result = await judgePayload(runner, {
+    submissionId: 0,
+    scopeId,
+    sourceCode:
+      '#include <cstdio>\nint main(){int a,b;scanf("%d %d",&a,&b);int s=a+b;if(s%2)return 1;printf("%d\\n",s);}',
+    language: {
+      id: 'cc',
+      sourceFile: 'main.cc',
+      dockerfile: [
+        'FROM gcc:latest',
+        'WORKDIR /workspace',
+        'COPY main.cc /workspace/main.cc',
+        'RUN g++ -std=c++20 -O2 -pipe -o main main.cc',
+        'CMD ["/workspace/main"]'
+      ].join('\n'),
+      command: ['/workspace/main']
+    },
+    limits: { timeMs: 2000, memoryBytes: 128 * 1024 * 1024, outputBytes: 1024 * 1024 },
+    testCases: [
+      { name: '1', input: '1 1\n', output: '2\n' },
+      { name: '2', input: '1 2\n', output: '3\n' },
+      { name: '3', input: '2 2\n', output: '4\n' }
+    ]
+  })
+  await runner.cleanup({ scopeId })
+  // 3 cases split 100 as 34/33/33; cases 1 and 3 pass -> 34 + 33 = 67.
+  if (result.score !== 67 || result.status === 'AC' || result.cases.length !== 3) {
+    throw new Error(
+      `case partial: expected score 67 with non-AC over 3 cases, got ${result.status} score ${result.score} cases ${result.cases.length}`
+    )
+  }
+  console.log({
+    name: 'partial',
+    status: result.status,
+    score: result.score,
+    maxScore: result.maxScore,
+    cases: result.cases.map((item) => `${item.caseIndex}:${item.status}:${item.score}`)
+  })
 }

@@ -27,6 +27,8 @@ export async function judgePayload(
         status: 'CE',
         timeMs: 0,
         memoryBytes: 0,
+        score: 0,
+        maxScore: 100,
         message: build.logs,
         cases: []
       }
@@ -48,6 +50,8 @@ export async function judgePayload(
           status: 'SE',
           timeMs: 0,
           memoryBytes: 0,
+          score: 0,
+          maxScore: 100,
           message: `checker compile failed:\n${checkerBuild.logs}`,
           cases: []
         }
@@ -94,16 +98,22 @@ async function judgeCases(input: JudgeCasesInput): Promise<JudgeAgentResult> {
       status: result.status,
       timeMs: result.timeMs,
       memoryBytes: result.memoryBytes,
+      score: result.status === 'AC' ? 100 : 0,
+      maxScore: 100,
       message: result.stderr || Buffer.from(result.stdout).toString('utf8'),
       cases: []
     }
   }
 
+  const weights = caseWeights(testCases)
+  const maxScore = weights.reduce((total, weight) => total + weight, 0)
+
   const cases = []
-  let status: JudgeStatus = 'AC'
+  let score = 0
   let timeMs = 0
   let memoryBytes = 0
-  let message = 'accepted'
+  let firstFailure: { index: number; status: JudgeStatus; message: string; name?: string } | null =
+    null
 
   for (const [index, testCase] of testCases.entries()) {
     const result = await runner.run({
@@ -126,11 +136,13 @@ async function judgeCases(input: JudgeCasesInput): Promise<JudgeAgentResult> {
           : compareOutput(result.stdout, testCase.output)
         : { status: result.status, message: result.stderr }
     const caseStatus = compared.status
+    const caseScore = caseStatus === 'AC' ? weights[index] : 0
     const caseMessage = buildCaseMessage({
       status: caseStatus,
       hidden: testCase.hidden === true,
       message: compared.message
     })
+    score += caseScore
     timeMs = Math.max(timeMs, result.timeMs)
     memoryBytes = Math.max(memoryBytes, result.memoryBytes)
     cases.push({
@@ -138,24 +150,50 @@ async function judgeCases(input: JudgeCasesInput): Promise<JudgeAgentResult> {
       status: caseStatus,
       timeMs: result.timeMs,
       memoryBytes: result.memoryBytes,
+      score: caseScore,
       message: caseMessage
     })
 
-    if (caseStatus !== 'AC') {
-      status = caseStatus
-      const caseName = testCase.hidden ? '' : testCase.name
-      message = `case ${index + 1}${caseName ? ` (${caseName})` : ''}: ${caseMessage}`
-      break
+    if (caseStatus !== 'AC' && !firstFailure) {
+      firstFailure = {
+        index,
+        status: caseStatus,
+        message: caseMessage,
+        name: testCase.hidden ? undefined : testCase.name
+      }
     }
   }
+
+  const status: JudgeStatus = firstFailure ? firstFailure.status : 'AC'
+  const message = firstFailure
+    ? `score ${score}/${maxScore} — case ${firstFailure.index + 1}` +
+      `${firstFailure.name ? ` (${firstFailure.name})` : ''}: ${firstFailure.message}`
+    : 'accepted'
 
   return {
     status,
     timeMs,
     memoryBytes,
+    score,
+    maxScore,
     message,
     cases
   }
+}
+
+// Per-case weights: use explicit `points` when any case defines them; otherwise
+// split 100 points evenly across cases, giving the remainder to the first cases
+// so the weights still sum to exactly 100.
+function caseWeights(testCases: ProblemTestCase[]): number[] {
+  const hasPoints = testCases.some((testCase) => typeof testCase.points === 'number')
+  if (hasPoints) {
+    return testCases.map((testCase) => Math.max(0, Math.round(testCase.points ?? 0)))
+  }
+
+  const count = testCases.length
+  const base = Math.floor(100 / count)
+  const remainder = 100 - base * count
+  return testCases.map((_, index) => base + (index < remainder ? 1 : 0))
 }
 
 interface RunCheckerInput {

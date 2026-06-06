@@ -324,6 +324,7 @@ export const submissions = pgTable(
     status: judgeStatus('status').default('WAITING').notNull(),
     timeMs: integer('time_ms').default(0).notNull(),
     memoryBytes: bigint('memory_bytes', { mode: 'number' }).default(0).notNull(),
+    score: integer('score').default(0).notNull(),
     message: text('message').default('').notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt()
@@ -346,6 +347,7 @@ export const submissionCases = pgTable(
     status: judgeStatus('status').notNull(),
     timeMs: integer('time_ms').default(0).notNull(),
     memoryBytes: bigint('memory_bytes', { mode: 'number' }).default(0).notNull(),
+    score: integer('score').default(0).notNull(),
     message: text('message').default('').notNull()
   },
   (t) => ({

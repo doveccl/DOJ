@@ -1,5 +1,5 @@
 {
-  "id": "82c42f1d-9d2b-4d4c-a51b-68c5496649b7",
+  "id": "e97b81fb-cb15-4c63-82ee-3272a1c9bb4e",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1704,6 +1704,13 @@
           "notNull": true,
           "default": 0
         },
+        "score": {
+          "name": "score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "message": {
           "name": "message",
           "type": "text",
@@ -1822,6 +1829,13 @@
         "memory_bytes": {
           "name": "memory_bytes",
           "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "score": {
+          "name": "score",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "default": 0

@@ -14,6 +14,7 @@ interface Submission {
   status: string
   timeMs: number
   memoryBytes: number
+  score: number
   message: string
   contestId: number | null
   restricted: boolean
@@ -26,6 +27,7 @@ interface SubmissionCase {
   status: string
   timeMs: number
   memoryBytes: number
+  score: number
   message: string
 }
 
@@ -92,6 +94,7 @@ const caseColumns = computed<DataTableColumns<SubmissionCase>>(() => [
       return `${Math.round(row.memoryBytes / 1024)} KB`
     }
   },
+  { title: t('submissions.score'), key: 'score', width: 90 },
   {
     title: t('common.message'),
     key: 'message',
@@ -159,6 +162,9 @@ async function getCoaching() {
             <n-descriptions label-placement="left" bordered :column="2">
               <n-descriptions-item :label="t('common.status')">
                 <n-tag :bordered="false">{{ submission.status }}</n-tag>
+              </n-descriptions-item>
+              <n-descriptions-item :label="t('submissions.score')">
+                {{ submission.score }}
               </n-descriptions-item>
               <n-descriptions-item :label="t('common.time')">
                 {{ submission.timeMs }} ms

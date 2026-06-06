@@ -50,6 +50,7 @@ export interface JudgeAgentCaseResult {
   status: JudgeStatus
   timeMs: number
   memoryBytes: number
+  score: number
   message: string
 }
 
@@ -57,6 +58,8 @@ export interface JudgeAgentResult {
   status: JudgeStatus
   timeMs: number
   memoryBytes: number
+  score: number
+  maxScore: number
   message: string
   cases: JudgeAgentCaseResult[]
 }

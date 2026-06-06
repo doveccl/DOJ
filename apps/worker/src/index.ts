@@ -137,6 +137,7 @@ async function persistJudgeResult(
       status: judged.status,
       timeMs: judged.timeMs,
       memoryBytes: judged.memoryBytes,
+      score: judged.score,
       message: judged.message,
       updatedAt: new Date()
     })
@@ -155,6 +156,7 @@ async function persistJudgeResult(
         status: item.status,
         timeMs: item.timeMs,
         memoryBytes: item.memoryBytes,
+        score: item.score,
         message: item.message ?? ''
       }))
     )
