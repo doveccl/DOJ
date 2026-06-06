@@ -1,4 +1,4 @@
-import { asc, desc, eq } from 'drizzle-orm'
+import { asc, desc, eq, sql } from 'drizzle-orm'
 import { db, schema } from '@doj/db/client'
 
 export async function getTopicDetail(id: number) {
@@ -46,7 +46,7 @@ export async function getTopicDetail(id: number) {
   }
 }
 
-export async function getRecentTopics(limit: number) {
+export async function getRecentTopics(limit: number, offset = 0) {
   const rows = await db
     .select({
       id: schema.discussionTopics.id,
@@ -65,9 +65,15 @@ export async function getRecentTopics(limit: number) {
     .leftJoin(schema.problems, eq(schema.discussionTopics.linkedProblemId, schema.problems.id))
     .orderBy(desc(schema.discussionTopics.updatedAt))
     .limit(limit)
+    .offset(offset)
 
   return rows.map(({ problemVisible, ...row }) => ({
     ...row,
     linkedProblemId: row.linkedProblemId && problemVisible ? row.linkedProblemId : null
   }))
+}
+
+export async function countTopics() {
+  const [row] = await db.select({ total: sql<number>`count(*)::int` }).from(schema.discussionTopics)
+  return row?.total ?? 0
 }

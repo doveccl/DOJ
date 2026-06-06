@@ -9,7 +9,8 @@ import {
   getUserAssignmentDetail,
   getUserAssignments
 } from '../services/assignments'
-import { dateString, numericId } from '../validation'
+import { countRows } from '../services/stats'
+import { dateString, listQuerySchema, numericId, pageOffset } from '../validation'
 
 const createAssignmentSchema = z.object({
   title: z.string().min(1).max(160),
@@ -34,12 +35,15 @@ export function registerAssignmentRoutes(app: Hono) {
     const denied = await requireGroup(c, 'admin')
     if (denied) return denied
 
+    const { page, pageSize } = listQuerySchema.parse(c.req.query())
+    const total = await countRows(schema.assignments)
     const list = await db
       .select()
       .from(schema.assignments)
       .orderBy(desc(schema.assignments.createdAt))
-      .limit(50)
-    return c.json({ total: list.length, list })
+      .limit(pageSize)
+      .offset(pageOffset(page, pageSize))
+    return c.json({ total, page, pageSize, list })
   })
 
   app.post('/api/assignments', authMiddleware, async (c) => {

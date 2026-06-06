@@ -32,58 +32,61 @@ export function registerPublicRoutes(app: Hono) {
     if (assignmentStats !== null) stats.assignments = assignmentStats
     if (userStats !== null) stats.users = userStats
 
-    const recentSubmissions = await db
-      .select({
-        id: schema.submissions.id,
-        status: schema.submissions.status,
-        languageId: schema.submissions.languageId,
-        timeMs: schema.submissions.timeMs,
-        memoryBytes: schema.submissions.memoryBytes,
-        createdAt: schema.submissions.createdAt,
-        userId: schema.users.id,
-        userName: schema.users.name,
-        problemId: schema.problems.id,
-        problemTitle: schema.problems.title
-      })
-      .from(schema.submissions)
-      .innerJoin(schema.users, eq(schema.submissions.userId, schema.users.id))
-      .innerJoin(schema.problems, eq(schema.submissions.problemId, schema.problems.id))
-      .where(eq(schema.problems.visible, true))
-      .orderBy(desc(schema.submissions.createdAt))
-      .limit(8)
-    const recentProblems = await db
-      .select({
-        id: schema.problems.id,
-        title: schema.problems.title,
-        tags: schema.problems.tags,
-        solvedCount: schema.problems.solvedCount,
-        createdAt: schema.problems.createdAt
-      })
-      .from(schema.problems)
-      .where(
-        authUser
-          ? sql`${schema.problems.visible} = true and not exists (
-              select 1 from ${schema.solvedProblems}
-              where ${schema.solvedProblems.userId} = ${authUser.id}
-                and ${schema.solvedProblems.problemId} = ${schema.problems.id}
-            )`
-          : eq(schema.problems.visible, true)
-      )
-      .orderBy(desc(schema.problems.createdAt), desc(schema.problems.id))
-      .limit(6)
-    const recentTopics = await getRecentTopics(6)
-    const recentContests = await db
-      .select({
-        id: schema.contests.id,
-        title: schema.contests.title,
-        type: schema.contests.type,
-        startAt: schema.contests.startAt,
-        endAt: schema.contests.endAt
-      })
-      .from(schema.contests)
-      .orderBy(desc(schema.contests.startAt), desc(schema.contests.createdAt))
-      .limit(5)
-    const myAssignments = authUser ? await getUserAssignments(authUser.id, 5) : []
+    const [recentSubmissions, recentProblems, recentTopics, recentContests, myAssignments] =
+      await Promise.all([
+        db
+          .select({
+            id: schema.submissions.id,
+            status: schema.submissions.status,
+            languageId: schema.submissions.languageId,
+            timeMs: schema.submissions.timeMs,
+            memoryBytes: schema.submissions.memoryBytes,
+            createdAt: schema.submissions.createdAt,
+            userId: schema.users.id,
+            userName: schema.users.name,
+            problemId: schema.problems.id,
+            problemTitle: schema.problems.title
+          })
+          .from(schema.submissions)
+          .innerJoin(schema.users, eq(schema.submissions.userId, schema.users.id))
+          .innerJoin(schema.problems, eq(schema.submissions.problemId, schema.problems.id))
+          .where(eq(schema.problems.visible, true))
+          .orderBy(desc(schema.submissions.createdAt))
+          .limit(8),
+        db
+          .select({
+            id: schema.problems.id,
+            title: schema.problems.title,
+            tags: schema.problems.tags,
+            solvedCount: schema.problems.solvedCount,
+            createdAt: schema.problems.createdAt
+          })
+          .from(schema.problems)
+          .where(
+            authUser
+              ? sql`${schema.problems.visible} = true and not exists (
+                  select 1 from ${schema.solvedProblems}
+                  where ${schema.solvedProblems.userId} = ${authUser.id}
+                    and ${schema.solvedProblems.problemId} = ${schema.problems.id}
+                )`
+              : eq(schema.problems.visible, true)
+          )
+          .orderBy(desc(schema.problems.createdAt), desc(schema.problems.id))
+          .limit(6),
+        getRecentTopics(6),
+        db
+          .select({
+            id: schema.contests.id,
+            title: schema.contests.title,
+            type: schema.contests.type,
+            startAt: schema.contests.startAt,
+            endAt: schema.contests.endAt
+          })
+          .from(schema.contests)
+          .orderBy(desc(schema.contests.startAt), desc(schema.contests.createdAt))
+          .limit(5),
+        authUser ? getUserAssignments(authUser.id, 5) : Promise.resolve([])
+      ])
 
     return c.json({
       stats,

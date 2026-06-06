@@ -248,9 +248,12 @@ ALTER TABLE "problem_versions" ADD CONSTRAINT "problem_versions_interactor_file_
 ALTER TABLE "user_groups" ADD CONSTRAINT "user_groups_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_groups" ADD CONSTRAINT "user_groups_group_id_groups_id_fk" FOREIGN KEY ("group_id") REFERENCES "public"."groups"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "ai_coaching_submission_idx" ON "ai_coaching_sessions" USING btree ("submission_id","created_at");--> statement-breakpoint
+CREATE INDEX "assignments_created_idx" ON "assignments" USING btree ("created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "contest_problems_key_uidx" ON "contest_problems" USING btree ("contest_id","key");--> statement-breakpoint
+CREATE INDEX "contests_start_idx" ON "contests" USING btree ("start_at");--> statement-breakpoint
 CREATE INDEX "discussion_replies_topic_idx" ON "discussion_replies" USING btree ("topic_id","created_at");--> statement-breakpoint
 CREATE INDEX "discussion_topics_tags_idx" ON "discussion_topics" USING btree ("tags");--> statement-breakpoint
+CREATE INDEX "discussion_topics_updated_idx" ON "discussion_topics" USING btree ("updated_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "files_object_uidx" ON "files" USING btree ("bucket","object_key");--> statement-breakpoint
 CREATE UNIQUE INDEX "groups_key_uidx" ON "groups" USING btree ("key");--> statement-breakpoint
 CREATE UNIQUE INDEX "judge_agents_key_uidx" ON "judge_agents" USING btree ("key");--> statement-breakpoint
@@ -261,13 +264,16 @@ CREATE INDEX "judge_tasks_ready_idx" ON "judge_tasks" USING btree ("status","pri
 CREATE INDEX "judge_tasks_lease_idx" ON "judge_tasks" USING btree ("locked_until");--> statement-breakpoint
 CREATE UNIQUE INDEX "problem_versions_problem_version_uidx" ON "problem_versions" USING btree ("problem_id","version");--> statement-breakpoint
 CREATE INDEX "problems_visible_idx" ON "problems" USING btree ("visible");--> statement-breakpoint
+CREATE INDEX "problems_created_idx" ON "problems" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "solved_problems_problem_idx" ON "solved_problems" USING btree ("problem_id");--> statement-breakpoint
 CREATE INDEX "submissions_user_idx" ON "submissions" USING btree ("user_id","created_at");--> statement-breakpoint
 CREATE INDEX "submissions_problem_idx" ON "submissions" USING btree ("problem_id","created_at");--> statement-breakpoint
 CREATE INDEX "submissions_contest_idx" ON "submissions" USING btree ("contest_id","created_at");--> statement-breakpoint
 CREATE INDEX "submissions_assignment_idx" ON "submissions" USING btree ("assignment_id","created_at");--> statement-breakpoint
 CREATE INDEX "submissions_status_idx" ON "submissions" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "submissions_created_idx" ON "submissions" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "user_groups_group_idx" ON "user_groups" USING btree ("group_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "users_name_uidx" ON "users" USING btree (lower("name"));--> statement-breakpoint
 CREATE UNIQUE INDEX "users_email_uidx" ON "users" USING btree (lower("email"));--> statement-breakpoint
-CREATE INDEX "users_rank_idx" ON "users" USING btree ("solved_count","submission_count");
+CREATE INDEX "users_rank_idx" ON "users" USING btree ("solved_count","submission_count");--> statement-breakpoint
+CREATE INDEX "users_created_idx" ON "users" USING btree ("created_at");

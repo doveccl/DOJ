@@ -4,7 +4,8 @@ import { z } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { authMiddleware, requireGroup } from '../auth'
 import { getContestDetail, getContestScoreboard } from '../services/contests'
-import { dateString, numericId } from '../validation'
+import { countRows } from '../services/stats'
+import { dateString, listQuerySchema, numericId, pageOffset } from '../validation'
 
 const createContestSchema = z.object({
   title: z.string().min(1).max(160),
@@ -26,12 +27,15 @@ const createContestSchema = z.object({
 
 export function registerContestRoutes(app: Hono) {
   app.get('/api/contests', async (c) => {
+    const { page, pageSize } = listQuerySchema.parse(c.req.query())
+    const total = await countRows(schema.contests)
     const list = await db
       .select()
       .from(schema.contests)
       .orderBy(desc(schema.contests.startAt))
-      .limit(50)
-    return c.json({ total: list.length, list })
+      .limit(pageSize)
+      .offset(pageOffset(page, pageSize))
+    return c.json({ total, page, pageSize, list })
   })
 
   app.post('/api/contests', authMiddleware, async (c) => {

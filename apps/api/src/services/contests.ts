@@ -1,5 +1,11 @@
 import { and, asc, eq } from 'drizzle-orm'
 import { db, schema } from '@doj/db/client'
+import { redisGet, redisSet } from '../redis'
+
+// The public scoreboard is an anonymous hot path that many viewers refresh in
+// parallel during a live contest. A short TTL collapses bursts of identical
+// recomputes into one DB read every few seconds; admin reveal stays uncached.
+const scoreboardCacheTtlSeconds = 5
 
 export async function getContestDetail(id: number) {
   const [contest] = await db
@@ -29,11 +35,26 @@ export async function getContestDetail(id: number) {
 }
 
 export async function getContestScoreboard(id: number, options: { reveal?: boolean } = {}) {
+  const reveal = options.reveal === true
+  // Admin reveal must always reflect the latest state, so it bypasses the cache.
+  if (reveal) return computeContestScoreboard(id, reveal)
+
+  const cacheKey = `scoreboard:${id}`
+  const cached = await redisGet(cacheKey)
+  if (cached) return JSON.parse(cached) as ScoreboardResult
+
+  const scoreboard = await computeContestScoreboard(id, reveal)
+  if (scoreboard) await redisSet(cacheKey, JSON.stringify(scoreboard), scoreboardCacheTtlSeconds)
+  return scoreboard
+}
+
+type ScoreboardResult = NonNullable<Awaited<ReturnType<typeof computeContestScoreboard>>>
+
+async function computeContestScoreboard(id: number, reveal: boolean) {
   const detail = await getContestDetail(id)
   if (!detail) return null
   const freezeAt = detail.contest.freezeAt
   const frozen = !!freezeAt && Date.now() >= freezeAt.getTime()
-  const reveal = options.reveal === true
 
   const submissions = await db
     .select({

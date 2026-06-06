@@ -66,7 +66,8 @@ export const users = pgTable(
   (t) => ({
     nameUidx: uniqueIndex('users_name_uidx').on(sql`lower(${t.name})`),
     emailUidx: uniqueIndex('users_email_uidx').on(sql`lower(${t.email})`),
-    rankIdx: index('users_rank_idx').on(t.solvedCount, t.submissionCount)
+    rankIdx: index('users_rank_idx').on(t.solvedCount, t.submissionCount),
+    createdIdx: index('users_created_idx').on(t.createdAt)
   })
 )
 
@@ -192,7 +193,8 @@ export const problems = pgTable(
     deletedAt: timestamp('deleted_at', { withTimezone: true })
   },
   (t) => ({
-    visibleIdx: index('problems_visible_idx').on(t.visible)
+    visibleIdx: index('problems_visible_idx').on(t.visible),
+    createdIdx: index('problems_created_idx').on(t.createdAt)
   })
 )
 
@@ -218,18 +220,24 @@ export const problemVersions = pgTable(
   })
 )
 
-export const contests = pgTable('contests', {
-  id: id(),
-  legacyId: varchar('legacy_id', { length: 64 }),
-  title: varchar('title', { length: 160 }).notNull(),
-  description: text('description').default('').notNull(),
-  type: contestType('type').default('OI').notNull(),
-  startAt: timestamp('start_at', { withTimezone: true }).notNull(),
-  endAt: timestamp('end_at', { withTimezone: true }).notNull(),
-  freezeAt: timestamp('freeze_at', { withTimezone: true }),
-  createdAt: createdAt(),
-  updatedAt: updatedAt()
-})
+export const contests = pgTable(
+  'contests',
+  {
+    id: id(),
+    legacyId: varchar('legacy_id', { length: 64 }),
+    title: varchar('title', { length: 160 }).notNull(),
+    description: text('description').default('').notNull(),
+    type: contestType('type').default('OI').notNull(),
+    startAt: timestamp('start_at', { withTimezone: true }).notNull(),
+    endAt: timestamp('end_at', { withTimezone: true }).notNull(),
+    freezeAt: timestamp('freeze_at', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt()
+  },
+  (t) => ({
+    startIdx: index('contests_start_idx').on(t.startAt)
+  })
+)
 
 export const contestProblems = pgTable(
   'contest_problems',
@@ -250,17 +258,23 @@ export const contestProblems = pgTable(
   })
 )
 
-export const assignments = pgTable('assignments', {
-  id: id(),
-  title: varchar('title', { length: 160 }).notNull(),
-  description: text('description').default('').notNull(),
-  startAt: timestamp('start_at', { withTimezone: true }),
-  dueAt: timestamp('due_at', { withTimezone: true }),
-  allowLate: boolean('allow_late').default(false).notNull(),
-  aiCoachingEnabled: boolean('ai_coaching_enabled').default(true).notNull(),
-  createdAt: createdAt(),
-  updatedAt: updatedAt()
-})
+export const assignments = pgTable(
+  'assignments',
+  {
+    id: id(),
+    title: varchar('title', { length: 160 }).notNull(),
+    description: text('description').default('').notNull(),
+    startAt: timestamp('start_at', { withTimezone: true }),
+    dueAt: timestamp('due_at', { withTimezone: true }),
+    allowLate: boolean('allow_late').default(false).notNull(),
+    aiCoachingEnabled: boolean('ai_coaching_enabled').default(true).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt()
+  },
+  (t) => ({
+    createdIdx: index('assignments_created_idx').on(t.createdAt)
+  })
+)
 
 export const assignmentGroups = pgTable(
   'assignment_groups',
@@ -319,7 +333,8 @@ export const submissions = pgTable(
     problemIdx: index('submissions_problem_idx').on(t.problemId, t.createdAt),
     contestIdx: index('submissions_contest_idx').on(t.contestId, t.createdAt),
     assignmentIdx: index('submissions_assignment_idx').on(t.assignmentId, t.createdAt),
-    statusIdx: index('submissions_status_idx').on(t.status)
+    statusIdx: index('submissions_status_idx').on(t.status),
+    createdIdx: index('submissions_created_idx').on(t.createdAt)
   })
 )
 
@@ -389,7 +404,8 @@ export const discussionTopics = pgTable(
     updatedAt: updatedAt()
   },
   (t) => ({
-    tagIdx: index('discussion_topics_tags_idx').on(t.tags)
+    tagIdx: index('discussion_topics_tags_idx').on(t.tags),
+    updatedIdx: index('discussion_topics_updated_idx').on(t.updatedAt)
   })
 )
 

@@ -40,6 +40,13 @@ const error = ref('')
 const showCreateModal = ref(false)
 const topics = ref<TopicRow[]>([])
 const { t } = useI18n()
+const pagination = reactive({
+  page: 1,
+  pageSize: 50,
+  itemCount: 0,
+  showSizePicker: true,
+  pageSizes: [20, 50, 100]
+})
 const linkType = ref<'none' | 'problem' | 'contest'>('none')
 const linkId = ref<number | null>(null)
 const problemOptions = ref<SelectOption[]>([])
@@ -96,13 +103,27 @@ async function loadTopics() {
   loading.value = true
   error.value = ''
   try {
-    const data = await apiFetch<{ list: TopicRow[] }>('/api/discussion/topics')
+    const data = await apiFetch<{ list: TopicRow[]; total: number }>(
+      `/api/discussion/topics?page=${pagination.page}&pageSize=${pagination.pageSize}`
+    )
     topics.value = data.list
+    pagination.itemCount = data.total
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
     loading.value = false
   }
+}
+
+function handlePageChange(page: number) {
+  pagination.page = page
+  void loadTopics()
+}
+
+function handlePageSizeChange(pageSize: number) {
+  pagination.pageSize = pageSize
+  pagination.page = 1
+  void loadTopics()
 }
 
 async function createTopic() {
@@ -171,11 +192,15 @@ onMounted(() => {
         </n-tooltip>
       </n-space>
       <n-data-table
+        remote
         :columns="columns"
         :data="topics"
         :bordered="false"
         :loading="loading"
+        :pagination="pagination"
         class="admin-table"
+        @update:page="handlePageChange"
+        @update:page-size="handlePageSizeChange"
       />
     </n-card>
 

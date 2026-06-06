@@ -3,13 +3,16 @@ import { desc, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { authMiddleware, requireAuthUser, requireGroup } from '../auth'
-import { numericId } from '../validation'
+import { countRows } from '../services/stats'
+import { listQuerySchema, numericId, pageOffset } from '../validation'
 
 export function registerAdminUserRoutes(app: Hono) {
   app.get('/api/users', authMiddleware, async (c) => {
     const denied = await requireGroup(c, 'admin')
     if (denied) return denied
 
+    const { page, pageSize } = listQuerySchema.parse(c.req.query())
+    const total = await countRows(schema.users)
     const list = await db
       .select({
         id: schema.users.id,
@@ -22,9 +25,10 @@ export function registerAdminUserRoutes(app: Hono) {
       })
       .from(schema.users)
       .orderBy(desc(schema.users.createdAt))
-      .limit(50)
+      .limit(pageSize)
+      .offset(pageOffset(page, pageSize))
 
-    return c.json({ total: list.length, list })
+    return c.json({ total, page, pageSize, list })
   })
 
   app.patch('/api/users/:id', authMiddleware, async (c) => {

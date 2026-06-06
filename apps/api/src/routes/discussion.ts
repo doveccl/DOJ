@@ -4,14 +4,18 @@ import { z } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { authMiddleware, requireAuthUser } from '../auth'
 import { checkRateLimit } from '../rate-limit'
-import { getRecentTopics, getTopicDetail } from '../services/discussion'
-import { numericId } from '../validation'
+import { getRecentTopics, getTopicDetail, countTopics } from '../services/discussion'
+import { listQuerySchema, numericId, pageOffset } from '../validation'
 
 export function registerDiscussionRoutes(app: Hono) {
   app.get('/api/discussion/topics', async (c) => {
-    const list = await getRecentTopics(50)
+    const { page, pageSize } = listQuerySchema.parse(c.req.query())
+    const [total, list] = await Promise.all([
+      countTopics(),
+      getRecentTopics(pageSize, pageOffset(page, pageSize))
+    ])
 
-    return c.json({ total: list.length, list })
+    return c.json({ total, page, pageSize, list })
   })
 
   app.post('/api/discussion/topics', authMiddleware, async (c) => {

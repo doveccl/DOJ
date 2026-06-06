@@ -35,32 +35,34 @@ export function registerSubmissionRoutes(app: Hono) {
       .parse(c.req.query())
     const authUser = await getOptionalAuthUser(c)
     const isAdmin = authUser?.groups.includes('admin') ?? false
-    const total = await countVisibleSubmissions()
-    const rows = await db
-      .select({
-        id: schema.submissions.id,
-        userId: schema.submissions.userId,
-        userName: schema.users.name,
-        problemId: schema.submissions.problemId,
-        problemTitle: schema.problems.title,
-        problemVersionId: schema.submissions.problemVersionId,
-        languageId: schema.submissions.languageId,
-        status: schema.submissions.status,
-        timeMs: schema.submissions.timeMs,
-        memoryBytes: schema.submissions.memoryBytes,
-        message: schema.submissions.message,
-        contestId: schema.submissions.contestId,
-        assignmentId: schema.submissions.assignmentId,
-        createdAt: schema.submissions.createdAt,
-        updatedAt: schema.submissions.updatedAt
-      })
-      .from(schema.submissions)
-      .innerJoin(schema.problems, eq(schema.submissions.problemId, schema.problems.id))
-      .innerJoin(schema.users, eq(schema.submissions.userId, schema.users.id))
-      .where(eq(schema.problems.visible, true))
-      .orderBy(desc(schema.submissions.createdAt))
-      .limit(query.pageSize)
-      .offset((query.page - 1) * query.pageSize)
+    const [total, rows] = await Promise.all([
+      countVisibleSubmissions(),
+      db
+        .select({
+          id: schema.submissions.id,
+          userId: schema.submissions.userId,
+          userName: schema.users.name,
+          problemId: schema.submissions.problemId,
+          problemTitle: schema.problems.title,
+          problemVersionId: schema.submissions.problemVersionId,
+          languageId: schema.submissions.languageId,
+          status: schema.submissions.status,
+          timeMs: schema.submissions.timeMs,
+          memoryBytes: schema.submissions.memoryBytes,
+          message: schema.submissions.message,
+          contestId: schema.submissions.contestId,
+          assignmentId: schema.submissions.assignmentId,
+          createdAt: schema.submissions.createdAt,
+          updatedAt: schema.submissions.updatedAt
+        })
+        .from(schema.submissions)
+        .innerJoin(schema.problems, eq(schema.submissions.problemId, schema.problems.id))
+        .innerJoin(schema.users, eq(schema.submissions.userId, schema.users.id))
+        .where(eq(schema.problems.visible, true))
+        .orderBy(desc(schema.submissions.createdAt))
+        .limit(query.pageSize)
+        .offset((query.page - 1) * query.pageSize)
+    ])
     const list = rows.map((row) => ({
       ...row,
       // The judge message can contain compiler output; only the owner/admin may read it.

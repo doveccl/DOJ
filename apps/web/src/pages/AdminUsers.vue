@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { NAlert, NButton, NCard, NDataTable, NSpace, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import { computed, h, onMounted, ref, watch } from 'vue'
+import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 import { useAuthStore } from '../stores/auth'
@@ -23,6 +23,13 @@ const loading = ref(true)
 const savingUserId = ref<number | null>(null)
 const error = ref('')
 const users = ref<UserRow[]>([])
+const pagination = reactive({
+  page: 1,
+  pageSize: 50,
+  itemCount: 0,
+  showSizePicker: true,
+  pageSizes: [20, 50, 100]
+})
 
 const columns = computed<DataTableColumns<UserRow>>(() => [
   { title: t('common.id'), key: 'id', width: 80 },
@@ -74,13 +81,27 @@ async function loadUsers() {
   loading.value = true
   error.value = ''
   try {
-    const data = await apiFetch<{ list: UserRow[] }>('/api/users')
+    const data = await apiFetch<{ list: UserRow[]; total: number }>(
+      `/api/users?page=${pagination.page}&pageSize=${pagination.pageSize}`
+    )
     users.value = data.list
+    pagination.itemCount = data.total
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
     loading.value = false
   }
+}
+
+function handlePageChange(page: number) {
+  pagination.page = page
+  void loadUsers()
+}
+
+function handlePageSizeChange(pageSize: number) {
+  pagination.pageSize = pageSize
+  pagination.page = 1
+  void loadUsers()
 }
 
 async function updateUserStatus(row: UserRow) {
@@ -123,7 +144,16 @@ onMounted(() => {
 
     <n-card v-if="canManage" :bordered="false">
       <n-space vertical>
-        <n-data-table :columns="columns" :data="users" :bordered="false" :loading="loading" />
+        <n-data-table
+          remote
+          :columns="columns"
+          :data="users"
+          :bordered="false"
+          :loading="loading"
+          :pagination="pagination"
+          @update:page="handlePageChange"
+          @update:page-size="handlePageSizeChange"
+        />
       </n-space>
     </n-card>
   </div>

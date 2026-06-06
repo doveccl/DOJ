@@ -7,14 +7,9 @@ import { putObject, storageConfig } from '@doj/shared/storage'
 import { authMiddleware, getOptionalAuthUser, requireGroup } from '../auth'
 import { getRuntimeSettings } from '../settings'
 import { countRows } from '../services/stats'
-import { numericId } from '../validation'
+import { listQuerySchema, numericId, pageOffset } from '../validation'
 
 const maxTestdataUploadBytes = 64 * 1024 * 1024
-
-const listQuerySchema = z.object({
-  page: z.coerce.number().int().positive().default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50)
-})
 
 export function registerProblemRoutes(app: Hono) {
   app.get('/api/problems', async (c) => {
@@ -30,7 +25,7 @@ export function registerProblemRoutes(app: Hono) {
       .where(visible)
       .orderBy(asc(schema.problems.id))
       .limit(pageSize)
-      .offset((page - 1) * pageSize)
+      .offset(pageOffset(page, pageSize))
     return c.json({ total, page, pageSize, list })
   })
 
@@ -45,7 +40,7 @@ export function registerProblemRoutes(app: Hono) {
       .from(schema.problems)
       .orderBy(asc(schema.problems.id))
       .limit(pageSize)
-      .offset((page - 1) * pageSize)
+      .offset(pageOffset(page, pageSize))
     const versions = await getLatestProblemVersions(list.map((problem) => problem.id))
     const enriched = list.map((problem) => ({
       ...problem,

@@ -1,5 +1,5 @@
 {
-  "id": "27093a04-dde8-462f-9520-fa8012c8394b",
+  "id": "82c42f1d-9d2b-4d4c-a51b-68c5496649b7",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -309,7 +309,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "assignments_created_idx": {
+          "name": "assignments_created_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -500,7 +516,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "contests_start_idx": {
+          "name": "contests_start_idx",
+          "columns": [
+            {
+              "expression": "start_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -679,6 +711,21 @@
           "columns": [
             {
               "expression": "tags",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "discussion_topics_updated_idx": {
+          "name": "discussion_topics_updated_idx",
+          "columns": [
+            {
+              "expression": "updated_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1534,6 +1581,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "problems_created_idx": {
+          "name": "problems_created_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {},
@@ -1885,6 +1947,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "submissions_created_idx": {
+          "name": "submissions_created_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {},
@@ -2145,6 +2222,21 @@
             },
             {
               "expression": "submission_count",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "users_created_idx": {
+          "name": "users_created_idx",
+          "columns": [
+            {
+              "expression": "created_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
