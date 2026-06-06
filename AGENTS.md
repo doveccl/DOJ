@@ -29,13 +29,13 @@ This file is the working memory for autonomous coding on this branch. Keep it cu
 3. Judge and problem model.
    - Done: collapse seeded C/C++ into one default language (`cc` / `main.cc`).
    - Done: remove per-problem max output configuration in favor of global/default behavior.
-   - Accept looser testdata file naming such as `1.in`, `input1.txt`, `ans01.txt`.
+   - Done: accept looser testdata file naming such as `1.in`, `input1.txt`, `ans01.txt` (`classifyCaseEntry` in `packages/shared/src/testdata.ts`; covered by `testdata` smoke).
    - Done: allow uploading uncompressed (loose) testdata files; server repackages them into a stored ZIP so the agent's existing ZIP parse path is unchanged (`parseLooseTestCases`/`buildStoredZip` in `packages/shared/src/testdata.ts`).
    - Done: improve Docker sandbox security and record the resource-metrics conclusion.
    - Done: replace raw test-case JSON UI with upload/inspection-oriented tooling.
 4. Frontend and UX.
    - Done: configure Naive UI locale/date locale.
-   - Hide auth-required menu items for anonymous users instead of showing dead-end pages.
+   - Done: hide auth-required menu items for anonymous users instead of showing dead-end pages (`menuOptions` in `apps/web/src/App.vue`: problems gated by `guestProblemsetVisible`, assignments require sign-in, admin requires the admin group).
    - Done: remove redundant discussion sign-in copy and use componentized topic tags.
    - Done: rework home (role-gated stat board, only admins see aggregate stats), discussion (Markdown editor + searchable problem/contest link picker), submission detail/list (show language name not id, drop judge message from list), and admin layout (no per-page title boilerplate).
    - Done: rename page components without the redundant `Page` suffix.
@@ -65,7 +65,7 @@ These were found during a whole-system review. The current iteration focuses on 
 
 ### Security (do first when picking up backend work)
 
-- [HIGH] Submission detail/list endpoints have **no auth** and leak judge info via IDOR. `apps/api/src/routes/submissions.ts:182-235` (detail) and `:30-68` (list): for non-contest (incl. assignment) submissions, anonymous users can read `message` (CE compiler output) and per-case details by walking the auto-increment id. Only `sourceCode` is gated by `open`. Fix: gate `message`/`cases` by owner/admin; require auth or scope assignment submissions.
+- [HIGH] Submission detail/list endpoints IDOR. Detail (`apps/api/src/routes/submissions.ts:181-235`) is now gated: `message`/`cases` require owner/admin (`canInspect`), `sourceCode` requires owner/admin or `open`, hidden-problem submissions 404 for non-owners. List (`:29-71`) now also gates `message` to owner/admin. REMAINING: assignment submissions are still readable by walking ids if the problem is visible (no assignment-membership scope on the public list/detail); decide whether to scope assignment submissions to members.
 - [MED] Login rate-limit key includes username (`apps/api/src/routes/auth.ts:58-67`), so credential-stuffing across usernames from one IP bypasses it. Add an IP-wide login limit.
 - [MED] Testdata upload buffers the whole file into memory before size check (`apps/api/src/routes/problems.ts:159-171`). Stream or check `Content-Length` first.
 - [MED] Rate-limit/session degrade to per-process in-memory `Map` when Redis is briefly down (`session.ts:11-16`, `rate-limit.ts:34-55`, `redis.ts`), bypassable across instances in multi-instance deploys.

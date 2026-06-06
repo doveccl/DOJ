@@ -98,6 +98,19 @@ if (!listedSubmission) {
 if ('sourceCode' in listedSubmission || JSON.stringify(listedSubmission).includes(sourceMarker)) {
   throw new Error(`submission list leaked source code: ${JSON.stringify(listedSubmission)}`)
 }
+if (listedSubmission.message) {
+  throw new Error(
+    `submission list leaked judge message to anonymous viewer: ${listedSubmission.message}`
+  )
+}
+const ownerListSubmission = (
+  (await api('/api/submissions', {
+    headers: { authorization: `Bearer ${user.token}` }
+  })) as { list: Array<{ id: number; message?: string }> }
+).list.find((item) => item.id === normalSubmission.id)
+if (!ownerListSubmission || typeof ownerListSubmission.message !== 'string') {
+  throw new Error(`owner could not read own submission message from list`)
+}
 const dashboardBeforeHide = (await api('/api/dashboard', {
   headers: { authorization: `Bearer ${admin.token}` }
 })) as {

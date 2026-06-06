@@ -33,6 +33,8 @@ export function registerSubmissionRoutes(app: Hono) {
         pageSize: z.coerce.number().int().min(1).max(100).default(50)
       })
       .parse(c.req.query())
+    const authUser = await getOptionalAuthUser(c)
+    const isAdmin = authUser?.groups.includes('admin') ?? false
     const total = await countVisibleSubmissions()
     const rows = await db
       .select({
@@ -61,7 +63,8 @@ export function registerSubmissionRoutes(app: Hono) {
       .offset((query.page - 1) * query.pageSize)
     const list = rows.map((row) => ({
       ...row,
-      message: row.contestId ? '' : row.message
+      // The judge message can contain compiler output; only the owner/admin may read it.
+      message: isAdmin || row.userId === authUser?.id ? row.message : ''
     }))
 
     return c.json({ total, page: query.page, pageSize: query.pageSize, list })
