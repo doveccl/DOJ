@@ -98,7 +98,9 @@ if (!listedSubmission) {
 if ('sourceCode' in listedSubmission || JSON.stringify(listedSubmission).includes(sourceMarker)) {
   throw new Error(`submission list leaked source code: ${JSON.stringify(listedSubmission)}`)
 }
-const dashboardBeforeHide = (await api('/api/dashboard')) as {
+const dashboardBeforeHide = (await api('/api/dashboard', {
+  headers: { authorization: `Bearer ${admin.token}` }
+})) as {
   stats: { submissions: number }
 }
 
@@ -113,7 +115,9 @@ const listAfterHide = (await api('/api/submissions')) as {
 if (listAfterHide.list.some((item) => item.id === normalSubmission.id)) {
   throw new Error(`hidden problem submission leaked in public list: ${normalSubmission.id}`)
 }
-const dashboardAfterHide = (await api('/api/dashboard')) as {
+const dashboardAfterHide = (await api('/api/dashboard', {
+  headers: { authorization: `Bearer ${admin.token}` }
+})) as {
   stats: { submissions: number }
   recentSubmissions: Array<{ id: number }>
 }
@@ -190,7 +194,7 @@ async function submitStatus(
     headers: jsonAuth(token),
     body: JSON.stringify({
       ...body,
-      languageId: 'cpp',
+      languageId: 'cc',
       sourceCode: '#include <bits/stdc++.h>\nint main(){return 0;}\n'
     })
   })
@@ -206,7 +210,7 @@ async function submit(
     headers: jsonAuth(token),
     body: JSON.stringify({
       ...body,
-      languageId: 'cpp'
+      languageId: 'cc'
     })
   }) as Promise<{ id: number }>
 }

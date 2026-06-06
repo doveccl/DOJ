@@ -373,8 +373,8 @@ export const judgeTasks = pgTable(
   })
 )
 
-export const bbsTopics = pgTable(
-  'bbs_topics',
+export const discussionTopics = pgTable(
+  'discussion_topics',
   {
     id: id(),
     userId: integer('user_id').notNull(),
@@ -389,24 +389,24 @@ export const bbsTopics = pgTable(
     updatedAt: updatedAt()
   },
   (t) => ({
-    tagIdx: index('bbs_topics_tags_idx').on(t.tags)
+    tagIdx: index('discussion_topics_tags_idx').on(t.tags)
   })
 )
 
-export const bbsReplies = pgTable(
-  'bbs_replies',
+export const discussionReplies = pgTable(
+  'discussion_replies',
   {
     id: id(),
     topicId: integer('topic_id')
       .notNull()
-      .references(() => bbsTopics.id, { onDelete: 'cascade' }),
+      .references(() => discussionTopics.id, { onDelete: 'cascade' }),
     userId: integer('user_id').notNull(),
     contentMarkdown: text('content_markdown').notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt()
   },
   (t) => ({
-    topicIdx: index('bbs_replies_topic_idx').on(t.topicId, t.createdAt)
+    topicIdx: index('discussion_replies_topic_idx').on(t.topicId, t.createdAt)
   })
 )
 

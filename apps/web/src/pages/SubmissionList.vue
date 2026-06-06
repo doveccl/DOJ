@@ -36,6 +36,8 @@ const statusType: Record<string, 'success' | 'warning' | 'error' | 'info'> = {
 
 const { t } = useI18n()
 
+const languageNames = ref<Record<string, string>>({})
+
 const columns = computed(() => [
   {
     title: t('common.status'),
@@ -71,7 +73,13 @@ const columns = computed(() => [
     }
   },
   { title: t('common.user'), key: 'userName', minWidth: 140 },
-  { title: t('common.language'), key: 'languageId' },
+  {
+    title: t('common.language'),
+    key: 'languageId',
+    render(row: SubmissionRow) {
+      return languageNames.value[row.languageId] ?? row.languageId
+    }
+  },
   {
     title: t('common.time'),
     key: 'timeMs',
@@ -85,13 +93,6 @@ const columns = computed(() => [
     key: 'memoryBytes',
     render(row: SubmissionRow) {
       return `${Math.round(row.memoryBytes / 1024)} KB`
-    }
-  },
-  {
-    title: t('common.message'),
-    key: 'message',
-    ellipsis: {
-      tooltip: true
     }
   }
 ])
@@ -128,6 +129,14 @@ function changePageSize(nextPageSize: number) {
 }
 
 onMounted(async () => {
+  try {
+    const languages = await apiFetch<{ list: Array<{ id: string; name: string }> }>(
+      '/api/languages'
+    )
+    languageNames.value = Object.fromEntries(languages.list.map((l) => [l.id, l.name]))
+  } catch {
+    languageNames.value = {}
+  }
   await loadSubmissions(true)
   timer = window.setInterval(() => loadSubmissions(), 2500)
 })
@@ -139,9 +148,6 @@ onUnmounted(() => {
 
 <template>
   <main class="page">
-    <section class="page-header">
-      <h1>{{ t('submissions.title') }}</h1>
-    </section>
     <n-data-table
       :columns="columns"
       :data="submissions"

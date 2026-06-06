@@ -14,8 +14,7 @@ const canManage = computed(() => auth.user?.groups.includes('admin') ?? false)
 
 const adminOptions = computed<MenuOption[]>(() => [
   { label: t('nav.settings'), key: '/admin/settings' },
-  { label: t('nav.groups'), key: '/admin/groups' },
-  { label: t('nav.users'), key: '/admin/users' },
+  { label: t('nav.members'), key: '/admin/members' },
   { label: t('nav.manageProblems'), key: '/admin/problems' },
   { label: t('nav.assignments'), key: '/admin/assignments' },
   { label: t('nav.contests'), key: '/admin/contests' },

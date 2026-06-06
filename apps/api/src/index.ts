@@ -5,8 +5,9 @@ import { config } from './config'
 import { registerAdminCoreRoutes } from './routes/admin-core'
 import { registerAssignmentRoutes } from './routes/assignments'
 import { registerAuthRoutes } from './routes/auth'
-import { registerBbsRoutes } from './routes/bbs'
 import { registerContestRoutes } from './routes/contests'
+import { registerDiscussionRoutes } from './routes/discussion'
+import { registerMediaRoutes } from './routes/media'
 import { registerProblemRoutes } from './routes/problems'
 import { registerPublicRoutes } from './routes/public'
 import { registerSubmissionRoutes } from './routes/submissions'
@@ -18,10 +19,13 @@ app.use('*', logger())
 
 app.onError((error, c) => {
   if (error instanceof ZodError) {
+    const issue = error.issues[0]
+    const path = issue?.path.join('.')
+    const detail = issue ? `${path ? `${path}: ` : ''}${issue.message}` : 'Invalid request payload'
     return c.json(
       {
         code: 'BAD_REQUEST',
-        message: 'Invalid request payload',
+        message: detail,
         issues: error.issues
       },
       400
@@ -62,7 +66,8 @@ registerProblemRoutes(app)
 registerAssignmentRoutes(app)
 registerContestRoutes(app)
 registerSubmissionRoutes(app)
-registerBbsRoutes(app)
+registerDiscussionRoutes(app)
+registerMediaRoutes(app)
 
 Bun.serve({
   port: config.port,

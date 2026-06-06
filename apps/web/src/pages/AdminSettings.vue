@@ -5,10 +5,15 @@ import {
   NCard,
   NForm,
   NFormItem,
+  NInput,
   NInputNumber,
+  NSelect,
   NSpace,
   NSpin,
-  NSwitch
+  NSwitch,
+  NTabPane,
+  NTabs,
+  NTag
 } from 'naive-ui'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -21,6 +26,10 @@ interface RuntimeSettings {
   guestProblemsetVisible: boolean
   sourceOpenDefault: boolean
   outputLimitBytes: number
+  aiProvider: 'local-rules' | 'openai'
+  aiBaseUrl: string
+  aiModel: string
+  aiApiKeySet: boolean
 }
 
 const auth = useAuthStore()
@@ -30,13 +39,23 @@ const saving = ref(false)
 const saved = ref(false)
 const error = ref('')
 const canManage = computed(() => auth.user?.groups.includes('admin') ?? false)
+const apiKeySet = ref(false)
 const form = reactive({
   registrationEnabled: true,
   aiCoachingEnabled: true,
   guestProblemsetVisible: true,
   sourceOpenDefault: false,
-  outputLimitMb: 64
+  outputLimitMb: 64,
+  aiProvider: 'local-rules' as 'local-rules' | 'openai',
+  aiBaseUrl: 'https://api.openai.com/v1',
+  aiModel: 'gpt-5-mini',
+  aiApiKey: ''
 })
+
+const providerOptions = computed(() => [
+  { label: t('admin.settings.aiProviderLocal'), value: 'local-rules' },
+  { label: t('admin.settings.aiProviderOpenai'), value: 'openai' }
+])
 
 onMounted(() => {
   if (canManage.value) void loadSettings()
@@ -53,6 +72,11 @@ async function loadSettings() {
     form.guestProblemsetVisible = settings.guestProblemsetVisible
     form.sourceOpenDefault = settings.sourceOpenDefault
     form.outputLimitMb = Math.max(1, Math.round(settings.outputLimitBytes / 1024 / 1024))
+    form.aiProvider = settings.aiProvider
+    form.aiBaseUrl = settings.aiBaseUrl
+    form.aiModel = settings.aiModel
+    form.aiApiKey = ''
+    apiKeySet.value = settings.aiApiKeySet
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
@@ -65,16 +89,22 @@ async function saveSettings() {
   saved.value = false
   error.value = ''
   try {
-    await apiFetch('/api/admin/settings', {
+    const settings = await apiFetch<RuntimeSettings>('/api/admin/settings', {
       method: 'PATCH',
       body: JSON.stringify({
         registrationEnabled: form.registrationEnabled,
         aiCoachingEnabled: form.aiCoachingEnabled,
         guestProblemsetVisible: form.guestProblemsetVisible,
         sourceOpenDefault: form.sourceOpenDefault,
-        outputLimitBytes: form.outputLimitMb * 1024 * 1024
+        outputLimitBytes: form.outputLimitMb * 1024 * 1024,
+        aiProvider: form.aiProvider,
+        aiBaseUrl: form.aiBaseUrl,
+        aiModel: form.aiModel,
+        aiApiKey: form.aiApiKey
       })
     })
+    form.aiApiKey = ''
+    apiKeySet.value = settings.aiApiKeySet
     saved.value = true
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
@@ -86,10 +116,6 @@ async function saveSettings() {
 
 <template>
   <main class="page">
-    <section class="page-header compact">
-      <h1>{{ t('admin.settings.title') }}</h1>
-    </section>
-
     <n-alert v-if="!canManage" type="warning" class="page-alert">
       {{ t('admin.requireAdmin') }}
     </n-alert>
@@ -100,33 +126,75 @@ async function saveSettings() {
 
     <n-spin :show="loading">
       <n-card v-if="canManage" :bordered="false">
-        <n-form :model="form" label-placement="left" label-width="180">
-          <n-form-item :label="t('admin.settings.registrationEnabled')">
-            <n-switch v-model:value="form.registrationEnabled" />
-          </n-form-item>
-          <n-form-item :label="t('admin.settings.guestProblemsetVisible')">
-            <n-switch v-model:value="form.guestProblemsetVisible" />
-          </n-form-item>
-          <n-form-item :label="t('admin.settings.aiCoachingEnabled')">
-            <n-switch v-model:value="form.aiCoachingEnabled" />
-          </n-form-item>
-          <n-form-item :label="t('admin.settings.sourceOpenDefault')">
-            <n-switch v-model:value="form.sourceOpenDefault" />
-          </n-form-item>
-          <n-form-item :label="t('admin.settings.outputLimitMb')">
-            <n-input-number
-              v-model:value="form.outputLimitMb"
-              class="settings-number"
-              :min="1"
-              :max="1024"
-            />
-          </n-form-item>
-          <n-space justify="end">
-            <n-button type="primary" :loading="saving" @click="saveSettings">
-              {{ t('admin.save') }}
-            </n-button>
-          </n-space>
-        </n-form>
+        <n-tabs type="line" animated>
+          <n-tab-pane name="general" :tab="t('admin.settings.tabGeneral')">
+            <n-form :model="form" label-placement="left" label-width="180">
+              <n-form-item :label="t('admin.settings.registrationEnabled')">
+                <n-switch v-model:value="form.registrationEnabled" />
+              </n-form-item>
+              <n-form-item :label="t('admin.settings.guestProblemsetVisible')">
+                <n-switch v-model:value="form.guestProblemsetVisible" />
+              </n-form-item>
+              <n-form-item :label="t('admin.settings.sourceOpenDefault')">
+                <n-switch v-model:value="form.sourceOpenDefault" />
+              </n-form-item>
+              <n-form-item :label="t('admin.settings.outputLimitMb')">
+                <n-input-number
+                  v-model:value="form.outputLimitMb"
+                  class="settings-number"
+                  :min="1"
+                  :max="1024"
+                />
+              </n-form-item>
+            </n-form>
+          </n-tab-pane>
+
+          <n-tab-pane name="ai" :tab="t('admin.settings.tabAi')">
+            <n-form :model="form" label-placement="left" label-width="180">
+              <n-form-item :label="t('admin.settings.aiCoachingEnabled')">
+                <n-switch v-model:value="form.aiCoachingEnabled" />
+              </n-form-item>
+              <n-form-item :label="t('admin.settings.aiProvider')">
+                <n-select
+                  v-model:value="form.aiProvider"
+                  :options="providerOptions"
+                  class="settings-number"
+                />
+              </n-form-item>
+              <template v-if="form.aiProvider === 'openai'">
+                <n-form-item :label="t('admin.settings.aiBaseUrl')">
+                  <n-input v-model:value="form.aiBaseUrl" />
+                </n-form-item>
+                <n-form-item :label="t('admin.settings.aiModel')">
+                  <n-input v-model:value="form.aiModel" />
+                </n-form-item>
+                <n-form-item :label="t('admin.settings.aiApiKey')">
+                  <n-space vertical class="full-width" :size="4">
+                    <n-input
+                      v-model:value="form.aiApiKey"
+                      type="password"
+                      show-password-on="click"
+                      :placeholder="t('admin.settings.aiApiKeyPlaceholder')"
+                    />
+                    <n-tag size="small" :type="apiKeySet ? 'success' : 'default'" :bordered="false">
+                      {{
+                        apiKeySet
+                          ? t('admin.settings.aiApiKeySet')
+                          : t('admin.settings.aiApiKeyUnset')
+                      }}
+                    </n-tag>
+                  </n-space>
+                </n-form-item>
+              </template>
+            </n-form>
+          </n-tab-pane>
+        </n-tabs>
+
+        <n-space justify="end">
+          <n-button type="primary" :loading="saving" @click="saveSettings">
+            {{ t('admin.save') }}
+          </n-button>
+        </n-space>
       </n-card>
     </n-spin>
   </main>

@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono'
 import { asc, desc, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { db, schema } from '@doj/db/client'
-import { parseZipTestCases } from '@doj/shared/testdata'
+import { buildStoredZip, parseLooseTestCases, parseZipTestCases } from '@doj/shared/testdata'
 import { putObject, storageConfig } from '@doj/shared/storage'
 import { authMiddleware, getOptionalAuthUser, requireGroup } from '../auth'
 import { getRuntimeSettings } from '../settings'
@@ -157,34 +157,58 @@ export function registerProblemRoutes(app: Hono) {
     if (!version) return c.notFound()
 
     const form = await c.req.formData()
-    const upload = form.get('file')
-    if (!(upload instanceof File)) {
+    const uploads = form.getAll('file').filter((item): item is File => item instanceof File)
+    if (!uploads.length) {
       return c.json(
         { code: 'MISSING_FILE', message: 'Expected multipart file field named file' },
         400
       )
     }
 
-    const bytes = new Uint8Array(await upload.arrayBuffer())
-    if (bytes.byteLength > maxTestdataUploadBytes) {
-      return c.json({ code: 'FILE_TOO_LARGE', message: 'Testdata ZIP is too large' }, 413)
+    const totalBytes = uploads.reduce((sum, file) => sum + file.size, 0)
+    if (totalBytes > maxTestdataUploadBytes) {
+      return c.json({ code: 'FILE_TOO_LARGE', message: 'Testdata is too large' }, 413)
     }
 
+    const isSingleZip =
+      uploads.length === 1 &&
+      (uploads[0].name.toLowerCase().endsWith('.zip') ||
+        uploads[0].type === 'application/zip' ||
+        uploads[0].type === 'application/x-zip-compressed')
+
+    let bytes: Uint8Array
     let cases
+    let filename: string
     try {
-      cases = parseZipTestCases(bytes)
+      if (isSingleZip) {
+        bytes = new Uint8Array(await uploads[0].arrayBuffer())
+        cases = parseZipTestCases(bytes)
+        filename = uploads[0].name || `problem-${problemId}-testdata.zip`
+      } else {
+        // Loose files: classify directly, then repackage into a stored ZIP so the
+        // agent's existing ZIP-based fetch/parse path stays unchanged.
+        const entries = await Promise.all(
+          uploads.map(async (file) => ({
+            name: file.name,
+            bytes: new Uint8Array(await file.arrayBuffer())
+          }))
+        )
+        cases = parseLooseTestCases(entries)
+        bytes = buildStoredZip(entries)
+        filename = `problem-${problemId}-testdata.zip`
+      }
     } catch (cause) {
       return c.json(
         {
-          code: 'INVALID_TESTDATA_ZIP',
-          message: cause instanceof Error ? cause.message : 'Invalid ZIP testdata'
+          code: 'INVALID_TESTDATA',
+          message: cause instanceof Error ? cause.message : 'Invalid testdata'
         },
         400
       )
     }
     if (!cases.length) {
       return c.json(
-        { code: 'EMPTY_TESTDATA', message: 'ZIP must contain .in/.out case pairs' },
+        { code: 'EMPTY_TESTDATA', message: 'Testdata must contain .in/.out case pairs' },
         400
       )
     }
@@ -193,7 +217,7 @@ export function registerProblemRoutes(app: Hono) {
     await putObject({
       key: objectKey,
       body: bytes,
-      contentType: upload.type || 'application/zip'
+      contentType: 'application/zip'
     })
 
     const [file] = await db
@@ -201,8 +225,8 @@ export function registerProblemRoutes(app: Hono) {
       .values({
         bucket: storageConfig.bucket,
         objectKey,
-        filename: upload.name || `problem-${problemId}-testdata.zip`,
-        contentType: upload.type || 'application/zip',
+        filename,
+        contentType: 'application/zip',
         sizeBytes: bytes.byteLength,
         metadata: createTestdataMetadata(problemId, cases)
       })

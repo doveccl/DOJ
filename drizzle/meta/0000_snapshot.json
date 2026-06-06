@@ -1,5 +1,5 @@
 {
-  "id": "b7c826bb-11c3-476b-b566-ae2e0fa2d123",
+  "id": "27093a04-dde8-462f-9520-fa8012c8394b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -123,8 +123,12 @@
           "name": "assignment_groups_assignment_id_assignments_id_fk",
           "tableFrom": "assignment_groups",
           "tableTo": "assignments",
-          "columnsFrom": ["assignment_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "assignment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -132,8 +136,12 @@
           "name": "assignment_groups_group_id_groups_id_fk",
           "tableFrom": "assignment_groups",
           "tableTo": "groups",
-          "columnsFrom": ["group_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "group_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -141,7 +149,10 @@
       "compositePrimaryKeys": {
         "assignment_groups_assignment_id_group_id_pk": {
           "name": "assignment_groups_assignment_id_group_id_pk",
-          "columns": ["assignment_id", "group_id"]
+          "columns": [
+            "assignment_id",
+            "group_id"
+          ]
         }
       },
       "uniqueConstraints": {},
@@ -186,8 +197,12 @@
           "name": "assignment_problems_assignment_id_assignments_id_fk",
           "tableFrom": "assignment_problems",
           "tableTo": "assignments",
-          "columnsFrom": ["assignment_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "assignment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -195,8 +210,12 @@
           "name": "assignment_problems_problem_id_problems_id_fk",
           "tableFrom": "assignment_problems",
           "tableTo": "problems",
-          "columnsFrom": ["problem_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "problem_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -204,7 +223,10 @@
       "compositePrimaryKeys": {
         "assignment_problems_assignment_id_problem_id_pk": {
           "name": "assignment_problems_assignment_id_problem_id_pk",
-          "columns": ["assignment_id", "problem_id"]
+          "columns": [
+            "assignment_id",
+            "problem_id"
+          ]
         }
       },
       "uniqueConstraints": {},
@@ -295,191 +317,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.bbs_replies": {
-      "name": "bbs_replies",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "byDefault",
-            "name": "bbs_replies_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
-        },
-        "topic_id": {
-          "name": "topic_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "content_markdown": {
-          "name": "content_markdown",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "bbs_replies_topic_idx": {
-          "name": "bbs_replies_topic_idx",
-          "columns": [
-            {
-              "expression": "topic_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "bbs_replies_topic_id_bbs_topics_id_fk": {
-          "name": "bbs_replies_topic_id_bbs_topics_id_fk",
-          "tableFrom": "bbs_replies",
-          "tableTo": "bbs_topics",
-          "columnsFrom": ["topic_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.bbs_topics": {
-      "name": "bbs_topics",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "byDefault",
-            "name": "bbs_topics_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "title": {
-          "name": "title",
-          "type": "varchar(160)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "tags": {
-          "name": "tags",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "ARRAY[]::text[]"
-        },
-        "linked_problem_id": {
-          "name": "linked_problem_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "linked_contest_id": {
-          "name": "linked_contest_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "bbs_topics_tags_idx": {
-          "name": "bbs_topics_tags_idx",
-          "columns": [
-            {
-              "expression": "tags",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.contest_problems": {
       "name": "contest_problems",
       "schema": "",
@@ -545,8 +382,12 @@
           "name": "contest_problems_contest_id_contests_id_fk",
           "tableFrom": "contest_problems",
           "tableTo": "contests",
-          "columnsFrom": ["contest_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "contest_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -554,8 +395,12 @@
           "name": "contest_problems_problem_id_problems_id_fk",
           "tableFrom": "contest_problems",
           "tableTo": "problems",
-          "columnsFrom": ["problem_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "problem_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -563,7 +408,10 @@
       "compositePrimaryKeys": {
         "contest_problems_contest_id_problem_id_pk": {
           "name": "contest_problems_contest_id_problem_id_pk",
-          "columns": ["contest_id", "problem_id"]
+          "columns": [
+            "contest_id",
+            "problem_id"
+          ]
         }
       },
       "uniqueConstraints": {},
@@ -653,6 +501,195 @@
         }
       },
       "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.discussion_replies": {
+      "name": "discussion_replies",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "discussion_replies_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "topic_id": {
+          "name": "topic_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content_markdown": {
+          "name": "content_markdown",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "discussion_replies_topic_idx": {
+          "name": "discussion_replies_topic_idx",
+          "columns": [
+            {
+              "expression": "topic_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "discussion_replies_topic_id_discussion_topics_id_fk": {
+          "name": "discussion_replies_topic_id_discussion_topics_id_fk",
+          "tableFrom": "discussion_replies",
+          "tableTo": "discussion_topics",
+          "columnsFrom": [
+            "topic_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.discussion_topics": {
+      "name": "discussion_topics",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "discussion_topics_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tags": {
+          "name": "tags",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "ARRAY[]::text[]"
+        },
+        "linked_problem_id": {
+          "name": "linked_problem_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "linked_contest_id": {
+          "name": "linked_contest_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "discussion_topics_tags_idx": {
+          "name": "discussion_topics_tags_idx",
+          "columns": [
+            {
+              "expression": "tags",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -1345,8 +1382,12 @@
           "name": "problem_versions_problem_id_problems_id_fk",
           "tableFrom": "problem_versions",
           "tableTo": "problems",
-          "columnsFrom": ["problem_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "problem_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1354,8 +1395,12 @@
           "name": "problem_versions_testdata_file_id_files_id_fk",
           "tableFrom": "problem_versions",
           "tableTo": "files",
-          "columnsFrom": ["testdata_file_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "testdata_file_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1363,8 +1408,12 @@
           "name": "problem_versions_checker_file_id_files_id_fk",
           "tableFrom": "problem_versions",
           "tableTo": "files",
-          "columnsFrom": ["checker_file_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "checker_file_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1372,8 +1421,12 @@
           "name": "problem_versions_interactor_file_id_files_id_fk",
           "tableFrom": "problem_versions",
           "tableTo": "files",
-          "columnsFrom": ["interactor_file_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "interactor_file_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1541,7 +1594,10 @@
       "compositePrimaryKeys": {
         "solved_problems_user_id_problem_id_pk": {
           "name": "solved_problems_user_id_problem_id_pk",
-          "columns": ["user_id", "problem_id"]
+          "columns": [
+            "user_id",
+            "problem_id"
+          ]
         }
       },
       "uniqueConstraints": {},
@@ -1599,7 +1655,10 @@
       "compositePrimaryKeys": {
         "submission_cases_submission_id_case_index_pk": {
           "name": "submission_cases_submission_id_case_index_pk",
-          "columns": ["submission_id", "case_index"]
+          "columns": [
+            "submission_id",
+            "case_index"
+          ]
         }
       },
       "uniqueConstraints": {},
@@ -1920,8 +1979,12 @@
           "name": "user_groups_user_id_users_id_fk",
           "tableFrom": "user_groups",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1929,8 +1992,12 @@
           "name": "user_groups_group_id_groups_id_fk",
           "tableFrom": "user_groups",
           "tableTo": "groups",
-          "columnsFrom": ["group_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "group_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1938,7 +2005,10 @@
       "compositePrimaryKeys": {
         "user_groups_user_id_group_id_pk": {
           "name": "user_groups_user_id_group_id_pk",
-          "columns": ["user_id", "group_id"]
+          "columns": [
+            "user_id",
+            "group_id"
+          ]
         }
       },
       "uniqueConstraints": {},
@@ -2098,7 +2168,10 @@
     "public.contest_type": {
       "name": "contest_type",
       "schema": "public",
-      "values": ["OI", "ICPC"]
+      "values": [
+        "OI",
+        "ICPC"
+      ]
     },
     "public.judge_status": {
       "name": "judge_status",
@@ -2121,7 +2194,13 @@
     "public.task_status": {
       "name": "task_status",
       "schema": "public",
-      "values": ["WAITING", "RUNNING", "DONE", "FAILED", "CANCELLED"]
+      "values": [
+        "WAITING",
+        "RUNNING",
+        "DONE",
+        "FAILED",
+        "CANCELLED"
+      ]
     }
   },
   "schemas": {},

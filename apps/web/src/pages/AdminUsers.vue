@@ -113,12 +113,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <main class="page">
-    <section class="page-header">
-      <h1>{{ t('admin.users.title') }}</h1>
-      <p>{{ t('admin.users.subtitle') }}</p>
-    </section>
-
+  <div>
     <n-alert v-if="!canManage" type="warning" class="page-alert">
       {{ t('admin.requireAdmin') }}
     </n-alert>
@@ -131,5 +126,5 @@ onMounted(() => {
         <n-data-table :columns="columns" :data="users" :bordered="false" :loading="loading" />
       </n-space>
     </n-card>
-  </main>
+  </div>
 </template>

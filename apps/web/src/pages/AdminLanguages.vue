@@ -159,11 +159,6 @@ onMounted(() => {
 
 <template>
   <main class="page">
-    <section class="page-header">
-      <h1>{{ t('admin.languages.title') }}</h1>
-      <p>{{ t('admin.languages.subtitle') }}</p>
-    </section>
-
     <n-alert v-if="!canManage" type="warning" class="page-alert">
       {{ t('admin.requireAdmin') }}
     </n-alert>

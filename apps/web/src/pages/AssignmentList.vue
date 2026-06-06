@@ -45,17 +45,6 @@ const columns = computed<DataTableColumns<AssignmentRow>>(() => [
         row.allowLate ? t('assignments.allowed') : t('assignments.closed')
       )
     }
-  },
-  {
-    title: t('assignments.ai'),
-    key: 'aiCoachingEnabled',
-    render(row) {
-      return h(
-        NTag,
-        { bordered: false, type: row.aiCoachingEnabled ? 'success' : 'default' },
-        () => (row.aiCoachingEnabled ? t('assignments.on') : t('assignments.off'))
-      )
-    }
   }
 ])
 
@@ -90,11 +79,6 @@ onMounted(() => {
 
 <template>
   <main class="page">
-    <section class="page-header">
-      <h1>{{ t('assignments.title') }}</h1>
-      <p>{{ t('assignments.subtitle') }}</p>
-    </section>
-
     <n-alert v-if="!auth.signedIn" type="warning" class="page-alert">
       {{ t('assignments.signIn') }}
     </n-alert>

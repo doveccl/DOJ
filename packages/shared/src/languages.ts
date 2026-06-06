@@ -10,10 +10,10 @@ export interface JudgeLanguageConfig {
 
 export const defaultLanguageConfigs = [
   {
-    id: 'cpp',
+    id: 'cc',
     name: 'C/C++',
     enabled: true,
-    sourceFile: 'main.cpp',
+    sourceFile: 'main.cc',
     dockerfile: (sourceFile: string) =>
       [
         'FROM gcc:latest',

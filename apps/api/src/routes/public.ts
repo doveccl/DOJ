@@ -4,20 +4,33 @@ import { z } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { getOptionalAuthUser } from '../auth'
 import { getUserAssignments } from '../services/assignments'
-import { getRecentBbsTopics } from '../services/bbs'
+import { getRecentTopics } from '../services/discussion'
 import { countRows, countVisibleSubmissions } from '../services/stats'
 
 export function registerPublicRoutes(app: Hono) {
   app.get('/api/dashboard', async (c) => {
     const authUser = await getOptionalAuthUser(c)
-    const [problemStats, submissionStats, userStats, contestStats, assignmentStats] =
+    const isAdmin = authUser?.groups.includes('admin') ?? false
+    // The aggregate stat board is an operator-facing overview; only admins see it.
+    const [problemStats, submissionStats, contestStats, userStats, assignmentStats] =
       await Promise.all([
-        countRows(schema.problems, sql`${schema.problems.visible} = true`),
-        countVisibleSubmissions(),
-        countRows(schema.users, sql`${schema.users.disabledAt} is null`),
-        countRows(schema.contests),
-        countRows(schema.assignments)
+        isAdmin
+          ? countRows(schema.problems, sql`${schema.problems.visible} = true`)
+          : Promise.resolve(null),
+        isAdmin ? countVisibleSubmissions() : Promise.resolve(null),
+        isAdmin ? countRows(schema.contests) : Promise.resolve(null),
+        isAdmin
+          ? countRows(schema.users, sql`${schema.users.disabledAt} is null`)
+          : Promise.resolve(null),
+        isAdmin ? countRows(schema.assignments) : Promise.resolve(null)
       ])
+
+    const stats: Record<string, number> = {}
+    if (problemStats !== null) stats.problems = problemStats
+    if (submissionStats !== null) stats.submissions = submissionStats
+    if (contestStats !== null) stats.contests = contestStats
+    if (assignmentStats !== null) stats.assignments = assignmentStats
+    if (userStats !== null) stats.users = userStats
 
     const recentSubmissions = await db
       .select({
@@ -58,7 +71,7 @@ export function registerPublicRoutes(app: Hono) {
       )
       .orderBy(desc(schema.problems.createdAt), desc(schema.problems.id))
       .limit(6)
-    const recentTopics = await getRecentBbsTopics(6)
+    const recentTopics = await getRecentTopics(6)
     const recentContests = await db
       .select({
         id: schema.contests.id,
@@ -73,13 +86,7 @@ export function registerPublicRoutes(app: Hono) {
     const myAssignments = authUser ? await getUserAssignments(authUser.id, 5) : []
 
     return c.json({
-      stats: {
-        problems: problemStats,
-        submissions: submissionStats,
-        users: userStats,
-        contests: contestStats,
-        assignments: assignmentStats
-      },
+      stats,
       recentSubmissions,
       recentProblems,
       recentTopics,

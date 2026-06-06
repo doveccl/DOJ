@@ -229,10 +229,6 @@ onMounted(() => {
 
 <template>
   <main class="page">
-    <section class="page-header compact">
-      <h1>{{ t('admin.agents.title') }}</h1>
-    </section>
-
     <n-alert v-if="!canManage" type="warning" class="page-alert">
       {{ t('admin.requireAdmin') }}
     </n-alert>

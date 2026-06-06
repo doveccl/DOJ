@@ -10,7 +10,11 @@ export const runtimeSettingsSchema = z.object({
     .number()
     .int()
     .positive()
-    .default(64 * 1024 * 1024)
+    .default(64 * 1024 * 1024),
+  aiProvider: z.enum(['local-rules', 'openai']).default('local-rules'),
+  aiApiKey: z.string().max(400).default(''),
+  aiBaseUrl: z.string().max(400).default('https://api.openai.com/v1'),
+  aiModel: z.string().max(200).default('gpt-5-mini')
 })
 
 export { ensureRuntimeSettings, getRuntimeSettings, updateRuntimeSettings }

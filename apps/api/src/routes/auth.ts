@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { checkRateLimit, clientIp } from '../rate-limit'
@@ -79,6 +80,24 @@ export function registerAuthRoutes(app: Hono) {
 
   app.get('/api/auth/self', authMiddleware, async (c) => c.json(await requireAuthUser(c)))
 
+  app.patch('/api/auth/self', authMiddleware, async (c) => {
+    const current = await requireAuthUser(c)
+    const body = updateProfileSchema.parse(await c.req.json())
+
+    const patch: { introduction?: string; passwordHash?: string } = {}
+    if (body.introduction !== undefined) patch.introduction = body.introduction
+    if (body.password) patch.passwordHash = await hashPassword(body.password)
+
+    if (Object.keys(patch).length) {
+      await db
+        .update(schema.users)
+        .set({ ...patch, updatedAt: new Date() })
+        .where(eq(schema.users.id, current.id))
+    }
+
+    return c.json(await getAuthUser(current.id))
+  })
+
   app.post('/api/auth/logout', authMiddleware, async (c) => {
     const token = c.req.header('authorization')?.slice('Bearer '.length) ?? ''
     if (token) await destroySession(token)
@@ -89,7 +108,10 @@ export function registerAuthRoutes(app: Hono) {
     const denied = await requireGroup(c, 'admin')
     if (denied) return denied
 
-    return c.json(await getRuntimeSettings())
+    const settings = await getRuntimeSettings()
+    // Never return the raw secret; expose only whether it is configured.
+    const { aiApiKey, ...rest } = settings
+    return c.json({ ...rest, aiApiKeySet: aiApiKey.length > 0 })
   })
 
   app.patch('/api/admin/settings', authMiddleware, async (c) => {
@@ -97,7 +119,11 @@ export function registerAuthRoutes(app: Hono) {
     if (denied) return denied
 
     const body = updateSettingsSchema.parse(await c.req.json())
-    return c.json(await updateRuntimeSettings(body))
+    // An empty/omitted aiApiKey means "keep existing"; only overwrite when provided.
+    if (body.aiApiKey === undefined || body.aiApiKey === '') delete body.aiApiKey
+    const settings = await updateRuntimeSettings(body)
+    const { aiApiKey, ...rest } = settings
+    return c.json({ ...rest, aiApiKeySet: aiApiKey.length > 0 })
   })
 }
 
@@ -110,6 +136,11 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   user: z.string().min(1),
   password: z.string().min(1)
+})
+
+const updateProfileSchema = z.object({
+  introduction: z.string().max(500).optional(),
+  password: z.string().min(8).max(128).optional()
 })
 
 const updateSettingsSchema = runtimeSettingsSchema.partial()

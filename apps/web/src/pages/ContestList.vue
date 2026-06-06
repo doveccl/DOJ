@@ -62,9 +62,6 @@ onMounted(async () => {
 
 <template>
   <main class="page">
-    <section class="page-header">
-      <h1>{{ t('contests.title') }}</h1>
-    </section>
     <n-data-table :columns="columns" :data="contests" :bordered="false" :loading="loading" />
   </main>
 </template>

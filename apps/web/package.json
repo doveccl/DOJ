@@ -6,5 +6,8 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "check": "vue-tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "sass": "^1.100.0"
   }
 }

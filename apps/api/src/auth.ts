@@ -7,6 +7,7 @@ export interface AuthUser {
   id: number
   name: string
   email: string
+  introduction: string
   groups: string[]
 }
 
@@ -40,6 +41,7 @@ export async function getAuthUser(userId: number): Promise<AuthUser | null> {
     id: user.id,
     name: user.name,
     email: user.email,
+    introduction: user.introduction,
     groups: groups.map((item) => item.key)
   }
 }

@@ -9,7 +9,7 @@ const smokeTargets = {
   assignment: 'scripts/assignment-smoke.ts',
   'my-assignments': 'scripts/my-assignments-smoke.ts',
   contest: 'scripts/contest-smoke.ts',
-  bbs: 'scripts/bbs-smoke.ts',
+  discussion: 'scripts/discussion-smoke.ts',
   rank: 'scripts/rank-smoke.ts',
   queue: 'scripts/queue-smoke.ts',
   runner: 'packages/runner/src/smoke.ts',

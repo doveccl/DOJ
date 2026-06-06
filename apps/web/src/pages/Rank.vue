@@ -59,9 +59,6 @@ async function load() {
 
 <template>
   <main class="page">
-    <section class="page-header">
-      <h1>{{ t('rank.title') }}</h1>
-    </section>
     <n-data-table
       :columns="columns"
       :data="rows"

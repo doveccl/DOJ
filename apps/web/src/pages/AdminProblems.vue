@@ -20,6 +20,7 @@ import type { DataTableColumns, UploadFileInfo } from 'naive-ui'
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
+import MarkdownEditor from '../components/MarkdownEditor.vue'
 import { useAuthStore } from '../stores/auth'
 
 interface ProblemRow {
@@ -85,7 +86,7 @@ const showCreateModal = ref(false)
 const showUploadModal = ref(false)
 const showEditModal = ref(false)
 const problems = ref<ProblemRow[]>([])
-const selectedFile = ref<File | null>(null)
+const selectedFiles = ref<File[]>([])
 const form = reactive({
   title: '',
   tags: [] as string[],
@@ -180,7 +181,7 @@ const columns = computed<DataTableColumns<ProblemRow>>(() => [
             secondary: true,
             onClick: () => {
               uploadForm.problemId = row.id
-              selectedFile.value = null
+              selectedFiles.value = []
               uploadMessage.value = ''
               showUploadModal.value = true
             }
@@ -283,14 +284,14 @@ async function createProblem() {
 }
 
 async function uploadTestdata() {
-  if (!uploadForm.problemId || !selectedFile.value) return
+  if (!uploadForm.problemId || !selectedFiles.value.length) return
 
   uploading.value = true
   error.value = ''
   uploadMessage.value = ''
   try {
     const formData = new FormData()
-    formData.set('file', selectedFile.value)
+    for (const file of selectedFiles.value) formData.append('file', file)
     const result = await apiFetch<{ caseCount: number }>(
       `/api/problems/${uploadForm.problemId}/testdata`,
       {
@@ -302,7 +303,7 @@ async function uploadTestdata() {
       count: result.caseCount,
       id: uploadForm.problemId
     })
-    selectedFile.value = null
+    selectedFiles.value = []
     showUploadModal.value = false
     await loadProblems()
   } catch (cause) {
@@ -313,7 +314,9 @@ async function uploadTestdata() {
 }
 
 function handleUploadChange(options: { fileList: UploadFileInfo[] }) {
-  selectedFile.value = options.fileList[0]?.file ?? null
+  selectedFiles.value = options.fileList
+    .map((item) => item.file)
+    .filter((file): file is File => !!file)
 }
 
 function renderTestdataSummary(version: ProblemVersionSummary | null) {
@@ -391,11 +394,6 @@ onMounted(() => {
 
 <template>
   <main class="page">
-    <section class="page-header">
-      <h1>{{ t('admin.problems.title') }}</h1>
-      <p>{{ t('admin.problems.subtitle') }}</p>
-    </section>
-
     <n-alert v-if="!canManage" type="warning" class="page-alert">
       {{ t('admin.requireAdmin') }}
     </n-alert>
@@ -438,11 +436,7 @@ onMounted(() => {
           <n-dynamic-tags v-model:value="form.tags" />
         </n-form-item>
         <n-form-item :label="t('admin.problems.statement')">
-          <n-input
-            v-model:value="form.statementMarkdown"
-            type="textarea"
-            :autosize="{ minRows: 6, maxRows: 12 }"
-          />
+          <markdown-editor v-model="form.statementMarkdown" />
         </n-form-item>
         <div class="form-grid two">
           <n-form-item :label="t('admin.problems.timeMs')">
@@ -488,8 +482,8 @@ onMounted(() => {
         </div>
         <n-form-item :label="t('admin.problems.zipFile')">
           <n-upload
-            :max="1"
-            accept=".zip,application/zip"
+            multiple
+            accept=".zip,.in,.out,.ans,.txt,application/zip"
             :default-upload="false"
             @change="handleUploadChange"
           >
@@ -506,7 +500,7 @@ onMounted(() => {
           <n-button
             type="primary"
             :loading="uploading"
-            :disabled="!uploadForm.problemId || !selectedFile"
+            :disabled="!uploadForm.problemId || !selectedFiles.length"
             @click="uploadTestdata"
           >
             {{ t('admin.upload') }}

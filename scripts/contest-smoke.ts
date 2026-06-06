@@ -60,7 +60,7 @@ try {
       problemId: problem.id,
       problemVersionId: version.id,
       contestId: detail.contest.id,
-      languageId: 'cpp',
+      languageId: 'cc',
       sourceCode:
         '#include <bits/stdc++.h>\nusing namespace std;\nint main(){ cout << "contest\\n"; }\n'
     })

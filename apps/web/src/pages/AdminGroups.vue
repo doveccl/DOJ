@@ -206,12 +206,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <main class="page">
-    <section class="page-header">
-      <h1>{{ t('admin.groups.title') }}</h1>
-      <p>{{ t('admin.groups.subtitle') }}</p>
-    </section>
-
+  <div>
     <n-alert v-if="!canManage" type="warning" class="page-alert">
       {{ t('admin.requireAdmin') }}
     </n-alert>
@@ -322,5 +317,5 @@ onMounted(() => {
         </n-space>
       </n-form>
     </n-modal>
-  </main>
+  </div>
 </template>

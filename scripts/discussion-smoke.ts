@@ -11,19 +11,19 @@ const admin = await api<{ token: string }>('/api/auth/login', {
 const user = await api<{ token: string }>('/api/auth/register', {
   method: 'POST',
   body: JSON.stringify({
-    name: `bbs_${runId.slice(0, 8)}`,
-    email: `bbs_${runId}@example.test`,
+    name: `disc_${runId.slice(0, 8)}`,
+    email: `disc_${runId}@example.test`,
     password: 'password123'
   })
 })
 
 const topic = await api<{ topic: { id: number }; replies: Array<{ id: number }> }>(
-  '/api/bbs/topics',
+  '/api/discussion/topics',
   {
     method: 'POST',
     headers: authHeaders(user.token),
     body: JSON.stringify({
-      title: `BBS Smoke ${runId.slice(0, 8)}`,
+      title: `Discussion Smoke ${runId.slice(0, 8)}`,
       contentMarkdown: 'First post',
       tags: ['smoke']
     })
@@ -34,13 +34,13 @@ const hiddenProblem = await api<{ problem: { id: number } }>('/api/problems', {
   method: 'POST',
   headers: authHeaders(admin.token),
   body: JSON.stringify({
-    title: `BBS Hidden ${runId.slice(0, 8)}`,
+    title: `Discussion Hidden ${runId.slice(0, 8)}`,
     statementMarkdown: '# Hidden\n\nThis should not be linked.',
     testCases: []
   })
 })
 const legacyLinkedTopic = await api<{ topic: { id: number; linkedProblemId: number | null } }>(
-  '/api/bbs/topics',
+  '/api/discussion/topics',
   {
     method: 'POST',
     headers: authHeaders(user.token),
@@ -61,7 +61,7 @@ await api(`/api/problems/${hiddenProblem.problem.id}`, {
   headers: authHeaders(admin.token),
   body: JSON.stringify({ visible: false })
 })
-const hiddenLinkStatus = await apiStatus('/api/bbs/topics', {
+const hiddenLinkStatus = await apiStatus('/api/discussion/topics', {
   method: 'POST',
   headers: authHeaders(user.token),
   body: JSON.stringify({
@@ -74,7 +74,7 @@ if (hiddenLinkStatus !== 404) {
   throw new Error(`expected hidden linked problem 404, got ${hiddenLinkStatus}`)
 }
 
-await api(`/api/bbs/topics/${topic.topic.id}/replies`, {
+await api(`/api/discussion/topics/${topic.topic.id}/replies`, {
   method: 'POST',
   headers: authHeaders(user.token),
   body: JSON.stringify({
@@ -83,25 +83,27 @@ await api(`/api/bbs/topics/${topic.topic.id}/replies`, {
 })
 
 const detail = await api<{ replies: Array<{ contentMarkdown: string }> }>(
-  `/api/bbs/topics/${topic.topic.id}`
+  `/api/discussion/topics/${topic.topic.id}`
 )
 
 if (detail.replies.length !== 2 || detail.replies[1]?.contentMarkdown !== 'Second post') {
-  throw new Error(`BBS detail mismatch: ${JSON.stringify(detail)}`)
+  throw new Error(`Discussion detail mismatch: ${JSON.stringify(detail)}`)
 }
 
-const list = await api<{ list: Array<{ id: number }> }>('/api/bbs/topics')
+const list = await api<{ list: Array<{ id: number }> }>('/api/discussion/topics')
 if (!list.list.some((item) => item.id === topic.topic.id)) {
-  throw new Error(`BBS topic missing from list: ${topic.topic.id}`)
+  throw new Error(`Discussion topic missing from list: ${topic.topic.id}`)
 }
 const legacyDetail = await api<{ topic: { linkedProblemId: number | null } }>(
-  `/api/bbs/topics/${legacyLinkedTopic.topic.id}`
+  `/api/discussion/topics/${legacyLinkedTopic.topic.id}`
 )
 if (legacyDetail.topic.linkedProblemId !== null) {
   throw new Error(`hidden linked problem leaked in detail: ${JSON.stringify(legacyDetail.topic)}`)
 }
 const legacyListRow = (
-  await api<{ list: Array<{ id: number; linkedProblemId: number | null }> }>('/api/bbs/topics')
+  await api<{ list: Array<{ id: number; linkedProblemId: number | null }> }>(
+    '/api/discussion/topics'
+  )
 ).list.find((item) => item.id === legacyLinkedTopic.topic.id)
 if (!legacyListRow || legacyListRow.linkedProblemId !== null) {
   throw new Error(`hidden linked problem leaked in list: ${JSON.stringify(legacyListRow)}`)

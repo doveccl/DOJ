@@ -52,9 +52,9 @@ if (!userResponse.ok) {
 }
 const user = (await userResponse.json()) as { token: string }
 
-let bbsStatus = 0
+let discussionStatus = 0
 for (let index = 0; index < 31; index += 1) {
-  const response = await fetch(`${apiBase}/api/bbs/topics`, {
+  const response = await fetch(`${apiBase}/api/discussion/topics`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -65,16 +65,16 @@ for (let index = 0; index < 31; index += 1) {
       contentMarkdown: `Post ${index}`
     })
   })
-  bbsStatus = response.status
+  discussionStatus = response.status
 }
 
-if (bbsStatus !== 429) {
-  throw new Error(`expected BBS topic rate limit 429, got ${bbsStatus}`)
+if (discussionStatus !== 429) {
+  throw new Error(`expected discussion topic rate limit 429, got ${discussionStatus}`)
 }
 
 console.log({
   loginIp,
   limitedStatus: lastStatus,
   otherIpStatus: otherIpStatus.status,
-  bbsStatus
+  discussionStatus
 })

@@ -172,7 +172,7 @@ async function submitAndJudge(
     body: JSON.stringify({
       problemId,
       problemVersionId,
-      languageId: 'cpp',
+      languageId: 'cc',
       sourceCode
     })
   })

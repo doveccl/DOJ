@@ -6,6 +6,9 @@ import {
   NForm,
   NFormItem,
   NInput,
+  NLayout,
+  NLayoutContent,
+  NLayoutHeader,
   NMenu,
   NModal,
   NSelect,
@@ -17,7 +20,7 @@ import {
   enUS,
   zhCN
 } from 'naive-ui'
-import type { MenuOption } from 'naive-ui'
+import type { GlobalThemeOverrides, MenuOption } from 'naive-ui'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -49,6 +52,20 @@ const localeValue = computed({
   set: (value: SupportedLocale) => setLocale(value)
 })
 const naiveTheme = computed(() => (colorMode.value === 'dark' ? darkTheme : null))
+const themeOverrides = computed<GlobalThemeOverrides>(() => {
+  const dark = colorMode.value === 'dark'
+  const primary = dark ? '#2dd4bf' : '#0d9488'
+  const primaryHover = dark ? '#5eead4' : '#0f766e'
+  const primaryPressed = dark ? '#14b8a6' : '#115e59'
+  return {
+    common: {
+      primaryColor: primary,
+      primaryColorHover: primaryHover,
+      primaryColorPressed: primaryPressed,
+      primaryColorSuppl: primaryHover
+    }
+  }
+})
 const naiveLocale = computed(() => (locale.value === 'en' ? enUS : zhCN))
 const naiveDateLocale = computed(() => (locale.value === 'en' ? dateEnUS : dateZhCN))
 const topMenuValue = computed(() =>
@@ -65,7 +82,7 @@ const menuOptions = computed(() => {
   }
   options.push(
     { label: t('nav.contests'), key: '/contests' },
-    { label: t('nav.discussion'), key: '/bbs' },
+    { label: t('nav.discussion'), key: '/discussion' },
     { label: t('nav.rank'), key: '/rank' },
     { label: t('nav.submissions'), key: '/submissions' }
   )
@@ -131,15 +148,22 @@ async function submitAuth() {
 
 function handleUserCommand(key: string) {
   if (key === 'logout') void auth.logout()
+  else if (key === 'profile') void router.push('/profile')
 }
 </script>
 
 <template>
-  <n-config-provider :theme="naiveTheme" :locale="naiveLocale" :date-locale="naiveDateLocale">
-    <div class="app-shell">
-      <header class="topbar">
+  <n-config-provider
+    :theme="naiveTheme"
+    :theme-overrides="themeOverrides"
+    :locale="naiveLocale"
+    :date-locale="naiveDateLocale"
+  >
+    <n-layout class="app-shell" position="absolute">
+      <n-layout-header class="topbar" bordered>
         <router-link to="/" class="brand">{{ t('app.brand') }}</router-link>
         <n-menu
+          class="topbar-menu"
           mode="horizontal"
           :value="topMenuValue"
           :options="menuOptions"
@@ -181,11 +205,11 @@ function handleUserCommand(key: string) {
             </n-button>
           </n-space>
         </n-space>
-      </header>
-      <main class="content">
+      </n-layout-header>
+      <n-layout-content class="content" :native-scrollbar="false">
         <router-view />
-      </main>
-    </div>
+      </n-layout-content>
+    </n-layout>
 
     <n-modal
       :show="!!authMode"
@@ -234,3 +258,44 @@ function handleUserCommand(key: string) {
     </n-modal>
   </n-config-provider>
 </template>
+
+<style scoped lang="scss">
+.app-shell {
+  background: var(--page-bg);
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 24px;
+  height: 56px;
+  padding: 0 24px;
+  background: var(--topbar-bg);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+
+  :deep(.n-menu) {
+    min-width: 0;
+    background: transparent;
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    height: auto;
+    gap: 8px 16px;
+    padding: 12px 16px;
+
+    .topbar-menu {
+      grid-column: 1 / -1;
+      order: 3;
+    }
+  }
+}
+</style>

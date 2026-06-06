@@ -99,16 +99,6 @@ onMounted(() => {
                   : t('assignments.lateClosed')
               }}
             </n-tag>
-            <n-tag
-              :bordered="false"
-              :type="detail.assignment.aiCoachingEnabled ? 'success' : 'default'"
-            >
-              {{
-                detail.assignment.aiCoachingEnabled
-                  ? `AI ${t('assignments.on')}`
-                  : `AI ${t('assignments.off')}`
-              }}
-            </n-tag>
             <span class="muted">
               {{ t('assignments.duePrefix') }}
               {{

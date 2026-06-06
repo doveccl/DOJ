@@ -4,19 +4,25 @@ import { z } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { authMiddleware, requireAuthUser } from '../auth'
 import { checkRateLimit } from '../rate-limit'
-import { getRecentBbsTopics, getTopicDetail } from '../services/bbs'
+import { getRecentTopics, getTopicDetail } from '../services/discussion'
 import { numericId } from '../validation'
 
-export function registerBbsRoutes(app: Hono) {
-  app.get('/api/bbs/topics', async (c) => {
-    const list = await getRecentBbsTopics(50)
+export function registerDiscussionRoutes(app: Hono) {
+  app.get('/api/discussion/topics', async (c) => {
+    const list = await getRecentTopics(50)
 
     return c.json({ total: list.length, list })
   })
 
-  app.post('/api/bbs/topics', authMiddleware, async (c) => {
+  app.post('/api/discussion/topics', authMiddleware, async (c) => {
     const user = await requireAuthUser(c)
-    const rateLimited = await checkRateLimit(c, 'bbs:topic', `user:${user.id}`, 30, 60 * 60 * 1000)
+    const rateLimited = await checkRateLimit(
+      c,
+      'discussion:topic',
+      `user:${user.id}`,
+      30,
+      60 * 60 * 1000
+    )
     if (rateLimited) return rateLimited
 
     const body = createTopicSchema.parse(await c.req.json())
@@ -45,7 +51,7 @@ export function registerBbsRoutes(app: Hono) {
 
     const topic = await db.transaction(async (tx) => {
       const [created] = await tx
-        .insert(schema.bbsTopics)
+        .insert(schema.discussionTopics)
         .values({
           userId: user.id,
           title: body.title,
@@ -55,7 +61,7 @@ export function registerBbsRoutes(app: Hono) {
         })
         .returning()
 
-      await tx.insert(schema.bbsReplies).values({
+      await tx.insert(schema.discussionReplies).values({
         topicId: created.id,
         userId: user.id,
         contentMarkdown: body.contentMarkdown
@@ -67,15 +73,21 @@ export function registerBbsRoutes(app: Hono) {
     return c.json(await getTopicDetail(topic.id), 201)
   })
 
-  app.get('/api/bbs/topics/:id', async (c) => {
+  app.get('/api/discussion/topics/:id', async (c) => {
     const topic = await getTopicDetail(numericId.parse(c.req.param('id')))
     if (!topic) return c.notFound()
     return c.json(topic)
   })
 
-  app.post('/api/bbs/topics/:id/replies', authMiddleware, async (c) => {
+  app.post('/api/discussion/topics/:id/replies', authMiddleware, async (c) => {
     const user = await requireAuthUser(c)
-    const rateLimited = await checkRateLimit(c, 'bbs:reply', `user:${user.id}`, 120, 60 * 60 * 1000)
+    const rateLimited = await checkRateLimit(
+      c,
+      'discussion:reply',
+      `user:${user.id}`,
+      120,
+      60 * 60 * 1000
+    )
     if (rateLimited) return rateLimited
 
     const topicId = numericId.parse(c.req.param('id'))
@@ -83,13 +95,13 @@ export function registerBbsRoutes(app: Hono) {
 
     const [topic] = await db
       .select()
-      .from(schema.bbsTopics)
-      .where(eq(schema.bbsTopics.id, topicId))
+      .from(schema.discussionTopics)
+      .where(eq(schema.discussionTopics.id, topicId))
       .limit(1)
     if (!topic) return c.notFound()
 
     const [reply] = await db
-      .insert(schema.bbsReplies)
+      .insert(schema.discussionReplies)
       .values({
         topicId,
         userId: user.id,
@@ -98,9 +110,9 @@ export function registerBbsRoutes(app: Hono) {
       .returning()
 
     await db
-      .update(schema.bbsTopics)
+      .update(schema.discussionTopics)
       .set({ updatedAt: new Date() })
-      .where(eq(schema.bbsTopics.id, topicId))
+      .where(eq(schema.discussionTopics.id, topicId))
 
     return c.json(reply, 201)
   })

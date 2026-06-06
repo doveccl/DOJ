@@ -15,6 +15,7 @@ const zhCNMessages = {
     signIn: '登录',
     signUp: '注册',
     signOut: '退出登录',
+    profile: '个人资料',
     cancel: '取消',
     user: '用户名或邮箱',
     userName: '用户名',
@@ -24,6 +25,20 @@ const zhCNMessages = {
     colorMode: '颜色模式',
     light: '亮',
     dark: '暗'
+  },
+  profile: {
+    title: '个人资料',
+    introduction: '个性签名',
+    introductionPlaceholder: '介绍一下自己吧',
+    newPassword: '新密码',
+    newPasswordPlaceholder: '留空则不修改',
+    save: '保存',
+    saved: '已保存'
+  },
+  mdEditor: {
+    write: '编辑',
+    preview: '预览',
+    uploadImage: '上传图片'
   },
   nav: {
     home: '首页',
@@ -37,6 +52,7 @@ const zhCNMessages = {
     settings: '设置',
     groups: '用户组',
     users: '用户',
+    members: '成员',
     manageProblems: '题目',
     languages: '语言',
     agents: '评测机'
@@ -132,7 +148,7 @@ const zhCNMessages = {
     title: '排名',
     intro: '简介'
   },
-  bbs: {
+  discussion: {
     title: '讨论',
     by: '作者',
     problem: '题目',
@@ -145,7 +161,12 @@ const zhCNMessages = {
     author: '作者',
     updated: '更新',
     content: '内容',
-    publish: '发布'
+    publish: '发布',
+    link: '关联',
+    linkNone: '不关联',
+    linkProblem: '题目',
+    linkContest: '比赛',
+    linkPlaceholder: '搜索并选择'
   },
   admin: {
     title: '管理',
@@ -191,6 +212,10 @@ const zhCNMessages = {
       submissions: '提交',
       solved: '通过'
     },
+    members: {
+      tabUsers: '用户',
+      tabGroups: '用户组'
+    },
     languages: {
       title: '语言',
       subtitle: '配置启用的评测语言和 Docker 构建配方。',
@@ -209,7 +234,18 @@ const zhCNMessages = {
       guestProblemsetVisible: '游客可看题库',
       aiCoachingEnabled: '启用 AI 辅导',
       sourceOpenDefault: '默认公开源码',
-      outputLimitMb: '全局输出限制 MB'
+      outputLimitMb: '全局输出限制 MB',
+      tabGeneral: '通用',
+      tabAi: 'AI',
+      aiProvider: 'AI 提供方',
+      aiProviderLocal: '本地规则',
+      aiProviderOpenai: 'OpenAI 兼容',
+      aiBaseUrl: 'API 地址',
+      aiModel: '模型',
+      aiApiKey: 'API 密钥',
+      aiApiKeyPlaceholder: '留空则保持当前',
+      aiApiKeySet: '已配置',
+      aiApiKeyUnset: '未配置'
     },
     agents: {
       title: '评测机',
@@ -241,7 +277,7 @@ const zhCNMessages = {
       memoryMb: '内存 MB',
       limits: '限制',
       problemId: '题目编号',
-      zipFile: 'ZIP 文件',
+      zipFile: '测试数据',
       publicVisible: '在公开题库显示',
       saved: '题目 {id} 已保存为版本 {version}。',
       uploaded: '已为题目 {id} 上传 {count} 个测试点。',
@@ -251,8 +287,8 @@ const zhCNMessages = {
       interactor: '交互器',
       noData: '当前还没有测试数据',
       currentData: '当前 {count} 组，{size}',
-      dropZip: '拖入 ZIP 或点击选择',
-      dropZipHint: '支持 1.in / input1.txt / 1.out / ans01.txt 等常见命名',
+      dropZip: '拖入 ZIP 或多个测试文件，或点击选择',
+      dropZipHint: '支持 ZIP 或直接上传 1.in / input1.txt / 1.out / ans01.txt 等文件',
       testdataMode: {
         zip: 'ZIP 测试数据',
         inline: '内联样例',
@@ -301,6 +337,7 @@ const enMessages = {
     signIn: 'Sign in',
     signUp: 'Sign up',
     signOut: 'Sign out',
+    profile: 'Profile',
     cancel: 'Cancel',
     user: 'User or email',
     userName: 'Name',
@@ -310,6 +347,20 @@ const enMessages = {
     colorMode: 'Color mode',
     light: 'Light',
     dark: 'Dark'
+  },
+  profile: {
+    title: 'Profile',
+    introduction: 'Bio',
+    introductionPlaceholder: 'Tell others about yourself',
+    newPassword: 'New password',
+    newPasswordPlaceholder: 'Leave blank to keep current',
+    save: 'Save',
+    saved: 'Saved'
+  },
+  mdEditor: {
+    write: 'Write',
+    preview: 'Preview',
+    uploadImage: 'Upload image'
   },
   nav: {
     home: 'Home',
@@ -418,7 +469,7 @@ const enMessages = {
     title: 'Rank',
     intro: 'Intro'
   },
-  bbs: {
+  discussion: {
     title: 'Discussion',
     by: 'by',
     problem: 'Problem',
@@ -431,7 +482,12 @@ const enMessages = {
     author: 'Author',
     updated: 'Updated',
     content: 'Content',
-    publish: 'Publish'
+    publish: 'Publish',
+    link: 'Link',
+    linkNone: 'None',
+    linkProblem: 'Problem',
+    linkContest: 'Contest',
+    linkPlaceholder: 'Search and select'
   },
   admin: {
     title: 'Admin',
@@ -477,6 +533,10 @@ const enMessages = {
       submissions: 'Submissions',
       solved: 'Solved'
     },
+    members: {
+      tabUsers: 'Users',
+      tabGroups: 'Groups'
+    },
     languages: {
       title: 'Languages',
       subtitle: 'Configure enabled judging languages and their Docker build recipes.',
@@ -495,7 +555,18 @@ const enMessages = {
       guestProblemsetVisible: 'Guest problemset access',
       aiCoachingEnabled: 'Enable AI coaching',
       sourceOpenDefault: 'Open source by default',
-      outputLimitMb: 'Global output limit MB'
+      outputLimitMb: 'Global output limit MB',
+      tabGeneral: 'General',
+      tabAi: 'AI',
+      aiProvider: 'AI provider',
+      aiProviderLocal: 'Local rules',
+      aiProviderOpenai: 'OpenAI compatible',
+      aiBaseUrl: 'API base URL',
+      aiModel: 'Model',
+      aiApiKey: 'API key',
+      aiApiKeyPlaceholder: 'Leave blank to keep current',
+      aiApiKeySet: 'Configured',
+      aiApiKeyUnset: 'Not configured'
     },
     agents: {
       title: 'Judge agents',
@@ -537,8 +608,8 @@ const enMessages = {
       interactor: 'Interactor',
       noData: 'No testdata yet',
       currentData: 'Current: {count} cases, {size}',
-      dropZip: 'Drop ZIP here or click to choose',
-      dropZipHint: 'Accepts common names like 1.in, input1.txt, 1.out, ans01.txt',
+      dropZip: 'Drop a ZIP or multiple testdata files, or click to choose',
+      dropZipHint: 'Accepts a ZIP or loose files like 1.in, input1.txt, 1.out, ans01.txt',
       testdataMode: {
         zip: 'ZIP testdata',
         inline: 'Inline cases',

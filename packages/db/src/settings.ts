@@ -52,12 +52,20 @@ function normalizeRuntimeSettings(input: Record<string, unknown>): RuntimeSettin
     outputLimitBytes: readPositiveInteger(
       input.outputLimitBytes,
       runtimeSettingsDefaults.outputLimitBytes
-    )
+    ),
+    aiProvider: input.aiProvider === 'openai' ? 'openai' : 'local-rules',
+    aiApiKey: readString(input.aiApiKey, runtimeSettingsDefaults.aiApiKey),
+    aiBaseUrl: readString(input.aiBaseUrl, runtimeSettingsDefaults.aiBaseUrl),
+    aiModel: readString(input.aiModel, runtimeSettingsDefaults.aiModel)
   }
 }
 
 function readBoolean(value: unknown, fallback: boolean) {
   return typeof value === 'boolean' ? value : fallback
+}
+
+function readString(value: unknown, fallback: string) {
+  return typeof value === 'string' ? value : fallback
 }
 
 function readPositiveInteger(value: unknown, fallback: number) {

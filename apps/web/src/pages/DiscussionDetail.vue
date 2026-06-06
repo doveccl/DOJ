@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { NAlert, NButton, NCard, NInput, NSpace, NSpin, NTag } from 'naive-ui'
+import { NAlert, NButton, NCard, NSpace, NSpin, NTag } from 'naive-ui'
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
+import MarkdownEditor from '../components/MarkdownEditor.vue'
 import MarkdownView from '../components/MarkdownView.vue'
 import { useAuthStore } from '../stores/auth'
 
@@ -42,7 +43,7 @@ async function loadDetail() {
   loading.value = true
   error.value = ''
   try {
-    detail.value = await apiFetch<TopicDetail>(`/api/bbs/topics/${route.params.id}`)
+    detail.value = await apiFetch<TopicDetail>(`/api/discussion/topics/${route.params.id}`)
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
@@ -56,7 +57,7 @@ async function createReply() {
   replying.value = true
   error.value = ''
   try {
-    await apiFetch(`/api/bbs/topics/${detail.value.topic.id}/replies`, {
+    await apiFetch(`/api/discussion/topics/${detail.value.topic.id}/replies`, {
       method: 'POST',
       body: JSON.stringify({ contentMarkdown: replyText.value })
     })
@@ -79,7 +80,7 @@ onMounted(loadDetail)
         <section class="page-header">
           <h1>{{ detail.topic.title }}</h1>
           <p>
-            {{ t('bbs.by') }} {{ detail.topic.userName }} ·
+            {{ t('discussion.by') }} {{ detail.topic.userName }} ·
             {{ new Date(detail.topic.createdAt).toLocaleString() }}
           </p>
         </section>
@@ -91,14 +92,14 @@ onMounted(loadDetail)
             class="table-link"
             :to="`/problems/${detail.topic.linkedProblemId}`"
           >
-            {{ t('bbs.problem') }} {{ detail.topic.linkedProblemId }}
+            {{ t('discussion.problem') }} {{ detail.topic.linkedProblemId }}
           </RouterLink>
           <RouterLink
             v-if="detail.topic.linkedContestId"
             class="table-link"
             :to="`/contests/${detail.topic.linkedContestId}`"
           >
-            {{ t('bbs.contest') }} {{ detail.topic.linkedContestId }}
+            {{ t('discussion.contest') }} {{ detail.topic.linkedContestId }}
           </RouterLink>
         </div>
 
@@ -113,12 +114,13 @@ onMounted(loadDetail)
           <p class="muted reply-time">{{ new Date(reply.createdAt).toLocaleString() }}</p>
         </n-card>
 
-        <n-card v-if="auth.signedIn" :title="t('bbs.reply')" :bordered="false" class="stacked-card">
-          <n-input
-            v-model:value="replyText"
-            type="textarea"
-            :autosize="{ minRows: 4, maxRows: 8 }"
-          />
+        <n-card
+          v-if="auth.signedIn"
+          :title="t('discussion.reply')"
+          :bordered="false"
+          class="stacked-card"
+        >
+          <markdown-editor v-model="replyText" />
           <n-space justify="end" class="form-actions">
             <n-button
               type="primary"
@@ -126,7 +128,7 @@ onMounted(loadDetail)
               :disabled="!replyText"
               @click="createReply"
             >
-              {{ t('bbs.reply') }}
+              {{ t('discussion.reply') }}
             </n-button>
           </n-space>
         </n-card>

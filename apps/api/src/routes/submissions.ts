@@ -5,7 +5,6 @@ import { db, schema } from '@doj/db/client'
 import { enqueueJudgeTask } from '@doj/db/queue'
 import { createCoachingResponse } from '../ai'
 import { authMiddleware, getOptionalAuthUser, requireAuthUser } from '../auth'
-import { config } from '../config'
 import { checkRateLimit } from '../rate-limit'
 import { validateAssignmentSubmission } from '../services/assignments'
 import { validateContestSubmission } from '../services/contests'
@@ -311,7 +310,7 @@ export function registerSubmissionRoutes(app: Hono) {
         metadata: {
           status: submission.status,
           languageId: submission.languageId,
-          provider: config.aiProvider
+          provider: settings.aiProvider
         }
       })
       .returning()

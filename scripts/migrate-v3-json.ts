@@ -258,7 +258,7 @@ async function migratePosts() {
     let topicId = maps.topics.get(topicKey)
     if (!topicId) {
       const [topic] = await db
-        .insert(schema.bbsTopics)
+        .insert(schema.discussionTopics)
         .values({
           userId,
           title:
@@ -285,7 +285,7 @@ async function migratePosts() {
       .limit(1)
     if (existing) continue
 
-    await db.insert(schema.bbsReplies).values({
+    await db.insert(schema.discussionReplies).values({
       topicId,
       userId,
       contentMarkdown: stringValue(item.content, ''),
@@ -295,7 +295,7 @@ async function migratePosts() {
     imported += 1
   }
 
-  console.log(`migrated bbs replies: ${imported}`)
+  console.log(`migrated discussion replies: ${imported}`)
 }
 
 async function readCollection(name: string) {

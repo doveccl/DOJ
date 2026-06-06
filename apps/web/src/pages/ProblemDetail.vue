@@ -39,7 +39,7 @@ const submitting = ref(false)
 const error = ref('')
 const problem = ref<Problem | null>(null)
 const version = ref<ProblemVersion | null>(null)
-const languageId = ref('cpp')
+const languageId = ref('cc')
 const sourceOpen = ref(false)
 const sourceCode = ref(
   '#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n  long long a, b;\n  if (cin >> a >> b) cout << a + b << "\\n";\n  return 0;\n}\n'

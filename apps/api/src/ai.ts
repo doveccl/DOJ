@@ -1,4 +1,4 @@
-import { config } from './config'
+import { getRuntimeSettings } from './settings'
 
 export interface CoachingInput {
   status: string
@@ -13,7 +13,8 @@ export interface CoachingOutput {
 }
 
 export async function createCoachingResponse(input: CoachingInput): Promise<CoachingOutput> {
-  if (config.aiProvider === 'openai') return createOpenAiCoachingResponse(input)
+  const settings = await getRuntimeSettings()
+  if (settings.aiProvider === 'openai') return createOpenAiCoachingResponse(input, settings)
 
   return {
     model: 'local-rules',
@@ -21,17 +22,21 @@ export async function createCoachingResponse(input: CoachingInput): Promise<Coac
   }
 }
 
-async function createOpenAiCoachingResponse(input: CoachingInput): Promise<CoachingOutput> {
-  if (!config.openaiApiKey) throw new Error('OPENAI_API_KEY is required when AI_PROVIDER=openai')
+async function createOpenAiCoachingResponse(
+  input: CoachingInput,
+  settings: { aiApiKey: string; aiBaseUrl: string; aiModel: string }
+): Promise<CoachingOutput> {
+  if (!settings.aiApiKey) throw new Error('AI API key is required when AI provider is openai')
 
-  const response = await fetch('https://api.openai.com/v1/responses', {
+  const baseUrl = settings.aiBaseUrl.replace(/\/+$/, '')
+  const response = await fetch(`${baseUrl}/responses`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      authorization: `Bearer ${config.openaiApiKey}`
+      authorization: `Bearer ${settings.aiApiKey}`
     },
     body: JSON.stringify({
-      model: config.openaiModel,
+      model: settings.aiModel,
       reasoning: { effort: 'low' },
       input: [
         {
@@ -69,7 +74,7 @@ async function createOpenAiCoachingResponse(input: CoachingInput): Promise<Coach
   }
 
   return {
-    model: config.openaiModel,
+    model: settings.aiModel,
     responseMarkdown: body.output_text ?? readOutputText(body) ?? ''
   }
 }
