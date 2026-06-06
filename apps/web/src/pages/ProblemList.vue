@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { NDataTable, NEmpty, NSpace, NTag } from 'naive-ui'
-import { computed, h, onMounted, ref } from 'vue'
+import { computed, h, onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
@@ -40,20 +40,53 @@ const columns = computed(() => [
 
 const loading = ref(true)
 const problems = ref<ProblemRow[]>([])
+const pagination = reactive({
+  page: 1,
+  pageSize: 50,
+  itemCount: 0,
+  showSizePicker: true,
+  pageSizes: [20, 50, 100]
+})
 
-onMounted(async () => {
+async function loadProblems() {
+  loading.value = true
   try {
-    const data = await apiFetch<{ list: ProblemRow[] }>('/api/problems')
+    const data = await apiFetch<{ list: ProblemRow[]; total: number }>(
+      `/api/problems?page=${pagination.page}&pageSize=${pagination.pageSize}`
+    )
     problems.value = data.list
+    pagination.itemCount = data.total
   } finally {
     loading.value = false
   }
-})
+}
+
+function handlePageChange(page: number) {
+  pagination.page = page
+  void loadProblems()
+}
+
+function handlePageSizeChange(pageSize: number) {
+  pagination.pageSize = pageSize
+  pagination.page = 1
+  void loadProblems()
+}
+
+onMounted(loadProblems)
 </script>
 
 <template>
   <main class="page">
-    <n-data-table :columns="columns" :data="problems" :bordered="false" :loading="loading">
+    <n-data-table
+      remote
+      :columns="columns"
+      :data="problems"
+      :bordered="false"
+      :loading="loading"
+      :pagination="pagination"
+      @update:page="handlePageChange"
+      @update:page-size="handlePageSizeChange"
+    >
       <template #empty>
         <n-empty :description="t('problems.empty')" />
       </template>

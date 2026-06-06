@@ -1,41 +1,57 @@
 import { Hono, type Context } from 'hono'
-import { asc, desc, eq } from 'drizzle-orm'
+import { asc, desc, eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { buildStoredZip, parseLooseTestCases, parseZipTestCases } from '@doj/shared/testdata'
 import { putObject, storageConfig } from '@doj/shared/storage'
 import { authMiddleware, getOptionalAuthUser, requireGroup } from '../auth'
 import { getRuntimeSettings } from '../settings'
+import { countRows } from '../services/stats'
 import { numericId } from '../validation'
 
 const maxTestdataUploadBytes = 64 * 1024 * 1024
+
+const listQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50)
+})
 
 export function registerProblemRoutes(app: Hono) {
   app.get('/api/problems', async (c) => {
     const denied = await denyGuestProblemset(c)
     if (denied) return denied
 
+    const { page, pageSize } = listQuerySchema.parse(c.req.query())
+    const visible = eq(schema.problems.visible, true)
+    const total = await countRows(schema.problems, visible)
     const list = await db
       .select()
       .from(schema.problems)
-      .where(eq(schema.problems.visible, true))
+      .where(visible)
       .orderBy(asc(schema.problems.id))
-      .limit(50)
-    return c.json({ total: list.length, list })
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+    return c.json({ total, page, pageSize, list })
   })
 
   app.get('/api/admin/problems', authMiddleware, async (c) => {
     const denied = await requireGroup(c, 'admin')
     if (denied) return denied
 
-    const list = await db.select().from(schema.problems).orderBy(asc(schema.problems.id)).limit(100)
-    const enriched = await Promise.all(
-      list.map(async (problem) => ({
-        ...problem,
-        version: summarizeProblemVersion(await getLatestProblemVersion(problem.id))
-      }))
-    )
-    return c.json({ total: enriched.length, list: enriched })
+    const { page, pageSize } = listQuerySchema.parse(c.req.query())
+    const total = await countRows(schema.problems)
+    const list = await db
+      .select()
+      .from(schema.problems)
+      .orderBy(asc(schema.problems.id))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+    const versions = await getLatestProblemVersions(list.map((problem) => problem.id))
+    const enriched = list.map((problem) => ({
+      ...problem,
+      version: summarizeProblemVersion(versions.get(problem.id) ?? null)
+    }))
+    return c.json({ total, page, pageSize, list: enriched })
   })
 
   app.get('/api/admin/problems/:id', authMiddleware, async (c) => {
@@ -302,6 +318,37 @@ async function getLatestProblemVersion(problemId: number): Promise<ProblemVersio
     : []
 
   return { ...version, testdataFile: testdataFile ?? null }
+}
+
+// Batched variant for list endpoints: one query for the latest version per
+// problem (DISTINCT ON), one query for the referenced testdata files.
+async function getLatestProblemVersions(
+  problemIds: number[]
+): Promise<Map<number, ProblemVersionWithFile>> {
+  const result = new Map<number, ProblemVersionWithFile>()
+  if (!problemIds.length) return result
+
+  const versions = await db
+    .selectDistinctOn([schema.problemVersions.problemId])
+    .from(schema.problemVersions)
+    .where(inArray(schema.problemVersions.problemId, problemIds))
+    .orderBy(desc(schema.problemVersions.problemId), desc(schema.problemVersions.version))
+
+  const fileIds = [
+    ...new Set(versions.map((version) => version.testdataFileId).filter((id): id is number => !!id))
+  ]
+  const files = fileIds.length
+    ? await db.select().from(schema.files).where(inArray(schema.files.id, fileIds))
+    : []
+  const fileById = new Map(files.map((file) => [file.id, file]))
+
+  for (const version of versions) {
+    result.set(version.problemId, {
+      ...version,
+      testdataFile: version.testdataFileId ? (fileById.get(version.testdataFileId) ?? null) : null
+    })
+  }
+  return result
 }
 
 function summarizeProblemVersion(version: ProblemVersionWithFile | null) {

@@ -87,6 +87,13 @@ const showUploadModal = ref(false)
 const showEditModal = ref(false)
 const problems = ref<ProblemRow[]>([])
 const selectedFiles = ref<File[]>([])
+const pagination = reactive({
+  page: 1,
+  pageSize: 50,
+  itemCount: 0,
+  showSizePicker: true,
+  pageSizes: [20, 50, 100]
+})
 const form = reactive({
   title: '',
   tags: [] as string[],
@@ -197,13 +204,27 @@ async function loadProblems() {
   loading.value = true
   error.value = ''
   try {
-    const data = await apiFetch<{ list: ProblemRow[] }>('/api/admin/problems')
+    const data = await apiFetch<{ list: ProblemRow[]; total: number }>(
+      `/api/admin/problems?page=${pagination.page}&pageSize=${pagination.pageSize}`
+    )
     problems.value = data.list
+    pagination.itemCount = data.total
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
     loading.value = false
   }
+}
+
+function handlePageChange(page: number) {
+  pagination.page = page
+  void loadProblems()
+}
+
+function handlePageSizeChange(pageSize: number) {
+  pagination.pageSize = pageSize
+  pagination.page = 1
+  void loadProblems()
 }
 
 async function loadProblemForEdit(problemId: number) {
@@ -414,11 +435,15 @@ onMounted(() => {
         </n-button>
       </n-space>
       <n-data-table
+        remote
         :columns="columns"
         :data="problems"
         :bordered="false"
         :loading="loading"
+        :pagination="pagination"
         class="admin-table"
+        @update:page="handlePageChange"
+        @update:page-size="handlePageSizeChange"
       />
     </n-card>
 
