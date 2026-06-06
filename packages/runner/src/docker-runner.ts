@@ -277,44 +277,56 @@ export class DockerRunner implements Runner {
     }
   }
 
-  // The A (problem) / B (submission) duel. A and B each run once; A.stdout is
-  // wired to B.stdin and B.stdout to A.stdin (bidirectional). A.stderr is the
-  // message; B.stderr is discarded. A is the interactor + checker: its verdict
-  // comes from /tmp/result.json if present, else from its exit code (testlib
-  // enum 0=AC,1=WA,2=PE,3=TLE,4=MLE,5=OLE,6=CE,7=RE,8=SE). B (untrusted) is
-  // CPU/memory limited; B OOM -> MLE, B nonzero exit -> RE.
+  // The A (problem) / B (submission) duel. A and B run once each, connected by
+  // two named FIFOs on a shared volume: A writes a2b / reads b2a, B reads a2b /
+  // writes b2a. Because they talk over real pipes (not a multiplexed exec
+  // stream), A can half-close its write end so a B blocked on read-until-EOF
+  // terminates while A stays alive to read B's answer — this unifies batch,
+  // special-judge and interactive problems in one mechanism. A is the
+  // interactor + checker: verdict from /tmp/result.json if present, else its
+  // exit code (testlib enum 0=AC..8=SE). B (untrusted) is CPU/memory limited;
+  // B OOM -> MLE, B nonzero exit -> RE. A.stderr is the message.
   async duel(input: DuelInput): Promise<DuelResult> {
     const startedAt = Date.now()
-    const message = new CappedTextBuffer(input.limits.outputBytes || defaultOutputLimitBytes)
     let peakMemoryBytes = 0
     let cpuTimeNs = 0
     let timedOut = false
 
+    const volumeName = `doj-duel-${input.scopeId.toLowerCase()}-${Date.now()}`
+    await this.docker.createVolume({ Name: volumeName, Labels: { 'doj.scope': input.scopeId } })
+    // Pre-create the FIFOs in the shared volume, world-rw so the unprivileged
+    // (nobody) submission container can open them.
+    await this.runThrowaway(
+      volumeName,
+      input.scopeId,
+      'mkfifo /doj/a2b /doj/b2a && chmod 666 /doj/a2b /doj/b2a'
+    )
+
+    const judgeCmd = await this.getImageCommand(input.judgeImageId)
+    const testerCmd = await this.getImageCommand(input.testerImageId)
+
     const judge = await this.docker.createContainer({
       Image: input.judgeImageId,
-      Cmd: await this.getImageCommand(input.judgeImageId),
+      // A: stdout -> a2b, stdin <- b2a, stderr stays on the container log.
+      Entrypoint: ['/bin/sh', '-c'],
+      Cmd: [`exec 1>/doj/a2b 0</doj/b2a; exec "$@"`, 'doj', ...wrapCmd(judgeCmd)],
       Env: Object.entries(input.judgeEnv ?? {}).map(([key, value]) => `${key}=${value}`),
-      AttachStdin: true,
-      AttachStdout: true,
-      AttachStderr: true,
-      OpenStdin: true,
       NetworkDisabled: true,
       Labels: { 'doj.scope': input.scopeId },
       HostConfig: {
         NetworkMode: 'none',
         PidsLimit: 256,
         IpcMode: 'none',
+        Binds: [`${volumeName}:/doj`],
         Tmpfs: { '/tmp': 'rw,nosuid,nodev,size=64m' }
       }
     })
     const tester = await this.docker.createContainer({
       Image: input.testerImageId,
-      Cmd: await this.getImageCommand(input.testerImageId),
       User: '65534:65534',
-      AttachStdin: true,
-      AttachStdout: true,
-      AttachStderr: true,
-      OpenStdin: true,
+      // B: stdin <- a2b, stdout -> b2a, stderr discarded.
+      Entrypoint: ['/bin/sh', '-c'],
+      Cmd: [`exec 0</doj/a2b 1>/doj/b2a 2>/dev/null; exec "$@"`, 'doj', ...wrapCmd(testerCmd)],
       NetworkDisabled: true,
       Labels: { 'doj.scope': input.scopeId },
       HostConfig: {
@@ -322,10 +334,10 @@ export class DockerRunner implements Runner {
         Memory: input.limits.memoryBytes,
         NanoCpus: 1_000_000_000,
         PidsLimit: 256,
-        ReadonlyRootfs: true,
         CapDrop: ['ALL'],
         SecurityOpt: ['no-new-privileges:true'],
         IpcMode: 'none',
+        Binds: [`${volumeName}:/doj`],
         Tmpfs: {
           '/tmp': 'rw,nosuid,nodev,size=64m',
           '/run': 'rw,nosuid,nodev,size=16m'
@@ -334,38 +346,6 @@ export class DockerRunner implements Runner {
     })
 
     try {
-      const judgeAttach = await judge.attach({
-        stream: true,
-        stdin: true,
-        stdout: true,
-        stderr: true
-      })
-      const testerAttach = await tester.attach({
-        stream: true,
-        stdin: true,
-        stdout: true,
-        stderr: true
-      })
-      patchDestroySoon(judgeAttach)
-      patchDestroySoon(testerAttach)
-
-      // A.stdout -> B.stdin, A.stderr -> message buffer.
-      this.docker.modem.demuxStream(
-        judgeAttach,
-        writableFrom((chunk) => safeWrite(testerAttach, chunk)),
-        writableFrom((chunk) => message.push(chunk))
-      )
-      // B.stdout -> A.stdin, B.stderr -> discarded.
-      this.docker.modem.demuxStream(
-        testerAttach,
-        writableFrom((chunk) => safeWrite(judgeAttach, chunk)),
-        writableFrom(() => {})
-      )
-      // When one side's output ends (its process exited), close the other's
-      // stdin so a peer blocked on read-until-EOF can finish.
-      judgeAttach.on('end', () => safeEnd(testerAttach))
-      testerAttach.on('end', () => safeEnd(judgeAttach))
-
       await judge.start()
       await tester.start()
 
@@ -383,9 +363,12 @@ export class DockerRunner implements Runner {
         }
       })
 
+      // Wall-clock cap kills malicious sleepers that never burn CPU.
       const wallClockCapMs = Math.max(input.limits.timeMs * 3, input.limits.timeMs + 5_000)
+      let wallKilled = false
       const timeout = setTimeout(() => {
         timedOut = true
+        wallKilled = true
         tester.kill().catch(() => {})
         judge.kill().catch(() => {})
       }, wallClockCapMs)
@@ -401,12 +384,19 @@ export class DockerRunner implements Runner {
         peakMemoryBytes,
         await readCgroupPeakMemoryBytes(testerInspect.State.Pid)
       )
-      const timeMs = cpuTimeNs > 0 ? Math.round(cpuTimeNs / 1_000_000) : Date.now() - startedAt
+      const wallMs = Date.now() - startedAt
+      // Prefer CPU time; but if we killed a non-CPU-burning sleeper on the wall
+      // clock, report wall time (never "TLE 0ms").
+      const timeMs = wallKilled
+        ? wallMs
+        : cpuTimeNs > 0
+          ? Math.round(cpuTimeNs / 1_000_000)
+          : wallMs
       const testerOom = testerInspect.State.OOMKilled || testerExit === 137
 
       let status: JudgeStatus
       let score: number | null = null
-      let detail = message.text().trim()
+      let detail = (await this.readContainerLog(judge)).trim()
 
       if (timedOut) {
         status = 'TLE'
@@ -431,8 +421,36 @@ export class DockerRunner implements Runner {
     } finally {
       await judge.remove({ force: true }).catch(() => {})
       await tester.remove({ force: true }).catch(() => {})
+      await this.docker.getVolume(volumeName).remove({ force: true }).catch(() => {})
     }
   }
+
+  // Run a short root command against the shared volume (e.g. to mkfifo).
+  private async runThrowaway(volumeName: string, scopeId: string, shellCommand: string) {
+    const container = await this.docker.createContainer({
+      Image: 'busybox:latest',
+      Cmd: ['/bin/sh', '-c', shellCommand],
+      Labels: { 'doj.scope': scopeId },
+      HostConfig: { Binds: [`${volumeName}:/doj`], NetworkMode: 'none' }
+    })
+    try {
+      await container.start()
+      await container.wait()
+    } finally {
+      await container.remove({ force: true }).catch(() => {})
+    }
+  }
+
+  private async readContainerLog(container: Docker.Container) {
+    try {
+      const buffer = (await container.logs({ stdout: false, stderr: true })) as unknown as Buffer
+      // Docker multiplexes logs with an 8-byte header per frame; strip them.
+      return demuxDockerLog(buffer)
+    } catch {
+      return ''
+    }
+  }
+
 
   async cleanup(input: CleanupScope): Promise<void> {
     const label = `doj.scope=${input.scopeId}`
@@ -560,20 +578,28 @@ function exitCodeToStatus(exitCode: number | null): JudgeStatus {
   return statusByExitCode[exitCode] ?? 'SE'
 }
 
-function safeWrite(attach: { write?: (chunk: Buffer) => void }, chunk: Buffer) {
-  try {
-    attach.write?.(chunk)
-  } catch {
-    // Peer container may have already exited and closed the stream.
-  }
+// Build the `"$@"` argument list for the FIFO redirect wrapper. Falls back to a
+// shell if the image declares no command (the entrypoint already redirected fds).
+function wrapCmd(cmd: string[] | undefined): string[] {
+  return cmd && cmd.length ? cmd : ['/bin/sh', '-c', 'cat']
 }
 
-function safeEnd(attach: { end?: () => void }) {
-  try {
-    attach.end?.()
-  } catch {
-    // Already closed.
+// Strip Docker's 8-byte stream-multiplexing frame headers from a raw log buffer.
+function demuxDockerLog(buffer: Buffer): string {
+  if (buffer.length < 8) return buffer.toString('utf8')
+  const parts: Buffer[] = []
+  let offset = 0
+  while (offset + 8 <= buffer.length) {
+    const frameType = buffer[offset]
+    const length = buffer.readUInt32BE(offset + 4)
+    // A valid frame header has type in {0,1,2} and the payload fits.
+    if (frameType > 2 || offset + 8 + length > buffer.length) {
+      return buffer.toString('utf8')
+    }
+    parts.push(buffer.subarray(offset + 8, offset + 8 + length))
+    offset += 8 + length
   }
+  return Buffer.concat(parts).toString('utf8')
 }
 
 // Read the optional /tmp/result.json the problem (A) container may write to
