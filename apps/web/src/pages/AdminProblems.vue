@@ -5,14 +5,18 @@ import {
   NCard,
   NCheckbox,
   NDataTable,
+  NDynamicInput,
   NDynamicTags,
   NForm,
   NFormItem,
+  NGrid,
+  NGridItem,
   NInput,
   NInputNumber,
   NModal,
   NSpace,
   NTag,
+  NText,
   NUpload,
   NUploadDragger
 } from 'naive-ui'
@@ -20,8 +24,16 @@ import type { DataTableColumns, UploadFileInfo } from 'naive-ui'
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
+import CodeEditor from '../components/CodeEditor.vue'
 import MarkdownEditor from '../components/MarkdownEditor.vue'
 import { useAuthStore } from '../stores/auth'
+
+interface ProblemSummary {
+  timeLimitMs: number
+  memoryLimitBytes: number
+  caseCount: number
+  inlineCaseCount: number
+}
 
 interface ProblemRow {
   id: number
@@ -29,49 +41,33 @@ interface ProblemRow {
   tags: string[]
   solvedCount: number
   visible: boolean
-  version: ProblemVersionSummary | null
+  timeLimitMs: number
+  memoryLimitBytes: number
+  caseCount: number
+  summary: ProblemSummary
+}
+
+interface TestCase {
+  name?: string
+  input: string
+  output: string
+  hidden: boolean
+  points?: number | null
+}
+
+interface PackageFile {
+  path: string
+  filename: string
+  contentType: string
+  sizeBytes: number
+  updatedAt: string
 }
 
 interface ProblemDetail {
-  problem: ProblemRow
-  version: {
-    id: number
-    version: number
-    statementMarkdown: string
-    timeLimitMs: number
-    memoryLimitBytes: number
-    testdata: TestdataSummary
-    checkerEnabled: boolean
-    checkerSource?: string
-  }
-}
-
-interface ProblemVersionSummary {
-  id: number
-  version: number
-  timeLimitMs: number
-  memoryLimitBytes: number
-  testdata: TestdataSummary
-  checkerEnabled: boolean
-  interactorEnabled: boolean
-}
-
-interface TestdataSummary {
-  mode: 'zip' | 'inline' | 'none'
-  caseCount: number
-  totalInputBytes: number
-  totalOutputBytes: number
-  cases: Array<{
-    name: string
-    inputBytes: number
-    outputBytes: number
-  }>
-  file: {
-    id: number
-    filename: string
-    sizeBytes: number
-    createdAt: string
-  } | null
+  problem: ProblemRow & { statementMarkdown: string; testCases: TestCase[] }
+  summary: ProblemSummary
+  package: PackageFile[]
+  testCases: TestCase[]
 }
 
 const auth = useAuthStore()
@@ -80,16 +76,12 @@ const canManage = computed(() => auth.user?.groups.includes('admin') ?? false)
 const loading = ref(true)
 const saving = ref(false)
 const editing = ref(false)
-const uploading = ref(false)
 const error = ref('')
-const uploadMessage = ref('')
-const editMessage = ref('')
+const message = ref('')
 const showCreateModal = ref(false)
-const showUploadModal = ref(false)
 const showEditModal = ref(false)
-const showCheckerModal = ref(false)
+const showPackageModal = ref(false)
 const problems = ref<ProblemRow[]>([])
-const selectedFiles = ref<File[]>([])
 const pagination = reactive({
   page: 1,
   pageSize: 50,
@@ -97,6 +89,7 @@ const pagination = reactive({
   showSizePicker: true,
   pageSizes: [20, 50, 100]
 })
+
 const form = reactive({
   title: '',
   tags: [] as string[],
@@ -104,15 +97,7 @@ const form = reactive({
   timeLimitMs: 1000,
   memoryLimitMb: 256
 })
-const uploadForm = reactive({
-  problemId: null as number | null
-})
-const checkerForm = reactive({
-  problemId: null as number | null,
-  title: '',
-  sourceCode: '',
-  enabled: false
-})
+
 const editForm = reactive({
   problemId: null as number | null,
   title: '',
@@ -120,19 +105,32 @@ const editForm = reactive({
   visible: true,
   statementMarkdown: '',
   timeLimitMs: 1000,
-  memoryLimitMb: 256
+  memoryLimitMb: 256,
+  caseCount: 0,
+  testCases: [] as TestCase[]
 })
-const selectedUploadProblem = computed(() =>
-  problems.value.find((problem) => problem.id === uploadForm.problemId)
-)
+
+// Package editor state.
+const packageProblemId = ref<number | null>(null)
+const packageProblemTitle = ref('')
+const packageFiles = ref<PackageFile[]>([])
+const packageLoading = ref(false)
+const packageSaving = ref(false)
+const selectedPath = ref<string | null>(null)
+const fileContent = ref('')
+const newFilePath = ref('')
+const uploadPrefix = ref('data/')
+const uploadFiles = ref<File[]>([])
+
+const hasDockerfile = computed(() => packageFiles.value.some((file) => file.path === 'Dockerfile'))
 
 const columns = computed<DataTableColumns<ProblemRow>>(() => [
-  { title: t('common.id'), key: 'id', width: 96 },
-  { title: t('common.title'), key: 'title', minWidth: 240 },
+  { title: t('common.id'), key: 'id', width: 90 },
+  { title: t('common.title'), key: 'title', minWidth: 220 },
   {
     title: t('admin.problems.visible'),
     key: 'visible',
-    width: 110,
+    width: 90,
     render(row) {
       return h(
         NTag,
@@ -144,27 +142,32 @@ const columns = computed<DataTableColumns<ProblemRow>>(() => [
   {
     title: t('admin.problems.limits'),
     key: 'limits',
-    width: 150,
+    width: 130,
     render(row) {
-      if (!row.version) return '-'
       return h('div', { class: 'compact-stack' }, [
-        h('span', `${row.version.timeLimitMs} ms`),
-        h('span', formatBytes(row.version.memoryLimitBytes))
+        h('span', `${row.timeLimitMs} ms`),
+        h('span', formatBytes(row.memoryLimitBytes))
       ])
     }
   },
   {
     title: t('admin.problems.testdata'),
-    key: 'testdata',
-    minWidth: 260,
+    key: 'package',
+    width: 150,
     render(row) {
-      return renderTestdataSummary(row.version)
+      return h(NSpace, { size: 6 }, () => [
+        h(NTag, { bordered: false, type: 'info', size: 'small' }, () =>
+          t('admin.problems.caseCount', {
+            count: row.summary.caseCount || row.summary.inlineCaseCount
+          })
+        )
+      ])
     }
   },
   {
     title: t('common.tags'),
     key: 'tags',
-    minWidth: 160,
+    minWidth: 140,
     render(row) {
       if (!row.tags.length) return '-'
       return h(NSpace, { size: 6, wrapItem: false }, () =>
@@ -174,44 +177,20 @@ const columns = computed<DataTableColumns<ProblemRow>>(() => [
       )
     }
   },
-  { title: t('common.solved'), key: 'solvedCount', width: 110 },
+  { title: t('common.solved'), key: 'solvedCount', width: 90 },
   {
     title: t('admin.actions'),
     key: 'action',
-    width: 260,
+    width: 200,
     render(row) {
       return h(NSpace, { size: 8 }, () => [
         h(
           NButton,
-          {
-            size: 'small',
-            secondary: true,
-            onClick: () => loadProblemForEdit(row.id)
-          },
+          { size: 'small', secondary: true, onClick: () => loadProblemForEdit(row.id) },
           () => t('admin.edit')
         ),
-        h(
-          NButton,
-          {
-            size: 'small',
-            secondary: true,
-            onClick: () => {
-              uploadForm.problemId = row.id
-              selectedFiles.value = []
-              uploadMessage.value = ''
-              showUploadModal.value = true
-            }
-          },
-          () => t('admin.problems.testdata')
-        ),
-        h(
-          NButton,
-          {
-            size: 'small',
-            secondary: true,
-            onClick: () => openCheckerModal(row.id)
-          },
-          () => t('admin.problems.checker')
+        h(NButton, { size: 'small', secondary: true, onClick: () => openPackageModal(row) }, () =>
+          t('admin.problems.package')
         )
       ])
     }
@@ -245,58 +224,6 @@ function handlePageSizeChange(pageSize: number) {
   void loadProblems()
 }
 
-async function loadProblemForEdit(problemId: number) {
-  editing.value = true
-  error.value = ''
-  editMessage.value = ''
-  try {
-    const data = await apiFetch<ProblemDetail>(`/api/admin/problems/${problemId}`)
-    editForm.problemId = data.problem.id
-    editForm.title = data.problem.title
-    editForm.tags = [...data.problem.tags]
-    editForm.visible = data.problem.visible
-    editForm.statementMarkdown = data.version.statementMarkdown
-    editForm.timeLimitMs = data.version.timeLimitMs
-    editForm.memoryLimitMb = Math.round(data.version.memoryLimitBytes / 1024 / 1024)
-    showEditModal.value = true
-  } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
-  } finally {
-    editing.value = false
-  }
-}
-
-async function updateProblem() {
-  if (!editForm.problemId) return
-
-  editing.value = true
-  error.value = ''
-  editMessage.value = ''
-  try {
-    const result = await apiFetch<ProblemDetail>(`/api/problems/${editForm.problemId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        title: editForm.title,
-        tags: editForm.tags,
-        visible: editForm.visible,
-        statementMarkdown: editForm.statementMarkdown,
-        timeLimitMs: editForm.timeLimitMs,
-        memoryLimitBytes: editForm.memoryLimitMb * 1024 * 1024
-      })
-    })
-    editMessage.value = t('admin.problems.saved', {
-      id: result.problem.id,
-      version: result.version.version
-    })
-    showEditModal.value = false
-    await loadProblems()
-  } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
-  } finally {
-    editing.value = false
-  }
-}
-
 async function createProblem() {
   saving.value = true
   error.value = ''
@@ -322,129 +249,206 @@ async function createProblem() {
   }
 }
 
-async function uploadTestdata() {
-  if (!uploadForm.problemId || !selectedFiles.value.length) return
-
-  uploading.value = true
+async function loadProblemForEdit(problemId: number) {
+  editing.value = true
   error.value = ''
-  uploadMessage.value = ''
+  message.value = ''
   try {
-    const formData = new FormData()
-    for (const file of selectedFiles.value) formData.append('file', file)
-    const result = await apiFetch<{ caseCount: number }>(
-      `/api/problems/${uploadForm.problemId}/testdata`,
-      {
-        method: 'POST',
-        body: formData
-      }
-    )
-    uploadMessage.value = t('admin.problems.uploaded', {
-      count: result.caseCount,
-      id: uploadForm.problemId
+    const data = await apiFetch<ProblemDetail>(`/api/admin/problems/${problemId}`)
+    editForm.problemId = data.problem.id
+    editForm.title = data.problem.title
+    editForm.tags = [...data.problem.tags]
+    editForm.visible = data.problem.visible
+    editForm.statementMarkdown = data.problem.statementMarkdown
+    editForm.timeLimitMs = data.problem.timeLimitMs
+    editForm.memoryLimitMb = Math.round(data.problem.memoryLimitBytes / 1024 / 1024)
+    editForm.caseCount = data.problem.caseCount
+    editForm.testCases = (data.testCases ?? []).map((testCase) => ({
+      name: testCase.name ?? '',
+      input: testCase.input,
+      output: testCase.output,
+      hidden: testCase.hidden,
+      points: testCase.points ?? null
+    }))
+    showEditModal.value = true
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    editing.value = false
+  }
+}
+
+async function updateProblem() {
+  if (!editForm.problemId) return
+  editing.value = true
+  error.value = ''
+  message.value = ''
+  try {
+    const result = await apiFetch<ProblemDetail>(`/api/problems/${editForm.problemId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        title: editForm.title,
+        tags: editForm.tags,
+        visible: editForm.visible,
+        statementMarkdown: editForm.statementMarkdown,
+        timeLimitMs: editForm.timeLimitMs,
+        memoryLimitBytes: editForm.memoryLimitMb * 1024 * 1024,
+        caseCount: editForm.caseCount,
+        testCases: editForm.testCases.map((testCase) => ({
+          name: testCase.name || undefined,
+          input: testCase.input,
+          output: testCase.output,
+          hidden: testCase.hidden,
+          points: typeof testCase.points === 'number' ? testCase.points : undefined
+        }))
+      })
     })
-    selectedFiles.value = []
-    showUploadModal.value = false
+    message.value = t('admin.problems.saved', { id: result.problem.id })
+    showEditModal.value = false
     await loadProblems()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
-    uploading.value = false
+    editing.value = false
+  }
+}
+
+function createTestCase(): TestCase {
+  return { name: '', input: '', output: '', hidden: true, points: null }
+}
+
+// Package editor.
+async function openPackageModal(row: ProblemRow) {
+  packageProblemId.value = row.id
+  packageProblemTitle.value = row.title
+  selectedPath.value = null
+  fileContent.value = ''
+  newFilePath.value = ''
+  uploadFiles.value = []
+  message.value = ''
+  error.value = ''
+  showPackageModal.value = true
+  await loadPackageFiles()
+}
+
+async function loadPackageFiles() {
+  if (!packageProblemId.value) return
+  packageLoading.value = true
+  try {
+    const data = await apiFetch<{ files: PackageFile[] }>(
+      `/api/problems/${packageProblemId.value}/package`
+    )
+    packageFiles.value = data.files
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    packageLoading.value = false
+  }
+}
+
+async function selectFile(path: string) {
+  if (!packageProblemId.value) return
+  error.value = ''
+  try {
+    const data = await apiFetch<{ path: string; content: string }>(
+      `/api/problems/${packageProblemId.value}/package/content?path=${encodeURIComponent(path)}`
+    )
+    selectedPath.value = data.path
+    fileContent.value = data.content
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  }
+}
+
+function startNewFile() {
+  const path = newFilePath.value.trim()
+  if (!path) return
+  selectedPath.value = path
+  fileContent.value = ''
+  newFilePath.value = ''
+}
+
+async function saveFile() {
+  if (!packageProblemId.value || !selectedPath.value) return
+  packageSaving.value = true
+  error.value = ''
+  message.value = ''
+  try {
+    await apiFetch(`/api/problems/${packageProblemId.value}/package`, {
+      method: 'PUT',
+      body: JSON.stringify({ path: selectedPath.value, content: fileContent.value })
+    })
+    message.value = t('admin.problems.packageSaved', { path: selectedPath.value })
+    await loadPackageFiles()
+    await loadProblems()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    packageSaving.value = false
+  }
+}
+
+async function deleteFile(path: string) {
+  if (!packageProblemId.value) return
+  packageSaving.value = true
+  error.value = ''
+  message.value = ''
+  try {
+    await apiFetch(
+      `/api/problems/${packageProblemId.value}/package?path=${encodeURIComponent(path)}`,
+      { method: 'DELETE' }
+    )
+    message.value = t('admin.problems.packageDeleted', { path })
+    if (selectedPath.value === path) {
+      selectedPath.value = null
+      fileContent.value = ''
+    }
+    await loadPackageFiles()
+    await loadProblems()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    packageSaving.value = false
+  }
+}
+
+async function uploadPackageFiles() {
+  if (!packageProblemId.value || !uploadFiles.value.length) return
+  packageSaving.value = true
+  error.value = ''
+  message.value = ''
+  try {
+    const formData = new FormData()
+    if (uploadPrefix.value.trim()) formData.append('prefix', uploadPrefix.value.trim())
+    for (const file of uploadFiles.value) formData.append('file', file)
+    await apiFetch(`/api/problems/${packageProblemId.value}/package/upload`, {
+      method: 'POST',
+      body: formData
+    })
+    uploadFiles.value = []
+    await loadPackageFiles()
+    await loadProblems()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    packageSaving.value = false
   }
 }
 
 function handleUploadChange(options: { fileList: UploadFileInfo[] }) {
-  selectedFiles.value = options.fileList
+  uploadFiles.value = options.fileList
     .map((item) => item.file)
     .filter((file): file is File => !!file)
 }
 
-async function openCheckerModal(problemId: number) {
-  error.value = ''
-  uploadMessage.value = ''
-  try {
-    const data = await apiFetch<ProblemDetail>(`/api/admin/problems/${problemId}`)
-    checkerForm.problemId = data.problem.id
-    checkerForm.title = data.problem.title
-    checkerForm.enabled = data.version.checkerEnabled
-    checkerForm.sourceCode = data.version.checkerSource ?? ''
-    showCheckerModal.value = true
-  } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
-  }
-}
-
-async function saveChecker(remove = false) {
-  if (!checkerForm.problemId) return
-  uploading.value = true
-  error.value = ''
-  uploadMessage.value = ''
-  try {
-    await apiFetch(`/api/problems/${checkerForm.problemId}/checker`, {
-      method: 'POST',
-      body: JSON.stringify({ sourceCode: remove ? null : checkerForm.sourceCode })
-    })
-    uploadMessage.value = remove
-      ? t('admin.problems.checkerRemoved', { id: checkerForm.problemId })
-      : t('admin.problems.checkerSaved', { id: checkerForm.problemId })
-    showCheckerModal.value = false
-    await loadProblems()
-  } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
-  } finally {
-    uploading.value = false
-  }
-}
-
-function renderTestdataSummary(version: ProblemVersionSummary | null) {
-  if (!version) return '-'
-  const testdata = version.testdata
-  const tags = [
-    h(
-      NTag,
-      {
-        bordered: false,
-        type: testdata.caseCount ? 'success' : 'warning',
-        size: 'small'
-      },
-      () => t('admin.problems.caseCount', { count: testdata.caseCount })
-    )
-  ]
-  if (version.checkerEnabled) {
-    tags.push(
-      h(NTag, { bordered: false, type: 'info', size: 'small' }, () => t('admin.problems.checker'))
-    )
-  }
-  if (version.interactorEnabled) {
-    tags.push(
-      h(NTag, { bordered: false, type: 'info', size: 'small' }, () =>
-        t('admin.problems.interactor')
-      )
-    )
-  }
-
-  return h('div', { class: 'testdata-cell' }, [
-    h(NSpace, { size: 6 }, () => tags),
-    h(
-      'p',
-      { class: 'muted testdata-line' },
-      testdata.file
-        ? `${testdata.file.filename} · ${formatBytes(testdata.file.sizeBytes)}`
-        : t(`admin.problems.testdataMode.${testdata.mode}`)
-    ),
-    testdata.cases.length
-      ? h(
-          'p',
-          { class: 'muted testdata-line' },
-          testdata.cases
-            .slice(0, 3)
-            .map(
-              (testCase) =>
-                `${testCase.name}: ${formatBytes(testCase.inputBytes)} / ${formatBytes(testCase.outputBytes)}`
-            )
-            .join(', ')
-        )
-      : null
-  ])
+function editorLanguage(path: string | null) {
+  if (!path) return 'plaintext'
+  if (path === 'Dockerfile' || path.endsWith('.dockerfile')) return 'dockerfile'
+  if (path.endsWith('.cc') || path.endsWith('.cpp') || path.endsWith('.h')) return 'cpp'
+  if (path.endsWith('.py')) return 'python'
+  if (path.endsWith('.json')) return 'json'
+  if (path.endsWith('.sh')) return 'shell'
+  return 'plaintext'
 }
 
 function formatBytes(bytes: number | null | undefined) {
@@ -473,15 +477,8 @@ onMounted(() => {
     <n-alert v-if="!canManage" type="warning" class="page-alert">
       {{ t('admin.requireAdmin') }}
     </n-alert>
-    <n-alert v-if="error" type="error" class="page-alert">
-      {{ error }}
-    </n-alert>
-    <n-alert v-if="uploadMessage" type="success" class="page-alert">
-      {{ uploadMessage }}
-    </n-alert>
-    <n-alert v-if="editMessage" type="success" class="page-alert">
-      {{ editMessage }}
-    </n-alert>
+    <n-alert v-if="error" type="error" class="page-alert">{{ error }}</n-alert>
+    <n-alert v-if="message" type="success" class="page-alert">{{ message }}</n-alert>
 
     <n-card v-if="canManage" :bordered="false">
       <n-space justify="end" class="table-toolbar">
@@ -536,79 +533,12 @@ onMounted(() => {
     </n-modal>
 
     <n-modal
-      v-model:show="showUploadModal"
-      preset="card"
-      :title="t('admin.problems.uploadTestdata')"
-      class="form-modal narrow"
-    >
-      <n-form :model="uploadForm" label-placement="top">
-        <div v-if="selectedUploadProblem" class="upload-summary">
-          <strong>P{{ selectedUploadProblem.id }} {{ selectedUploadProblem.title }}</strong>
-          <div class="muted">
-            {{
-              selectedUploadProblem.version
-                ? t('admin.problems.currentData', {
-                    count: selectedUploadProblem.version.testdata.caseCount,
-                    size: selectedUploadProblem.version.testdata.file
-                      ? formatBytes(selectedUploadProblem.version.testdata.file.sizeBytes)
-                      : formatBytes(
-                          selectedUploadProblem.version.testdata.totalInputBytes +
-                            selectedUploadProblem.version.testdata.totalOutputBytes
-                        )
-                  })
-                : t('admin.problems.noData')
-            }}
-          </div>
-        </div>
-        <n-form-item :label="t('admin.problems.zipFile')">
-          <n-upload
-            multiple
-            accept=".zip,.in,.out,.ans,.txt,application/zip"
-            :default-upload="false"
-            @change="handleUploadChange"
-          >
-            <n-upload-dragger>
-              <div class="upload-dragger-content">
-                <strong>{{ t('admin.problems.dropZip') }}</strong>
-                <span class="muted">{{ t('admin.problems.dropZipHint') }}</span>
-              </div>
-            </n-upload-dragger>
-          </n-upload>
-        </n-form-item>
-        <n-space justify="end" class="form-actions">
-          <n-button @click="showUploadModal = false">{{ t('admin.cancel') }}</n-button>
-          <n-button
-            type="primary"
-            :loading="uploading"
-            :disabled="!uploadForm.problemId || !selectedFiles.length"
-            @click="uploadTestdata"
-          >
-            {{ t('admin.upload') }}
-          </n-button>
-        </n-space>
-      </n-form>
-    </n-modal>
-
-    <n-modal
       v-model:show="showEditModal"
       preset="card"
       :title="t('admin.problems.edit')"
       class="form-modal"
     >
       <n-form :model="editForm" label-placement="top">
-        <n-form-item :label="t('admin.problems.problemId')">
-          <n-input-number v-model:value="editForm.problemId" :min="1000" class="full-width" />
-        </n-form-item>
-        <n-space justify="end">
-          <n-button
-            secondary
-            :loading="editing"
-            :disabled="!editForm.problemId"
-            @click="editForm.problemId && loadProblemForEdit(editForm.problemId)"
-          >
-            {{ t('admin.load') }}
-          </n-button>
-        </n-space>
         <n-form-item :label="t('common.title')">
           <n-input v-model:value="editForm.title" placeholder="A+B Problem" />
         </n-form-item>
@@ -621,11 +551,7 @@ onMounted(() => {
           <n-dynamic-tags v-model:value="editForm.tags" />
         </n-form-item>
         <n-form-item :label="t('admin.problems.statement')">
-          <n-input
-            v-model:value="editForm.statementMarkdown"
-            type="textarea"
-            :autosize="{ minRows: 6, maxRows: 12 }"
-          />
+          <markdown-editor v-model="editForm.statementMarkdown" />
         </n-form-item>
         <div class="form-grid two">
           <n-form-item :label="t('admin.problems.timeMs')">
@@ -635,6 +561,41 @@ onMounted(() => {
             <n-input-number v-model:value="editForm.memoryLimitMb" :min="16" class="full-width" />
           </n-form-item>
         </div>
+        <n-form-item :label="t('admin.problems.caseCountField')">
+          <n-input-number v-model:value="editForm.caseCount" :min="0" class="full-width" />
+        </n-form-item>
+        <n-text depth="3" class="field-hint">{{ t('admin.problems.caseCountHint') }}</n-text>
+        <n-form-item :label="t('admin.problems.sampleCases')">
+          <n-dynamic-input
+            v-model:value="editForm.testCases"
+            :on-create="createTestCase"
+            #="{ value }"
+          >
+            <div class="case-row">
+              <n-input v-model:value="value.name" :placeholder="t('admin.problems.packagePath')" />
+              <n-input
+                v-model:value="value.input"
+                type="textarea"
+                :autosize="{ minRows: 1, maxRows: 4 }"
+                placeholder="input"
+              />
+              <n-input
+                v-model:value="value.output"
+                type="textarea"
+                :autosize="{ minRows: 1, maxRows: 4 }"
+                placeholder="output"
+              />
+              <n-input-number
+                v-model:value="value.points"
+                :min="0"
+                :max="100"
+                placeholder="pts"
+                class="case-points"
+              />
+              <n-checkbox v-model:checked="value.hidden">{{ t('admin.problems.no') }}</n-checkbox>
+            </div>
+          </n-dynamic-input>
+        </n-form-item>
         <n-space justify="end" class="form-actions">
           <n-button @click="showEditModal = false">{{ t('admin.cancel') }}</n-button>
           <n-button
@@ -643,61 +604,195 @@ onMounted(() => {
             :disabled="!editForm.problemId || !editForm.title"
             @click="updateProblem"
           >
-            {{ t('admin.saveNewVersion') }}
+            {{ t('admin.save') }}
           </n-button>
         </n-space>
       </n-form>
     </n-modal>
 
     <n-modal
-      v-model:show="showCheckerModal"
+      v-model:show="showPackageModal"
       preset="card"
-      :title="t('admin.problems.checkerTitle')"
-      class="form-modal"
+      :title="`${t('admin.problems.packageTitle')} · P${packageProblemId} ${packageProblemTitle}`"
+      class="form-modal wide"
     >
-      <n-form :model="checkerForm" label-placement="top">
-        <div class="upload-summary">
-          <strong>P{{ checkerForm.problemId }} {{ checkerForm.title }}</strong>
-          <div class="muted">
-            {{
-              checkerForm.enabled
-                ? t('admin.problems.checkerEnabledHint')
-                : t('admin.problems.checkerDisabledHint')
-            }}
-          </div>
-        </div>
-        <n-form-item :label="t('admin.problems.checkerSource')">
-          <n-input
-            v-model:value="checkerForm.sourceCode"
-            type="textarea"
-            :autosize="{ minRows: 8, maxRows: 20 }"
-            placeholder="// argv: input output answer; exit 0=AC, 2=PE, else WA"
-          />
-        </n-form-item>
-        <n-space justify="space-between" class="form-actions">
-          <n-button
-            v-if="checkerForm.enabled"
-            type="error"
-            secondary
-            :loading="uploading"
-            @click="saveChecker(true)"
-          >
-            {{ t('admin.problems.checkerRemove') }}
-          </n-button>
-          <span v-else />
-          <n-space>
-            <n-button @click="showCheckerModal = false">{{ t('admin.cancel') }}</n-button>
-            <n-button
-              type="primary"
-              :loading="uploading"
-              :disabled="!checkerForm.sourceCode.trim()"
-              @click="saveChecker(false)"
+      <n-alert :type="hasDockerfile ? 'info' : 'default'" class="page-alert">
+        <strong>{{
+          hasDockerfile ? t('admin.problems.custom') : t('admin.problems.default')
+        }}</strong>
+        — {{ t('admin.problems.packageHint') }}
+      </n-alert>
+
+      <n-grid :cols="3" :x-gap="16" class="package-grid">
+        <n-grid-item :span="1">
+          <div class="package-files">
+            <p class="muted">{{ t('admin.problems.packageFiles') }}</p>
+            <p v-if="!packageFiles.length && !packageLoading" class="muted">
+              {{ t('admin.problems.packageEmpty') }}
+            </p>
+            <button
+              v-for="file in packageFiles"
+              :key="file.path"
+              type="button"
+              class="package-file"
+              :class="{ active: file.path === selectedPath }"
+              @click="selectFile(file.path)"
             >
-              {{ t('admin.save') }}
-            </n-button>
-          </n-space>
-        </n-space>
-      </n-form>
+              <span class="package-file-path">{{ file.path }}</span>
+              <span class="muted package-file-size">{{ formatBytes(file.sizeBytes) }}</span>
+              <n-button
+                size="tiny"
+                quaternary
+                type="error"
+                :disabled="packageSaving"
+                @click.stop="deleteFile(file.path)"
+              >
+                {{ t('admin.problems.packageDelete') }}
+              </n-button>
+            </button>
+
+            <div class="package-new">
+              <n-input
+                v-model:value="newFilePath"
+                size="small"
+                :placeholder="t('admin.problems.packageNewFilePath')"
+                @keyup.enter="startNewFile"
+              />
+              <n-button
+                size="small"
+                secondary
+                :disabled="!newFilePath.trim()"
+                @click="startNewFile"
+              >
+                {{ t('admin.problems.packageNewFile') }}
+              </n-button>
+            </div>
+
+            <div class="package-upload">
+              <n-input
+                v-model:value="uploadPrefix"
+                size="small"
+                :placeholder="t('admin.problems.packageUploadPrefix')"
+              />
+              <n-upload multiple :default-upload="false" @change="handleUploadChange">
+                <n-upload-dragger>
+                  <div class="upload-dragger-content">
+                    <strong>{{ t('admin.problems.packageUpload') }}</strong>
+                    <span class="muted">{{ t('admin.problems.packageUploadHint') }}</span>
+                  </div>
+                </n-upload-dragger>
+              </n-upload>
+              <n-button
+                size="small"
+                type="primary"
+                :loading="packageSaving"
+                :disabled="!uploadFiles.length"
+                @click="uploadPackageFiles"
+              >
+                {{ t('admin.upload') }}
+              </n-button>
+            </div>
+          </div>
+        </n-grid-item>
+
+        <n-grid-item :span="2">
+          <div v-if="selectedPath" class="package-editor">
+            <p class="package-editor-path">{{ selectedPath }}</p>
+            <code-editor
+              v-model="fileContent"
+              :language-id="editorLanguage(selectedPath)"
+              class="package-code"
+            />
+            <n-space justify="end" class="form-actions">
+              <n-button type="primary" :loading="packageSaving" @click="saveFile">
+                {{ t('admin.problems.packageSave') }}
+              </n-button>
+            </n-space>
+          </div>
+          <p v-else class="muted package-empty">{{ t('admin.problems.packageSelectHint') }}</p>
+        </n-grid-item>
+      </n-grid>
     </n-modal>
   </main>
 </template>
+
+<style scoped>
+.field-hint {
+  display: block;
+  margin: -8px 0 12px;
+  font-size: 12px;
+}
+
+.case-row {
+  display: grid;
+  grid-template-columns: 120px 1fr 1fr 72px auto;
+  gap: 8px;
+  align-items: start;
+  width: 100%;
+}
+
+.case-points {
+  width: 72px;
+}
+
+.package-grid {
+  margin-top: 12px;
+}
+
+.package-files {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.package-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--doj-border, #e0e0e6);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.package-file.active {
+  border-color: var(--doj-primary, #18a058);
+}
+
+.package-file-path {
+  flex: 1;
+  font-family: var(--doj-mono, monospace);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.package-file-size {
+  font-size: 12px;
+}
+
+.package-new,
+.package-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.package-editor-path {
+  font-family: var(--doj-mono, monospace);
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+
+.package-code {
+  height: 420px;
+}
+
+.package-empty {
+  padding: 40px 0;
+  text-align: center;
+}
+</style>
