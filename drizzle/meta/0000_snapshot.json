@@ -1787,6 +1787,12 @@
           "notNull": true,
           "default": "''"
         },
+        "judge_progress": {
+          "name": "judge_progress",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",

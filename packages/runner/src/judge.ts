@@ -1,4 +1,4 @@
-import type { JudgeAgentResult } from '@doj/shared/agent'
+import type { JudgeAgentProgress, JudgeAgentResult } from '@doj/shared/agent'
 import type { JudgeLimit, ProblemTestCase } from '@doj/shared/judge'
 import type { JudgeStatus } from '@doj/shared/status'
 import type { Runner } from './types'
@@ -19,6 +19,8 @@ export interface PackageJudgeInput {
   limits: JudgeLimit
   // Submission source, exposed to A as the `code` env (e.g. Quine checkers).
   code?: string
+  signal?: AbortSignal
+  onProgress?: (progress: JudgeAgentProgress) => void | Promise<void>
 }
 
 // Package-based judging with the A (problem) / B (submission) container model.
@@ -33,12 +35,21 @@ export async function judgePackage(
   const problemScope = `${input.scopeId}-a`
   const custom = !!input.problemFiles && 'Dockerfile' in input.problemFiles
 
+  throwIfCancelled(input.signal)
+  await input.onProgress?.({
+    phase: 'building',
+    message: 'Building submission package',
+    completedCases: 0,
+    totalCases: totalCases(input)
+  })
   const testerBuild = await runner.buildPackage({
     scopeId: testerScope,
     files: input.testerFiles,
     limits: { timeMs: input.limits.timeMs, memoryBytes: input.limits.memoryBytes },
-    trusted: false
+    trusted: false,
+    signal: input.signal
   })
+  throwIfCancelled(input.signal)
 
   try {
     if (!testerBuild.ok || !testerBuild.imageId) {
@@ -59,15 +70,25 @@ export async function judgePackage(
         scopeId: testerScope,
         imageId: testerBuild.imageId,
         testCases: input.testCases,
-        limits: input.limits
+        limits: input.limits,
+        signal: input.signal,
+        onProgress: input.onProgress
       })
     }
 
+    await input.onProgress?.({
+      phase: 'building',
+      message: 'Building problem package',
+      completedCases: 0,
+      totalCases: totalCases(input)
+    })
     const problemBuild = await runner.buildPackage({
       scopeId: problemScope,
       files: input.problemFiles as Record<string, string | Uint8Array>,
-      trusted: true
+      trusted: true,
+      signal: input.signal
     })
+    throwIfCancelled(input.signal)
     if (!problemBuild.ok || !problemBuild.imageId) {
       return {
         status: 'SE',
@@ -99,7 +120,9 @@ export async function judgePackage(
       testerImageId: testerBuild.imageId,
       testCases: customCases,
       limits: input.limits,
-      code: input.code ?? ''
+      code: input.code ?? '',
+      signal: input.signal,
+      onProgress: input.onProgress
     })
   } finally {
     await runner.cleanup({ scopeId: testerScope })
@@ -113,6 +136,8 @@ interface DefaultCasesInput {
   imageId: string
   testCases: ProblemTestCase[]
   limits: JudgeLimit
+  signal?: AbortSignal
+  onProgress?: (progress: JudgeAgentProgress) => void | Promise<void>
 }
 
 async function judgeDefaultCases(input: DefaultCasesInput): Promise<JudgeAgentResult> {
@@ -128,12 +153,22 @@ async function judgeDefaultCases(input: DefaultCasesInput): Promise<JudgeAgentRe
     null
 
   for (const [index, testCase] of testCases.entries()) {
+    throwIfCancelled(input.signal)
+    await input.onProgress?.({
+      phase: 'testing',
+      message: `Testing case ${index + 1}/${testCases.length}`,
+      completedCases: cases.length,
+      totalCases: testCases.length,
+      currentCase: index + 1
+    })
     const result = await runner.run({
       scopeId,
       imageId,
       limits,
-      stdin: new TextEncoder().encode(testCase.input)
+      stdin: new TextEncoder().encode(testCase.input),
+      signal: input.signal
     })
+    throwIfCancelled(input.signal)
     const compared =
       result.status === 'AC'
         ? compareOutput(result.stdout, testCase.output)
@@ -156,6 +191,14 @@ async function judgeDefaultCases(input: DefaultCasesInput): Promise<JudgeAgentRe
       score: caseScore,
       message: caseMessage
     })
+    await input.onProgress?.({
+      phase: 'testing',
+      message: `Finished case ${index + 1}/${testCases.length}`,
+      completedCases: cases.length,
+      totalCases: testCases.length,
+      currentCase: index + 1,
+      case: cases[cases.length - 1]
+    })
     if (caseStatus !== 'AC' && !firstFailure) {
       firstFailure = {
         index,
@@ -177,6 +220,8 @@ interface CustomCasesInput {
   testCases: ProblemTestCase[]
   limits: JudgeLimit
   code: string
+  signal?: AbortSignal
+  onProgress?: (progress: JudgeAgentProgress) => void | Promise<void>
 }
 
 async function judgeCustomCases(input: CustomCasesInput): Promise<JudgeAgentResult> {
@@ -192,13 +237,23 @@ async function judgeCustomCases(input: CustomCasesInput): Promise<JudgeAgentResu
     null
 
   for (const [index, testCase] of testCases.entries()) {
+    throwIfCancelled(input.signal)
+    await input.onProgress?.({
+      phase: 'testing',
+      message: `Testing case ${index + 1}/${testCases.length}`,
+      completedCases: cases.length,
+      totalCases: testCases.length,
+      currentCase: index + 1
+    })
     const result = await runner.duel({
       scopeId: `${input.scopeId}-case-${index}`,
       judgeImageId: input.judgeImageId,
       testerImageId: input.testerImageId,
       limits,
-      judgeEnv: { case: String(index), code: input.code }
+      judgeEnv: { case: String(index), code: input.code },
+      signal: input.signal
     })
+    throwIfCancelled(input.signal)
     const caseStatus = result.status
     // A may report partial score via its result file; otherwise full weight on AC.
     const caseScore =
@@ -223,6 +278,14 @@ async function judgeCustomCases(input: CustomCasesInput): Promise<JudgeAgentResu
       score: caseScore,
       message: caseMessage
     })
+    await input.onProgress?.({
+      phase: 'testing',
+      message: `Finished case ${index + 1}/${testCases.length}`,
+      completedCases: cases.length,
+      totalCases: testCases.length,
+      currentCase: index + 1,
+      case: cases[cases.length - 1]
+    })
     if (caseStatus !== 'AC' && !firstFailure) {
       firstFailure = {
         index,
@@ -234,6 +297,17 @@ async function judgeCustomCases(input: CustomCasesInput): Promise<JudgeAgentResu
   }
 
   return finalizeResult({ cases, score, maxScore, timeMs, memoryBytes, firstFailure })
+}
+
+function totalCases(input: PackageJudgeInput) {
+  if (input.problemFiles && 'Dockerfile' in input.problemFiles) {
+    return input.testCases.length || Math.max(1, input.caseCount ?? 1)
+  }
+  return input.testCases.length
+}
+
+function throwIfCancelled(signal: AbortSignal | undefined) {
+  if (signal?.aborted) throw new Error('judge job cancelled')
 }
 
 function finalizeResult(input: {

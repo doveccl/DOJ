@@ -2,7 +2,7 @@ import { eq, sql } from 'drizzle-orm'
 import { db, schema, sqlClient } from '@doj/db/client'
 import { claimJudgeTask, completeJudgeTask, failJudgeTask, judgeTaskChannel } from '@doj/db/queue'
 import { getRuntimeSettings } from '@doj/db/settings'
-import type { JudgeAgentPayload, JudgeAgentResult } from '@doj/shared/agent'
+import type { JudgeAgentPayload, JudgeAgentProgress, JudgeAgentResult } from '@doj/shared/agent'
 import { getLanguage } from './languages'
 import { JudgeAgentServer } from './agent-server'
 
@@ -49,7 +49,9 @@ async function handleOne() {
       .where(eq(schema.submissionCases.submissionId, payload.submissionId))
 
     sentToAgent = true
-    const judged = await agentServer.runJob(agent, payload)
+    const judged = await agentServer.runJob(agent, payload, {
+      onProgress: (progress) => persistJudgeProgress(payload.submissionId, progress)
+    })
     await persistJudgeResult(payload.submissionId, payload.problemId, judged)
     await completeJudgeTask(task.id)
   } catch (error) {
@@ -58,6 +60,7 @@ async function handleOne() {
       .set({
         status: 'SE',
         message: error instanceof Error ? error.message : String(error),
+        judgeProgress: null,
         updatedAt: new Date()
       })
       .where(eq(schema.submissions.id, submissionId))
@@ -138,6 +141,7 @@ async function persistJudgeResult(
       memoryBytes: judged.memoryBytes,
       score: judged.score,
       message: judged.message,
+      judgeProgress: null,
       updatedAt: new Date()
     })
     .where(eq(schema.submissions.id, submissionId))
@@ -148,6 +152,9 @@ async function persistJudgeResult(
   if (!submission) throw new Error(`submission not found while saving result: ${submissionId}`)
 
   if (judged.cases.length) {
+    await db
+      .delete(schema.submissionCases)
+      .where(eq(schema.submissionCases.submissionId, submissionId))
     await db.insert(schema.submissionCases).values(
       judged.cases.map((item) => ({
         submissionId,
@@ -163,6 +170,41 @@ async function persistJudgeResult(
 
   if (judged.status === 'AC') {
     await recordSolved(submission.userId, problemId, submissionId)
+  }
+}
+
+async function persistJudgeProgress(submissionId: number, progress: JudgeAgentProgress) {
+  await db
+    .update(schema.submissions)
+    .set({
+      judgeProgress: progress,
+      message: progress.message,
+      updatedAt: new Date()
+    })
+    .where(eq(schema.submissions.id, submissionId))
+
+  if (progress.case) {
+    await db
+      .insert(schema.submissionCases)
+      .values({
+        submissionId,
+        caseIndex: progress.case.caseIndex,
+        status: progress.case.status,
+        timeMs: progress.case.timeMs,
+        memoryBytes: progress.case.memoryBytes,
+        score: progress.case.score,
+        message: progress.case.message
+      })
+      .onConflictDoUpdate({
+        target: [schema.submissionCases.submissionId, schema.submissionCases.caseIndex],
+        set: {
+          status: progress.case.status,
+          timeMs: progress.case.timeMs,
+          memoryBytes: progress.case.memoryBytes,
+          score: progress.case.score,
+          message: progress.case.message
+        }
+      })
   }
 }
 

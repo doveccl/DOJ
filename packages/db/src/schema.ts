@@ -13,6 +13,7 @@ import {
   uniqueIndex,
   varchar
 } from 'drizzle-orm/pg-core'
+import type { JudgeAgentProgress } from '@doj/shared/agent'
 import type { ProblemTestCase } from '@doj/shared/judge'
 
 export const judgeStatus = pgEnum('judge_status', [
@@ -333,6 +334,7 @@ export const submissions = pgTable(
     memoryBytes: bigint('memory_bytes', { mode: 'number' }).default(0).notNull(),
     score: integer('score').default(0).notNull(),
     message: text('message').default('').notNull(),
+    judgeProgress: jsonb('judge_progress').$type<JudgeAgentProgress | null>(),
     createdAt: createdAt(),
     updatedAt: updatedAt()
   },

@@ -56,6 +56,15 @@ export interface JudgeAgentCaseResult {
   message: string
 }
 
+export interface JudgeAgentProgress {
+  phase: 'building' | 'testing' | 'finished' | 'cancelled'
+  message: string
+  completedCases: number
+  totalCases: number
+  currentCase?: number
+  case?: JudgeAgentCaseResult
+}
+
 export interface JudgeAgentResult {
   status: JudgeStatus
   timeMs: number
@@ -75,6 +84,11 @@ export type WorkerToAgentMessage =
       jobId: string
       payload: JudgeAgentPayload
     }
+  | {
+      type: 'cancel'
+      jobId: string
+      reason: string
+    }
 
 export type AgentToWorkerMessage =
   | {
@@ -84,6 +98,11 @@ export type AgentToWorkerMessage =
   | {
       type: 'pong'
       activeJobs: number
+    }
+  | {
+      type: 'progress'
+      jobId: string
+      progress: JudgeAgentProgress
     }
   | {
       type: 'result'

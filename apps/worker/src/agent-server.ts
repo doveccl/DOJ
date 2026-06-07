@@ -4,6 +4,7 @@ import { db, schema } from '@doj/db/client'
 import type {
   AgentToWorkerMessage,
   JudgeAgentPayload,
+  JudgeAgentProgress,
   JudgeAgentResult,
   WorkerToAgentMessage
 } from '@doj/shared/agent'
@@ -30,6 +31,7 @@ interface PendingJob {
   resolve: (result: JudgeAgentResult) => void
   reject: (error: Error) => void
   timeout: Timer
+  onProgress?: (progress: JudgeAgentProgress) => void | Promise<void>
 }
 
 export interface JudgeAgentServerOptions {
@@ -150,7 +152,11 @@ export class JudgeAgentServer {
     }))
   }
 
-  runJob(agent: ConnectedJudgeAgent, payload: JudgeAgentPayload) {
+  runJob(
+    agent: ConnectedJudgeAgent,
+    payload: JudgeAgentPayload,
+    options: { onProgress?: (progress: JudgeAgentProgress) => void | Promise<void> } = {}
+  ) {
     const jobId = crypto.randomUUID()
     const message: WorkerToAgentMessage = {
       type: 'run',
@@ -160,6 +166,7 @@ export class JudgeAgentServer {
 
     const promise = new Promise<JudgeAgentResult>((resolve, reject) => {
       const timeout = setTimeout(() => {
+        this.sendCancel(agent, jobId, 'worker job timeout')
         this.pendingJobs.delete(jobId)
         reject(new Error(`judge agent ${agent.key} timed out on job ${jobId}`))
       }, this.options.jobTimeoutMs)
@@ -168,7 +175,8 @@ export class JudgeAgentServer {
         agentKey: agent.key,
         resolve,
         reject,
-        timeout
+        timeout,
+        onProgress: options.onProgress
       })
 
       try {
@@ -249,7 +257,14 @@ export class JudgeAgentServer {
     const pending = this.pendingJobs.get(message.jobId)
     if (!pending) return
     if (pending.agentKey !== agent.key) {
+      this.pendingJobs.delete(message.jobId)
+      clearTimeout(pending.timeout)
       pending.reject(new Error(`job ${message.jobId} was answered by the wrong agent`))
+      return
+    }
+
+    if (message.type === 'progress') {
+      await pending.onProgress?.(message.progress)
       return
     }
 
@@ -279,6 +294,16 @@ export class JudgeAgentServer {
       this.pendingJobs.delete(jobId)
       clearTimeout(job.timeout)
       job.reject(new Error(`${agentKey}: ${reason}`))
+    }
+  }
+
+  private sendCancel(agent: ConnectedJudgeAgent, jobId: string, reason: string) {
+    const message: WorkerToAgentMessage = { type: 'cancel', jobId, reason }
+    try {
+      agent.socket.send(JSON.stringify(message))
+    } catch {
+      // The timeout path already rejects the job; a failed cancel just means the
+      // agent is gone and unregister/reconnect cleanup will handle the slot.
     }
   }
 }

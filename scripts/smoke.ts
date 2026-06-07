@@ -12,6 +12,7 @@ const smokeTargets = {
   discussion: 'scripts/discussion-smoke.ts',
   rank: 'scripts/rank-smoke.ts',
   queue: 'scripts/queue-smoke.ts',
+  progress: 'scripts/judge-progress-smoke.ts',
   runner: 'packages/runner/src/package-smoke.ts',
   e2e: 'scripts/e2e-smoke.ts',
   'submission-security': 'scripts/submission-security-smoke.ts',

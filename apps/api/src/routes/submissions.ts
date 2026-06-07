@@ -49,6 +49,7 @@ export function registerSubmissionRoutes(app: Hono) {
           memoryBytes: schema.submissions.memoryBytes,
           score: schema.submissions.score,
           message: schema.submissions.message,
+          judgeProgress: schema.submissions.judgeProgress,
           contestId: schema.submissions.contestId,
           assignmentId: schema.submissions.assignmentId,
           createdAt: schema.submissions.createdAt,
@@ -65,7 +66,8 @@ export function registerSubmissionRoutes(app: Hono) {
     const list = rows.map((row) => ({
       ...row,
       // The judge message can contain compiler output; only the owner/admin may read it.
-      message: isAdmin || row.userId === authUser?.id ? row.message : ''
+      message: isAdmin || row.userId === authUser?.id ? row.message : '',
+      judgeProgress: isAdmin || row.userId === authUser?.id ? row.judgeProgress : null
     }))
 
     return c.json({ total, page: query.page, pageSize: query.pageSize, list })
@@ -189,6 +191,7 @@ export function registerSubmissionRoutes(app: Hono) {
         memoryBytes: schema.submissions.memoryBytes,
         score: schema.submissions.score,
         message: schema.submissions.message,
+        judgeProgress: schema.submissions.judgeProgress,
         contestId: schema.submissions.contestId,
         assignmentId: schema.submissions.assignmentId,
         createdAt: schema.submissions.createdAt,
@@ -225,6 +228,7 @@ export function registerSubmissionRoutes(app: Hono) {
       ...payload,
       sourceCode: canInspectSource ? submission.sourceCode : '',
       message: canInspect ? submission.message : '',
+      judgeProgress: canInspect ? submission.judgeProgress : null,
       cases,
       restricted: !canInspect,
       sourceRestricted: !canInspectSource

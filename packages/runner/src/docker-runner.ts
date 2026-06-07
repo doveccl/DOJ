@@ -95,6 +95,7 @@ export class DockerRunner implements Runner {
   // stream's error event (not a log regex), and untrusted packages get CPU/mem
   // build caps. Used for the A (problem) / B (submission) container model.
   async buildPackage(input: PackageBuildInput): Promise<BuildResult> {
+    throwIfCancelled(input.signal)
     const tag = `doj-scope-${input.scopeId.toLowerCase()}:latest`
     const context = createFilesBuildContext(input.files)
     const buildOptions: Docker.ImageBuildOptions = {
@@ -117,9 +118,15 @@ export class DockerRunner implements Runner {
     let buildError: string | null = null
 
     await new Promise<void>((resolve, reject) => {
+      const abort = () => {
+        ;(stream as unknown as { destroy?: (error?: Error) => void }).destroy?.(cancelledError())
+        reject(cancelledError())
+      }
+      input.signal?.addEventListener('abort', abort, { once: true })
       this.docker.modem.followProgress(
         stream,
         (error: Error | null, output: Array<Record<string, unknown>>) => {
+          input.signal?.removeEventListener('abort', abort)
           if (error) {
             reject(error)
             return
@@ -137,6 +144,7 @@ export class DockerRunner implements Runner {
         }
       )
     })
+    throwIfCancelled(input.signal)
 
     return {
       ok: buildError === null,
@@ -146,6 +154,7 @@ export class DockerRunner implements Runner {
   }
 
   async run(input: RunInput): Promise<RunResult> {
+    throwIfCancelled(input.signal)
     const outputLimit = input.limits.outputBytes || defaultOutputLimitBytes
     const startedAt = Date.now()
     const stdout = new CappedBuffer(outputLimit)
@@ -196,6 +205,9 @@ export class DockerRunner implements Runner {
       }
     })
 
+    const abort = () => container.kill().catch(() => {})
+    input.signal?.addEventListener('abort', abort, { once: true })
+
     try {
       const attach = await container.attach({
         stream: true,
@@ -243,6 +255,7 @@ export class DockerRunner implements Runner {
       clearTimeout(timeout)
       stats.stop()
       await stats.done
+      throwIfCancelled(input.signal)
 
       const inspect = await container.inspect()
       const exitCode = waitResult.StatusCode ?? inspect.State.ExitCode
@@ -277,6 +290,7 @@ export class DockerRunner implements Runner {
         stderr: stderr.text()
       }
     } finally {
+      input.signal?.removeEventListener('abort', abort)
       await container.remove({ force: true }).catch(() => {})
     }
   }
@@ -291,6 +305,7 @@ export class DockerRunner implements Runner {
   // exit code (testlib enum 0=AC..8=SE). B (untrusted) is CPU/memory limited;
   // B OOM -> MLE, B nonzero exit -> RE. A.stderr is the message.
   async duel(input: DuelInput): Promise<DuelResult> {
+    throwIfCancelled(input.signal)
     const startedAt = Date.now()
     let peakMemoryBytes = 0
     let cpuTimeNs = 0
@@ -349,6 +364,12 @@ export class DockerRunner implements Runner {
       }
     })
 
+    const abort = () => {
+      tester.kill().catch(() => {})
+      judge.kill().catch(() => {})
+    }
+    input.signal?.addEventListener('abort', abort, { once: true })
+
     try {
       await judge.start()
       await tester.start()
@@ -381,6 +402,7 @@ export class DockerRunner implements Runner {
       clearTimeout(timeout)
       stats.stop()
       await stats.done
+      throwIfCancelled(input.signal)
 
       const testerInspect = await tester.inspect()
       const testerExit = testerWait.StatusCode ?? testerInspect.State.ExitCode
@@ -423,6 +445,7 @@ export class DockerRunner implements Runner {
 
       return { status, timeMs, memoryBytes: peakMemoryBytes, score, message: detail }
     } finally {
+      input.signal?.removeEventListener('abort', abort)
       await judge.remove({ force: true }).catch(() => {})
       await tester.remove({ force: true }).catch(() => {})
       await this.docker
@@ -575,6 +598,14 @@ function createFilesBuildContext(files: Record<string, string | Uint8Array>) {
   }
   pack.finalize()
   return pack
+}
+
+function cancelledError() {
+  return new Error('judge job cancelled')
+}
+
+function throwIfCancelled(signal: AbortSignal | undefined) {
+  if (signal?.aborted) throw cancelledError()
 }
 
 const statusByExitCode: JudgeStatus[] = ['AC', 'WA', 'PE', 'TLE', 'MLE', 'OLE', 'CE', 'RE', 'SE']

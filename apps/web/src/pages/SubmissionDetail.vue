@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { NButton, NCard, NDataTable, NDescriptions, NDescriptionsItem, NSpin, NTag } from 'naive-ui'
+import {
+  NButton,
+  NCard,
+  NDataTable,
+  NDescriptions,
+  NDescriptionsItem,
+  NProgress,
+  NSpin,
+  NTag
+} from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { computed, h, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
@@ -19,7 +28,16 @@ interface Submission {
   contestId: number | null
   restricted: boolean
   sourceRestricted: boolean
+  judgeProgress: JudgeProgress | null
   cases: SubmissionCase[]
+}
+
+interface JudgeProgress {
+  phase: string
+  message: string
+  completedCases: number
+  totalCases: number
+  currentCase?: number
 }
 
 interface SubmissionCase {
@@ -64,6 +82,11 @@ const canCoach = computed(() => {
   if (submission.value?.contestId || submission.value?.restricted) return false
   const status = submission.value?.status
   return !!status && !['AC', 'WAITING', 'JUDGING', 'FROZEN'].includes(status)
+})
+const progressPercent = computed(() => {
+  const progress = submission.value?.judgeProgress
+  if (!progress?.totalCases) return 0
+  return Math.min(99, Math.round((progress.completedCases / progress.totalCases) * 100))
 })
 const sourceMarkdown = computed(() => {
   if (!submission.value?.sourceCode) return ''
@@ -161,7 +184,9 @@ async function getCoaching() {
           <n-card :bordered="false">
             <n-descriptions label-placement="left" bordered :column="2">
               <n-descriptions-item :label="t('common.status')">
-                <n-tag :bordered="false">{{ submission.status }}</n-tag>
+                <n-tag :bordered="false" :type="statusType[submission.status] ?? 'default'">
+                  {{ submission.status }}
+                </n-tag>
               </n-descriptions-item>
               <n-descriptions-item :label="t('submissions.score')">
                 {{ submission.score }}
@@ -176,6 +201,29 @@ async function getCoaching() {
                 {{ submission.contestId ? t('submissions.yes') : t('submissions.no') }}
               </n-descriptions-item>
             </n-descriptions>
+          </n-card>
+          <n-card
+            v-if="submission.judgeProgress"
+            :title="t('submissions.progress')"
+            :bordered="false"
+            class="stacked-card"
+          >
+            <div class="progress-stack">
+              <n-progress
+                type="line"
+                :percentage="progressPercent"
+                :indicator-placement="'inside'"
+                processing
+              />
+              <p class="muted">
+                {{ submission.judgeProgress.message }}
+                <span v-if="submission.judgeProgress.totalCases">
+                  · {{ submission.judgeProgress.completedCases }}/{{
+                    submission.judgeProgress.totalCases
+                  }}
+                </span>
+              </p>
+            </div>
           </n-card>
           <n-card
             v-if="submission.sourceCode"
@@ -229,3 +277,10 @@ async function getCoaching() {
     </n-spin>
   </main>
 </template>
+
+<style scoped lang="scss">
+.progress-stack {
+  display: grid;
+  gap: 10px;
+}
+</style>

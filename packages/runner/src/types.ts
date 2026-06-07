@@ -21,6 +21,7 @@ export interface RunInput {
   env?: Record<string, string>
   stdin?: Uint8Array
   limits: JudgeLimit
+  signal?: AbortSignal
 }
 
 export interface RunResult extends Omit<CaseResult, 'caseIndex'> {
@@ -42,6 +43,7 @@ export interface PackageBuildInput {
   // Trusted (problem-author) images skip CPU/memory caps; untrusted (submission)
   // images get the configured limits applied at build time.
   trusted: boolean
+  signal?: AbortSignal
 }
 
 export interface DuelInput {
@@ -52,6 +54,7 @@ export interface DuelInput {
   limits: JudgeLimit
   // Extra env for A only (e.g. `case`, `code`).
   judgeEnv?: Record<string, string>
+  signal?: AbortSignal
 }
 
 export interface DuelResult {

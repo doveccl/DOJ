@@ -203,6 +203,7 @@ CREATE TABLE "submissions" (
 	"memory_bytes" bigint DEFAULT 0 NOT NULL,
 	"score" integer DEFAULT 0 NOT NULL,
 	"message" text DEFAULT '' NOT NULL,
+	"judge_progress" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );

@@ -1,6 +1,7 @@
 import type {
   AgentToWorkerMessage,
   JudgeAgentPayload,
+  JudgeAgentProgress,
   WorkerToAgentMessage
 } from '@doj/shared/agent'
 import { getObjectBytes } from '@doj/shared/storage'
@@ -19,6 +20,7 @@ const labels = (process.env.DOJ_AGENT_LABELS ?? 'local')
 const workerUrl = process.env.DOJ_WORKER_WS_URL ?? 'ws://localhost:7975/agents/connect'
 const runner = new DockerRunner()
 const activeJobs = new Set<string>()
+const jobControllers = new Map<string, AbortController>()
 
 for (;;) {
   await connectOnce()
@@ -55,6 +57,10 @@ async function connectOnce() {
         send(socket, { type: 'pong', activeJobs: activeJobs.size })
         return
       }
+      if (message.type === 'cancel') {
+        jobControllers.get(message.jobId)?.abort(message.reason)
+        return
+      }
       void runJob(socket, message)
     })
 
@@ -71,8 +77,16 @@ async function connectOnce() {
 
 async function runJob(socket: WebSocket, message: Extract<WorkerToAgentMessage, { type: 'run' }>) {
   activeJobs.add(message.jobId)
+  const controller = new AbortController()
+  jobControllers.set(message.jobId, controller)
   try {
-    const result = await runPackage(message.payload)
+    const result = await runPackage(message.payload, controller.signal, (progress) =>
+      send(socket, {
+        type: 'progress',
+        jobId: message.jobId,
+        progress
+      })
+    )
     send(socket, {
       type: 'result',
       jobId: message.jobId,
@@ -86,10 +100,16 @@ async function runJob(socket: WebSocket, message: Extract<WorkerToAgentMessage, 
     })
   } finally {
     activeJobs.delete(message.jobId)
+    jobControllers.delete(message.jobId)
   }
 }
 
-async function runPackage(payload: JudgeAgentPayload) {
+async function runPackage(
+  payload: JudgeAgentPayload,
+  signal: AbortSignal,
+  onProgress: (progress: JudgeAgentProgress) => void
+) {
+  throwIfCancelled(signal)
   // Fetch the problem package files from S3.
   const fetched = await Promise.all(
     payload.problemFiles.map(async (file) => ({
@@ -97,6 +117,7 @@ async function runPackage(payload: JudgeAgentPayload) {
       bytes: await getObjectBytes(file.objectKey, file.bucket)
     }))
   )
+  throwIfCancelled(signal)
 
   const hasDockerfile = fetched.some((file) => file.path === 'Dockerfile')
 
@@ -111,7 +132,9 @@ async function runPackage(payload: JudgeAgentPayload) {
       testCases: payload.inlineTestCases,
       caseCount: payload.caseCount || payload.inlineTestCases.length || 1,
       limits: payload.limits,
-      code: payload.code
+      code: payload.code,
+      signal,
+      onProgress
     })
   }
 
@@ -128,7 +151,9 @@ async function runPackage(payload: JudgeAgentPayload) {
     problemFiles: null,
     testCases,
     limits: payload.limits,
-    code: payload.code
+    code: payload.code,
+    signal,
+    onProgress
   })
 }
 
@@ -157,4 +182,8 @@ function redactToken(url: string) {
   const parsed = new URL(url)
   if (parsed.searchParams.has('token')) parsed.searchParams.set('token', '***')
   return parsed.toString()
+}
+
+function throwIfCancelled(signal: AbortSignal) {
+  if (signal.aborted) throw new Error('judge job cancelled')
 }
