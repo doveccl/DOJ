@@ -42,6 +42,13 @@ const error = ref('')
 const showCreateModal = ref(false)
 const contests = ref<ContestRow[]>([])
 const problemOptions = ref<SelectOption[]>([])
+const pagination = reactive({
+  page: 1,
+  pageSize: 50,
+  itemCount: 0,
+  showSizePicker: true,
+  pageSizes: [20, 50, 100]
+})
 const form = reactive({
   title: '',
   description: '',
@@ -89,12 +96,15 @@ async function loadData() {
   loading.value = true
   error.value = ''
   try {
-    const [contestData, problemData] = await Promise.all([
-      apiFetch<{ list: ContestRow[] }>('/api/contests'),
-      apiFetch<{ list: ProblemRow[] }>('/api/problems')
+    const [contestData, problems] = await Promise.all([
+      apiFetch<{ list: ContestRow[]; total: number }>(
+        `/api/contests?page=${pagination.page}&pageSize=${pagination.pageSize}`
+      ),
+      loadAllProblems()
     ])
     contests.value = contestData.list
-    problemOptions.value = problemData.list.map((problem) => ({
+    pagination.itemCount = contestData.total
+    problemOptions.value = problems.map((problem) => ({
       label: `${problem.id}. ${problem.title}`,
       value: problem.id
     }))
@@ -103,6 +113,28 @@ async function loadData() {
   } finally {
     loading.value = false
   }
+}
+
+async function loadAllProblems() {
+  const result: ProblemRow[] = []
+  for (let page = 1; ; page += 1) {
+    const data = await apiFetch<{ list: ProblemRow[]; total: number; pageSize: number }>(
+      `/api/admin/problems?page=${page}&pageSize=100`
+    )
+    result.push(...data.list)
+    if (result.length >= data.total || data.list.length < data.pageSize) return result
+  }
+}
+
+function handlePageChange(page: number) {
+  pagination.page = page
+  void loadData()
+}
+
+function handlePageSizeChange(pageSize: number) {
+  pagination.pageSize = pageSize
+  pagination.page = 1
+  void loadData()
 }
 
 async function createContest() {
@@ -167,11 +199,15 @@ onMounted(() => {
         </n-button>
       </n-space>
       <n-data-table
+        remote
         :columns="columns"
         :data="contests"
         :bordered="false"
         :loading="loading"
+        :pagination="pagination"
         class="admin-table"
+        @update:page="handlePageChange"
+        @update:page-size="handlePageSizeChange"
       />
     </n-card>
 

@@ -9,6 +9,9 @@ export async function createSession(userId: number) {
   const stored = await redisSet(key, String(userId), config.sessionTtlSeconds)
 
   if (!stored) {
+    if (config.redisUrl) {
+      throw new Error('session backend unavailable')
+    }
     memorySessions.set(token, {
       userId,
       expiresAt: Date.now() + config.sessionTtlSeconds * 1000
@@ -25,6 +28,8 @@ export async function getSessionUserId(token: string) {
     const userId = Number(fromRedis)
     return Number.isInteger(userId) ? userId : null
   }
+
+  if (config.redisUrl) return null
 
   const session = memorySessions.get(token)
   if (!session) return null

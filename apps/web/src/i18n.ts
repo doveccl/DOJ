@@ -88,7 +88,13 @@ const zhCNMessages = {
   },
   problems: {
     title: '题库',
-    empty: '还没有题目'
+    empty: '还没有题目',
+    search: '搜索题目',
+    searchAction: '搜索',
+    clear: '清空',
+    tag: '标签',
+    status: '状态',
+    solved: '已通过'
   },
   submissions: {
     title: '提交记录',
@@ -422,7 +428,13 @@ const enMessages = {
   },
   problems: {
     title: 'Problems',
-    empty: 'No problems yet'
+    empty: 'No problems yet',
+    search: 'Search problems',
+    searchAction: 'Search',
+    clear: 'Clear',
+    tag: 'Tag',
+    status: 'Status',
+    solved: 'Solved'
   },
   submissions: {
     title: 'Submissions',
@@ -636,7 +648,8 @@ const enMessages = {
       packageSelectHint: 'Select a file to edit, or create / upload a file.',
       packageUpload: 'Upload files',
       packageUploadPrefix: 'Target directory prefix (e.g. data/, assets/)',
-      packageUploadHint: 'Upload data files, binaries or assets; text files can also be created inline.',
+      packageUploadHint:
+        'Upload data files, binaries or assets; text files can also be created inline.',
       packageSave: 'Save file',
       packageDelete: 'Delete',
       packageSaved: 'Saved {path}.',

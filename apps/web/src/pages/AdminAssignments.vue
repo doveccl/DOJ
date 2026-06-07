@@ -92,6 +92,13 @@ const form = reactive({
   allowLate: false,
   aiCoachingEnabled: true
 })
+const pagination = reactive({
+  page: 1,
+  pageSize: 50,
+  itemCount: 0,
+  showSizePicker: true,
+  pageSizes: [20, 50, 100]
+})
 
 const columns = computed<DataTableColumns<AssignmentRow>>(() => [
   { title: t('common.title'), key: 'title' },
@@ -156,17 +163,20 @@ async function loadData() {
   loading.value = true
   error.value = ''
   try {
-    const [assignmentData, groupData, problemData] = await Promise.all([
-      apiFetch<{ list: AssignmentRow[] }>('/api/assignments'),
+    const [assignmentData, groupData, problems] = await Promise.all([
+      apiFetch<{ list: AssignmentRow[]; total: number }>(
+        `/api/assignments?page=${pagination.page}&pageSize=${pagination.pageSize}`
+      ),
       apiFetch<{ list: GroupRow[] }>('/api/groups'),
-      apiFetch<{ list: ProblemRow[] }>('/api/problems')
+      loadAllProblems()
     ])
     assignments.value = assignmentData.list
+    pagination.itemCount = assignmentData.total
     groupOptions.value = groupData.list.map((group) => ({
       label: `${group.name} (${group.key})`,
       value: group.id
     }))
-    problemOptions.value = problemData.list.map((problem) => ({
+    problemOptions.value = problems.map((problem) => ({
       label: problem.title,
       value: problem.id
     }))
@@ -175,6 +185,28 @@ async function loadData() {
   } finally {
     loading.value = false
   }
+}
+
+async function loadAllProblems() {
+  const result: ProblemRow[] = []
+  for (let page = 1; ; page += 1) {
+    const data = await apiFetch<{ list: ProblemRow[]; total: number; pageSize: number }>(
+      `/api/admin/problems?page=${page}&pageSize=100`
+    )
+    result.push(...data.list)
+    if (result.length >= data.total || data.list.length < data.pageSize) return result
+  }
+}
+
+function handlePageChange(page: number) {
+  pagination.page = page
+  void loadData()
+}
+
+function handlePageSizeChange(pageSize: number) {
+  pagination.pageSize = pageSize
+  pagination.page = 1
+  void loadData()
 }
 
 async function createAssignment() {
@@ -251,11 +283,15 @@ onMounted(() => {
         </n-button>
       </n-space>
       <n-data-table
+        remote
         :columns="columns"
         :data="assignments"
         :bordered="false"
         :loading="loading"
+        :pagination="pagination"
         class="admin-table"
+        @update:page="handlePageChange"
+        @update:page-size="handlePageSizeChange"
       />
     </n-card>
 

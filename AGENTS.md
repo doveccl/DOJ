@@ -69,7 +69,7 @@ These were found during a whole-system review. The current iteration focuses on 
 - [DONE] Submission detail/list endpoints IDOR. Detail (`apps/api/src/routes/submissions.ts`) gates `message`/`cases` to owner/admin for contests, `sourceCode` to owner/admin or open, hidden-problem submissions 404 for non-owners, and assignment submissions 404 unless owner/admin. Public submission list hides judge messages from non-owner/non-admin and excludes assignment submissions unless owner/admin. Covered by `submission-security` smoke.
 - [DONE] Added an IP-wide login rate limit in addition to the existing IP+username bucket (`routes/auth.ts`), so credential-stuffing across usernames from one IP is throttled. Covered by `rate-limit` smoke.
 - [DONE] Package upload now checks `Content-Length` before parsing multipart form data and still validates summed uploaded file sizes after parse (`routes/problems.ts`). Covered by `testdata` smoke.
-- [MED] Rate-limit/session degrade to per-process in-memory `Map` when Redis is briefly down (`session.ts:11-16`, `rate-limit.ts:34-55`, `redis.ts`), bypassable across instances in multi-instance deploys.
+- [DONE] Rate-limit/session no longer degrade to per-process memory when Redis is configured. Rate limits fail closed with 503 if Redis is unavailable, and session creation fails instead of minting process-local tokens; memory fallback is only for explicitly Redis-less single-process mode.
 - [PARTIAL] Low-risk auth/API hardening: 500 responses now return a generic message, register unique races map to 409, missing-user login attempts run a dummy Argon2 verify to reduce timing enumeration, contest detail hides problem list before `startAt` for non-admin viewers, and rate-limit `incr`+`expire` is atomic via Redis Lua. REMAINING: register still intentionally returns 409 for duplicate name/email.
 
 ### Performance
@@ -77,7 +77,7 @@ These were found during a whole-system review. The current iteration focuses on 
 - [DONE] Admin problem list N+1 eliminated by the versionless problem model; admin list reads `problems` directly and package files are loaded only for detail/package editor requests (`routes/problems.ts`, `AdminProblems.vue`).
 - [PARTIAL] Scoreboard/assignment report fetch ALL submissions into memory. Public contest scoreboard now has a 5s Redis cache (`getContestScoreboard` in `services/contests.ts`, key `scoreboard:<id>`, admin reveal bypasses it) to collapse live-contest refresh bursts. Assignment report left as a direct admin-only computation (low concurrency). STILL TODO if scale demands: DB-side aggregation instead of loading all rows.
 - [DONE] Added btree sort index `submissions(created_at)` (plus problems/contests/assignments/users/discussion_topics) so dashboard/list `ORDER BY created_at` no longer full-sorts.
-- [DONE] Real pagination (count + offset) now on problems/admin-problems/contests/assignments/admin-users/discussion via shared `listQuerySchema`+`pageOffset` (`apps/api/src/validation.ts`). Frontend tables use Naive remote pagination. STILL TODO: admin-groups list (small, capped) and the admin contest/assignment management tables only read page 1 in the UI.
+- [DONE] Real pagination (count + offset) now on problems/admin-problems/contests/assignments/admin-users/discussion via shared `listQuerySchema`+`pageOffset` (`apps/api/src/validation.ts`). Frontend tables use Naive remote pagination; admin contest/assignment management pages now remote-page their own table and load all problem options from the admin problem API.
 - [DONE] Dashboard recent* queries and submission list count+data now run in `Promise.all` (`routes/public.ts`, `routes/submissions.ts`); stat counts were already parallel.
 - [DONE] Missing sort indexes added: `contests.start_at`, `assignments.created_at`, `problems.created_at`, `users.created_at`, `discussion_topics.updated_at`.
 - [DONE] `countVisibleSubmissions` no longer counts over `submissions ⋈ problems`; dashboard stats sum `problems.submissionCount` for visible problems (`services/stats.ts`).
@@ -104,5 +104,5 @@ These were found during a whole-system review. The current iteration focuses on 
 
 - Dashboard exposes user-count / assignment-count stats to anonymous visitors; these should be role-gated (server-side).
 - Stat numbers rendered in default blue, clashing with teal theme (fixed once moved to NStatistic + theme).
-- Problem list is bare: no search/tag-filter/pagination, no per-user solved status. Admin sees no in-place manage actions on public pages.
+- [DONE] Problem list now has search, tag filter, remote pagination, per-user solved status, and an admin manage shortcut; backed by `/api/problems` query filters and solved-state trimming server-side.
 - [Deferred] Registration hardening: add CAPTCHA and/or email verification (needs SMTP or third-party). Recorded for a later iteration; not done.

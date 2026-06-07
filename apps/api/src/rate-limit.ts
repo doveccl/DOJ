@@ -1,4 +1,5 @@
 import type { Context } from 'hono'
+import { config } from './config'
 import { redisIncrWithTtl } from './redis'
 
 const memoryBuckets = new Map<string, number[]>()
@@ -29,6 +30,16 @@ export async function checkRateLimit(
       )
     }
     return null
+  }
+
+  if (config.redisUrl) {
+    return c.json(
+      {
+        code: 'RATE_LIMIT_UNAVAILABLE',
+        message: 'Rate limit backend is unavailable. Please try again later.'
+      },
+      503
+    )
   }
 
   return checkMemoryRateLimit(c, bucketKey, limit, windowMs)

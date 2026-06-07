@@ -1,5 +1,5 @@
 import { Hono, type Context } from 'hono'
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, eq, ilike, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { putObject, getObjectBytes, storageConfig } from '@doj/shared/storage'
@@ -16,17 +16,37 @@ export function registerProblemRoutes(app: Hono) {
     const denied = await denyGuestProblemset(c)
     if (denied) return denied
 
-    const { page, pageSize } = listQuerySchema.parse(c.req.query())
-    const visible = eq(schema.problems.visible, true)
-    const total = await countRows(schema.problems, visible)
+    const authUser = await getOptionalAuthUser(c)
+    const { page, pageSize, search, tag } = problemListQuerySchema.parse(c.req.query())
+    const where = and(
+      eq(schema.problems.visible, true),
+      search ? ilike(schema.problems.title, `%${search}%`) : undefined,
+      tag ? sql`${tag} = any(${schema.problems.tags})` : undefined
+    )
+    const total = await countRows(schema.problems, where)
     const list = await db
-      .select()
+      .select({
+        id: schema.problems.id,
+        title: schema.problems.title,
+        tags: schema.problems.tags,
+        solvedCount: schema.problems.solvedCount,
+        submissionCount: schema.problems.submissionCount,
+        createdAt: schema.problems.createdAt,
+        solved: authUser
+          ? sql<boolean>`exists (
+              select 1 from ${schema.solvedProblems}
+              where ${schema.solvedProblems.userId} = ${authUser.id}
+                and ${schema.solvedProblems.problemId} = ${schema.problems.id}
+            )`
+          : sql<boolean>`false`
+      })
       .from(schema.problems)
-      .where(visible)
+      .where(where)
       .orderBy(asc(schema.problems.id))
       .limit(pageSize)
       .offset(pageOffset(page, pageSize))
-    return c.json({ total, page, pageSize, list })
+    const tags = await listVisibleTags()
+    return c.json({ total, page, pageSize, list, tags })
   })
 
   app.get('/api/admin/problems', authMiddleware, async (c) => {
@@ -377,3 +397,16 @@ const packageFileSchema = z.object({
   path: z.string().min(1).max(255),
   content: z.string().max(2 * 1024 * 1024)
 })
+
+const problemListQuerySchema = listQuerySchema.extend({
+  search: z.string().trim().max(120).optional().default(''),
+  tag: z.string().trim().max(80).optional().default('')
+})
+
+async function listVisibleTags() {
+  const rows = await db
+    .select({ tag: sql<string>`unnest(${schema.problems.tags})` })
+    .from(schema.problems)
+    .where(eq(schema.problems.visible, true))
+  return [...new Set(rows.map((row) => row.tag).filter(Boolean))].sort((a, b) => a.localeCompare(b))
+}
