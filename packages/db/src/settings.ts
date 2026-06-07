@@ -46,6 +46,10 @@ export async function ensureRuntimeSettings() {
 function normalizeRuntimeSettings(input: Record<string, unknown>): RuntimeSettings {
   return {
     registrationEnabled: readBoolean(input.registrationEnabled, true),
+    registrationInviteCode: readString(
+      input.registrationInviteCode,
+      runtimeSettingsDefaults.registrationInviteCode
+    ),
     aiCoachingEnabled: readBoolean(input.aiCoachingEnabled, true),
     guestProblemsetVisible: readBoolean(input.guestProblemsetVisible, true),
     sourceOpenDefault: readBoolean(input.sourceOpenDefault, false),

@@ -9,6 +9,50 @@ const original = await apiFetch<Record<string, unknown>>('/api/admin/settings', 
 })
 
 try {
+  if (!original.registrationInviteRequired) {
+    const inviteCode = `invite_${runId.slice(0, 8)}`
+    const inviteSettings = await apiFetch<Record<string, unknown>>('/api/admin/settings', {
+      token: admin.token,
+      method: 'PATCH',
+      body: { registrationInviteCode: inviteCode }
+    })
+    if (inviteSettings.registrationInviteRequired !== true) {
+      throw new Error('registration invite setting did not update')
+    }
+
+    const inviteConfig = await apiFetch<Record<string, unknown>>('/api/config')
+    if (inviteConfig.registrationInviteRequired !== true) {
+      throw new Error(`public invite config mismatch: ${JSON.stringify(inviteConfig)}`)
+    }
+
+    const blockedInviteResponse = await fetch(`${apiBase}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: `invite_blocked_${runId.slice(0, 8)}`,
+        email: `invite_blocked_${runId}@example.test`,
+        password: 'password123'
+      })
+    })
+    if (blockedInviteResponse.status !== 403) {
+      throw new Error(`expected invite 403, got ${blockedInviteResponse.status}`)
+    }
+
+    const invitedResponse = await fetch(`${apiBase}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: `invite_ok_${runId.slice(0, 8)}`,
+        email: `invite_ok_${runId}@example.test`,
+        password: 'password123',
+        inviteCode
+      })
+    })
+    if (invitedResponse.status !== 201) {
+      throw new Error(`expected invite register 201, got ${invitedResponse.status}`)
+    }
+  }
+
   const updated = await apiFetch<Record<string, unknown>>('/api/admin/settings', {
     token: admin.token,
     method: 'PATCH',
@@ -48,6 +92,7 @@ try {
 
   console.log({
     registration: config.registration,
+    registrationInviteRequired: config.registrationInviteRequired,
     guestProblemsetVisible: config.guestProblemsetVisible,
     registerStatus: registerResponse.status,
     problemsetStatus: problemsetResponse.status
@@ -56,7 +101,10 @@ try {
   await apiFetch('/api/admin/settings', {
     token: admin.token,
     method: 'PATCH',
-    body: original
+    body: {
+      ...original,
+      ...(original.registrationInviteRequired ? {} : { registrationInviteCode: '' })
+    }
   })
 }
 

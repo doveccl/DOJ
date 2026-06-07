@@ -1,5 +1,6 @@
 export interface RuntimeSettings {
   registrationEnabled: boolean
+  registrationInviteCode: string
   aiCoachingEnabled: boolean
   guestProblemsetVisible: boolean
   sourceOpenDefault: boolean
@@ -12,6 +13,7 @@ export interface RuntimeSettings {
 
 export const runtimeSettingsDefaults: RuntimeSettings = {
   registrationEnabled: true,
+  registrationInviteCode: '',
   aiCoachingEnabled: true,
   guestProblemsetVisible: true,
   sourceOpenDefault: false,
@@ -23,4 +25,4 @@ export const runtimeSettingsDefaults: RuntimeSettings = {
 }
 
 // Keys that must never be sent to non-admin clients or shown in plain text.
-export const secretSettingKeys: (keyof RuntimeSettings)[] = ['aiApiKey']
+export const secretSettingKeys: (keyof RuntimeSettings)[] = ['aiApiKey', 'registrationInviteCode']

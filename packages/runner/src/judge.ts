@@ -20,6 +20,9 @@ export interface PackageJudgeInput {
   limits: JudgeLimit
   // Submission source, exposed to A as the `code` env (e.g. Quine checkers).
   code?: string
+  // Disabled by default because B contains untrusted user source. Agents may
+  // opt in when their Docker image retention policy allows it.
+  cacheSubmissionPackage?: boolean
   signal?: AbortSignal
   onProgress?: (progress: JudgeAgentProgress) => void | Promise<void>
 }
@@ -48,6 +51,7 @@ export async function judgePackage(
     files: input.testerFiles,
     limits: { timeMs: input.limits.timeMs, memoryBytes: input.limits.memoryBytes },
     trusted: false,
+    cacheKey: input.cacheSubmissionPackage ? packageCacheKey(input.testerFiles) : undefined,
     signal: input.signal
   })
   throwIfCancelled(input.signal)

@@ -3,6 +3,7 @@ import { ensureRuntimeSettings, getRuntimeSettings, updateRuntimeSettings } from
 
 export const runtimeSettingsSchema = z.object({
   registrationEnabled: z.boolean().default(true),
+  registrationInviteCode: z.string().max(128).default(''),
   aiCoachingEnabled: z.boolean().default(true),
   guestProblemsetVisible: z.boolean().default(true),
   sourceOpenDefault: z.boolean().default(false),

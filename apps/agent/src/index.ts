@@ -19,6 +19,7 @@ const labels = (process.env.DOJ_AGENT_LABELS ?? 'local')
   .filter(Boolean)
 const workerUrl = process.env.DOJ_WORKER_WS_URL ?? 'ws://localhost:7975/agents/connect'
 const runner = new DockerRunner()
+const cacheSubmissionPackage = readBooleanEnv(process.env.DOJ_AGENT_SUBMISSION_IMAGE_CACHE)
 const packageFileCache = new PackageFileCache({
   maxBytes: Number(process.env.DOJ_AGENT_PACKAGE_CACHE_BYTES ?? 512 * 1024 * 1024)
 })
@@ -137,6 +138,7 @@ async function runPackage(
       caseCount: payload.caseCount || payload.inlineTestCases.length || 1,
       limits: payload.limits,
       code: payload.code,
+      cacheSubmissionPackage,
       signal,
       onProgress
     })
@@ -156,6 +158,7 @@ async function runPackage(
     testCases,
     limits: payload.limits,
     code: payload.code,
+    cacheSubmissionPackage,
     signal,
     onProgress
   })
@@ -190,4 +193,8 @@ function redactToken(url: string) {
 
 function throwIfCancelled(signal: AbortSignal) {
   if (signal.aborted) throw new Error('judge job cancelled')
+}
+
+function readBooleanEnv(value: string | undefined) {
+  return value === '1' || value?.toLowerCase() === 'true' || value?.toLowerCase() === 'yes'
 }

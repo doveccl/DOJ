@@ -2,8 +2,8 @@
 import { NTabPane, NTabs } from 'naive-ui'
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import AdminGroups from './AdminGroups.vue'
-import AdminUsers from './AdminUsers.vue'
+import AdminGroups from './Groups.vue'
+import AdminUsers from './Users.vue'
 
 const { t } = useI18n()
 const tab = ref<'users' | 'groups'>('users')

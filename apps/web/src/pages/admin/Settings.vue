@@ -17,11 +17,12 @@ import {
 } from 'naive-ui'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { apiFetch } from '../api'
-import { useAuthStore } from '../stores/auth'
+import { apiFetch } from '../../api'
+import { useAuthStore } from '../../stores/auth'
 
 interface RuntimeSettings {
   registrationEnabled: boolean
+  registrationInviteRequired: boolean
   aiCoachingEnabled: boolean
   guestProblemsetVisible: boolean
   sourceOpenDefault: boolean
@@ -40,8 +41,11 @@ const saved = ref(false)
 const error = ref('')
 const canManage = computed(() => auth.user?.groups.includes('admin') ?? false)
 const apiKeySet = ref(false)
+const inviteCodeSet = ref(false)
 const form = reactive({
   registrationEnabled: true,
+  registrationInviteRequired: false,
+  registrationInviteCode: '',
   aiCoachingEnabled: true,
   guestProblemsetVisible: true,
   sourceOpenDefault: false,
@@ -68,6 +72,8 @@ async function loadSettings() {
   try {
     const settings = await apiFetch<RuntimeSettings>('/api/admin/settings')
     form.registrationEnabled = settings.registrationEnabled
+    form.registrationInviteRequired = settings.registrationInviteRequired
+    form.registrationInviteCode = ''
     form.aiCoachingEnabled = settings.aiCoachingEnabled
     form.guestProblemsetVisible = settings.guestProblemsetVisible
     form.sourceOpenDefault = settings.sourceOpenDefault
@@ -77,6 +83,7 @@ async function loadSettings() {
     form.aiModel = settings.aiModel
     form.aiApiKey = ''
     apiKeySet.value = settings.aiApiKeySet
+    inviteCodeSet.value = settings.registrationInviteRequired
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
@@ -89,22 +96,34 @@ async function saveSettings() {
   saved.value = false
   error.value = ''
   try {
+    if (form.registrationInviteRequired && !inviteCodeSet.value && !form.registrationInviteCode) {
+      throw new Error(t('admin.settings.registrationInviteCodeRequired'))
+    }
+    const body: Record<string, unknown> = {
+      registrationEnabled: form.registrationEnabled,
+      aiCoachingEnabled: form.aiCoachingEnabled,
+      guestProblemsetVisible: form.guestProblemsetVisible,
+      sourceOpenDefault: form.sourceOpenDefault,
+      outputLimitBytes: form.outputLimitMb * 1024 * 1024,
+      aiProvider: form.aiProvider,
+      aiBaseUrl: form.aiBaseUrl,
+      aiModel: form.aiModel,
+      aiApiKey: form.aiApiKey
+    }
+    if (form.registrationInviteRequired) {
+      if (form.registrationInviteCode) body.registrationInviteCode = form.registrationInviteCode
+    } else {
+      body.registrationInviteCode = ''
+    }
     const settings = await apiFetch<RuntimeSettings>('/api/admin/settings', {
       method: 'PATCH',
-      body: JSON.stringify({
-        registrationEnabled: form.registrationEnabled,
-        aiCoachingEnabled: form.aiCoachingEnabled,
-        guestProblemsetVisible: form.guestProblemsetVisible,
-        sourceOpenDefault: form.sourceOpenDefault,
-        outputLimitBytes: form.outputLimitMb * 1024 * 1024,
-        aiProvider: form.aiProvider,
-        aiBaseUrl: form.aiBaseUrl,
-        aiModel: form.aiModel,
-        aiApiKey: form.aiApiKey
-      })
+      body: JSON.stringify(body)
     })
     form.aiApiKey = ''
+    form.registrationInviteCode = ''
     apiKeySet.value = settings.aiApiKeySet
+    inviteCodeSet.value = settings.registrationInviteRequired
+    form.registrationInviteRequired = settings.registrationInviteRequired
     saved.value = true
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
@@ -131,6 +150,33 @@ async function saveSettings() {
             <n-form :model="form" label-placement="left" label-width="180">
               <n-form-item :label="t('admin.settings.registrationEnabled')">
                 <n-switch v-model:value="form.registrationEnabled" />
+              </n-form-item>
+              <n-form-item :label="t('admin.settings.registrationInviteRequired')">
+                <n-switch v-model:value="form.registrationInviteRequired" />
+              </n-form-item>
+              <n-form-item
+                v-if="form.registrationInviteRequired"
+                :label="t('admin.settings.registrationInviteCode')"
+              >
+                <n-space vertical class="full-width" :size="4">
+                  <n-input
+                    v-model:value="form.registrationInviteCode"
+                    type="password"
+                    show-password-on="click"
+                    :placeholder="t('admin.settings.registrationInviteCodePlaceholder')"
+                  />
+                  <n-tag
+                    size="small"
+                    :type="inviteCodeSet ? 'success' : 'default'"
+                    :bordered="false"
+                  >
+                    {{
+                      inviteCodeSet
+                        ? t('admin.settings.registrationInviteCodeSet')
+                        : t('admin.settings.registrationInviteCodeUnset')
+                    }}
+                  </n-tag>
+                </n-space>
               </n-form-item>
               <n-form-item :label="t('admin.settings.guestProblemsetVisible')">
                 <n-switch v-model:value="form.guestProblemsetVisible" />

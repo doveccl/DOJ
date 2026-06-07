@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto'
 import { Hono } from 'hono'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
@@ -27,6 +28,12 @@ export function registerAuthRoutes(app: Hono) {
     const body = registerSchema.parse(await c.req.json())
     const rateLimited = await checkRateLimit(c, 'register', clientIp(c), 200, 60 * 60 * 1000)
     if (rateLimited) return rateLimited
+    if (
+      settings.registrationInviteCode &&
+      !inviteCodeMatches(settings.registrationInviteCode, body.inviteCode)
+    ) {
+      return c.json({ code: 'INVALID_INVITE_CODE', message: 'Invalid invite code' }, 403)
+    }
 
     const existing = await findUserByNameOrEmail(body.name)
     if (existing || (await findUserByNameOrEmail(body.email))) {
@@ -122,9 +129,13 @@ export function registerAuthRoutes(app: Hono) {
     if (denied) return denied
 
     const settings = await getRuntimeSettings()
-    // Never return the raw secret; expose only whether it is configured.
-    const { aiApiKey, ...rest } = settings
-    return c.json({ ...rest, aiApiKeySet: aiApiKey.length > 0 })
+    // Never return raw secrets; expose only whether each secret is configured.
+    const { aiApiKey, registrationInviteCode, ...rest } = settings
+    return c.json({
+      ...rest,
+      aiApiKeySet: aiApiKey.length > 0,
+      registrationInviteRequired: registrationInviteCode.length > 0
+    })
   })
 
   app.patch('/api/admin/settings', authMiddleware, async (c) => {
@@ -134,16 +145,23 @@ export function registerAuthRoutes(app: Hono) {
     const body = updateSettingsSchema.parse(await c.req.json())
     // An empty/omitted aiApiKey means "keep existing"; only overwrite when provided.
     if (body.aiApiKey === undefined || body.aiApiKey === '') delete body.aiApiKey
+    // An omitted invite code means "keep existing"; an empty string explicitly disables it.
+    if (body.registrationInviteCode === undefined) delete body.registrationInviteCode
     const settings = await updateRuntimeSettings(body)
-    const { aiApiKey, ...rest } = settings
-    return c.json({ ...rest, aiApiKeySet: aiApiKey.length > 0 })
+    const { aiApiKey, registrationInviteCode, ...rest } = settings
+    return c.json({
+      ...rest,
+      aiApiKeySet: aiApiKey.length > 0,
+      registrationInviteRequired: registrationInviteCode.length > 0
+    })
   })
 }
 
 const registerSchema = z.object({
   name: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_]{2,31}$/),
   email: z.email(),
-  password: z.string().min(8).max(128)
+  password: z.string().min(8).max(128),
+  inviteCode: z.string().max(128).optional()
 })
 
 const loginSchema = z.object({
@@ -165,4 +183,11 @@ function isUniqueViolation(error: unknown) {
     'code' in error &&
     (error as { code?: unknown }).code === '23505'
   )
+}
+
+function inviteCodeMatches(expected: string, actual: string | undefined) {
+  if (!actual) return false
+  const expectedBytes = Buffer.from(expected)
+  const actualBytes = Buffer.from(actual)
+  return expectedBytes.length === actualBytes.length && timingSafeEqual(expectedBytes, actualBytes)
 }

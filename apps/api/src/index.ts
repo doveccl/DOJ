@@ -53,6 +53,7 @@ app.get('/api/config', async (c) => {
   const settings = await getRuntimeSettings()
   return c.json({
     registration: settings.registrationEnabled,
+    registrationInviteRequired: settings.registrationInviteCode.length > 0,
     aiCoachingEnabled: settings.aiCoachingEnabled,
     guestProblemsetVisible: settings.guestProblemsetVisible,
     sourceOpenDefault: settings.sourceOpenDefault

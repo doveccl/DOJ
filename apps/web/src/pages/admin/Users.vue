@@ -3,8 +3,8 @@ import { NAlert, NButton, NCard, NDataTable, NSpace, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { apiFetch } from '../api'
-import { useAuthStore } from '../stores/auth'
+import { apiFetch } from '../../api'
+import { useAuthStore } from '../../stores/auth'
 
 interface UserRow {
   id: number

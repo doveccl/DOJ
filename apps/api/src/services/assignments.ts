@@ -1,5 +1,6 @@
-import { and, asc, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { db, schema } from '@doj/db/client'
+import type { JudgeStatus } from '@doj/shared/status'
 
 export async function getAssignmentDetail(id: number) {
   const [assignment] = await db
@@ -44,32 +45,51 @@ export async function getAssignmentReport(id: number) {
   const detail = await getAssignmentDetail(id)
   if (!detail) return null
 
-  const [students, submissions] = await Promise.all([
-    db
-      .selectDistinct({
-        id: schema.users.id,
-        name: schema.users.name,
-        email: schema.users.email
-      })
-      .from(schema.assignmentGroups)
-      .innerJoin(schema.userGroups, eq(schema.userGroups.groupId, schema.assignmentGroups.groupId))
-      .innerJoin(schema.users, eq(schema.users.id, schema.userGroups.userId))
-      .where(eq(schema.assignmentGroups.assignmentId, id))
-      .orderBy(schema.users.name),
-    db
-      .select({
-        id: schema.submissions.id,
-        userId: schema.submissions.userId,
-        problemId: schema.submissions.problemId,
-        status: schema.submissions.status,
-        createdAt: schema.submissions.createdAt
-      })
-      .from(schema.submissions)
-      .where(eq(schema.submissions.assignmentId, id))
-      .orderBy(asc(schema.submissions.createdAt))
-  ])
+  const students = await db
+    .selectDistinct({
+      id: schema.users.id,
+      name: schema.users.name,
+      email: schema.users.email
+    })
+    .from(schema.assignmentGroups)
+    .innerJoin(schema.userGroups, eq(schema.userGroups.groupId, schema.assignmentGroups.groupId))
+    .innerJoin(schema.users, eq(schema.users.id, schema.userGroups.userId))
+    .where(eq(schema.assignmentGroups.assignmentId, id))
+    .orderBy(schema.users.name)
 
-  const problemIds = new Set(detail.problems.map((problem) => problem.id))
+  const problemIds = detail.problems.map((problem) => problem.id)
+  const studentIds = students.map((student) => student.id)
+  const aggregates =
+    problemIds.length && studentIds.length
+      ? await db
+          .select({
+            userId: schema.submissions.userId,
+            problemId: schema.submissions.problemId,
+            attempts: sql<number>`count(*)::int`,
+            status: sql<JudgeStatus>`coalesce(
+              (array_agg(${schema.submissions.status} order by ${schema.submissions.createdAt} desc, ${schema.submissions.id} desc)
+                filter (where ${schema.submissions.status} = 'AC'))[1],
+              (array_agg(${schema.submissions.status} order by ${schema.submissions.createdAt} desc, ${schema.submissions.id} desc))[1]
+            )`,
+            bestSubmissionId: sql<number>`coalesce(
+              (array_agg(${schema.submissions.id} order by ${schema.submissions.createdAt} desc, ${schema.submissions.id} desc)
+                filter (where ${schema.submissions.status} = 'AC'))[1],
+              (array_agg(${schema.submissions.id} order by ${schema.submissions.createdAt} desc, ${schema.submissions.id} desc))[1]
+            )`,
+            lastSubmissionId: sql<number>`(array_agg(${schema.submissions.id} order by ${schema.submissions.createdAt} desc, ${schema.submissions.id} desc))[1]`,
+            updatedAt: sql<Date>`max(${schema.submissions.createdAt})`
+          })
+          .from(schema.submissions)
+          .where(
+            and(
+              eq(schema.submissions.assignmentId, id),
+              inArray(schema.submissions.problemId, problemIds),
+              inArray(schema.submissions.userId, studentIds)
+            )
+          )
+          .groupBy(schema.submissions.userId, schema.submissions.problemId)
+      : []
+
   const rows = students.map((student) => ({
     userId: student.id,
     userName: student.name,
@@ -91,24 +111,20 @@ export async function getAssignmentReport(id: number) {
   }))
   const rowByUser = new Map(rows.map((row) => [row.userId, row]))
 
-  for (const submission of submissions) {
-    if (!problemIds.has(submission.problemId)) continue
-    const row = rowByUser.get(submission.userId)
+  for (const aggregate of aggregates) {
+    const row = rowByUser.get(aggregate.userId)
     if (!row) continue
-    const cell = row.problems[String(submission.problemId)]
+    const cell = row.problems[String(aggregate.problemId)]
     if (!cell) continue
 
-    cell.attempts += 1
-    cell.lastSubmissionId = submission.id
-    cell.updatedAt = submission.createdAt.toISOString()
-    if (cell.status !== 'AC') {
-      cell.status = submission.status
-      cell.bestSubmissionId = submission.id
-    }
-    if (submission.status === 'AC') {
-      cell.status = 'AC'
-      cell.bestSubmissionId = submission.id
-    }
+    cell.attempts = aggregate.attempts
+    cell.status = aggregate.status
+    cell.bestSubmissionId = aggregate.bestSubmissionId
+    cell.lastSubmissionId = aggregate.lastSubmissionId
+    cell.updatedAt =
+      aggregate.updatedAt instanceof Date
+        ? aggregate.updatedAt.toISOString()
+        : new Date(aggregate.updatedAt).toISOString()
   }
 
   for (const row of rows) {

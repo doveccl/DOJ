@@ -38,6 +38,7 @@ const authError = ref('')
 const authLoading = ref(false)
 const appConfig = ref({
   registration: true,
+  registrationInviteRequired: false,
   aiCoachingEnabled: true,
   guestProblemsetVisible: true,
   sourceOpenDefault: false
@@ -46,7 +47,7 @@ const colorMode = ref<'light' | 'dark'>(
   localStorage.getItem('doj.colorMode') === 'dark' ? 'dark' : 'light'
 )
 const loginForm = reactive({ user: '', password: '' })
-const registerForm = reactive({ name: '', email: '', password: '' })
+const registerForm = reactive({ name: '', email: '', password: '', inviteCode: '' })
 const localeValue = computed({
   get: () => locale.value as SupportedLocale,
   set: (value: SupportedLocale) => setLocale(value)
@@ -107,6 +108,7 @@ onMounted(async () => {
   } catch {
     appConfig.value = {
       registration: true,
+      registrationInviteRequired: false,
       aiCoachingEnabled: true,
       guestProblemsetVisible: true,
       sourceOpenDefault: false
@@ -136,7 +138,12 @@ async function submitAuth() {
     if (authMode.value === 'login') {
       await auth.login(loginForm)
     } else if (authMode.value === 'register') {
-      await auth.register(registerForm)
+      await auth.register({
+        name: registerForm.name,
+        email: registerForm.email,
+        password: registerForm.password,
+        inviteCode: registerForm.inviteCode || undefined
+      })
     }
     authMode.value = null
   } catch (error) {
@@ -242,6 +249,15 @@ function handleUserCommand(key: string) {
             v-model:value="registerForm.password"
             type="password"
             autocomplete="new-password"
+            @keyup.enter="submitAuth"
+          />
+        </n-form-item>
+        <n-form-item v-if="appConfig.registrationInviteRequired" :label="t('app.inviteCode')">
+          <n-input
+            v-model:value="registerForm.inviteCode"
+            type="password"
+            show-password-on="click"
+            autocomplete="one-time-code"
             @keyup.enter="submitAuth"
           />
         </n-form-item>

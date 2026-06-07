@@ -16,9 +16,9 @@ import {
 import type { DataTableColumns } from 'naive-ui'
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { apiFetch } from '../api'
-import CodeEditor from '../components/CodeEditor.vue'
-import { useAuthStore } from '../stores/auth'
+import { apiFetch } from '../../api'
+import CodeEditor from '../../components/CodeEditor.vue'
+import { useAuthStore } from '../../stores/auth'
 
 interface LanguageRow {
   id: string

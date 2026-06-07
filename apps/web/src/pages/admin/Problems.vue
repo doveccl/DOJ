@@ -23,10 +23,10 @@ import {
 import type { DataTableColumns, UploadFileInfo } from 'naive-ui'
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { apiFetch } from '../api'
-import CodeEditor from '../components/CodeEditor.vue'
-import MarkdownEditor from '../components/MarkdownEditor.vue'
-import { useAuthStore } from '../stores/auth'
+import { apiFetch } from '../../api'
+import CodeEditor from '../../components/CodeEditor.vue'
+import MarkdownEditor from '../../components/MarkdownEditor.vue'
+import { useAuthStore } from '../../stores/auth'
 
 interface ProblemSummary {
   timeLimitMs: number

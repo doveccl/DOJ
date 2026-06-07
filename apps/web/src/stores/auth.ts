@@ -23,7 +23,12 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('doj.token', nextToken)
   }
 
-  async function register(input: { name: string; email: string; password: string }) {
+  async function register(input: {
+    name: string
+    email: string
+    password: string
+    inviteCode?: string
+  }) {
     const result = await apiFetch<{ token: string; user: AuthUser }>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify(input)
