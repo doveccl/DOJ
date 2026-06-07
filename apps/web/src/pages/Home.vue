@@ -110,45 +110,85 @@ const hasCards = computed(() => {
   )
 })
 
+const now = ref(new Date())
 const primaryProblem = computed(() => dashboard.value?.recentProblems[0] ?? null)
-const primaryContest = computed(() => dashboard.value?.recentContests[0] ?? null)
-const primarySubmission = computed(() => dashboard.value?.recentSubmissions[0] ?? null)
-const quickActions = computed(
+const activeContest = computed(
   () =>
-    [
-      {
-        key: 'problems',
-        title: t('dashboard.quickProblems'),
-        description: t('dashboard.quickProblemsDesc'),
-        to: '/problems'
-      },
-      {
-        key: 'contests',
-        title: t('dashboard.quickContests'),
-        description: primaryContest.value
-          ? `${primaryContest.value.type} · ${formatDateTime(primaryContest.value.startAt)}`
-          : t('dashboard.quickContestsDesc'),
-        to: '/contests'
-      },
-      auth.signedIn
-        ? {
-            key: 'assignments',
-            title: t('dashboard.quickAssignments'),
-            description: dashboard.value?.myAssignments.length
-              ? t('dashboard.quickAssignmentsCount', {
-                  count: dashboard.value.myAssignments.length
-                })
-              : t('dashboard.quickAssignmentsDesc'),
-            to: '/assignments'
-          }
-        : {
-            key: 'discussion',
-            title: t('dashboard.quickDiscussion'),
-            description: t('dashboard.quickDiscussionDesc'),
-            to: '/discussion'
-          }
-    ] as const
+    dashboard.value?.recentContests.find(
+      (contest) => new Date(contest.startAt) <= now.value && new Date(contest.endAt) > now.value
+    ) ?? null
 )
+const upcomingContest = computed(
+  () =>
+    dashboard.value?.recentContests
+      .filter((contest) => new Date(contest.startAt) > now.value)
+      .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())[0] ?? null
+)
+const primaryContest = computed(
+  () => activeContest.value ?? upcomingContest.value ?? dashboard.value?.recentContests[0] ?? null
+)
+const dueAssignment = computed(
+  () =>
+    dashboard.value?.myAssignments.slice().sort((a, b) => {
+      if (!a.dueAt) return 1
+      if (!b.dueAt) return -1
+      return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime()
+    })[0] ?? null
+)
+const latestTopic = computed(() => dashboard.value?.recentTopics[0] ?? null)
+const primarySubmission = computed(() => dashboard.value?.recentSubmissions[0] ?? null)
+const focusItems = computed(() => [
+  {
+    key: 'problem',
+    label: t('dashboard.focusProblem'),
+    title: primaryProblem.value
+      ? `P${primaryProblem.value.id} ${primaryProblem.value.title}`
+      : t('problems.empty'),
+    description: primaryProblem.value
+      ? t('dashboard.focusProblemMeta', { count: primaryProblem.value.solvedCount })
+      : t('dashboard.quickProblemsDesc'),
+    to: primaryProblem.value ? `/problems/${primaryProblem.value.id}` : '/problems'
+  },
+  {
+    key: 'contest',
+    label: t('dashboard.focusContest'),
+    title: primaryContest.value?.title ?? t('dashboard.noContest'),
+    description: primaryContest.value
+      ? `${activeContest.value ? t('dashboard.activeContest') : t('dashboard.upcomingContest')} · ${formatDateTime(primaryContest.value.startAt)}`
+      : t('dashboard.quickContestsDesc'),
+    to: primaryContest.value ? `/contests/${primaryContest.value.id}` : '/contests'
+  },
+  auth.signedIn
+    ? {
+        key: 'assignment',
+        label: t('dashboard.focusAssignment'),
+        title: dueAssignment.value?.title ?? t('dashboard.noAssignment'),
+        description: dueAssignment.value?.dueAt
+          ? `${t('assignments.duePrefix')} ${formatDateTime(dueAssignment.value.dueAt)}`
+          : t('dashboard.quickAssignmentsDesc'),
+        to: dueAssignment.value ? `/assignments/${dueAssignment.value.id}` : '/assignments'
+      }
+    : {
+        key: 'discussion',
+        label: t('dashboard.focusDiscussion'),
+        title: latestTopic.value?.title ?? t('dashboard.quickDiscussion'),
+        description: latestTopic.value
+          ? `${latestTopic.value.userName} · ${formatDateTime(latestTopic.value.updatedAt)}`
+          : t('dashboard.quickDiscussionDesc'),
+        to: latestTopic.value ? `/discussion/${latestTopic.value.id}` : '/discussion'
+      },
+  {
+    key: 'submission',
+    label: t('dashboard.focusSubmission'),
+    title: primarySubmission.value
+      ? `P${primarySubmission.value.problemId} ${primarySubmission.value.problemTitle}`
+      : t('dashboard.noRecentSubmission'),
+    description: primarySubmission.value
+      ? `${primarySubmission.value.status} · ${primarySubmission.value.userName} · ${formatDateTime(primarySubmission.value.createdAt)}`
+      : t('dashboard.recentSubmissions'),
+    to: primarySubmission.value ? `/submissions/${primarySubmission.value.id}` : '/submissions'
+  }
+])
 const dashboardSectionCount = computed(() => {
   const data = dashboard.value
   if (!data) return 0
@@ -215,52 +255,12 @@ onMounted(async () => {
             </n-space>
           </div>
 
-          <n-grid cols="1 720:3" :x-gap="12" :y-gap="12" class="quick-grid">
-            <n-gi v-for="action in quickActions" :key="action.key">
-              <n-card
-                embedded
-                hoverable
-                :bordered="false"
-                class="quick-card"
-                @click="go(action.to)"
-              >
-                <n-thing :title="action.title" :description="action.description" />
-              </n-card>
-            </n-gi>
-          </n-grid>
-
-          <n-grid cols="1 820:2" :x-gap="12" :y-gap="12" class="current-grid">
-            <n-gi>
-              <div
-                class="current-item"
-                @click="primaryProblem && go(`/problems/${primaryProblem.id}`)"
-              >
-                <span class="current-label">{{ t('dashboard.continueProblem') }}</span>
-                <strong v-if="primaryProblem"
-                  >P{{ primaryProblem.id }} {{ primaryProblem.title }}</strong
-                >
-                <span v-else class="muted">{{ t('problems.empty') }}</span>
-              </div>
-            </n-gi>
-            <n-gi>
-              <div
-                class="current-item"
-                @click="primarySubmission && go(`/submissions/${primarySubmission.id}`)"
-              >
-                <span class="current-label">{{ t('dashboard.latestSubmission') }}</span>
-                <div v-if="primarySubmission" class="latest-submission">
-                  <n-tag
-                    size="small"
-                    :bordered="false"
-                    :type="statusType[primarySubmission.status] ?? 'default'"
-                  >
-                    {{ primarySubmission.status }}
-                  </n-tag>
-                  <strong
-                    >P{{ primarySubmission.problemId }} {{ primarySubmission.problemTitle }}</strong
-                  >
-                </div>
-                <span v-else class="muted">{{ t('dashboard.noRecentSubmission') }}</span>
+          <n-grid cols="1 640:2 1100:4" :x-gap="12" :y-gap="12" class="focus-grid">
+            <n-gi v-for="item in focusItems" :key="item.key">
+              <div class="focus-card" @click="go(item.to)">
+                <span class="focus-label">{{ item.label }}</span>
+                <strong>{{ item.title }}</strong>
+                <span class="muted">{{ item.description }}</span>
               </div>
             </n-gi>
           </n-grid>
@@ -496,13 +496,11 @@ onMounted(async () => {
   }
 }
 
-.quick-grid,
-.current-grid {
+.focus-grid {
   margin-top: 12px;
 }
 
-.quick-card,
-.current-item,
+.focus-card,
 .featured-item {
   cursor: pointer;
   transition:
@@ -515,37 +513,26 @@ onMounted(async () => {
   }
 }
 
-.quick-card {
-  min-height: 92px;
-}
-
-.current-item {
+.focus-card {
   display: grid;
-  gap: 6px;
-  min-height: 82px;
+  gap: 8px;
+  min-height: 112px;
   padding: 14px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--surface-bg) 94%, var(--brand) 6%);
-}
-
-.current-label {
-  color: var(--muted-color);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.latest-submission {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  min-width: 0;
+  background: color-mix(in srgb, var(--surface-bg) 96%, var(--brand) 4%);
 
   strong {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
+
+.focus-label {
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .admin-stats {
@@ -566,6 +553,10 @@ onMounted(async () => {
 
 .section-card {
   box-shadow: var(--shadow-sm);
+
+  :deep(.n-thing-header__title) {
+    overflow-wrap: anywhere;
+  }
 }
 
 .section-heading {

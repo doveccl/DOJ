@@ -1,5 +1,15 @@
 <script setup lang="ts">
-import { NButton, NCard, NCheckbox, NSelect, NSpace, NSpin } from 'naive-ui'
+import {
+  NButton,
+  NCard,
+  NCheckbox,
+  NDescriptions,
+  NDescriptionsItem,
+  NSelect,
+  NSpace,
+  NSpin,
+  NTag
+} from 'naive-ui'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -15,6 +25,8 @@ interface Problem {
   statementMarkdown: string
   timeLimitMs: number
   memoryLimitBytes: number
+  solvedCount: number
+  submissionCount: number
 }
 
 interface LanguageOption {
@@ -125,27 +137,56 @@ function updateTemplate(value: string) {
               {{ t('problemDetail.contestContext') }} {{ contestId }}
             </p>
           </section>
+          <n-card :bordered="false" class="stacked-card">
+            <n-descriptions :column="2" bordered size="small">
+              <n-descriptions-item :label="t('common.time')">
+                {{ problem.timeLimitMs }} ms
+              </n-descriptions-item>
+              <n-descriptions-item :label="t('common.memory')">
+                {{ memoryMb }} MB
+              </n-descriptions-item>
+              <n-descriptions-item :label="t('common.solved')">
+                {{ problem.solvedCount }}
+              </n-descriptions-item>
+              <n-descriptions-item :label="t('common.submissions')">
+                {{ problem.submissionCount }}
+              </n-descriptions-item>
+              <n-descriptions-item :label="t('common.tags')" :span="2">
+                <n-space :size="6">
+                  <n-tag v-for="tag in problem.tags" :key="tag" size="small" :bordered="false">
+                    {{ tag }}
+                  </n-tag>
+                  <span v-if="!problem.tags.length" class="muted">-</span>
+                </n-space>
+              </n-descriptions-item>
+            </n-descriptions>
+            <n-space class="problem-links">
+              <n-button secondary size="small" @click="router.push('/submissions')">
+                {{ t('problemDetail.viewSubmissions') }}
+              </n-button>
+              <n-button secondary size="small" @click="router.push('/discussion')">
+                {{ t('problemDetail.viewDiscussion') }}
+              </n-button>
+            </n-space>
+          </n-card>
           <n-card :bordered="false">
             <markdown-view :source="problem.statementMarkdown" />
           </n-card>
         </div>
         <n-card :title="t('problemDetail.submit')" :bordered="false">
           <n-space vertical>
-            <n-select
-              v-model:value="languageId"
-              :options="languageOptions"
-              :disabled="!auth.signedIn"
-              @update:value="updateTemplate"
-            />
-            <code-editor
-              v-model="sourceCode"
-              :language-id="languageId"
-              :disabled="!auth.signedIn"
-            />
-            <n-checkbox v-model:checked="sourceOpen" :disabled="!auth.signedIn">
-              {{ t('problemDetail.sourceOpen') }}
-            </n-checkbox>
-            <p v-if="!auth.signedIn" class="muted">{{ t('problemDetail.signIn') }}</p>
+            <template v-if="auth.signedIn">
+              <n-select
+                v-model:value="languageId"
+                :options="languageOptions"
+                @update:value="updateTemplate"
+              />
+              <code-editor v-model="sourceCode" :language-id="languageId" />
+              <n-checkbox v-model:checked="sourceOpen">
+                {{ t('problemDetail.sourceOpen') }}
+              </n-checkbox>
+            </template>
+            <p v-else class="muted">{{ t('problemDetail.signIn') }}</p>
             <p v-if="error" class="form-error">{{ error }}</p>
             <n-button
               type="primary"
@@ -162,3 +203,9 @@ function updateTemplate(value: string) {
     </n-spin>
   </main>
 </template>
+
+<style scoped lang="scss">
+.problem-links {
+  margin-top: 12px;
+}
+</style>
