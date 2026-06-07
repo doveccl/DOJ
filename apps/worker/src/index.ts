@@ -120,12 +120,18 @@ async function getProblemPackageFiles(problemId: number) {
     .select({
       path: schema.problemFiles.path,
       bucket: schema.files.bucket,
-      objectKey: schema.files.objectKey
+      objectKey: schema.files.objectKey,
+      sizeBytes: schema.files.sizeBytes
     })
     .from(schema.problemFiles)
     .innerJoin(schema.files, eq(schema.problemFiles.fileId, schema.files.id))
     .where(eq(schema.problemFiles.problemId, problemId))
-  return rows.map((row) => ({ path: row.path, bucket: row.bucket, objectKey: row.objectKey }))
+  return rows.map((row) => ({
+    path: row.path,
+    bucket: row.bucket,
+    objectKey: row.objectKey,
+    sizeBytes: row.sizeBytes
+  }))
 }
 
 async function persistJudgeResult(

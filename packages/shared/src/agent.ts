@@ -22,6 +22,7 @@ export interface JudgeAgentPackageFile {
   path: string
   bucket: string
   objectKey: string
+  sizeBytes: number
 }
 
 export interface JudgeAgentPayload {

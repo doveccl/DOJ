@@ -4,10 +4,10 @@ import type {
   JudgeAgentProgress,
   WorkerToAgentMessage
 } from '@doj/shared/agent'
-import { getObjectBytes } from '@doj/shared/storage'
 import { buildCasesFromPackageData } from '@doj/shared/testdata'
 import { DockerRunner } from '@doj/runner/docker-runner'
 import { judgePackage } from '@doj/runner/judge'
+import { PackageFileCache } from './package-cache'
 
 const key = process.env.DOJ_AGENT_KEY ?? 'local-agent'
 const token = process.env.DOJ_AGENT_TOKEN ?? 'local-agent-token'
@@ -19,6 +19,9 @@ const labels = (process.env.DOJ_AGENT_LABELS ?? 'local')
   .filter(Boolean)
 const workerUrl = process.env.DOJ_WORKER_WS_URL ?? 'ws://localhost:7975/agents/connect'
 const runner = new DockerRunner()
+const packageFileCache = new PackageFileCache({
+  maxBytes: Number(process.env.DOJ_AGENT_PACKAGE_CACHE_BYTES ?? 512 * 1024 * 1024)
+})
 const activeJobs = new Set<string>()
 const jobControllers = new Map<string, AbortController>()
 
@@ -110,11 +113,12 @@ async function runPackage(
   onProgress: (progress: JudgeAgentProgress) => void
 ) {
   throwIfCancelled(signal)
-  // Fetch the problem package files from S3.
+  // Fetch problem package files through an agent-local cache keyed by immutable
+  // S3 object references, so repeated submissions for one problem avoid S3 I/O.
   const fetched = await Promise.all(
     payload.problemFiles.map(async (file) => ({
       path: file.path,
-      bytes: await getObjectBytes(file.objectKey, file.bucket)
+      bytes: await packageFileCache.get(file)
     }))
   )
   throwIfCancelled(signal)

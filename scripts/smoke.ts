@@ -5,6 +5,7 @@ const smokeTargets = {
   'problem-update': 'scripts/problem-update-smoke.ts',
   languages: 'scripts/languages-smoke.ts',
   agents: 'scripts/agents-smoke.ts',
+  'agent-cache': 'scripts/agent-cache-smoke.ts',
   'group-membership': 'scripts/group-membership-smoke.ts',
   assignment: 'scripts/assignment-smoke.ts',
   'my-assignments': 'scripts/my-assignments-smoke.ts',
