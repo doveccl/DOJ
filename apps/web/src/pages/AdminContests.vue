@@ -5,6 +5,7 @@ import {
   NCard,
   NDataTable,
   NDatePicker,
+  NEmpty,
   NForm,
   NFormItem,
   NInput,
@@ -198,7 +199,19 @@ onMounted(() => {
           {{ t('admin.contests.create') }}
         </n-button>
       </n-space>
+      <n-empty
+        v-if="!loading && !contests.length"
+        class="empty-state"
+        :description="t('admin.contests.empty')"
+      >
+        <template #extra>
+          <n-button secondary size="small" @click="showCreateModal = true">
+            {{ t('admin.contests.create') }}
+          </n-button>
+        </template>
+      </n-empty>
       <n-data-table
+        v-else
         remote
         :columns="columns"
         :data="contests"
@@ -278,3 +291,9 @@ onMounted(() => {
     </n-modal>
   </main>
 </template>
+
+<style scoped lang="scss">
+.empty-state {
+  padding: 48px 0;
+}
+</style>

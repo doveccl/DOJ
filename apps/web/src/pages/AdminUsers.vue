@@ -32,15 +32,15 @@ const pagination = reactive({
 })
 
 const columns = computed<DataTableColumns<UserRow>>(() => [
-  { title: t('common.id'), key: 'id', width: 80 },
-  { title: t('admin.name'), key: 'name', minWidth: 140 },
-  { title: t('app.email'), key: 'email', minWidth: 220 },
-  { title: t('admin.users.solved'), key: 'solvedCount', width: 100 },
-  { title: t('admin.users.submissions'), key: 'submissionCount', width: 120 },
+  { title: t('common.id'), key: 'id', width: 64 },
+  { title: t('admin.name'), key: 'name', width: 150, ellipsis: { tooltip: true } },
+  { title: t('app.email'), key: 'email', minWidth: 220, ellipsis: { tooltip: true } },
+  { title: t('admin.users.solved'), key: 'solvedCount', width: 82 },
+  { title: t('admin.users.submissions'), key: 'submissionCount', width: 96 },
   {
     title: t('admin.status'),
     key: 'disabledAt',
-    width: 120,
+    width: 96,
     render(row) {
       return h(NTag, { bordered: false, type: row.disabledAt ? 'error' : 'success' }, () =>
         row.disabledAt ? t('admin.disabled') : t('admin.active')
@@ -50,7 +50,7 @@ const columns = computed<DataTableColumns<UserRow>>(() => [
   {
     title: t('admin.users.joined'),
     key: 'createdAt',
-    minWidth: 160,
+    width: 150,
     render(row) {
       return new Date(row.createdAt).toLocaleString()
     }
@@ -58,7 +58,7 @@ const columns = computed<DataTableColumns<UserRow>>(() => [
   {
     title: t('admin.actions'),
     key: 'action',
-    width: 120,
+    width: 90,
     render(row) {
       const disabled = savingUserId.value === row.id || row.id === auth.user?.id
       return h(

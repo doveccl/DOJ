@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NDataTable, NTag } from 'naive-ui'
+import { NButton, NCard, NDataTable, NEmpty, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { computed, h, onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
@@ -86,15 +86,35 @@ function handlePageSizeChange(pageSize: number) {
 
 <template>
   <main class="page">
-    <n-data-table
-      remote
-      :columns="columns"
-      :data="contests"
-      :bordered="false"
-      :loading="loading"
-      :pagination="pagination"
-      @update:page="handlePageChange"
-      @update:page-size="handlePageSizeChange"
-    />
+    <n-card :bordered="false">
+      <n-empty
+        v-if="!loading && !contests.length"
+        class="empty-state"
+        :description="t('contests.empty')"
+      >
+        <template #extra>
+          <n-button secondary size="small" @click="loadContests">
+            {{ t('common.refresh') }}
+          </n-button>
+        </template>
+      </n-empty>
+      <n-data-table
+        v-else
+        remote
+        :columns="columns"
+        :data="contests"
+        :bordered="false"
+        :loading="loading"
+        :pagination="pagination"
+        @update:page="handlePageChange"
+        @update:page-size="handlePageSizeChange"
+      />
+    </n-card>
   </main>
 </template>
+
+<style scoped lang="scss">
+.empty-state {
+  padding: 48px 0;
+}
+</style>

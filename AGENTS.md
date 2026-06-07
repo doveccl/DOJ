@@ -102,7 +102,11 @@ These were found during a whole-system review. The current iteration focuses on 
 
 ### UI findings from live walkthrough (anonymous + admin)
 
-- Dashboard exposes user-count / assignment-count stats to anonymous visitors; these should be role-gated (server-side).
-- Stat numbers rendered in default blue, clashing with teal theme (fixed once moved to NStatistic + theme).
+- [DONE] Dashboard exposes user-count / assignment-count stats to anonymous visitors; these are now role-gated server-side and only admins receive aggregate stats (`routes/public.ts`).
+- [DONE] Home page no longer looks like a raw admin dashboard: it now has a compact OJ landing hero, quick actions, live activity metrics, featured problem/contest cards, and admin-only stats below the hero (`Home.vue`).
+- [DONE] Mobile topbar no longer overflows on narrow screens; actions wrap onto their own row before the nav menu (`App.vue`).
+- [DONE] Empty contest/discussion/admin assignment/admin contest pages now render centered `NEmpty` states with relevant actions instead of dangling table headers.
+- [DONE] Admin Members user table no longer wraps long emails into tall rows; name/email columns use compact widths with ellipsis/tooltips (`AdminUsers.vue`).
+- [DONE] Stat numbers rendered in default blue, clashing with teal theme (fixed once moved to NStatistic + theme).
 - [DONE] Problem list now has search, tag filter, remote pagination, per-user solved status, and an admin manage shortcut; backed by `/api/problems` query filters and solved-state trimming server-side.
 - [Deferred] Registration hardening: add CAPTCHA and/or email verification (needs SMTP or third-party). Recorded for a later iteration; not done.

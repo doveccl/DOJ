@@ -6,6 +6,7 @@ import {
   NCheckbox,
   NDataTable,
   NDatePicker,
+  NEmpty,
   NForm,
   NFormItem,
   NInput,
@@ -282,7 +283,19 @@ onMounted(() => {
           {{ t('admin.assignments.create') }}
         </n-button>
       </n-space>
+      <n-empty
+        v-if="!loading && !assignments.length"
+        class="empty-state"
+        :description="t('admin.assignments.empty')"
+      >
+        <template #extra>
+          <n-button secondary size="small" @click="showCreateModal = true">
+            {{ t('admin.assignments.create') }}
+          </n-button>
+        </template>
+      </n-empty>
       <n-data-table
+        v-else
         remote
         :columns="columns"
         :data="assignments"
@@ -371,3 +384,9 @@ onMounted(() => {
     </n-card>
   </main>
 </template>
+
+<style scoped lang="scss">
+.empty-state {
+  padding: 48px 0;
+}
+</style>

@@ -68,11 +68,20 @@ const zhCNMessages = {
     message: '消息',
     title: '标题',
     tags: '标签',
-    solved: '通过'
+    solved: '通过',
+    refresh: '刷新'
   },
   dashboard: {
     title: '概览',
     subtitle: '系统活跃度、任务量和最近评测结果。',
+    badge: '在线评测',
+    heroTitle: '从一道题开始，保持稳定进步。',
+    heroIntro:
+      '选择推荐题目练手，查看近期比赛，或跟进讨论与提交动态。DOJ 会把最相关的入口放在这里。',
+    startPractice: '开始刷题',
+    viewContests: '查看比赛',
+    viewAll: '查看全部',
+    liveNow: '站内动态',
     problems: '题目',
     submissions: '提交',
     users: '用户',
@@ -145,6 +154,7 @@ const zhCNMessages = {
     key: '编号',
     score: '分值',
     fallback: '比赛题目集。',
+    empty: '还没有比赛',
     to: '至',
     freezes: '封榜',
     scoreboard: '榜单',
@@ -174,7 +184,8 @@ const zhCNMessages = {
     linkNone: '不关联',
     linkProblem: '题目',
     linkContest: '比赛',
-    linkPlaceholder: '搜索并选择'
+    linkPlaceholder: '搜索并选择',
+    empty: '还没有讨论'
   },
   admin: {
     title: '管理',
@@ -333,7 +344,8 @@ const zhCNMessages = {
       allowLate: '允许补交',
       aiCoaching: 'AI 辅导',
       selectGroups: '选择用户组',
-      selectProblems: '选择题目'
+      selectProblems: '选择题目',
+      empty: '还没有作业'
     },
     contests: {
       title: '比赛',
@@ -346,7 +358,8 @@ const zhCNMessages = {
       startAt: '开始时间',
       endAt: '结束时间',
       freezeAt: '封榜时间',
-      selectProblems: '选择题目'
+      selectProblems: '选择题目',
+      empty: '还没有比赛'
     }
   }
 }
@@ -409,11 +422,20 @@ const enMessages = {
     message: 'Message',
     title: 'Title',
     tags: 'Tags',
-    solved: 'Solved'
+    solved: 'Solved',
+    refresh: 'Refresh'
   },
   dashboard: {
     title: 'Dashboard',
     subtitle: 'System activity, workload, and recent judging results.',
+    badge: 'Online Judge',
+    heroTitle: 'Start with one problem and keep moving.',
+    heroIntro:
+      'Pick a recommended problem, check upcoming contests, or follow discussions and submissions. DOJ keeps the useful paths close.',
+    startPractice: 'Start practicing',
+    viewContests: 'View contests',
+    viewAll: 'View all',
+    liveNow: 'Live activity',
     problems: 'Problems',
     submissions: 'Submissions',
     users: 'Users',
@@ -486,6 +508,7 @@ const enMessages = {
     key: 'Key',
     score: 'Score',
     fallback: 'Contest problem set.',
+    empty: 'No contests yet',
     to: 'to',
     freezes: 'freezes',
     scoreboard: 'Scoreboard',
@@ -515,7 +538,8 @@ const enMessages = {
     linkNone: 'None',
     linkProblem: 'Problem',
     linkContest: 'Contest',
-    linkPlaceholder: 'Search and select'
+    linkPlaceholder: 'Search and select',
+    empty: 'No discussions yet'
   },
   admin: {
     title: 'Admin',
@@ -676,7 +700,8 @@ const enMessages = {
       allowLate: 'Allow late submissions',
       aiCoaching: 'AI coaching',
       selectGroups: 'Select groups',
-      selectProblems: 'Select problems'
+      selectProblems: 'Select problems',
+      empty: 'No assignments yet'
     },
     contests: {
       title: 'Contests',
@@ -689,7 +714,8 @@ const enMessages = {
       startAt: 'Start at',
       endAt: 'End at',
       freezeAt: 'Freeze at',
-      selectProblems: 'Select problems'
+      selectProblems: 'Select problems',
+      empty: 'No contests yet'
     }
   }
 }

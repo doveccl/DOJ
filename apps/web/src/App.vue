@@ -286,11 +286,18 @@ function handleUserCommand(key: string) {
 
 @media (max-width: 640px) {
   .topbar {
-    grid-template-columns: 1fr auto;
-    grid-template-rows: auto auto;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
     height: auto;
     gap: 8px 16px;
     padding: 12px 16px;
+
+    .topbar-actions {
+      grid-column: 1 / -1;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+      order: 2;
+    }
 
     .topbar-menu {
       grid-column: 1 / -1;

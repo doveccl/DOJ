@@ -5,6 +5,7 @@ import {
   NCard,
   NDataTable,
   NDynamicTags,
+  NEmpty,
   NForm,
   NFormItem,
   NInput,
@@ -191,7 +192,20 @@ onMounted(() => {
           {{ t('discussion.signInTopic') }}
         </n-tooltip>
       </n-space>
+      <n-empty
+        v-if="!loading && !topics.length"
+        class="empty-state"
+        :description="t('discussion.empty')"
+      >
+        <template #extra>
+          <n-button v-if="auth.signedIn" secondary size="small" @click="showCreateModal = true">
+            {{ t('discussion.newTopic') }}
+          </n-button>
+          <span v-else class="muted">{{ t('discussion.signInTopic') }}</span>
+        </template>
+      </n-empty>
       <n-data-table
+        v-else
         remote
         :columns="columns"
         :data="topics"
@@ -256,3 +270,9 @@ onMounted(() => {
     </n-modal>
   </main>
 </template>
+
+<style scoped lang="scss">
+.empty-state {
+  padding: 48px 0;
+}
+</style>
