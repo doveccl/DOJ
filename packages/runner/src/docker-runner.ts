@@ -2,7 +2,7 @@ import Docker from 'dockerode'
 import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { Readable, Writable } from 'node:stream'
+import { Readable } from 'node:stream'
 import { join, resolve } from 'node:path'
 import tar from 'tar-stream'
 import type { JudgeStatus } from '@doj/shared/status'
@@ -228,12 +228,10 @@ export class DockerRunner implements Runner {
         stdout: true,
         stderr: true
       })
-      patchDestroySoon(attach)
-
-      this.docker.modem.demuxStream(
-        attach,
-        writableFrom((chunk) => stdout.push(chunk)),
-        writableFrom((chunk) => stderr.push(chunk))
+      consumeAttachStream(
+        attach as unknown as Readable,
+        (chunk: Buffer) => stdout.push(chunk),
+        (chunk: Buffer) => stderr.push(chunk)
       )
 
       await container.start()
@@ -570,15 +568,6 @@ function createStdinCommand(command: string[]) {
   }
 }
 
-function patchDestroySoon(stream: unknown) {
-  const candidate = stream as {
-    socket?: { destroy?: () => void; destroySoon?: () => void }
-    _output?: { socket?: { destroy?: () => void; destroySoon?: () => void } }
-  }
-  const socket = candidate._output?.socket ?? candidate.socket
-  if (socket?.destroy && !socket.destroySoon) socket.destroySoon = socket.destroy.bind(socket)
-}
-
 function createDockerClient(options: DockerRunnerOptions = {}) {
   const host = options.endpoint || process.env.DOCKER_HOST
   const endpointAuth = host ? readEndpointAuth(host) : undefined
@@ -723,12 +712,35 @@ async function extractSingleFile(stream: Readable): Promise<string | null> {
   })
 }
 
-function writableFrom(write: (chunk: Buffer) => void) {
-  return new Writable({
-    write(chunk, _encoding, callback) {
-      write(Buffer.from(chunk))
-      callback()
+// Docker attach streams multiplex stdout/stderr as 8-byte framed chunks when TTY
+// is disabled. Parse the frames directly instead of relying on dockerode's
+// demuxStream internals, which expect a destroySoon-capable socket on some paths.
+function consumeAttachStream(
+  stream: Readable,
+  stdout: (chunk: Buffer) => void,
+  stderr: (chunk: Buffer) => void
+) {
+  let pending = Buffer.alloc(0)
+  stream.on('data', (chunk) => {
+    pending = Buffer.concat([pending, Buffer.from(chunk)])
+    for (;;) {
+      if (pending.length < 8) return
+      const streamType = pending[0]
+      const length = pending.readUInt32BE(4)
+      if (![0, 1, 2].includes(streamType)) {
+        stdout(pending)
+        pending = Buffer.alloc(0)
+        return
+      }
+      if (pending.length < 8 + length) return
+      const payload = pending.subarray(8, 8 + length)
+      if (streamType === 2) stderr(payload)
+      else stdout(payload)
+      pending = pending.subarray(8 + length)
     }
+  })
+  stream.on('end', () => {
+    if (pending.length) stdout(pending)
   })
 }
 

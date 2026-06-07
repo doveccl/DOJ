@@ -99,20 +99,6 @@ const statCards = computed(() => {
   }))
 })
 
-const heroStats = computed(() => {
-  const data = dashboard.value
-  if (!data) return []
-  return [
-    { key: 'problems', label: t('dashboard.recentProblems'), value: data.recentProblems.length },
-    { key: 'contests', label: t('dashboard.recentContests'), value: data.recentContests.length },
-    {
-      key: 'submissions',
-      label: t('dashboard.recentSubmissions'),
-      value: data.recentSubmissions.length
-    }
-  ]
-})
-
 const hasCards = computed(() => {
   const data = dashboard.value
   return Boolean(
@@ -127,6 +113,42 @@ const hasCards = computed(() => {
 const primaryProblem = computed(() => dashboard.value?.recentProblems[0] ?? null)
 const primaryContest = computed(() => dashboard.value?.recentContests[0] ?? null)
 const primarySubmission = computed(() => dashboard.value?.recentSubmissions[0] ?? null)
+const quickActions = computed(
+  () =>
+    [
+      {
+        key: 'problems',
+        title: t('dashboard.quickProblems'),
+        description: t('dashboard.quickProblemsDesc'),
+        to: '/problems'
+      },
+      {
+        key: 'contests',
+        title: t('dashboard.quickContests'),
+        description: primaryContest.value
+          ? `${primaryContest.value.type} · ${formatDateTime(primaryContest.value.startAt)}`
+          : t('dashboard.quickContestsDesc'),
+        to: '/contests'
+      },
+      auth.signedIn
+        ? {
+            key: 'assignments',
+            title: t('dashboard.quickAssignments'),
+            description: dashboard.value?.myAssignments.length
+              ? t('dashboard.quickAssignmentsCount', {
+                  count: dashboard.value.myAssignments.length
+                })
+              : t('dashboard.quickAssignmentsDesc'),
+            to: '/assignments'
+          }
+        : {
+            key: 'discussion',
+            title: t('dashboard.quickDiscussion'),
+            description: t('dashboard.quickDiscussionDesc'),
+            to: '/discussion'
+          }
+    ] as const
+)
 const dashboardSectionCount = computed(() => {
   const data = dashboard.value
   if (!data) return 0
@@ -177,47 +199,72 @@ onMounted(async () => {
     <n-spin :show="loading">
       <p v-if="error" class="form-error">{{ error }}</p>
       <template v-else-if="dashboard">
-        <section class="home-hero">
-          <div class="hero-copy">
-            <n-tag :bordered="false" type="success" size="small">{{ t('dashboard.badge') }}</n-tag>
-            <h1>{{ t('dashboard.heroTitle') }}</h1>
-            <p>{{ t('dashboard.heroIntro') }}</p>
-            <div class="hero-actions">
+        <n-card class="home-panel" :bordered="false">
+          <div class="home-panel-header">
+            <div>
+              <h1>{{ t('dashboard.workspaceTitle') }}</h1>
+              <p>{{ t('dashboard.workspaceIntro') }}</p>
+            </div>
+            <n-space>
               <n-button type="primary" @click="go('/problems')">
                 {{ t('dashboard.startPractice') }}
               </n-button>
-              <n-button secondary @click="go('/contests')">
-                {{ t('dashboard.viewContests') }}
+              <n-button secondary @click="go('/submissions')">
+                {{ t('dashboard.recentSubmissions') }}
               </n-button>
-              <n-button v-if="auth.signedIn" tertiary @click="go('/assignments')">
-                {{ t('dashboard.myAssignments') }}
-              </n-button>
-            </div>
+            </n-space>
           </div>
-          <div class="hero-panel">
-            <div class="hero-panel-title">{{ t('dashboard.liveNow') }}</div>
-            <div class="hero-metrics">
-              <div v-for="item in heroStats" :key="item.key" class="hero-metric">
-                <strong>{{ item.value }}</strong>
-                <span>{{ item.label }}</span>
-              </div>
-            </div>
-            <div
-              v-if="primarySubmission"
-              class="hero-latest"
-              @click="go(`/submissions/${primarySubmission.id}`)"
-            >
-              <n-tag
-                size="small"
+
+          <n-grid cols="1 720:3" :x-gap="12" :y-gap="12" class="quick-grid">
+            <n-gi v-for="action in quickActions" :key="action.key">
+              <n-card
+                embedded
+                hoverable
                 :bordered="false"
-                :type="statusType[primarySubmission.status] ?? 'default'"
+                class="quick-card"
+                @click="go(action.to)"
               >
-                {{ primarySubmission.status }}
-              </n-tag>
-              <span>P{{ primarySubmission.problemId }} {{ primarySubmission.problemTitle }}</span>
-            </div>
-          </div>
-        </section>
+                <n-thing :title="action.title" :description="action.description" />
+              </n-card>
+            </n-gi>
+          </n-grid>
+
+          <n-grid cols="1 820:2" :x-gap="12" :y-gap="12" class="current-grid">
+            <n-gi>
+              <div
+                class="current-item"
+                @click="primaryProblem && go(`/problems/${primaryProblem.id}`)"
+              >
+                <span class="current-label">{{ t('dashboard.continueProblem') }}</span>
+                <strong v-if="primaryProblem"
+                  >P{{ primaryProblem.id }} {{ primaryProblem.title }}</strong
+                >
+                <span v-else class="muted">{{ t('problems.empty') }}</span>
+              </div>
+            </n-gi>
+            <n-gi>
+              <div
+                class="current-item"
+                @click="primarySubmission && go(`/submissions/${primarySubmission.id}`)"
+              >
+                <span class="current-label">{{ t('dashboard.latestSubmission') }}</span>
+                <div v-if="primarySubmission" class="latest-submission">
+                  <n-tag
+                    size="small"
+                    :bordered="false"
+                    :type="statusType[primarySubmission.status] ?? 'default'"
+                  >
+                    {{ primarySubmission.status }}
+                  </n-tag>
+                  <strong
+                    >P{{ primarySubmission.problemId }} {{ primarySubmission.problemTitle }}</strong
+                  >
+                </div>
+                <span v-else class="muted">{{ t('dashboard.noRecentSubmission') }}</span>
+              </div>
+            </n-gi>
+          </n-grid>
+        </n-card>
 
         <n-grid
           v-if="statCards.length"
@@ -424,112 +471,38 @@ onMounted(async () => {
 </template>
 
 <style scoped lang="scss">
-.home-hero {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.8fr);
-  gap: 20px;
-  align-items: stretch;
-  margin-bottom: 18px;
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--brand) 16%, var(--border-color));
-  border-radius: 18px;
-  background:
-    radial-gradient(
-      circle at 12% 10%,
-      color-mix(in srgb, var(--brand) 18%, transparent),
-      transparent 34%
-    ),
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--surface-bg) 94%, var(--brand) 6%),
-      var(--surface-bg)
-    );
-  box-shadow: var(--shadow-md);
+.home-panel {
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
 }
 
-.hero-copy {
+.home-panel-header {
   display: flex;
-  flex-direction: column;
+  gap: 16px;
   align-items: flex-start;
-  justify-content: center;
-  min-height: 260px;
-  padding: 34px;
+  justify-content: space-between;
+  margin-bottom: 16px;
 
   h1 {
-    max-width: 680px;
-    margin: 14px 0 10px;
-    font-size: clamp(30px, 4.8vw, 56px);
-    line-height: 1.02;
-    letter-spacing: -0.05em;
-    overflow-wrap: anywhere;
-    word-break: break-all;
+    margin: 0;
+    font-size: 24px;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
   }
 
   p {
-    max-width: 620px;
-    margin: 0;
+    margin: 6px 0 0;
     color: var(--muted-color);
-    font-size: 15px;
-    line-height: 1.75;
-    overflow-wrap: anywhere;
-    word-break: break-all;
   }
 }
 
-.hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 22px;
+.quick-grid,
+.current-grid {
+  margin-top: 12px;
 }
 
-.hero-panel {
-  display: grid;
-  align-content: center;
-  gap: 18px;
-  padding: 26px;
-  background: color-mix(in srgb, var(--surface-bg) 78%, transparent);
-  border-left: 1px solid color-mix(in srgb, var(--brand) 12%, var(--border-color));
-}
-
-.hero-panel-title {
-  color: var(--muted-color);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.hero-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.hero-metric {
-  display: grid;
-  gap: 2px;
-  padding: 12px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--surface-bg);
-
-  strong {
-    font-size: 22px;
-    line-height: 1;
-  }
-
-  span {
-    overflow: hidden;
-    color: var(--muted-color);
-    font-size: 12px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-.hero-latest,
+.quick-card,
+.current-item,
 .featured-item {
   cursor: pointer;
   transition:
@@ -542,17 +515,33 @@ onMounted(async () => {
   }
 }
 
-.hero-latest {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  min-width: 0;
-  padding: 12px;
+.quick-card {
+  min-height: 92px;
+}
+
+.current-item {
+  display: grid;
+  gap: 6px;
+  min-height: 82px;
+  padding: 14px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  background: var(--surface-bg);
+  background: color-mix(in srgb, var(--surface-bg) 94%, var(--brand) 6%);
+}
 
-  span:last-child {
+.current-label {
+  color: var(--muted-color);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.latest-submission {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+
+  strong {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -628,24 +617,8 @@ onMounted(async () => {
 }
 
 @media (max-width: 640px) {
-  .home-hero {
-    grid-template-columns: 1fr;
-    border-radius: 14px;
-  }
-
-  .hero-copy,
-  .hero-panel {
-    min-height: auto;
-    padding: 22px;
-  }
-
-  .hero-panel {
-    border-top: 1px solid var(--border-color);
-    border-left: 0;
-  }
-
-  .hero-metrics {
-    grid-template-columns: 1fr;
+  .home-panel-header {
+    display: grid;
   }
 
   .submission-row {

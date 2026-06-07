@@ -93,7 +93,7 @@ These were found during a whole-system review. The current iteration focuses on 
 - [DONE] Agent concurrency selection TOCTOU fixed: worker reserves an agent slot before claiming a task and releases it if no task is claimed, so concurrent worker slots cannot over-dispatch the same agent (`reserveAvailableAgent`/`releaseAgent` in `apps/worker/src/agent-server.ts`).
 - [DONE] Job timeout no longer equals claim lease and worker now sends explicit `cancel` to the selected agent on timeout. Agent tracks per-job `AbortController`s, and runner build/run/duel paths observe the signal and kill active Docker work before cleanup.
 - [DONE] Removed unused hand-written ZIP parser/ZIP repack helpers from `packages/shared/src/testdata.ts`; default-mode package cases now derive from already-fetched loose `data/` files.
-- [PARTIAL] Removed dead duplicate `JudgeTaskPayload`; actual flow uses `JudgeAgentPayload`. REMAINING: `cgroup` peak memory unreadable on Docker Desktop/remote (`docker-runner.ts`), falls back to sampling (may miss peaks). `patchDestroySoon` monkey-patch is fragile. Single-process in-memory agent registry assumes one worker.
+- [PARTIAL] Removed dead duplicate `JudgeTaskPayload`; actual flow uses `JudgeAgentPayload`. `patchDestroySoon` monkey-patch is gone: `DockerRunner.run` now parses Docker attach stdout/stderr frames directly, covered by `runner`, `progress`, and `e2e` smokes. REMAINING: `cgroup` peak memory unreadable on Docker Desktop/remote (`docker-runner.ts`), falls back to stats stream sampling (may miss peaks). Single-process in-memory agent registry assumes one worker.
 
 ### Structure / naming
 
@@ -103,7 +103,7 @@ These were found during a whole-system review. The current iteration focuses on 
 ### UI findings from live walkthrough (anonymous + admin)
 
 - [DONE] Dashboard exposes user-count / assignment-count stats to anonymous visitors; these are now role-gated server-side and only admins receive aggregate stats (`routes/public.ts`).
-- [DONE] Home page no longer looks like a raw admin dashboard: it now has a compact OJ landing hero, quick actions, live activity metrics, featured problem/contest cards, and admin-only stats below the hero (`Home.vue`).
+- [DONE] Home page no longer looks like a raw admin dashboard or marketing landing page: it now uses a compact OJ workspace layout with concrete quick actions, recommended problem/latest submission, content cards, and admin-only stats below (`Home.vue`).
 - [DONE] Mobile topbar no longer overflows on narrow screens; actions wrap onto their own row before the nav menu (`App.vue`).
 - [DONE] Empty contest/discussion/admin assignment/admin contest pages now render centered `NEmpty` states with relevant actions instead of dangling table headers.
 - [DONE] Admin Members user table no longer wraps long emails into tall rows; name/email columns use compact widths with ellipsis/tooltips (`AdminUsers.vue`).
