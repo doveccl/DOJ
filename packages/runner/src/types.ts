@@ -12,6 +12,7 @@ export interface BuildResult {
   ok: boolean
   imageId?: string
   logs: string
+  cached?: boolean
 }
 
 export interface RunInput {
@@ -43,6 +44,9 @@ export interface PackageBuildInput {
   // Trusted (problem-author) images skip CPU/memory caps; untrusted (submission)
   // images get the configured limits applied at build time.
   trusted: boolean
+  // Optional immutable cache key. Only trusted package builds should use this by
+  // default, so user source images are not kept around longer than the job.
+  cacheKey?: string
   signal?: AbortSignal
 }
 

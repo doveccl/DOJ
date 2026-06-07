@@ -96,11 +96,23 @@ export class DockerRunner implements Runner {
   // build caps. Used for the A (problem) / B (submission) container model.
   async buildPackage(input: PackageBuildInput): Promise<BuildResult> {
     throwIfCancelled(input.signal)
-    const tag = `doj-scope-${input.scopeId.toLowerCase()}:latest`
+    const cacheTag = input.cacheKey ? `doj-cache-${input.cacheKey.slice(0, 48)}:latest` : null
+    if (cacheTag && (await this.imageExists(cacheTag))) {
+      return {
+        ok: true,
+        imageId: cacheTag,
+        logs: `cache hit: ${cacheTag}`,
+        cached: true
+      }
+    }
+
+    const tag = cacheTag ?? `doj-scope-${input.scopeId.toLowerCase()}:latest`
     const context = createFilesBuildContext(input.files)
     const buildOptions: Docker.ImageBuildOptions = {
       t: tag,
-      labels: { 'doj.scope': input.scopeId },
+      labels: input.cacheKey
+        ? { 'doj.cache': 'package', 'doj.cache.key': input.cacheKey }
+        : { 'doj.scope': input.scopeId },
       forcerm: true,
       rm: true
     }
@@ -149,7 +161,8 @@ export class DockerRunner implements Runner {
     return {
       ok: buildError === null,
       imageId: buildError === null ? imageId : undefined,
-      logs: logs.join('')
+      logs: logs.join(''),
+      cached: false
     }
   }
 
@@ -508,12 +521,39 @@ export class DockerRunner implements Runner {
     )
   }
 
+  async cleanupPackageCache(cacheKey: string): Promise<void> {
+    const images = await this.docker.listImages({
+      filters: { label: [`doj.cache.key=${cacheKey}`] }
+    })
+    await Promise.all(
+      images.flatMap((item) =>
+        item.Id
+          ? [
+              this.docker
+                .getImage(item.Id)
+                .remove({ force: true })
+                .catch(() => {})
+            ]
+          : []
+      )
+    )
+  }
+
   private async getImageCommand(imageId: string) {
     try {
       const inspect = await this.docker.getImage(imageId).inspect()
       return inspect.Config?.Cmd ?? undefined
     } catch {
       return undefined
+    }
+  }
+
+  private async imageExists(imageId: string) {
+    try {
+      await this.docker.getImage(imageId).inspect()
+      return true
+    } catch {
+      return false
     }
   }
 }

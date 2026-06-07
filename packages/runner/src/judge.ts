@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import type { JudgeAgentProgress, JudgeAgentResult } from '@doj/shared/agent'
 import type { JudgeLimit, ProblemTestCase } from '@doj/shared/judge'
 import type { JudgeStatus } from '@doj/shared/status'
@@ -86,6 +87,7 @@ export async function judgePackage(
       scopeId: problemScope,
       files: input.problemFiles as Record<string, string | Uint8Array>,
       trusted: true,
+      cacheKey: packageCacheKey(input.problemFiles as Record<string, string | Uint8Array>),
       signal: input.signal
     })
     throwIfCancelled(input.signal)
@@ -308,6 +310,18 @@ function totalCases(input: PackageJudgeInput) {
 
 function throwIfCancelled(signal: AbortSignal | undefined) {
   if (signal?.aborted) throw new Error('judge job cancelled')
+}
+
+function packageCacheKey(files: Record<string, string | Uint8Array>) {
+  const hash = createHash('sha256')
+  for (const name of Object.keys(files).sort()) {
+    const content = files[name]
+    hash.update(name)
+    hash.update('\0')
+    hash.update(typeof content === 'string' ? Buffer.from(content) : Buffer.from(content))
+    hash.update('\0')
+  }
+  return hash.digest('hex')
 }
 
 function finalizeResult(input: {
