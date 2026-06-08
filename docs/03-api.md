@@ -1,5 +1,7 @@
 # API 与权限设计
 
+本文件是 HTTP/WS 接口的单一事实源：路由、请求/响应字段、权限与裁剪规则。产品形态见 `01-overview-and-ui.md`，schema 与存储约定见 `02-data-and-storage.md`，评测核心协议与评测类型见 `04-judge-core.md`。
+
 ## 总体原则
 
 - API 返回 shape 要稳定、简洁、领域化。
@@ -8,8 +10,20 @@
 - 后端实现应通过中间件简化，例如 `requireAuth`、`requireAdmin`、`optionalUser`、`canViewSubmission`。
 - 所有列表分页参数固定为 `page` 和 `pageSize`，默认 `page=1&pageSize=50`，`pageSize` 上限固定 100，返回 `items`、`page`、`pageSize`、`total`。
 - 排序参数固定为 `sort` 和 `order`；`order` 只允许 `asc` 或 `desc`，接口未声明支持排序时忽略这两个参数。
-- 所有时间戳字段使用 ISO 8601 UTC 字符串；heatmap 例外，API 接收 `tz` 参数并按该 IANA 时区聚合成本地日期桶。
+- 所有时间戳字段使用 ISO 8601 UTC 字符串，字段名一律以 `At` 结尾，例如 `createdAt`、`updatedAt`、`heartbeatAt`；heatmap 例外，API 接收 `tz` 参数并按该 IANA 时区聚合成本地日期桶。
 - 错误响应避免泄露内部信息；管理员接口可返回更具体配置错误。
+
+### 共享类型
+
+跨接口复用的精简用户摘要固定为 `UserBrief`，所有列表/详情里嵌入的他人用户信息统一使用它，不再各自手写：
+
+```ts
+interface UserBrief {
+  id: number
+  name: string
+  avatarUrl: string
+}
+```
 
 统一错误响应：
 
@@ -133,7 +147,7 @@ interface PublicConfig {
 
 规则：
 
-- `GET /api/users/:id` 是公开个人主页接口，返回 `{ id, name, introduction, avatarUrl, solved, submissions, createdAt }`，不返回 email；用户本人和管理员通过 `GET /api/auth/self` 或 admin users 接口查看 email。
+- `GET /api/users/:id` 是公开个人主页接口，返回 `{ id, name, introduction, avatarUrl, solved, submissions, createdAt }`，不返回 email；这里 `solved`/`submissions` 是该用户的 AC 题数和提交数。用户本人和管理员通过 `GET /api/auth/self` 或 admin users 接口查看 email。
 - Users 支持改用户名、邮箱、简介、admin、disabled。
 - 不允许取消最后一个管理员的 admin，不允许禁用最后一个未禁用管理员；违反时返回 409，`code='LAST_ADMIN'`。
 - 管理员可以禁用自己，但如果自己是最后一个未禁用管理员则返回 `LAST_ADMIN`。
@@ -158,6 +172,10 @@ interface PublicConfig {
 - `DELETE /api/admin/problems/:id`
 - `POST /api/admin/problems/:id/restore`
 
+题面接口：
+
+- `PUT /api/admin/problems/:id/statement`
+
 资产接口：
 
 - `GET /api/admin/problems/:id/assets`
@@ -165,16 +183,18 @@ interface PublicConfig {
 - `PUT /api/admin/problems/:id/assets/content`
 - `POST /api/admin/problems/:id/assets/upload`
 - `DELETE /api/admin/problems/:id/assets?path=`
-- `POST /api/admin/problems/:id/assets/pe-checker`
 - `GET /api/problems/:id/assets/:filename`
 
 说明：
 
-- 管理端 list/read/write/delete 整个资产树。
+- 题面正文存 S3 `problems/{problemId}/statement.md`，不进 PostgreSQL，也不进资产树。题面读写走专用的 statement 接口，资产树只管理 `data/`、`assets/` 和根目录评测资源。
+- 读题面统一通过 `GET /api/problems/:id` 的 `ProblemDetail.statement`（原始 Markdown，前端用 `markdown-it` 渲染）；管理员能读隐藏/删除题详情，因此不单独提供读 statement 接口，只用 `PUT` 写入。
+- `PUT /api/admin/problems/:id/statement` 请求体固定为 `{ markdown: string }`，写入 S3 `statement.md`，返回 `{ markdown: string }`；`markdown` 长度上限固定 64 KiB。
+- 管理端 list/read/write/delete 整个资产树（`data/`、`assets/`、根目录）。
 - 普通用户只能 GET 公开题目的 `assets/{filename}`，不能 list。
-- 公开读取接口只服务 `assets/` 平铺文件，不读 `data/` 或根目录评测资源。
+- 公开读取接口只服务 `assets/` 平铺文件，不读 `data/`、`statement.md` 或根目录评测资源。
 - `assets/` 不允许子目录。
-- `pe-checker` 按钮写入预设 `Dockerfile` 和 `checker.cc`，并说明 PE 是 ICPC 风格。
+- 评测行为由 `problems.mode` 决定，不再有 PE checker 一键写入按钮：`default`/`strict` 共用预构建判题镜像，由 `mode` 切换比较语义；`custom` 才需要管理员在根目录上传 `Dockerfile` 及评测资源。mode 与镜像的对应关系见 `04-judge-core.md`。
 - `GET /api/problems` 对普通用户和访客只返回 `visible=true` 且 `deletedAt IS NULL` 的题目；管理员列表可包含隐藏题和软删除题。
 - `GET /api/problems/:id` 对普通用户和访客访问 hidden/deleted/missing 题目都返回 404，不暴露存在性；管理员可读取 hidden/deleted 题目。
 - `POST /api/submissions` 只允许提交 `visible=true` 且 `deletedAt IS NULL` 的题目，管理员也遵守同一规则。
@@ -183,10 +203,10 @@ interface PublicConfig {
 - `GET /api/problems` 默认按 `id ASC` 排序；首版不开放其他排序。
 - `q` 匹配规则固定为：纯数字时同时匹配 `problem.id == Number(q)` 和标题子串；非纯数字时匹配标题子串和 tag 完全相等；标题匹配大小写不敏感，tag 匹配大小写敏感。
 - `tag` 参数固定为单个 tag 精确匹配，大小写敏感；首版不支持多 tag 同时筛选。
-- `POST /api/admin/problems` 请求体固定为 `{ title: string, content?: string, timeLimitMs?: number, memoryLimitBytes?: number, tags?: string[], visible?: boolean }`。
-- `PATCH /api/admin/problems/:id` 请求体固定为 `{ title?: string, content?: string, timeLimitMs?: number, memoryLimitBytes?: number, tags?: string[], visible?: boolean }`。
-- 新建默认值固定为 `content=''`、`timeLimitMs=1000`、`memoryLimitBytes=134217728`、`tags=[]`、`visible=false`。
-- `timeLimitMs` 合法范围固定 `100..60000`；`memoryLimitBytes` 合法范围固定 `16777216..1073741824`；tags 最多 10 个，每个 tag 长度 1-32。
+- `POST /api/admin/problems` 请求体固定为 `{ title: string, mode?: 'default' | 'strict' | 'custom', timeLimit?: number, memoryLimit?: number, tags?: string[], visible?: boolean }`。
+- `PATCH /api/admin/problems/:id` 请求体固定为 `{ title?: string, mode?: 'default' | 'strict' | 'custom', timeLimit?: number, memoryLimit?: number, tags?: string[], visible?: boolean }`。
+- 新建默认值固定为 `mode='default'`、`timeLimit=1000`、`memoryLimit=134217728`、`tags=[]`、`visible=false`；题面初始为空串，单独通过 statement 接口编辑。
+- `timeLimit`（毫秒）合法范围固定 `100..60000`；`memoryLimit`（字节）合法范围固定 `16777216..1073741824`；tags 最多 10 个，每个 tag 长度 1-32。
 
 题目详情 shape 固定：
 
@@ -196,8 +216,6 @@ interface ProblemListItem {
   title: string
   tags: string[]
   passRate: number
-  solvedUsers: number
-  attemptedUsers: number
   solved: boolean
   visible: boolean
 }
@@ -205,13 +223,12 @@ interface ProblemListItem {
 interface ProblemDetail {
   id: number
   title: string
-  content: string
-  timeLimitMs: number
-  memoryLimitBytes: number
+  statement: string
+  mode: 'default' | 'strict' | 'custom'
+  timeLimit: number
+  memoryLimit: number
   tags: string[]
   passRate: number
-  solvedUsers: number
-  attemptedUsers: number
   solved: boolean
   recentSubmission: SubmissionListItem | null
   visible: boolean
@@ -222,8 +239,10 @@ interface ProblemDetail {
 ```
 
 - `GET /api/problems` 返回分页 `ProblemListItem`。
-- `passRate` 固定为 `solvedUsers / attemptedUsers`，`attemptedUsers=0` 时为 0；API 返回 0 到 1 的 number，前端展示百分比时保留 1 位小数。
-- 未登录用户的 `solved=false`、`recentSubmission=null`。
+- `passRate` 固定为该题 solved users / attempted users，attempted users 为 0 时为 0；API 返回 0 到 1 的 number，前端展示百分比时保留 1 位小数。solved/attempted 的明细计数不在列表/详情里返回，只暴露 `passRate`，避免冗余可推导字段。
+- 题目里的 `solved` 是布尔，表示当前登录用户是否已 AC 该题；未登录用户固定 `solved=false`、`recentSubmission=null`。（排行/用户主页里的 `solved` 是数字 AC 题数，语义按所在对象区分。）
+- `timeLimit` 单位毫秒，`memoryLimit` 单位字节。
+- `ProblemDetail.statement` 是 S3 `statement.md` 原始 Markdown；前端渲染，后端不返回 HTML。
 - `ProblemDetail.recentSubmission` 必须使用与 submissions 列表相同的权限和封榜裁剪口径。
 
 资产 API shape 固定：
@@ -255,18 +274,17 @@ interface ProblemAssetUploadResult {
 }
 ```
 
-- `GET /api/admin/problems/:id/assets` 返回 `ProblemAssetItem[]`，按 `section` 的 `data, assets, root` 顺序再按 path 升序。
+- `GET /api/admin/problems/:id/assets` 返回 `ProblemAssetItem[]`，按 `section` 的 `data, assets, root` 顺序再按 path 升序；不包含 `statement.md`（题面走专用接口）。
 - `GET /api/admin/problems/:id/assets/content?path=` 对 UTF-8 文本返回 `encoding='utf8'` 和原文；二进制返回 `encoding='base64'`。
 - `PUT /api/admin/problems/:id/assets/content` 请求体固定为 `{ path: string, content: string, encoding: 'utf8' | 'base64', contentType?: string }`，返回 `ProblemAssetItem`。
 - `POST /api/admin/problems/:id/assets/upload` 使用 multipart 字段 `file` 和 `path`，返回 `ProblemAssetUploadResult`；上传到 `assets/{filename}` 时 `url` 固定为 `/api/problems/{id}/assets/{filename}`，供 `md-editor-v3` 图片回填。
 - `DELETE /api/admin/problems/:id/assets?path=` 返回 `{ ok: true }`。
-- `POST /api/admin/problems/:id/assets/pe-checker` 返回写入后的 `ProblemAssetItem[]`。
 
 题目创建流程：
 
-- 第一步创建基础信息，`content` 可为空，拿到 ID。
-- 第二步编辑题面与附件。
-- 第三步上传 data 和评测资源。
+- 第一步创建基础信息（含 `mode`），拿到 ID。
+- 第二步通过 statement 接口编辑题面，通过资产上传图片附件。
+- 第三步上传 data 和评测资源；`custom` 题目在根目录上传 `Dockerfile`。
 
 ## Submissions
 
@@ -307,7 +325,7 @@ type SubmissionDisplayStatus = JudgeStatus | 'SUBMITTED' | 'JUDGED'
 interface SubmissionListItem {
   id: number
   problem: { id: number; title: string } | null
-  user: { id: number; name: string; avatarUrl: string }
+  user: UserBrief
   languageId: string
   status: JudgeStatus | null
   displayStatus: SubmissionDisplayStatus
@@ -338,6 +356,8 @@ interface SubmissionDetail extends SubmissionListItem {
 }
 ```
 
+`JudgeStatus` 定义见 `04-judge-core.md`。
+
 裁剪规则：
 
 - 无权查看源码时 `code=null`。
@@ -354,7 +374,7 @@ AI coaching：
 - `canCoach=true` 的条件固定为：AI enabled，submission 已完成，当前用户是提交本人或管理员，且用户有权查看该提交详情。
 - 输出语言固定跟随用户界面语言；首版界面语言固定中文时，coach 输出中文。
 - 输入 prompt 固定包含题面摘要、语言、源码、最终 status、score、message 和最多前 20 个非 AC case 摘要。
-- 题面摘要固定取 Markdown 纯文本前 1000 字符；源码最多取前 12000 字符；每个非 AC case 摘要固定为 `caseNo/status/message`，message 截到 300 字符。
+- 题面摘要固定取 statement Markdown 纯文本前 1000 字符；源码最多取前 12000 字符；每个非 AC case 摘要固定为 `caseNo/status/message`，message 截到 300 字符。
 - 输出结构固定为 `{ summary: string, hints: string[], nextSteps: string[] }`。
 
 ## WebSocket
@@ -362,7 +382,7 @@ AI coaching：
 接口：
 
 - `GET /api/ws`
-- Agent 连接接口固定为 `GET /api/agents/connect`。
+- Agent 连接接口固定为 `GET /api/agents/connect`，其协议、消息契约与心跳见 `04-judge-core.md`。
 
 浏览器消息：
 
@@ -372,6 +392,7 @@ type BrowserToServer =
   | { type: 'unsubscribe-submission'; submissionId: number }
   | { type: 'subscribe-feed'; scope: 'self' | 'page'; submissionIds?: number[] }
   | { type: 'unsubscribe-feed'; scope: 'self' | 'page' }
+  | { type: 'pong' }
 ```
 
 server 推送：
@@ -381,7 +402,10 @@ type ServerToBrowser =
   | { type: 'submission-progress'; submissionId: number; progress: JudgeProgress }
   | { type: 'submission-result'; submissionId: number; result: SubmissionDetail }
   | { type: 'submission-feed'; item: SubmissionListItem }
+  | { type: 'ping' }
 ```
+
+`JudgeProgress` 定义见 `04-judge-core.md`。
 
 权限：
 
@@ -390,7 +414,7 @@ type ServerToBrowser =
 - 订阅时校验是否有权查看 submission。
 - `subscribe-feed` 的 `self` 订阅推送当前用户新建或更新的提交；`page` 订阅只推送 `submissionIds` 中有权限查看的提交更新，用于提交列表当前页。
 - 断线重连后先 HTTP 拉详情。
-- 浏览器 WS 由 server 每 30 秒发送 `{ type: 'ping' }`；浏览器收到后 10 秒内发送 `{ type: 'pong' }`，server 60 秒未收到 pong 即关闭连接。
+- 心跳：server 每 30 秒发送 `{ type: 'ping' }`；浏览器收到后 10 秒内发送 `{ type: 'pong' }`，server 60 秒未收到 pong 即关闭连接。
 
 ## Ranking And Home Data
 
@@ -416,10 +440,10 @@ type ServerToBrowser =
 ```ts
 interface RankingRow {
   rank: number
-  user: { id: number; name: string; avatarUrl: string }
+  user: UserBrief
   solved: number
   submissions: number
-  lastAcAt: string | null
+  acAt: string | null
 }
 
 interface TagItem {
@@ -428,7 +452,7 @@ interface TagItem {
 }
 ```
 
-- `GET /api/ranking` 返回分页 `RankingRow`。
+- `GET /api/ranking` 返回分页 `RankingRow`；`solved` 是 AC 题数，`submissions` 是提交总数。
 - `GET /api/tags` 返回 `TagItem[]`，按 `count DESC, name ASC` 排序。
 - `GET /api/home/recommended-problems` 返回 `ProblemListItem[]`。
 
@@ -468,8 +492,8 @@ interface AssignmentProblemProgress {
   attempts: number
   bestScore: number
   ac: boolean
-  lastSubmissionId: number | null
-  lastSubmittedAt: string | null
+  submissionId: number | null
+  submittedAt: string | null
 }
 
 interface MyAssignmentDetail {
@@ -481,7 +505,7 @@ interface MyAssignmentDetail {
 }
 
 interface AssignmentReportRow {
-  user: { id: number; name: string; avatarUrl: string }
+  user: UserBrief
   problems: Record<number, AssignmentProblemProgress>
 }
 ```
@@ -507,13 +531,13 @@ interface AssignmentReportRow {
 - 比赛题号 key 由 `problemIds` 顺序自动生成，固定为 Excel 列名规则：`A..Z, AA, AB, ...`，首版最多 100 题，超过返回 400。
 - OI 榜单每题取该用户在本场比赛上下文中最后一次提交的 score；最后一次按 `createdAt DESC, id DESC` 判定，封榜只裁剪普通用户展示，不改变真实统计口径。
 - OI 比赛 `endAt` 前，普通 scoreboard 不展示真实 per-problem score、总分和排名，固定展示每题已提交/未提交占位；`endAt` 后展示真实榜单。
-- OI full scoreboard 和结束后的 public scoreboard 按 `totalScore DESC, lastEffectiveSubmitAt ASC, userId ASC` 排序；`lastEffectiveSubmitAt` 是该用户所有有提交的比赛题目中，被 OI 最后提交规则选中的 submission.createdAt 最大值，没有任何提交时为 `null` 且排序放最后；rank 使用竞赛排名，并列判定只看 `totalScore` 和 `lastEffectiveSubmitAt`，不看 userId，例如 `1,1,3`。
+- OI full scoreboard 和结束后的 public scoreboard 按 `totalScore DESC, effectiveAt ASC, userId ASC` 排序；`effectiveAt` 是该用户所有有提交的比赛题目中，被 OI 最后提交规则选中的 submission.createdAt 最大值，没有任何提交时为 `null` 且排序放最后；rank 使用竞赛排名，并列判定只看 `totalScore` 和 `effectiveAt`，不看 userId，例如 `1,1,3`。
 - ICPC 榜单按 solved 降序、penalty 升序、userId 升序；罚时为首次 AC 分钟数向下取整 + AC 前计罚错误次数 * 20，计罚错误包含 WA、PE、TLE、MLE、OLE、RE，不包含 CE 和 SE。
 - ICPC rank 使用竞赛排名，并列判定只看 `solved` 和 `penalty`，不看 userId。
 - OI 比赛结束前，普通用户 submission detail 裁剪 status、score、case、message。
 - ICPC 封榜后，普通用户仍可在自己的 submission detail 看到真实 verdict；榜单上 freeze 后提交显示 pending。
 - ICPC public scoreboard 在 `endAt` 后自动解封，展示真实榜单；无需管理员手动操作。
-- ICPC `freezeAt` 按数据库保存值执行；管理端 UI 默认预填 `endAt - 1h`，保存为空表示不封榜。OI `freezeAt` 固定为 `NULL`。
+- ICPC `freezeAt` 按数据库保存值执行；比赛编辑 UI 默认预填 `endAt - 1h`，保存为空表示不封榜。OI `freezeAt` 固定为 `NULL`。
 - scoreboard `frozen` 判定固定为：OI 在 `startAt <= now < endAt` 为 true；ICPC 在 `freezeAt != null && freezeAt <= now < endAt` 为 true；其他情况为 false。
 - 首版无报名、私有比赛和参赛范围；任何登录用户在比赛窗口内提交比赛题目都会进入该比赛榜单。
 - 创建/编辑只能选择 `visible=true` 且 `deletedAt IS NULL` 的题目；若已关联题目后来隐藏或软删除，普通用户详情显示不可用且不能继续提交，scoreboard 继续保留历史提交统计。
@@ -546,10 +570,10 @@ interface ContestScoreboard {
 }
 
 interface ScoreboardRow {
-  user: { id: number; name: string; avatarUrl: string }
+  user: UserBrief
   rank: number | null
   totalScore?: number
-  lastEffectiveSubmitAt?: string | null
+  effectiveAt?: string | null
   solved?: number
   penalty?: number
   problems: Record<string, OIProblemCell | ICPCProblemCell>
@@ -642,7 +666,7 @@ interface TopicListItem {
   title: string
   tags: string[]
   pinned: boolean
-  author: { id: number; name: string; avatarUrl: string }
+  author: UserBrief
   updatedAt: string
   createdAt: string
 }
@@ -650,7 +674,7 @@ interface TopicListItem {
 interface PostView {
   id: number
   topicId: number
-  user: { id: number; name: string; avatarUrl: string }
+  user: UserBrief
   content: string
   createdAt: string
 }
@@ -682,7 +706,7 @@ interface TopicDetail extends TopicListItem {
 - `POST /api/admin/languages` 请求体固定为 `{ id: string, name: string, source: string, dockerfile: string, sort?: number }`；`sort` 默认 0。
 - `PATCH /api/admin/languages/:id` 请求体固定为 `{ name?: string, source?: string, dockerfile?: string, sort?: number }`。
 - Dockerfile 在语言页文本编辑。
-- 语言 Dockerfile 必须在 build 阶段编译用户源码，并通过 `CMD` 或 `ENTRYPOINT` 定义运行入口。
+- 语言 Dockerfile 必须在 build 阶段编译用户源码，并通过 `CMD` 或 `ENTRYPOINT` 定义运行入口；最终镜像必须含 `/bin/sh`，约束见 `04-judge-core.md`。
 - 用户源码以 `source` 文件名放在 build context 根目录；B 镜像 build 失败即 CE。
 
 语言 shape 固定：
@@ -704,13 +728,14 @@ interface LanguageAdmin extends LanguagePublic {
 
 ## Agents
 
-Agent 内部包含 Runner 执行模块，但 API 只暴露 Agent 运行态，不暴露 Runner 作为独立服务。
-
+Agent 内部包含 Runner 执行模块，但 API 只暴露 Agent 运行态，不暴露 Runner 作为独立服务。Agent 连接协议、评测消息契约与心跳见 `04-judge-core.md`。
 
 接口：
 
 - `GET /api/admin/agents`
 - `GET /api/admin/agents/instructions`
+- `GET /api/agents/connect`（WebSocket，见 `04-judge-core.md`）
+- `GET /api/agents/bundle/:problemId`
 
 规则：
 
@@ -719,6 +744,8 @@ Agent 内部包含 Runner 执行模块，但 API 只暴露 Agent 运行态，不
 - 不 labels。
 - concurrency 只读，由 Agent 启动参数上报。
 - secret 来自 env，不做在线刷新。
+- `/api/agents/*` 固定用 `Authorization: Bearer <SECRET>` 鉴权；`/api/admin/agents*` 用管理员 session。HTTP 鉴权中间件同时支持 session token 与 SECRET 两种凭据，`/api/agents/*` 只接受 SECRET。
+- `GET /api/agents/bundle/:problemId` 返回该题评测文件的 tar 流（`data/`，`custom` 额外含根目录 `Dockerfile` 和评测资源；不含 `statement.md`、`assets/`），响应头带 `X-Bundle-Hash`。它与浏览器侧单文件 `GET /api/problems/:id/assets/:filename` 用途、鉴权、粒度都不同，不合并；下载与缓存策略见 `04-judge-core.md`。
 
 Agent shape 固定：
 
@@ -730,7 +757,7 @@ interface AgentRuntimeView {
   activeJobs: number
   version: string
   connectedAt: string
-  lastHeartbeat: string
+  heartbeatAt: string
 }
 ```
 

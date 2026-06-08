@@ -38,8 +38,8 @@
 - 提交限流固定为同用户每分钟 30 次、同 IP 每分钟 120 次。
 - 源码大小上限固定 256 KiB；提交 JSON body 上限固定 512 KiB；题目单个资产上传上限固定 64 MiB。
 - seed 管理员默认用户名 `admin`，默认邮箱 `admin@example.test`，默认密码 `admin12345`；部署时可用环境变量覆盖，首次登录后必须修改密码。
-- seed 必须创建 `P1000 A+B Problem` 且 `visible=true`，并同时写入 P1000 的 S3 评测数据：`problems/1000/data/in1.txt` 为 `1 2\n`，`problems/1000/data/ans1.txt` 为 `3\n`，`problems/1000/data/in2.txt` 为 `-5 8\n`，`problems/1000/data/ans2.txt` 为 `3\n`。
-- P1000 题面 content 固定为 `# A+B Problem\n\nRead two integers a and b, then print their sum.\n\nInput: two integers separated by whitespace.\n\nOutput: one integer.`。
+- seed 必须创建 `P1000 A+B Problem` 且 `visible=true`、`mode='default'`，并同时写入 P1000 的 S3 评测数据：`problems/1000/data/in1.txt` 为 `1 2\n`，`problems/1000/data/ans1.txt` 为 `3\n`，`problems/1000/data/in2.txt` 为 `-5 8\n`，`problems/1000/data/ans2.txt` 为 `3\n`。
+- P1000 题面固定写入 S3 `problems/1000/statement.md`，内容为 `# A+B Problem\n\nRead two integers a and b, then print their sum.\n\nInput: two integers separated by whitespace.\n\nOutput: one integer.`；PostgreSQL `problems` 不再保存题面正文。
 - 邮件验证码正文固定为 `Your DOJ verification code is {code}. It expires in 10 minutes.`。
 
 ## PostgreSQL 原则
@@ -64,7 +64,7 @@
 - `system_settings` -> `settings`
 - `judge_languages` -> `languages`
 - `discussion_topics` / `discussion_replies` -> `topics` / `posts`
-- `statementMarkdown` -> `content`
+- `statementMarkdown` 字段删除；题面正文迁移到 S3 `problems/{problemId}/statement.md`。
 - `sourceCode` -> `code`
 - `open` -> `public`
 - `dueAt` -> `endAt`
@@ -220,9 +220,9 @@ CMD ["/app/main"]
 
 - `id`：从 1000 开始。
 - `title`
-- `content`：题面 Markdown。
-- `timeLimitMs`
-- `memoryLimitBytes`
+- `mode`：`default | strict | custom`，`varchar(16)`，默认 `default`。`default` 用预构建判题镜像做 trim 比较；`strict` 用同一镜像做 PE 风格比较；`custom` 使用题目根目录 `Dockerfile` 构建自定义 checker/interactor。
+- `timeLimit`：毫秒。
+- `memoryLimit`：字节。
 - `tags`：PostgreSQL `text[]` 字符串数组。
 - `visible`
 - `deletedAt`
@@ -231,11 +231,13 @@ CMD ["/app/main"]
 
 说明：
 
+- 题面正文不存 PostgreSQL，存 S3 `problems/{problemId}/statement.md`；`problems` 表只保存题目结构化元数据。
 - 不做题目版本化。
 - 不保存 inline test cases。
 - 不保存 caseCount。
 - 不保存 solved/submission count。
 - `visible` 和 `deletedAt` 语义分开。
+- 评测行为只由 `mode` 决定，Agent 不感知 `mode`，详见 `04-judge-core.md`。
 - 普通用户和访客只能查看、提交 `visible=true` 且 `deletedAt IS NULL` 的题目。
 - 管理员可查看和编辑 `visible=false` 或已软删除题目；管理员也只能提交 `visible=true` 且 `deletedAt IS NULL` 的题目，隐藏题调试必须先设为可见或走未来专门的管理评测入口。
 - 作业/比赛创建和编辑时只能选择 `visible=true` 且 `deletedAt IS NULL` 的题目。
@@ -260,9 +262,9 @@ CMD ["/app/main"]
 
 说明：
 
-- ICPC 的 `freezeAt` 表示封榜时间；管理端 UI 默认预填为 `endAt - 1h`，管理员可修改，后端按保存值执行。
+- ICPC 的 `freezeAt` 表示封榜时间；比赛编辑 UI 默认预填为 `endAt - 1h`，管理员可修改，后端按保存值执行。
 - ICPC 若保存时 `freezeAt` 为空，则表示不封榜；UI 不应默认提交空值。
-- OI 不使用 `freezeAt`，管理端不展示该字段，数据库固定保存 `NULL`；OI 从 `startAt` 起到 `endAt` 前始终按封榜裁剪展示。
+- OI 不使用 `freezeAt`，比赛编辑 UI 不展示该字段，数据库固定保存 `NULL`；OI 从 `startAt` 起到 `endAt` 前始终按封榜裁剪展示。
 - 比赛窗口固定为 `[startAt, endAt)`。
 - 未开始可编辑，进行中只允许非结构字段，结束后原则上不可改。
 - 结构字段固定为 `type`、`startAt`、`endAt`、`freezeAt`、题目列表和题目顺序；非结构字段固定为 `title`、`description`。
@@ -465,18 +467,19 @@ problems/{problemId}/{path}
 
 固定分区：
 
+- `statement.md`：题面 Markdown 正文，仅根目录单文件，不使用 front matter，不绑定 tags/limits/checker 元数据。
 - `data/{filename}`：评测输入输出文件。
 - `assets/{filename}`：题面图片和附件，不允许子文件夹。
-- 根目录：`Dockerfile`、checker/interactor 源码和 Dockerfile `COPY/ADD` 需要的文件。
+- 根目录：仅 `mode='custom'` 题目使用 `Dockerfile` 及其 `COPY/ADD` 需要的 checker/interactor 源码文件；`default`/`strict` 题目不写根目录评测资源，由预构建判题镜像处理。
 
 示例：
 
 ```text
+problems/1000/statement.md
 problems/1000/data/in1.txt
 problems/1000/data/ans1.txt
 problems/1000/assets/figure.png
-problems/1000/Dockerfile
-problems/1000/checker.cc
+problems/2000/Dockerfile
 ```
 
 路径规则：
@@ -484,7 +487,7 @@ problems/1000/checker.cc
 - 使用 POSIX `/`。
 - 禁止绝对路径、空路径、`.`、`..`、反斜杠、控制字符。
 - `assets/` 下首版不允许再有子目录。
-- 普通用户只能 GET 公开且未删除题目的 `assets/{filename}`，不能 list。
+- 普通用户只能 GET 公开且未删除题目的 `assets/{filename}` 和经接口渲染的 `statement.md`，不能 list。
 - 普通用户永远不能读取 `data/`、`Dockerfile` 或评测资源。
 - 管理员可 list/read/write/delete 整个题目资产树。
 
@@ -508,7 +511,7 @@ emailCode:{purpose}:{email}  JSON code/userId/newEmail/createdAt with 10m TTL
 solved:user:{userId}        SET problemId
 solved:problem:{problemId}  SET userId
 attempted:problem:{problemId} SET userId
-stats:user:{userId}         HASH solved submission lastAcAt
+stats:user:{userId}         HASH solved submission acAt
 stats:problem:{problemId}   HASH solved attempted submission
 rank:global                 ZSET userId -> rankScore
 repair:stats:last           HASH time status duration message
@@ -519,8 +522,8 @@ progress:submission:{id}    JSON with short TTL
 
 - 事实排序固定为 AC 数降序、提交数升序、最近 AC 时间升序、userId 升序。
 - Redis ZSET 的 score 只保存主排序值 `rankScore = -solved`。
-- 同 AC 数用户在读取排行榜时按 `stats:user:{userId}` 中的 submission、lastAcAt 和 userId 做二次稳定排序。
-- 读取排行榜时固定先取目标页附近的 solved 分组：从 `rank:global` 按 score 升序扫描，累计完整 solved 分组，直到覆盖 `(page-1)*pageSize + pageSize` 名用户；每个 solved 分组内读取所有同分 userId 后按 submission、lastAcAt、userId 二次排序，再整体切片。
+- 同 AC 数用户在读取排行榜时按 `stats:user:{userId}` 中的 submission、acAt 和 userId 做二次稳定排序。
+- 读取排行榜时固定先取目标页附近的 solved 分组：从 `rank:global` 按 score 升序扫描，累计完整 solved 分组，直到覆盖 `(page-1)*pageSize + pageSize` 名用户；每个 solved 分组内读取所有同分 userId 后按 submission、acAt、userId 二次排序，再整体切片。
 - 如果某个 solved 分组超过 5000 用户，server 允许在该分组内分页读取并以 PostgreSQL submissions 聚合结果做稳定排序；不能只取 Redis 任意前 N 个同分用户。
 - `attempted users = 0` 时，通过率固定返回 `0`，不返回 `null` 或 `N/A`。
 - `attempted:problem:{problemId}` 是通过率 attempted users 的事实派生集合，任何终态提交都必须把 userId 加入该集合，包含 CE/SE。
@@ -553,8 +556,8 @@ progress:submission:{id}    JSON with short TTL
 - `SERVER`：Agent 连接 server 的地址；默认 `http://127.0.0.1:7974`，跨机器部署时必须配置为实际 server 地址。
 - `AGENT_NAME`：Agent 展示名；默认使用主机名，取不到主机名时使用 `agent`。
 - `AGENT_CONCURRENCY`：Agent 并发数；默认 `1`。
-- `AGENT_CACHE_GB`：Agent 侧 A 镜像缓存上限；题目评测文件包不持久缓存。`0` 表示无限制，未配置时按 `min(4GB, 0.5 * availableDiskGB)` 估算。
-- Agent 内部 Runner 的 output limit、CPU/memory 默认限制使用 `03-judge-core.md` 的固定值，不进入 DB settings。
+- `AGENT_CACHE_GB`：Agent 侧 `data/` 本地缓存上限；不缓存 A/B 镜像，预构建判题镜像和 custom A 镜像不计入此上限。`0` 表示无限制，未配置时按 `min(4GB, 0.5 * availableDiskGB)` 估算。
+- Agent 内部 Runner 的 output limit、CPU/memory 默认限制使用 `04-judge-core.md` 的固定值，不进入 DB settings。
 
 ### Redis fallback
 
