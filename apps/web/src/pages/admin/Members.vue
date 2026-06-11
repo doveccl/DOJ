@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { NTabPane, NTabs } from 'naive-ui'
-import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminGroups from './Groups.vue'
 import AdminUsers from './Users.vue'

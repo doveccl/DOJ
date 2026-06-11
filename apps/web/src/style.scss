@@ -151,8 +151,8 @@ body {
 
 .admin-layout {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 24px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
   align-items: start;
   max-width: 1320px;
   margin: 0 auto;
@@ -163,9 +163,17 @@ body {
 }
 
 .admin-sidebar {
-  position: sticky;
-  top: 76px;
+  position: static;
   min-width: 0;
+
+  .n-menu {
+    overflow-x: auto;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
 }
 
 .admin-workspace {
@@ -183,6 +191,24 @@ body {
 
 .table-toolbar {
   margin-bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.toolbar-fields,
+.toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.toolbar-field {
+  width: min(260px, 100%);
 }
 
 .admin-table {
@@ -239,6 +265,18 @@ body {
 
 .form-actions {
   margin-top: 16px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .form-grid {
@@ -428,13 +466,8 @@ body {
 
 @media (max-width: 860px) {
   .problem-layout,
-  .submission-layout,
-  .admin-layout {
+  .submission-layout {
     grid-template-columns: 1fr;
-  }
-
-  .admin-sidebar {
-    position: static;
   }
 
   .form-grid,
@@ -444,7 +477,24 @@ body {
 }
 
 @media (max-width: 640px) {
+  .content {
+    padding: 18px 12px 36px;
+  }
+
   .locale-select {
     width: 104px;
+  }
+
+  .table-toolbar,
+  .toolbar-fields,
+  .toolbar-actions {
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .toolbar-field,
+  .toolbar-fields > *,
+  .toolbar-actions > * {
+    flex: 1 1 100%;
   }
 }

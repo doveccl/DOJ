@@ -48,7 +48,7 @@ export async function destroySession(token: string) {
 }
 
 function sessionKey(token: string) {
-  return `doj:session:${token}`
+  return `session:${token}`
 }
 
 function randomToken() {

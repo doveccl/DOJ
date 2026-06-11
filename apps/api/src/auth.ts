@@ -1,13 +1,20 @@
 import { eq, sql } from 'drizzle-orm'
+import { createHash } from 'node:crypto'
 import type { Context, MiddlewareHandler } from 'hono'
 import { db, schema } from '@doj/db/client'
-import { createSession, getSessionUserId } from './session'
+import { apiError } from './errors'
+import { createSession, destroySession, getSessionUserId } from './session'
+import { getRuntimeSettings } from './settings'
 
 export interface AuthUser {
   id: number
   name: string
   email: string
   introduction: string
+  admin: boolean
+  disabled: boolean
+  mustChangePassword: boolean
+  avatarUrl: string
   groups: string[]
 }
 
@@ -38,7 +45,7 @@ export async function getAuthUser(userId: number): Promise<AuthUser | null> {
   if (!user || user.disabledAt) return null
 
   const groups = await db
-    .select({ key: schema.groups.key })
+    .select({ name: schema.groups.name })
     .from(schema.userGroups)
     .innerJoin(schema.groups, eq(schema.userGroups.groupId, schema.groups.id))
     .where(eq(schema.userGroups.userId, user.id))
@@ -48,7 +55,11 @@ export async function getAuthUser(userId: number): Promise<AuthUser | null> {
     name: user.name,
     email: user.email,
     introduction: user.introduction,
-    groups: groups.map((item) => item.key)
+    admin: user.admin,
+    disabled: user.disabledAt !== null,
+    mustChangePassword: user.mustChangePassword,
+    avatarUrl: gravatarUrl(user.email),
+    groups: groups.map((item) => item.name)
   }
 }
 
@@ -64,11 +75,6 @@ export async function findUserByNameOrEmail(value: string) {
   return user ?? null
 }
 
-export async function getGroupByKey(key: string) {
-  const [group] = await db.select().from(schema.groups).where(eq(schema.groups.key, key)).limit(1)
-  return group ?? null
-}
-
 export async function requireAuthUser(c: Context) {
   const user = c.get('authUser') as AuthUser | undefined
   if (!user) throw new Error('auth user missing')
@@ -77,9 +83,15 @@ export async function requireAuthUser(c: Context) {
 
 export async function requireGroup(c: Context, group: string) {
   const user = await requireAuthUser(c)
-  if (!user.groups.includes(group)) {
-    return c.json({ code: 'FORBIDDEN', message: `Requires ${group} group` }, 403)
+  if (group === 'admin' ? !user.admin : !user.groups.includes(group)) {
+    return apiError(c, 403, 'FORBIDDEN', `Requires ${group} permission`)
   }
+  return null
+}
+
+export async function requireAdmin(c: Context) {
+  const user = await requireAuthUser(c)
+  if (!user.admin) return apiError(c, 403, 'FORBIDDEN', 'Requires admin permission')
   return null
 }
 
@@ -89,19 +101,49 @@ export async function getOptionalAuthUser(c: Context) {
   if (!token) return null
 
   const userId = await getSessionUserId(token)
-  return userId === null ? null : await getAuthUser(userId)
+  if (userId === null) return null
+  const user = await getAuthUser(userId)
+  if (!user) await destroySession(token)
+  return user
+}
+
+export async function denyGuestAccess(c: Context, message = 'Sign in to view this content') {
+  const settings = await getRuntimeSettings()
+  if (settings.general.guestAccess) return null
+  const user = await getOptionalAuthUser(c)
+  if (user) return null
+  return apiError(c, 401, 'UNAUTHORIZED', message)
 }
 
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
   const header = c.req.header('authorization')
   const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : ''
   if (!token) {
-    return c.json({ code: 'UNAUTHORIZED', message: 'Missing bearer token' }, 401)
+    return apiError(c, 401, 'UNAUTHORIZED', 'Missing bearer token')
   }
 
   const userId = await getSessionUserId(token)
   const user = userId === null ? null : await getAuthUser(userId)
-  if (!user) return c.json({ code: 'UNAUTHORIZED', message: 'Invalid bearer token' }, 401)
+  if (!user) {
+    if (userId !== null) await destroySession(token)
+    return apiError(c, 401, 'UNAUTHORIZED', 'Invalid bearer token')
+  }
+  if (user.mustChangePassword && !isPasswordChangeRoute(c)) {
+    return apiError(c, 403, 'MUST_CHANGE_PASSWORD', 'Password must be changed before continuing')
+  }
   c.set('authUser', user)
   await next()
+}
+
+function isPasswordChangeRoute(c: Context) {
+  const path = new URL(c.req.url).pathname
+  if (c.req.method === 'GET' && path === '/api/auth/self') return true
+  if (c.req.method === 'PATCH' && path === '/api/auth/self') return true
+  if (c.req.method === 'POST' && path === '/api/auth/logout') return true
+  return false
+}
+
+function gravatarUrl(email: string) {
+  const hash = createHash('md5').update(email.trim().toLowerCase()).digest('hex')
+  return `https://www.gravatar.com/avatar/${hash}?d=identicon&s=80`
 }

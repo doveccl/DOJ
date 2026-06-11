@@ -1,35 +1,32 @@
 export interface JudgeLanguageConfig {
   id: string
   name: string
-  enabled: boolean
-  sourceFile: string
+  source: string
   dockerfile: string
-  command: string[]
-  sortOrder: number
+  sort: number
 }
+
+export const cppDockerfile = [
+  'FROM gcc:14',
+  'WORKDIR /app',
+  'COPY main.cc /app/main.cc',
+  'RUN g++ -std=c++20 -O2 -pipe -static -s -o /app/main /app/main.cc',
+  'CMD ["/app/main"]'
+].join('\n')
 
 export const defaultLanguageConfigs = [
   {
-    id: 'cc',
+    id: 'cpp',
     name: 'C/C++',
-    enabled: true,
-    sourceFile: 'main.cc',
-    dockerfile: (sourceFile: string) =>
-      [
-        'FROM gcc:latest',
-        'WORKDIR /workspace',
-        `COPY ${sourceFile} /workspace/${sourceFile}`,
-        `RUN g++ -std=c++20 -O2 -pipe -static -s ${sourceFile} -o main`,
-        'CMD ["/workspace/main"]'
-      ].join('\n'),
-    command: ['/workspace/main'] as string[],
-    sortOrder: 10
+    source: 'main.cc',
+    dockerfile: cppDockerfile,
+    sort: 10
   }
-] as const
+] as const satisfies readonly JudgeLanguageConfig[]
 
-export const languageDescriptors = defaultLanguageConfigs.map(({ id, name, sourceFile }) => ({
+export const languageDescriptors = defaultLanguageConfigs.map(({ id, name, source }) => ({
   id,
   name,
-  sourceFile
+  source
 }))
 export type LanguageId = (typeof defaultLanguageConfigs)[number]['id']

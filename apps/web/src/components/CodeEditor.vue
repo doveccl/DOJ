@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
 const monacoVersion = '0.55.1'
 const monacoBase = `https://cdn.jsdelivr.net/npm/monaco-editor@${monacoVersion}/min/vs`
@@ -40,7 +39,7 @@ onMounted(async () => {
     automaticLayout: true,
     minimap: { enabled: false },
     scrollBeyondLastLine: false,
-    wordWrap: 'on',
+    wordWrap: 'off',
     tabSize: 2,
     fontSize: 14,
     theme: isDark.value ? 'vs-dark' : 'vs'

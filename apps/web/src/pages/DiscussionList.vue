@@ -1,25 +1,8 @@
 <script setup lang="ts">
-import {
-  NAlert,
-  NButton,
-  NCard,
-  NDataTable,
-  NDynamicTags,
-  NEmpty,
-  NForm,
-  NFormItem,
-  NInput,
-  NModal,
-  NSelect,
-  NSpace,
-  NTag,
-  NTooltip
-} from 'naive-ui'
-import type { DataTableColumns, SelectOption } from 'naive-ui'
-import { computed, h, onMounted, reactive, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { NTag } from 'naive-ui'
+import type { DataTableColumns } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { apiFetch } from '../api'
+import { apiFetch, DEFAULT_PAGE_SIZE, getItems, PAGE_SIZE_OPTIONS, type Paged } from '../api'
 import MarkdownEditor from '../components/MarkdownEditor.vue'
 import { useAuthStore } from '../stores/auth'
 
@@ -27,9 +10,9 @@ interface TopicRow {
   id: number
   title: string
   tags: string[]
-  userName: string
-  linkedProblemId: number | null
-  linkedContestId: number | null
+  pinned: boolean
+  author: { id: number; name: string; avatarUrl: string }
+  createdAt: string
   updatedAt: string
 }
 
@@ -43,34 +26,16 @@ const topics = ref<TopicRow[]>([])
 const { t } = useI18n()
 const pagination = reactive({
   page: 1,
-  pageSize: 50,
+  pageSize: DEFAULT_PAGE_SIZE,
   itemCount: 0,
   showSizePicker: true,
-  pageSizes: [20, 50, 100]
+  pageSizes: [...PAGE_SIZE_OPTIONS]
 })
-const linkType = ref<'none' | 'problem' | 'contest'>('none')
-const linkId = ref<number | null>(null)
-const problemOptions = ref<SelectOption[]>([])
-const contestOptions = ref<SelectOption[]>([])
 const form = reactive({
   title: '',
   contentMarkdown: '',
   tags: [] as string[]
 })
-
-const linkTypeOptions = computed(() => [
-  { label: t('discussion.linkNone'), value: 'none' },
-  { label: t('discussion.linkProblem'), value: 'problem' },
-  { label: t('discussion.linkContest'), value: 'contest' }
-])
-
-const linkOptions = computed(() =>
-  linkType.value === 'problem'
-    ? problemOptions.value
-    : linkType.value === 'contest'
-      ? contestOptions.value
-      : []
-)
 
 const columns = computed<DataTableColumns<TopicRow>>(() => [
   {
@@ -80,7 +45,22 @@ const columns = computed<DataTableColumns<TopicRow>>(() => [
       return h(RouterLink, { to: `/discussion/${row.id}`, class: 'table-link' }, () => row.title)
     }
   },
-  { title: t('discussion.author'), key: 'userName', width: 140 },
+  {
+    title: t('discussion.pinned'),
+    key: 'pinned',
+    width: 96,
+    render(row) {
+      return row.pinned ? h(NTag, { type: 'success', bordered: false }, () => t('discussion.pinned')) : '-'
+    }
+  },
+  {
+    title: t('discussion.author'),
+    key: 'author',
+    width: 140,
+    render(row) {
+      return row.author.name
+    }
+  },
   {
     title: t('common.tags'),
     key: 'tags',
@@ -104,10 +84,10 @@ async function loadTopics() {
   loading.value = true
   error.value = ''
   try {
-    const data = await apiFetch<{ list: TopicRow[]; total: number }>(
+    const data = await apiFetch<Paged<TopicRow>>(
       `/api/discussion/topics?page=${pagination.page}&pageSize=${pagination.pageSize}`
     )
-    topics.value = data.list
+    topics.value = getItems(data)
     pagination.itemCount = data.total
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
@@ -131,18 +111,16 @@ async function createTopic() {
   saving.value = true
   error.value = ''
   try {
-    const detail = await apiFetch<{ topic: { id: number } }>('/api/discussion/topics', {
+    const detail = await apiFetch<{ id: number }>('/api/discussion/topics', {
       method: 'POST',
       body: JSON.stringify({
         title: form.title,
-        contentMarkdown: form.contentMarkdown,
-        tags: form.tags,
-        linkedProblemId: linkType.value === 'problem' ? (linkId.value ?? undefined) : undefined,
-        linkedContestId: linkType.value === 'contest' ? (linkId.value ?? undefined) : undefined
+        content: form.contentMarkdown,
+        tags: form.tags
       })
     })
     showCreateModal.value = false
-    await router.push(`/discussion/${detail.topic.id}`)
+    await router.push(`/discussion/${detail.id}`)
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
@@ -150,23 +128,8 @@ async function createTopic() {
   }
 }
 
-async function loadLinkOptions() {
-  try {
-    const [problems, contests] = await Promise.all([
-      apiFetch<{ list: Array<{ id: number; title: string }> }>('/api/problems'),
-      apiFetch<{ list: Array<{ id: number; title: string }> }>('/api/contests')
-    ])
-    problemOptions.value = problems.list.map((p) => ({ label: `P${p.id} ${p.title}`, value: p.id }))
-    contestOptions.value = contests.list.map((c) => ({ label: c.title, value: c.id }))
-  } catch {
-    problemOptions.value = []
-    contestOptions.value = []
-  }
-}
-
 onMounted(() => {
   void loadTopics()
-  if (auth.signedIn) void loadLinkOptions()
 })
 </script>
 
@@ -177,20 +140,10 @@ onMounted(() => {
     </n-alert>
 
     <n-card :bordered="false">
-      <n-space justify="end" class="table-toolbar">
+      <n-space v-if="auth.signedIn" justify="end" class="table-toolbar">
         <n-button v-if="auth.signedIn" type="primary" @click="showCreateModal = true">
           {{ t('discussion.newTopic') }}
         </n-button>
-        <n-tooltip v-else trigger="hover">
-          <template #trigger>
-            <span class="tooltip-button-wrap">
-              <n-button type="primary" disabled>
-                {{ t('discussion.newTopic') }}
-              </n-button>
-            </span>
-          </template>
-          {{ t('discussion.signInTopic') }}
-        </n-tooltip>
       </n-space>
       <n-empty
         v-if="!loading && !topics.length"
@@ -212,6 +165,7 @@ onMounted(() => {
         :bordered="false"
         :loading="loading"
         :pagination="pagination"
+        :scroll-x="760"
         class="admin-table"
         @update:page="handlePageChange"
         @update:page-size="handlePageSizeChange"
@@ -234,27 +188,6 @@ onMounted(() => {
         <n-form-item :label="t('common.tags')">
           <n-dynamic-tags v-model:value="form.tags" />
         </n-form-item>
-        <div class="form-grid two">
-          <n-form-item :label="t('discussion.link')">
-            <n-select
-              v-model:value="linkType"
-              :options="linkTypeOptions"
-              @update:value="linkId = null"
-            />
-          </n-form-item>
-          <n-form-item
-            v-if="linkType !== 'none'"
-            :label="t(`discussion.link${linkType === 'problem' ? 'Problem' : 'Contest'}`)"
-          >
-            <n-select
-              v-model:value="linkId"
-              :options="linkOptions"
-              filterable
-              clearable
-              :placeholder="t('discussion.linkPlaceholder')"
-            />
-          </n-form-item>
-        </div>
         <n-space justify="end" class="form-actions">
           <n-button @click="showCreateModal = false">{{ t('admin.cancel') }}</n-button>
           <n-button

@@ -2,7 +2,6 @@
 import MarkdownIt from 'markdown-it'
 import katexPluginModule from '@vscode/markdown-it-katex'
 import { tasklist } from '@mdit/plugin-tasklist'
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import 'katex/dist/katex.min.css'
 
 const props = defineProps<{

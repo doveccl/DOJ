@@ -6,4 +6,6 @@ dist
 .DS_Store
 coverage
 *.log
+.trae/
+.agent-work/
 docs/archive/

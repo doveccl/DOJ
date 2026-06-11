@@ -4,8 +4,8 @@ import { createHash, createHmac } from 'node:crypto'
 export const storageConfig = {
   endpoint: process.env.S3_ENDPOINT ?? 'http://localhost:9000',
   region: process.env.S3_REGION ?? 'us-east-1',
-  accessKeyId: process.env.S3_ACCESS_KEY_ID ?? 'minioadmin',
-  secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? 'minioadmin',
+  accessKeyId: process.env.S3_ACCESS_KEY ?? 'minioadmin',
+  secretAccessKey: process.env.S3_SECRET_KEY ?? 'minioadmin',
   bucket: process.env.S3_BUCKET ?? 'doj'
 }
 
@@ -24,6 +24,12 @@ export interface PutObjectInput {
   body: Uint8Array | string
   contentType: string
   bucket?: string
+}
+
+export interface ListedObject {
+  key: string
+  size: number
+  updatedAt: Date
 }
 
 export async function ensureBucket(bucket = storageConfig.bucket) {
@@ -52,10 +58,52 @@ export async function getObjectBytes(key: string, bucket = storageConfig.bucket)
   return client.file(key).bytes()
 }
 
+export async function deleteObject(key: string, bucket = storageConfig.bucket) {
+  const response = await signedObjectRequest('DELETE', bucket, key)
+  if (!response.ok && response.status !== 404) {
+    throw new Error(`S3 object delete failed: ${response.status} ${await response.text()}`)
+  }
+}
+
+export async function listObjects(prefix: string, bucket = storageConfig.bucket) {
+  const response = await signedObjectRequest('GET', bucket, '', {
+    'list-type': '2',
+    prefix
+  })
+  if (!response.ok) {
+    throw new Error(`S3 object list failed: ${response.status} ${await response.text()}`)
+  }
+  const xml = await response.text()
+  const objects: ListedObject[] = []
+  for (const match of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+    const block = match[1]
+    const key = decodeXml(readXmlTag(block, 'Key'))
+    if (!key) continue
+    objects.push({
+      key,
+      size: Number(readXmlTag(block, 'Size') || 0),
+      updatedAt: new Date(readXmlTag(block, 'LastModified') || 0)
+    })
+  }
+  return objects
+}
+
 async function signedBucketRequest(method: 'HEAD' | 'PUT', bucket: string) {
+  return signedObjectRequest(method, bucket, '')
+}
+
+async function signedObjectRequest(
+  method: 'GET' | 'HEAD' | 'PUT' | 'DELETE',
+  bucket: string,
+  key: string,
+  query: Record<string, string> = {}
+) {
   const endpoint = new URL(storageConfig.endpoint)
-  const path = `/${encodeURIComponent(bucket)}`
+  const path = key
+    ? `/${encodeURIComponent(bucket)}/${key.split('/').map(encodeURIComponent).join('/')}`
+    : `/${encodeURIComponent(bucket)}`
   const url = new URL(path, endpoint)
+  for (const [name, value] of Object.entries(query)) url.searchParams.set(name, value)
   const now = new Date()
   const amzDate = toAmzDate(now)
   const dateStamp = amzDate.slice(0, 8)
@@ -70,9 +118,14 @@ async function signedBucketRequest(method: 'HEAD' | 'PUT', bucket: string) {
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([key, value]) => `${key}:${value}\n`)
     .join('')
-  const canonicalRequest = [method, path, '', canonicalHeaders, signedHeaders, payloadHash].join(
-    '\n'
-  )
+  const canonicalRequest = [
+    method,
+    path,
+    canonicalQuery(query),
+    canonicalHeaders,
+    signedHeaders,
+    payloadHash
+  ].join('\n')
   const scope = `${dateStamp}/${storageConfig.region}/s3/aws4_request`
   const stringToSign = ['AWS4-HMAC-SHA256', amzDate, scope, sha256Hex(canonicalRequest)].join('\n')
   const signature = hmacHex(signingKey(dateStamp), stringToSign)
@@ -88,6 +141,32 @@ async function signedBucketRequest(method: 'HEAD' | 'PUT', bucket: string) {
       ].join(', ')
     }
   })
+}
+
+function canonicalQuery(query: Record<string, string>) {
+  return Object.entries(query)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${awsEncode(key)}=${awsEncode(value)}`)
+    .join('&')
+}
+
+function awsEncode(value: string) {
+  return encodeURIComponent(value).replace(/[!'()*]/g, (char) =>
+    `%${char.charCodeAt(0).toString(16).toUpperCase()}`
+  )
+}
+
+function readXmlTag(block: string, tag: string) {
+  return block.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`))?.[1] ?? ''
+}
+
+function decodeXml(value: string) {
+  return value
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
 }
 
 function signingKey(dateStamp: string) {

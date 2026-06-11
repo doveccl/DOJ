@@ -1,5 +1,3 @@
-import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
 import { apiFetch } from '../api'
 
 export interface AuthUser {
@@ -7,15 +5,20 @@ export interface AuthUser {
   name: string
   email: string
   introduction: string
-  groups: string[]
+  admin: boolean
+  disabled: boolean
+  mustChangePassword: boolean
+  avatarUrl: string
 }
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('doj.token') ?? '')
   const user = ref<AuthUser | null>(null)
   const ready = ref(false)
+  let restorePromise: Promise<void> | null = null
 
   const signedIn = computed(() => !!token.value && !!user.value)
+  const isAdmin = computed(() => user.value?.admin === true)
 
   function setSession(nextToken: string, nextUser: AuthUser) {
     token.value = nextToken
@@ -27,13 +30,20 @@ export const useAuthStore = defineStore('auth', () => {
     name: string
     email: string
     password: string
-    inviteCode?: string
+    code: string
   }) {
     const result = await apiFetch<{ token: string; user: AuthUser }>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify(input)
     })
     setSession(result.token, result.user)
+  }
+
+  async function requestEmailCode(input: { purpose: 'register' | 'change-email'; email: string }) {
+    await apiFetch('/api/auth/email-code', {
+      method: 'POST',
+      body: JSON.stringify(input)
+    })
   }
 
   async function login(input: { user: string; password: string }) {
@@ -45,6 +55,14 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function restore() {
+    if (restorePromise) return restorePromise
+    restorePromise = doRestore().finally(() => {
+      restorePromise = null
+    })
+    return restorePromise
+  }
+
+  async function doRestore() {
     if (!token.value) {
       ready.value = true
       return
@@ -59,8 +77,15 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function updateProfile(input: { introduction?: string; password?: string }) {
+  async function updateProfile(input: { introduction?: string; currentPassword?: string; password?: string }) {
     user.value = await apiFetch<AuthUser>('/api/auth/self', {
+      method: 'PATCH',
+      body: JSON.stringify(input)
+    })
+  }
+
+  async function updateEmail(input: { email: string; code: string }) {
+    user.value = await apiFetch<AuthUser>('/api/auth/email', {
       method: 'PATCH',
       body: JSON.stringify(input)
     })
@@ -75,5 +100,18 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('doj.token')
   }
 
-  return { ready, signedIn, token, user, login, logout, register, restore, updateProfile }
+  return {
+    ready,
+    signedIn,
+    isAdmin,
+    token,
+    user,
+    login,
+    logout,
+    register,
+    requestEmailCode,
+    restore,
+    updateEmail,
+    updateProfile
+  }
 })

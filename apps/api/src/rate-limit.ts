@@ -1,4 +1,5 @@
 import type { Context } from 'hono'
+import { apiError } from './errors'
 import { config } from './config'
 import { redisIncrWithTtl } from './redis'
 
@@ -17,29 +18,20 @@ export async function checkRateLimit(
   limit: number,
   windowMs: number
 ) {
-  const bucketKey = `doj:rate:${scope}:${key}`
+  const bucketKey = `rate:${scope}:${key}`
   const windowSeconds = Math.max(1, Math.ceil(windowMs / 1000))
   const redisCount = await redisIncrWithTtl(bucketKey, windowSeconds)
 
   if (typeof redisCount === 'number') {
     if (redisCount > limit) {
-      c.header('retry-after', String(windowSeconds))
-      return c.json(
-        { code: 'RATE_LIMITED', message: 'Too many attempts. Please try again later.' },
-        429
-      )
+      c.header('Retry-After', String(windowSeconds))
+      return apiError(c, 429, 'RATE_LIMITED', 'Too many attempts. Please try again later.')
     }
     return null
   }
 
   if (config.redisUrl) {
-    return c.json(
-      {
-        code: 'RATE_LIMIT_UNAVAILABLE',
-        message: 'Rate limit backend is unavailable. Please try again later.'
-      },
-      503
-    )
+    return apiError(c, 500, 'RATE_LIMIT_UNAVAILABLE', 'Rate limit backend is unavailable.')
   }
 
   return checkMemoryRateLimit(c, bucketKey, limit, windowMs)
@@ -53,11 +45,8 @@ function checkMemoryRateLimit(c: Context, bucketKey: string, limit: number, wind
   const recent = (memoryBuckets.get(bucketKey) ?? []).filter((time) => now - time < windowMs)
   if (recent.length >= limit) {
     const retryAfterSeconds = Math.max(1, Math.ceil((windowMs - (now - recent[0])) / 1000))
-    c.header('retry-after', String(retryAfterSeconds))
-    return c.json(
-      { code: 'RATE_LIMITED', message: 'Too many attempts. Please try again later.' },
-      429
-    )
+    c.header('Retry-After', String(retryAfterSeconds))
+    return apiError(c, 429, 'RATE_LIMITED', 'Too many attempts. Please try again later.')
   }
 
   recent.push(now)

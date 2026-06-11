@@ -1,20 +1,6 @@
 <script setup lang="ts">
-import {
-  NAlert,
-  NButton,
-  NCard,
-  NDataTable,
-  NForm,
-  NFormItem,
-  NInput,
-  NInputNumber,
-  NModal,
-  NSpace,
-  NSwitch,
-  NTag
-} from 'naive-ui'
+import { NButton, NSpace } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../../api'
 import CodeEditor from '../../components/CodeEditor.vue'
@@ -23,16 +9,14 @@ import { useAuthStore } from '../../stores/auth'
 interface LanguageRow {
   id: string
   name: string
-  enabled: boolean
-  sourceFile: string
+  source: string
   dockerfile: string
-  command: string[]
-  sortOrder: number
+  sort?: number
 }
 
 const auth = useAuthStore()
 const { t } = useI18n()
-const canManage = computed(() => auth.user?.groups.includes('admin') ?? false)
+const canManage = computed(() => auth.user?.admin ?? false)
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
@@ -41,40 +25,53 @@ const languages = ref<LanguageRow[]>([])
 const form = reactive({
   id: '',
   name: '',
-  enabled: true,
-  sourceFile: '',
+  source: '',
   dockerfile: '',
-  commandText: '',
-  sortOrder: 100
+  sort: 0
 })
 
 const columns = computed<DataTableColumns<LanguageRow>>(() => [
   { title: t('common.id'), key: 'id', width: 96 },
   { title: t('admin.name'), key: 'name' },
-  { title: t('admin.languages.source'), key: 'sourceFile' },
+  { title: t('admin.languages.source'), key: 'source' },
   {
-    title: t('admin.status'),
-    key: 'enabled',
+    title: t('admin.languages.dockerfile'),
+    key: 'dockerfile',
+    minWidth: 320,
     render(row) {
-      return h(NTag, { bordered: false, type: row.enabled ? 'success' : 'default' }, () =>
-        row.enabled ? t('admin.enabled') : t('admin.disabled')
-      )
+      return h('pre', { class: 'code-block' }, [h('code', row.dockerfile)])
     }
   },
-  { title: t('admin.sortOrder'), key: 'sortOrder', width: 96 },
+  {
+    title: t('admin.sortOrder'),
+    key: 'sort',
+    width: 96
+  },
   {
     title: t('admin.actions'),
     key: 'action',
-    width: 120,
+    width: 180,
     render(row) {
-      return h(
-        NButton,
-        {
-          size: 'small',
-          onClick: () => editLanguage(row)
-        },
-        () => t('admin.edit')
-      )
+      return h(NSpace, { size: 8 }, () => [
+        h(
+          NButton,
+          {
+            size: 'small',
+            onClick: () => editLanguage(row)
+          },
+          () => t('admin.edit')
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
+            tertiary: true,
+            type: 'error',
+            onClick: () => deleteLanguage(row.id)
+          },
+          () => t('admin.delete')
+        )
+      ])
     }
   }
 ])
@@ -83,9 +80,9 @@ async function loadLanguages() {
   loading.value = true
   error.value = ''
   try {
-    const data = await apiFetch<{ list: LanguageRow[] }>('/api/admin/languages')
-    languages.value = data.list
-    if (!form.id && data.list.length) editLanguage(data.list[0], false)
+    const list = await apiFetch<LanguageRow[]>('/api/admin/languages')
+    languages.value = list
+    if (!form.id && list.length) editLanguage(list[0], false)
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
@@ -93,26 +90,22 @@ async function loadLanguages() {
   }
 }
 
-function editLanguage(language: LanguageRow, open = true) {
+function editLanguage(language: LanguageRow, showModal = true) {
   form.id = language.id
   form.name = language.name
-  form.enabled = language.enabled
-  form.sourceFile = language.sourceFile
+  form.source = language.source
   form.dockerfile = language.dockerfile
-  form.commandText = language.command.join('\n')
-  form.sortOrder = language.sortOrder
-  showConfigModal.value = open
+  form.sort = language.sort ?? 0
+  showConfigModal.value = showModal
 }
 
 function newLanguage() {
   form.id = ''
   form.name = ''
-  form.enabled = true
-  form.sourceFile = 'main.cpp'
+  form.source = 'main.cc'
   form.dockerfile =
-    'FROM gcc:latest\nWORKDIR /workspace\nCOPY main.cpp /workspace/main.cpp\nRUN g++ -std=c++20 -O2 -pipe -static -s main.cpp -o main\nCMD ["/workspace/main"]'
-  form.commandText = ''
-  form.sortOrder = 100
+    'FROM gcc:14\nWORKDIR /app\nCOPY main.cc /app/main.cc\nRUN g++ -std=c++20 -O2 -pipe -static -s -o /app/main /app/main.cc\nCMD ["/app/main"]'
+  form.sort = 0
   showConfigModal.value = true
 }
 
@@ -120,19 +113,15 @@ async function saveLanguage() {
   saving.value = true
   error.value = ''
   try {
-    await apiFetch('/api/admin/languages', {
-      method: 'POST',
+    const editing = languages.value.some((language) => language.id === form.id)
+    await apiFetch(editing ? `/api/admin/languages/${form.id}` : '/api/admin/languages', {
+      method: editing ? 'PATCH' : 'POST',
       body: JSON.stringify({
-        id: form.id,
+        ...(editing ? {} : { id: form.id }),
         name: form.name,
-        enabled: form.enabled,
-        sourceFile: form.sourceFile,
+        source: form.source,
         dockerfile: form.dockerfile,
-        command: form.commandText
-          .split('\n')
-          .map((part) => part.trim())
-          .filter(Boolean),
-        sortOrder: form.sortOrder
+        sort: form.sort
       })
     })
     showConfigModal.value = false
@@ -141,6 +130,17 @@ async function saveLanguage() {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
     saving.value = false
+  }
+}
+
+async function deleteLanguage(id: string) {
+  error.value = ''
+  try {
+    await apiFetch(`/api/admin/languages/${id}`, { method: 'DELETE' })
+    if (form.id === id) form.id = ''
+    await loadLanguages()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
   }
 }
 
@@ -176,11 +176,13 @@ onMounted(() => {
         :data="languages"
         :bordered="false"
         :loading="loading"
+        :scroll-x="860"
         class="admin-table"
       />
     </n-card>
 
     <n-modal
+      v-if="showConfigModal"
       v-model:show="showConfigModal"
       preset="card"
       :title="t('admin.languages.config')"
@@ -196,42 +198,39 @@ onMounted(() => {
           </n-form-item>
         </div>
         <div class="form-grid two">
-          <n-form-item :label="t('admin.languages.sourceFile')">
-            <n-input v-model:value="form.sourceFile" placeholder="main.cpp" />
+          <n-form-item :label="t('admin.languages.source')">
+            <n-input v-model:value="form.source" placeholder="main.cc" />
           </n-form-item>
           <n-form-item :label="t('admin.sortOrder')">
-            <n-input-number v-model:value="form.sortOrder" class="full-width" :min="0" />
+            <n-input-number v-model:value="form.sort" class="full-width" :min="0" />
           </n-form-item>
         </div>
         <n-form-item :label="t('admin.languages.dockerfile')">
           <code-editor v-model="form.dockerfile" />
         </n-form-item>
-        <n-form-item :label="t('admin.languages.commandOverride')">
-          <n-input
-            v-model:value="form.commandText"
-            type="textarea"
-            :placeholder="t('admin.languages.commandPlaceholder')"
-            :autosize="{ minRows: 3, maxRows: 8 }"
-          />
-        </n-form-item>
-        <n-space align="center" justify="space-between" class="form-actions">
-          <n-space align="center">
-            <n-switch v-model:value="form.enabled" />
-            <span>{{ form.enabled ? t('admin.enabled') : t('admin.disabled') }}</span>
-          </n-space>
-          <n-space>
-            <n-button @click="showConfigModal = false">{{ t('admin.cancel') }}</n-button>
-            <n-button
-              type="primary"
-              :loading="saving"
-              :disabled="!form.id || !form.name || !form.sourceFile || !form.dockerfile"
-              @click="saveLanguage"
-            >
-              {{ t('admin.save') }}
-            </n-button>
-          </n-space>
+        <n-space justify="end" class="form-actions">
+          <n-button @click="showConfigModal = false">{{ t('admin.cancel') }}</n-button>
+          <n-button
+            type="primary"
+            :loading="saving"
+            :disabled="!form.id || !form.name || !form.source || !form.dockerfile"
+            @click="saveLanguage"
+          >
+            {{ t('admin.save') }}
+          </n-button>
         </n-space>
       </n-form>
     </n-modal>
   </main>
 </template>
+
+<style scoped>
+.code-block {
+  max-height: 180px;
+  padding: 10px;
+  overflow: auto;
+  white-space: pre-wrap;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-bg) 92%, var(--text-color) 8%);
+}
+</style>

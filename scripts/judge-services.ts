@@ -1,20 +1,16 @@
 import { eq } from 'drizzle-orm'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { db, schema } from '../packages/db/src/client'
 
 const spawnedServices: Bun.Subprocess[] = []
+const prebuiltJudgeImage = 'doveccl/doj:judger'
 
 export async function ensureJudgeServices() {
-  if (!(await workerHealthOk())) {
-    spawnedServices.push(spawnService(['bun', 'run', '--cwd', 'apps/worker', 'dev']))
-    await waitForWorkerHealth()
-  }
-
-  if (!(await workerHasLocalAgent())) {
-    spawnedServices.push(spawnService(['bun', 'run', '--cwd', 'apps/agent', 'dev']))
-    if (!(await waitForWorkerLocalAgent())) {
-      throw new Error('local judge agent did not connect to worker')
-    }
-  }
+  await ensurePrebuiltJudgeImage()
+  spawnedServices.push(spawnService(['bun', 'run', '--cwd', 'apps/agent', 'dev']))
+  await Bun.sleep(1500)
 }
 
 export async function stopSpawnedJudgeServices() {
@@ -51,6 +47,55 @@ function spawnService(cmd: string[]) {
   return service
 }
 
+async function ensurePrebuiltJudgeImage() {
+  const inspect = Bun.spawnSync(['docker', 'image', 'inspect', prebuiltJudgeImage], {
+    stdout: 'ignore',
+    stderr: 'ignore'
+  })
+  if (inspect.exitCode === 0) return
+
+  const dir = await mkdtemp(join(tmpdir(), 'doj-judger-'))
+  try {
+    await writeFile(
+      join(dir, 'Dockerfile'),
+      ['FROM busybox:latest', 'COPY judge.sh /judge.sh', 'RUN chmod +x /judge.sh', 'CMD ["/judge.sh"]'].join('\n')
+    )
+    await writeFile(
+      join(dir, 'judge.sh'),
+      [
+        '#!/bin/sh',
+        'cat "$INPUT" &',
+        'writer="$!"',
+        'exec 1>/dev/null',
+        'actual="$(cat)"',
+        'wait "$writer"',
+        'answer="$(cat "$OUT")"',
+        'trimmed_actual="$(printf "%s" "$actual" | sed "s/^[[:space:]]*//;s/[[:space:]]*$//")"',
+        'trimmed_answer="$(printf "%s" "$answer" | sed "s/^[[:space:]]*//;s/[[:space:]]*$//")"',
+        'if [ "$trimmed_actual" = "$trimmed_answer" ]; then',
+        '  if [ "$actual" = "$answer" ] || [ "$CHECK" = "trim" ]; then exit 0; fi',
+        '  exit 2',
+        'fi',
+        'if [ "$CHECK" = "pe" ]; then',
+        '  normalized_actual="$(printf "%s" "$actual" | tr -s "[:space:]" " " | sed "s/^ //;s/ $//")"',
+        '  normalized_answer="$(printf "%s" "$answer" | tr -s "[:space:]" " " | sed "s/^ //;s/ $//")"',
+        '  [ "$normalized_actual" = "$normalized_answer" ] && exit 2',
+        'fi',
+        'printf "expected %s, got %s\\n" "$answer" "$actual" >&2',
+        'exit 1',
+        ''
+      ].join('\n')
+    )
+    const build = Bun.spawnSync(['docker', 'build', '-t', prebuiltJudgeImage, dir], {
+      stdout: 'inherit',
+      stderr: 'inherit'
+    })
+    if (build.exitCode !== 0) throw new Error(`failed to build ${prebuiltJudgeImage}`)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+}
+
 async function drain(stream: ReadableStream<Uint8Array> | null, label: string) {
   if (!stream) return
   for await (const chunk of stream) {
@@ -58,41 +103,4 @@ async function drain(stream: ReadableStream<Uint8Array> | null, label: string) {
       process.stdout.write(`[${label}] ${Buffer.from(chunk).toString('utf8')}`)
     }
   }
-}
-
-async function workerHealthOk() {
-  return (await readWorkerHealth())?.ok === true
-}
-
-async function readWorkerHealth() {
-  try {
-    const response = await fetch('http://localhost:7975/health')
-    if (!response.ok) return null
-    return (await response.json()) as {
-      ok: boolean
-      agents?: Array<{ key: string }>
-    }
-  } catch {
-    return null
-  }
-}
-
-async function waitForWorkerHealth() {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    if (await workerHealthOk()) return
-    await Bun.sleep(250)
-  }
-  throw new Error('worker agent server did not become healthy')
-}
-
-async function workerHasLocalAgent() {
-  return (await readWorkerHealth())?.agents?.some((agent) => agent.key === 'local-agent') === true
-}
-
-async function waitForWorkerLocalAgent() {
-  for (let attempt = 0; attempt < 32; attempt += 1) {
-    if (await workerHasLocalAgent()) return true
-    await Bun.sleep(250)
-  }
-  return false
 }

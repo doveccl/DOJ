@@ -8,35 +8,36 @@ export interface CoachingInput {
 }
 
 export interface CoachingOutput {
-  model: string
-  responseMarkdown: string
+  summary: string
+  hints: string[]
+  nextSteps: string[]
 }
 
 export async function createCoachingResponse(input: CoachingInput): Promise<CoachingOutput> {
   const settings = await getRuntimeSettings()
-  if (settings.aiProvider === 'openai') return createOpenAiCoachingResponse(input, settings)
+  if (settings.ai.enabled && settings.ai._apiKey)
+    return createOpenAiCoachingResponse(input, settings.ai)
 
   return {
-    model: 'local-rules',
-    responseMarkdown: createLocalCoachingResponse(input.status, input.message)
+    ...createLocalCoachingResponse(input.status, input.message)
   }
 }
 
 async function createOpenAiCoachingResponse(
   input: CoachingInput,
-  settings: { aiApiKey: string; aiBaseUrl: string; aiModel: string }
+  settings: { _apiKey: string; _baseUrl: string; _model: string }
 ): Promise<CoachingOutput> {
-  if (!settings.aiApiKey) throw new Error('AI API key is required when AI provider is openai')
+  if (!settings._apiKey) throw new Error('AI API key is required when AI is enabled')
 
-  const baseUrl = settings.aiBaseUrl.replace(/\/+$/, '')
+  const baseUrl = (settings._baseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '')
   const response = await fetch(`${baseUrl}/responses`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      authorization: `Bearer ${settings.aiApiKey}`
+      authorization: `Bearer ${settings._apiKey}`
     },
     body: JSON.stringify({
-      model: settings.aiModel,
+      model: settings._model || 'gpt-5-mini',
       reasoning: { effort: 'low' },
       input: [
         {
@@ -44,7 +45,7 @@ async function createOpenAiCoachingResponse(
           content: [
             'You are an online judge coach.',
             'Help the student debug a non-AC submission without revealing hidden tests, official solutions, or full corrected code.',
-            'Use concise Markdown with likely causes, inspection steps, and small hints.'
+            'Return strict JSON only: {"summary": string, "hints": string[], "nextSteps": string[]}.'
           ].join('\n')
         },
         {
@@ -73,10 +74,7 @@ async function createOpenAiCoachingResponse(
     throw new Error(body.error?.message ?? `OpenAI Responses API failed: ${response.status}`)
   }
 
-  return {
-    model: settings.aiModel,
-    responseMarkdown: body.output_text ?? readOutputText(body) ?? ''
-  }
+  return parseCoachingJson(body.output_text ?? readOutputText(body) ?? '')
 }
 
 function readOutputText(body: { output?: Array<{ content?: Array<{ text?: string }> }> }) {
@@ -87,37 +85,61 @@ function readOutputText(body: { output?: Array<{ content?: Array<{ text?: string
     .join('\n')
 }
 
-function createLocalCoachingResponse(status: string, message: string) {
+function parseCoachingJson(text: string): CoachingOutput {
+  try {
+    const parsed = JSON.parse(text) as Partial<CoachingOutput>
+    return {
+      summary: String(parsed.summary ?? '评测未通过，请先定位失败类型和关键报错。'),
+      hints: Array.isArray(parsed.hints) ? parsed.hints.map(String).slice(0, 5) : [],
+      nextSteps: Array.isArray(parsed.nextSteps) ? parsed.nextSteps.map(String).slice(0, 5) : []
+    }
+  } catch {
+    return {
+      summary: text.trim() || '评测未通过，请先定位失败类型和关键报错。',
+      hints: [],
+      nextSteps: ['结合题面、样例和边界条件复查当前实现。']
+    }
+  }
+}
+
+function createLocalCoachingResponse(status: string, message: string): CoachingOutput {
+  const trimmedMessage = message.trim()
   switch (status) {
     case 'CE':
-      return [
-        '### Compile Error',
-        '',
-        'Your code did not compile. Start by reading the first compiler error, then check syntax, missing imports, and language version assumptions.',
-        '',
-        message ? `Compiler output:\n\n\`\`\`text\n${message.trim()}\n\`\`\`` : ''
-      ].join('\n')
+      return {
+        summary: '编译失败，优先阅读第一条编译错误并定位对应行。',
+        hints: ['检查语法、缺失的头文件或导入、语言版本差异。', trimmedMessage ? `编译器输出：${trimmedMessage.slice(0, 300)}` : '没有额外编译输出。'],
+        nextSteps: ['本地用同一语言版本编译。', '先修复第一条错误，再重新提交。']
+      }
     case 'RE':
-      return [
-        '### Runtime Error',
-        '',
-        'Your program crashed or exited with a non-zero status. Check array bounds, division by zero, failed parsing, and assumptions about empty input.',
-        '',
-        message ? `Runtime output:\n\n\`\`\`text\n${message.trim()}\n\`\`\`` : ''
-      ].join('\n')
+      return {
+        summary: '运行时错误通常来自越界、除零、空输入假设或递归/栈问题。',
+        hints: ['重点检查数组下标、输入解析、边界规模和异常退出路径。', trimmedMessage ? `运行输出：${trimmedMessage.slice(0, 300)}` : '没有额外运行输出。'],
+        nextSteps: ['用最小样例和边界样例复现。', '为关键变量添加本地断言或日志后再移除。']
+      }
     case 'TLE':
-      return '### Time Limit Exceeded\n\nYour solution ran too long. Revisit the algorithmic complexity and look for loops that may not terminate.'
+      return {
+        summary: '程序超时，当前算法复杂度或循环终止条件可能不满足限制。',
+        hints: ['重新估算最坏情况复杂度。', '检查是否存在无法收敛的循环或重复计算。'],
+        nextSteps: ['用最大规模数据做本地压测。', '考虑预处理、剪枝或更高效的数据结构。']
+      }
     case 'MLE':
-      return '### Memory Limit Exceeded\n\nYour solution used too much memory. Check large arrays, recursion depth, and accidental unbounded containers.'
+      return {
+        summary: '内存超限，数据结构规模或递归深度可能超过限制。',
+        hints: ['检查大数组维度、缓存容器和递归栈。', '确认是否保留了不必要的中间结果。'],
+        nextSteps: ['按最大输入估算内存。', '尝试滚动数组或流式处理。']
+      }
     case 'OLE':
-      return '### Output Limit Exceeded\n\nYour program printed too much output. Check debug prints and loops that keep writing after the answer is complete.'
+      return {
+        summary: '输出超限，通常是调试输出未删除或循环持续打印。',
+        hints: ['检查所有调试 print。', '确认输出循环能正确停止。'],
+        nextSteps: ['只保留题目要求的输出。', '用小样例核对输出行数和格式。']
+      }
     default:
-      return [
-        `### ${status}`,
-        '',
-        'The submission did not pass. Compare your program against the statement, sample cases, and edge conditions before looking for implementation details.',
-        '',
-        message ? `Judge message:\n\n\`\`\`text\n${message.trim()}\n\`\`\`` : ''
-      ].join('\n')
+      return {
+        summary: `${status}：提交未通过，请从题意、样例和边界条件开始排查。`,
+        hints: [trimmedMessage ? `评测消息：${trimmedMessage.slice(0, 300)}` : '没有额外评测消息。', '重点对比输出格式、边界输入和特殊分支。'],
+        nextSteps: ['手工构造极小、极大和特殊样例。', '逐步核对核心状态转移或判断逻辑。']
+      }
   }
 }

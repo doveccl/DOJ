@@ -1,10 +1,8 @@
 const packages = [
   'packages/shared',
   'packages/db',
-  'packages/runner',
   'apps/agent',
   'apps/api',
-  'apps/worker',
   'apps/web'
 ]
 

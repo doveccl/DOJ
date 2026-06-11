@@ -3,11 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --hot src/index.ts",
+    "dev": "bun --env-file=../../.env --hot src/index.ts",
     "check": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@doj/runner": "workspace:*",
     "@doj/shared": "workspace:*"
   }
 }

@@ -1,21 +1,25 @@
-import { Hono } from 'hono'
-import { and, eq } from 'drizzle-orm'
+import { Hono, type Context } from 'hono'
+import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { db, schema } from '@doj/db/client'
-import { authMiddleware, requireAuthUser } from '../auth'
+import { authMiddleware, denyGuestAccess, requireAuthUser } from '../auth'
+import { notFound } from '../errors'
 import { checkRateLimit } from '../rate-limit'
 import { getRecentTopics, getTopicDetail, countTopics } from '../services/discussion'
 import { listQuerySchema, numericId, pageOffset } from '../validation'
 
 export function registerDiscussionRoutes(app: Hono) {
   app.get('/api/discussion/topics', async (c) => {
+    const denied = await denyGuestAccess(c, 'Sign in to view discussions')
+    if (denied) return denied
+
     const { page, pageSize } = listQuerySchema.parse(c.req.query())
-    const [total, list] = await Promise.all([
+    const [total, items] = await Promise.all([
       countTopics(),
       getRecentTopics(pageSize, pageOffset(page, pageSize))
     ])
 
-    return c.json({ total, page, pageSize, list })
+    return c.json({ items, page, pageSize, total })
   })
 
   app.post('/api/discussion/topics', authMiddleware, async (c) => {
@@ -31,44 +35,19 @@ export function registerDiscussionRoutes(app: Hono) {
 
     const body = createTopicSchema.parse(await c.req.json())
 
-    if (body.linkedProblemId) {
-      const [problem] = await db
-        .select({ id: schema.problems.id })
-        .from(schema.problems)
-        .where(and(eq(schema.problems.id, body.linkedProblemId), eq(schema.problems.visible, true)))
-        .limit(1)
-      if (!problem) {
-        return c.json({ code: 'PROBLEM_NOT_FOUND', message: 'Linked problem is not visible' }, 404)
-      }
-    }
-
-    if (body.linkedContestId) {
-      const [contest] = await db
-        .select({ id: schema.contests.id })
-        .from(schema.contests)
-        .where(eq(schema.contests.id, body.linkedContestId))
-        .limit(1)
-      if (!contest) {
-        return c.json({ code: 'CONTEST_NOT_FOUND', message: 'Linked contest does not exist' }, 404)
-      }
-    }
-
     const topic = await db.transaction(async (tx) => {
       const [created] = await tx
-        .insert(schema.discussionTopics)
+        .insert(schema.topics)
         .values({
-          userId: user.id,
           title: body.title,
-          tags: body.tags,
-          linkedProblemId: body.linkedProblemId ?? null,
-          linkedContestId: body.linkedContestId ?? null
+          tags: body.tags
         })
         .returning()
 
-      await tx.insert(schema.discussionReplies).values({
+      await tx.insert(schema.posts).values({
         topicId: created.id,
         userId: user.id,
-        contentMarkdown: body.contentMarkdown
+        content: body.content
       })
 
       return created
@@ -78,12 +57,15 @@ export function registerDiscussionRoutes(app: Hono) {
   })
 
   app.get('/api/discussion/topics/:id', async (c) => {
+    const denied = await denyGuestAccess(c, 'Sign in to view discussions')
+    if (denied) return denied
+
     const topic = await getTopicDetail(numericId.parse(c.req.param('id')))
-    if (!topic) return c.notFound()
+    if (!topic) return notFound(c)
     return c.json(topic)
   })
 
-  app.post('/api/discussion/topics/:id/replies', authMiddleware, async (c) => {
+  app.post('/api/discussion/topics/:id/posts', authMiddleware, async (c: Context) => {
     const user = await requireAuthUser(c)
     const rateLimited = await checkRateLimit(
       c,
@@ -95,41 +77,52 @@ export function registerDiscussionRoutes(app: Hono) {
     if (rateLimited) return rateLimited
 
     const topicId = numericId.parse(c.req.param('id'))
-    const body = createReplySchema.parse(await c.req.json())
+    const body = createPostSchema.parse(await c.req.json())
 
     const [topic] = await db
       .select()
-      .from(schema.discussionTopics)
-      .where(eq(schema.discussionTopics.id, topicId))
+      .from(schema.topics)
+      .where(eq(schema.topics.id, topicId))
       .limit(1)
-    if (!topic) return c.notFound()
+    if (!topic) return notFound(c)
 
     const [reply] = await db
-      .insert(schema.discussionReplies)
+      .insert(schema.posts)
       .values({
         topicId,
         userId: user.id,
-        contentMarkdown: body.contentMarkdown
+        content: body.content
       })
       .returning()
 
     await db
-      .update(schema.discussionTopics)
+      .update(schema.topics)
       .set({ updatedAt: new Date() })
-      .where(eq(schema.discussionTopics.id, topicId))
+      .where(eq(schema.topics.id, topicId))
 
-    return c.json(reply, 201)
+    return c.json(
+      {
+        id: reply.id,
+        topicId: reply.topicId,
+        user: {
+          id: user.id,
+          name: user.name,
+          avatarUrl: user.avatarUrl
+        },
+        content: reply.content,
+        createdAt: reply.createdAt
+      },
+      201
+    )
   })
 }
 
 const createTopicSchema = z.object({
-  title: z.string().min(1).max(160),
-  contentMarkdown: z.string().min(1).max(20_000),
-  tags: z.array(z.string().min(1).max(40)).max(12).default([]),
-  linkedProblemId: numericId.optional(),
-  linkedContestId: numericId.optional()
+  title: z.string().min(1).max(100),
+  content: z.string().min(1).max(20_000),
+  tags: z.array(z.string().min(1).max(32)).max(5).default([])
 })
 
-const createReplySchema = z.object({
-  contentMarkdown: z.string().min(1).max(20_000)
+const createPostSchema = z.object({
+  content: z.string().min(1).max(20_000)
 })

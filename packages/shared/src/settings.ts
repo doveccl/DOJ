@@ -1,28 +1,55 @@
 export interface RuntimeSettings {
-  registrationEnabled: boolean
-  registrationInviteCode: string
-  aiCoachingEnabled: boolean
-  guestProblemsetVisible: boolean
-  sourceOpenDefault: boolean
-  outputLimitBytes: number
-  aiProvider: 'local-rules' | 'openai'
-  aiApiKey: string
-  aiBaseUrl: string
-  aiModel: string
+  general: {
+    notice: string
+    signup: boolean
+    publicCode: boolean
+    guestAccess: boolean
+  }
+  smtp: {
+    enabled: boolean
+    _host: string
+    _port: number
+    _user: string
+    _password: string
+    from: string
+  }
+  ai: {
+    enabled: boolean
+    _baseUrl: string
+    _model: string
+    _apiKey: string
+  }
 }
 
 export const runtimeSettingsDefaults: RuntimeSettings = {
-  registrationEnabled: true,
-  registrationInviteCode: '',
-  aiCoachingEnabled: true,
-  guestProblemsetVisible: true,
-  sourceOpenDefault: false,
-  outputLimitBytes: 64 * 1024 * 1024,
-  aiProvider: 'local-rules',
-  aiApiKey: '',
-  aiBaseUrl: 'https://api.openai.com/v1',
-  aiModel: 'gpt-5-mini'
+  general: {
+    notice: '',
+    signup: false,
+    publicCode: false,
+    guestAccess: true
+  },
+  smtp: {
+    enabled: false,
+    _host: '',
+    _port: 587,
+    _user: '',
+    _password: '',
+    from: ''
+  },
+  ai: {
+    enabled: false,
+    _baseUrl: '',
+    _model: '',
+    _apiKey: ''
+  }
 }
 
-// Keys that must never be sent to non-admin clients or shown in plain text.
-export const secretSettingKeys: (keyof RuntimeSettings)[] = ['aiApiKey', 'registrationInviteCode']
+export const privateSettingFields = new Set([
+  '_host',
+  '_port',
+  '_user',
+  '_password',
+  '_baseUrl',
+  '_model',
+  '_apiKey'
+])

@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import { NAlert, NButton, NCard, NSpace, NSpin, NTag } from 'naive-ui'
-import { onMounted, ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 import MarkdownEditor from '../components/MarkdownEditor.vue'
@@ -12,22 +9,34 @@ interface Topic {
   id: number
   title: string
   tags: string[]
-  userName: string
-  linkedProblemId: number | null
-  linkedContestId: number | null
+  pinned: boolean
   createdAt: string
+  updatedAt: string
 }
 
-interface Reply {
+interface UserBrief {
   id: number
-  userName: string
-  contentMarkdown: string
+  name: string
+  avatarUrl: string
+}
+
+interface Post {
+  id: number
+  topicId: number
+  user: UserBrief
+  content: string
   createdAt: string
 }
 
 interface TopicDetail {
-  topic: Topic
-  replies: Reply[]
+  id: number
+  title: string
+  tags: string[]
+  pinned: boolean
+  author?: UserBrief
+  createdAt: string
+  updatedAt: string
+  posts: Post[]
 }
 
 const route = useRoute()
@@ -38,6 +47,15 @@ const error = ref('')
 const detail = ref<TopicDetail | null>(null)
 const replyText = ref('')
 const { t } = useI18n()
+const topic = computed<Topic>(() => ({
+  id: detail.value?.id ?? 0,
+  title: detail.value?.title ?? '',
+  tags: detail.value?.tags ?? [],
+  pinned: detail.value?.pinned ?? false,
+  createdAt: detail.value?.createdAt ?? '',
+  updatedAt: detail.value?.updatedAt ?? ''
+}))
+const posts = computed(() => detail.value?.posts ?? [])
 
 async function loadDetail() {
   loading.value = true
@@ -57,9 +75,9 @@ async function createReply() {
   replying.value = true
   error.value = ''
   try {
-    await apiFetch(`/api/discussion/topics/${detail.value.topic.id}/replies`, {
+    await apiFetch(`/api/discussion/topics/${topic.value.id}/posts`, {
       method: 'POST',
-      body: JSON.stringify({ contentMarkdown: replyText.value })
+      body: JSON.stringify({ content: replyText.value })
     })
     replyText.value = ''
     await loadDetail()
@@ -78,40 +96,27 @@ onMounted(loadDetail)
     <n-spin :show="loading">
       <template v-if="detail">
         <section class="page-header">
-          <h1>{{ detail.topic.title }}</h1>
+          <h1>{{ topic.title }}</h1>
           <p>
-            {{ t('discussion.by') }} {{ detail.topic.userName }} ·
-            {{ new Date(detail.topic.createdAt).toLocaleString() }}
+            {{ t('discussion.by') }}
+            {{ detail.author?.name ?? posts[0]?.user.name ?? '-' }} ·
+            {{ topic.createdAt ? new Date(topic.createdAt).toLocaleString() : '-' }}
           </p>
         </section>
 
         <div class="meta-row">
-          <n-tag v-for="tag in detail.topic.tags" :key="tag" :bordered="false">{{ tag }}</n-tag>
-          <RouterLink
-            v-if="detail.topic.linkedProblemId"
-            class="table-link"
-            :to="`/problems/${detail.topic.linkedProblemId}`"
-          >
-            {{ t('discussion.problem') }} {{ detail.topic.linkedProblemId }}
-          </RouterLink>
-          <RouterLink
-            v-if="detail.topic.linkedContestId"
-            class="table-link"
-            :to="`/contests/${detail.topic.linkedContestId}`"
-          >
-            {{ t('discussion.contest') }} {{ detail.topic.linkedContestId }}
-          </RouterLink>
+          <n-tag v-for="tag in topic.tags" :key="tag" :bordered="false">{{ tag }}</n-tag>
         </div>
 
         <n-card
-          v-for="reply in detail.replies"
-          :key="reply.id"
-          :title="reply.userName"
+          v-for="post in posts"
+          :key="post.id"
+          :title="post.user.name"
           :bordered="false"
           class="stacked-card"
         >
-          <markdown-view :source="reply.contentMarkdown" />
-          <p class="muted reply-time">{{ new Date(reply.createdAt).toLocaleString() }}</p>
+          <markdown-view :source="post.content" />
+          <p class="muted reply-time">{{ new Date(post.createdAt).toLocaleString() }}</p>
         </n-card>
 
         <n-card

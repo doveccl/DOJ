@@ -13,7 +13,6 @@
     "ignoreDeprecations": "6.0",
     "paths": {
       "@doj/db/*": ["packages/db/src/*"],
-      "@doj/runner/*": ["packages/runner/src/*"],
       "@doj/shared/*": ["packages/shared/src/*"]
     }
   }

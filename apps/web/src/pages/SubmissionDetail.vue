@@ -1,35 +1,30 @@
 <script setup lang="ts">
-import {
-  NButton,
-  NCard,
-  NDataTable,
-  NDescriptions,
-  NDescriptionsItem,
-  NProgress,
-  NSpin,
-  NTag
-} from 'naive-ui'
+import { NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import { computed, h, onMounted, onUnmounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { apiFetch } from '../api'
+import { apiFetch, openApiWebSocket } from '../api'
 import MarkdownView from '../components/MarkdownView.vue'
 
 interface Submission {
   id: number
   languageId: string
-  sourceCode: string
-  status: string
-  timeMs: number
-  memoryBytes: number
-  score: number
-  message: string
+  code?: string | null
+  status: string | null
+  displayStatus?: string
+  timeMs: number | null
+  memoryBytes: number | null
+  score: number | null
+  message: string | null
   contestId: number | null
-  restricted: boolean
-  sourceRestricted: boolean
+  assignmentId: number | null
+  public: boolean
+  createdAt: string
+  updatedAt: string
+  canCoach: boolean
   judgeProgress: JudgeProgress | null
   cases: SubmissionCase[]
+  problem: { id: number; title: string } | null
+  user: { id: number; name: string }
 }
 
 interface JudgeProgress {
@@ -38,20 +33,27 @@ interface JudgeProgress {
   completedCases: number
   totalCases: number
   currentCase?: number
+  caseNo?: number
+  status?: string
+  timeMs?: number
+  memoryBytes?: number
+  score?: number
 }
 
 interface SubmissionCase {
-  caseIndex: number
+  caseIndex?: number
+  caseNo?: number
   status: string
   timeMs: number
   memoryBytes: number
   score: number
-  message: string
+  message: string | null
 }
 
 interface CoachingSession {
-  id: number
-  responseMarkdown: string
+  summary: string
+  hints: string[]
+  nextSteps: string[]
 }
 
 const route = useRoute()
@@ -60,8 +62,10 @@ const coachingLoading = ref(false)
 const error = ref('')
 const coaching = ref('')
 const submission = ref<Submission | null>(null)
+const casePage = ref(1)
+const casePageSize = 50
 const { t } = useI18n()
-let timer: number | undefined
+let socket: WebSocket | null = null
 
 const statusType: Record<string, 'success' | 'warning' | 'error' | 'info'> = {
   AC: 'success',
@@ -69,7 +73,6 @@ const statusType: Record<string, 'success' | 'warning' | 'error' | 'info'> = {
   JUDGING: 'info',
   CE: 'warning',
   PE: 'warning',
-  FROZEN: 'info',
   WA: 'error',
   RE: 'error',
   TLE: 'error',
@@ -79,23 +82,37 @@ const statusType: Record<string, 'success' | 'warning' | 'error' | 'info'> = {
 }
 
 const canCoach = computed(() => {
-  if (submission.value?.contestId || submission.value?.restricted) return false
-  const status = submission.value?.status
-  return !!status && !['AC', 'WAITING', 'JUDGING', 'FROZEN'].includes(status)
+  return submission.value?.canCoach ?? false
 })
 const progressPercent = computed(() => {
   const progress = submission.value?.judgeProgress
   if (!progress?.totalCases) return 0
-  return Math.min(99, Math.round((progress.completedCases / progress.totalCases) * 100))
+  const percent = Math.round(((progress.completedCases ?? 0) / progress.totalCases) * 100)
+  return progress.phase === 'finished' ? 100 : Math.min(99, percent)
 })
 const sourceMarkdown = computed(() => {
-  if (!submission.value?.sourceCode) return ''
-  const fence = submission.value.sourceCode.includes('```') ? '~~~~' : '```'
-  return `${fence}${submission.value.languageId}\n${submission.value.sourceCode}\n${fence}`
+  const code = submission.value?.code ?? ''
+  if (!code) return ''
+  const fence = code.includes('```') ? '~~~~' : '```'
+  return `${fence}${submission.value?.languageId}\n${code}\n${fence}`
+})
+const visibleCases = computed(() => {
+  const start = (casePage.value - 1) * casePageSize
+  return submission.value?.cases.slice(start, start + casePageSize) ?? []
+})
+const hasCroppedResult = computed(() => {
+  return submission.value?.status === null && submission.value.displayStatus !== null
 })
 
 const caseColumns = computed<DataTableColumns<SubmissionCase>>(() => [
-  { title: '#', key: 'caseIndex', width: 72 },
+  {
+    title: '#',
+    key: 'caseNo',
+    width: 72,
+    render(row) {
+      return row.caseNo ?? row.caseIndex ?? '-'
+    }
+  },
   {
     title: t('common.status'),
     key: 'status',
@@ -129,15 +146,11 @@ const caseColumns = computed<DataTableColumns<SubmissionCase>>(() => [
 
 onMounted(async () => {
   await load()
-  timer = window.setInterval(() => {
-    if (['WAITING', 'JUDGING'].includes(submission.value?.status ?? '')) {
-      load(false)
-    }
-  }, 2000)
+  connectProgressSocket()
 })
 
 onUnmounted(() => {
-  if (timer) window.clearInterval(timer)
+  socket?.close()
 })
 
 async function load(showLoading = true) {
@@ -148,6 +161,67 @@ async function load(showLoading = true) {
     error.value = caught instanceof Error ? caught.message : String(caught)
   } finally {
     loading.value = false
+  }
+}
+
+function connectProgressSocket() {
+  socket = openApiWebSocket()
+  if (!socket) return
+  socket.addEventListener('open', () => {
+    socket?.send(
+      JSON.stringify({
+        type: 'subscribe-submission',
+        submissionId: Number(route.params.id)
+      })
+    )
+  })
+  socket.addEventListener('message', (event) => {
+    const message = parseWsMessage(event.data)
+    if (!message) return
+    if (message.type === 'ping') {
+      socket?.send(JSON.stringify({ type: 'pong' }))
+      return
+    }
+    if (message.type === 'submission-progress' && submission.value) {
+      submission.value.judgeProgress = message.progress
+      if (submission.value.status === 'WAITING') submission.value.status = 'JUDGING'
+      if (message.progress.status && message.progress.caseNo) {
+        upsertProgressCase(message.progress)
+      }
+      return
+    }
+    if (message.type === 'submission-result') {
+      submission.value = message.result
+    }
+  })
+}
+
+function parseWsMessage(raw: string) {
+  try {
+    return JSON.parse(raw) as
+      | { type: 'ping' }
+      | { type: 'submission-progress'; submissionId: number; progress: JudgeProgress }
+      | { type: 'submission-result'; submissionId: number; result: Submission }
+  } catch {
+    return null
+  }
+}
+
+function upsertProgressCase(progress: JudgeProgress) {
+  if (!submission.value || !progress.caseNo || !progress.status) return
+  const existing = submission.value.cases.find((item) => item.caseNo === progress.caseNo)
+  const patch = {
+    caseNo: progress.caseNo,
+    status: progress.status,
+    timeMs: progress.timeMs ?? 0,
+    memoryBytes: progress.memoryBytes ?? 0,
+    score: progress.score ?? 0,
+    message: progress.message ?? null
+  }
+  if (existing) Object.assign(existing, patch)
+  else {
+    submission.value.cases.push(patch)
+    submission.value.cases.sort((left, right) => (left.caseNo ?? 0) - (right.caseNo ?? 0))
   }
 }
 
@@ -163,12 +237,26 @@ async function getCoaching() {
         method: 'POST'
       }
     )
-    coaching.value = session.responseMarkdown
+    coaching.value = coachingToMarkdown(session)
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : String(caught)
   } finally {
     coachingLoading.value = false
   }
+}
+
+function coachingToMarkdown(session: CoachingSession) {
+  const hints = session.hints.length
+    ? session.hints.map((item) => `- ${item}`).join('\n')
+    : '- 暂无额外提示。'
+  const nextSteps = session.nextSteps.length
+    ? session.nextSteps.map((item) => `- ${item}`).join('\n')
+    : '- 结合样例和边界条件继续排查。'
+  return [`### ${t('submissions.coachingSummary')}`, session.summary, `### ${t('submissions.coachingHints')}`, hints, `### ${t('submissions.coachingNextSteps')}`, nextSteps].join('\n\n')
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleString()
 }
 </script>
 
@@ -184,23 +272,41 @@ async function getCoaching() {
           <n-card :bordered="false">
             <n-descriptions label-placement="left" bordered :column="2">
               <n-descriptions-item :label="t('common.status')">
-                <n-tag :bordered="false" :type="statusType[submission.status] ?? 'default'">
-                  {{ submission.status }}
+                <n-tag :bordered="false" :type="statusType[submission.displayStatus ?? submission.status ?? ''] ?? 'default'">
+                  {{ submission.displayStatus ?? submission.status ?? '-' }}
                 </n-tag>
               </n-descriptions-item>
               <n-descriptions-item :label="t('submissions.score')">
-                {{ submission.score }}
+                {{ submission.score ?? '-' }}
               </n-descriptions-item>
               <n-descriptions-item :label="t('common.time')">
-                {{ submission.timeMs }} ms
+                {{ submission.timeMs === null ? '-' : `${submission.timeMs} ms` }}
               </n-descriptions-item>
               <n-descriptions-item :label="t('common.memory')">
-                {{ Math.round(submission.memoryBytes / 1024) }} KB
+                {{ submission.memoryBytes === null ? '-' : Math.round(submission.memoryBytes / 1024) }} KB
+              </n-descriptions-item>
+              <n-descriptions-item :label="t('common.problem')">
+                {{ submission.problem?.title ?? t('submissions.problemRestricted') }}
+              </n-descriptions-item>
+              <n-descriptions-item :label="t('common.user')">
+                {{ submission.user.name }}
               </n-descriptions-item>
               <n-descriptions-item :label="t('submissions.contest')">
                 {{ submission.contestId ? t('submissions.yes') : t('submissions.no') }}
               </n-descriptions-item>
+              <n-descriptions-item :label="t('submissions.assignment')">
+                {{ submission.assignmentId ? t('submissions.yes') : t('submissions.no') }}
+              </n-descriptions-item>
+              <n-descriptions-item :label="t('submissions.publicCode')">
+                {{ submission.public ? t('submissions.yes') : t('submissions.no') }}
+              </n-descriptions-item>
+              <n-descriptions-item :label="t('submissions.createdAt')">
+                {{ formatDate(submission.createdAt) }}
+              </n-descriptions-item>
             </n-descriptions>
+            <p v-if="hasCroppedResult" class="muted cropped-hint">
+              {{ t('submissions.resultRestricted') }}
+            </p>
           </n-card>
           <n-card
             v-if="submission.judgeProgress"
@@ -222,11 +328,17 @@ async function getCoaching() {
                     submission.judgeProgress.totalCases
                   }}
                 </span>
+                <span v-if="submission.judgeProgress.caseNo">
+                  · {{ t('submissions.currentCase') }} #{{ submission.judgeProgress.caseNo }}
+                </span>
+                <span v-if="submission.judgeProgress.status">
+                  · {{ submission.judgeProgress.status }}
+                </span>
               </p>
             </div>
           </n-card>
           <n-card
-            v-if="submission.sourceCode"
+            v-if="submission.code"
             :title="t('submissions.source')"
             :bordered="false"
             class="stacked-card"
@@ -235,9 +347,7 @@ async function getCoaching() {
           </n-card>
           <n-card v-else :title="t('submissions.source')" :bordered="false" class="stacked-card">
             <p class="muted">
-              {{
-                submission.restricted ? t('submissions.restricted') : t('submissions.sourcePrivate')
-              }}
+              {{ t('submissions.sourcePrivate') }}
             </p>
           </n-card>
           <n-card
@@ -254,7 +364,19 @@ async function getCoaching() {
             :bordered="false"
             class="stacked-card"
           >
-            <n-data-table :columns="caseColumns" :data="submission.cases" :bordered="false" />
+            <n-data-table
+              :columns="caseColumns"
+              :data="visibleCases"
+              :bordered="false"
+              :scroll-x="720"
+            />
+            <n-pagination
+              v-if="submission.cases.length > casePageSize"
+              v-model:page="casePage"
+              :page-size="casePageSize"
+              :item-count="submission.cases.length"
+              class="case-pagination"
+            />
           </n-card>
         </div>
         <n-card :title="t('submissions.aiCoaching')" :bordered="false">
@@ -282,5 +404,10 @@ async function getCoaching() {
 .progress-stack {
   display: grid;
   gap: 10px;
+}
+
+.cropped-hint,
+.case-pagination {
+  margin-top: 12px;
 }
 </style>

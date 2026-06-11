@@ -1,30 +1,15 @@
 <script setup lang="ts">
-import {
-  NAlert,
-  NButton,
-  NCard,
-  NCheckbox,
-  NDataTable,
-  NForm,
-  NFormItem,
-  NInput,
-  NModal,
-  NSelect,
-  NSpace,
-  NTag
-} from 'naive-ui'
+import { NButton, NSpace } from 'naive-ui'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
-import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { apiFetch } from '../../api'
+import { apiFetch, DEFAULT_PAGE_SIZE, getItems, PAGE_SIZE_OPTIONS, type Paged } from '../../api'
 import { useAuthStore } from '../../stores/auth'
 
 interface GroupRow {
   id: number
-  key: string
   name: string
-  description: string
-  builtin: boolean
+  createdAt: string
+  updatedAt: string
 }
 
 interface UserRow {
@@ -34,50 +19,67 @@ interface UserRow {
 }
 
 interface MemberRow extends UserRow {
-  manager: boolean
+  createdAt: string
 }
 
 const auth = useAuthStore()
 const { t } = useI18n()
-const canManage = computed(() => auth.user?.groups.includes('admin') ?? false)
+const canManage = computed(() => auth.user?.admin ?? false)
 const loading = ref(true)
 const memberLoading = ref(false)
+const userSearchLoading = ref(false)
 const saving = ref(false)
 const addingMember = ref(false)
 const error = ref('')
 const showCreateModal = ref(false)
 const showMemberModal = ref(false)
+const editingGroupId = ref<number | null>(null)
 const groups = ref<GroupRow[]>([])
 const users = ref<UserRow[]>([])
 const members = ref<MemberRow[]>([])
 const selectedGroupId = ref<number | null>(null)
 const form = reactive({
-  key: '',
-  name: '',
-  description: ''
+  name: ''
 })
 const memberForm = reactive({
-  userId: null as number | null,
-  manager: false
+  userId: null as number | null
+})
+const groupPagination = reactive({
+  page: 1,
+  pageSize: DEFAULT_PAGE_SIZE,
+  itemCount: 0,
+  showSizePicker: true,
+  pageSizes: [...PAGE_SIZE_OPTIONS]
 })
 
 const columns = computed<DataTableColumns<GroupRow>>(() => [
-  { title: t('admin.key'), key: 'key' },
-  { title: t('admin.name'), key: 'name' },
+  { title: t('common.id'), key: 'id', width: 80 },
+  { title: t('admin.name'), key: 'name', minWidth: 180 },
   {
-    title: t('admin.description'),
-    key: 'description',
-    ellipsis: {
-      tooltip: true
+    title: t('admin.users.updatedAt'),
+    key: 'updatedAt',
+    width: 180,
+    render(row) {
+      return new Date(row.updatedAt).toLocaleString()
     }
   },
   {
-    title: t('admin.groups.type'),
-    key: 'builtin',
+    title: t('admin.actions'),
+    key: 'actions',
+    width: 170,
     render(row) {
-      return h(NTag, { bordered: false, type: row.builtin ? 'info' : 'default' }, () =>
-        row.builtin ? t('admin.groups.builtin') : t('admin.groups.custom')
-      )
+      return h(NSpace, { size: 8 }, () => [
+        h(
+          NButton,
+          { size: 'small', secondary: true, onClick: () => editGroup(row) },
+          () => t('admin.edit')
+        ),
+        h(
+          NButton,
+          { size: 'small', tertiary: true, type: 'error', onClick: () => deleteGroup(row.id) },
+          () => t('admin.delete')
+        )
+      ])
     }
   }
 ])
@@ -86,11 +88,22 @@ const memberColumns = computed<DataTableColumns<MemberRow>>(() => [
   { title: t('admin.name'), key: 'name' },
   { title: t('app.email'), key: 'email' },
   {
-    title: t('admin.groups.role'),
-    key: 'manager',
+    title: t('admin.users.joined'),
+    key: 'createdAt',
+    width: 180,
     render(row) {
-      return h(NTag, { bordered: false, type: row.manager ? 'success' : 'default' }, () =>
-        row.manager ? t('admin.groups.manager') : t('admin.groups.member')
+      return new Date(row.createdAt).toLocaleString()
+    }
+  },
+  {
+    title: t('admin.actions'),
+    key: 'actions',
+    width: 100,
+    render(row) {
+      return h(
+        NButton,
+        { size: 'small', tertiary: true, type: 'error', onClick: () => removeMember(row.id) },
+        () => t('admin.delete')
       )
     }
   }
@@ -98,7 +111,7 @@ const memberColumns = computed<DataTableColumns<MemberRow>>(() => [
 
 const groupOptions = computed<SelectOption[]>(() =>
   groups.value.map((group) => ({
-    label: `${group.name} (${group.key})`,
+    label: `${group.name} (#${group.id})`,
     value: group.id
   }))
 )
@@ -114,14 +127,13 @@ async function loadData() {
   loading.value = true
   error.value = ''
   try {
-    const [groupData, userData] = await Promise.all([
-      apiFetch<{ list: GroupRow[] }>('/api/groups'),
-      apiFetch<{ list: UserRow[] }>('/api/users')
-    ])
-    groups.value = groupData.list
-    users.value = userData.list
-    if (!selectedGroupId.value && groupData.list.length) {
-      selectedGroupId.value = groupData.list[0].id
+    const groupData = await apiFetch<Paged<GroupRow>>(
+      `/api/admin/groups?page=${groupPagination.page}&pageSize=${groupPagination.pageSize}`
+    )
+    groups.value = getItems(groupData)
+    groupPagination.itemCount = groupData.total
+    if (!selectedGroupId.value && groups.value.length) {
+      selectedGroupId.value = groups.value[0].id
     }
     if (selectedGroupId.value) await loadMembers()
   } catch (cause) {
@@ -131,17 +143,55 @@ async function loadData() {
   }
 }
 
-async function createGroup() {
+function handleGroupPageChange(page: number) {
+  groupPagination.page = page
+  void loadData()
+}
+
+function handleGroupPageSizeChange(pageSize: number) {
+  groupPagination.pageSize = pageSize
+  groupPagination.page = 1
+  void loadData()
+}
+
+async function searchUsers(query = '') {
+  userSearchLoading.value = true
+  error.value = ''
+  try {
+    const data = await apiFetch<Paged<UserRow>>(
+      `/api/admin/users?page=1&pageSize=20&q=${encodeURIComponent(query)}`
+    )
+    users.value = getItems(data)
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    userSearchLoading.value = false
+  }
+}
+
+function newGroup() {
+  editingGroupId.value = null
+  form.name = ''
+  showCreateModal.value = true
+}
+
+function editGroup(group: GroupRow) {
+  editingGroupId.value = group.id
+  form.name = group.name
+  showCreateModal.value = true
+}
+
+async function saveGroup() {
   saving.value = true
   error.value = ''
   try {
-    const group = await apiFetch<GroupRow>('/api/groups', {
-      method: 'POST',
-      body: JSON.stringify(form)
-    })
-    form.key = ''
-    form.name = ''
-    form.description = ''
+    const group = await apiFetch<GroupRow>(
+      editingGroupId.value ? `/api/admin/groups/${editingGroupId.value}` : '/api/admin/groups',
+      {
+        method: editingGroupId.value ? 'PATCH' : 'POST',
+        body: JSON.stringify({ name: form.name })
+      }
+    )
     selectedGroupId.value = group.id
     showCreateModal.value = false
     await loadData()
@@ -152,14 +202,27 @@ async function createGroup() {
   }
 }
 
+async function deleteGroup(id: number) {
+  error.value = ''
+  try {
+    await apiFetch(`/api/admin/groups/${id}`, { method: 'DELETE' })
+    if (selectedGroupId.value === id) selectedGroupId.value = null
+    await loadData()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  }
+}
+
 async function loadMembers() {
   if (!selectedGroupId.value) return
 
   memberLoading.value = true
   error.value = ''
   try {
-    const data = await apiFetch<{ list: MemberRow[] }>(`/api/groups/${selectedGroupId.value}/users`)
-    members.value = data.list
+    const data = await apiFetch<Paged<MemberRow>>(
+      `/api/admin/groups/${selectedGroupId.value}/users`
+    )
+    members.value = getItems(data)
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
@@ -173,18 +236,36 @@ async function addMember() {
   addingMember.value = true
   error.value = ''
   try {
-    await apiFetch(`/api/groups/${selectedGroupId.value}/users`, {
+    await apiFetch(`/api/admin/groups/${selectedGroupId.value}/users`, {
       method: 'POST',
-      body: JSON.stringify(memberForm)
+      body: JSON.stringify({ userId: memberForm.userId })
     })
     memberForm.userId = null
-    memberForm.manager = false
     showMemberModal.value = false
     await loadMembers()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
     addingMember.value = false
+  }
+}
+
+function openMemberModal() {
+  memberForm.userId = null
+  showMemberModal.value = true
+  void searchUsers()
+}
+
+async function removeMember(userId: number) {
+  if (!selectedGroupId.value) return
+  error.value = ''
+  try {
+    await apiFetch(`/api/admin/groups/${selectedGroupId.value}/users/${userId}`, {
+      method: 'DELETE'
+    })
+    await loadMembers()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
   }
 }
 
@@ -224,22 +305,27 @@ onMounted(() => {
             filterable
             class="toolbar-select"
           />
-          <n-button type="primary" @click="showCreateModal = true">
+          <n-button type="primary" @click="newGroup">
             {{ t('admin.groups.create') }}
           </n-button>
         </n-space>
         <n-data-table
+          remote
           :columns="columns"
           :data="groups"
           :bordered="false"
           :loading="loading"
+          :pagination="groupPagination"
+          :scroll-x="620"
           class="admin-table"
+          @update:page="handleGroupPageChange"
+          @update:page-size="handleGroupPageSizeChange"
         />
       </n-card>
 
       <n-card :title="t('admin.groups.members')" :bordered="false">
         <n-space justify="end" class="table-toolbar">
-          <n-button type="primary" :disabled="!selectedGroupId" @click="showMemberModal = true">
+          <n-button type="primary" :disabled="!selectedGroupId" @click="openMemberModal">
             {{ t('admin.groups.addMember') }}
           </n-button>
         </n-space>
@@ -248,6 +334,7 @@ onMounted(() => {
           :data="members"
           :bordered="false"
           :loading="memberLoading"
+          :scroll-x="560"
           class="admin-table"
         />
       </n-card>
@@ -256,33 +343,22 @@ onMounted(() => {
     <n-modal
       v-model:show="showCreateModal"
       preset="card"
-      :title="t('admin.groups.create')"
+      :title="editingGroupId ? t('admin.edit') : t('admin.groups.create')"
       class="form-modal"
     >
       <n-form :model="form" label-placement="top">
-        <n-form-item :label="t('admin.key')">
-          <n-input v-model:value="form.key" placeholder="team-alpha" />
-        </n-form-item>
         <n-form-item :label="t('admin.name')">
-          <n-input v-model:value="form.name" placeholder="Team Alpha" />
-        </n-form-item>
-        <n-form-item :label="t('admin.description')">
-          <n-input
-            v-model:value="form.description"
-            type="textarea"
-            :placeholder="t('admin.optionalNotes')"
-            :autosize="{ minRows: 3, maxRows: 5 }"
-          />
+          <n-input v-model:value="form.name" placeholder="Class A" />
         </n-form-item>
         <n-space justify="end" class="form-actions">
           <n-button @click="showCreateModal = false">{{ t('admin.cancel') }}</n-button>
           <n-button
             type="primary"
             :loading="saving"
-            :disabled="!form.key || !form.name"
-            @click="createGroup"
+            :disabled="!form.name"
+            @click="saveGroup"
           >
-            {{ t('admin.create') }}
+            {{ editingGroupId ? t('admin.save') : t('admin.create') }}
           </n-button>
         </n-space>
       </n-form>
@@ -299,11 +375,16 @@ onMounted(() => {
           <n-select v-model:value="selectedGroupId" :options="groupOptions" filterable />
         </n-form-item>
         <n-form-item :label="t('common.user')">
-          <n-select v-model:value="memberForm.userId" :options="userOptions" filterable />
+          <n-select
+            v-model:value="memberForm.userId"
+            :options="userOptions"
+            :loading="userSearchLoading"
+            filterable
+            remote
+            clearable
+            @search="searchUsers"
+          />
         </n-form-item>
-        <n-checkbox v-model:checked="memberForm.manager">
-          {{ t('admin.groups.groupManager') }}
-        </n-checkbox>
         <n-space justify="end" class="form-actions">
           <n-button @click="showMemberModal = false">{{ t('admin.cancel') }}</n-button>
           <n-button

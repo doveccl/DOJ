@@ -25,8 +25,9 @@ async function withRedis<T>(operation: (redis: RedisClient) => Promise<T>) {
     return await operation(redis)
   } catch (error) {
     unavailableUntil = Date.now() + 5000
-    console.warn('Redis unavailable, falling back to process memory:', error)
-    return null
+    throw new Error(`Redis unavailable while REDIS is configured: ${error instanceof Error ? error.message : String(error)}`, {
+      cause: error
+    })
   }
 }
 
@@ -47,6 +48,20 @@ export async function redisDel(key: string) {
   await withRedis((redis) => redis.del(key))
 }
 
+export async function redisSetJson<T>(key: string, value: T, ttlSeconds: number) {
+  return redisSet(key, JSON.stringify(value), ttlSeconds)
+}
+
+export async function redisGetJson<T>(key: string) {
+  const value = await redisGet(key)
+  if (!value) return null
+  try {
+    return JSON.parse(value) as T
+  } catch {
+    return null
+  }
+}
+
 export async function redisIncrWithTtl(key: string, ttlSeconds: number) {
   return withRedis(async (redis) => {
     const result = await redis.send('EVAL', [
@@ -57,4 +72,8 @@ export async function redisIncrWithTtl(key: string, ttlSeconds: number) {
     ])
     return typeof result === 'number' ? result : Number(result)
   })
+}
+
+export async function redisCommand(command: string, args: string[] = []) {
+  return withRedis((redis) => redis.send(command, args))
 }

@@ -1,15 +1,21 @@
 import { Hono, type Context } from 'hono'
-import { and, asc, eq, ilike, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, ilike, isNull, or, sql } from 'drizzle-orm'
+import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { db, schema } from '@doj/db/client'
-import { putObject, getObjectBytes, storageConfig } from '@doj/shared/storage'
-import { authMiddleware, getOptionalAuthUser, requireGroup } from '../auth'
-import { getRuntimeSettings } from '../settings'
-import { countRows } from '../services/stats'
+import { deleteObject, getObjectBytes, listObjects, putObject } from '@doj/shared/storage'
+import { authMiddleware, denyGuestAccess, getOptionalAuthUser, requireAdmin } from '../auth'
+import { ApiHttpError, apiError, notFound } from '../errors'
+import { countRows, getProblemStats, hasUserSolvedProblem } from '../services/stats'
 import { listQuerySchema, numericId, pageOffset } from '../validation'
 
-const maxPackageFileBytes = 64 * 1024 * 1024
-const maxPackageRequestBytes = maxPackageFileBytes + 1024 * 1024
+const maxStatementBytes = 64 * 1024
+const maxAssetFileBytes = 64 * 1024 * 1024
+const maxAssetRequestBytes = maxAssetFileBytes + 1024 * 1024
+const textExtensions = new Set([
+  '.txt', '.md', '.json', '.yaml', '.yml', '.xml', '.csv', '.in', '.out', '.ans',
+  '.cpp', '.c', '.h', '.hpp', '.py', '.js', '.ts', '.java', '.rs', '.go', 'dockerfile'
+])
 
 export function registerProblemRoutes(app: Hono) {
   app.get('/api/problems', async (c) => {
@@ -17,81 +23,54 @@ export function registerProblemRoutes(app: Hono) {
     if (denied) return denied
 
     const authUser = await getOptionalAuthUser(c)
-    const { page, pageSize, search, tag } = problemListQuerySchema.parse(c.req.query())
+    const { page, pageSize, q, tag } = problemListQuerySchema.parse(c.req.query())
+    const visibilityFilter = authUser?.admin
+      ? undefined
+      : and(eq(schema.problems.visible, true), isNull(schema.problems.deletedAt))
     const where = and(
-      eq(schema.problems.visible, true),
-      search ? ilike(schema.problems.title, `%${search}%`) : undefined,
+      visibilityFilter,
+      q ? problemSearchFilter(q) : undefined,
       tag ? sql`${tag} = any(${schema.problems.tags})` : undefined
     )
+
     const total = await countRows(schema.problems, where)
-    const list = await db
+    const rows = await db
       .select({
         id: schema.problems.id,
         title: schema.problems.title,
         tags: schema.problems.tags,
-        solvedCount: schema.problems.solvedCount,
-        submissionCount: schema.problems.submissionCount,
-        createdAt: schema.problems.createdAt,
-        solved: authUser
-          ? sql<boolean>`exists (
-              select 1 from ${schema.solvedProblems}
-              where ${schema.solvedProblems.userId} = ${authUser.id}
-                and ${schema.solvedProblems.problemId} = ${schema.problems.id}
-            )`
-          : sql<boolean>`false`
+        visible: schema.problems.visible,
+        deletedAt: schema.problems.deletedAt
       })
       .from(schema.problems)
       .where(where)
       .orderBy(asc(schema.problems.id))
       .limit(pageSize)
       .offset(pageOffset(page, pageSize))
-    const tags = await listVisibleTags()
-    return c.json({ total, page, pageSize, list, tags })
-  })
 
-  app.get('/api/admin/problems', authMiddleware, async (c) => {
-    const denied = await requireGroup(c, 'admin')
-    if (denied) return denied
-
-    const { page, pageSize } = listQuerySchema.parse(c.req.query())
-    const total = await countRows(schema.problems)
-    const list = await db
-      .select()
-      .from(schema.problems)
-      .orderBy(asc(schema.problems.id))
-      .limit(pageSize)
-      .offset(pageOffset(page, pageSize))
-    const enriched = list.map((problem) => ({
-      ...problem,
-      summary: summarizeProblem(problem)
-    }))
-    return c.json({ total, page, pageSize, list: enriched })
-  })
-
-  app.get('/api/admin/problems/:id', authMiddleware, async (c) => {
-    const denied = await requireGroup(c, 'admin')
-    if (denied) return denied
-
-    const detail = await getProblemDetail(numericId.parse(c.req.param('id')), {
-      includeHiddenCases: true,
-      includeHiddenProblem: true,
-      includePackage: true
+    const stats = await getProblemStats(rows.map((row) => row.id))
+    const solved = new Map(
+      await Promise.all(rows.map(async (row) => [row.id, await hasUserSolvedProblem(authUser?.id, row.id)] as const))
+    )
+    return c.json({
+      total,
+      page,
+      pageSize,
+      items: rows.map((row) => formatProblemListItem(row, stats.get(row.id), solved.get(row.id) ?? false))
     })
-    if (!detail) return c.notFound()
-    return c.json(detail)
   })
 
   app.get('/api/problems/:id', async (c) => {
     const denied = await denyGuestProblemset(c)
     if (denied) return denied
 
-    const detail = await getProblemDetail(numericId.parse(c.req.param('id')))
-    if (!detail) return c.notFound()
+    const detail = await getProblemDetail(numericId.parse(c.req.param('id')), await getOptionalAuthUser(c))
+    if (!detail) return notFound(c)
     return c.json(detail)
   })
 
-  app.post('/api/problems', authMiddleware, async (c) => {
-    const denied = await requireGroup(c, 'admin')
+  app.post('/api/admin/problems', authMiddleware, async (c) => {
+    const denied = await requireAdmin(c)
     if (denied) return denied
 
     const body = createProblemSchema.parse(await c.req.json())
@@ -100,313 +79,498 @@ export function registerProblemRoutes(app: Hono) {
       .values({
         title: body.title,
         tags: body.tags,
-        statementMarkdown: body.statementMarkdown,
-        timeLimitMs: body.timeLimitMs,
-        memoryLimitBytes: body.memoryLimitBytes,
-        caseCount: body.caseCount,
-        testCases: body.testCases
+        mode: body.mode,
+        timeLimit: body.timeLimit,
+        memoryLimit: body.memoryLimit,
+        visible: body.visible
       })
       .returning()
 
-    return c.json({ problem }, 201)
+    await putObject({ key: problemObjectKey(problem.id, 'statement.md'), body: '', contentType: 'text/markdown; charset=utf-8' })
+    return c.json(await getProblemDetail(problem.id, await getOptionalAuthUser(c)), 201)
   })
 
-  app.patch('/api/problems/:id', authMiddleware, async (c) => {
-    const denied = await requireGroup(c, 'admin')
+  app.get('/api/admin/problems/:id', authMiddleware, async (c) => {
+    const denied = await requireAdmin(c)
+    if (denied) return denied
+
+    const detail = await getProblemDetail(numericId.parse(c.req.param('id')), await getOptionalAuthUser(c))
+    if (!detail) return notFound(c)
+    return c.json(detail)
+  })
+
+  app.patch('/api/admin/problems/:id', authMiddleware, async (c) => {
+    const denied = await requireAdmin(c)
     if (denied) return denied
 
     const id = numericId.parse(c.req.param('id'))
     const body = updateProblemSchema.parse(await c.req.json())
-
     const patch: Partial<typeof schema.problems.$inferInsert> = { updatedAt: new Date() }
-    if ('title' in body) patch.title = body.title
-    if ('tags' in body) patch.tags = body.tags ?? []
-    if ('visible' in body) patch.visible = body.visible
-    if ('statementMarkdown' in body) patch.statementMarkdown = body.statementMarkdown
-    if ('timeLimitMs' in body) patch.timeLimitMs = body.timeLimitMs
-    if ('memoryLimitBytes' in body) patch.memoryLimitBytes = body.memoryLimitBytes
-    if ('caseCount' in body) patch.caseCount = body.caseCount
-    if ('testCases' in body) patch.testCases = body.testCases
+    if (body.title !== undefined) patch.title = body.title
+    if (body.tags !== undefined) patch.tags = body.tags
+    if (body.visible !== undefined) patch.visible = body.visible
+    if (body.mode !== undefined) patch.mode = body.mode
+    if (body.timeLimit !== undefined) patch.timeLimit = body.timeLimit
+    if (body.memoryLimit !== undefined) patch.memoryLimit = body.memoryLimit
 
+    const [updated] = await db.update(schema.problems).set(patch).where(eq(schema.problems.id, id)).returning()
+    if (!updated) return notFound(c)
+    return c.json(await getProblemDetail(id, await getOptionalAuthUser(c)))
+  })
+
+  app.delete('/api/admin/problems/:id', authMiddleware, async (c) => {
+    const denied = await requireAdmin(c)
+    if (denied) return denied
+
+    const id = numericId.parse(c.req.param('id'))
     const [updated] = await db
       .update(schema.problems)
-      .set(patch)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(schema.problems.id, id))
       .returning()
-    if (!updated) return c.notFound()
-
-    const detail = await getProblemDetail(id, {
-      includeHiddenCases: true,
-      includeHiddenProblem: true,
-      includePackage: true
-    })
-    return c.json(detail)
-  })
-
-  // List the package files (path + size, no content) for a problem.
-  app.get('/api/problems/:id/package', authMiddleware, async (c) => {
-    const denied = await requireGroup(c, 'admin')
-    if (denied) return denied
-
-    const problemId = numericId.parse(c.req.param('id'))
-    const files = await listPackageFiles(problemId)
-    return c.json({ files })
-  })
-
-  // Read a single package file's text content (for the editor).
-  app.get('/api/problems/:id/package/content', authMiddleware, async (c) => {
-    const denied = await requireGroup(c, 'admin')
-    if (denied) return denied
-
-    const problemId = numericId.parse(c.req.param('id'))
-    const path = z.string().min(1).max(255).parse(c.req.query('path'))
-    const stored = await getPackageFile(problemId, path)
-    if (!stored) return c.notFound()
-    const bytes = await getObjectBytes(stored.objectKey, stored.bucket)
-    return c.json({ path, content: Buffer.from(bytes).toString('utf8') })
-  })
-
-  // Create or overwrite a package file (text content from the editor).
-  app.put('/api/problems/:id/package', authMiddleware, async (c) => {
-    const denied = await requireGroup(c, 'admin')
-    if (denied) return denied
-
-    const problemId = numericId.parse(c.req.param('id'))
-    const body = packageFileSchema.parse(await c.req.json())
-    const bytes = new TextEncoder().encode(body.content)
-    if (bytes.byteLength > maxPackageFileBytes) {
-      return c.json({ code: 'FILE_TOO_LARGE', message: 'Package file is too large' }, 413)
-    }
-    const file = await upsertPackageFile(problemId, body.path, bytes, 'text/plain')
-    return c.json({ file }, 201)
-  })
-
-  // Upload package files as raw uploads (data files, binaries, assets).
-  app.post('/api/problems/:id/package/upload', authMiddleware, async (c) => {
-    const denied = await requireGroup(c, 'admin')
-    if (denied) return denied
-
-    const problemId = numericId.parse(c.req.param('id'))
-    const contentLength = Number(c.req.header('content-length') ?? 0)
-    if (Number.isFinite(contentLength) && contentLength > maxPackageRequestBytes) {
-      return c.json({ code: 'FILE_TOO_LARGE', message: 'Package upload is too large' }, 413)
-    }
-
-    const form = await c.req.formData()
-    const uploads = form.getAll('file').filter((item): item is File => item instanceof File)
-    if (!uploads.length) {
-      return c.json(
-        { code: 'MISSING_FILE', message: 'Expected multipart file field named file' },
-        400
-      )
-    }
-    const prefix = (form.get('prefix') as string | null) ?? ''
-    const totalBytes = uploads.reduce((sum, file) => sum + file.size, 0)
-    if (totalBytes > maxPackageFileBytes) {
-      return c.json({ code: 'FILE_TOO_LARGE', message: 'Package upload is too large' }, 413)
-    }
-
-    const saved = []
-    for (const upload of uploads) {
-      const path = normalizePackagePath(`${prefix}${upload.name}`)
-      const bytes = new Uint8Array(await upload.arrayBuffer())
-      const file = await upsertPackageFile(
-        problemId,
-        path,
-        bytes,
-        upload.type || 'application/octet-stream'
-      )
-      saved.push(file)
-    }
-    return c.json({ files: saved }, 201)
-  })
-
-  app.delete('/api/problems/:id/package', authMiddleware, async (c) => {
-    const denied = await requireGroup(c, 'admin')
-    if (denied) return denied
-
-    const problemId = numericId.parse(c.req.param('id'))
-    const path = z.string().min(1).max(255).parse(c.req.query('path'))
-    await deletePackageFile(problemId, path)
+    if (!updated) return notFound(c)
     return c.json({ ok: true })
+  })
+
+  app.post('/api/admin/problems/:id/restore', authMiddleware, async (c) => {
+    const denied = await requireAdmin(c)
+    if (denied) return denied
+
+    const id = numericId.parse(c.req.param('id'))
+    const [updated] = await db
+      .update(schema.problems)
+      .set({ deletedAt: null, updatedAt: new Date() })
+      .where(eq(schema.problems.id, id))
+      .returning()
+    if (!updated) return notFound(c)
+    return c.json(await getProblemDetail(id, await getOptionalAuthUser(c)))
+  })
+
+  app.put('/api/admin/problems/:id/statement', authMiddleware, async (c) => {
+    const denied = await requireAdmin(c)
+    if (denied) return denied
+
+    const id = numericId.parse(c.req.param('id'))
+    if (!(await problemExists(id))) return notFound(c)
+    const body = statementSchema.parse(await c.req.json())
+    if (new TextEncoder().encode(body.markdown).byteLength > maxStatementBytes) {
+      return apiError(c, 413, 'STATEMENT_TOO_LARGE', 'Statement markdown is too large')
+    }
+    await putObject({ key: problemObjectKey(id, 'statement.md'), body: body.markdown, contentType: 'text/markdown; charset=utf-8' })
+    await touchProblem(id)
+    return c.json({ markdown: body.markdown })
+  })
+
+  app.get('/api/admin/problems/:id/assets', authMiddleware, async (c) => {
+    const denied = await requireAdmin(c)
+    if (denied) return denied
+
+    const id = numericId.parse(c.req.param('id'))
+    if (!(await problemExists(id))) return notFound(c)
+    const objects = await listObjects(problemObjectKey(id, ''))
+    const assets = objects
+      .map(assetFromObject)
+      .filter((asset): asset is ProblemAssetItem => Boolean(asset))
+      .sort(compareAssets)
+    return c.json(assets)
+  })
+
+  app.get('/api/admin/problems/:id/assets/content', authMiddleware, async (c) => {
+    const denied = await requireAdmin(c)
+    if (denied) return denied
+
+    const id = numericId.parse(c.req.param('id'))
+    const path = assetPathSchema.parse(c.req.query('path'))
+    const asset = await validateAssetPathForProblem(id, path)
+    const bytes = await getObjectBytes(problemObjectKey(id, asset.path))
+    const text = isTextAsset(asset.path, asset.contentType)
+    return c.json({
+      path: asset.path,
+      contentType: asset.contentType,
+      text,
+      content: text ? Buffer.from(bytes).toString('utf8') : Buffer.from(bytes).toString('base64'),
+      encoding: text ? 'utf8' : 'base64'
+    })
+  })
+
+  app.put('/api/admin/problems/:id/assets/content', authMiddleware, async (c) => {
+    const denied = await requireAdmin(c)
+    if (denied) return denied
+
+    const id = numericId.parse(c.req.param('id'))
+    const body = assetContentSchema.parse(await c.req.json())
+    const asset = await validateAssetPathForProblem(id, body.path)
+    const bytes = body.encoding === 'utf8' ? new TextEncoder().encode(body.content) : Buffer.from(body.content, 'base64')
+    if (bytes.byteLength > maxAssetFileBytes) return apiError(c, 413, 'FILE_TOO_LARGE', 'Asset file is too large')
+    const contentType = body.contentType || inferContentType(asset.path)
+    await putObject({ key: problemObjectKey(id, asset.path), body: bytes, contentType })
+    await touchProblem(id)
+    return c.json({ ...asset, size: bytes.byteLength, contentType, updatedAt: new Date().toISOString(), text: isTextAsset(asset.path, contentType) })
+  })
+
+  app.post('/api/admin/problems/:id/assets/upload', authMiddleware, async (c) => {
+    const denied = await requireAdmin(c)
+    if (denied) return denied
+
+    const id = numericId.parse(c.req.param('id'))
+    const contentLength = Number(c.req.header('content-length') ?? 0)
+    if (Number.isFinite(contentLength) && contentLength > maxAssetRequestBytes) {
+      return apiError(c, 413, 'FILE_TOO_LARGE', 'Asset upload is too large')
+    }
+    const form = await c.req.formData()
+    const upload = form.get('file')
+    if (!(upload instanceof File)) return apiError(c, 400, 'MISSING_FILE', 'Expected multipart file field named file')
+    if (upload.size > maxAssetFileBytes) return apiError(c, 413, 'FILE_TOO_LARGE', 'Asset file is too large')
+    const rawPath = String(form.get('path') ?? `assets/${sanitizeFilename(upload.name)}`)
+    const path = rawPath.endsWith('/') ? `${rawPath}${sanitizeFilename(upload.name)}` : rawPath
+    const asset = await validateAssetPathForProblem(id, path)
+    const contentType = upload.type || inferContentType(asset.path)
+    await putObject({ key: problemObjectKey(id, asset.path), body: new Uint8Array(await upload.arrayBuffer()), contentType })
+    await touchProblem(id)
+    return c.json({ path: asset.path, url: asset.path.startsWith('assets/') ? `/api/problems/${id}/assets/${asset.name}` : null }, 201)
+  })
+
+  app.delete('/api/admin/problems/:id/assets', authMiddleware, async (c) => {
+    const denied = await requireAdmin(c)
+    if (denied) return denied
+
+    const id = numericId.parse(c.req.param('id'))
+    const path = assetPathSchema.parse(c.req.query('path'))
+    const asset = await validateAssetPathForProblem(id, path)
+    await deleteObject(problemObjectKey(id, asset.path))
+    await touchProblem(id)
+    return c.json({ ok: true })
+  })
+
+  app.get('/api/problems/:id/assets/:filename', async (c) => {
+    const denied = await denyGuestProblemset(c)
+    if (denied) return denied
+
+    const id = numericId.parse(c.req.param('id'))
+    const filename = c.req.param('filename')
+    if (!isFlatFilename(filename)) return notFound(c)
+    const [problem] = await db
+      .select({ id: schema.problems.id })
+      .from(schema.problems)
+      .where(and(eq(schema.problems.id, id), eq(schema.problems.visible, true), isNull(schema.problems.deletedAt)))
+      .limit(1)
+    if (!problem) return notFound(c)
+    const path = `assets/${filename}`
+    const bytes = await readObjectOrNull(problemObjectKey(id, path))
+    if (!bytes) return notFound(c)
+    c.header('cache-control', 'public, max-age=31536000, immutable')
+    c.header('content-type', inferContentType(path))
+    return c.body(bytes)
   })
 }
 
 async function denyGuestProblemset(c: Context) {
-  const settings = await getRuntimeSettings()
-  if (settings.guestProblemsetVisible) return null
-  const authUser = await getOptionalAuthUser(c)
-  if (authUser) return null
-  return c.json({ code: 'UNAUTHORIZED', message: 'Sign in to view the problemset' }, 401)
+  return denyGuestAccess(c, 'Sign in to view the problemset')
 }
 
-type Problem = typeof schema.problems.$inferSelect
+type ProblemAssetSection = 'data' | 'assets' | 'root'
 
-async function getProblemDetail(
-  id: number,
-  options: {
-    includeHiddenCases?: boolean
-    includeHiddenProblem?: boolean
-    includePackage?: boolean
-  } = {}
-) {
-  const [problem] = await db
-    .select()
-    .from(schema.problems)
-    .where(eq(schema.problems.id, id))
-    .limit(1)
-  if (!problem || (!problem.visible && !options.includeHiddenProblem)) return null
-
-  const packageFiles = options.includePackage ? await listPackageFiles(id) : undefined
-
-  return {
-    problem,
-    summary: summarizeProblem(problem),
-    package: packageFiles,
-    testCases: options.includeHiddenCases
-      ? problem.testCases
-      : problem.testCases.filter((testCase) => !testCase.hidden)
-  }
-}
-
-function summarizeProblem(problem: Problem) {
-  return {
-    timeLimitMs: problem.timeLimitMs,
-    memoryLimitBytes: problem.memoryLimitBytes,
-    caseCount: problem.caseCount,
-    inlineCaseCount: problem.testCases.length
-  }
-}
-
-async function listPackageFiles(problemId: number) {
-  const rows = await db
-    .select({
-      path: schema.problemFiles.path,
-      filename: schema.files.filename,
-      contentType: schema.files.contentType,
-      sizeBytes: schema.files.sizeBytes,
-      updatedAt: schema.problemFiles.updatedAt
-    })
-    .from(schema.problemFiles)
-    .innerJoin(schema.files, eq(schema.problemFiles.fileId, schema.files.id))
-    .where(eq(schema.problemFiles.problemId, problemId))
-  return rows.sort((a, b) => a.path.localeCompare(b.path))
-}
-
-async function getPackageFile(problemId: number, path: string) {
-  const rows = await db
-    .select({
-      path: schema.problemFiles.path,
-      bucket: schema.files.bucket,
-      objectKey: schema.files.objectKey
-    })
-    .from(schema.problemFiles)
-    .innerJoin(schema.files, eq(schema.problemFiles.fileId, schema.files.id))
-    .where(eq(schema.problemFiles.problemId, problemId))
-  return rows.find((row) => row.path === path) ?? null
-}
-
-async function upsertPackageFile(
-  problemId: number,
-  path: string,
-  bytes: Uint8Array,
+interface ProblemAssetItem {
+  path: string
+  name: string
+  section: ProblemAssetSection
+  size: number
   contentType: string
+  updatedAt: string
+  text: boolean
+}
+
+async function getProblemDetail(id: number, authUser: Awaited<ReturnType<typeof getOptionalAuthUser>>) {
+  const [problem] = await db.select().from(schema.problems).where(eq(schema.problems.id, id)).limit(1)
+  if (!problem) return null
+  if (!authUser?.admin && (!problem.visible || problem.deletedAt)) return null
+
+  const stats = (await getProblemStats([id])).get(id)
+  const solved = await hasUserSolvedProblem(authUser?.id, id)
+
+  return {
+    id: problem.id,
+    title: problem.title,
+    statement: await readStatement(id),
+    mode: problem.mode,
+    timeLimit: problem.timeLimit,
+    memoryLimit: problem.memoryLimit,
+    tags: problem.tags,
+    passRate: passRate(stats?.solved ?? 0, stats?.attempted ?? 0),
+    solved,
+    recentSubmission: await getRecentSubmission(id, authUser),
+    visible: problem.visible,
+    deletedAt: problem.deletedAt?.toISOString() ?? null,
+    createdAt: problem.createdAt.toISOString(),
+    updatedAt: problem.updatedAt.toISOString()
+  }
+}
+
+async function getRecentSubmission(
+  problemId: number,
+  authUser: Awaited<ReturnType<typeof getOptionalAuthUser>>
 ) {
-  const normalized = normalizePackagePath(path)
-  const objectKey = `problems/${problemId}/package/${crypto.randomUUID()}`
-  await putObject({ key: objectKey, body: bytes, contentType })
+  if (!authUser) return null
 
-  const [file] = await db
-    .insert(schema.files)
-    .values({
-      bucket: storageConfig.bucket,
-      objectKey,
-      filename: normalized.split('/').at(-1) ?? normalized,
-      contentType,
-      sizeBytes: bytes.byteLength
+  const [row] = await db
+    .select({
+      id: schema.submissions.id,
+      userId: schema.submissions.userId,
+      userName: schema.users.name,
+      userEmail: schema.users.email,
+      problemId: schema.submissions.problemId,
+      problemTitle: schema.problems.title,
+      languageId: schema.submissions.languageId,
+      status: schema.submissions.status,
+      timeMs: schema.submissions.timeMs,
+      memoryBytes: schema.submissions.memoryBytes,
+      score: schema.submissions.score,
+      public: schema.submissions.public,
+      contestId: schema.submissions.contestId,
+      assignmentId: schema.submissions.assignmentId,
+      createdAt: schema.submissions.createdAt,
+      updatedAt: schema.submissions.updatedAt,
+      contestType: schema.contests.type,
+      contestStartAt: schema.contests.startAt,
+      contestEndAt: schema.contests.endAt
     })
-    .returning()
+    .from(schema.submissions)
+    .innerJoin(schema.problems, eq(schema.submissions.problemId, schema.problems.id))
+    .innerJoin(schema.users, eq(schema.submissions.userId, schema.users.id))
+    .leftJoin(schema.contests, eq(schema.submissions.contestId, schema.contests.id))
+    .where(and(eq(schema.submissions.problemId, problemId), eq(schema.submissions.userId, authUser.id)))
+    .orderBy(desc(schema.submissions.createdAt), desc(schema.submissions.id))
+    .limit(1)
 
-  await db
-    .insert(schema.problemFiles)
-    .values({ problemId, path: normalized, fileId: file.id })
-    .onConflictDoUpdate({
-      target: [schema.problemFiles.problemId, schema.problemFiles.path],
-      set: { fileId: file.id, updatedAt: new Date() }
-    })
-
-  return { path: normalized, filename: file.filename, sizeBytes: file.sizeBytes }
+  if (!row) return null
+  const cropped = cropRecentSubmission(row, authUser.admin)
+  return {
+    id: row.id,
+    problem: { id: row.problemId, title: row.problemTitle },
+    user: {
+      id: row.userId,
+      name: row.userName,
+      avatarUrl: gravatarUrl(row.userEmail)
+    },
+    languageId: row.languageId,
+    status: cropped ? null : row.status,
+    displayStatus: cropped?.displayStatus ?? row.status,
+    score: cropped ? null : row.score,
+    timeMs: cropped ? null : row.timeMs,
+    memoryBytes: cropped ? null : row.memoryBytes,
+    public: row.public,
+    contestId: row.contestId,
+    assignmentId: row.assignmentId,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString()
+  }
 }
 
-async function deletePackageFile(problemId: number, path: string) {
-  const normalized = normalizePackagePath(path)
-  const existing = await db
-    .select()
-    .from(schema.problemFiles)
-    .where(eq(schema.problemFiles.problemId, problemId))
-  const match = existing.find((row) => row.path === normalized)
-  if (!match) return
-  await db.delete(schema.problemFiles).where(eq(schema.problemFiles.fileId, match.fileId))
+function cropRecentSubmission(row: {
+  contestId: number | null
+  contestType: 'OI' | 'ICPC' | null
+  contestStartAt: Date | null
+  contestEndAt: Date | null
+  status: string
+}, isAdmin: boolean) {
+  if (isAdmin || !row.contestId) return null
+  const now = new Date()
+  if (row.contestType === 'OI' && row.contestStartAt && row.contestEndAt && now >= row.contestStartAt && now < row.contestEndAt) {
+    if (row.status === 'WAITING') return { displayStatus: 'SUBMITTED' }
+    if (row.status === 'JUDGING') return { displayStatus: 'JUDGING' }
+    return { displayStatus: 'JUDGED' }
+  }
+  return null
 }
 
-// Restrict to a safe relative path inside the build context.
-function normalizePackagePath(path: string) {
-  const cleaned = path.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\.\.+/g, '.').trim()
-  if (!cleaned) throw new Error('invalid package path')
-  return cleaned
+function formatProblemListItem(row: {
+  id: number
+  title: string
+  tags: string[]
+  visible: boolean
+  deletedAt: Date | null
+}, stats: { solved: number; attempted: number } | undefined, solved: boolean) {
+  return {
+    id: row.id,
+    title: row.title,
+    tags: row.tags,
+    passRate: passRate(stats?.solved ?? 0, stats?.attempted ?? 0),
+    solved,
+    visible: row.visible,
+    deletedAt: row.deletedAt?.toISOString() ?? null
+  }
 }
 
-const problemTestCaseSchema = z.object({
-  name: z.string().max(120).optional(),
-  input: z.string().max(256 * 1024),
-  output: z.string().max(256 * 1024),
-  hidden: z.boolean().default(false),
-  points: z.number().int().min(0).max(100).optional()
-})
+function passRate(solvedUsers: number, attemptedUsers: number) {
+  return attemptedUsers > 0 ? solvedUsers / attemptedUsers : 0
+}
+
+function gravatarUrl(email: string) {
+  const hash = createHash('md5').update(email.trim().toLowerCase()).digest('hex')
+  return `https://www.gravatar.com/avatar/${hash}?d=identicon&s=80`
+}
+
+async function readStatement(problemId: number) {
+  const bytes = await readObjectOrNull(problemObjectKey(problemId, 'statement.md'))
+  return bytes ? Buffer.from(bytes).toString('utf8') : ''
+}
+
+async function readObjectOrNull(key: string) {
+  try {
+    return await getObjectBytes(key)
+  } catch {
+    return null
+  }
+}
+
+async function problemExists(id: number) {
+  const [problem] = await db.select({ id: schema.problems.id }).from(schema.problems).where(eq(schema.problems.id, id)).limit(1)
+  return Boolean(problem)
+}
+
+async function touchProblem(id: number) {
+  await db.update(schema.problems).set({ updatedAt: new Date() }).where(eq(schema.problems.id, id))
+}
+
+async function validateAssetPathForProblem(problemId: number, path: string) {
+  const normalized = normalizeAssetPath(path)
+  const [problem] = await db.select({ mode: schema.problems.mode }).from(schema.problems).where(eq(schema.problems.id, problemId)).limit(1)
+  if (!problem) throwAssetPathError('Problem does not exist')
+  if (assetSection(normalized) === 'root' && problem.mode !== 'custom') {
+    throwAssetPathError('Root judge resources are only allowed for custom problems')
+  }
+  return assetMetadata(normalized, 0, new Date())
+}
+
+function normalizeAssetPath(path: string) {
+  const value = path.trim()
+  if (
+    !value ||
+    value.startsWith('/') ||
+    value.includes('\\') ||
+    hasControlCharacter(value) ||
+    value.split('/').some((part) => !part || part === '.' || part === '..') ||
+    value === 'data' ||
+    value === 'assets' ||
+    value === 'statement.md' ||
+    value.startsWith('statement.md/')
+  ) {
+    throwAssetPathError()
+  }
+  const section = assetSection(value)
+  if (section === 'assets' && !isFlatFilename(value.slice('assets/'.length))) throwAssetPathError('assets/ does not allow subdirectories')
+  return value
+}
+
+function assetSection(path: string): ProblemAssetSection {
+  if (path.startsWith('data/')) return 'data'
+  if (path.startsWith('assets/')) return 'assets'
+  return 'root'
+}
+
+function hasControlCharacter(value: string) {
+  return Array.from(value).some((char) => char.charCodeAt(0) <= 0x1f)
+}
+
+function assetFromObject(object: { key: string; size: number; updatedAt: Date }) {
+  const match = object.key.match(/^problems\/\d+\/(.+)$/)
+  const path = match?.[1]
+  if (!path || path === 'statement.md') return null
+  return assetMetadata(path, object.size, object.updatedAt)
+}
+
+function assetMetadata(path: string, size: number, updatedAt: Date): ProblemAssetItem {
+  const contentType = inferContentType(path)
+  return {
+    path,
+    name: path.split('/').at(-1) ?? path,
+    section: assetSection(path),
+    size,
+    contentType,
+    updatedAt: updatedAt.toISOString(),
+    text: isTextAsset(path, contentType)
+  }
+}
+
+function compareAssets(left: ProblemAssetItem, right: ProblemAssetItem) {
+  const order: Record<ProblemAssetSection, number> = { data: 0, assets: 1, root: 2 }
+  return order[left.section] - order[right.section] || left.path.localeCompare(right.path)
+}
+
+function throwAssetPathError(message = 'Invalid asset path'): never {
+  throw new ApiHttpError(400, 'INVALID_ASSET_PATH', message, [{ path: 'path', message }])
+}
+
+function isFlatFilename(filename: string) {
+  return Boolean(filename) && !filename.includes('/') && !filename.includes('\\') && filename !== '.' && filename !== '..'
+}
+
+function sanitizeFilename(name: string) {
+  return (name || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_')
+}
+
+function problemObjectKey(problemId: number, path: string) {
+  return `problems/${problemId}/${path}`
+}
+
+function inferContentType(path: string) {
+  const lower = path.toLowerCase()
+  if (lower.endsWith('.png')) return 'image/png'
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg'
+  if (lower.endsWith('.gif')) return 'image/gif'
+  if (lower.endsWith('.webp')) return 'image/webp'
+  if (lower.endsWith('.svg')) return 'image/svg+xml'
+  if (lower.endsWith('.md')) return 'text/markdown; charset=utf-8'
+  if (isTextAsset(path, '')) return 'text/plain; charset=utf-8'
+  return 'application/octet-stream'
+}
+
+function isTextAsset(path: string, contentType: string) {
+  if (contentType.startsWith('text/') || contentType.includes('json') || contentType.includes('xml')) return true
+  const lower = path.toLowerCase()
+  return [...textExtensions].some((extension) => lower.endsWith(extension))
+}
+
+function problemSearchFilter(q: string) {
+  if (/^\d+$/.test(q)) {
+    return or(eq(schema.problems.id, Number(q)), ilike(schema.problems.title, `%${q}%`))
+  }
+  return or(ilike(schema.problems.title, `%${q}%`), sql`${q} = any(${schema.problems.tags})`)
+}
+
+const problemModeSchema = z.enum(['default', 'strict', 'custom'])
+const tagsSchema = z.array(z.string().min(1).max(32)).max(10).default([])
 
 const createProblemSchema = z.object({
-  title: z.string().min(1).max(160),
-  tags: z.array(z.string()).default([]),
-  statementMarkdown: z.string().min(1),
-  timeLimitMs: z.number().int().positive().default(1000),
-  memoryLimitBytes: z
-    .number()
-    .int()
-    .positive()
-    .default(256 * 1024 * 1024),
-  caseCount: z.number().int().min(0).max(1000).default(0),
-  testCases: z.array(problemTestCaseSchema).max(100).default([])
+  title: z.string().min(1).max(100),
+  mode: problemModeSchema.default('default'),
+  timeLimit: z.number().int().min(100).max(60000).default(1000),
+  memoryLimit: z.number().int().min(16_777_216).max(1_073_741_824).default(134_217_728),
+  tags: tagsSchema,
+  visible: z.boolean().default(false)
 })
 
 const updateProblemSchema = z
   .object({
-    title: z.string().min(1).max(160).optional(),
-    tags: z.array(z.string()).optional(),
-    visible: z.boolean().optional(),
-    statementMarkdown: z.string().min(1).optional(),
-    timeLimitMs: z.number().int().positive().optional(),
-    memoryLimitBytes: z.number().int().positive().optional(),
-    caseCount: z.number().int().min(0).max(1000).optional(),
-    testCases: z.array(problemTestCaseSchema).max(100).optional()
+    title: z.string().min(1).max(100).optional(),
+    mode: problemModeSchema.optional(),
+    timeLimit: z.number().int().min(100).max(60000).optional(),
+    memoryLimit: z.number().int().min(16_777_216).max(1_073_741_824).optional(),
+    tags: z.array(z.string().min(1).max(32)).max(10).optional(),
+    visible: z.boolean().optional()
   })
-  .refine((value) => Object.keys(value).length > 0, {
-    message: 'At least one field must be updated'
-  })
+  .refine((value) => Object.keys(value).length > 0, { message: 'At least one field must be updated' })
 
-const packageFileSchema = z.object({
-  path: z.string().min(1).max(255),
-  content: z.string().max(2 * 1024 * 1024)
+const statementSchema = z.object({ markdown: z.string() })
+const assetPathSchema = z.string().min(1).max(255)
+const assetContentSchema = z.object({
+  path: assetPathSchema,
+  content: z.string(),
+  encoding: z.enum(['utf8', 'base64']),
+  contentType: z.string().min(1).max(200).optional()
 })
 
 const problemListQuerySchema = listQuerySchema.extend({
-  search: z.string().trim().max(120).optional().default(''),
-  tag: z.string().trim().max(80).optional().default('')
+  q: z.string().trim().max(120).optional().default(''),
+  tag: z.string().trim().max(32).optional().default('')
 })
-
-async function listVisibleTags() {
-  const rows = await db
-    .select({ tag: sql<string>`unnest(${schema.problems.tags})` })
-    .from(schema.problems)
-    .where(eq(schema.problems.visible, true))
-  return [...new Set(rows.map((row) => row.tag).filter(Boolean))].sort((a, b) => a.localeCompare(b))
-}

@@ -2,20 +2,10 @@ import { closeDb, db, schema } from './client'
 import { eq, sql } from 'drizzle-orm'
 import { defaultLanguageConfigs } from '@doj/shared/languages'
 import { runtimeSettingsDefaults } from '@doj/shared/settings'
-
-const builtinGroups = [
-  { key: 'admin', name: 'Admin', description: 'System administrators', builtin: true },
-  { key: 'user', name: 'User', description: 'Registered users', builtin: true },
-  { key: 'guest', name: 'Guest', description: 'Anonymous or low-trust users', builtin: true }
-]
+import { putObject } from '@doj/shared/storage'
 
 await db
-  .insert(schema.groups)
-  .values(builtinGroups)
-  .onConflictDoNothing({ target: schema.groups.key })
-
-await db
-  .insert(schema.systemSettings)
+  .insert(schema.settings)
   .values(
     Object.entries(runtimeSettingsDefaults).map(([key, value]) => ({
       key,
@@ -23,7 +13,7 @@ await db
     }))
   )
   .onConflictDoUpdate({
-    target: schema.systemSettings.key,
+    target: schema.settings.key,
     set: {
       value: sql`excluded.value`,
       updatedAt: new Date()
@@ -32,70 +22,29 @@ await db
 
 for (const language of defaultLanguageConfigs) {
   await db
-    .insert(schema.judgeLanguages)
+    .insert(schema.languages)
     .values({
       id: language.id,
       name: language.name,
-      enabled: language.enabled,
-      sourceFile: language.sourceFile,
-      dockerfile: language.dockerfile(language.sourceFile),
-      command: language.command,
-      sortOrder: language.sortOrder
+      source: language.source,
+      dockerfile: language.dockerfile,
+      sort: language.sort
     })
     .onConflictDoUpdate({
-      target: schema.judgeLanguages.id,
+      target: schema.languages.id,
       set: {
         name: language.name,
-        sourceFile: language.sourceFile,
-        dockerfile: language.dockerfile(language.sourceFile),
-        command: language.command,
-        sortOrder: language.sortOrder,
+        source: language.source,
+        dockerfile: language.dockerfile,
+        sort: language.sort,
         updatedAt: new Date()
       }
     })
 }
 
-const localAgentToken = process.env.DOJ_AGENT_TOKEN ?? 'local-agent-token'
-const localAgentTokenHash = await Bun.password.hash(localAgentToken, {
-  algorithm: 'argon2id',
-  memoryCost: 19456,
-  timeCost: 2
-})
-
-await db
-  .insert(schema.judgeAgents)
-  .values({
-    key: 'local-agent',
-    name: 'Local Agent',
-    enabled: true,
-    tokenHash: localAgentTokenHash,
-    labels: ['local'],
-    concurrency: Number(process.env.DOJ_JUDGE_CONCURRENCY ?? 2),
-    sortOrder: 10
-  })
-  .onConflictDoUpdate({
-    target: schema.judgeAgents.key,
-    set: {
-      name: 'Local Agent',
-      enabled: true,
-      tokenHash: localAgentTokenHash,
-      labels: ['local'],
-      concurrency: Number(process.env.DOJ_JUDGE_CONCURRENCY ?? 2),
-      sortOrder: 10,
-      updatedAt: new Date()
-    }
-  })
-
-const adminName = process.env.DOJ_ADMIN_NAME ?? 'admin'
-const adminEmail = process.env.DOJ_ADMIN_EMAIL ?? 'admin@example.test'
-const adminPassword = process.env.DOJ_ADMIN_PASSWORD ?? 'admin12345'
-
-const [adminGroup] = await db
-  .select()
-  .from(schema.groups)
-  .where(eq(schema.groups.key, 'admin'))
-  .limit(1)
-if (!adminGroup) throw new Error('admin group missing after seed')
+const adminName = process.env.ADMIN_NAME ?? 'admin'
+const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@example.test'
+const adminPassword = process.env.ADMIN_PASSWORD ?? 'admin12345'
 
 const [existingAdmin] = await db
   .select()
@@ -103,11 +52,13 @@ const [existingAdmin] = await db
   .where(eq(schema.users.name, adminName))
   .limit(1)
 if (!existingAdmin) {
-  const [admin] = await db
+  await db
     .insert(schema.users)
     .values({
       name: adminName,
       email: adminEmail,
+      admin: true,
+      mustChangePassword: true,
       passwordHash: await Bun.password.hash(adminPassword, {
         algorithm: 'argon2id',
         memoryCost: 19456,
@@ -115,33 +66,22 @@ if (!existingAdmin) {
       })
     })
     .returning()
-
+} else if (!existingAdmin.admin || !existingAdmin.mustChangePassword) {
   await db
-    .insert(schema.userGroups)
-    .values({ userId: admin.id, groupId: adminGroup.id, manager: true })
+    .update(schema.users)
+    .set({ admin: true, mustChangePassword: true, updatedAt: new Date() })
+    .where(eq(schema.users.id, existingAdmin.id))
 }
 
 const starterProblems = [
   {
     title: 'A+B Problem',
     tags: ['beginner'],
-    statementMarkdown:
-      '# A+B Problem\n\nRead two integers `a` and `b`, then print their sum.\n\nInput: two integers separated by whitespace.\n\nOutput: one integer.',
-    timeLimitMs: 1000,
-    memoryLimitBytes: 128 * 1024 * 1024,
-    testCases: [
-      {
-        name: 'sample',
-        input: '1 2\n',
-        output: '3\n'
-      },
-      {
-        name: 'negative',
-        input: '-5 8\n',
-        output: '3\n',
-        hidden: true
-      }
-    ]
+    statement:
+      '# A+B Problem\n\nRead two integers a and b, then print their sum.\n\nInput: two integers separated by whitespace.\n\nOutput: one integer.',
+    mode: 'default',
+    timeLimit: 1000,
+    memoryLimit: 128 * 1024 * 1024
   }
 ]
 
@@ -155,10 +95,12 @@ for (const starter of starterProblems) {
     await db
       .update(schema.problems)
       .set({
-        statementMarkdown: starter.statementMarkdown,
-        timeLimitMs: starter.timeLimitMs,
-        memoryLimitBytes: starter.memoryLimitBytes,
-        testCases: starter.testCases,
+        title: starter.title,
+        tags: starter.tags,
+        timeLimit: starter.timeLimit,
+        memoryLimit: starter.memoryLimit,
+        mode: starter.mode,
+        visible: true,
         updatedAt: new Date()
       })
       .where(eq(schema.problems.id, existing.id))
@@ -166,15 +108,32 @@ for (const starter of starterProblems) {
   }
 
   await db.insert(schema.problems).values({
+    id: 1000,
     title: starter.title,
     tags: starter.tags,
-    statementMarkdown: starter.statementMarkdown,
-    timeLimitMs: starter.timeLimitMs,
-    memoryLimitBytes: starter.memoryLimitBytes,
-    testCases: starter.testCases
+    timeLimit: starter.timeLimit,
+    memoryLimit: starter.memoryLimit,
+    mode: starter.mode,
+    visible: true
   })
 }
 
-console.log('Seeded builtin groups, judge language, admin user, and P1000 A+B Problem.')
+await db.execute(sql`
+  select setval(pg_get_serial_sequence('problems', 'id'), (select max(id) from problems))
+`)
+
+await Promise.all([
+  putObject({
+    key: 'problems/1000/statement.md',
+    body: starterProblems[0].statement,
+    contentType: 'text/markdown; charset=utf-8'
+  }),
+  putObject({ key: 'problems/1000/data/in1.txt', body: '1 2\n', contentType: 'text/plain' }),
+  putObject({ key: 'problems/1000/data/ans1.txt', body: '3\n', contentType: 'text/plain' }),
+  putObject({ key: 'problems/1000/data/in2.txt', body: '-5 8\n', contentType: 'text/plain' }),
+  putObject({ key: 'problems/1000/data/ans2.txt', body: '3\n', contentType: 'text/plain' })
+])
+
+console.log('Seeded settings, cpp language, admin user, P1000 metadata, and P1000 S3 assets.')
 
 await closeDb()

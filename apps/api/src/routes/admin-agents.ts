@@ -1,98 +1,50 @@
 import { Hono } from 'hono'
-import { asc, eq } from 'drizzle-orm'
-import { z } from 'zod'
-import { db, schema } from '@doj/db/client'
-import { authMiddleware, requireGroup } from '../auth'
-import { numericId } from '../validation'
+import { authMiddleware, requireAdmin } from '../auth'
+
+interface RuntimeAgent {
+  id: string
+  name: string
+  online: boolean
+  concurrency: number
+  running: number
+  version?: string
+  connectedAt?: string
+  lastSeenAt: string | null
+}
+
+const runtimeAgents = new Map<string, RuntimeAgent>()
+
+export function upsertRuntimeAgent(agent: RuntimeAgent) {
+  runtimeAgents.set(agent.id, agent)
+}
 
 export function registerAdminAgentRoutes(app: Hono) {
   app.get('/api/admin/agents', authMiddleware, async (c) => {
-    const denied = await requireGroup(c, 'admin')
+    const denied = await requireAdmin(c)
     if (denied) return denied
 
-    const list = await db
-      .select()
-      .from(schema.judgeAgents)
-      .orderBy(asc(schema.judgeAgents.sortOrder), asc(schema.judgeAgents.id))
+    const items = [...runtimeAgents.values()]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((agent) => ({
+        key: agent.id,
+        name: agent.name,
+        concurrency: agent.concurrency,
+        activeJobs: agent.running,
+        version: agent.version ?? '',
+        connectedAt: agent.connectedAt ?? agent.lastSeenAt ?? '',
+        heartbeatAt: agent.lastSeenAt ?? ''
+      }))
+    return c.json({ items, page: 1, pageSize: items.length || 50, total: items.length })
+  })
+
+  app.get('/api/admin/agents/instructions', authMiddleware, async (c) => {
+    const denied = await requireAdmin(c)
+    if (denied) return denied
 
     return c.json({
-      total: list.length,
-      list: list.map(({ tokenHash: _tokenHash, ...agent }) => agent)
+      server: process.env.SERVER ?? 'http://127.0.0.1:7974',
+      secretEnv: 'SECRET',
+      command: 'SERVER=http://127.0.0.1:7974 SECRET=<secret> AGENT_NAME=agent-1 AGENT_CONCURRENCY=1 bun run --cwd apps/agent dev'
     })
   })
-
-  app.post('/api/admin/agents', authMiddleware, async (c) => {
-    const denied = await requireGroup(c, 'admin')
-    if (denied) return denied
-
-    const body = agentConfigSchema.parse(await c.req.json())
-    const token = body.token || createAgentToken()
-    const tokenHash = await Bun.password.hash(token, {
-      algorithm: 'argon2id',
-      memoryCost: 19456,
-      timeCost: 2
-    })
-    const [agent] = await db
-      .insert(schema.judgeAgents)
-      .values({
-        key: body.key,
-        name: body.name,
-        enabled: body.enabled,
-        tokenHash,
-        labels: body.labels,
-        concurrency: body.concurrency,
-        sortOrder: body.sortOrder
-      })
-      .onConflictDoUpdate({
-        target: schema.judgeAgents.key,
-        set: {
-          name: body.name,
-          enabled: body.enabled,
-          tokenHash,
-          labels: body.labels,
-          concurrency: body.concurrency,
-          sortOrder: body.sortOrder,
-          updatedAt: new Date()
-        }
-      })
-      .returning()
-
-    const { tokenHash: _tokenHash, ...payload } = agent
-    return c.json({ ...payload, token }, 201)
-  })
-
-  app.post('/api/admin/agents/:id/rotate-token', authMiddleware, async (c) => {
-    const denied = await requireGroup(c, 'admin')
-    if (denied) return denied
-
-    const id = numericId.parse(c.req.param('id'))
-    const token = createAgentToken()
-    const tokenHash = await Bun.password.hash(token, {
-      algorithm: 'argon2id',
-      memoryCost: 19456,
-      timeCost: 2
-    })
-    const [agent] = await db
-      .update(schema.judgeAgents)
-      .set({ tokenHash, updatedAt: new Date() })
-      .where(eq(schema.judgeAgents.id, id))
-      .returning()
-
-    if (!agent) return c.notFound()
-    return c.json({ id: agent.id, key: agent.key, token })
-  })
-}
-
-const agentConfigSchema = z.object({
-  key: z.string().regex(/^[a-z][a-z0-9_-]{1,63}$/),
-  name: z.string().min(1).max(128),
-  enabled: z.boolean().default(true),
-  token: z.string().min(12).max(500).optional(),
-  labels: z.array(z.string().min(1).max(64)).default([]),
-  concurrency: z.number().int().positive().default(2),
-  sortOrder: z.number().int().min(0).default(100)
-})
-
-function createAgentToken() {
-  return Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64url')
 }

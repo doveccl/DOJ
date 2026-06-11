@@ -1,59 +1,162 @@
 <script setup lang="ts">
-import { NAlert, NDataTable, NEmpty, NTag } from 'naive-ui'
-import type { DataTableColumns } from 'naive-ui'
-import { computed, h, onMounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { NButton, NPopconfirm, NSpace, NTag } from 'naive-ui'
+import type { DataTableColumns, SelectOption } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { apiFetch } from '../api'
+import { apiFetch, DEFAULT_PAGE_SIZE, getItems, PAGE_SIZE_OPTIONS, type Paged } from '../api'
 import { useAuthStore } from '../stores/auth'
 
 interface AssignmentRow {
   id: number
   title: string
   description: string
-  dueAt: string | null
-  allowLate: boolean
-  aiCoachingEnabled: boolean
+  endAt: string
+  deletedAt?: string | null
+  completed: number
+  total: number
+  assigned?: number
+  problemCount?: number
+}
+
+interface AssignmentDetail {
+  assignment: AssignmentRow
+  groups: Array<{ id: number; name: string }>
+  users: Array<{ id: number; name: string; email: string }>
+  problems: Array<{ id: number | null; title: string | null }>
+}
+
+interface GroupRow {
+  id: number
+  name: string
+}
+
+interface UserRow {
+  id: number
+  name: string
+  email: string
+}
+
+interface ProblemRow {
+  id: number
+  title: string
 }
 
 const auth = useAuthStore()
+const router = useRouter()
 const loading = ref(true)
+const saving = ref(false)
 const error = ref('')
+const showFormModal = ref(false)
+const editingId = ref<number | null>(null)
+const editingEnded = ref(false)
 const assignments = ref<AssignmentRow[]>([])
+const groupOptions = ref<SelectOption[]>([])
+const userOptions = ref<SelectOption[]>([])
+const problemOptions = ref<SelectOption[]>([])
 const { t } = useI18n()
+const canManage = computed(() => auth.user?.admin ?? false)
+const form = reactive({
+  title: '',
+  description: '',
+  endAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+  groupIds: [] as number[],
+  userIds: [] as number[],
+  problemIds: [] as number[]
+})
+const pagination = reactive({
+  page: 1,
+  pageSize: DEFAULT_PAGE_SIZE,
+  itemCount: 0,
+  showSizePicker: true,
+  pageSizes: [...PAGE_SIZE_OPTIONS]
+})
+
+const modalTitle = computed(() => (editingId.value ? t('admin.assignments.edit') : t('admin.assignments.create')))
 
 const columns = computed<DataTableColumns<AssignmentRow>>(() => [
   {
     title: t('common.title'),
     key: 'title',
+    minWidth: 220,
     render(row) {
-      return h(RouterLink, { to: `/assignments/${row.id}`, class: 'table-link' }, () => row.title)
+      return h(NSpace, { size: 8, align: 'center' }, () => [
+        h(RouterLink, { to: `/assignments/${row.id}`, class: 'table-link' }, () => row.title),
+        row.deletedAt
+          ? h(NTag, { bordered: false, type: 'error', size: 'small' }, () => t('admin.assignments.deleted'))
+          : null
+      ])
     }
   },
   {
     title: t('assignments.due'),
-    key: 'dueAt',
+    key: 'endAt',
+    width: 210,
     render(row) {
-      return row.dueAt ? new Date(row.dueAt).toLocaleString() : '-'
+      return new Date(row.endAt).toLocaleString()
     }
   },
   {
-    title: t('assignments.late'),
-    key: 'allowLate',
+    title: t('assignments.progress'),
+    key: 'progress',
+    width: 160,
     render(row) {
-      return h(NTag, { bordered: false, type: row.allowLate ? 'warning' : 'default' }, () =>
-        row.allowLate ? t('assignments.allowed') : t('assignments.closed')
-      )
+      return `${row.completed}/${row.total}`
     }
-  }
+  },
+  ...(canManage.value
+    ? [
+        {
+          title: t('admin.assignments.problems'),
+          key: 'problemCount',
+          width: 110,
+          render(row: AssignmentRow) {
+            return row.problemCount ?? '-'
+          }
+        },
+        {
+          title: t('admin.actions'),
+          key: 'actions',
+          width: 320,
+          render(row: AssignmentRow) {
+            return h(NSpace, { size: 8 }, () => [
+              h(NButton, { size: 'small', secondary: true, onClick: () => openEdit(row.id) }, () => t('admin.edit')),
+              h(
+                NButton,
+                { size: 'small', secondary: true, onClick: () => router.push(`/assignments/${row.id}?report=1`) },
+                () => t('admin.assignments.report')
+              ),
+              h(
+                NPopconfirm,
+                { onPositiveClick: () => toggleDeleted(row) },
+                {
+                  trigger: () =>
+                    h(
+                      NButton,
+                      { size: 'small', tertiary: true, type: row.deletedAt ? 'success' : 'error' },
+                      () => (row.deletedAt ? t('admin.restore') : t('admin.delete'))
+                    ),
+                  default: () => (row.deletedAt ? t('admin.assignments.restoreConfirm') : t('admin.assignments.deleteConfirm'))
+                }
+              )
+            ])
+          }
+        }
+      ]
+    : [])
 ])
 
 async function loadAssignments() {
   loading.value = true
   error.value = ''
   try {
-    const data = await apiFetch<{ list: AssignmentRow[] }>('/api/my/assignments')
-    assignments.value = data.list
+    const params = new URLSearchParams({
+      page: String(pagination.page),
+      pageSize: String(pagination.pageSize)
+    })
+    const data = await apiFetch<Paged<AssignmentRow>>(
+      `${canManage.value ? '/api/admin/assignments' : '/api/my/assignments'}?${params}`
+    )
+    assignments.value = getItems(data)
+    pagination.itemCount = data.total
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
@@ -61,16 +164,138 @@ async function loadAssignments() {
   }
 }
 
+async function loadAdminOptions() {
+  if (!canManage.value) return
+  try {
+    const [groups, users, problems] = await Promise.all([
+      apiFetch<Paged<GroupRow>>('/api/admin/groups'),
+      apiFetch<Paged<UserRow>>('/api/admin/users?pageSize=100'),
+      apiFetch<Paged<ProblemRow>>('/api/problems?pageSize=100')
+    ])
+    groupOptions.value = getItems(groups).map((group) => ({
+      label: group.name,
+      value: group.id
+    }))
+    userOptions.value = getItems(users).map((user) => ({
+      label: `${user.name} <${user.email}>`,
+      value: user.id
+    }))
+    problemOptions.value = getItems(problems).map((problem) => ({
+      label: `P${problem.id} ${problem.title}`,
+      value: problem.id
+    }))
+  } catch {
+    groupOptions.value = []
+    userOptions.value = []
+    problemOptions.value = []
+  }
+}
+
+function resetForm() {
+  editingId.value = null
+  editingEnded.value = false
+  form.title = ''
+  form.description = ''
+  form.endAt = Date.now() + 7 * 24 * 60 * 60 * 1000
+  form.groupIds = []
+  form.userIds = []
+  form.problemIds = []
+}
+
+function openCreate() {
+  resetForm()
+  showFormModal.value = true
+}
+
+async function openEdit(id: number) {
+  saving.value = true
+  error.value = ''
+  try {
+    const detail = await apiFetch<AssignmentDetail>(`/api/admin/assignments/${id}`)
+    editingId.value = id
+    editingEnded.value = new Date() >= new Date(detail.assignment.endAt)
+    form.title = detail.assignment.title
+    form.description = detail.assignment.description
+    form.endAt = new Date(detail.assignment.endAt).getTime()
+    form.groupIds = detail.groups.map((group) => group.id)
+    form.userIds = detail.users.map((user) => user.id)
+    form.problemIds = detail.problems.map((problem) => problem.id).filter((id): id is number => id !== null)
+    showFormModal.value = true
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function saveAssignment() {
+  saving.value = true
+  error.value = ''
+  try {
+    const body = editingEnded.value
+      ? {
+          title: form.title,
+          description: form.description
+        }
+      : {
+          title: form.title,
+          description: form.description,
+          endAt: new Date(form.endAt).toISOString(),
+          groupIds: form.groupIds,
+          userIds: form.userIds,
+          problemIds: form.problemIds
+        }
+    await apiFetch(editingId.value ? `/api/admin/assignments/${editingId.value}` : '/api/admin/assignments', {
+      method: editingId.value ? 'PATCH' : 'POST',
+      body: JSON.stringify(body)
+    })
+    showFormModal.value = false
+    resetForm()
+    await loadAssignments()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function toggleDeleted(row: AssignmentRow) {
+  try {
+    await apiFetch(
+      row.deletedAt ? `/api/admin/assignments/${row.id}/restore` : `/api/admin/assignments/${row.id}`,
+      { method: row.deletedAt ? 'POST' : 'DELETE' }
+    )
+    await loadAssignments()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  }
+}
+
+function handlePageChange(page: number) {
+  pagination.page = page
+  void loadAssignments()
+}
+
+function handlePageSizeChange(pageSize: number) {
+  pagination.pageSize = pageSize
+  pagination.page = 1
+  void loadAssignments()
+}
+
 watch(
   () => auth.signedIn,
   (signedIn) => {
-    if (signedIn) loadAssignments()
+    if (signedIn) {
+      void loadAssignments()
+      void loadAdminOptions()
+    }
   }
 )
 
 onMounted(() => {
   if (auth.signedIn) {
     loadAssignments()
+    void loadAdminOptions()
   } else {
     loading.value = false
   }
@@ -87,10 +312,90 @@ onMounted(() => {
       {{ error }}
     </n-alert>
 
-    <n-data-table :columns="columns" :data="assignments" :bordered="false" :loading="loading">
-      <template #empty>
-        <n-empty :description="t('assignments.empty')" />
-      </template>
-    </n-data-table>
+    <n-card :bordered="false">
+      <n-space v-if="canManage" justify="end" class="table-toolbar">
+        <n-button type="primary" @click="openCreate">
+          {{ t('admin.assignments.create') }}
+        </n-button>
+      </n-space>
+      <n-data-table
+        remote
+        :columns="columns"
+        :data="assignments"
+        :bordered="false"
+        :loading="loading"
+        :pagination="pagination"
+        :scroll-x="canManage ? 980 : 620"
+        @update:page="handlePageChange"
+        @update:page-size="handlePageSizeChange"
+      >
+        <template #empty>
+          <n-empty :description="t('assignments.empty')" />
+        </template>
+      </n-data-table>
+    </n-card>
+
+    <n-modal
+      v-if="showFormModal"
+      v-model:show="showFormModal"
+      preset="card"
+      :title="modalTitle"
+      class="form-modal"
+    >
+      <n-form :model="form" label-placement="top">
+        <n-form-item :label="t('common.title')">
+          <n-input v-model:value="form.title" />
+        </n-form-item>
+        <n-form-item :label="t('admin.description')">
+          <n-input v-model:value="form.description" type="textarea" />
+        </n-form-item>
+        <n-form-item :label="t('admin.assignments.endAt')">
+          <n-date-picker
+            v-model:value="form.endAt"
+            type="datetime"
+            class="full-width"
+            :disabled="editingEnded"
+          />
+        </n-form-item>
+        <n-form-item :label="t('admin.assignments.selectGroups')">
+          <n-select
+            v-model:value="form.groupIds"
+            multiple
+            filterable
+            :disabled="editingEnded"
+            :options="groupOptions"
+          />
+        </n-form-item>
+        <n-form-item :label="t('admin.assignments.selectUsers')">
+          <n-select
+            v-model:value="form.userIds"
+            multiple
+            filterable
+            :disabled="editingEnded"
+            :options="userOptions"
+          />
+        </n-form-item>
+        <n-form-item :label="t('admin.assignments.selectProblems')">
+          <n-select
+            v-model:value="form.problemIds"
+            multiple
+            filterable
+            :disabled="editingEnded"
+            :options="problemOptions"
+          />
+        </n-form-item>
+        <n-space justify="end" class="form-actions">
+          <n-button @click="showFormModal = false">{{ t('admin.cancel') }}</n-button>
+          <n-button
+            type="primary"
+            :loading="saving"
+            :disabled="!form.title || (!editingEnded && !form.problemIds.length)"
+            @click="saveAssignment"
+          >
+            {{ t('admin.save') }}
+          </n-button>
+        </n-space>
+      </n-form>
+    </n-modal>
   </main>
 </template>

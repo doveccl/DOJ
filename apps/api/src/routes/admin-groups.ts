@@ -1,20 +1,29 @@
 import { Hono } from 'hono'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { db, schema } from '@doj/db/client'
 import { authMiddleware, requireGroup } from '../auth'
-import { numericId } from '../validation'
+import { apiError, notFound } from '../errors'
+import { countRows } from '../services/stats'
+import { listQuerySchema, numericId, pageOffset } from '../validation'
 
 export function registerAdminGroupRoutes(app: Hono) {
-  app.get('/api/groups', authMiddleware, async (c) => {
+  app.get('/api/admin/groups', authMiddleware, async (c) => {
     const denied = await requireGroup(c, 'admin')
     if (denied) return denied
 
-    const list = await db.select().from(schema.groups).orderBy(schema.groups.key)
-    return c.json({ total: list.length, list })
+    const { page, pageSize } = listQuerySchema.parse(c.req.query())
+    const total = await countRows(schema.groups)
+    const items = await db
+      .select()
+      .from(schema.groups)
+      .orderBy(schema.groups.name)
+      .limit(pageSize)
+      .offset(pageOffset(page, pageSize))
+    return c.json({ items, page, pageSize, total })
   })
 
-  app.post('/api/groups', authMiddleware, async (c) => {
+  app.post('/api/admin/groups', authMiddleware, async (c) => {
     const denied = await requireGroup(c, 'admin')
     if (denied) return denied
 
@@ -22,16 +31,39 @@ export function registerAdminGroupRoutes(app: Hono) {
     const [group] = await db
       .insert(schema.groups)
       .values({
-        key: body.key,
-        name: body.name,
-        description: body.description
+        name: body.name
       })
       .returning()
 
     return c.json(group, 201)
   })
 
-  app.get('/api/groups/:id/users', authMiddleware, async (c) => {
+  app.patch('/api/admin/groups/:id', authMiddleware, async (c) => {
+    const denied = await requireGroup(c, 'admin')
+    if (denied) return denied
+
+    const id = numericId.parse(c.req.param('id'))
+    const body = createGroupSchema.parse(await c.req.json())
+    const [group] = await db
+      .update(schema.groups)
+      .set({ name: body.name, updatedAt: new Date() })
+      .where(eq(schema.groups.id, id))
+      .returning()
+    if (!group) return notFound(c)
+    return c.json(group)
+  })
+
+  app.delete('/api/admin/groups/:id', authMiddleware, async (c) => {
+    const denied = await requireGroup(c, 'admin')
+    if (denied) return denied
+
+    const id = numericId.parse(c.req.param('id'))
+    const [group] = await db.delete(schema.groups).where(eq(schema.groups.id, id)).returning()
+    if (!group) return notFound(c)
+    return c.json({ ok: true })
+  })
+
+  app.get('/api/admin/groups/:id/users', authMiddleware, async (c) => {
     const denied = await requireGroup(c, 'admin')
     if (denied) return denied
 
@@ -41,7 +73,6 @@ export function registerAdminGroupRoutes(app: Hono) {
         id: schema.users.id,
         name: schema.users.name,
         email: schema.users.email,
-        manager: schema.userGroups.manager,
         createdAt: schema.userGroups.createdAt
       })
       .from(schema.userGroups)
@@ -49,10 +80,10 @@ export function registerAdminGroupRoutes(app: Hono) {
       .where(eq(schema.userGroups.groupId, groupId))
       .orderBy(schema.users.name)
 
-    return c.json({ total: list.length, list })
+    return c.json({ items: list, page: 1, pageSize: list.length || 50, total: list.length })
   })
 
-  app.post('/api/groups/:id/users', authMiddleware, async (c) => {
+  app.post('/api/admin/groups/:id/users', authMiddleware, async (c) => {
     const denied = await requireGroup(c, 'admin')
     if (denied) return denied
 
@@ -72,30 +103,34 @@ export function registerAdminGroupRoutes(app: Hono) {
     ])
 
     if (!group.length)
-      return c.json({ code: 'GROUP_NOT_FOUND', message: 'Group does not exist' }, 404)
-    if (!user.length) return c.json({ code: 'USER_NOT_FOUND', message: 'User does not exist' }, 404)
+      return apiError(c, 404, 'GROUP_NOT_FOUND', 'Group does not exist')
+    if (!user.length) return apiError(c, 404, 'USER_NOT_FOUND', 'User does not exist')
 
     await db
       .insert(schema.userGroups)
-      .values({ groupId, userId: body.userId, manager: body.manager })
-      .onConflictDoUpdate({
-        target: [schema.userGroups.userId, schema.userGroups.groupId],
-        set: {
-          manager: body.manager
-        }
-      })
+      .values({ groupId, userId: body.userId })
+      .onConflictDoNothing()
 
     return c.json({ ok: true }, 201)
+  })
+
+  app.delete('/api/admin/groups/:id/users/:userId', authMiddleware, async (c) => {
+    const denied = await requireGroup(c, 'admin')
+    if (denied) return denied
+
+    const groupId = numericId.parse(c.req.param('id'))
+    const userId = numericId.parse(c.req.param('userId'))
+    await db
+      .delete(schema.userGroups)
+      .where(and(eq(schema.userGroups.groupId, groupId), eq(schema.userGroups.userId, userId)))
+    return c.json({ ok: true })
   })
 }
 
 const createGroupSchema = z.object({
-  key: z.string().regex(/^[a-z][a-z0-9_-]{1,63}$/),
-  name: z.string().min(1).max(128),
-  description: z.string().max(500).default('')
+  name: z.string().min(1).max(100)
 })
 
 const addGroupUserSchema = z.object({
-  userId: numericId,
-  manager: z.boolean().default(false)
+  userId: numericId
 })

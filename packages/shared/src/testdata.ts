@@ -1,19 +1,24 @@
-import type { ProblemTestCase } from './judge'
-
 export interface ZipEntry {
   name: string
   bytes: Uint8Array
+}
+
+export interface TestdataCase {
+  name?: string
+  input: string
+  output: string
+  hidden?: boolean
 }
 
 // Pair input/output data files (any naming) into ordered test cases. Used by the
 // agent to derive default-mode cases from a problem package's `data/` files.
 export function buildCasesFromPackageData(
   files: Array<{ path: string; bytes: Uint8Array }>
-): ProblemTestCase[] {
+): TestdataCase[] {
   return buildCasesFromEntries(files.map((file) => ({ name: file.path, bytes: file.bytes })))
 }
 
-function buildCasesFromEntries(entries: ZipEntry[]): ProblemTestCase[] {
+function buildCasesFromEntries(entries: ZipEntry[]): TestdataCase[] {
   const inputs = new Map<string, ZipEntry>()
   const outputs = new Map<string, ZipEntry>()
   const decoder = new TextDecoder()

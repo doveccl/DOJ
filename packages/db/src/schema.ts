@@ -13,8 +13,6 @@ import {
   uniqueIndex,
   varchar
 } from 'drizzle-orm/pg-core'
-import type { JudgeAgentProgress } from '@doj/shared/agent'
-import type { ProblemTestCase } from '@doj/shared/judge'
 
 export const judgeStatus = pgEnum('judge_status', [
   'WAITING',
@@ -27,18 +25,11 @@ export const judgeStatus = pgEnum('judge_status', [
   'OLE',
   'RE',
   'CE',
-  'SE',
-  'FROZEN'
+  'SE'
 ])
 
 export const contestType = pgEnum('contest_type', ['OI', 'ICPC'])
-export const taskStatus = pgEnum('task_status', [
-  'WAITING',
-  'RUNNING',
-  'DONE',
-  'FAILED',
-  'CANCELLED'
-])
+export const taskStatus = pgEnum('task_status', ['WAITING', 'RUNNING', 'DONE', 'FAILED'])
 
 const id = () => integer('id').primaryKey().generatedByDefaultAsIdentity()
 const problemPrimaryId = () =>
@@ -53,13 +44,12 @@ export const users = pgTable(
   'users',
   {
     id: id(),
-    legacyId: varchar('legacy_id', { length: 64 }),
     name: varchar('name', { length: 32 }).notNull(),
-    email: varchar('email', { length: 255 }).notNull(),
+    email: varchar('email', { length: 320 }).notNull(),
     passwordHash: text('password_hash').notNull(),
-    introduction: varchar('introduction', { length: 500 }).default('').notNull(),
-    solvedCount: integer('solved_count').default(0).notNull(),
-    submissionCount: integer('submission_count').default(0).notNull(),
+    introduction: text('introduction').default('').notNull(),
+    admin: boolean('admin').default(false).notNull(),
+    mustChangePassword: boolean('must_change_password').default(false).notNull(),
     disabledAt: timestamp('disabled_at', { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt()
@@ -67,78 +57,16 @@ export const users = pgTable(
   (t) => ({
     nameUidx: uniqueIndex('users_name_uidx').on(sql`lower(${t.name})`),
     emailUidx: uniqueIndex('users_email_uidx').on(sql`lower(${t.email})`),
-    rankIdx: index('users_rank_idx').on(t.solvedCount, t.submissionCount),
     createdIdx: index('users_created_idx').on(t.createdAt)
   })
 )
 
-export const groups = pgTable(
-  'groups',
-  {
-    id: id(),
-    key: varchar('key', { length: 64 }).notNull(),
-    name: varchar('name', { length: 128 }).notNull(),
-    description: text('description').default('').notNull(),
-    builtin: boolean('builtin').default(false).notNull(),
-    createdAt: createdAt(),
-    updatedAt: updatedAt()
-  },
-  (t) => ({
-    keyUidx: uniqueIndex('groups_key_uidx').on(t.key)
-  })
-)
-
-export const systemSettings = pgTable('system_settings', {
-  key: varchar('key', { length: 128 }).primaryKey(),
-  value: jsonb('value').$type<unknown>().notNull(),
+export const groups = pgTable('groups', {
+  id: id(),
+  name: varchar('name', { length: 100 }).notNull(),
+  createdAt: createdAt(),
   updatedAt: updatedAt()
 })
-
-export const judgeLanguages = pgTable(
-  'judge_languages',
-  {
-    id: varchar('id', { length: 64 }).primaryKey(),
-    name: varchar('name', { length: 128 }).notNull(),
-    enabled: boolean('enabled').default(true).notNull(),
-    sourceFile: varchar('source_file', { length: 128 }).notNull(),
-    dockerfile: text('dockerfile').notNull(),
-    command: text('command')
-      .array()
-      .default(sql`ARRAY[]::text[]`)
-      .notNull(),
-    sortOrder: integer('sort_order').default(0).notNull(),
-    createdAt: createdAt(),
-    updatedAt: updatedAt()
-  },
-  (t) => ({
-    enabledIdx: index('judge_languages_enabled_idx').on(t.enabled, t.sortOrder)
-  })
-)
-
-export const judgeAgents = pgTable(
-  'judge_agents',
-  {
-    id: id(),
-    key: varchar('key', { length: 64 }).notNull(),
-    name: varchar('name', { length: 128 }).notNull(),
-    enabled: boolean('enabled').default(true).notNull(),
-    tokenHash: text('token_hash').notNull(),
-    labels: text('labels')
-      .array()
-      .default(sql`ARRAY[]::text[]`)
-      .notNull(),
-    concurrency: integer('concurrency').default(2).notNull(),
-    sortOrder: integer('sort_order').default(0).notNull(),
-    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
-    createdAt: createdAt(),
-    updatedAt: updatedAt()
-  },
-  (t) => ({
-    keyUidx: uniqueIndex('judge_agents_key_uidx').on(t.key),
-    enabledIdx: index('judge_agents_enabled_idx').on(t.enabled, t.sortOrder),
-    lastSeenIdx: index('judge_agents_last_seen_idx').on(t.lastSeenAt)
-  })
-)
 
 export const userGroups = pgTable(
   'user_groups',
@@ -149,7 +77,6 @@ export const userGroups = pgTable(
     groupId: integer('group_id')
       .notNull()
       .references(() => groups.id, { onDelete: 'cascade' }),
-    manager: boolean('manager').default(false).notNull(),
     createdAt: createdAt()
   },
   (t) => ({
@@ -158,21 +85,25 @@ export const userGroups = pgTable(
   })
 )
 
-export const files = pgTable(
-  'files',
+export const settings = pgTable('settings', {
+  key: varchar('key', { length: 128 }).primaryKey(),
+  value: jsonb('value').$type<unknown>().notNull(),
+  updatedAt: updatedAt()
+})
+
+export const languages = pgTable(
+  'languages',
   {
-    id: id(),
-    legacyId: varchar('legacy_id', { length: 64 }),
-    bucket: varchar('bucket', { length: 128 }).notNull(),
-    objectKey: text('object_key').notNull(),
-    filename: text('filename').notNull(),
-    contentType: varchar('content_type', { length: 255 }).notNull(),
-    sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
-    metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}).notNull(),
-    createdAt: createdAt()
+    id: varchar('id', { length: 32 }).primaryKey(),
+    name: varchar('name', { length: 100 }).notNull(),
+    source: varchar('source', { length: 128 }).notNull(),
+    dockerfile: text('dockerfile').notNull(),
+    sort: integer('sort').default(0).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt()
   },
   (t) => ({
-    objectUidx: uniqueIndex('files_object_uidx').on(t.bucket, t.objectKey)
+    sortIdx: index('languages_sort_idx').on(t.sort, t.id)
   })
 )
 
@@ -180,52 +111,22 @@ export const problems = pgTable(
   'problems',
   {
     id: problemPrimaryId(),
-    legacyId: varchar('legacy_id', { length: 64 }),
-    title: varchar('title', { length: 160 }).notNull(),
-    statementMarkdown: text('statement_markdown').default('').notNull(),
-    timeLimitMs: integer('time_limit_ms').default(1000).notNull(),
-    memoryLimitBytes: bigint('memory_limit_bytes', { mode: 'number' }).default(268435456).notNull(),
-    // For custom packages whose A generates its own data, the number of cases to
-    // run. 0 means "derive from data files / inline cases".
-    caseCount: integer('case_count').default(0).notNull(),
-    // Inline sample cases (small, default mode). Larger data lives as package
-    // files in `problem_files`.
-    testCases: jsonb('test_cases').$type<ProblemTestCase[]>().default([]).notNull(),
+    title: varchar('title', { length: 100 }).notNull(),
+    mode: varchar('mode', { length: 16 }).default('default').notNull(),
+    timeLimit: integer('time_limit').default(1000).notNull(),
+    memoryLimit: bigint('memory_limit', { mode: 'number' }).default(268435456).notNull(),
     tags: text('tags')
       .array()
       .default(sql`ARRAY[]::text[]`)
       .notNull(),
-    visible: boolean('visible').default(true).notNull(),
-    solvedCount: integer('solved_count').default(0).notNull(),
-    submissionCount: integer('submission_count').default(0).notNull(),
-    createdAt: createdAt(),
-    updatedAt: updatedAt(),
-    deletedAt: timestamp('deleted_at', { withTimezone: true })
-  },
-  (t) => ({
-    visibleIdx: index('problems_visible_idx').on(t.visible),
-    createdIdx: index('problems_created_idx').on(t.createdAt)
-  })
-)
-
-// A problem's judging "package": loose files (Dockerfile, data/1.in, data/1.out,
-// judge sources, assets) addressed by path. Each row points at a stored S3
-// object. Mode is auto-detected by whether a `Dockerfile` path exists.
-export const problemFiles = pgTable(
-  'problem_files',
-  {
-    problemId: integer('problem_id')
-      .notNull()
-      .references(() => problems.id, { onDelete: 'cascade' }),
-    path: varchar('path', { length: 255 }).notNull(),
-    fileId: integer('file_id')
-      .notNull()
-      .references(() => files.id),
+    visible: boolean('visible').default(false).notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt()
   },
   (t) => ({
-    pk: primaryKey({ columns: [t.problemId, t.path] })
+    visibleIdx: index('problems_visible_idx').on(t.visible, t.deletedAt),
+    createdIdx: index('problems_created_idx').on(t.createdAt)
   })
 )
 
@@ -233,13 +134,13 @@ export const contests = pgTable(
   'contests',
   {
     id: id(),
-    legacyId: varchar('legacy_id', { length: 64 }),
-    title: varchar('title', { length: 160 }).notNull(),
+    title: varchar('title', { length: 100 }).notNull(),
     description: text('description').default('').notNull(),
     type: contestType('type').default('OI').notNull(),
     startAt: timestamp('start_at', { withTimezone: true }).notNull(),
     endAt: timestamp('end_at', { withTimezone: true }).notNull(),
     freezeAt: timestamp('freeze_at', { withTimezone: true }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt()
   },
@@ -258,8 +159,7 @@ export const contestProblems = pgTable(
       .notNull()
       .references(() => problems.id),
     key: varchar('key', { length: 32 }).notNull(),
-    score: integer('score').default(100).notNull(),
-    sortOrder: integer('sort_order').default(0).notNull()
+    sort: integer('sort').default(0).notNull()
   },
   (t) => ({
     pk: primaryKey({ columns: [t.contestId, t.problemId] }),
@@ -271,12 +171,10 @@ export const assignments = pgTable(
   'assignments',
   {
     id: id(),
-    title: varchar('title', { length: 160 }).notNull(),
+    title: varchar('title', { length: 100 }).notNull(),
     description: text('description').default('').notNull(),
-    startAt: timestamp('start_at', { withTimezone: true }),
-    dueAt: timestamp('due_at', { withTimezone: true }),
-    allowLate: boolean('allow_late').default(false).notNull(),
-    aiCoachingEnabled: boolean('ai_coaching_enabled').default(true).notNull(),
+    endAt: timestamp('end_at', { withTimezone: true }).notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt()
   },
@@ -300,6 +198,21 @@ export const assignmentGroups = pgTable(
   })
 )
 
+export const assignmentUsers = pgTable(
+  'assignment_users',
+  {
+    assignmentId: integer('assignment_id')
+      .notNull()
+      .references(() => assignments.id, { onDelete: 'cascade' }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' })
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.assignmentId, t.userId] })
+  })
+)
+
 export const assignmentProblems = pgTable(
   'assignment_problems',
   {
@@ -309,8 +222,7 @@ export const assignmentProblems = pgTable(
     problemId: integer('problem_id')
       .notNull()
       .references(() => problems.id),
-    score: integer('score').default(100).notNull(),
-    sortOrder: integer('sort_order').default(0).notNull()
+    sort: integer('sort').default(0).notNull()
   },
   (t) => ({
     pk: primaryKey({ columns: [t.assignmentId, t.problemId] })
@@ -321,20 +233,24 @@ export const submissions = pgTable(
   'submissions',
   {
     id: id(),
-    legacyId: varchar('legacy_id', { length: 64 }),
-    userId: integer('user_id').notNull(),
-    problemId: integer('problem_id').notNull(),
-    contestId: integer('contest_id'),
-    assignmentId: integer('assignment_id'),
-    languageId: varchar('language_id', { length: 64 }).notNull(),
-    sourceCode: text('source_code').notNull(),
-    open: boolean('open').default(false).notNull(),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id),
+    problemId: integer('problem_id')
+      .notNull()
+      .references(() => problems.id),
+    contestId: integer('contest_id').references(() => contests.id),
+    assignmentId: integer('assignment_id').references(() => assignments.id),
+    languageId: varchar('language_id', { length: 32 })
+      .notNull()
+      .references(() => languages.id),
+    code: text('code').notNull(),
+    public: boolean('public').default(false).notNull(),
     status: judgeStatus('status').default('WAITING').notNull(),
     timeMs: integer('time_ms').default(0).notNull(),
     memoryBytes: bigint('memory_bytes', { mode: 'number' }).default(0).notNull(),
     score: integer('score').default(0).notNull(),
     message: text('message').default('').notNull(),
-    judgeProgress: jsonb('judge_progress').$type<JudgeAgentProgress | null>(),
     createdAt: createdAt(),
     updatedAt: updatedAt()
   },
@@ -351,8 +267,10 @@ export const submissions = pgTable(
 export const submissionCases = pgTable(
   'submission_cases',
   {
-    submissionId: integer('submission_id').notNull(),
-    caseIndex: integer('case_index').notNull(),
+    submissionId: integer('submission_id')
+      .notNull()
+      .references(() => submissions.id, { onDelete: 'cascade' }),
+    caseNo: integer('case_no').notNull(),
     status: judgeStatus('status').notNull(),
     timeMs: integer('time_ms').default(0).notNull(),
     memoryBytes: bigint('memory_bytes', { mode: 'number' }).default(0).notNull(),
@@ -360,21 +278,7 @@ export const submissionCases = pgTable(
     message: text('message').default('').notNull()
   },
   (t) => ({
-    pk: primaryKey({ columns: [t.submissionId, t.caseIndex] })
-  })
-)
-
-export const solvedProblems = pgTable(
-  'solved_problems',
-  {
-    userId: integer('user_id').notNull(),
-    problemId: integer('problem_id').notNull(),
-    firstSubmissionId: integer('first_submission_id').notNull(),
-    createdAt: createdAt()
-  },
-  (t) => ({
-    pk: primaryKey({ columns: [t.userId, t.problemId] }),
-    problemIdx: index('solved_problems_problem_idx').on(t.problemId)
+    pk: primaryKey({ columns: [t.submissionId, t.caseNo] })
   })
 )
 
@@ -382,86 +286,86 @@ export const judgeTasks = pgTable(
   'judge_tasks',
   {
     id: id(),
-    submissionId: integer('submission_id').notNull(),
+    submissionId: integer('submission_id')
+      .notNull()
+      .references(() => submissions.id, { onDelete: 'cascade' }),
     status: taskStatus('status').default('WAITING').notNull(),
-    priority: integer('priority').default(0).notNull(),
-    attempts: integer('attempts').default(0).notNull(),
-    maxAttempts: integer('max_attempts').default(3).notNull(),
-    lockedBy: varchar('locked_by', { length: 128 }),
     lockedUntil: timestamp('locked_until', { withTimezone: true }),
     lastError: text('last_error').default('').notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt()
   },
   (t) => ({
-    readyIdx: index('judge_tasks_ready_idx').on(t.status, t.priority, t.createdAt),
+    submissionOpenUidx: uniqueIndex('judge_tasks_submission_open_uidx')
+      .on(t.submissionId)
+      .where(sql`${t.status} in ('WAITING', 'RUNNING')`),
+    readyIdx: index('judge_tasks_ready_idx').on(t.status, t.createdAt),
     leaseIdx: index('judge_tasks_lease_idx').on(t.lockedUntil)
   })
 )
 
-export const discussionTopics = pgTable(
-  'discussion_topics',
+export const topics = pgTable(
+  'topics',
   {
     id: id(),
-    userId: integer('user_id').notNull(),
-    title: varchar('title', { length: 160 }).notNull(),
+    title: varchar('title', { length: 100 }).notNull(),
     tags: text('tags')
       .array()
       .default(sql`ARRAY[]::text[]`)
       .notNull(),
-    linkedProblemId: integer('linked_problem_id'),
-    linkedContestId: integer('linked_contest_id'),
+    pinned: boolean('pinned').default(false).notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt()
   },
   (t) => ({
-    tagIdx: index('discussion_topics_tags_idx').on(t.tags),
-    updatedIdx: index('discussion_topics_updated_idx').on(t.updatedAt)
+    listIdx: index('topics_list_idx').on(t.pinned, t.updatedAt, t.id)
   })
 )
 
-export const discussionReplies = pgTable(
-  'discussion_replies',
+export const posts = pgTable(
+  'posts',
   {
     id: id(),
     topicId: integer('topic_id')
       .notNull()
-      .references(() => discussionTopics.id, { onDelete: 'cascade' }),
-    userId: integer('user_id').notNull(),
-    contentMarkdown: text('content_markdown').notNull(),
+      .references(() => topics.id, { onDelete: 'cascade' }),
+    parentId: integer('parent_id'),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id),
+    content: text('content').notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt()
   },
   (t) => ({
-    topicIdx: index('discussion_replies_topic_idx').on(t.topicId, t.createdAt)
-  })
-)
-
-export const aiCoachingSessions = pgTable(
-  'ai_coaching_sessions',
-  {
-    id: id(),
-    userId: integer('user_id').notNull(),
-    submissionId: integer('submission_id').notNull(),
-    model: varchar('model', { length: 128 }).notNull(),
-    promptVersion: varchar('prompt_version', { length: 64 }).notNull(),
-    responseMarkdown: text('response_markdown').notNull(),
-    metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}).notNull(),
-    createdAt: createdAt()
-  },
-  (t) => ({
-    submissionIdx: index('ai_coaching_submission_idx').on(t.submissionId, t.createdAt)
+    topicIdx: index('posts_topic_idx').on(t.topicId, t.createdAt)
   })
 )
 
 export const usersRelations = relations(users, ({ many }) => ({
-  groups: many(userGroups)
+  groups: many(userGroups),
+  posts: many(posts),
+  submissions: many(submissions)
 }))
 
 export const groupsRelations = relations(groups, ({ many }) => ({
-  users: many(userGroups)
+  users: many(userGroups),
+  assignments: many(assignmentGroups)
 }))
 
 export const problemsRelations = relations(problems, ({ many }) => ({
-  files: many(problemFiles)
+  submissions: many(submissions),
+  contests: many(contestProblems),
+  assignments: many(assignmentProblems)
+}))
+
+export const topicsRelations = relations(topics, ({ many }) => ({
+  posts: many(posts)
+}))
+
+export const postsRelations = relations(posts, ({ one }) => ({
+  topic: one(topics, { fields: [posts.topicId], references: [topics.id] }),
+  user: one(users, { fields: [posts.userId], references: [users.id] })
 }))

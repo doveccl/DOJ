@@ -1,30 +1,8 @@
 <script setup lang="ts">
-import {
-  NButton,
-  NConfigProvider,
-  NDropdown,
-  NForm,
-  NFormItem,
-  NInput,
-  NLayout,
-  NLayoutContent,
-  NLayoutHeader,
-  NMenu,
-  NModal,
-  NSelect,
-  NSpace,
-  NSwitch,
-  darkTheme,
-  dateEnUS,
-  dateZhCN,
-  enUS,
-  zhCN
-} from 'naive-ui'
-import type { GlobalThemeOverrides, MenuOption } from 'naive-ui'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { darkTheme, dateEnUS, dateZhCN, enUS, zhCN } from 'naive-ui'
+import type { GlobalThemeOverrides } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { apiFetch } from './api'
+import { apiFetch, errorMessage, type PublicConfig } from './api'
 import { setLocale, supportedLocales, type SupportedLocale } from './i18n'
 import { useAuthStore } from './stores/auth'
 
@@ -36,18 +14,21 @@ const auth = useAuthStore()
 const authMode = ref<'login' | 'register' | null>(null)
 const authError = ref('')
 const authLoading = ref(false)
-const appConfig = ref({
-  registration: true,
-  registrationInviteRequired: false,
-  aiCoachingEnabled: true,
-  guestProblemsetVisible: true,
-  sourceOpenDefault: false
+const codeLoading = ref(false)
+const codeSent = ref(false)
+const appConfig = ref<PublicConfig>({
+  signup: false,
+  guestAccess: true,
+  publicCode: false,
+  aiEnabled: false,
+  smtpConfigured: false,
+  notice: ''
 })
 const colorMode = ref<'light' | 'dark'>(
   localStorage.getItem('doj.colorMode') === 'dark' ? 'dark' : 'light'
 )
 const loginForm = reactive({ user: '', password: '' })
-const registerForm = reactive({ name: '', email: '', password: '', inviteCode: '' })
+const registerForm = reactive({ name: '', email: '', password: '', code: '' })
 const localeValue = computed({
   get: () => locale.value as SupportedLocale,
   set: (value: SupportedLocale) => setLocale(value)
@@ -69,15 +50,11 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => {
 })
 const naiveLocale = computed(() => (locale.value === 'en' ? enUS : zhCN))
 const naiveDateLocale = computed(() => (locale.value === 'en' ? dateEnUS : dateZhCN))
-const topMenuValue = computed(() =>
-  route.path.startsWith('/admin') ? '/admin/settings' : route.path
-)
-
-const menuOptions = computed(() => {
-  const options: MenuOption[] = []
-  if (appConfig.value.guestProblemsetVisible || auth.signedIn) {
-    options.push({ label: t('nav.problems'), key: '/problems' })
-  }
+const navItems = computed(() => {
+  const options = [
+    { label: t('nav.home'), key: '/' },
+    { label: t('nav.problems'), key: '/problems' }
+  ]
   if (auth.signedIn) {
     options.push({ label: t('nav.assignments'), key: '/assignments' })
   }
@@ -87,7 +64,7 @@ const menuOptions = computed(() => {
     { label: t('nav.rank'), key: '/rank' },
     { label: t('nav.submissions'), key: '/submissions' }
   )
-  if (auth.user?.groups.includes('admin')) {
+  if (auth.user?.admin) {
     options.push({
       label: t('nav.admin'),
       key: '/admin/settings'
@@ -98,20 +75,23 @@ const menuOptions = computed(() => {
 
 const userMenuOptions = computed(() => [
   { label: auth.user?.email ?? '', key: 'email', disabled: true },
+  { label: t('app.profile'), key: 'profile' },
   { label: t('app.signOut'), key: 'logout' }
 ])
 
 onMounted(async () => {
   auth.restore()
   try {
-    appConfig.value = await apiFetch<typeof appConfig.value>('/api/config')
+    const config = await apiFetch<PublicConfig>('/api/config')
+    appConfig.value = { ...appConfig.value, ...config }
   } catch {
     appConfig.value = {
-      registration: true,
-      registrationInviteRequired: false,
-      aiCoachingEnabled: true,
-      guestProblemsetVisible: true,
-      sourceOpenDefault: false
+      signup: false,
+      guestAccess: true,
+      publicCode: false,
+      aiEnabled: false,
+      smtpConfigured: false,
+      notice: ''
     }
   }
 })
@@ -126,9 +106,23 @@ watch(
 )
 
 function openAuth(mode: 'login' | 'register') {
-  if (mode === 'register' && !appConfig.value.registration) return
+  if (mode === 'register' && !appConfig.value.signup) return
   authError.value = ''
+  codeSent.value = false
   authMode.value = mode
+}
+
+async function sendRegisterCode() {
+  authError.value = ''
+  codeLoading.value = true
+  try {
+    await auth.requestEmailCode({ purpose: 'register', email: registerForm.email })
+    codeSent.value = true
+  } catch (error) {
+    authError.value = errorMessage(error)
+  } finally {
+    codeLoading.value = false
+  }
 }
 
 async function submitAuth() {
@@ -142,12 +136,12 @@ async function submitAuth() {
         name: registerForm.name,
         email: registerForm.email,
         password: registerForm.password,
-        inviteCode: registerForm.inviteCode || undefined
+        code: registerForm.code
       })
     }
     authMode.value = null
   } catch (error) {
-    authError.value = error instanceof Error ? error.message : String(error)
+    authError.value = errorMessage(error)
   } finally {
     authLoading.value = false
   }
@@ -156,6 +150,12 @@ async function submitAuth() {
 function handleUserCommand(key: string) {
   if (key === 'logout') void auth.logout()
   else if (key === 'profile') void router.push('/profile')
+}
+
+function navActive(path: string) {
+  if (path === '/') return route.path === '/'
+  if (path === '/admin/settings') return route.path.startsWith('/admin')
+  return route.path === path || route.path.startsWith(`${path}/`)
 }
 </script>
 
@@ -169,13 +169,17 @@ function handleUserCommand(key: string) {
     <n-layout class="app-shell" position="absolute">
       <n-layout-header class="topbar" bordered>
         <router-link to="/" class="brand">{{ t('app.brand') }}</router-link>
-        <n-menu
-          class="topbar-menu"
-          mode="horizontal"
-          :value="topMenuValue"
-          :options="menuOptions"
-          @update:value="(path: string) => router.push(path)"
-        />
+        <nav class="topbar-nav" :aria-label="t('app.brand')">
+          <router-link
+            v-for="item in navItems"
+            :key="item.key"
+            :to="item.key"
+            class="topbar-link"
+            :class="{ active: navActive(item.key) }"
+          >
+            {{ item.label }}
+          </router-link>
+        </nav>
         <n-space class="topbar-actions">
           <n-select
             v-model:value="localeValue"
@@ -203,7 +207,7 @@ function handleUserCommand(key: string) {
               {{ t('app.signIn') }}
             </n-button>
             <n-button
-              v-if="appConfig.registration"
+              v-if="appConfig.signup"
               type="primary"
               size="small"
               @click="openAuth('register')"
@@ -219,6 +223,7 @@ function handleUserCommand(key: string) {
     </n-layout>
 
     <n-modal
+      v-if="authMode"
       :show="!!authMode"
       preset="dialog"
       :title="authMode === 'register' ? t('app.signUp') : t('app.signIn')"
@@ -237,27 +242,48 @@ function handleUserCommand(key: string) {
           />
         </n-form-item>
       </n-form>
-      <n-form v-else :model="registerForm" label-placement="top">
+      <n-form v-else-if="authMode === 'register'" :model="registerForm" label-placement="top">
         <n-form-item :label="t('app.userName')">
           <n-input v-model:value="registerForm.name" autocomplete="username" />
         </n-form-item>
         <n-form-item :label="t('app.email')">
           <n-input v-model:value="registerForm.email" autocomplete="email" />
         </n-form-item>
+        <n-form-item :label="t('app.emailCode')">
+          <n-input
+            v-model:value="registerForm.code"
+            autocomplete="one-time-code"
+            @keyup.enter="submitAuth"
+          >
+            <template #suffix>
+              <n-button
+                text
+                type="primary"
+                :loading="codeLoading"
+                :disabled="!appConfig.smtpConfigured || !registerForm.email"
+                @click="sendRegisterCode"
+              >
+                {{ t('app.sendCode') }}
+              </n-button>
+            </template>
+          </n-input>
+        </n-form-item>
+        <n-alert v-if="codeSent" type="success" :show-icon="false" class="card-alert">
+          {{ t('app.codeSent') }}
+        </n-alert>
+        <n-alert
+          v-else-if="!appConfig.smtpConfigured"
+          type="warning"
+          :show-icon="false"
+          class="card-alert"
+        >
+          {{ t('app.smtpRequired') }}
+        </n-alert>
         <n-form-item :label="t('app.password')">
           <n-input
             v-model:value="registerForm.password"
             type="password"
             autocomplete="new-password"
-            @keyup.enter="submitAuth"
-          />
-        </n-form-item>
-        <n-form-item v-if="appConfig.registrationInviteRequired" :label="t('app.inviteCode')">
-          <n-input
-            v-model:value="registerForm.inviteCode"
-            type="password"
-            show-password-on="click"
-            autocomplete="one-time-code"
             @keyup.enter="submitAuth"
           />
         </n-form-item>
@@ -287,22 +313,52 @@ function handleUserCommand(key: string) {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 24px;
-  height: 56px;
+  gap: 18px;
+  min-height: 56px;
   padding: 0 24px;
   background: var(--topbar-bg);
   backdrop-filter: saturate(180%) blur(12px);
   -webkit-backdrop-filter: saturate(180%) blur(12px);
+}
 
-  :deep(.n-menu) {
-    min-width: 0;
-    background: transparent;
+.topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.topbar-link {
+  flex: 0 0 auto;
+  padding: 7px 11px;
+  border-radius: var(--radius-md);
+  color: var(--muted-color);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover {
+    color: var(--text-color);
+    background: color-mix(in srgb, var(--text-color) 7%, transparent);
+  }
+
+  &.active {
+    color: var(--brand-strong);
+    background: var(--brand-soft);
   }
 }
 
 @media (max-width: 640px) {
   .topbar {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto auto;
     height: auto;
     gap: 8px 16px;
@@ -315,9 +371,11 @@ function handleUserCommand(key: string) {
       order: 2;
     }
 
-    .topbar-menu {
+    .topbar-nav {
       grid-column: 1 / -1;
       order: 3;
+      width: 100%;
+      padding-bottom: 2px;
     }
   }
 }

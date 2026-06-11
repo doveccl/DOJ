@@ -1,4 +1,4 @@
-import { and, asc, eq, lt, or, sql } from 'drizzle-orm'
+import { and, asc, eq, lt, or } from 'drizzle-orm'
 import { db, schema, sqlClient } from './client'
 
 export const judgeTaskChannel = 'doj_judge_tasks'
@@ -32,15 +32,12 @@ export async function claimJudgeTask(options: ClaimJudgeTaskOptions) {
       .select()
       .from(schema.judgeTasks)
       .where(
-        and(
-          or(
-            eq(schema.judgeTasks.status, 'WAITING'),
-            and(eq(schema.judgeTasks.status, 'RUNNING'), lt(schema.judgeTasks.lockedUntil, now))
-          ),
-          lt(schema.judgeTasks.attempts, schema.judgeTasks.maxAttempts)
+        or(
+          eq(schema.judgeTasks.status, 'WAITING'),
+          and(eq(schema.judgeTasks.status, 'RUNNING'), lt(schema.judgeTasks.lockedUntil, now))
         )
       )
-      .orderBy(asc(schema.judgeTasks.priority), asc(schema.judgeTasks.createdAt))
+      .orderBy(asc(schema.judgeTasks.createdAt))
       .limit(1)
       .for('update', { skipLocked: true })
 
@@ -50,39 +47,45 @@ export async function claimJudgeTask(options: ClaimJudgeTaskOptions) {
       .update(schema.judgeTasks)
       .set({
         status: 'RUNNING',
-        lockedBy: options.workerId,
         lockedUntil: leaseUntil,
-        attempts: sql`${schema.judgeTasks.attempts} + 1`,
         updatedAt: now
       })
       .where(eq(schema.judgeTasks.id, task.id))
       .returning()
 
+    await tx
+      .update(schema.submissions)
+      .set({ status: 'JUDGING', message: 'Judging', updatedAt: now })
+      .where(eq(schema.submissions.id, claimed.submissionId))
+
     return claimed
   })
+}
+
+export async function renewJudgeTaskLease(id: number, leaseSeconds: number) {
+  const now = new Date()
+  const leaseUntil = new Date(now.getTime() + leaseSeconds * 1000)
+  const [task] = await db
+    .update(schema.judgeTasks)
+    .set({ lockedUntil: leaseUntil, updatedAt: now })
+    .where(and(eq(schema.judgeTasks.id, id), eq(schema.judgeTasks.status, 'RUNNING')))
+    .returning()
+  return task ?? null
 }
 
 export async function completeJudgeTask(id: number) {
   await db
     .update(schema.judgeTasks)
-    .set({ status: 'DONE', lockedBy: null, lockedUntil: null, updatedAt: new Date() })
+    .set({ status: 'DONE', lockedUntil: null, updatedAt: new Date() })
     .where(eq(schema.judgeTasks.id, id))
 }
 
 export async function failJudgeTask(id: number, error: unknown) {
-  const [task] = await db
-    .select({ attempts: schema.judgeTasks.attempts, maxAttempts: schema.judgeTasks.maxAttempts })
-    .from(schema.judgeTasks)
-    .where(eq(schema.judgeTasks.id, id))
-    .limit(1)
-  const retry = task ? task.attempts < task.maxAttempts : false
-
   await db
     .update(schema.judgeTasks)
     .set({
-      status: retry ? 'WAITING' : 'FAILED',
-      lockedBy: null,
       lockedUntil: null,
+      status: 'FAILED',
       lastError: error instanceof Error ? error.message : String(error),
       updatedAt: new Date()
     })
