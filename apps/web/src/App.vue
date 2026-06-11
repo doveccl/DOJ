@@ -8,7 +8,6 @@ import {
   LogInOutline,
   MoonOutline,
   PersonAddOutline,
-  PersonCircleOutline,
   SunnyOutline
 } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
@@ -74,12 +73,15 @@ const themeOptions = computed(() => [
   { label: t('app.light'), key: 'light' },
   { label: t('app.dark'), key: 'dark' }
 ])
-const localeOptions = computed(() => [...supportedLocales])
+const userInitial = computed(() => auth.user?.name?.slice(0, 1).toUpperCase() ?? '')
+const localeOptions = computed(() =>
+  supportedLocales.map((item) => ({
+    label: item.label,
+    key: item.value
+  }))
+)
 const navItems = computed(() => {
-  const options = [
-    { label: t('nav.home'), key: '/' },
-    { label: t('nav.problems'), key: '/problems' }
-  ]
+  const options = [{ label: t('nav.problems'), key: '/problems' }]
   if (auth.signedIn) {
     options.push({ label: t('nav.assignments'), key: '/assignments' })
   }
@@ -238,14 +240,14 @@ function navActive(path: string) {
           </router-link>
         </nav>
         <n-space class="topbar-actions">
-          <n-dropdown trigger="click" :options="localeOptions" @select="handleLocaleCommand">
+          <n-dropdown :options="localeOptions" @select="handleLocaleCommand">
             <n-button quaternary circle :aria-label="t('app.locale')">
               <template #icon>
                 <n-icon :component="LanguageOutline" />
               </template>
             </n-button>
           </n-dropdown>
-          <n-dropdown trigger="click" :options="themeOptions" @select="handleThemeCommand">
+          <n-dropdown :options="themeOptions" @select="handleThemeCommand">
             <n-button quaternary circle :aria-label="t('app.colorMode')">
               <template #icon>
                 <n-icon :component="themeIcon" />
@@ -253,11 +255,14 @@ function navActive(path: string) {
             </n-button>
           </n-dropdown>
           <template v-if="auth.signedIn">
-            <n-dropdown trigger="click" :options="userMenuOptions" @select="handleUserCommand">
+            <n-dropdown :options="userMenuOptions" @select="handleUserCommand">
               <n-button quaternary class="user-trigger">
-                <n-avatar :size="24" round :src="auth.user?.avatarUrl">
-                  <n-icon :component="PersonCircleOutline" />
-                </n-avatar>
+                <template #icon>
+                  <n-avatar v-if="auth.user?.avatarUrl" :size="24" round :src="auth.user.avatarUrl">
+                    <template #fallback>{{ userInitial }}</template>
+                  </n-avatar>
+                  <n-avatar v-else :size="24" round>{{ userInitial }}</n-avatar>
+                </template>
                 <span class="user-name">{{ auth.user?.name }}</span>
               </n-button>
             </n-dropdown>
@@ -389,6 +394,21 @@ function navActive(path: string) {
 
 .user-trigger {
   padding: 0 8px;
+
+  :deep(.n-button__icon) {
+    width: 24px;
+    min-width: 24px;
+    height: 24px;
+    flex-basis: 24px;
+  }
+
+  :deep(.n-icon-slot),
+  :deep(.n-avatar),
+  :deep(.n-avatar img) {
+    width: 24px;
+    min-width: 24px;
+    height: 24px;
+  }
 }
 
 .user-name {

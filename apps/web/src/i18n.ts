@@ -48,6 +48,15 @@ const zhCNMessages = {
     signInRequired: '登录后查看和修改个人资料。',
     passwordRequired: '修改密码需要填写当前密码。'
   },
+  home: {
+    newProblems: '题目上新',
+    myAssignments: '我的作业',
+    recentContests: '近期比赛',
+    yearSubmissions: '全年提交 {count} 次',
+    submissionCount: '{count} 次',
+    less: '少',
+    more: '多'
+  },
   mdEditor: {
     write: '编辑',
     preview: '预览',
@@ -439,6 +448,15 @@ const enMessages = {
     changeEmail: 'Change email',
     signInRequired: 'Sign in to view and edit your profile.',
     passwordRequired: 'Current password is required to change password.'
+  },
+  home: {
+    newProblems: 'New Problems',
+    myAssignments: 'My Assignments',
+    recentContests: 'Upcoming Contests',
+    yearSubmissions: '{count} submissions this year',
+    submissionCount: '{count} submissions',
+    less: 'Less',
+    more: 'More'
   },
   mdEditor: {
     write: 'Write',
