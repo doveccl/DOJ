@@ -7,7 +7,7 @@ The `main` branch is still pre-release. Database migrations may be regenerated f
 ## Stack
 
 - Runtime and tooling: Bun
-- API: Hono
+- Server: Hono HTTP API + WebSocket services
 - Database: PostgreSQL + Drizzle
 - Cache and sessions: Redis-compatible Valkey, with in-memory fallback for single-process development
 - Frontend: Vue 3, Vite, Naive UI, vue-i18n
@@ -53,7 +53,7 @@ Judge deployment model:
 Default local URLs:
 
 - Web: `http://localhost:28080`
-- API: `http://localhost:7974`
+- Server: `http://localhost:7974`
 - MinIO console: `http://localhost:9001`
 
 ## Useful Commands
@@ -78,7 +78,7 @@ DOJ 是基于 Bun 的新版在线评测系统重写分支，目标是替代旧�
 ## 技术栈
 
 - 运行时与工具链：Bun
-- API：Hono
+- Server：Hono HTTP API + WebSocket 服务
 - 数据库：PostgreSQL + Drizzle
 - 缓存与会话：Redis 兼容的 Valkey，单进程开发可使用内存 fallback
 - 前端：Vue 3、Vite、Naive UI、vue-i18n
@@ -124,7 +124,7 @@ bun run dev
 默认本地地址：
 
 - 前端：`http://localhost:28080`
-- API：`http://localhost:7974`
+- Server：`http://localhost:7974`
 - MinIO 控制台：`http://localhost:9001`
 
 ## 常用命令

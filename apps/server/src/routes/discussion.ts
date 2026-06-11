@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { db, schema } from '@doj/db/client'
-import { authMiddleware, denyGuestAccess, requireAuthUser } from '../auth'
+import { authMiddleware, denyGuestAccess, requireAuthUser, requireGroup } from '../auth'
 import { notFound } from '../errors'
 import { checkRateLimit } from '../rate-limit'
 import { getRecentTopics, getTopicDetail, countTopics } from '../services/discussion'
@@ -115,6 +115,35 @@ export function registerDiscussionRoutes(app: Hono) {
       201
     )
   })
+
+  app.patch('/api/admin/discussion/topics/:id', authMiddleware, async (c) => {
+    const denied = await requireGroup(c, 'admin')
+    if (denied) return denied
+
+    const topicId = numericId.parse(c.req.param('id'))
+    const body = updateTopicAdminSchema.parse(await c.req.json())
+    const [topic] = await db
+      .update(schema.topics)
+      .set({ ...body, updatedAt: new Date() })
+      .where(eq(schema.topics.id, topicId))
+      .returning()
+    if (!topic) return notFound(c)
+    return c.json(await getTopicDetail(topic.id))
+  })
+
+  app.delete('/api/admin/discussion/topics/:id', authMiddleware, async (c) => {
+    const denied = await requireGroup(c, 'admin')
+    if (denied) return denied
+
+    const topicId = numericId.parse(c.req.param('id'))
+    const [topic] = await db
+      .update(schema.topics)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(schema.topics.id, topicId))
+      .returning()
+    if (!topic) return notFound(c)
+    return c.json({ ok: true })
+  })
 }
 
 const createTopicSchema = z.object({
@@ -125,4 +154,8 @@ const createTopicSchema = z.object({
 
 const createPostSchema = z.object({
   content: z.string().min(1).max(20_000)
+})
+
+const updateTopicAdminSchema = z.object({
+  pinned: z.boolean().optional()
 })

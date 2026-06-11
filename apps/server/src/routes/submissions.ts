@@ -283,7 +283,7 @@ export function registerSubmissionRoutes(app: Hono) {
       return apiError(c, 403, 'AI_DISABLED', 'AI coaching is disabled')
     }
     if (submission.assignmentId) {
-      // Assignment-level AI switches were removed by the docs target model.
+      // Assignment-level AI switches are intentionally centralized in site settings.
     }
     if (!isTerminalStatus(submission.status)) {
       return apiError(c, 400, 'AI_COACHING_UNAVAILABLE', `AI coaching is unavailable for ${submission.status} submissions`)

@@ -26,7 +26,7 @@ interface ProblemRow {
   title: string
 }
 
-type ContestStatusFilter = 'current' | 'upcoming' | 'past'
+type ContestStatusFilter = 'all' | 'current' | 'upcoming' | 'past'
 
 const auth = useAuthStore()
 const loading = ref(true)
@@ -35,7 +35,7 @@ const error = ref('')
 const showFormModal = ref(false)
 const editingId = ref<number | null>(null)
 const editingLocked = ref(false)
-const statusFilter = ref<ContestStatusFilter | null>(null)
+const statusFilter = ref<ContestStatusFilter>('all')
 const contests = ref<ContestRow[]>([])
 const problemOptions = ref<SelectOption[]>([])
 const { t } = useI18n()
@@ -59,6 +59,7 @@ const pagination = reactive({
 
 const modalTitle = computed(() => (editingId.value ? t('admin.contests.edit') : t('admin.contests.create')))
 const statusOptions = computed(() => [
+  { label: t('common.all'), value: 'all' },
   { label: t('contests.current'), value: 'current' },
   { label: t('contests.upcoming'), value: 'upcoming' },
   { label: t('contests.past'), value: 'past' }
@@ -70,11 +71,13 @@ const columns = computed<DataTableColumns<ContestRow>>(() => [
     key: 'title',
     minWidth: 220,
     render(row) {
-      return h(NSpace, { size: 8, align: 'center' }, () => [
-        h(RouterLink, { to: `/contests/${row.id}`, class: 'table-link' }, () => row.title),
-        row.deletedAt
-          ? h(NTag, { bordered: false, type: 'error', size: 'small' }, () => t('admin.contests.deleted'))
-          : null
+      const state = contestState(row)
+      return h('div', { class: 'contest-title-cell' }, [
+        h('div', { class: 'contest-title-row' }, [
+          h(RouterLink, { to: `/contests/${row.id}`, class: 'table-link contest-title' }, () => row.title),
+          h(NTag, { bordered: false, type: state.type, size: 'small' }, () => state.label)
+        ]),
+        h('span', { class: 'muted contest-time-left' }, timeLeft(row.endAt))
       ])
     }
   },
@@ -142,7 +145,7 @@ async function loadContests() {
       page: String(pagination.page),
       pageSize: String(pagination.pageSize)
     })
-    if (statusFilter.value) params.set('status', statusFilter.value)
+    if (statusFilter.value !== 'all') params.set('status', statusFilter.value)
     const data = await apiFetch<Paged<ContestRow>>(`/api/contests?${params}`)
     contests.value = getItems(data)
     pagination.itemCount = data.total
@@ -256,6 +259,24 @@ function handleStatusChange() {
   void loadContests()
 }
 
+function contestState(row: ContestRow) {
+  if (row.deletedAt) return { label: t('admin.contests.deleted'), type: 'error' as const }
+  const now = Date.now()
+  const start = new Date(row.startAt).getTime()
+  const end = new Date(row.endAt).getTime()
+  if (now < start) return { label: t('contests.upcoming'), type: 'info' as const }
+  if (now >= end) return { label: t('contests.past'), type: 'default' as const }
+  return { label: t('contests.current'), type: 'success' as const }
+}
+
+function timeLeft(value: string) {
+  const diff = new Date(value).getTime() - Date.now()
+  if (diff <= 0) return t('assignments.ended')
+  const hours = Math.ceil(diff / (60 * 60 * 1000))
+  if (hours < 24) return `${hours}h`
+  return `${Math.ceil(hours / 24)}d`
+}
+
 function handlePageChange(page: number) {
   pagination.page = page
   void loadContests()
@@ -293,14 +314,19 @@ watch(
     <n-alert v-if="error" type="error" class="page-alert">{{ error }}</n-alert>
     <n-card :bordered="false">
       <n-space justify="space-between" align="center" class="table-toolbar">
-        <n-select
+        <n-radio-group
           v-model:value="statusFilter"
-          clearable
-          :placeholder="t('contests.statusFilter')"
-          :options="statusOptions"
           class="status-filter"
           @update:value="handleStatusChange"
-        />
+        >
+          <n-radio-button
+            v-for="option in statusOptions"
+            :key="option.value"
+            :value="option.value"
+          >
+            {{ option.label }}
+          </n-radio-button>
+        </n-radio-group>
         <n-button v-if="canManage" type="primary" @click="openCreate">
           {{ t('admin.contests.create') }}
         </n-button>
@@ -404,7 +430,29 @@ watch(
   padding: 48px 0;
 }
 
-.status-filter {
-  max-width: 220px;
+.status-filter { max-width: 360px; }
+
+.contest-title-cell {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.contest-title-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.contest-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contest-time-left {
+  font-size: 12px;
 }
 </style>

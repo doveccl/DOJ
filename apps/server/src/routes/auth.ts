@@ -16,7 +16,7 @@ import {
   verifyPasswordOrDummy
 } from '../auth'
 import { getRuntimeSettings, updateRuntimeSettings } from '../settings'
-import { destroySession, getSessionUserId } from '../session'
+import { destroySession } from '../session'
 
 const emailCodeTtlSeconds = 10 * 60
 const memoryEmailCodes = new Map<string, { code: string; userId: number | null; expiresAt: number }>()
@@ -132,25 +132,12 @@ export function registerAuthRoutes(app: Hono) {
     if (!smtpConfigured(settings)) {
       return apiError(c, 400, 'SMTP_REQUIRED', 'SMTP must be configured before sending email codes')
     }
-    const current = body.purpose === 'change-email' ? c.req.header('authorization') : null
-    const user =
-      body.purpose === 'change-email'
-        ? current?.startsWith('Bearer ')
-          ? await requireEmailCodeUser(current)
-          : null
-        : null
-    if (body.purpose === 'change-email' && !user) {
-      return apiError(c, 401, 'UNAUTHORIZED', 'Sign in to change email')
-    }
     if (body.purpose === 'register' && (await findUserByNameOrEmail(body.email))) {
-      return apiError(c, 409, 'EMAIL_EXISTS', 'Email already exists')
-    }
-    if (body.purpose === 'change-email' && (await findUserByNameOrEmail(body.email))) {
       return apiError(c, 409, 'EMAIL_EXISTS', 'Email already exists')
     }
 
     const code = createEmailCode()
-    const stored = await storeEmailCode(body.purpose, body.email, code, user?.id ?? null)
+    const stored = await storeEmailCode(body.purpose, body.email, code, null)
     if (!stored) return apiError(c, 500, 'SMTP_SEND_FAILED', 'Failed to send email verification code')
     console.info(`Email code for ${body.purpose}:${body.email}: ${code}`)
     return c.json({ ok: true })
@@ -159,11 +146,10 @@ export function registerAuthRoutes(app: Hono) {
   app.patch('/api/auth/email', authMiddleware, async (c) => {
     const current = await requireAuthUser(c)
     const body = changeEmailSchema.parse(await c.req.json())
-    if (await findUserByNameOrEmail(body.email)) {
+    const existing = await findUserByNameOrEmail(body.email)
+    if (existing && existing.id !== current.id) {
       return apiError(c, 409, 'EMAIL_EXISTS', 'Email already exists')
     }
-    const codeOk = await verifyEmailCode('change-email', body.email, body.code, current.id)
-    if (!codeOk) return apiError(c, 400, 'INVALID_EMAIL_CODE', 'Email verification code is invalid')
 
     await db
       .update(schema.users)
@@ -217,19 +203,18 @@ const loginSchema = z.object({
 })
 
 const updateProfileSchema = z.object({
-  introduction: z.string().max(500).optional(),
+  introduction: z.string().max(160).optional(),
   currentPassword: z.string().min(1).optional(),
   password: z.string().min(8).max(128).optional()
 })
 
 const emailCodeSchema = z.object({
-  purpose: z.enum(['register', 'change-email']),
+  purpose: z.literal('register'),
   email: z.email().transform(normalizeEmail)
 })
 
 const changeEmailSchema = z.object({
-  email: z.email().transform(normalizeEmail),
-  code: z.string().min(4).max(12)
+  email: z.email().transform(normalizeEmail)
 })
 
 const updateSettingsSchema = z.object({
@@ -325,7 +310,7 @@ async function storeEmailCode(purpose: string, email: string, code: string, user
 }
 
 async function verifyEmailCode(
-  purpose: 'register' | 'change-email',
+  purpose: 'register',
   email: string,
   code: string,
   userId: number | null
@@ -339,11 +324,4 @@ async function verifyEmailCode(
       ? { code: fallback.code, userId: fallback.userId }
       : null)
   return Boolean(value && value.code === code && value.userId === userId)
-}
-
-async function requireEmailCodeUser(header: string | null) {
-  if (!header?.startsWith('Bearer ')) return null
-  const token = header.slice('Bearer '.length)
-  const userId = await getSessionUserId(token)
-  return userId === null ? null : await getAuthUser(userId)
 }

@@ -267,7 +267,6 @@ function formatDate(value: string) {
         <div>
           <section class="page-header">
             <h1>{{ t('submissions.detailTitle') }} {{ submission.id }}</h1>
-            <p>{{ submission.languageId }}</p>
           </section>
           <n-card :bordered="false">
             <n-descriptions label-placement="left" bordered :column="2">
@@ -278,6 +277,9 @@ function formatDate(value: string) {
               </n-descriptions-item>
               <n-descriptions-item :label="t('submissions.score')">
                 {{ submission.score ?? '-' }}
+              </n-descriptions-item>
+              <n-descriptions-item :label="t('common.language')">
+                {{ submission.languageId }}
               </n-descriptions-item>
               <n-descriptions-item :label="t('common.time')">
                 {{ submission.timeMs === null ? '-' : `${submission.timeMs} ms` }}

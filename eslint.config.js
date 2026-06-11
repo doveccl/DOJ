@@ -16,7 +16,19 @@ export default tseslint.config(
     languageOptions: {
       globals: {
         ...globals.browser,
-        ...globals.node
+        ...globals.node,
+        computed: 'readonly',
+        defineStore: 'readonly',
+        h: 'readonly',
+        nextTick: 'readonly',
+        onMounted: 'readonly',
+        onUnmounted: 'readonly',
+        reactive: 'readonly',
+        ref: 'readonly',
+        RouterLink: 'readonly',
+        useRoute: 'readonly',
+        useRouter: 'readonly',
+        watch: 'readonly'
       },
       parserOptions: {
         parser: tseslint.parser

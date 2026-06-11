@@ -1,5 +1,14 @@
 <script setup lang="ts">
 import type { UploadCustomRequestOptions } from 'naive-ui'
+import {
+  CloseOutline,
+  CreateOutline,
+  FolderOpenOutline,
+  RefreshOutline,
+  SaveOutline,
+  SettingsOutline,
+  TrashOutline
+} from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../api'
 import CodeEditor from '../components/CodeEditor.vue'
@@ -59,6 +68,8 @@ const submitting = ref(false)
 const saving = ref(false)
 const editMode = ref(false)
 const adminFullView = ref(true)
+const showManageModal = ref(false)
+const manageTab = ref<'meta' | 'assets'>('meta')
 const error = ref('')
 const problem = ref<Problem | null>(null)
 const languageId = ref('cpp')
@@ -87,7 +98,10 @@ const memoryMb = computed(() =>
   problem.value ? Math.round((problem.value.memoryLimit || 0) / 1024 / 1024) : 0
 )
 const timeLimit = computed(() => problem.value?.timeLimit ?? 0)
-const statement = computed(() => problem.value?.statement ?? '')
+const statement = computed(() => stripDuplicateStatementTitle(problem.value?.statement ?? '', problem.value?.title ?? ''))
+const dataAssetCount = computed(() => assets.value.filter((asset) => asset.section === 'data').length)
+const publicAssetCount = computed(() => assets.value.filter((asset) => asset.section === 'assets').length)
+const rootAssetCount = computed(() => assets.value.filter((asset) => asset.section === 'root').length)
 const assignmentId = computed(() =>
   typeof route.query.assignmentId === 'string' ? route.query.assignmentId : ''
 )
@@ -316,6 +330,22 @@ function formatDate(value: string) {
   return new Date(value).toLocaleString()
 }
 
+function stripDuplicateStatementTitle(source: string, title: string) {
+  const lines = source.split('\n')
+  const firstContentIndex = lines.findIndex((line) => line.trim())
+  if (firstContentIndex === -1) return source
+  const match = lines[firstContentIndex].trim().match(/^#\s+(.+)$/)
+  if (!match) return source
+  if (normalizeTitle(match[1]) !== normalizeTitle(title)) return source
+  lines.splice(firstContentIndex, 1)
+  while (lines[firstContentIndex]?.trim() === '') lines.splice(firstContentIndex, 1)
+  return lines.join('\n')
+}
+
+function normalizeTitle(value: string) {
+  return value.trim().replace(/^P\d+\s+/i, '').toLowerCase()
+}
+
 async function deleteAsset(path: string) {
   if (!problem.value) return
   try {
@@ -339,8 +369,7 @@ async function deleteAsset(path: string) {
     <n-spin :show="loading">
       <section v-if="problem" class="problem-detail-page">
         <section class="page-header">
-          <h1>{{ problem.id }}. {{ problem.title }}</h1>
-          <p>{{ timeLimit }} ms / {{ memoryMb }} MB</p>
+          <h1>P{{ problem.id }} {{ problem.title }}</h1>
           <p v-if="assignmentId" class="muted">
             {{ t('problemDetail.assignmentContext') }} {{ assignmentId }}
           </p>
@@ -351,16 +380,85 @@ async function deleteAsset(path: string) {
 
         <section class="problem-top-grid">
           <n-card :bordered="false" class="statement-card">
-            <markdown-view :source="statement" />
+            <template #header>
+              {{ t('admin.problems.statement') }}
+            </template>
+            <template v-if="canManage" #header-extra>
+              <n-space :size="6">
+                <n-button
+                  v-if="!editMode"
+                  quaternary
+                  circle
+                  size="small"
+                  :aria-label="t('admin.edit')"
+                  @click="editMode = true"
+                >
+                  <template #icon>
+                    <n-icon :component="CreateOutline" />
+                  </template>
+                </n-button>
+                <template v-else>
+                  <n-button
+                    quaternary
+                    circle
+                    size="small"
+                    :aria-label="t('admin.cancel')"
+                    @click="editMode = false"
+                  >
+                    <template #icon>
+                      <n-icon :component="CloseOutline" />
+                    </template>
+                  </n-button>
+                  <n-button
+                    type="primary"
+                    circle
+                    size="small"
+                    :loading="saving"
+                    :aria-label="t('admin.save')"
+                    @click="saveProblem"
+                  >
+                    <template #icon>
+                      <n-icon :component="SaveOutline" />
+                    </template>
+                  </n-button>
+                </template>
+              </n-space>
+            </template>
+            <markdown-editor
+              v-if="editMode"
+              v-model="editForm.statement"
+              :problem-id="problem.id"
+              upload-enabled
+            />
+            <markdown-view v-else :source="statement" />
           </n-card>
 
-          <n-card :bordered="false" class="meta-card">
+          <n-card :title="t('common.status')" :bordered="false" class="meta-card">
+            <template v-if="canManage" #header-extra>
+              <n-button
+                quaternary
+                circle
+                size="small"
+                :aria-label="t('admin.problems.edit')"
+                @click="showManageModal = true"
+              >
+                <template #icon>
+                  <n-icon :component="SettingsOutline" />
+                </template>
+              </n-button>
+            </template>
             <n-descriptions :column="1" bordered size="small">
               <n-descriptions-item :label="t('common.time')">
                 {{ timeLimit }} ms
               </n-descriptions-item>
               <n-descriptions-item :label="t('common.memory')">
                 {{ memoryMb }} MB
+              </n-descriptions-item>
+              <n-descriptions-item :label="t('admin.problems.mode')">
+                <n-tag :bordered="false">{{ problem.mode }}</n-tag>
+              </n-descriptions-item>
+              <n-descriptions-item v-if="canManage" :label="t('admin.problems.assets')">
+                data {{ dataAssetCount }} · assets {{ publicAssetCount }} · root {{ rootAssetCount }}
               </n-descriptions-item>
               <n-descriptions-item :label="t('problems.passRate')">
                 {{ ((problem.passRate ?? 0) * 100).toFixed(1) }}%
@@ -409,147 +507,147 @@ async function deleteAsset(path: string) {
           </n-card>
         </section>
 
-        <div v-if="canManage" class="admin-mode-bar">
-          <n-space justify="space-between" align="center">
-            <strong>{{ t('admin.fullView') }}</strong>
-            <n-switch v-model:value="adminFullView" />
-          </n-space>
-        </div>
-
-        <n-card v-if="canManage && adminFullView" :title="t('admin.problems.edit')" :bordered="false" class="stacked-card">
-          <template #header-extra>
-            <n-space>
-              <n-button
-                size="small"
-                tertiary
-                :type="problem.deletedAt ? 'success' : 'error'"
-                :loading="saving"
-                @click="toggleProblemDeleted"
-              >
-                {{ problem.deletedAt ? t('admin.restore') : t('admin.delete') }}
-              </n-button>
-              <n-button v-if="!editMode" size="small" secondary @click="editMode = true">
-                {{ t('admin.edit') }}
-              </n-button>
-              <template v-else>
-                <n-button size="small" @click="editMode = false">{{ t('admin.cancel') }}</n-button>
-                <n-button size="small" type="primary" :loading="saving" @click="saveProblem">
-                  {{ t('admin.save') }}
-                </n-button>
-              </template>
-            </n-space>
-          </template>
-
-          <template v-if="editMode">
-            <n-form :model="editForm" label-placement="top">
-              <n-form-item :label="t('common.title')">
-                <n-input v-model:value="editForm.title" />
-              </n-form-item>
-              <n-form-item :label="t('common.tags')">
-                <n-dynamic-tags v-model:value="editForm.tags" />
-              </n-form-item>
-              <div class="form-grid two">
-                <n-form-item :label="t('admin.problems.mode')">
-                  <n-select
-                    v-model:value="editForm.mode"
-                    :options="[
-                      { label: 'default', value: 'default' },
-                      { label: 'strict', value: 'strict' },
-                      { label: 'custom', value: 'custom' }
-                    ]"
-                  />
-                </n-form-item>
-                <n-form-item :label="t('admin.problems.visible')">
-                  <n-switch v-model:value="editForm.visible" />
-                </n-form-item>
-                <n-form-item :label="t('admin.problems.timeMs')">
-                  <n-input-number v-model:value="editForm.timeLimit" :min="100" class="full-width" />
-                </n-form-item>
-                <n-form-item :label="t('admin.problems.memoryMb')">
-                  <n-input-number v-model:value="editForm.memoryLimitMb" :min="16" class="full-width" />
-                </n-form-item>
-              </div>
-              <n-form-item :label="t('admin.problems.statement')">
-                <markdown-editor
-                  v-model="editForm.statement"
-                  :problem-id="problem.id"
-                  upload-enabled
-                />
-              </n-form-item>
-            </n-form>
-          </template>
-          <template v-else>
-            <p class="muted">{{ t('problemDetail.adminHint') }}</p>
-          </template>
-
-          <div class="asset-panel">
-            <div class="asset-panel-header">
-              <div>
-                <strong>{{ t('admin.problems.assets') }}</strong>
-                <p class="muted">data/ 用于评测，assets/ 用于题面附件。</p>
-              </div>
-              <n-space class="asset-actions">
-                <n-input
-                  v-model:value="assetPath"
-                  size="small"
-                  class="asset-path-input"
-                  :placeholder="t('admin.problems.packageNewFilePath')"
-                />
-                <n-button size="small" secondary @click="newAsset(assetPath)">
-                  {{ t('admin.problems.packageNewFile') }}
-                </n-button>
-                <n-upload :custom-request="uploadAsset" :show-file-list="false" accept="*">
-                  <n-button size="small" secondary>{{ t('admin.upload') }}</n-button>
-                </n-upload>
+        <n-modal
+          v-if="canManage"
+          v-model:show="showManageModal"
+          preset="card"
+          :title="t('admin.problems.edit')"
+          class="problem-manage-modal"
+        >
+          <n-tabs v-model:value="manageTab" type="line" animated>
+            <n-tab-pane name="meta" :tab="t('admin.problems.limits')">
+              <n-space justify="space-between" align="center" class="manage-switch">
+                <span class="muted">{{ t('admin.fullView') }}</span>
+                <n-switch v-model:value="adminFullView" />
               </n-space>
-            </div>
-
-            <div class="asset-sections">
-              <section v-for="section in assetSections" :key="section.key" class="asset-section">
-                <n-space justify="space-between" align="center">
-                  <div>
-                    <strong>{{ section.title }}</strong>
-                    <p class="muted">{{ section.hint }}</p>
-                  </div>
-                  <n-button size="tiny" secondary @click="setAssetDraft(section.draftPath)">
-                    {{ t('admin.problems.packageNewFile') }}
-                  </n-button>
-                </n-space>
-                <div v-if="assetsBySection(section.key).length" class="asset-list">
-                  <div
-                    v-for="asset in assetsBySection(section.key)"
-                    :key="asset.path"
-                    class="asset-row"
-                    :class="{ selected: selectedAssetPath === asset.path }"
-                  >
-                    <n-button text size="small" @click="loadAssetContent(asset.path)">
-                      {{ asset.path }}
-                    </n-button>
-                    <span class="muted">{{ Math.round(asset.size / 1024) }} KB</span>
-                    <n-button size="tiny" tertiary type="error" @click="deleteAsset(asset.path)">
-                      {{ t('admin.problems.packageDelete') }}
-                    </n-button>
-                  </div>
+              <n-form :model="editForm" label-placement="top">
+                <n-form-item :label="t('common.title')">
+                  <n-input v-model:value="editForm.title" />
+                </n-form-item>
+                <n-form-item :label="t('common.tags')">
+                  <n-dynamic-tags v-model:value="editForm.tags" />
+                </n-form-item>
+                <div class="form-grid two">
+                  <n-form-item :label="t('admin.problems.mode')">
+                    <n-select
+                      v-model:value="editForm.mode"
+                      :options="[
+                        { label: 'default', value: 'default' },
+                        { label: 'strict', value: 'strict' },
+                        { label: 'custom', value: 'custom' }
+                      ]"
+                    />
+                  </n-form-item>
+                  <n-form-item :label="t('admin.problems.visible')">
+                    <n-switch v-model:value="editForm.visible" />
+                  </n-form-item>
+                  <n-form-item :label="t('admin.problems.timeMs')">
+                    <n-input-number v-model:value="editForm.timeLimit" :min="100" class="full-width" />
+                  </n-form-item>
+                  <n-form-item :label="t('admin.problems.memoryMb')">
+                    <n-input-number v-model:value="editForm.memoryLimitMb" :min="16" class="full-width" />
+                  </n-form-item>
                 </div>
-                <p v-else class="muted">{{ t('admin.problems.packageEmpty') }}</p>
-              </section>
-              <p v-if="problem.mode !== 'custom'" class="muted">{{ t('admin.problems.rootCustomOnly') }}</p>
-            </div>
+                <n-space justify="space-between" align="center">
+                  <n-button
+                    tertiary
+                    :type="problem.deletedAt ? 'success' : 'error'"
+                    :loading="saving"
+                    @click="toggleProblemDeleted"
+                  >
+                    <template #icon>
+                      <n-icon :component="problem.deletedAt ? RefreshOutline : TrashOutline" />
+                    </template>
+                    {{ problem.deletedAt ? t('admin.restore') : t('admin.delete') }}
+                  </n-button>
+                  <n-space>
+                    <n-button @click="showManageModal = false">{{ t('admin.cancel') }}</n-button>
+                    <n-button type="primary" :loading="saving" @click="saveProblem">
+                      {{ t('admin.save') }}
+                    </n-button>
+                  </n-space>
+                </n-space>
+              </n-form>
+            </n-tab-pane>
 
-            <div v-if="selectedAssetPath" class="asset-editor">
-              <div class="asset-editor-header">
-                <span class="muted">{{ t('admin.problems.packagePath') }}</span>
-                <n-input v-model:value="selectedAssetPath" />
+            <n-tab-pane name="assets" :tab="t('admin.problems.assets')">
+              <div class="asset-panel">
+                <div class="asset-panel-header">
+                  <div>
+                    <strong>{{ t('admin.problems.assets') }}</strong>
+                    <p class="muted">data/ 用于评测，assets/ 用于题面附件。</p>
+                  </div>
+                  <n-space class="asset-actions">
+                    <n-input
+                      v-model:value="assetPath"
+                      size="small"
+                      class="asset-path-input"
+                      :placeholder="t('admin.problems.packageNewFilePath')"
+                    />
+                    <n-button size="small" secondary @click="newAsset(assetPath)">
+                      {{ t('admin.problems.packageNewFile') }}
+                    </n-button>
+                    <n-upload :custom-request="uploadAsset" :show-file-list="false" accept="*">
+                      <n-button size="small" secondary>
+                        <template #icon>
+                          <n-icon :component="FolderOpenOutline" />
+                        </template>
+                        {{ t('admin.upload') }}
+                      </n-button>
+                    </n-upload>
+                  </n-space>
+                </div>
+
+                <div class="asset-sections">
+                  <section v-for="section in assetSections" :key="section.key" class="asset-section">
+                    <n-space justify="space-between" align="center">
+                      <div>
+                        <strong>{{ section.title }}</strong>
+                        <p class="muted">{{ section.hint }}</p>
+                      </div>
+                      <n-button size="tiny" secondary @click="setAssetDraft(section.draftPath)">
+                        {{ t('admin.problems.packageNewFile') }}
+                      </n-button>
+                    </n-space>
+                    <div v-if="assetsBySection(section.key).length" class="asset-list">
+                      <div
+                        v-for="asset in assetsBySection(section.key)"
+                        :key="asset.path"
+                        class="asset-row"
+                        :class="{ selected: selectedAssetPath === asset.path }"
+                      >
+                        <n-button text size="small" @click="loadAssetContent(asset.path)">
+                          {{ asset.path }}
+                        </n-button>
+                        <span class="muted">{{ Math.round(asset.size / 1024) }} KB</span>
+                        <n-button size="tiny" tertiary type="error" @click="deleteAsset(asset.path)">
+                          <template #icon>
+                            <n-icon :component="TrashOutline" />
+                          </template>
+                        </n-button>
+                      </div>
+                    </div>
+                    <p v-else class="muted">{{ t('admin.problems.packageEmpty') }}</p>
+                  </section>
+                  <p v-if="problem.mode !== 'custom'" class="muted">{{ t('admin.problems.rootCustomOnly') }}</p>
+                </div>
+
+                <div v-if="selectedAssetPath" class="asset-editor">
+                  <div class="asset-editor-header">
+                    <span class="muted">{{ t('admin.problems.packagePath') }}</span>
+                    <n-input v-model:value="selectedAssetPath" />
+                  </div>
+                  <code-editor v-model="assetContent" />
+                  <n-space justify="end">
+                    <n-button type="primary" :loading="assetSaving" @click="saveAssetContent">
+                      {{ t('admin.problems.packageSave') }}
+                    </n-button>
+                  </n-space>
+                </div>
               </div>
-              <code-editor v-model="assetContent" />
-              <n-space justify="end">
-                <n-button type="primary" :loading="assetSaving" @click="saveAssetContent">
-                  {{ t('admin.problems.packageSave') }}
-                </n-button>
-              </n-space>
-            </div>
-          </div>
-        </n-card>
+            </n-tab-pane>
+          </n-tabs>
+        </n-modal>
 
         <n-card :title="t('problemDetail.submit')" :bordered="false" class="submit-card">
           <n-space vertical>
@@ -604,15 +702,21 @@ async function deleteAsset(path: string) {
   min-width: 0;
 }
 
+.statement-card :deep(.n-card-header) {
+  padding-bottom: 10px;
+}
+
+.meta-card {
+  position: sticky;
+  top: 84px;
+}
+
 .problem-links {
   margin-top: 12px;
 }
 
-.admin-mode-bar {
-  padding: 10px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface-bg) 88%, var(--brand) 12%);
+.manage-switch {
+  margin-bottom: 12px;
 }
 
 .asset-panel {
@@ -691,6 +795,10 @@ async function deleteAsset(path: string) {
 @media (max-width: 860px) {
   .problem-top-grid {
     grid-template-columns: 1fr;
+  }
+
+  .meta-card {
+    position: static;
   }
 
   .asset-panel-header {

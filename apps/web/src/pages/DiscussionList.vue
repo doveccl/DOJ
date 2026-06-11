@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { NTag } from 'naive-ui'
+import { NAvatar, NButton, NIcon, NSpace, NTag, NTooltip } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
+import type { Component } from 'vue'
+import { AddOutline, PinOutline, PinSharp, TrashOutline } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
 import { apiFetch, DEFAULT_PAGE_SIZE, getItems, PAGE_SIZE_OPTIONS, type Paged } from '../api'
 import MarkdownEditor from '../components/MarkdownEditor.vue'
@@ -24,6 +26,7 @@ const error = ref('')
 const showCreateModal = ref(false)
 const topics = ref<TopicRow[]>([])
 const { t } = useI18n()
+const canManage = computed(() => auth.user?.admin ?? false)
 const pagination = reactive({
   page: 1,
   pageSize: DEFAULT_PAGE_SIZE,
@@ -41,33 +44,30 @@ const columns = computed<DataTableColumns<TopicRow>>(() => [
   {
     title: t('discussion.topic'),
     key: 'title',
+    minWidth: 280,
     render(row) {
-      return h(RouterLink, { to: `/discussion/${row.id}`, class: 'table-link' }, () => row.title)
-    }
-  },
-  {
-    title: t('discussion.pinned'),
-    key: 'pinned',
-    width: 96,
-    render(row) {
-      return row.pinned ? h(NTag, { type: 'success', bordered: false }, () => t('discussion.pinned')) : '-'
+      return h('div', { class: 'topic-cell' }, [
+        h('div', { class: 'topic-title-row' }, [
+          row.pinned
+            ? h(NTag, { type: 'success', bordered: false, size: 'small' }, () => t('discussion.pinned'))
+            : null,
+          h(RouterLink, { to: `/discussion/${row.id}`, class: 'table-link topic-title' }, () => row.title)
+        ]),
+        h(NSpace, { size: 6, align: 'center', wrap: false, class: 'topic-tags' }, () =>
+          row.tags.map((tag) => h(NTag, { key: tag, bordered: false, size: 'small' }, () => tag))
+        )
+      ])
     }
   },
   {
     title: t('discussion.author'),
     key: 'author',
-    width: 140,
+    width: 170,
     render(row) {
-      return row.author.name
-    }
-  },
-  {
-    title: t('common.tags'),
-    key: 'tags',
-    render(row) {
-      return row.tags.length
-        ? row.tags.map((tag) => h(NTag, { bordered: false, style: 'margin-right: 6px' }, () => tag))
-        : '-'
+      return h('div', { class: 'topic-author' }, [
+        h(NAvatar, { size: 24, src: row.author.avatarUrl, round: true }),
+        h('span', row.author.name)
+      ])
     }
   },
   {
@@ -77,7 +77,27 @@ const columns = computed<DataTableColumns<TopicRow>>(() => [
     render(row) {
       return new Date(row.updatedAt).toLocaleString()
     }
-  }
+  },
+  ...(canManage.value
+    ? [
+        {
+          title: t('admin.actions'),
+          key: 'actions',
+          width: 112,
+          align: 'right' as const,
+          render(row: TopicRow) {
+            return h(NSpace, { size: 6, justify: 'end' }, () => [
+              tooltipIconButton(
+                row.pinned ? PinSharp : PinOutline,
+                row.pinned ? t('discussion.unpin') : t('discussion.pinned'),
+                () => togglePinned(row)
+              ),
+              tooltipIconButton(TrashOutline, t('admin.delete'), () => deleteTopic(row), { type: 'error' })
+            ])
+          }
+        }
+      ]
+    : [])
 ])
 
 async function loadTopics() {
@@ -128,6 +148,58 @@ async function createTopic() {
   }
 }
 
+async function togglePinned(row: TopicRow) {
+  try {
+    await apiFetch(`/api/admin/discussion/topics/${row.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ pinned: !row.pinned })
+    })
+    await loadTopics()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  }
+}
+
+async function deleteTopic(row: TopicRow) {
+  try {
+    await apiFetch(`/api/admin/discussion/topics/${row.id}`, { method: 'DELETE' })
+    await loadTopics()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  }
+}
+
+function renderIcon(icon: Component) {
+  return h(NIcon, { component: icon })
+}
+
+function tooltipIconButton(
+  icon: Component,
+  label: string,
+  onClick: () => void,
+  options: { type?: 'error' } = {}
+) {
+  return h(
+    NTooltip,
+    { trigger: 'hover' },
+    {
+      trigger: () =>
+        h(
+          NButton,
+          {
+            size: 'small',
+            quaternary: true,
+            circle: true,
+            type: options.type,
+            onClick
+          },
+          { icon: () => renderIcon(icon) }
+        ),
+      default: () => label
+    }
+  )
+}
+
 onMounted(() => {
   void loadTopics()
 })
@@ -142,6 +214,9 @@ onMounted(() => {
     <n-card :bordered="false">
       <n-space v-if="auth.signedIn" justify="end" class="table-toolbar">
         <n-button v-if="auth.signedIn" type="primary" @click="showCreateModal = true">
+          <template #icon>
+            <n-icon :component="AddOutline" />
+          </template>
           {{ t('discussion.newTopic') }}
         </n-button>
       </n-space>
@@ -165,7 +240,7 @@ onMounted(() => {
         :bordered="false"
         :loading="loading"
         :pagination="pagination"
-        :scroll-x="760"
+        :scroll-x="canManage ? 840 : 720"
         class="admin-table"
         @update:page="handlePageChange"
         @update:page-size="handlePageSizeChange"
@@ -207,5 +282,44 @@ onMounted(() => {
 <style scoped lang="scss">
 .empty-state {
   padding: 48px 0;
+}
+
+.topic-cell {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.topic-title-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.topic-title {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topic-tags {
+  min-height: 22px;
+  overflow: hidden;
+}
+
+.topic-author {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 </style>

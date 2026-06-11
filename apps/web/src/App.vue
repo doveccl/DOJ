@@ -1,10 +1,22 @@
 <script setup lang="ts">
 import { darkTheme, dateEnUS, dateZhCN, enUS, zhCN } from 'naive-ui'
 import type { GlobalThemeOverrides } from 'naive-ui'
+import {
+  CodeSlashOutline,
+  DesktopOutline,
+  LanguageOutline,
+  LogInOutline,
+  MoonOutline,
+  PersonAddOutline,
+  PersonCircleOutline,
+  SunnyOutline
+} from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
 import { apiFetch, errorMessage, type PublicConfig } from './api'
-import { setLocale, supportedLocales, type SupportedLocale } from './i18n'
+import { setLocale, supportedLocales } from './i18n'
 import { useAuthStore } from './stores/auth'
+
+type ColorMode = 'system' | 'light' | 'dark'
 
 const route = useRoute()
 const router = useRouter()
@@ -24,18 +36,21 @@ const appConfig = ref<PublicConfig>({
   smtpConfigured: false,
   notice: ''
 })
-const colorMode = ref<'light' | 'dark'>(
-  localStorage.getItem('doj.colorMode') === 'dark' ? 'dark' : 'light'
+const savedColorMode = localStorage.getItem('doj.colorMode') as ColorMode | null
+const colorMode = ref<ColorMode>(
+  savedColorMode === 'light' || savedColorMode === 'dark' || savedColorMode === 'system'
+    ? savedColorMode
+    : 'system'
 )
+const systemDark = ref(false)
 const loginForm = reactive({ user: '', password: '' })
 const registerForm = reactive({ name: '', email: '', password: '', code: '' })
-const localeValue = computed({
-  get: () => locale.value as SupportedLocale,
-  set: (value: SupportedLocale) => setLocale(value)
-})
-const naiveTheme = computed(() => (colorMode.value === 'dark' ? darkTheme : null))
+const resolvedColorMode = computed(() =>
+  colorMode.value === 'system' ? (systemDark.value ? 'dark' : 'light') : colorMode.value
+)
+const naiveTheme = computed(() => (resolvedColorMode.value === 'dark' ? darkTheme : null))
 const themeOverrides = computed<GlobalThemeOverrides>(() => {
-  const dark = colorMode.value === 'dark'
+  const dark = resolvedColorMode.value === 'dark'
   const primary = dark ? '#2dd4bf' : '#0d9488'
   const primaryHover = dark ? '#5eead4' : '#0f766e'
   const primaryPressed = dark ? '#14b8a6' : '#115e59'
@@ -50,6 +65,16 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => {
 })
 const naiveLocale = computed(() => (locale.value === 'en' ? enUS : zhCN))
 const naiveDateLocale = computed(() => (locale.value === 'en' ? dateEnUS : dateZhCN))
+const themeIcon = computed(() => {
+  if (colorMode.value === 'system') return DesktopOutline
+  return colorMode.value === 'dark' ? MoonOutline : SunnyOutline
+})
+const themeOptions = computed(() => [
+  { label: t('app.system'), key: 'system' },
+  { label: t('app.light'), key: 'light' },
+  { label: t('app.dark'), key: 'dark' }
+])
+const localeOptions = computed(() => [...supportedLocales])
 const navItems = computed(() => {
   const options = [
     { label: t('nav.home'), key: '/' },
@@ -79,7 +104,15 @@ const userMenuOptions = computed(() => [
   { label: t('app.signOut'), key: 'logout' }
 ])
 
+let mediaQuery: MediaQueryList | null = null
+function handleSystemThemeChange(event: MediaQueryListEvent) {
+  systemDark.value = event.matches
+}
+
 onMounted(async () => {
+  mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+  systemDark.value = mediaQuery.matches
+  mediaQuery.addEventListener('change', handleSystemThemeChange)
   auth.restore()
   try {
     const config = await apiFetch<PublicConfig>('/api/config')
@@ -100,10 +133,21 @@ watch(
   colorMode,
   (value) => {
     localStorage.setItem('doj.colorMode', value)
+  },
+  { immediate: true }
+)
+
+watch(
+  resolvedColorMode,
+  (value) => {
     document.documentElement.dataset.theme = value
   },
   { immediate: true }
 )
+
+onUnmounted(() => {
+  mediaQuery?.removeEventListener('change', handleSystemThemeChange)
+})
 
 function openAuth(mode: 'login' | 'register') {
   if (mode === 'register' && !appConfig.value.signup) return
@@ -152,6 +196,14 @@ function handleUserCommand(key: string) {
   else if (key === 'profile') void router.push('/profile')
 }
 
+function handleThemeCommand(key: string) {
+  if (key === 'system' || key === 'light' || key === 'dark') colorMode.value = key
+}
+
+function handleLocaleCommand(key: string) {
+  if (key === 'zh-CN' || key === 'en') setLocale(key)
+}
+
 function navActive(path: string) {
   if (path === '/') return route.path === '/'
   if (path === '/admin/settings') return route.path.startsWith('/admin')
@@ -168,7 +220,12 @@ function navActive(path: string) {
   >
     <n-layout class="app-shell" position="absolute">
       <n-layout-header class="topbar" bordered>
-        <router-link to="/" class="brand">{{ t('app.brand') }}</router-link>
+        <router-link to="/" class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <n-icon :component="CodeSlashOutline" />
+          </span>
+          <span class="brand-word">{{ t('app.brand') }}</span>
+        </router-link>
         <nav class="topbar-nav" :aria-label="t('app.brand')">
           <router-link
             v-for="item in navItems"
@@ -181,29 +238,35 @@ function navActive(path: string) {
           </router-link>
         </nav>
         <n-space class="topbar-actions">
-          <n-select
-            v-model:value="localeValue"
-            :options="[...supportedLocales]"
-            size="small"
-            class="locale-select"
-            :aria-label="t('app.locale')"
-          />
-          <n-switch
-            v-model:value="colorMode"
-            checked-value="dark"
-            unchecked-value="light"
-            :aria-label="t('app.colorMode')"
-          >
-            <template #checked>{{ t('app.dark') }}</template>
-            <template #unchecked>{{ t('app.light') }}</template>
-          </n-switch>
+          <n-dropdown trigger="click" :options="localeOptions" @select="handleLocaleCommand">
+            <n-button quaternary circle :aria-label="t('app.locale')">
+              <template #icon>
+                <n-icon :component="LanguageOutline" />
+              </template>
+            </n-button>
+          </n-dropdown>
+          <n-dropdown trigger="click" :options="themeOptions" @select="handleThemeCommand">
+            <n-button quaternary circle :aria-label="t('app.colorMode')">
+              <template #icon>
+                <n-icon :component="themeIcon" />
+              </template>
+            </n-button>
+          </n-dropdown>
           <template v-if="auth.signedIn">
-            <n-dropdown :options="userMenuOptions" @select="handleUserCommand">
-              <n-button text>{{ auth.user?.name }}</n-button>
+            <n-dropdown trigger="click" :options="userMenuOptions" @select="handleUserCommand">
+              <n-button quaternary class="user-trigger">
+                <n-avatar :size="24" round :src="auth.user?.avatarUrl">
+                  <n-icon :component="PersonCircleOutline" />
+                </n-avatar>
+                <span class="user-name">{{ auth.user?.name }}</span>
+              </n-button>
             </n-dropdown>
           </template>
           <n-space v-else align="center" :size="8" class="auth-actions">
             <n-button secondary size="small" @click="openAuth('login')">
+              <template #icon>
+                <n-icon :component="LogInOutline" />
+              </template>
               {{ t('app.signIn') }}
             </n-button>
             <n-button
@@ -212,6 +275,9 @@ function navActive(path: string) {
               size="small"
               @click="openAuth('register')"
             >
+              <template #icon>
+                <n-icon :component="PersonAddOutline" />
+              </template>
               {{ t('app.signUp') }}
             </n-button>
           </n-space>
@@ -314,11 +380,24 @@ function navActive(path: string) {
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 18px;
-  min-height: 56px;
+  min-height: 60px;
   padding: 0 24px;
   background: var(--topbar-bg);
   backdrop-filter: saturate(180%) blur(12px);
   -webkit-backdrop-filter: saturate(180%) blur(12px);
+}
+
+.user-trigger {
+  padding: 0 8px;
+}
+
+.user-name {
+  display: inline-block;
+  max-width: 112px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 .topbar-nav {

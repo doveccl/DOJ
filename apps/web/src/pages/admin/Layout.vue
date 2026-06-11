@@ -8,6 +8,12 @@ const router = useRouter()
 const { t } = useI18n()
 const auth = useAuthStore()
 const canManage = computed(() => auth.user?.admin ?? false)
+const wideLayout = ref(false)
+let mediaQuery: MediaQueryList | null = null
+
+function handleLayoutChange(event: MediaQueryListEvent) {
+  wideLayout.value = event.matches
+}
 
 const adminOptions = computed<MenuOption[]>(() => [
   { label: t('nav.settings'), key: '/admin/settings' },
@@ -15,13 +21,23 @@ const adminOptions = computed<MenuOption[]>(() => [
   { label: t('nav.languages'), key: '/admin/languages' },
   { label: t('nav.agents'), key: '/admin/agents' }
 ])
+
+onMounted(() => {
+  mediaQuery = window.matchMedia('(min-width: 980px)')
+  wideLayout.value = mediaQuery.matches
+  mediaQuery.addEventListener('change', handleLayoutChange)
+})
+
+onUnmounted(() => {
+  mediaQuery?.removeEventListener('change', handleLayoutChange)
+})
 </script>
 
 <template>
   <section class="admin-layout" :class="{ 'admin-layout-plain': !canManage }">
     <aside v-if="canManage" class="admin-sidebar">
       <n-menu
-        mode="horizontal"
+        :mode="wideLayout ? 'vertical' : 'horizontal'"
         :value="route.path"
         :options="adminOptions"
         :collapsed-width="64"

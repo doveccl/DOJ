@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { NTag } from 'naive-ui'
+import { CloseOutline, SearchOutline } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
 import {
   apiFetch,
@@ -42,6 +43,7 @@ const statusType: Record<string, 'success' | 'warning' | 'error' | 'info'> = {
 }
 
 const { t } = useI18n()
+const router = useRouter()
 
 const languageNames = ref<Record<string, string>>({})
 const languageOptions = computed(() =>
@@ -258,23 +260,22 @@ function parseWsMessage(raw: string) {
 function formatDate(value: string) {
   return new Date(value).toLocaleString()
 }
+
+function submissionRowProps(row: SubmissionRow) {
+  return {
+    class: 'clickable-table-row',
+    onClick: () => router.push(`/submissions/${row.id}`)
+  }
+}
 </script>
 
 <template>
   <main class="page">
-    <section class="page-header">
-      <h1>{{ t('submissions.title') }}</h1>
-      <p>{{ t('submissions.listHint') }}</p>
-    </section>
-    <n-card :bordered="false" class="table-toolbar">
-      <n-form :model="filters" label-placement="top" class="submission-filters">
-        <n-form-item :label="t('common.problem')">
+    <n-card :bordered="false">
+      <div class="table-toolbar submission-toolbar">
+        <div class="toolbar-fields submission-fields">
           <n-input v-model:value="filters.problemId" clearable :placeholder="t('submissions.problemId')" />
-        </n-form-item>
-        <n-form-item :label="t('common.user')">
           <n-input v-model:value="filters.userId" clearable :placeholder="t('submissions.userId')" />
-        </n-form-item>
-        <n-form-item :label="t('common.language')">
           <n-select
             v-model:value="filters.languageId"
             clearable
@@ -282,47 +283,74 @@ function formatDate(value: string) {
             :options="languageOptions"
             :placeholder="t('common.language')"
           />
-        </n-form-item>
-        <n-form-item :label="t('common.status')">
           <n-select
             v-model:value="filters.status"
             clearable
             :options="statusOptions"
             :placeholder="t('common.status')"
           />
-        </n-form-item>
-        <n-form-item :label="t('submissions.contest')">
           <n-input v-model:value="filters.contestId" clearable :placeholder="t('submissions.contestId')" />
-        </n-form-item>
-        <n-form-item :label="t('submissions.assignment')">
           <n-input v-model:value="filters.assignmentId" clearable :placeholder="t('submissions.assignmentId')" />
-        </n-form-item>
-        <n-form-item label=" ">
-          <n-space>
-            <n-button type="primary" @click="applyFilters">{{ t('submissions.applyFilters') }}</n-button>
-            <n-button @click="clearFilters">{{ t('problems.clear') }}</n-button>
-          </n-space>
-        </n-form-item>
-      </n-form>
+        </div>
+        <div class="toolbar-actions">
+          <n-button secondary @click="clearFilters">
+            <template #icon>
+              <n-icon :component="CloseOutline" />
+            </template>
+            {{ t('problems.clear') }}
+          </n-button>
+          <n-button type="primary" @click="applyFilters">
+            <template #icon>
+              <n-icon :component="SearchOutline" />
+            </template>
+            {{ t('submissions.applyFilters') }}
+          </n-button>
+        </div>
+      </div>
+      <n-data-table
+        :columns="columns"
+        :data="submissions"
+        :bordered="false"
+        :loading="loading"
+        :scroll-x="1120"
+        :row-props="submissionRowProps"
+        :pagination="{
+          page,
+          pageSize,
+          itemCount: total,
+          showSizePicker: true,
+          pageSizes: [...PAGE_SIZE_OPTIONS],
+          onUpdatePage: changePage,
+          onUpdatePageSize: changePageSize
+        }"
+      />
     </n-card>
-    <n-data-table
-      :columns="columns"
-      :data="submissions"
-      :bordered="false"
-      :loading="loading"
-      :scroll-x="1120"
-      :pagination="{
-        page,
-        pageSize,
-        itemCount: total,
-        showSizePicker: true,
-        pageSizes: [...PAGE_SIZE_OPTIONS],
-        onUpdatePage: changePage,
-        onUpdatePageSize: changePageSize
-      }"
-    />
   </main>
 </template>
+
+<style scoped lang="scss">
+.submission-fields {
+  flex: 1 1 760px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+}
+
+:deep(.clickable-table-row) {
+  cursor: pointer;
+}
+
+@media (max-width: 980px) {
+  .submission-fields {
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .submission-fields {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
 
 <style scoped lang="scss">
 .submission-filters {

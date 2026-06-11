@@ -2,7 +2,7 @@ const packages = [
   'packages/shared',
   'packages/db',
   'apps/agent',
-  'apps/api',
+  'apps/server',
   'apps/web'
 ]
 

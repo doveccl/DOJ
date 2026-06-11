@@ -44,7 +44,6 @@ interface AssignmentReport {
 }
 
 const route = useRoute()
-const router = useRouter()
 const auth = useAuthStore()
 const loading = ref(true)
 const reportLoading = ref(false)
@@ -215,7 +214,7 @@ onMounted(() => {
       <template v-if="detail">
         <section class="page-header">
           <h1>{{ assignment.title }}</h1>
-          <p>{{ assignment.description || t('assignments.fallback') }}</p>
+          <p v-if="assignment.description">{{ assignment.description }}</p>
         </section>
 
         <n-card :bordered="false" class="stacked-card">
@@ -225,9 +224,6 @@ onMounted(() => {
               {{ assignment.endAt ? new Date(assignment.endAt).toLocaleString() : '-' }}
             </span>
             <n-space v-if="canManage" size="small">
-              <n-button size="small" secondary @click="router.push('/assignments')">
-                {{ t('admin.edit') }}
-              </n-button>
               <n-button size="small" secondary :loading="reportLoading" @click="loadReport">
                 {{ t('admin.assignments.report') }}
               </n-button>

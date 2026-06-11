@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db, schema } from '@doj/db/client'
 import type { JudgeStatus } from '@doj/shared/status'
 import { redisCommand } from '../redis'
@@ -37,6 +37,7 @@ type RankingSourceRow = {
   userId: number
   userName: string
   userEmail: string
+  userIntroduction: string
   solved: number
   submissions: number
   acAt: Date | string | null
@@ -151,6 +152,7 @@ export async function getRanking(page: number, pageSize: number) {
     user: {
       id: row.userId,
       name: row.userName,
+      introduction: row.userIntroduction,
       avatarUrl: gravatarUrl(row.userEmail)
     },
     solved: row.solved,
@@ -187,12 +189,12 @@ export async function getRecommendedProblems(userId: number | undefined) {
     })
     .from(schema.problems)
     .where(and(eq(schema.problems.visible, true), isNull(schema.problems.deletedAt)))
-    .orderBy(asc(schema.problems.id))
-    .limit(userId ? 100 : 10)
+    .orderBy(desc(schema.problems.createdAt), desc(schema.problems.id))
+    .limit(userId ? 100 : 5)
   const stats = await getProblemStats(rows.map((row) => row.id))
   return rows
     .filter((row) => !solvedIds.has(row.id))
-    .slice(0, 10)
+    .slice(0, 5)
     .map((row) => ({
       id: row.id,
       title: row.title,
@@ -368,6 +370,7 @@ async function queryRankingRows(): Promise<RankingSourceRow[]> {
       userId: schema.users.id,
       userName: schema.users.name,
       userEmail: schema.users.email,
+      userIntroduction: schema.users.introduction,
       solved: sql<number>`count(distinct ${schema.submissions.problemId}) filter (where ${schema.submissions.status} = 'AC')::int`,
       submissions: sql<number>`count(${schema.submissions.id})::int`,
       acAt: sql<Date | null>`max(${schema.submissions.createdAt}) filter (where ${schema.submissions.status} = 'AC')`
@@ -385,7 +388,8 @@ async function getRedisRankingRows(userIds: string[]): Promise<RankingSourceRow[
     .select({
       userId: schema.users.id,
       userName: schema.users.name,
-      userEmail: schema.users.email
+      userEmail: schema.users.email,
+      userIntroduction: schema.users.introduction
     })
     .from(schema.users)
     .where(and(inArray(schema.users.id, ids), isNull(schema.users.disabledAt)))

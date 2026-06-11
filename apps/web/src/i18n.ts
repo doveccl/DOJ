@@ -27,11 +27,14 @@ const zhCNMessages = {
     password: '密码',
     locale: '语言',
     colorMode: '颜色模式',
+    system: '跟随系统',
     light: '亮',
     dark: '暗'
   },
   profile: {
     title: '个人资料',
+    basic: '资料',
+    security: '安全',
     introduction: '个性签名',
     introductionPlaceholder: '介绍一下自己吧',
     noIntroduction: '暂未填写简介',
@@ -43,7 +46,7 @@ const zhCNMessages = {
     saved: '已保存',
     changeEmail: '修改邮箱',
     signInRequired: '登录后查看和修改个人资料。',
-    emailUnavailable: '当前邮件服务未配置，暂不能修改邮箱。'
+    passwordRequired: '修改密码需要填写当前密码。'
   },
   mdEditor: {
     write: '编辑',
@@ -80,7 +83,8 @@ const zhCNMessages = {
     title: '标题',
     tags: '标签',
     solved: '通过',
-    refresh: '刷新'
+    refresh: '刷新',
+    all: '全部'
   },
   problems: {
     title: '题库',
@@ -148,7 +152,11 @@ const zhCNMessages = {
     lastSubmission: '最后提交',
     fallback: '作业题目集。',
     unavailable: '题目不可用',
-    duePrefix: '截止'
+    duePrefix: '截止',
+    done: '已完成',
+    ended: '已结束',
+    dueSoon: '即将截止',
+    open: '进行中'
   },
   contests: {
     title: '比赛',
@@ -189,6 +197,7 @@ const zhCNMessages = {
     topic: '主题',
     author: '作者',
     pinned: '置顶',
+    unpin: '取消置顶',
     updated: '更新',
     content: '内容',
     publish: '发布',
@@ -410,11 +419,14 @@ const enMessages = {
     password: 'Password',
     locale: 'Language',
     colorMode: 'Color mode',
+    system: 'System',
     light: 'Light',
     dark: 'Dark'
   },
   profile: {
     title: 'Profile',
+    basic: 'Profile',
+    security: 'Security',
     introduction: 'Bio',
     introductionPlaceholder: 'Tell others about yourself',
     noIntroduction: 'No bio yet',
@@ -426,7 +438,7 @@ const enMessages = {
     saved: 'Saved',
     changeEmail: 'Change email',
     signInRequired: 'Sign in to view and edit your profile.',
-    emailUnavailable: 'Email service is not configured, so email changes are unavailable.'
+    passwordRequired: 'Current password is required to change password.'
   },
   mdEditor: {
     write: 'Write',
@@ -462,7 +474,8 @@ const enMessages = {
     title: 'Title',
     tags: 'Tags',
     solved: 'Solved',
-    refresh: 'Refresh'
+    refresh: 'Refresh',
+    all: 'All'
   },
   problems: {
     title: 'Problems',
@@ -530,7 +543,11 @@ const enMessages = {
     lastSubmission: 'Last submission',
     fallback: 'Assigned problem set.',
     unavailable: 'Problem unavailable',
-    duePrefix: 'Due'
+    duePrefix: 'Due',
+    done: 'Done',
+    ended: 'Ended',
+    dueSoon: 'Due soon',
+    open: 'Open'
   },
   contests: {
     title: 'Contests',
@@ -571,6 +588,7 @@ const enMessages = {
     topic: 'Topic',
     author: 'Author',
     pinned: 'Pinned',
+    unpin: 'Unpin',
     updated: 'Updated',
     content: 'Content',
     publish: 'Publish',

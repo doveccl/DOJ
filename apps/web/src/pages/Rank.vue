@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { NAvatar, NSpace } from 'naive-ui'
+import { NAvatar } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { apiFetch, DEFAULT_PAGE_SIZE, getItems, PAGE_SIZE_OPTIONS, type Paged } from '../api'
 
 interface RankRow {
   rank: number
-  user: { id: number; name: string; avatarUrl: string }
+  user: { id: number; name: string; introduction: string; avatarUrl: string }
   solved: number
   submissions: number
   acAt: string | null
@@ -31,10 +31,14 @@ const columns = computed<DataTableColumns<RankRow>>(() => [
   {
     title: t('common.user'),
     key: 'user',
+    minWidth: 260,
     render(row) {
-      return h(NSpace, { align: 'center', size: 8 }, () => [
+      return h('div', { class: 'rank-user' }, [
         h(NAvatar, { size: 28, src: row.user.avatarUrl, round: true }),
-        h('span', row.user.name)
+        h('div', { class: 'rank-user-text' }, [
+          h('span', { class: 'rank-user-name' }, row.user.name),
+          h('span', { class: 'rank-user-intro' }, row.user.introduction || t('profile.noIntroduction'))
+        ])
       ])
     }
   },
@@ -93,3 +97,36 @@ async function load() {
     />
   </main>
 </template>
+
+<style scoped lang="scss">
+.rank-user {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  min-width: 0;
+}
+
+.rank-user-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rank-user-name,
+.rank-user-intro {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rank-user-name {
+  font-weight: 600;
+}
+
+.rank-user-intro {
+  color: var(--muted-color);
+  font-size: 12px;
+}
+</style>

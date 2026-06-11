@@ -39,7 +39,7 @@ app.notFound((c) => apiError(c, 404, 'NOT_FOUND', 'Resource not found'))
 app.get('/health', (c) =>
   c.json({
     ok: true,
-    service: 'doj-api'
+    service: 'doj-server'
   })
 )
 
@@ -71,10 +71,10 @@ const apiServer = Bun.serve<ApiSocketData>({
   port: config.port,
   fetch(request, server) {
     const url = new URL(request.url)
-    if (url.pathname === '/api/agents/connect') {
+    if (url.pathname === '/server/agents/connect') {
       return handleAgentUpgrade(request, server as unknown as Bun.Server<AgentSocketData>) ?? new Response(null, { status: 101 })
     }
-    if (url.pathname === '/api/ws') {
+    if (url.pathname === '/server/ws') {
       return handleBrowserUpgrade(request, server as unknown as Bun.Server<BrowserSocketData>) ?? new Response(null, { status: 101 })
     }
     return app.fetch(request)
@@ -104,6 +104,6 @@ const apiServer = Bun.serve<ApiSocketData>({
   }
 })
 
-console.log(`DOJ API listening on http://localhost:${apiServer.port}`)
+console.log(`DOJ Server listening on http://localhost:${apiServer.port}`)
 startJudgeScheduler()
 startStatsRepairCron()

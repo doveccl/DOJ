@@ -1,1 +1,1 @@
-import './docsSmoke'
+import './smokeContext'

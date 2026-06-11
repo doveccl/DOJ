@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "dev": "bun run --parallel 'dev:*'",
-    "dev:api": "bun run --cwd apps/api dev",
+    "dev:server": "bun run --cwd apps/server dev",
     "dev:agent": "bun run --cwd apps/agent dev",
     "dev:web": "bun run --cwd apps/web dev",
     "check": "bun run scripts/check.ts",
@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@mdit/plugin-tasklist": "^0.23.2",
+    "@vicons/ionicons5": "^0.13.0",
     "@vscode/markdown-it-katex": "^1.1.2",
     "dockerode": "^5.0.0",
     "drizzle-orm": "^0.45.2",

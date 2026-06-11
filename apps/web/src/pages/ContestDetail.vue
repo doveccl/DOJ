@@ -73,7 +73,6 @@ interface SubmissionRow {
 }
 
 const route = useRoute()
-const router = useRouter()
 const auth = useAuthStore()
 const loading = ref(true)
 const scoreboardLoading = ref(false)
@@ -322,7 +321,7 @@ async function toggleDeleted() {
       <template v-if="detail">
         <section class="page-header">
           <h1>{{ detail.contest.title }}</h1>
-          <p>{{ detail.contest.description || t('contests.fallback') }}</p>
+          <p v-if="detail.contest.description">{{ detail.contest.description }}</p>
         </section>
 
         <n-card :bordered="false" class="stacked-card">
@@ -339,9 +338,6 @@ async function toggleDeleted() {
               {{ t('contests.freezes') }} {{ new Date(detail.contest.freezeAt).toLocaleString() }}
             </n-tag>
             <n-space v-if="canManage" size="small">
-              <n-button size="small" secondary @click="router.push('/contests')">
-                {{ t('admin.edit') }}
-              </n-button>
               <n-popconfirm @positive-click="toggleDeleted">
                 <template #trigger>
                   <n-button size="small" tertiary :type="detail.contest.deletedAt ? 'success' : 'error'">

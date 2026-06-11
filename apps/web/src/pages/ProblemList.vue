@@ -1,6 +1,16 @@
 <script setup lang="ts">
-import { NButton, NSpace, NSwitch, NTag } from 'naive-ui'
+import { NButton, NIcon, NSpace, NTag, NTooltip } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
+import type { Component } from 'vue'
+import {
+  AddOutline,
+  CloseOutline,
+  EyeOffOutline,
+  EyeOutline,
+  SearchOutline,
+  TrashOutline,
+  RefreshOutline
+} from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
 import { apiFetch, DEFAULT_PAGE_SIZE, getItems, PAGE_SIZE_OPTIONS, type Paged } from '../api'
 import { useAuthStore } from '../stores/auth'
@@ -44,29 +54,27 @@ const pagination = reactive({
 })
 
 const columns = computed<DataTableColumns<ProblemRow>>(() => [
-  {
-    title: t('problems.status'),
-    key: 'status',
-    width: 72,
-    align: 'center',
-    render(row) {
-      return h(
-        'span',
-        {
-          class: ['solved-icon', { solved: row.solved }],
-          'aria-label': row.solved ? t('problems.solved') : t('problems.unsolved')
-        },
-        row.solved ? '✓' : ''
-      )
-    }
-  },
   { title: t('common.id'), key: 'id', width: 96 },
   {
     title: t('common.title'),
     key: 'title',
     minWidth: 240,
     render(row) {
-      return h(RouterLink, { to: `/problems/${row.id}`, class: 'table-link' }, () => row.title)
+      return h('div', { class: 'problem-title-cell' }, [
+        h(RouterLink, { to: `/problems/${row.id}`, class: 'table-link problem-title-link' }, () => row.title),
+        h(NSpace, { size: 6, align: 'center', wrap: false, class: 'problem-badges' }, () => [
+          row.solved
+            ? h(NTag, { bordered: false, size: 'small', type: 'success' }, () => t('problems.solved'))
+            : null,
+          !row.visible
+            ? h(NTag, { bordered: false, size: 'small', type: 'warning' }, () => t('admin.disabled'))
+            : null,
+          row.deletedAt
+            ? h(NTag, { bordered: false, size: 'small', type: 'error' }, () => t('admin.problems.deleted'))
+            : null,
+          h('span', { class: 'muted problem-rate' }, `${t('problems.passRate')} ${((row.passRate ?? 0) * 100).toFixed(0)}%`)
+        ])
+      ])
     }
   },
   {
@@ -80,52 +88,26 @@ const columns = computed<DataTableColumns<ProblemRow>>(() => [
       )
     }
   },
-  {
-    title: t('problems.passRate'),
-    key: 'passRate',
-    width: 110,
-    render(row) {
-      return `${((row.passRate ?? 0) * 100).toFixed(1)}%`
-    }
-  },
   ...(canManage.value
     ? [
         {
-          title: t('admin.problems.visible'),
-          key: 'visible',
-          width: 120,
-          render(row: ProblemRow) {
-            return h(NSwitch, {
-              value: row.visible,
-              disabled: !!row.deletedAt,
-              onUpdateValue: (visible: boolean) => toggleVisible(row, visible)
-            })
-          }
-        },
-        {
           title: t('admin.actions'),
           key: 'actions',
-          width: 180,
+          width: 120,
+          align: 'right' as const,
           render(row: ProblemRow) {
             return h(NSpace, { size: 8 }, () => [
-              h(
-                NButton,
-                {
-                  size: 'small',
-                  secondary: true,
-                  onClick: () => router.push(`/problems/${row.id}`)
-                },
-                () => t('admin.edit')
+              tooltipIconButton(
+                row.visible ? EyeOutline : EyeOffOutline,
+                row.visible ? t('admin.enabled') : t('admin.disabled'),
+                () => toggleVisible(row, !row.visible),
+                { disabled: !!row.deletedAt }
               ),
-              h(
-                NButton,
-                {
-                  size: 'small',
-                  tertiary: true,
-                  type: row.deletedAt ? 'success' : 'error',
-                  onClick: () => toggleDeleted(row)
-                },
-                () => (row.deletedAt ? t('admin.restore') : t('admin.delete'))
+              tooltipIconButton(
+                row.deletedAt ? RefreshOutline : TrashOutline,
+                row.deletedAt ? t('admin.restore') : t('admin.delete'),
+                () => toggleDeleted(row),
+                { type: row.deletedAt ? 'success' : 'error' }
               )
             ])
           }
@@ -238,6 +220,38 @@ function clearFilters() {
   applyFilters()
 }
 
+function renderIcon(icon: Component) {
+  return h(NIcon, { component: icon })
+}
+
+function tooltipIconButton(
+  icon: Component,
+  label: string,
+  onClick: () => void,
+  options: { type?: 'success' | 'error'; disabled?: boolean } = {}
+) {
+  return h(
+    NTooltip,
+    { trigger: 'hover' },
+    {
+      trigger: () =>
+        h(
+          NButton,
+          {
+            size: 'small',
+            quaternary: true,
+            circle: true,
+            type: options.type,
+            disabled: options.disabled,
+            onClick
+          },
+          { icon: () => renderIcon(icon) }
+        ),
+      default: () => label
+    }
+  )
+}
+
 onMounted(() => {
   void loadProblems()
   void loadTags()
@@ -269,9 +283,22 @@ onMounted(() => {
           />
         </div>
         <div class="toolbar-actions">
-          <n-button secondary @click="clearFilters">{{ t('problems.clear') }}</n-button>
-          <n-button type="primary" @click="applyFilters">{{ t('problems.searchAction') }}</n-button>
+          <n-button secondary @click="clearFilters">
+            <template #icon>
+              <n-icon :component="CloseOutline" />
+            </template>
+            {{ t('problems.clear') }}
+          </n-button>
+          <n-button type="primary" @click="applyFilters">
+            <template #icon>
+              <n-icon :component="SearchOutline" />
+            </template>
+            {{ t('problems.searchAction') }}
+          </n-button>
           <n-button v-if="canManage" type="primary" secondary @click="showCreateModal = true">
+            <template #icon>
+              <n-icon :component="AddOutline" />
+            </template>
             {{ t('admin.problems.create') }}
           </n-button>
         </div>
@@ -284,7 +311,7 @@ onMounted(() => {
         :bordered="false"
         :loading="loading"
         :pagination="pagination"
-        :scroll-x="canManage ? 920 : 680"
+        :scroll-x="canManage ? 820 : 640"
         @update:page="handlePageChange"
         @update:page-size="handlePageSizeChange"
       >
@@ -344,6 +371,61 @@ onMounted(() => {
     </n-modal>
   </main>
 </template>
+
+<style scoped lang="scss">
+.problem-toolbar {
+  align-items: stretch;
+}
+
+.problem-toolbar .toolbar-fields {
+  flex: 1 1 420px;
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) minmax(180px, 0.8fr);
+}
+
+.problem-toolbar .toolbar-actions {
+  flex: 0 0 auto;
+}
+
+.problem-search,
+.tag-filter {
+  width: 100%;
+}
+
+.problem-title-cell {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.problem-title-link {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.problem-badges {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.problem-rate {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .problem-toolbar .toolbar-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .problem-toolbar .toolbar-actions {
+    width: 100%;
+  }
+}
+</style>
 
 <style scoped>
 .problem-search {

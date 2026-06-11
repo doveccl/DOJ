@@ -1,12 +1,12 @@
-# API AI 规则
+# Server AI 规则
 
 ## 范围
 
-本文件约束 `apps/api/`。这里是合并 server：HTTP API、评测调度、浏览器 WebSocket、Agent WebSocket 都属于同一服务进程职责。
+本文件约束 `apps/server/`。这里是合并 server：HTTP API、评测调度、浏览器 WebSocket、Agent WebSocket 都属于同一服务进程职责。
 
 ## 总体原则
 
-- API 返回 shape 要稳定、简洁、领域化。
+- HTTP API 返回 shape 要稳定、简洁、领域化。
 - 服务端裁剪敏感字段；前端隐藏不是安全边界。
 - 管理权限统一使用 `users.admin`。
 - 输入校验使用 Zod；错误响应使用统一 `{ error: { code, message, issues? } }`。

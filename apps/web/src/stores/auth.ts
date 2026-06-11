@@ -39,7 +39,7 @@ export const useAuthStore = defineStore('auth', () => {
     setSession(result.token, result.user)
   }
 
-  async function requestEmailCode(input: { purpose: 'register' | 'change-email'; email: string }) {
+  async function requestEmailCode(input: { purpose: 'register'; email: string }) {
     await apiFetch('/api/auth/email-code', {
       method: 'POST',
       body: JSON.stringify(input)
@@ -84,7 +84,7 @@ export const useAuthStore = defineStore('auth', () => {
     })
   }
 
-  async function updateEmail(input: { email: string; code: string }) {
+  async function updateEmail(input: { email: string }) {
     user.value = await apiFetch<AuthUser>('/api/auth/email', {
       method: 'PATCH',
       body: JSON.stringify(input)

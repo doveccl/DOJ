@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NButton, NPopconfirm, NSpace, NTag } from 'naive-ui'
+import { NButton, NPopconfirm, NProgress, NSpace, NTag } from 'naive-ui'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { apiFetch, DEFAULT_PAGE_SIZE, getItems, PAGE_SIZE_OPTIONS, type Paged } from '../api'
@@ -78,11 +78,13 @@ const columns = computed<DataTableColumns<AssignmentRow>>(() => [
     key: 'title',
     minWidth: 220,
     render(row) {
-      return h(NSpace, { size: 8, align: 'center' }, () => [
-        h(RouterLink, { to: `/assignments/${row.id}`, class: 'table-link' }, () => row.title),
-        row.deletedAt
-          ? h(NTag, { bordered: false, type: 'error', size: 'small' }, () => t('admin.assignments.deleted'))
-          : null
+      const state = assignmentState(row)
+      return h('div', { class: 'assignment-title-cell' }, [
+        h('div', { class: 'assignment-title-row' }, [
+          h(RouterLink, { to: `/assignments/${row.id}`, class: 'table-link assignment-title' }, () => row.title),
+          h(NTag, { bordered: false, type: state.type, size: 'small' }, () => state.label)
+        ]),
+        h('span', { class: 'muted assignment-time-left' }, timeLeft(row))
       ])
     }
   },
@@ -91,15 +93,26 @@ const columns = computed<DataTableColumns<AssignmentRow>>(() => [
     key: 'endAt',
     width: 210,
     render(row) {
-      return new Date(row.endAt).toLocaleString()
+      return h('div', { class: 'compact-stack' }, [
+        h('span', new Date(row.endAt).toLocaleString()),
+        h('span', { class: 'muted' }, timeLeft(row))
+      ])
     }
   },
   {
     title: t('assignments.progress'),
     key: 'progress',
-    width: 160,
+    width: 190,
     render(row) {
-      return `${row.completed}/${row.total}`
+      return h('div', { class: 'assignment-progress' }, [
+        h(NProgress, {
+          type: 'line',
+          percentage: assignmentProgressPercent(row),
+          showIndicator: false,
+          status: row.total > 0 && row.completed >= row.total ? 'success' : 'default'
+        }),
+        h('span', { class: 'muted' }, `${row.completed}/${row.total}`)
+      ])
     }
   },
   ...(canManage.value
@@ -300,6 +313,29 @@ onMounted(() => {
     loading.value = false
   }
 })
+
+function assignmentProgressPercent(row: AssignmentRow) {
+  if (!row.total) return 0
+  return Math.round((row.completed / row.total) * 100)
+}
+
+function assignmentState(row: AssignmentRow) {
+  if (row.deletedAt) return { label: t('admin.assignments.deleted'), type: 'error' as const }
+  if (row.total > 0 && row.completed >= row.total) return { label: t('assignments.done'), type: 'success' as const }
+  const end = new Date(row.endAt).getTime()
+  const now = Date.now()
+  if (end <= now) return { label: t('assignments.ended'), type: 'default' as const }
+  if (end - now <= 24 * 60 * 60 * 1000) return { label: t('assignments.dueSoon'), type: 'warning' as const }
+  return { label: t('assignments.open'), type: 'info' as const }
+}
+
+function timeLeft(row: AssignmentRow) {
+  const diff = new Date(row.endAt).getTime() - Date.now()
+  if (diff <= 0) return t('assignments.ended')
+  const hours = Math.ceil(diff / (60 * 60 * 1000))
+  if (hours < 24) return `${hours}h`
+  return `${Math.ceil(hours / 24)}d`
+}
 </script>
 
 <template>
@@ -399,3 +435,34 @@ onMounted(() => {
     </n-modal>
   </main>
 </template>
+
+<style scoped lang="scss">
+.assignment-title-cell {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.assignment-title-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.assignment-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assignment-time-left {
+  font-size: 12px;
+}
+
+.assignment-progress {
+  display: grid;
+  gap: 4px;
+}
+</style>

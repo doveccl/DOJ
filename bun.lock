@@ -6,6 +6,7 @@
       "name": "doj",
       "dependencies": {
         "@mdit/plugin-tasklist": "^0.23.2",
+        "@vicons/ionicons5": "^0.13.0",
         "@vscode/markdown-it-katex": "^1.1.2",
         "dockerode": "^5.0.0",
         "drizzle-orm": "^0.45.2",
@@ -51,8 +52,8 @@
         "@doj/shared": "workspace:*",
       },
     },
-    "apps/api": {
-      "name": "@doj/api",
+    "apps/server": {
+      "name": "@doj/server",
       "dependencies": {
         "@doj/db": "workspace:*",
         "@doj/shared": "workspace:*",
@@ -153,9 +154,9 @@
 
     "@doj/agent": ["@doj/agent@workspace:apps/agent"],
 
-    "@doj/api": ["@doj/api@workspace:apps/api"],
-
     "@doj/db": ["@doj/db@workspace:packages/db"],
+
+    "@doj/server": ["@doj/server@workspace:apps/server"],
 
     "@doj/shared": ["@doj/shared@workspace:packages/shared"],
 
@@ -458,6 +459,8 @@
     "@vavt/copy2clipboard": ["@vavt/copy2clipboard@1.0.3", "https://registry.npmmirror.com/@vavt/copy2clipboard/-/copy2clipboard-1.0.3.tgz", {}, "sha512-HtG48r2FBYp9eRvGB3QGmtRBH1zzRRAVvFbGgFstOwz4/DDaNiX0uZc3YVKPydqgOav26pibr9MtoCaWxn7aeA=="],
 
     "@vavt/util": ["@vavt/util@2.1.2", "https://registry.npmmirror.com/@vavt/util/-/util-2.1.2.tgz", {}, "sha512-L3UbSJthJwr3wq0x93O5TrCepimrmVZaIl2ciZbeL18G5++gBhJXNhcH7RcVk/6rr3SavWOvwhig0mqRLoR7dw=="],
+
+    "@vicons/ionicons5": ["@vicons/ionicons5@0.13.0", "https://registry.npmmirror.com/@vicons/ionicons5/-/ionicons5-0.13.0.tgz", {}, "sha512-zvZKBPjEXKN7AXNo2Na2uy+nvuv6SP4KAMQxpKL2vfHMj0fSvuw7JZcOPCjQC3e7ayssKnaoFVAhbYcW6v41qQ=="],
 
     "@vitejs/plugin-vue": ["@vitejs/plugin-vue@6.0.7", "https://registry.npmmirror.com/@vitejs/plugin-vue/-/plugin-vue-6.0.7.tgz", { "dependencies": { "@rolldown/pluginutils": "^1.0.1" }, "peerDependencies": { "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0", "vue": "^3.2.25" } }, "sha512-km+p+XdSz9Sxm5rqUbqcSfZYaAniKxWBj1KURl+Jr7UaPvvX7BmaWMdP69I5rrFDeQGyxAG7NXdc57vz+snhWg=="],
 

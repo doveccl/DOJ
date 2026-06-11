@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { apiFetch, type PublicConfig } from '../api'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
@@ -8,13 +7,12 @@ const { t } = useI18n()
 const saving = ref(false)
 const saved = ref(false)
 const error = ref('')
-const smtpConfigured = ref(true)
+const activeTab = ref<'basic' | 'security'>('basic')
 const form = reactive({
   introduction: auth.user?.introduction ?? '',
   currentPassword: '',
   password: '',
-  email: auth.user?.email ?? '',
-  emailCode: ''
+  email: auth.user?.email ?? ''
 })
 
 watch(
@@ -25,14 +23,33 @@ watch(
   }
 )
 
-async function save() {
+async function saveBasic() {
   if (!auth.signedIn) return
   saving.value = true
   saved.value = false
   error.value = ''
   try {
     await auth.updateProfile({
-      introduction: form.introduction,
+      introduction: form.introduction
+    })
+    if (form.email && form.email !== auth.user?.email) {
+      await auth.updateEmail({ email: form.email })
+    }
+    saved.value = true
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function savePassword() {
+  if (!auth.signedIn) return
+  saving.value = true
+  saved.value = false
+  error.value = ''
+  try {
+    await auth.updateProfile({
       currentPassword: form.currentPassword || undefined,
       password: form.password || undefined
     })
@@ -46,41 +63,6 @@ async function save() {
   }
 }
 
-async function sendEmailCode() {
-  if (!auth.signedIn || !form.email || !smtpConfigured.value) return
-  error.value = ''
-  try {
-    await auth.requestEmailCode({ purpose: 'change-email', email: form.email })
-    saved.value = true
-  } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
-  }
-}
-
-async function saveEmail() {
-  if (!auth.signedIn || !form.email || !form.emailCode) return
-  saving.value = true
-  saved.value = false
-  error.value = ''
-  try {
-    await auth.updateEmail({ email: form.email, code: form.emailCode })
-    form.emailCode = ''
-    saved.value = true
-  } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
-  } finally {
-    saving.value = false
-  }
-}
-
-onMounted(async () => {
-  try {
-    const config = await apiFetch<PublicConfig>('/api/config')
-    smtpConfigured.value = config.smtpConfigured
-  } catch {
-    smtpConfigured.value = false
-  }
-})
 </script>
 
 <template>
@@ -105,70 +87,61 @@ onMounted(async () => {
         </div>
       </section>
 
-      <n-form :model="form" label-placement="top">
-        <n-form-item :label="t('app.userName')">
-          <n-input :value="auth.user?.name" disabled />
-        </n-form-item>
-        <n-form-item :label="t('app.email')">
-          <n-input v-model:value="form.email" autocomplete="email" />
-        </n-form-item>
-        <n-form-item :label="t('app.emailCode')">
-          <n-input v-model:value="form.emailCode">
-            <template #suffix>
-              <n-button
-                text
-                size="small"
-                :disabled="!smtpConfigured || !form.email"
-                @click="sendEmailCode"
-              >
-                {{ t('app.sendCode') }}
+      <n-tabs v-model:value="activeTab" type="line" animated>
+        <n-tab-pane name="basic" :tab="t('profile.basic')">
+          <n-form :model="form" label-placement="top">
+            <n-form-item :label="t('app.userName')">
+              <n-input :value="auth.user?.name" disabled />
+            </n-form-item>
+            <n-form-item :label="t('app.email')">
+              <n-input v-model:value="form.email" autocomplete="email" />
+            </n-form-item>
+            <n-form-item :label="t('profile.introduction')">
+              <n-input
+                v-model:value="form.introduction"
+                type="textarea"
+                :autosize="{ minRows: 2, maxRows: 4 }"
+                :maxlength="160"
+                show-count
+                :placeholder="t('profile.introductionPlaceholder')"
+              />
+            </n-form-item>
+            <n-space justify="end">
+              <n-button type="primary" :loading="saving" @click="saveBasic">
+                {{ t('profile.save') }}
               </n-button>
-            </template>
-          </n-input>
-          <template v-if="!smtpConfigured" #feedback>
-            {{ t('profile.emailUnavailable') }}
-          </template>
-        </n-form-item>
-        <n-form-item :label="t('profile.introduction')">
-          <n-input
-            v-model:value="form.introduction"
-            type="textarea"
-            :autosize="{ minRows: 2, maxRows: 4 }"
-            :maxlength="500"
-            show-count
-            :placeholder="t('profile.introductionPlaceholder')"
-          />
-        </n-form-item>
-        <n-form-item :label="t('profile.currentPassword')">
-          <n-input
-            v-model:value="form.currentPassword"
-            type="password"
-            autocomplete="current-password"
-            :placeholder="t('profile.currentPasswordPlaceholder')"
-          />
-        </n-form-item>
-        <n-form-item :label="t('profile.newPassword')">
-          <n-input
-            v-model:value="form.password"
-            type="password"
-            autocomplete="new-password"
-            :placeholder="t('profile.newPasswordPlaceholder')"
-          />
-        </n-form-item>
-        <n-space justify="end">
-          <n-button
-            secondary
-            :disabled="!smtpConfigured || !form.email || !form.emailCode"
-            :loading="saving"
-            @click="saveEmail"
-          >
-            {{ t('profile.changeEmail') }}
-          </n-button>
-          <n-button type="primary" :loading="saving" @click="save">
-            {{ t('profile.save') }}
-          </n-button>
-        </n-space>
-      </n-form>
+            </n-space>
+          </n-form>
+        </n-tab-pane>
+        <n-tab-pane name="security" :tab="t('profile.security')">
+          <n-alert type="info" :show-icon="false" class="card-alert">
+            {{ t('profile.passwordRequired') }}
+          </n-alert>
+          <n-form :model="form" label-placement="top">
+            <n-form-item :label="t('profile.currentPassword')">
+              <n-input
+                v-model:value="form.currentPassword"
+                type="password"
+                autocomplete="current-password"
+                :placeholder="t('profile.currentPasswordPlaceholder')"
+              />
+            </n-form-item>
+            <n-form-item :label="t('profile.newPassword')">
+              <n-input
+                v-model:value="form.password"
+                type="password"
+                autocomplete="new-password"
+                :placeholder="t('profile.newPasswordPlaceholder')"
+              />
+            </n-form-item>
+            <n-space justify="end">
+              <n-button type="primary" :loading="saving" @click="savePassword">
+                {{ t('profile.save') }}
+              </n-button>
+            </n-space>
+          </n-form>
+        </n-tab-pane>
+      </n-tabs>
     </n-card>
   </main>
 </template>
@@ -177,7 +150,7 @@ onMounted(async () => {
 .profile-summary {
   display: flex;
   gap: 18px;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 24px;
 
   h1 {
@@ -187,6 +160,12 @@ onMounted(async () => {
 
   p {
     margin: 4px 0 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .profile-summary {
+    align-items: center;
   }
 }
 </style>

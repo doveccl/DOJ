@@ -8,6 +8,7 @@ const props = defineProps<{
   problemId?: number | null
   uploadEnabled?: boolean
   placeholder?: string
+  previewOnly?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -50,6 +51,11 @@ async function uploadImages(files: File[], callback: (urls: string[]) => void) {
     <md-editor
       :model-value="modelValue"
       :placeholder="placeholder"
+      :preview="false"
+      :preview-only="previewOnly"
+      :html-preview="false"
+      :footers="[]"
+      input-box-width="100%"
       :no-upload-img="!canUpload"
       language="zh-CN"
       preview-theme="github"
@@ -67,6 +73,17 @@ async function uploadImages(files: File[], callback: (urls: string[]) => void) {
   :deep(.md-editor) {
     border-color: var(--border-color);
     border-radius: var(--radius-md);
+    background: var(--surface-bg);
+  }
+
+  :deep(.md-editor-toolbar-wrapper) {
+    border-bottom-color: var(--border-color);
+  }
+
+  :deep(.md-editor-input-wrapper),
+  :deep(.cm-editor),
+  :deep(.cm-scroller) {
+    background: var(--surface-bg);
   }
 }
 </style>

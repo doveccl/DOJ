@@ -1,5 +1,5 @@
 import { closeDb } from '../packages/db/src/client'
-import { redisSetJson } from '../apps/api/src/redis'
+import { redisSetJson } from '../apps/server/src/redis'
 import { ensureJudgeServices, stopSpawnedJudgeServices, waitForJudgement } from './judge-services'
 import tar from 'tar-stream'
 
@@ -29,7 +29,7 @@ type Auth = { token: string; user: { id: number; name: string; email: string; mu
 type Problem = { id: number; statement: string }
 
 const name = (Bun.argv[2] as SmokeName | undefined) ?? inferSmokeName(Bun.argv[1])
-if (!name) throw new Error('missing docs smoke name')
+if (!name) throw new Error('missing smoke name')
 
 try {
   await run(name)
@@ -70,13 +70,12 @@ async function authSmoke() {
   await enableSignup(admin.token)
   const user = await registerUser('auth')
   const nextEmail = `auth_next_${shortId()}@example.test`
-  await setEmailCode('change-email', nextEmail, '654321', user.user.id)
   const changed = await api<{ email: string }>('/api/auth/email', {
     token: user.token,
     method: 'PATCH',
-    body: { email: nextEmail, code: '654321' }
+    body: { email: nextEmail }
   })
-  if (changed.email !== nextEmail) throw new Error(`change-email failed: ${JSON.stringify(changed)}`)
+  if (changed.email !== nextEmail) throw new Error(`email update failed: ${JSON.stringify(changed)}`)
   await resetSmokeSettings(admin.token)
   console.log({ smoke: 'auth', admin: admin.user.name, user: user.user.id })
 }
@@ -488,7 +487,7 @@ async function expectStatus(path: string, status: number, options: { method?: st
   if (response.status !== status) throw new Error(`${path} expected ${status}, got ${response.status}`)
 }
 
-async function setEmailCode(purpose: 'register' | 'change-email', email: string, code: string, userId: number | null) {
+async function setEmailCode(purpose: 'register', email: string, code: string, userId: number | null) {
   await redisSetJson(
     `emailCode:${purpose}:${email.toLowerCase()}`,
     { code, userId, newEmail: email.toLowerCase(), createdAt: new Date().toISOString() },
