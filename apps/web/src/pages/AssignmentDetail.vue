@@ -170,10 +170,7 @@ async function toggleDeleted() {
   const id = assignment.value.id
   if (!id) return
   try {
-    await apiFetch(
-      assignment.value.deletedAt ? `/api/admin/assignments/${id}/restore` : `/api/admin/assignments/${id}`,
-      { method: assignment.value.deletedAt ? 'POST' : 'DELETE' }
-    )
+    await apiFetch(`/api/admin/assignments/${id}`, { method: 'DELETE' })
     await loadDetail()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
@@ -227,13 +224,13 @@ onMounted(() => {
               <n-button size="small" secondary :loading="reportLoading" @click="loadReport">
                 {{ t('admin.assignments.report') }}
               </n-button>
-              <n-popconfirm @positive-click="toggleDeleted">
+              <n-popconfirm v-if="!assignment.deletedAt" @positive-click="toggleDeleted">
                 <template #trigger>
-                  <n-button size="small" tertiary :type="assignment.deletedAt ? 'success' : 'error'">
-                    {{ assignment.deletedAt ? t('admin.restore') : t('admin.delete') }}
+                  <n-button size="small" tertiary type="error">
+                    {{ t('admin.delete') }}
                   </n-button>
                 </template>
-                {{ assignment.deletedAt ? t('admin.assignments.restoreConfirm') : t('admin.assignments.deleteConfirm') }}
+                {{ t('admin.assignments.deleteConfirm') }}
               </n-popconfirm>
             </n-space>
           </div>

@@ -26,9 +26,8 @@ export function registerContestRoutes(app: Hono) {
     const denied = await denyGuestAccess(c, 'Sign in to view contests')
     if (denied) return denied
 
-    const authUser = await getOptionalAuthUser(c)
     const { page, pageSize, status } = contestListQuerySchema.parse(c.req.query())
-    const where = contestStatusWhere(status, authUser?.admin === true)
+    const where = contestStatusWhere(status, false)
     const total = await countRows(schema.contests, where)
     const items = await db
       .select()
@@ -175,20 +174,6 @@ export function registerContestRoutes(app: Hono) {
     return c.json({ ok: true })
   })
 
-  app.post('/api/admin/contests/:id/restore', authMiddleware, async (c) => {
-    const denied = await requireGroup(c, 'admin')
-    if (denied) return denied
-
-    const id = numericId.parse(c.req.param('id'))
-    const [updated] = await db
-      .update(schema.contests)
-      .set({ deletedAt: null, updatedAt: new Date() })
-      .where(eq(schema.contests.id, id))
-      .returning()
-    if (!updated) return notFound(c)
-    return c.json(await getContestDetail(id))
-  })
-
   app.get('/api/contests/:id', async (c) => {
     const denied = await denyGuestAccess(c, 'Sign in to view contests')
     if (denied) return denied
@@ -196,8 +181,7 @@ export function registerContestRoutes(app: Hono) {
     const authUser = await getOptionalAuthUser(c)
     const isAdmin = authUser?.admin === true
     const contest = await getContestDetail(numericId.parse(c.req.param('id')), { publicView: !isAdmin })
-    if (!contest) return notFound(c)
-    if (!isAdmin && contest.contest.deletedAt) return notFound(c)
+    if (!contest || contest.contest.deletedAt) return notFound(c)
     if (!isAdmin && Date.now() < contest.contest.startAt.getTime()) {
       return c.json({ ...contest, problems: [] })
     }

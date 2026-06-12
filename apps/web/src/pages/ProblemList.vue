@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NButton, NIcon, NSpace, NTag, NTooltip } from 'naive-ui'
+import { NButton, NEllipsis, NIcon, NPopconfirm, NSpace, NTag, NTooltip } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import type { Component } from 'vue'
 import {
@@ -8,8 +8,7 @@ import {
   EyeOffOutline,
   EyeOutline,
   SearchOutline,
-  TrashOutline,
-  RefreshOutline
+  TrashOutline
 } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
 import { apiFetch, DEFAULT_PAGE_SIZE, getItems, PAGE_SIZE_OPTIONS, type Paged } from '../api'
@@ -19,8 +18,12 @@ interface ProblemRow {
   id: number
   title: string
   tags: string[]
+  solvedCount: number
+  attemptedCount: number
+  submissionCount: number
   passRate: number
   solved: boolean
+  submitted: boolean
   visible: boolean
   deletedAt: string | null
 }
@@ -58,23 +61,13 @@ const columns = computed<DataTableColumns<ProblemRow>>(() => [
   {
     title: t('common.title'),
     key: 'title',
-    minWidth: 240,
+    minWidth: 300,
     render(row) {
-      return h('div', { class: 'problem-title-cell' }, [
-        h(RouterLink, { to: `/problems/${row.id}`, class: 'table-link problem-title-link' }, () => row.title),
-        h(NSpace, { size: 6, align: 'center', wrap: false, class: 'problem-badges' }, () => [
-          row.solved
-            ? h(NTag, { bordered: false, size: 'small', type: 'success' }, () => t('problems.solved'))
-            : null,
-          !row.visible
-            ? h(NTag, { bordered: false, size: 'small', type: 'warning' }, () => t('admin.disabled'))
-            : null,
-          row.deletedAt
-            ? h(NTag, { bordered: false, size: 'small', type: 'error' }, () => t('admin.problems.deleted'))
-            : null,
-          h('span', { class: 'muted problem-rate' }, `${t('problems.passRate')} ${((row.passRate ?? 0) * 100).toFixed(0)}%`)
-        ])
-      ])
+      return h(
+        NEllipsis,
+        { class: 'problem-title-line', tooltip: { placement: 'top-start' } },
+        { default: () => h(RouterLink, { to: `/problems/${row.id}`, class: 'table-link problem-title-link' }, () => row.title) }
+      )
     }
   },
   {
@@ -83,8 +76,30 @@ const columns = computed<DataTableColumns<ProblemRow>>(() => [
     minWidth: 180,
     render(row) {
       if (!row.tags.length) return '-'
-      return h(NSpace, { size: 6 }, () =>
-        row.tags.map((item) => h(NTag, { key: item, bordered: false, size: 'small' }, () => item))
+      const visibleTags = row.tags.slice(0, 2)
+      return h(NSpace, { class: 'problem-tags-line', size: 6, wrap: false }, () =>
+        [
+          ...visibleTags.map((item) =>
+            h(NTag, { key: item, bordered: false, size: 'small' }, () =>
+              h(NEllipsis, { style: 'max-width: 96px' }, { default: () => item })
+            )
+          ),
+          row.tags.length > visibleTags.length
+            ? h(NTag, { key: 'more', bordered: false, size: 'small' }, () => `+${row.tags.length - visibleTags.length}`)
+            : null
+        ].filter(Boolean)
+      )
+    }
+  },
+  {
+    title: t('problems.passRate'),
+    key: 'passRate',
+    width: 180,
+    render(row) {
+      return h(
+        'span',
+        { class: 'problem-stats' },
+        `${row.solvedCount}/${row.submissionCount} (${((row.passRate ?? 0) * 100).toFixed(0)}%)`
       )
     }
   },
@@ -94,20 +109,27 @@ const columns = computed<DataTableColumns<ProblemRow>>(() => [
           title: t('admin.actions'),
           key: 'actions',
           width: 120,
-          align: 'right' as const,
           render(row: ProblemRow) {
             return h(NSpace, { size: 8 }, () => [
               tooltipIconButton(
                 row.visible ? EyeOutline : EyeOffOutline,
-                row.visible ? t('admin.enabled') : t('admin.disabled'),
+                row.visible ? t('admin.problems.hide') : t('admin.problems.show'),
                 () => toggleVisible(row, !row.visible),
-                { disabled: !!row.deletedAt }
+                { disabled: !!row.deletedAt, type: row.visible ? 'success' : undefined }
               ),
-              tooltipIconButton(
-                row.deletedAt ? RefreshOutline : TrashOutline,
-                row.deletedAt ? t('admin.restore') : t('admin.delete'),
-                () => toggleDeleted(row),
-                { type: row.deletedAt ? 'success' : 'error' }
+              h(
+                NPopconfirm,
+                { onPositiveClick: () => deleteProblem(row) },
+                {
+                  trigger: () =>
+                    tooltipIconButton(
+                      TrashOutline,
+                      t('admin.delete'),
+                      () => {},
+                      { type: 'error' }
+                    ),
+                  default: () => t('problems.deleteConfirm')
+                }
               )
             ])
           }
@@ -186,12 +208,9 @@ async function toggleVisible(row: ProblemRow, visible: boolean) {
   }
 }
 
-async function toggleDeleted(row: ProblemRow) {
+async function deleteProblem(row: ProblemRow) {
   try {
-    await apiFetch(
-      row.deletedAt ? `/api/admin/problems/${row.id}/restore` : `/api/admin/problems/${row.id}`,
-      { method: row.deletedAt ? 'POST' : 'DELETE' }
-    )
+    await apiFetch(`/api/admin/problems/${row.id}`, { method: 'DELETE' })
     await loadProblems()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
@@ -220,6 +239,15 @@ function clearFilters() {
   applyFilters()
 }
 
+function rowProps(row: ProblemRow) {
+  const progressClass = row.solved ? 'problem-row-solved' : row.submitted ? 'problem-row-attempted' : ''
+  return {
+    class: [progressClass, row.visible ? '' : 'problem-row-hidden']
+      .filter(Boolean)
+      .join(' ')
+  }
+}
+
 function renderIcon(icon: Component) {
   return h(NIcon, { component: icon })
 }
@@ -228,7 +256,7 @@ function tooltipIconButton(
   icon: Component,
   label: string,
   onClick: () => void,
-  options: { type?: 'success' | 'error'; disabled?: boolean } = {}
+  options: { type?: 'success' | 'warning' | 'error'; disabled?: boolean } = {}
 ) {
   return h(
     NTooltip,
@@ -281,14 +309,14 @@ onMounted(() => {
             :placeholder="t('problems.tag')"
             @update:value="applyFilters"
           />
-        </div>
-        <div class="toolbar-actions">
           <n-button secondary @click="clearFilters">
             <template #icon>
               <n-icon :component="CloseOutline" />
             </template>
             {{ t('problems.clear') }}
           </n-button>
+        </div>
+        <div class="toolbar-actions">
           <n-button type="primary" @click="applyFilters">
             <template #icon>
               <n-icon :component="SearchOutline" />
@@ -311,7 +339,8 @@ onMounted(() => {
         :bordered="false"
         :loading="loading"
         :pagination="pagination"
-        :scroll-x="canManage ? 820 : 640"
+        :row-props="rowProps"
+        :scroll-x="canManage ? 840 : 660"
         @update:page="handlePageChange"
         @update:page-size="handlePageSizeChange"
       >
@@ -374,17 +403,18 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .problem-toolbar {
-  align-items: stretch;
+  align-items: center;
 }
 
 .problem-toolbar .toolbar-fields {
-  flex: 1 1 420px;
+  flex: 0 1 auto;
   display: grid;
-  grid-template-columns: minmax(220px, 1.2fr) minmax(180px, 0.8fr);
+  grid-template-columns: minmax(220px, 320px) minmax(160px, 220px) auto;
 }
 
 .problem-toolbar .toolbar-actions {
   flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .problem-search,
@@ -392,28 +422,45 @@ onMounted(() => {
   width: 100%;
 }
 
-.problem-title-cell {
-  display: grid;
-  gap: 3px;
+.problem-title-line {
   min-width: 0;
+  max-width: 100%;
 }
 
 .problem-title-link {
-  display: block;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: inline;
+  min-width: 0;
 }
 
-.problem-badges {
+.problem-tags-line {
   max-width: 100%;
   overflow: hidden;
 }
 
-.problem-rate {
-  font-size: 12px;
+.problem-stats {
   white-space: nowrap;
+}
+
+:deep(.problem-row-solved td) {
+  background: rgba(16, 185, 129, 0.12);
+}
+
+:deep(.problem-row-solved:hover td) {
+  background: rgba(16, 185, 129, 0.16);
+}
+
+:deep(.problem-row-attempted td) {
+  background: rgba(245, 158, 11, 0.12);
+}
+
+:deep(.problem-row-attempted:hover td) {
+  background: rgba(245, 158, 11, 0.16);
+}
+
+:deep(.problem-row-hidden td:nth-child(1)),
+:deep(.problem-row-hidden td:nth-child(2)),
+:deep(.problem-row-hidden td:nth-child(2) .table-link) {
+  color: var(--muted-color);
 }
 
 @media (max-width: 760px) {
@@ -424,33 +471,5 @@ onMounted(() => {
   .problem-toolbar .toolbar-actions {
     width: 100%;
   }
-}
-</style>
-
-<style scoped>
-.problem-search {
-  width: min(320px, 100%);
-}
-
-.tag-filter {
-  width: min(180px, 100%);
-}
-
-.solved-icon {
-  display: inline-grid;
-  width: 18px;
-  height: 18px;
-  place-items: center;
-  color: transparent;
-  border: 1px solid var(--border-strong);
-  border-radius: 50%;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.solved-icon.solved {
-  color: #fff;
-  border-color: var(--brand);
-  background: var(--brand);
 }
 </style>

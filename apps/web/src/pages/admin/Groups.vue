@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NButton, NSpace } from 'naive-ui'
+import { NButton, NPopconfirm, NSpace } from 'naive-ui'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { apiFetch, DEFAULT_PAGE_SIZE, getItems, PAGE_SIZE_OPTIONS, type Paged } from '../../api'
@@ -75,9 +75,17 @@ const columns = computed<DataTableColumns<GroupRow>>(() => [
           () => t('admin.edit')
         ),
         h(
-          NButton,
-          { size: 'small', tertiary: true, type: 'error', onClick: () => deleteGroup(row.id) },
-          () => t('admin.delete')
+          NPopconfirm,
+          { onPositiveClick: () => deleteGroup(row.id) },
+          {
+            trigger: () =>
+              h(
+                NButton,
+                { size: 'small', tertiary: true, type: 'error' },
+                () => t('admin.delete')
+              ),
+            default: () => t('admin.groups.deleteConfirm')
+          }
         )
       ])
     }
@@ -101,9 +109,17 @@ const memberColumns = computed<DataTableColumns<MemberRow>>(() => [
     width: 100,
     render(row) {
       return h(
-        NButton,
-        { size: 'small', tertiary: true, type: 'error', onClick: () => removeMember(row.id) },
-        () => t('admin.delete')
+        NPopconfirm,
+        { onPositiveClick: () => removeMember(row.id) },
+        {
+          trigger: () =>
+            h(
+              NButton,
+              { size: 'small', tertiary: true, type: 'error' },
+              () => t('admin.delete')
+            ),
+          default: () => t('admin.groups.removeMemberConfirm')
+        }
       )
     }
   }

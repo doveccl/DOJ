@@ -406,7 +406,7 @@ async function getRedisRankingRows(userIds: string[]): Promise<RankingSourceRow[
   return rows.filter((row) => row.submissions > 0)
 }
 
-async function getUserSolvedIds(userId: number) {
+export async function getUserSolvedIds(userId: number) {
   const redisValue = await redisCommand('SMEMBERS', [`solved:user:${userId}`])
   if (Array.isArray(redisValue)) return new Set(redisValue.map(Number).filter(Number.isFinite))
   if (memoryStats.userSolved.has(userId)) return new Set(memoryStats.userSolved.get(userId)!)
@@ -414,6 +414,16 @@ async function getUserSolvedIds(userId: number) {
     .select({ problemId: schema.submissions.problemId })
     .from(schema.submissions)
     .where(and(eq(schema.submissions.userId, userId), eq(schema.submissions.status, 'AC')))
+    .groupBy(schema.submissions.problemId)
+  return new Set(rows.map((row) => row.problemId))
+}
+
+export async function getUserSubmittedProblemIds(userId: number | undefined, problemIds: number[]) {
+  if (!userId || !problemIds.length) return new Set<number>()
+  const rows = await db
+    .select({ problemId: schema.submissions.problemId })
+    .from(schema.submissions)
+    .where(and(eq(schema.submissions.userId, userId), inArray(schema.submissions.problemId, problemIds)))
     .groupBy(schema.submissions.problemId)
   return new Set(rows.map((row) => row.problemId))
 }

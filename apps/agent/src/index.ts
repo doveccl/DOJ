@@ -180,7 +180,7 @@ function buildWorkerUrl() {
 }
 
 function buildAgentWsUrl(server: string) {
-  const url = new URL('/api/agents/connect', server)
+  const url = new URL('/server/agents/connect', server)
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
   return url.toString()
 }

@@ -258,9 +258,11 @@ export async function getUserAssignments(
 }
 
 function assignmentStatusScope(status?: 'current' | 'past') {
-  if (status === 'current') return sql`${schema.assignments.endAt} > now()`
-  if (status === 'past') return sql`${schema.assignments.endAt} <= now()`
-  return undefined
+  return and(
+    isNull(schema.assignments.deletedAt),
+    status === 'current' ? sql`${schema.assignments.endAt} > now()` : undefined,
+    status === 'past' ? sql`${schema.assignments.endAt} <= now()` : undefined
+  )
 }
 
 function userAssignmentScope(userId: number, status?: 'current' | 'past') {

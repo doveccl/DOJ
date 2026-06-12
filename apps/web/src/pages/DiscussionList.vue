@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NAvatar, NButton, NIcon, NSpace, NTag, NTooltip } from 'naive-ui'
+import { NAvatar, NButton, NIcon, NPopconfirm, NSpace, NTag, NTooltip } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import type { Component } from 'vue'
 import { AddOutline, PinOutline, PinSharp, TrashOutline } from '@vicons/ionicons5'
@@ -92,7 +92,14 @@ const columns = computed<DataTableColumns<TopicRow>>(() => [
                 row.pinned ? t('discussion.unpin') : t('discussion.pinned'),
                 () => togglePinned(row)
               ),
-              tooltipIconButton(TrashOutline, t('admin.delete'), () => deleteTopic(row), { type: 'error' })
+              h(
+                NPopconfirm,
+                { onPositiveClick: () => deleteTopic(row) },
+                {
+                  trigger: () => tooltipIconButton(TrashOutline, t('admin.delete'), () => {}, { type: 'error' }),
+                  default: () => t('discussion.deleteConfirm')
+                }
+              )
             ])
           }
         }

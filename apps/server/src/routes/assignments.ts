@@ -124,7 +124,7 @@ export function registerAssignmentRoutes(app: Hono) {
     if (denied) return denied
 
     const assignment = await getAssignmentDetail(numericId.parse(c.req.param('id')))
-    if (!assignment) return notFound(c)
+    if (!assignment || assignment.assignment.deletedAt) return notFound(c)
     return c.json(assignment)
   })
 
@@ -187,26 +187,12 @@ export function registerAssignmentRoutes(app: Hono) {
     return c.json({ ok: true })
   })
 
-  app.post('/api/admin/assignments/:id/restore', authMiddleware, async (c) => {
-    const denied = await requireGroup(c, 'admin')
-    if (denied) return denied
-
-    const id = numericId.parse(c.req.param('id'))
-    const [updated] = await db
-      .update(schema.assignments)
-      .set({ deletedAt: null, updatedAt: new Date() })
-      .where(eq(schema.assignments.id, id))
-      .returning()
-    if (!updated) return notFound(c)
-    return c.json(await getAssignmentDetail(id))
-  })
-
   app.get('/api/admin/assignments/:id/report', authMiddleware, async (c) => {
     const denied = await requireGroup(c, 'admin')
     if (denied) return denied
 
     const report = await getAssignmentReport(numericId.parse(c.req.param('id')))
-    if (!report) return notFound(c)
+    if (!report || report.assignment.deletedAt) return notFound(c)
     return c.json(report)
   })
 

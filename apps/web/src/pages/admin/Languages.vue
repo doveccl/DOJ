@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NButton, NSpace } from 'naive-ui'
+import { NButton, NPopconfirm, NSpace } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { apiFetch } from '../../api'
@@ -62,14 +62,21 @@ const columns = computed<DataTableColumns<LanguageRow>>(() => [
           () => t('admin.edit')
         ),
         h(
-          NButton,
+          NPopconfirm,
+          { onPositiveClick: () => deleteLanguage(row.id) },
           {
-            size: 'small',
-            tertiary: true,
-            type: 'error',
-            onClick: () => deleteLanguage(row.id)
-          },
-          () => t('admin.delete')
+            trigger: () =>
+              h(
+                NButton,
+                {
+                  size: 'small',
+                  tertiary: true,
+                  type: 'error'
+                },
+                () => t('admin.delete')
+              ),
+            default: () => t('admin.languages.deleteConfirm')
+          }
         )
       ])
     }

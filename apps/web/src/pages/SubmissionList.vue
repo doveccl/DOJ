@@ -330,9 +330,13 @@ function submissionRowProps(row: SubmissionRow) {
 
 <style scoped lang="scss">
 .submission-fields {
-  flex: 1 1 760px;
+  flex: 0 1 auto;
   display: grid;
-  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  grid-template-columns: repeat(6, minmax(120px, 150px));
+}
+
+.submission-toolbar .toolbar-actions {
+  margin-left: auto;
 }
 
 :deep(.clickable-table-row) {

@@ -6,7 +6,7 @@ import { db, schema } from '@doj/db/client'
 import { deleteObject, getObjectBytes, listObjects, putObject } from '@doj/shared/storage'
 import { authMiddleware, denyGuestAccess, getOptionalAuthUser, requireAdmin } from '../auth'
 import { ApiHttpError, apiError, notFound } from '../errors'
-import { countRows, getProblemStats, hasUserSolvedProblem } from '../services/stats'
+import { countRows, getProblemStats, getUserSolvedIds, getUserSubmittedProblemIds, hasUserSolvedProblem } from '../services/stats'
 import { listQuerySchema, numericId, pageOffset } from '../validation'
 
 const maxStatementBytes = 64 * 1024
@@ -25,7 +25,7 @@ export function registerProblemRoutes(app: Hono) {
     const authUser = await getOptionalAuthUser(c)
     const { page, pageSize, q, tag } = problemListQuerySchema.parse(c.req.query())
     const visibilityFilter = authUser?.admin
-      ? undefined
+      ? isNull(schema.problems.deletedAt)
       : and(eq(schema.problems.visible, true), isNull(schema.problems.deletedAt))
     const where = and(
       visibilityFilter,
@@ -48,15 +48,24 @@ export function registerProblemRoutes(app: Hono) {
       .limit(pageSize)
       .offset(pageOffset(page, pageSize))
 
-    const stats = await getProblemStats(rows.map((row) => row.id))
-    const solved = new Map(
-      await Promise.all(rows.map(async (row) => [row.id, await hasUserSolvedProblem(authUser?.id, row.id)] as const))
+    const problemIds = rows.map((row) => row.id)
+    const stats = await getProblemStats(problemIds)
+    const solvedIds = authUser ? await getUserSolvedIds(authUser.id) : new Set<number>()
+    const submittedIds = await getUserSubmittedProblemIds(authUser?.id, problemIds)
+    const userProgress = new Map(
+      rows.map((row) => [
+        row.id,
+        {
+          solved: solvedIds.has(row.id),
+          submitted: submittedIds.has(row.id)
+        }
+      ] as const)
     )
     return c.json({
       total,
       page,
       pageSize,
-      items: rows.map((row) => formatProblemListItem(row, stats.get(row.id), solved.get(row.id) ?? false))
+      items: rows.map((row) => formatProblemListItem(row, stats.get(row.id), userProgress.get(row.id)))
     })
   })
 
@@ -130,20 +139,6 @@ export function registerProblemRoutes(app: Hono) {
       .returning()
     if (!updated) return notFound(c)
     return c.json({ ok: true })
-  })
-
-  app.post('/api/admin/problems/:id/restore', authMiddleware, async (c) => {
-    const denied = await requireAdmin(c)
-    if (denied) return denied
-
-    const id = numericId.parse(c.req.param('id'))
-    const [updated] = await db
-      .update(schema.problems)
-      .set({ deletedAt: null, updatedAt: new Date() })
-      .where(eq(schema.problems.id, id))
-      .returning()
-    if (!updated) return notFound(c)
-    return c.json(await getProblemDetail(id, await getOptionalAuthUser(c)))
   })
 
   app.put('/api/admin/problems/:id/statement', authMiddleware, async (c) => {
@@ -283,7 +278,8 @@ interface ProblemAssetItem {
 async function getProblemDetail(id: number, authUser: Awaited<ReturnType<typeof getOptionalAuthUser>>) {
   const [problem] = await db.select().from(schema.problems).where(eq(schema.problems.id, id)).limit(1)
   if (!problem) return null
-  if (!authUser?.admin && (!problem.visible || problem.deletedAt)) return null
+  if (problem.deletedAt) return null
+  if (!authUser?.admin && !problem.visible) return null
 
   const stats = (await getProblemStats([id])).get(id)
   const solved = await hasUserSolvedProblem(authUser?.id, id)
@@ -300,7 +296,7 @@ async function getProblemDetail(id: number, authUser: Awaited<ReturnType<typeof 
     solved,
     recentSubmission: await getRecentSubmission(id, authUser),
     visible: problem.visible,
-    deletedAt: problem.deletedAt?.toISOString() ?? null,
+    deletedAt: null,
     createdAt: problem.createdAt.toISOString(),
     updatedAt: problem.updatedAt.toISOString()
   }
@@ -389,13 +385,17 @@ function formatProblemListItem(row: {
   tags: string[]
   visible: boolean
   deletedAt: Date | null
-}, stats: { solved: number; attempted: number } | undefined, solved: boolean) {
+}, stats: { solved: number; attempted: number; submission: number } | undefined, progress?: { solved: boolean; submitted: boolean }) {
   return {
     id: row.id,
     title: row.title,
     tags: row.tags,
+    solvedCount: stats?.solved ?? 0,
+    attemptedCount: stats?.attempted ?? 0,
+    submissionCount: stats?.submission ?? 0,
     passRate: passRate(stats?.solved ?? 0, stats?.attempted ?? 0),
-    solved,
+    solved: progress?.solved ?? false,
+    submitted: progress?.submitted ?? false,
     visible: row.visible,
     deletedAt: row.deletedAt?.toISOString() ?? null
   }

@@ -128,7 +128,7 @@ const columns = computed<DataTableColumns<AssignmentRow>>(() => [
         {
           title: t('admin.actions'),
           key: 'actions',
-          width: 320,
+          width: 260,
           render(row: AssignmentRow) {
             return h(NSpace, { size: 8 }, () => [
               h(NButton, { size: 'small', secondary: true, onClick: () => openEdit(row.id) }, () => t('admin.edit')),
@@ -139,15 +139,15 @@ const columns = computed<DataTableColumns<AssignmentRow>>(() => [
               ),
               h(
                 NPopconfirm,
-                { onPositiveClick: () => toggleDeleted(row) },
+                { onPositiveClick: () => deleteAssignment(row) },
                 {
                   trigger: () =>
                     h(
                       NButton,
-                      { size: 'small', tertiary: true, type: row.deletedAt ? 'success' : 'error' },
-                      () => (row.deletedAt ? t('admin.restore') : t('admin.delete'))
+                      { size: 'small', tertiary: true, type: 'error' },
+                      () => t('admin.delete')
                     ),
-                  default: () => (row.deletedAt ? t('admin.assignments.restoreConfirm') : t('admin.assignments.deleteConfirm'))
+                  default: () => t('admin.assignments.deleteConfirm')
                 }
               )
             ])
@@ -272,12 +272,9 @@ async function saveAssignment() {
   }
 }
 
-async function toggleDeleted(row: AssignmentRow) {
+async function deleteAssignment(row: AssignmentRow) {
   try {
-    await apiFetch(
-      row.deletedAt ? `/api/admin/assignments/${row.id}/restore` : `/api/admin/assignments/${row.id}`,
-      { method: row.deletedAt ? 'POST' : 'DELETE' }
-    )
+    await apiFetch(`/api/admin/assignments/${row.id}`, { method: 'DELETE' })
     await loadAssignments()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)

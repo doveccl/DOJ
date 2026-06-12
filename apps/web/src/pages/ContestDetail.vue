@@ -302,12 +302,7 @@ function changeSubmissionsPageSize(pageSize: number) {
 async function toggleDeleted() {
   if (!detail.value) return
   try {
-    await apiFetch(
-      detail.value.contest.deletedAt
-        ? `/api/admin/contests/${detail.value.contest.id}/restore`
-        : `/api/admin/contests/${detail.value.contest.id}`,
-      { method: detail.value.contest.deletedAt ? 'POST' : 'DELETE' }
-    )
+    await apiFetch(`/api/admin/contests/${detail.value.contest.id}`, { method: 'DELETE' })
     await loadDetail()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
@@ -338,13 +333,13 @@ async function toggleDeleted() {
               {{ t('contests.freezes') }} {{ new Date(detail.contest.freezeAt).toLocaleString() }}
             </n-tag>
             <n-space v-if="canManage" size="small">
-              <n-popconfirm @positive-click="toggleDeleted">
+              <n-popconfirm v-if="!detail.contest.deletedAt" @positive-click="toggleDeleted">
                 <template #trigger>
-                  <n-button size="small" tertiary :type="detail.contest.deletedAt ? 'success' : 'error'">
-                    {{ detail.contest.deletedAt ? t('admin.restore') : t('admin.delete') }}
+                  <n-button size="small" tertiary type="error">
+                    {{ t('admin.delete') }}
                   </n-button>
                 </template>
-                {{ detail.contest.deletedAt ? t('admin.contests.restoreConfirm') : t('admin.contests.deleteConfirm') }}
+                {{ t('admin.contests.deleteConfirm') }}
               </n-popconfirm>
             </n-space>
           </div>

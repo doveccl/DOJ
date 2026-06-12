@@ -105,7 +105,8 @@ const zhCNMessages = {
     status: '状态',
     solved: '已通过',
     unsolved: '未通过',
-    passRate: '通过率'
+    passRate: '通过率',
+    deleteConfirm: '确认删除该题目？'
   },
   submissions: {
     title: '提交记录',
@@ -210,7 +211,8 @@ const zhCNMessages = {
     updated: '更新',
     content: '内容',
     publish: '发布',
-    empty: '还没有讨论'
+    empty: '还没有讨论',
+    deleteConfirm: '确认删除该讨论？'
   },
   admin: {
     title: '管理',
@@ -250,7 +252,9 @@ const zhCNMessages = {
       manager: '管理员',
       member: '成员',
       group: '用户组',
-      groupManager: '用户组管理员'
+      groupManager: '用户组管理员',
+      deleteConfirm: '确认删除该用户组？',
+      removeMemberConfirm: '确认移除该成员？'
     },
     users: {
       title: '用户',
@@ -277,7 +281,8 @@ const zhCNMessages = {
       new: '新增语言',
       config: '语言配置',
       source: '源文件',
-      dockerfile: 'Dockerfile'
+      dockerfile: 'Dockerfile',
+      deleteConfirm: '确认删除该语言？'
     },
     settings: {
       title: '系统设置',
@@ -323,6 +328,9 @@ const zhCNMessages = {
       create: '创建题目',
       edit: '编辑题目',
       visible: '可见',
+      hidden: '已隐藏',
+      hide: '隐藏',
+      show: '显示',
       deleted: '删除状态',
       mode: '评测模式',
       assets: '题目资产',
@@ -364,6 +372,7 @@ const zhCNMessages = {
       packageUploadHint: '可上传数据文件、二进制或附件；文本文件也可直接新建编辑。',
       packageSave: '保存文件',
       packageDelete: '删除',
+      assetDeleteConfirm: '确认删除该资源文件？',
       packageSaved: '已保存 {path}。',
       packageDeleted: '已删除 {path}。',
       packageSize: '大小',
@@ -505,7 +514,8 @@ const enMessages = {
     status: 'Status',
     solved: 'Solved',
     unsolved: 'Unsolved',
-    passRate: 'Pass rate'
+    passRate: 'Pass rate',
+    deleteConfirm: 'Delete this problem?'
   },
   submissions: {
     title: 'Submissions',
@@ -610,7 +620,8 @@ const enMessages = {
     updated: 'Updated',
     content: 'Content',
     publish: 'Publish',
-    empty: 'No discussions yet'
+    empty: 'No discussions yet',
+    deleteConfirm: 'Delete this discussion?'
   },
   admin: {
     title: 'Admin',
@@ -650,7 +661,9 @@ const enMessages = {
       manager: 'Manager',
       member: 'Member',
       group: 'Group',
-      groupManager: 'Group manager'
+      groupManager: 'Group manager',
+      deleteConfirm: 'Delete this group?',
+      removeMemberConfirm: 'Remove this member?'
     },
     users: {
       title: 'Users',
@@ -677,7 +690,8 @@ const enMessages = {
       new: 'New language',
       config: 'Language config',
       source: 'Source',
-      dockerfile: 'Dockerfile'
+      dockerfile: 'Dockerfile',
+      deleteConfirm: 'Delete this language?'
     },
     settings: {
       title: 'System settings',
@@ -723,6 +737,9 @@ const enMessages = {
       create: 'Create problem',
       edit: 'Edit problem',
       visible: 'Visible',
+      hidden: 'Hidden',
+      hide: 'Hide',
+      show: 'Show',
       deleted: 'Deleted',
       mode: 'Judge mode',
       assets: 'Problem assets',
@@ -766,6 +783,7 @@ const enMessages = {
         'Upload data files, binaries or assets; text files can also be created inline.',
       packageSave: 'Save file',
       packageDelete: 'Delete',
+      assetDeleteConfirm: 'Delete this asset file?',
       packageSaved: 'Saved {path}.',
       packageDeleted: 'Deleted {path}.',
       packageSize: 'Size',

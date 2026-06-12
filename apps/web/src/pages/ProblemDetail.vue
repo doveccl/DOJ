@@ -4,7 +4,6 @@ import {
   CloseOutline,
   CreateOutline,
   FolderOpenOutline,
-  RefreshOutline,
   SaveOutline,
   SettingsOutline,
   TrashOutline
@@ -227,16 +226,8 @@ async function toggleProblemDeleted() {
   saving.value = true
   error.value = ''
   try {
-    const updated = await apiFetch<Problem>(
-      problem.value.deletedAt ? `/api/admin/problems/${problem.value.id}/restore` : `/api/admin/problems/${problem.value.id}`,
-      { method: problem.value.deletedAt ? 'POST' : 'DELETE' }
-    )
-    if (problem.value.deletedAt) {
-      problem.value = updated
-      syncEditForm(updated)
-    } else {
-      problem.value = { ...problem.value, deletedAt: new Date().toISOString() }
-    }
+    await apiFetch(`/api/admin/problems/${problem.value.id}`, { method: 'DELETE' })
+    problem.value = { ...problem.value, deletedAt: new Date().toISOString() }
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : String(caught)
   } finally {
@@ -549,17 +540,17 @@ async function deleteAsset(path: string) {
                   </n-form-item>
                 </div>
                 <n-space justify="space-between" align="center">
-                  <n-button
-                    tertiary
-                    :type="problem.deletedAt ? 'success' : 'error'"
-                    :loading="saving"
-                    @click="toggleProblemDeleted"
-                  >
-                    <template #icon>
-                      <n-icon :component="problem.deletedAt ? RefreshOutline : TrashOutline" />
+                  <n-popconfirm v-if="!problem.deletedAt" @positive-click="toggleProblemDeleted">
+                    <template #trigger>
+                      <n-button tertiary type="error" :loading="saving">
+                        <template #icon>
+                          <n-icon :component="TrashOutline" />
+                        </template>
+                        {{ t('admin.delete') }}
+                      </n-button>
                     </template>
-                    {{ problem.deletedAt ? t('admin.restore') : t('admin.delete') }}
-                  </n-button>
+                    {{ t('problems.deleteConfirm') }}
+                  </n-popconfirm>
                   <n-space>
                     <n-button @click="showManageModal = false">{{ t('admin.cancel') }}</n-button>
                     <n-button type="primary" :loading="saving" @click="saveProblem">
@@ -620,11 +611,16 @@ async function deleteAsset(path: string) {
                           {{ asset.path }}
                         </n-button>
                         <span class="muted">{{ Math.round(asset.size / 1024) }} KB</span>
-                        <n-button size="tiny" tertiary type="error" @click="deleteAsset(asset.path)">
-                          <template #icon>
-                            <n-icon :component="TrashOutline" />
+                        <n-popconfirm @positive-click="deleteAsset(asset.path)">
+                          <template #trigger>
+                            <n-button size="tiny" tertiary type="error">
+                              <template #icon>
+                                <n-icon :component="TrashOutline" />
+                              </template>
+                            </n-button>
                           </template>
-                        </n-button>
+                          {{ t('admin.problems.assetDeleteConfirm') }}
+                        </n-popconfirm>
                       </div>
                     </div>
                     <p v-else class="muted">{{ t('admin.problems.packageEmpty') }}</p>

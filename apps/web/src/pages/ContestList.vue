@@ -114,15 +114,15 @@ const columns = computed<DataTableColumns<ContestRow>>(() => [
               h(NButton, { size: 'small', secondary: true, onClick: () => openEdit(row.id) }, () => t('admin.edit')),
               h(
                 NPopconfirm,
-                { onPositiveClick: () => toggleDeleted(row) },
+                { onPositiveClick: () => deleteContest(row) },
                 {
                   trigger: () =>
                     h(
                       NButton,
-                      { size: 'small', tertiary: true, type: row.deletedAt ? 'success' : 'error' },
-                      () => (row.deletedAt ? t('admin.restore') : t('admin.delete'))
+                      { size: 'small', tertiary: true, type: 'error' },
+                      () => t('admin.delete')
                     ),
-                  default: () => (row.deletedAt ? t('admin.contests.restoreConfirm') : t('admin.contests.deleteConfirm'))
+                  default: () => t('admin.contests.deleteConfirm')
                 }
               )
             ])
@@ -243,11 +243,9 @@ async function saveContest() {
   }
 }
 
-async function toggleDeleted(row: ContestRow) {
+async function deleteContest(row: ContestRow) {
   try {
-    await apiFetch(row.deletedAt ? `/api/admin/contests/${row.id}/restore` : `/api/admin/contests/${row.id}`, {
-      method: row.deletedAt ? 'POST' : 'DELETE'
-    })
+    await apiFetch(`/api/admin/contests/${row.id}`, { method: 'DELETE' })
     await loadContests()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
