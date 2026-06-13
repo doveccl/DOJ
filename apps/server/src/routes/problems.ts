@@ -6,6 +6,7 @@ import { db, schema } from '@doj/db/client'
 import { deleteObject, getObjectBytes, listObjects, putObject } from '@doj/shared/storage'
 import { authMiddleware, denyGuestAccess, getOptionalAuthUser, requireAdmin } from '../auth'
 import { ApiHttpError, apiError, notFound } from '../errors'
+import { countTopics } from '../services/discussion'
 import { countRows, getProblemStats, getUserSolvedIds, getUserSubmittedProblemIds, hasUserSolvedProblem } from '../services/stats'
 import { listQuerySchema, numericId, pageOffset } from '../validation'
 
@@ -95,7 +96,11 @@ export function registerProblemRoutes(app: Hono) {
       })
       .returning()
 
-    await putObject({ key: problemObjectKey(problem.id, 'statement.md'), body: '', contentType: 'text/markdown; charset=utf-8' })
+    await putObject({
+      key: problemObjectKey(problem.id, 'statement.md'),
+      body: `# ${body.title}\n`,
+      contentType: 'text/markdown; charset=utf-8'
+    })
     return c.json(await getProblemDetail(problem.id, await getOptionalAuthUser(c)), 201)
   })
 
@@ -283,6 +288,10 @@ async function getProblemDetail(id: number, authUser: Awaited<ReturnType<typeof 
 
   const stats = (await getProblemStats([id])).get(id)
   const solved = await hasUserSolvedProblem(authUser?.id, id)
+  const [recentSubmission, discussionCount] = await Promise.all([
+    getRecentSubmission(id, authUser),
+    countTopics([`P${id}`])
+  ])
 
   return {
     id: problem.id,
@@ -292,9 +301,13 @@ async function getProblemDetail(id: number, authUser: Awaited<ReturnType<typeof 
     timeLimit: problem.timeLimit,
     memoryLimit: problem.memoryLimit,
     tags: problem.tags,
+    solvedCount: stats?.solved ?? 0,
+    attemptedCount: stats?.attempted ?? 0,
+    submissionCount: stats?.submission ?? 0,
     passRate: passRate(stats?.solved ?? 0, stats?.attempted ?? 0),
     solved,
-    recentSubmission: await getRecentSubmission(id, authUser),
+    recentSubmission,
+    discussionCount,
     visible: problem.visible,
     deletedAt: null,
     createdAt: problem.createdAt.toISOString(),

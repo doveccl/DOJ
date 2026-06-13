@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { NButton, NEllipsis, NIcon, NPopconfirm, NSpace, NTag, NTooltip } from 'naive-ui'
-import type { DataTableColumns } from 'naive-ui'
+import type { DataTableColumns, SelectOption } from 'naive-ui'
 import type { Component } from 'vue'
 import {
   AddOutline,
@@ -45,8 +45,7 @@ const createForm = reactive({
   tags: [] as string[],
   mode: 'default' as 'default' | 'strict' | 'custom',
   timeLimit: 1000,
-  memoryLimitMb: 256,
-  visible: false
+  memoryLimitMb: 256
 })
 const pagination = reactive({
   page: 1,
@@ -55,6 +54,23 @@ const pagination = reactive({
   showSizePicker: true,
   pageSizes: [...PAGE_SIZE_OPTIONS]
 })
+const createModeOptions = computed(() => [
+  {
+    label: t('admin.problems.modeDefault'),
+    value: 'default',
+    hint: t('admin.problems.modeDefaultHint')
+  },
+  {
+    label: t('admin.problems.modeStrict'),
+    value: 'strict',
+    hint: t('admin.problems.modeStrictHint')
+  },
+  {
+    label: t('admin.problems.modeCustom'),
+    value: 'custom',
+    hint: t('admin.problems.modeCustomHint')
+  }
+])
 
 const columns = computed<DataTableColumns<ProblemRow>>(() => [
   { title: t('common.id'), key: 'id', width: 96 },
@@ -96,10 +112,11 @@ const columns = computed<DataTableColumns<ProblemRow>>(() => [
     key: 'passRate',
     width: 180,
     render(row) {
+      const percent = row.submissionCount > 0 ? (row.solvedCount / row.submissionCount) * 100 : 0
       return h(
         'span',
         { class: 'problem-stats' },
-        `${row.solvedCount}/${row.submissionCount} (${((row.passRate ?? 0) * 100).toFixed(0)}%)`
+        `${row.solvedCount}/${row.submissionCount} (${percent.toFixed(0)}%)`
       )
     }
   },
@@ -113,7 +130,7 @@ const columns = computed<DataTableColumns<ProblemRow>>(() => [
             return h(NSpace, { size: 8 }, () => [
               tooltipIconButton(
                 row.visible ? EyeOutline : EyeOffOutline,
-                row.visible ? t('admin.problems.hide') : t('admin.problems.show'),
+                visibilityLabel(row.visible),
                 () => toggleVisible(row, !row.visible),
                 { disabled: !!row.deletedAt, type: row.visible ? 'success' : undefined }
               ),
@@ -175,8 +192,7 @@ async function createProblem() {
         tags: createForm.tags,
         mode: createForm.mode,
         timeLimit: createForm.timeLimit,
-        memoryLimit: createForm.memoryLimitMb * 1024 * 1024,
-        visible: createForm.visible
+        memoryLimit: createForm.memoryLimitMb * 1024 * 1024
       })
     })
     showCreateModal.value = false
@@ -185,7 +201,6 @@ async function createProblem() {
     createForm.mode = 'default'
     createForm.timeLimit = 1000
     createForm.memoryLimitMb = 256
-    createForm.visible = false
     await router.push(`/problems/${created.id}`)
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
@@ -250,6 +265,18 @@ function rowProps(row: ProblemRow) {
 
 function renderIcon(icon: Component) {
   return h(NIcon, { component: icon })
+}
+
+function renderModeOption(option: SelectOption) {
+  const item = option as SelectOption & { hint?: string }
+  return h('div', { class: 'mode-option' }, [
+    h('span', { class: 'mode-option-label' }, String(item.label ?? '')),
+    item.hint ? h('small', { class: 'mode-option-hint' }, item.hint) : null
+  ])
+}
+
+function visibilityLabel(visible: boolean) {
+  return visible ? t('admin.problems.publicVisibleShort') : t('admin.problems.publicHiddenShort')
 }
 
 function tooltipIconButton(
@@ -364,20 +391,14 @@ onMounted(() => {
         <n-form-item :label="t('common.tags')">
           <n-dynamic-tags v-model:value="createForm.tags" />
         </n-form-item>
+        <n-form-item :label="t('admin.problems.mode')">
+          <n-select
+            v-model:value="createForm.mode"
+            :options="createModeOptions"
+            :render-label="renderModeOption"
+          />
+        </n-form-item>
         <div class="form-grid two">
-          <n-form-item :label="t('admin.problems.mode')">
-            <n-select
-              v-model:value="createForm.mode"
-              :options="[
-                { label: 'default', value: 'default' },
-                { label: 'strict', value: 'strict' },
-                { label: 'custom', value: 'custom' }
-              ]"
-            />
-          </n-form-item>
-          <n-form-item :label="t('admin.problems.visible')">
-            <n-switch v-model:value="createForm.visible" />
-          </n-form-item>
           <n-form-item :label="t('admin.problems.timeMs')">
             <n-input-number v-model:value="createForm.timeLimit" :min="100" class="full-width" />
           </n-form-item>
@@ -441,20 +462,32 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-:deep(.problem-row-solved td) {
-  background: rgba(16, 185, 129, 0.12);
+:global(.mode-option) {
+  display: grid;
+  gap: 2px;
+  padding: 2px 0;
 }
 
-:deep(.problem-row-solved:hover td) {
-  background: rgba(16, 185, 129, 0.16);
+:global(.mode-option-label) {
+  font-weight: 600;
+  line-height: 1.3;
 }
 
-:deep(.problem-row-attempted td) {
-  background: rgba(245, 158, 11, 0.12);
+:global(.mode-option-hint) {
+  color: var(--muted-color);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: normal;
 }
 
-:deep(.problem-row-attempted:hover td) {
-  background: rgba(245, 158, 11, 0.16);
+:deep(.problem-row-solved) {
+  --n-td-color: rgba(16, 185, 129, 0.12);
+  --n-td-color-hover: rgba(16, 185, 129, 0.16);
+}
+
+:deep(.problem-row-attempted) {
+  --n-td-color: rgba(245, 158, 11, 0.12);
+  --n-td-color-hover: rgba(245, 158, 11, 0.16);
 }
 
 :deep(.problem-row-hidden td:nth-child(1)),

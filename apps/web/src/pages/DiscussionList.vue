@@ -20,6 +20,7 @@ interface TopicRow {
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
@@ -37,7 +38,7 @@ const pagination = reactive({
 const form = reactive({
   title: '',
   contentMarkdown: '',
-  tags: [] as string[]
+  tags: routeTags()
 })
 
 const columns = computed<DataTableColumns<TopicRow>>(() => [
@@ -111,8 +112,14 @@ async function loadTopics() {
   loading.value = true
   error.value = ''
   try {
+    const params = new URLSearchParams({
+      page: String(pagination.page),
+      pageSize: String(pagination.pageSize)
+    })
+    const tags = routeTags()
+    if (tags.length) params.set('tags', tags.join(','))
     const data = await apiFetch<Paged<TopicRow>>(
-      `/api/discussion/topics?page=${pagination.page}&pageSize=${pagination.pageSize}`
+      `/api/discussion/topics?${params.toString()}`
     )
     topics.value = getItems(data)
     pagination.itemCount = data.total
@@ -121,6 +128,16 @@ async function loadTopics() {
   } finally {
     loading.value = false
   }
+}
+
+function routeTags() {
+  const value = route.query.tags
+  const items = Array.isArray(value) ? value : value ? [value] : []
+  return items
+    .filter((item): item is string => typeof item === 'string')
+    .flatMap((item) => item.split(','))
+    .map((item) => item.trim())
+    .filter(Boolean)
 }
 
 function handlePageChange(page: number) {
@@ -210,6 +227,15 @@ function tooltipIconButton(
 onMounted(() => {
   void loadTopics()
 })
+
+watch(
+  () => route.query.tags,
+  () => {
+    pagination.page = 1
+    form.tags = routeTags()
+    void loadTopics()
+  }
+)
 </script>
 
 <template>

@@ -44,6 +44,7 @@ const statusType: Record<string, 'success' | 'warning' | 'error' | 'info'> = {
 
 const { t } = useI18n()
 const router = useRouter()
+const route = useRoute()
 
 const languageNames = ref<Record<string, string>>({})
 const languageOptions = computed(() =>
@@ -63,7 +64,7 @@ const statusOptions = [
   'SE'
 ].map((status) => ({ label: status, value: status }))
 const filters = ref({
-  problemId: '',
+  problemId: queryString('problemId'),
   userId: '',
   languageId: null as string | null,
   status: null as string | null,
@@ -259,6 +260,11 @@ function parseWsMessage(raw: string) {
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString()
+}
+
+function queryString(key: string) {
+  const value = route.query[key]
+  return typeof value === 'string' ? value : ''
 }
 
 function submissionRowProps(row: SubmissionRow) {

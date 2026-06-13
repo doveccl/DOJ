@@ -3,9 +3,10 @@ import type { UploadCustomRequestOptions } from 'naive-ui'
 import {
   CloseOutline,
   CreateOutline,
+  EyeOffOutline,
+  EyeOutline,
   FolderOpenOutline,
   SaveOutline,
-  SettingsOutline,
   TrashOutline
 } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
@@ -23,7 +24,11 @@ interface Problem {
   mode: 'default' | 'strict' | 'custom'
   timeLimit?: number
   memoryLimit?: number
+  solvedCount: number
+  attemptedCount: number
+  submissionCount: number
   passRate: number
+  discussionCount: number
   recentSubmission: SubmissionListItem | null
   visible: boolean
   deletedAt: string | null
@@ -53,6 +58,8 @@ interface ProblemAsset {
   name: string
   section: 'data' | 'assets' | 'root'
   size: number
+  contentType: string
+  text: boolean
   updatedAt: string
 }
 
@@ -66,9 +73,8 @@ const loading = ref(true)
 const submitting = ref(false)
 const saving = ref(false)
 const editMode = ref(false)
-const adminFullView = ref(true)
 const showManageModal = ref(false)
-const manageTab = ref<'meta' | 'assets'>('meta')
+const showAssetEditor = ref(false)
 const error = ref('')
 const problem = ref<Problem | null>(null)
 const languageId = ref('cpp')
@@ -78,15 +84,13 @@ const codeText = ref(
 )
 const languageOptions = ref<LanguageOption[]>([])
 const assets = ref<ProblemAsset[]>([])
-const assetPath = ref('assets/')
+const selectedAsset = ref<ProblemAsset | null>(null)
 const assetContent = ref('')
-const selectedAssetPath = ref('')
 const assetSaving = ref(false)
 const editForm = reactive({
   title: '',
   tags: [] as string[],
   mode: 'default' as 'default' | 'strict' | 'custom',
-  visible: false,
   timeLimit: 1000,
   memoryLimitMb: 256,
   statement: ''
@@ -97,10 +101,43 @@ const memoryMb = computed(() =>
   problem.value ? Math.round((problem.value.memoryLimit || 0) / 1024 / 1024) : 0
 )
 const timeLimit = computed(() => problem.value?.timeLimit ?? 0)
-const statement = computed(() => stripDuplicateStatementTitle(problem.value?.statement ?? '', problem.value?.title ?? ''))
-const dataAssetCount = computed(() => assets.value.filter((asset) => asset.section === 'data').length)
-const publicAssetCount = computed(() => assets.value.filter((asset) => asset.section === 'assets').length)
-const rootAssetCount = computed(() => assets.value.filter((asset) => asset.section === 'root').length)
+const statement = computed(() => problem.value?.statement ?? '')
+const dataCaseCount = computed(() => countDataCases(assets.value.filter((asset) => asset.section === 'data')))
+const dataAssetSizeText = computed(() =>
+  formatBytes(assets.value.filter((asset) => asset.section === 'data').reduce((total, asset) => total + asset.size, 0))
+)
+const modeOptions = computed(() => [
+  {
+    label: t('admin.problems.modeDefault'),
+    value: 'default',
+    hint: t('admin.problems.modeDefaultHint')
+  },
+  {
+    label: t('admin.problems.modeStrict'),
+    value: 'strict',
+    hint: t('admin.problems.modeStrictHint')
+  },
+  {
+    label: t('admin.problems.modeCustom'),
+    value: 'custom',
+    hint: t('admin.problems.modeCustomHint')
+  }
+])
+const problemModeLabel = computed(() =>
+  modeOptions.value.find((option) => option.value === problem.value?.mode)?.label ?? problem.value?.mode ?? ''
+)
+const limitText = computed(() => `${timeLimit.value}ms / ${memoryMb.value}MB`)
+const passRateText = computed(() => {
+  const solved = problem.value?.solvedCount ?? 0
+  const submissions = problem.value?.submissionCount ?? 0
+  const percent = submissions > 0 ? (solved / submissions) * 100 : 0
+  return `${solved}/${submissions} (${percent.toFixed(0)}%)`
+})
+const recentSubmissionText = computed(() => {
+  const recent = problem.value?.recentSubmission
+  if (!recent) return t('problemDetail.noRecentSubmission')
+  return recent.score === null ? `#${recent.id} ${recent.displayStatus}` : `#${recent.id} ${recent.displayStatus} / ${recent.score}`
+})
 const assignmentId = computed(() =>
   typeof route.query.assignmentId === 'string' ? route.query.assignmentId : ''
 )
@@ -109,13 +146,23 @@ const contestId = computed(() =>
 )
 const assetSections = computed<Array<{ key: ProblemAssetSection; title: string; hint: string; draftPath: string }>>(() => {
   const sections: Array<{ key: ProblemAssetSection; title: string; hint: string; draftPath: string }> = [
-    { key: 'data', title: t('admin.problems.dataAssets'), hint: 'data/*.in, data/*.out', draftPath: 'data/1.in' },
-    { key: 'assets', title: t('admin.problems.publicAssets'), hint: 'assets/filename', draftPath: 'assets/readme.txt' }
+    { key: 'data', title: t('admin.problems.dataAssets'), hint: 'data/*.in, data/*.out', draftPath: 'data/1.in' }
   ]
   if (problem.value?.mode === 'custom') {
-    sections.push({ key: 'root', title: t('admin.problems.rootResources'), hint: 'Dockerfile, checker.cc', draftPath: 'Dockerfile' })
+    sections.push({ key: 'root', title: t('admin.problems.rootResources'), hint: 'Dockerfile, main.cc', draftPath: 'Dockerfile' })
   }
   return sections
+})
+const assetEditorLanguage = computed(() => {
+  const path = selectedAsset.value?.path.toLowerCase() ?? ''
+  if (path.endsWith('.cc') || path.endsWith('.cpp') || path.endsWith('.hpp') || path.endsWith('.h')) return 'cpp'
+  if (path.endsWith('.c')) return 'c'
+  if (path.endsWith('.py')) return 'py'
+  if (path.endsWith('.sh')) return 'sh'
+  if (path.endsWith('.js')) return 'js'
+  if (path.endsWith('.ts')) return 'ts'
+  if (path.endsWith('dockerfile')) return 'dockerfile'
+  return 'plaintext'
 })
 
 onMounted(async () => {
@@ -182,7 +229,6 @@ function syncEditForm(next: Problem) {
   editForm.title = next.title
   editForm.tags = [...next.tags]
   editForm.mode = next.mode
-  editForm.visible = next.visible
   editForm.timeLimit = next.timeLimit ?? 1000
   editForm.memoryLimitMb = Math.round((next.memoryLimit || 0) / 1024 / 1024) || 256
   editForm.statement = next.statement ?? ''
@@ -200,8 +246,6 @@ async function saveProblem() {
         body: JSON.stringify({
           title: editForm.title,
           tags: editForm.tags,
-          mode: editForm.mode,
-          visible: editForm.visible,
           timeLimit: editForm.timeLimit,
           memoryLimit: editForm.memoryLimitMb * 1024 * 1024
         })
@@ -218,6 +262,60 @@ async function saveProblem() {
     error.value = caught instanceof Error ? caught.message : String(caught)
   } finally {
     saving.value = false
+  }
+}
+
+function cancelEdit() {
+  if (problem.value) syncEditForm(problem.value)
+  editMode.value = false
+}
+
+async function updateProblemMode(mode: 'default' | 'strict' | 'custom') {
+  if (!problem.value) return
+  if (mode === problem.value.mode) return
+  const previous = problem.value.mode
+  problem.value = { ...problem.value, mode }
+  editForm.mode = mode
+  saving.value = true
+  error.value = ''
+  try {
+    const updated = await apiFetch<Problem>(`/api/admin/problems/${problem.value.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        mode
+      })
+    })
+    problem.value = { ...updated, statement: problem.value.statement }
+    syncEditForm(problem.value)
+    if (mode === 'custom') await ensureCustomJudgeTemplates()
+    await loadAssets()
+  } catch (caught) {
+    if (problem.value) problem.value = { ...problem.value, mode: previous }
+    editForm.mode = previous
+    error.value = caught instanceof Error ? caught.message : String(caught)
+  } finally {
+    saving.value = false
+  }
+}
+
+function openManageModal() {
+  if (problem.value) syncEditForm(problem.value)
+  showManageModal.value = true
+}
+
+async function toggleProblemVisible() {
+  if (!problem.value) return
+  const previous = problem.value.visible
+  problem.value = { ...problem.value, visible: !previous }
+  try {
+    const updated = await apiFetch<Problem>(`/api/admin/problems/${problem.value.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ visible: !previous })
+    })
+    problem.value = { ...updated, statement: problem.value.statement }
+  } catch (caught) {
+    if (problem.value) problem.value = { ...problem.value, visible: previous }
+    error.value = caught instanceof Error ? caught.message : String(caught)
   }
 }
 
@@ -244,97 +342,101 @@ async function loadAssets() {
   }
 }
 
-async function uploadAsset({ file, onFinish, onError }: UploadCustomRequestOptions) {
-  if (!file.file || !problem.value) {
-    onError()
-    return
-  }
-  try {
-    const body = new FormData()
-    body.append('file', file.file)
-    const targetPath = assetPath.value.endsWith('/')
-      ? `${assetPath.value}${file.name}`
-      : assetPath.value || `assets/${file.name}`
-    body.append('path', targetPath)
-    await apiFetch(`/api/admin/problems/${problem.value.id}/assets/upload`, {
-      method: 'POST',
-      body
-    })
-    await loadAssets()
-    onFinish()
-  } catch {
-    onError()
-  }
-}
-
-async function loadAssetContent(path: string) {
+async function ensureCustomJudgeTemplates() {
   if (!problem.value) return
-  selectedAssetPath.value = path
-  assetContent.value = ''
-  try {
-    const content = await apiFetch<{ content: string; encoding: 'utf8' | 'base64'; text: boolean }>(
-      `/api/admin/problems/${problem.value.id}/assets/content?path=${encodeURIComponent(path)}`
-    )
-    assetContent.value = content.encoding === 'utf8' ? content.content : ''
-    if (!content.text) error.value = t('admin.problems.binaryEditHint')
-  } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : String(caught)
+  const existing = new Set(assets.value.map((asset) => asset.path))
+  const templates = [
+    {
+      path: 'Dockerfile',
+      content: [
+        'FROM gcc:13',
+        'WORKDIR /judge',
+        'COPY main.cc .',
+        'RUN g++ -std=c++17 -O2 -pipe -static -s -o main main.cc',
+        'CMD ["./main"]',
+        ''
+      ].join('\n')
+    },
+    {
+      path: 'main.cc',
+      content: [
+        '#include <bits/stdc++.h>',
+        'using namespace std;',
+        '',
+        'int main() {',
+        '  // Custom judge entry.',
+        '  // This program can implement both interactor and checker logic.',
+        '  // Read the runner contract before using it in production.',
+        '  return 0;',
+        '}',
+        ''
+      ].join('\n')
+    }
+  ]
+  for (const template of templates) {
+    if (existing.has(template.path)) continue
+    await saveAssetText(template.path, template.content)
   }
 }
 
-async function saveAssetContent() {
-  if (!problem.value || !selectedAssetPath.value) return
-  assetSaving.value = true
-  error.value = ''
-  try {
-    await apiFetch(`/api/admin/problems/${problem.value.id}/assets/content`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        path: selectedAssetPath.value,
-        content: assetContent.value,
-        encoding: 'utf8'
+function uploadAssetForSection(section: ProblemAssetSection) {
+  return async ({ file, onFinish, onError }: UploadCustomRequestOptions) => {
+    if (!file.file || !problem.value) {
+      onError()
+      return
+    }
+    try {
+      const body = new FormData()
+      body.append('file', file.file)
+      body.append('path', `${assetUploadPrefix(section)}${file.name}`)
+      await apiFetch(`/api/admin/problems/${problem.value.id}/assets/upload`, {
+        method: 'POST',
+        body
       })
-    })
-    await loadAssets()
-  } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : String(caught)
-  } finally {
-    assetSaving.value = false
+      await loadAssets()
+      onFinish()
+    } catch {
+      onError()
+    }
   }
 }
 
-function newAsset(path: string) {
-  selectedAssetPath.value = path
-  assetContent.value = ''
+function assetUploadPrefix(section: ProblemAssetSection) {
+  if (section === 'data') return 'data/'
+  if (section === 'assets') return 'assets/'
+  return ''
 }
 
 function assetsBySection(section: ProblemAssetSection) {
   return assets.value.filter((asset) => asset.section === section)
 }
 
-function setAssetDraft(path: string) {
-  assetPath.value = path
-  newAsset(path)
-}
-
 function formatDate(value: string) {
   return new Date(value).toLocaleString()
 }
 
-function stripDuplicateStatementTitle(source: string, title: string) {
-  const lines = source.split('\n')
-  const firstContentIndex = lines.findIndex((line) => line.trim())
-  if (firstContentIndex === -1) return source
-  const match = lines[firstContentIndex].trim().match(/^#\s+(.+)$/)
-  if (!match) return source
-  if (normalizeTitle(match[1]) !== normalizeTitle(title)) return source
-  lines.splice(firstContentIndex, 1)
-  while (lines[firstContentIndex]?.trim() === '') lines.splice(firstContentIndex, 1)
-  return lines.join('\n')
+function countDataCases(items: ProblemAsset[]) {
+  const groups = new Map<string, { input: boolean; output: boolean }>()
+  for (const item of items) {
+    const name = item.name.toLowerCase()
+    const number = name.match(/\d+/)?.[0]
+    if (!number) continue
+    const group = groups.get(number) ?? { input: false, output: false }
+    if (/(\.in$|^in\d*|input)/.test(name)) group.input = true
+    if (/(\.out$|^out\d*|^ans\d*|answer|output)/.test(name)) group.output = true
+    groups.set(number, group)
+  }
+  return [...groups.values()].filter((group) => group.input && group.output).length
 }
 
-function normalizeTitle(value: string) {
-  return value.trim().replace(/^P\d+\s+/i, '').toLowerCase()
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes}B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)}MB`
+}
+
+function visibilityLabel(visible: boolean) {
+  return visible ? t('admin.problems.publicVisibleShort') : t('admin.problems.publicHiddenShort')
 }
 
 async function deleteAsset(path: string) {
@@ -344,14 +446,62 @@ async function deleteAsset(path: string) {
       `/api/admin/problems/${problem.value.id}/assets?path=${encodeURIComponent(path)}`,
       { method: 'DELETE' }
     )
-    if (selectedAssetPath.value === path) {
-      selectedAssetPath.value = ''
-      assetContent.value = ''
-    }
     await loadAssets()
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : String(caught)
   }
+}
+
+async function openAssetEditor(asset: ProblemAsset) {
+  if (!problem.value || !asset.text) {
+    error.value = t('admin.problems.binaryEditHint')
+    return
+  }
+  error.value = ''
+  selectedAsset.value = asset
+  assetContent.value = ''
+  showAssetEditor.value = true
+  try {
+    const result = await apiFetch<{ content: string; encoding: 'utf8' | 'base64'; text: boolean }>(
+      `/api/admin/problems/${problem.value.id}/assets/content?path=${encodeURIComponent(asset.path)}`
+    )
+    if (!result.text || result.encoding !== 'utf8') {
+      showAssetEditor.value = false
+      error.value = t('admin.problems.binaryEditHint')
+      return
+    }
+    assetContent.value = result.content
+  } catch (caught) {
+    showAssetEditor.value = false
+    error.value = caught instanceof Error ? caught.message : String(caught)
+  }
+}
+
+async function saveSelectedAsset() {
+  if (!selectedAsset.value) return
+  assetSaving.value = true
+  error.value = ''
+  try {
+    await saveAssetText(selectedAsset.value.path, assetContent.value)
+    await loadAssets()
+    showAssetEditor.value = false
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : String(caught)
+  } finally {
+    assetSaving.value = false
+  }
+}
+
+async function saveAssetText(path: string, content: string) {
+  if (!problem.value) return
+  await apiFetch(`/api/admin/problems/${problem.value.id}/assets/content`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      path,
+      content,
+      encoding: 'utf8'
+    })
+  })
 }
 </script>
 
@@ -359,27 +509,55 @@ async function deleteAsset(path: string) {
   <main class="page">
     <n-spin :show="loading">
       <section v-if="problem" class="problem-detail-page">
-        <section class="page-header">
-          <h1>P{{ problem.id }} {{ problem.title }}</h1>
-          <p v-if="assignmentId" class="muted">
-            {{ t('problemDetail.assignmentContext') }} {{ assignmentId }}
-          </p>
-          <p v-if="contestId" class="muted">
-            {{ t('problemDetail.contestContext') }} {{ contestId }}
-          </p>
-        </section>
+        <n-alert
+          v-if="assignmentId || contestId"
+          type="info"
+          :show-icon="false"
+          class="problem-context"
+        >
+          <span v-if="assignmentId">{{ t('problemDetail.assignmentContext') }} {{ assignmentId }}</span>
+          <span v-if="contestId">{{ t('problemDetail.contestContext') }} {{ contestId }}</span>
+        </n-alert>
 
         <section class="problem-top-grid">
           <n-card :bordered="false" class="statement-card">
             <template #header>
-              {{ t('admin.problems.statement') }}
+              <span class="statement-title">
+                <n-tooltip v-if="canManage">
+                  <template #trigger>
+                    <n-button
+                      quaternary
+                      circle
+                      size="small"
+                      :type="problem.visible ? 'success' : 'default'"
+                      :aria-label="visibilityLabel(problem.visible)"
+                      @click="toggleProblemVisible"
+                    >
+                      <template #icon>
+                        <n-icon :component="problem.visible ? EyeOutline : EyeOffOutline" />
+                      </template>
+                    </n-button>
+                  </template>
+                  {{ visibilityLabel(problem.visible) }}
+                </n-tooltip>
+                <span>P{{ problem.id }}</span>
+                <template v-if="!editMode">
+                  <n-tag size="small" :bordered="false" type="info">{{ limitText }}</n-tag>
+                  <n-tag
+                    v-for="item in problem.tags"
+                    :key="item"
+                    size="small"
+                    :bordered="false"
+                  >
+                    {{ item }}
+                  </n-tag>
+                </template>
+              </span>
             </template>
-            <template v-if="canManage" #header-extra>
-              <n-space :size="6">
+            <template #header-extra>
+              <n-space :size="8" align="center" class="statement-header-extra">
                 <n-button
                   v-if="!editMode"
-                  quaternary
-                  circle
                   size="small"
                   :aria-label="t('admin.edit')"
                   @click="editMode = true"
@@ -387,162 +565,116 @@ async function deleteAsset(path: string) {
                   <template #icon>
                     <n-icon :component="CreateOutline" />
                   </template>
+                  {{ t('admin.edit') }}
                 </n-button>
                 <template v-else>
-                  <n-button
-                    quaternary
-                    circle
-                    size="small"
-                    :aria-label="t('admin.cancel')"
-                    @click="editMode = false"
-                  >
+                  <n-button size="small" @click="cancelEdit">
                     <template #icon>
                       <n-icon :component="CloseOutline" />
                     </template>
+                    {{ t('admin.cancel') }}
                   </n-button>
-                  <n-button
-                    type="primary"
-                    circle
-                    size="small"
-                    :loading="saving"
-                    :aria-label="t('admin.save')"
-                    @click="saveProblem"
-                  >
+                  <n-button size="small" type="primary" :loading="saving" @click="saveProblem">
                     <template #icon>
                       <n-icon :component="SaveOutline" />
                     </template>
+                    {{ t('admin.save') }}
                   </n-button>
                 </template>
               </n-space>
             </template>
-            <markdown-editor
-              v-if="editMode"
-              v-model="editForm.statement"
-              :problem-id="problem.id"
-              upload-enabled
-            />
-            <markdown-view v-else :source="statement" />
+            <template v-if="editMode">
+              <div class="statement-edit-panel">
+                <n-form :model="editForm" label-placement="top" size="small">
+                  <div class="statement-edit-grid">
+                    <n-form-item :label="t('common.title')" class="statement-title-field">
+                      <n-input v-model:value="editForm.title" />
+                    </n-form-item>
+                    <n-form-item :label="t('admin.problems.timeMs')">
+                      <n-input-number v-model:value="editForm.timeLimit" :min="100" class="full-width" />
+                    </n-form-item>
+                    <n-form-item :label="t('admin.problems.memoryMb')">
+                      <n-input-number v-model:value="editForm.memoryLimitMb" :min="16" class="full-width" />
+                    </n-form-item>
+                  </div>
+                  <n-form-item :label="t('common.tags')">
+                    <n-dynamic-tags v-model:value="editForm.tags" />
+                  </n-form-item>
+                </n-form>
+              </div>
+              <markdown-editor
+                v-model="editForm.statement"
+                :problem-id="problem.id"
+                upload-enabled
+              />
+            </template>
+            <template v-else>
+              <markdown-view :source="statement" />
+            </template>
           </n-card>
 
-          <n-card :title="t('common.status')" :bordered="false" class="meta-card">
-            <template v-if="canManage" #header-extra>
-              <n-button
-                quaternary
-                circle
-                size="small"
-                :aria-label="t('admin.problems.edit')"
-                @click="showManageModal = true"
-              >
-                <template #icon>
-                  <n-icon :component="SettingsOutline" />
-                </template>
-              </n-button>
-            </template>
-            <n-descriptions :column="1" bordered size="small">
-              <n-descriptions-item :label="t('common.time')">
-                {{ timeLimit }} ms
-              </n-descriptions-item>
-              <n-descriptions-item :label="t('common.memory')">
-                {{ memoryMb }} MB
-              </n-descriptions-item>
-              <n-descriptions-item :label="t('admin.problems.mode')">
-                <n-tag :bordered="false">{{ problem.mode }}</n-tag>
-              </n-descriptions-item>
-              <n-descriptions-item v-if="canManage" :label="t('admin.problems.assets')">
-                data {{ dataAssetCount }} · assets {{ publicAssetCount }} · root {{ rootAssetCount }}
-              </n-descriptions-item>
-              <n-descriptions-item :label="t('problems.passRate')">
-                {{ ((problem.passRate ?? 0) * 100).toFixed(1) }}%
-              </n-descriptions-item>
-              <n-descriptions-item :label="t('common.tags')">
-                <n-space :size="6">
-                  <n-tag v-for="item in problem.tags" :key="item" size="small" :bordered="false">
-                    {{ item }}
-                  </n-tag>
-                  <span v-if="!problem.tags.length" class="muted">-</span>
-                </n-space>
-              </n-descriptions-item>
-              <n-descriptions-item :label="t('problemDetail.recentSubmission')">
+          <n-card :bordered="false" class="meta-card">
+            <div class="side-status">
+              <section class="metric-grid">
                 <RouterLink
                   v-if="problem.recentSubmission"
-                  class="table-link"
+                  class="metric-card"
                   :to="`/submissions/${problem.recentSubmission.id}`"
                 >
-                  #{{ problem.recentSubmission.id }}
-                  {{ problem.recentSubmission.displayStatus }}
-                  <template v-if="problem.recentSubmission.score !== null">
-                    / {{ problem.recentSubmission.score }}
-                  </template>
+                  <span>{{ t('problemDetail.myRecord') }}</span>
+                  <strong>{{ recentSubmissionText }}</strong>
                 </RouterLink>
-                <span v-else class="muted">{{ t('problemDetail.noRecentSubmission') }}</span>
-              </n-descriptions-item>
-              <n-descriptions-item v-if="canManage && adminFullView" :label="t('admin.problems.visible')">
-                <n-tag :bordered="false" :type="problem.visible ? 'success' : 'default'">
-                  {{ problem.visible ? t('admin.problems.yes') : t('admin.problems.no') }}
-                </n-tag>
-              </n-descriptions-item>
-              <n-descriptions-item v-if="canManage && adminFullView" :label="t('admin.problems.deleted')">
-                <n-tag :bordered="false" :type="problem.deletedAt ? 'error' : 'success'">
-                  {{ problem.deletedAt ? formatDate(problem.deletedAt) : t('admin.problems.no') }}
-                </n-tag>
-              </n-descriptions-item>
-            </n-descriptions>
-            <n-space class="problem-links">
-              <n-button secondary size="small" @click="router.push('/submissions')">
-                {{ t('problemDetail.viewSubmissions') }}
-              </n-button>
-              <n-button secondary size="small" @click="router.push('/discussion')">
-                {{ t('problemDetail.viewDiscussion') }}
-              </n-button>
-            </n-space>
-          </n-card>
-        </section>
-
-        <n-modal
-          v-if="canManage"
-          v-model:show="showManageModal"
-          preset="card"
-          :title="t('admin.problems.edit')"
-          class="problem-manage-modal"
-        >
-          <n-tabs v-model:value="manageTab" type="line" animated>
-            <n-tab-pane name="meta" :tab="t('admin.problems.limits')">
-              <n-space justify="space-between" align="center" class="manage-switch">
-                <span class="muted">{{ t('admin.fullView') }}</span>
-                <n-switch v-model:value="adminFullView" />
-              </n-space>
-              <n-form :model="editForm" label-placement="top">
-                <n-form-item :label="t('common.title')">
-                  <n-input v-model:value="editForm.title" />
-                </n-form-item>
-                <n-form-item :label="t('common.tags')">
-                  <n-dynamic-tags v-model:value="editForm.tags" />
-                </n-form-item>
-                <div class="form-grid two">
-                  <n-form-item :label="t('admin.problems.mode')">
-                    <n-select
-                      v-model:value="editForm.mode"
-                      :options="[
-                        { label: 'default', value: 'default' },
-                        { label: 'strict', value: 'strict' },
-                        { label: 'custom', value: 'custom' }
-                      ]"
-                    />
-                  </n-form-item>
-                  <n-form-item :label="t('admin.problems.visible')">
-                    <n-switch v-model:value="editForm.visible" />
-                  </n-form-item>
-                  <n-form-item :label="t('admin.problems.timeMs')">
-                    <n-input-number v-model:value="editForm.timeLimit" :min="100" class="full-width" />
-                  </n-form-item>
-                  <n-form-item :label="t('admin.problems.memoryMb')">
-                    <n-input-number v-model:value="editForm.memoryLimitMb" :min="16" class="full-width" />
-                  </n-form-item>
+                <div v-else class="metric-card is-muted">
+                  <span>{{ t('problemDetail.myRecord') }}</span>
+                  <strong>{{ recentSubmissionText }}</strong>
                 </div>
-                <n-space justify="space-between" align="center">
+                <RouterLink class="metric-card" :to="`/submissions?problemId=${problem.id}`">
+                  <span>{{ t('problems.passRate') }}</span>
+                  <strong>{{ passRateText }}</strong>
+                </RouterLink>
+                <RouterLink class="metric-card" :to="`/discussion?tags=P${problem.id}`">
+                  <span>{{ t('problemDetail.discussionCount') }}</span>
+                  <strong>{{ problem.discussionCount }}</strong>
+                </RouterLink>
+              </section>
+              <section class="meta-section asset-meta-section">
+                <div class="meta-row">
+                  <span>{{ t('admin.problems.mode') }}</span>
+                  <n-select
+                    v-if="canManage"
+                    :value="problem.mode"
+                    size="small"
+                    :options="modeOptions"
+                    :loading="saving"
+                    class="mode-select"
+                    @update:value="updateProblemMode"
+                  />
+                  <n-tag v-else size="small" :bordered="false">{{ problemModeLabel }}</n-tag>
+                </div>
+                <div class="meta-row">
+                  <span>{{ t('admin.problems.dataCases') }}</span>
+                  <strong>{{ dataCaseCount }}</strong>
+                </div>
+                <div class="meta-row">
+                  <span>{{ t('admin.problems.dataSize') }}</span>
+                  <strong>{{ dataAssetSizeText }}</strong>
+                </div>
+                <div v-if="canManage && problem.deletedAt" class="meta-row">
+                  <span>{{ t('admin.problems.deleted') }}</span>
+                  <n-tag size="small" :bordered="false" type="error">
+                    {{ formatDate(problem.deletedAt) }}
+                  </n-tag>
+                </div>
+                <div v-if="canManage" class="meta-actions">
+                  <n-button secondary size="small" @click="openManageModal">
+                    <template #icon>
+                      <n-icon :component="FolderOpenOutline" />
+                    </template>
+                    {{ t('admin.problems.assets') }}
+                  </n-button>
                   <n-popconfirm v-if="!problem.deletedAt" @positive-click="toggleProblemDeleted">
                     <template #trigger>
-                      <n-button tertiary type="error" :loading="saving">
+                      <n-button tertiary size="small" type="error" :loading="saving">
                         <template #icon>
                           <n-icon :component="TrashOutline" />
                         </template>
@@ -551,113 +683,122 @@ async function deleteAsset(path: string) {
                     </template>
                     {{ t('problems.deleteConfirm') }}
                   </n-popconfirm>
-                  <n-space>
-                    <n-button @click="showManageModal = false">{{ t('admin.cancel') }}</n-button>
-                    <n-button type="primary" :loading="saving" @click="saveProblem">
-                      {{ t('admin.save') }}
-                    </n-button>
-                  </n-space>
-                </n-space>
-              </n-form>
-            </n-tab-pane>
+                </div>
+              </section>
+            </div>
+          </n-card>
+        </section>
 
-            <n-tab-pane name="assets" :tab="t('admin.problems.assets')">
-              <div class="asset-panel">
-                <div class="asset-panel-header">
-                  <div>
-                    <strong>{{ t('admin.problems.assets') }}</strong>
-                    <p class="muted">data/ 用于评测，assets/ 用于题面附件。</p>
+        <n-modal
+          v-if="canManage"
+          v-model:show="showManageModal"
+          preset="card"
+          :title="t('admin.problems.assets')"
+          class="problem-manage-modal"
+          :z-index="30000"
+          style="width: min(760px, calc(100vw - 32px))"
+        >
+          <div class="asset-panel">
+            <div class="asset-sections">
+              <section v-for="section in assetSections" :key="section.key" class="asset-section">
+                <div class="asset-section-head">
+                  <div class="asset-section-title">
+                    <strong>{{ section.title }}</strong>
+                    <n-tag size="small" :bordered="false">{{ assetUploadPrefix(section.key) || '/' }}</n-tag>
+                    <span class="muted">{{ section.hint }}</span>
                   </div>
-                  <n-space class="asset-actions">
-                    <n-input
-                      v-model:value="assetPath"
-                      size="small"
-                      class="asset-path-input"
-                      :placeholder="t('admin.problems.packageNewFilePath')"
-                    />
-                    <n-button size="small" secondary @click="newAsset(assetPath)">
-                      {{ t('admin.problems.packageNewFile') }}
+                  <n-upload
+                    :custom-request="uploadAssetForSection(section.key)"
+                    :show-file-list="false"
+                    accept="*"
+                  >
+                    <n-button size="small" secondary>
+                      <template #icon>
+                        <n-icon :component="FolderOpenOutline" />
+                      </template>
+                      {{ t('admin.upload') }}
                     </n-button>
-                    <n-upload :custom-request="uploadAsset" :show-file-list="false" accept="*">
-                      <n-button size="small" secondary>
-                        <template #icon>
-                          <n-icon :component="FolderOpenOutline" />
+                  </n-upload>
+                </div>
+                <div v-if="assetsBySection(section.key).length" class="asset-list">
+                  <div
+                    v-for="asset in assetsBySection(section.key)"
+                    :key="asset.path"
+                    class="asset-row"
+                  >
+                    <span class="asset-path">{{ asset.path }}</span>
+                    <span class="muted">{{ Math.round(asset.size / 1024) }} KB</span>
+                    <div class="asset-row-actions">
+                      <n-tooltip v-if="asset.text">
+                        <template #trigger>
+                          <n-button size="tiny" tertiary @click="openAssetEditor(asset)">
+                            <template #icon>
+                              <n-icon :component="CreateOutline" />
+                            </template>
+                          </n-button>
                         </template>
-                        {{ t('admin.upload') }}
-                      </n-button>
-                    </n-upload>
-                  </n-space>
-                </div>
-
-                <div class="asset-sections">
-                  <section v-for="section in assetSections" :key="section.key" class="asset-section">
-                    <n-space justify="space-between" align="center">
-                      <div>
-                        <strong>{{ section.title }}</strong>
-                        <p class="muted">{{ section.hint }}</p>
-                      </div>
-                      <n-button size="tiny" secondary @click="setAssetDraft(section.draftPath)">
-                        {{ t('admin.problems.packageNewFile') }}
-                      </n-button>
-                    </n-space>
-                    <div v-if="assetsBySection(section.key).length" class="asset-list">
-                      <div
-                        v-for="asset in assetsBySection(section.key)"
-                        :key="asset.path"
-                        class="asset-row"
-                        :class="{ selected: selectedAssetPath === asset.path }"
-                      >
-                        <n-button text size="small" @click="loadAssetContent(asset.path)">
-                          {{ asset.path }}
-                        </n-button>
-                        <span class="muted">{{ Math.round(asset.size / 1024) }} KB</span>
-                        <n-popconfirm @positive-click="deleteAsset(asset.path)">
-                          <template #trigger>
-                            <n-button size="tiny" tertiary type="error">
-                              <template #icon>
-                                <n-icon :component="TrashOutline" />
-                              </template>
-                            </n-button>
-                          </template>
-                          {{ t('admin.problems.assetDeleteConfirm') }}
-                        </n-popconfirm>
-                      </div>
+                        {{ t('admin.edit') }}
+                      </n-tooltip>
+                      <n-popconfirm @positive-click="deleteAsset(asset.path)">
+                        <template #trigger>
+                          <n-button size="tiny" tertiary type="error">
+                            <template #icon>
+                              <n-icon :component="TrashOutline" />
+                            </template>
+                          </n-button>
+                        </template>
+                        {{ t('admin.problems.assetDeleteConfirm') }}
+                      </n-popconfirm>
                     </div>
-                    <p v-else class="muted">{{ t('admin.problems.packageEmpty') }}</p>
-                  </section>
-                  <p v-if="problem.mode !== 'custom'" class="muted">{{ t('admin.problems.rootCustomOnly') }}</p>
-                </div>
-
-                <div v-if="selectedAssetPath" class="asset-editor">
-                  <div class="asset-editor-header">
-                    <span class="muted">{{ t('admin.problems.packagePath') }}</span>
-                    <n-input v-model:value="selectedAssetPath" />
                   </div>
-                  <code-editor v-model="assetContent" />
-                  <n-space justify="end">
-                    <n-button type="primary" :loading="assetSaving" @click="saveAssetContent">
-                      {{ t('admin.problems.packageSave') }}
-                    </n-button>
-                  </n-space>
                 </div>
-              </div>
-            </n-tab-pane>
-          </n-tabs>
+                <n-empty v-else size="small" />
+              </section>
+              <p v-if="problem.mode !== 'custom'" class="muted">{{ t('admin.problems.rootCustomOnly') }}</p>
+            </div>
+
+          </div>
+        </n-modal>
+
+        <n-modal
+          v-if="canManage"
+          v-model:show="showAssetEditor"
+          preset="card"
+          :title="selectedAsset?.path || t('admin.problems.packageContent')"
+          class="asset-editor-modal"
+          style="width: min(920px, calc(100vw - 32px))"
+        >
+          <code-editor
+            v-model="assetContent"
+            :language-id="assetEditorLanguage"
+          />
+          <n-space justify="end" class="form-actions">
+            <n-button @click="showAssetEditor = false">{{ t('admin.cancel') }}</n-button>
+            <n-button type="primary" :loading="assetSaving" @click="saveSelectedAsset">
+              <template #icon>
+                <n-icon :component="SaveOutline" />
+              </template>
+              {{ t('admin.save') }}
+            </n-button>
+          </n-space>
         </n-modal>
 
         <n-card :title="t('problemDetail.submit')" :bordered="false" class="submit-card">
-          <n-space vertical>
+          <template v-if="auth.signedIn" #header-extra>
+            <n-checkbox v-model:checked="sourceOpen">
+              {{ t('problemDetail.sourceOpen') }}
+            </n-checkbox>
+          </template>
+          <div class="submit-content">
             <template v-if="auth.signedIn">
-              <n-select
-                v-model:value="languageId"
-                :options="languageOptions"
-                @update:value="updateTemplate"
-              />
               <code-editor v-model="codeText" :language-id="languageId" />
-              <n-checkbox v-model:checked="sourceOpen">
-                {{ t('problemDetail.sourceOpen') }}
-              </n-checkbox>
-              <n-space justify="end" class="submit-actions">
+              <div class="submit-actions">
+                <n-select
+                  v-model:value="languageId"
+                  :options="languageOptions"
+                  class="language-select"
+                  @update:value="updateTemplate"
+                />
                 <n-button
                   type="primary"
                   :loading="submitting"
@@ -665,13 +806,13 @@ async function deleteAsset(path: string) {
                 >
                   {{ t('problemDetail.submit') }}
                 </n-button>
-              </n-space>
+              </div>
             </template>
             <n-alert v-else type="info" :show-icon="false">
               {{ t('problemDetail.signIn') }}
             </n-alert>
             <p v-if="error" class="form-error">{{ error }}</p>
-          </n-space>
+          </div>
         </n-card>
       </section>
       <p v-else-if="error" class="form-error">{{ error }}</p>
@@ -698,42 +839,139 @@ async function deleteAsset(path: string) {
   min-width: 0;
 }
 
-.statement-card :deep(.n-card-header) {
+.statement-card,
+.meta-card {
+  align-self: start;
+}
+
+.statement-card :deep(.n-card-header),
+.meta-card :deep(.n-card-header) {
+  align-items: center;
   padding-bottom: 10px;
 }
 
-.meta-card {
-  position: sticky;
-  top: 84px;
+.statement-title {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
 }
 
-.problem-links {
-  margin-top: 12px;
+.statement-header-extra {
+  max-width: 100%;
 }
 
-.manage-switch {
+.statement-edit-panel {
   margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-bg) 96%, var(--text-color) 4%);
+}
+
+.statement-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.statement-title-field {
+  grid-column: 1 / -1;
+}
+
+.problem-context {
+  width: fit-content;
+}
+
+.side-status {
+  display: grid;
+  gap: 16px;
+}
+
+.metric-grid,
+.meta-section {
+  display: grid;
+  gap: 10px;
+}
+
+.asset-meta-section {
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.metric-card {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  color: inherit;
+  text-decoration: none;
+  background: color-mix(in srgb, var(--surface-bg) 94%, var(--text-color) 6%);
+}
+
+.metric-card:hover {
+  color: inherit;
+  background: color-mix(in srgb, var(--surface-bg) 90%, var(--brand) 10%);
+}
+
+.metric-card.is-muted:hover {
+  background: color-mix(in srgb, var(--surface-bg) 94%, var(--text-color) 6%);
+}
+
+.metric-card > span,
+.meta-row > span {
+  color: var(--muted-color);
+  font-size: 13px;
+}
+
+.metric-card > strong {
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.meta-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.mode-select {
+  width: 160px;
+}
+
+.meta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
 }
 
 .asset-panel {
   display: grid;
-  gap: 14px;
-  margin-top: 16px;
+  gap: 16px;
 }
 
-.asset-panel-header {
+.asset-section-head {
   display: flex;
   gap: 12px;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
 }
 
-.asset-panel-header p {
-  margin-top: 4px;
-}
+.asset-section-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
 
-.asset-actions {
-  justify-content: flex-end;
+  .muted {
+    flex-basis: 100%;
+  }
 }
 
 .asset-list {
@@ -753,9 +991,17 @@ async function deleteAsset(path: string) {
   background: color-mix(in srgb, var(--surface-bg) 94%, var(--text-color) 6%);
 }
 
-.asset-row.selected {
-  border-color: var(--brand);
-  background: var(--brand-soft);
+.asset-row-actions {
+  display: inline-flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.asset-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .asset-sections {
@@ -769,23 +1015,23 @@ async function deleteAsset(path: string) {
   border-radius: var(--radius-md);
 }
 
-.asset-path-input {
-  width: 220px;
-}
-
-.asset-editor {
+.submit-content {
   display: grid;
-  gap: 10px;
-  padding-top: 4px;
-}
-
-.asset-editor-header {
-  display: grid;
-  gap: 6px;
+  gap: 12px;
 }
 
 .submit-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
   margin-top: 4px;
+}
+
+.language-select {
+  flex: 0 1 260px;
+  width: 260px;
+  min-width: 0;
 }
 
 @media (max-width: 860px) {
@@ -793,21 +1039,28 @@ async function deleteAsset(path: string) {
     grid-template-columns: 1fr;
   }
 
-  .meta-card {
-    position: static;
-  }
-
-  .asset-panel-header {
+  .statement-edit-grid {
     display: grid;
+    grid-template-columns: 1fr;
   }
 
-  .asset-actions,
-  .asset-path-input {
-    width: 100%;
+  .asset-section-head {
+    display: grid;
   }
 
   .asset-row {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .submit-actions {
+    display: grid;
+    justify-content: stretch;
+    justify-items: stretch;
+  }
+
+  .language-select {
+    flex-basis: auto;
+    width: 100%;
   }
 }
 </style>

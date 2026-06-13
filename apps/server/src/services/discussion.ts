@@ -59,7 +59,7 @@ export async function getTopicDetail(id: number) {
   }
 }
 
-export async function getRecentTopics(limit: number, offset = 0) {
+export async function getRecentTopics(limit: number, offset = 0, tags: string[] = []) {
   const rows = await db
     .select({
       id: schema.topics.id,
@@ -70,7 +70,7 @@ export async function getRecentTopics(limit: number, offset = 0) {
       updatedAt: schema.topics.updatedAt
     })
     .from(schema.topics)
-    .where(sql`${schema.topics.deletedAt} is null`)
+    .where(topicListFilter(tags))
     .orderBy(desc(schema.topics.pinned), desc(schema.topics.updatedAt), desc(schema.topics.id))
     .limit(limit)
     .offset(offset)
@@ -82,12 +82,19 @@ export async function getRecentTopics(limit: number, offset = 0) {
   }))
 }
 
-export async function countTopics() {
+export async function countTopics(tags: string[] = []) {
   const [row] = await db
     .select({ total: sql<number>`count(*)::int` })
     .from(schema.topics)
-    .where(sql`${schema.topics.deletedAt} is null`)
+    .where(topicListFilter(tags))
   return row?.total ?? 0
+}
+
+function topicListFilter(tags: string[]) {
+  return and(
+    isNull(schema.topics.deletedAt),
+    ...tags.map((tag) => sql`${schema.topics.tags} @> ARRAY[${tag}]::text[]`)
+  )
 }
 
 async function getTopicAuthors(topicIds: number[]) {

@@ -13,10 +13,11 @@ export function registerDiscussionRoutes(app: Hono) {
     const denied = await denyGuestAccess(c, 'Sign in to view discussions')
     if (denied) return denied
 
-    const { page, pageSize } = listQuerySchema.parse(c.req.query())
+    const { page, pageSize, tags: rawTags } = discussionListQuerySchema.parse(c.req.query())
+    const tags = parseTags(rawTags)
     const [total, items] = await Promise.all([
-      countTopics(),
-      getRecentTopics(pageSize, pageOffset(page, pageSize))
+      countTopics(tags),
+      getRecentTopics(pageSize, pageOffset(page, pageSize), tags)
     ])
 
     return c.json({ items, page, pageSize, total })
@@ -151,6 +152,18 @@ const createTopicSchema = z.object({
   content: z.string().min(1).max(20_000),
   tags: z.array(z.string().min(1).max(32)).max(5).default([])
 })
+
+const discussionListQuerySchema = listQuerySchema.extend({
+  tags: z.string().optional()
+})
+
+function parseTags(raw: string | undefined) {
+  return (raw ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 5)
+}
 
 const createPostSchema = z.object({
   content: z.string().min(1).max(20_000)

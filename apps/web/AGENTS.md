@@ -9,7 +9,6 @@
 - 使用 Vite + Vue 3 + TypeScript + Naive UI + SCSS。
 - 使用 `unplugin-auto-import` 自动导入 Vue、Vue Router、Pinia 常用 API；不要为 `ref`、`computed`、`watch`、`onMounted`、`useRoute`、`useRouter`、`RouterLink`、`defineStore` 等重复写 value import。
 - 使用 `unplugin-vue-components` 自动导入 Naive UI 组件和本地通用组件；纯模板组件不要手写 value import。`h(NTag)` 这类脚本渲染中直接引用的组件可以保留 import。
-- Markdown 编辑统一用 `md-editor-v3`；展示态统一用 Markdown 渲染组件，不能出现编辑器工具条、行号或编辑器边框痕迹。
 - 纯代码编辑使用 `CodeEditor`，不要用 Markdown 编辑器承载代码输入。
 
 ## UI 原则
