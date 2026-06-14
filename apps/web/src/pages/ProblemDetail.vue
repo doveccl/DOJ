@@ -422,8 +422,8 @@ async function createDataCase() {
   error.value = ''
   const caseNo = nextDataCaseNo()
   try {
-    await saveAssetText(`data/in${caseNo}.txt`, '')
-    await saveAssetText(`data/ans${caseNo}.txt`, '')
+    await saveAssetText(`data/${caseNo}.in`, '')
+    await saveAssetText(`data/${caseNo}.out`, '')
     await loadAssets()
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : String(caught)

@@ -474,6 +474,22 @@ onMounted(() => {
   --n-td-color-hover: rgba(245, 158, 11, 0.16);
 }
 
+:deep(.problem-row-solved .n-data-table-td) {
+  background-color: rgba(16, 185, 129, 0.12);
+}
+
+:deep(.problem-row-solved:hover .n-data-table-td) {
+  background-color: rgba(16, 185, 129, 0.16);
+}
+
+:deep(.problem-row-attempted .n-data-table-td) {
+  background-color: rgba(245, 158, 11, 0.12);
+}
+
+:deep(.problem-row-attempted:hover .n-data-table-td) {
+  background-color: rgba(245, 158, 11, 0.16);
+}
+
 :deep(.problem-row-hidden td:nth-child(1)),
 :deep(.problem-row-hidden td:nth-child(2)),
 :deep(.problem-row-hidden td:nth-child(2) .table-link) {
