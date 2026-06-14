@@ -50,6 +50,7 @@ const reportLoading = ref(false)
 const error = ref('')
 const detail = ref<AssignmentDetail | null>(null)
 const report = ref<AssignmentReport | null>(null)
+const activeTab = ref('problems')
 const { t } = useI18n()
 const canManage = computed(() => auth.user?.admin ?? false)
 const assignment = computed(() => detail.value?.assignment ?? {
@@ -158,22 +159,14 @@ async function loadDetail() {
     detail.value = await apiFetch<AssignmentDetail>(
       canManage.value ? `/api/admin/assignments/${route.params.id}` : `/api/my/assignments/${route.params.id}`
     )
-    if (canManage.value && route.query.report === '1') await loadReport()
+    if (canManage.value && route.query.report === '1') {
+      activeTab.value = 'report'
+      await loadReport()
+    }
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
     loading.value = false
-  }
-}
-
-async function toggleDeleted() {
-  const id = assignment.value.id
-  if (!id) return
-  try {
-    await apiFetch(`/api/admin/assignments/${id}`, { method: 'DELETE' })
-    await loadDetail()
-  } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
   }
 }
 
@@ -187,6 +180,11 @@ async function loadReport() {
   } finally {
     reportLoading.value = false
   }
+}
+
+function handleTabUpdate(value: string) {
+  activeTab.value = value
+  if (value === 'report' && canManage.value && !report.value) void loadReport()
 }
 
 watch(
@@ -212,50 +210,37 @@ onMounted(() => {
         <section class="page-header">
           <h1>{{ assignment.title }}</h1>
           <p v-if="assignment.description">{{ assignment.description }}</p>
+          <p class="muted">
+            {{ t('assignments.duePrefix') }}
+            {{ assignment.endAt ? new Date(assignment.endAt).toLocaleString() : '-' }}
+          </p>
         </section>
 
-        <n-card :bordered="false" class="stacked-card">
-          <div class="meta-row">
-            <span class="muted">
-              {{ t('assignments.duePrefix') }}
-              {{ assignment.endAt ? new Date(assignment.endAt).toLocaleString() : '-' }}
-            </span>
-            <n-space v-if="canManage" size="small">
-              <n-button size="small" secondary :loading="reportLoading" @click="loadReport">
-                {{ t('admin.assignments.report') }}
-              </n-button>
-              <n-popconfirm v-if="!assignment.deletedAt" @positive-click="toggleDeleted">
-                <template #trigger>
-                  <n-button size="small" tertiary type="error">
-                    {{ t('admin.delete') }}
-                  </n-button>
-                </template>
-                {{ t('admin.assignments.deleteConfirm') }}
-              </n-popconfirm>
-            </n-space>
-          </div>
-        </n-card>
-
-        <n-data-table
-          :columns="columns"
-          :data="problems"
-          :bordered="false"
-          :scroll-x="760"
-          class="stacked-card"
-        />
-
-        <n-card
-          v-if="canManage && report"
-          :title="t('admin.assignments.report')"
-          :bordered="false"
-          class="stacked-card"
-        >
-          <n-data-table
-            :columns="reportColumns"
-            :data="report.rows"
-            :bordered="false"
-            :scroll-x="Math.max(520, 160 + problems.length * 120)"
-          />
+        <n-card :bordered="false" class="stacked-card assignment-detail-card">
+          <n-tabs
+            :value="activeTab"
+            type="line"
+            animated
+            @update:value="handleTabUpdate"
+          >
+            <n-tab-pane name="problems" :tab="t('common.problem')">
+              <n-data-table
+                :columns="columns"
+                :data="problems"
+                :bordered="false"
+                :scroll-x="760"
+              />
+            </n-tab-pane>
+            <n-tab-pane v-if="canManage" name="report" :tab="t('admin.assignments.report')">
+              <n-data-table
+                :columns="reportColumns"
+                :data="report?.rows ?? []"
+                :bordered="false"
+                :loading="reportLoading"
+                :scroll-x="Math.max(520, 160 + problems.length * 120)"
+              />
+            </n-tab-pane>
+          </n-tabs>
         </n-card>
       </template>
 

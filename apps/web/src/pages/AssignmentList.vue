@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { NButton, NPopconfirm, NProgress, NSpace, NTag } from 'naive-ui'
+import { NButton, NIcon, NPopconfirm, NProgress, NSpace, NTag, NTooltip } from 'naive-ui'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
+import type { Component } from 'vue'
+import { AddOutline, CreateOutline, TrashOutline } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
 import { apiFetch, DEFAULT_PAGE_SIZE, getItems, PAGE_SIZE_OPTIONS, type Paged } from '../api'
 import { useAuthStore } from '../stores/auth'
@@ -41,7 +43,6 @@ interface ProblemRow {
 }
 
 const auth = useAuthStore()
-const router = useRouter()
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
@@ -76,33 +77,27 @@ const columns = computed<DataTableColumns<AssignmentRow>>(() => [
   {
     title: t('common.title'),
     key: 'title',
-    minWidth: 220,
+    minWidth: 260,
     render(row) {
       const state = assignmentState(row)
-      return h('div', { class: 'assignment-title-cell' }, [
-        h('div', { class: 'assignment-title-row' }, [
-          h(RouterLink, { to: `/assignments/${row.id}`, class: 'table-link assignment-title' }, () => row.title),
-          h(NTag, { bordered: false, type: state.type, size: 'small' }, () => state.label)
-        ]),
-        h('span', { class: 'muted assignment-time-left' }, timeLeft(row))
+      return h('div', { class: 'assignment-title-row' }, [
+        h(RouterLink, { to: `/assignments/${row.id}`, class: 'table-link assignment-title' }, () => row.title),
+        state ? h(NTag, { bordered: false, type: state.type, size: 'small' }, () => state.label) : null
       ])
     }
   },
   {
     title: t('assignments.due'),
     key: 'endAt',
-    width: 210,
+    width: 220,
     render(row) {
-      return h('div', { class: 'compact-stack' }, [
-        h('span', new Date(row.endAt).toLocaleString()),
-        h('span', { class: 'muted' }, timeLeft(row))
-      ])
+      return h('span', { class: 'assignment-date' }, new Date(row.endAt).toLocaleString())
     }
   },
   {
     title: t('assignments.progress'),
     key: 'progress',
-    width: 190,
+    width: 220,
     render(row) {
       return h('div', { class: 'assignment-progress' }, [
         h(NProgress, {
@@ -111,7 +106,7 @@ const columns = computed<DataTableColumns<AssignmentRow>>(() => [
           showIndicator: false,
           status: row.total > 0 && row.completed >= row.total ? 'success' : 'default'
         }),
-        h('span', { class: 'muted' }, `${row.completed}/${row.total}`)
+        h('span', { class: 'assignment-progress-text' }, `${row.completed}/${row.total}`)
       ])
     }
   },
@@ -120,7 +115,7 @@ const columns = computed<DataTableColumns<AssignmentRow>>(() => [
         {
           title: t('admin.assignments.problems'),
           key: 'problemCount',
-          width: 110,
+          width: 96,
           render(row: AssignmentRow) {
             return row.problemCount ?? '-'
           }
@@ -128,25 +123,16 @@ const columns = computed<DataTableColumns<AssignmentRow>>(() => [
         {
           title: t('admin.actions'),
           key: 'actions',
-          width: 260,
+          width: 112,
           render(row: AssignmentRow) {
             return h(NSpace, { size: 8 }, () => [
-              h(NButton, { size: 'small', secondary: true, onClick: () => openEdit(row.id) }, () => t('admin.edit')),
-              h(
-                NButton,
-                { size: 'small', secondary: true, onClick: () => router.push(`/assignments/${row.id}?report=1`) },
-                () => t('admin.assignments.report')
-              ),
+              tooltipIconButton(CreateOutline, t('admin.edit'), () => openEdit(row.id)),
               h(
                 NPopconfirm,
                 { onPositiveClick: () => deleteAssignment(row) },
                 {
                   trigger: () =>
-                    h(
-                      NButton,
-                      { size: 'small', tertiary: true, type: 'error' },
-                      () => t('admin.delete')
-                    ),
+                    tooltipIconButton(TrashOutline, t('admin.delete'), () => {}, { type: 'error' }),
                   default: () => t('admin.assignments.deleteConfirm')
                 }
               )
@@ -292,6 +278,43 @@ function handlePageSizeChange(pageSize: number) {
   void loadAssignments()
 }
 
+function rowProps(row: AssignmentRow) {
+  return {
+    class: isAssignmentEnded(row) ? 'assignment-row-ended' : ''
+  }
+}
+
+function renderIcon(icon: Component) {
+  return h(NIcon, { component: icon })
+}
+
+function tooltipIconButton(
+  icon: Component,
+  label: string,
+  onClick: () => void,
+  options: { type?: 'error' } = {}
+) {
+  return h(
+    NTooltip,
+    { trigger: 'hover' },
+    {
+      trigger: () =>
+        h(
+          NButton,
+          {
+            size: 'small',
+            quaternary: true,
+            circle: true,
+            type: options.type,
+            onClick
+          },
+          { icon: () => renderIcon(icon) }
+        ),
+      default: () => label
+    }
+  )
+}
+
 watch(
   () => auth.signedIn,
   (signedIn) => {
@@ -318,20 +341,15 @@ function assignmentProgressPercent(row: AssignmentRow) {
 
 function assignmentState(row: AssignmentRow) {
   if (row.deletedAt) return { label: t('admin.assignments.deleted'), type: 'error' as const }
+  if (isAssignmentEnded(row)) return null
   if (row.total > 0 && row.completed >= row.total) return { label: t('assignments.done'), type: 'success' as const }
   const end = new Date(row.endAt).getTime()
-  const now = Date.now()
-  if (end <= now) return { label: t('assignments.ended'), type: 'default' as const }
-  if (end - now <= 24 * 60 * 60 * 1000) return { label: t('assignments.dueSoon'), type: 'warning' as const }
+  if (end - Date.now() <= 24 * 60 * 60 * 1000) return { label: t('assignments.dueSoon'), type: 'warning' as const }
   return { label: t('assignments.open'), type: 'info' as const }
 }
 
-function timeLeft(row: AssignmentRow) {
-  const diff = new Date(row.endAt).getTime() - Date.now()
-  if (diff <= 0) return t('assignments.ended')
-  const hours = Math.ceil(diff / (60 * 60 * 1000))
-  if (hours < 24) return `${hours}h`
-  return `${Math.ceil(hours / 24)}d`
+function isAssignmentEnded(row: AssignmentRow) {
+  return new Date(row.endAt).getTime() <= Date.now()
 }
 </script>
 
@@ -348,6 +366,9 @@ function timeLeft(row: AssignmentRow) {
     <n-card :bordered="false">
       <n-space v-if="canManage" justify="end" class="table-toolbar">
         <n-button type="primary" @click="openCreate">
+          <template #icon>
+            <n-icon :component="AddOutline" />
+          </template>
           {{ t('admin.assignments.create') }}
         </n-button>
       </n-space>
@@ -358,7 +379,8 @@ function timeLeft(row: AssignmentRow) {
         :bordered="false"
         :loading="loading"
         :pagination="pagination"
-        :scroll-x="canManage ? 980 : 620"
+        :scroll-x="canManage ? 900 : 700"
+        :row-props="rowProps"
         @update:page="handlePageChange"
         @update:page-size="handlePageSizeChange"
       >
@@ -374,8 +396,9 @@ function timeLeft(row: AssignmentRow) {
       preset="card"
       :title="modalTitle"
       class="form-modal"
+      style="width: min(760px, calc(100vw - 32px))"
     >
-      <n-form :model="form" label-placement="top">
+      <n-form :model="form" label-placement="top" class="assignment-form">
         <n-form-item :label="t('common.title')">
           <n-input v-model:value="form.title" />
         </n-form-item>
@@ -417,7 +440,7 @@ function timeLeft(row: AssignmentRow) {
             :options="problemOptions"
           />
         </n-form-item>
-        <n-space justify="end" class="form-actions">
+        <n-space justify="end" class="form-actions assignment-form-actions">
           <n-button @click="showFormModal = false">{{ t('admin.cancel') }}</n-button>
           <n-button
             type="primary"
@@ -449,17 +472,49 @@ function timeLeft(row: AssignmentRow) {
 
 .assignment-title {
   min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.assignment-time-left {
-  font-size: 12px;
+.assignment-date {
+  white-space: nowrap;
 }
 
 .assignment-progress {
   display: grid;
-  gap: 4px;
+  grid-template-columns: minmax(90px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.assignment-progress-text {
+  color: var(--muted-color);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+:deep(.assignment-row-ended .n-data-table-td) {
+  background-color: color-mix(in srgb, var(--surface-bg) 90%, var(--text-color) 10%);
+}
+
+:deep(.assignment-row-ended:hover .n-data-table-td) {
+  background-color: color-mix(in srgb, var(--surface-bg) 86%, var(--text-color) 14%);
+}
+
+.assignment-form {
+  max-height: calc(100vh - 190px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.assignment-form-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  padding-top: 12px;
+  padding-bottom: 2px;
+  background: var(--surface-bg);
 }
 </style>
