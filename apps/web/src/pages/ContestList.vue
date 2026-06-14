@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { NButton, NPopconfirm, NSpace, NTag } from 'naive-ui'
+import { NButton, NIcon, NPopconfirm, NSpace, NTag, NTooltip } from 'naive-ui'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
+import type { Component } from 'vue'
+import { AddOutline, CreateOutline, TrashOutline } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
 import { apiFetch, DEFAULT_PAGE_SIZE, getItems, PAGE_SIZE_OPTIONS, type Paged } from '../api'
 import { useAuthStore } from '../stores/auth'
@@ -69,15 +71,12 @@ const columns = computed<DataTableColumns<ContestRow>>(() => [
   {
     title: t('common.title'),
     key: 'title',
-    minWidth: 220,
+    minWidth: 260,
     render(row) {
       const state = contestState(row)
-      return h('div', { class: 'contest-title-cell' }, [
-        h('div', { class: 'contest-title-row' }, [
-          h(RouterLink, { to: `/contests/${row.id}`, class: 'table-link contest-title' }, () => row.title),
-          h(NTag, { bordered: false, type: state.type, size: 'small' }, () => state.label)
-        ]),
-        h('span', { class: 'muted contest-time-left' }, timeLeft(row.endAt))
+      return h('div', { class: 'contest-title-row' }, [
+        h(RouterLink, { to: `/contests/${row.id}`, class: 'table-link contest-title' }, () => row.title),
+        state ? h(NTag, { bordered: false, type: state.type, size: 'small' }, () => state.label) : null
       ])
     }
   },
@@ -92,15 +91,17 @@ const columns = computed<DataTableColumns<ContestRow>>(() => [
   {
     title: t('contests.start'),
     key: 'startAt',
+    width: 220,
     render(row) {
-      return new Date(row.startAt).toLocaleString()
+      return h('span', { class: 'contest-date' }, new Date(row.startAt).toLocaleString())
     }
   },
   {
     title: t('contests.end'),
     key: 'endAt',
+    width: 220,
     render(row) {
-      return new Date(row.endAt).toLocaleString()
+      return h('span', { class: 'contest-date' }, new Date(row.endAt).toLocaleString())
     }
   },
   ...(canManage.value
@@ -108,20 +109,16 @@ const columns = computed<DataTableColumns<ContestRow>>(() => [
         {
           title: t('admin.actions'),
           key: 'actions',
-          width: 220,
+          width: 112,
           render(row: ContestRow) {
             return h(NSpace, { size: 8 }, () => [
-              h(NButton, { size: 'small', secondary: true, onClick: () => openEdit(row.id) }, () => t('admin.edit')),
+              tooltipIconButton(CreateOutline, t('admin.edit'), () => openEdit(row.id)),
               h(
                 NPopconfirm,
                 { onPositiveClick: () => deleteContest(row) },
                 {
                   trigger: () =>
-                    h(
-                      NButton,
-                      { size: 'small', tertiary: true, type: 'error' },
-                      () => t('admin.delete')
-                    ),
+                    tooltipIconButton(TrashOutline, t('admin.delete'), () => {}, { type: 'error' }),
                   default: () => t('admin.contests.deleteConfirm')
                 }
               )
@@ -263,16 +260,8 @@ function contestState(row: ContestRow) {
   const start = new Date(row.startAt).getTime()
   const end = new Date(row.endAt).getTime()
   if (now < start) return { label: t('contests.upcoming'), type: 'info' as const }
-  if (now >= end) return { label: t('contests.past'), type: 'default' as const }
+  if (now >= end) return null
   return { label: t('contests.current'), type: 'success' as const }
-}
-
-function timeLeft(value: string) {
-  const diff = new Date(value).getTime() - Date.now()
-  if (diff <= 0) return t('assignments.ended')
-  const hours = Math.ceil(diff / (60 * 60 * 1000))
-  if (hours < 24) return `${hours}h`
-  return `${Math.ceil(hours / 24)}d`
 }
 
 function handlePageChange(page: number) {
@@ -284,6 +273,49 @@ function handlePageSizeChange(pageSize: number) {
   pagination.pageSize = pageSize
   pagination.page = 1
   void loadContests()
+}
+
+function rowProps(row: ContestRow) {
+  const now = Date.now()
+  const start = new Date(row.startAt).getTime()
+  const end = new Date(row.endAt).getTime()
+  return {
+    class: [
+      row.deletedAt || now >= end ? 'contest-row-past' : '',
+      now >= start && now < end ? 'contest-row-current' : ''
+    ].filter(Boolean).join(' ')
+  }
+}
+
+function renderIcon(icon: Component) {
+  return h(NIcon, { component: icon })
+}
+
+function tooltipIconButton(
+  icon: Component,
+  label: string,
+  onClick: () => void,
+  options: { type?: 'error' } = {}
+) {
+  return h(
+    NTooltip,
+    { trigger: 'hover' },
+    {
+      trigger: () =>
+        h(
+          NButton,
+          {
+            size: 'small',
+            quaternary: true,
+            circle: true,
+            type: options.type,
+            onClick
+          },
+          { icon: () => renderIcon(icon) }
+        ),
+      default: () => label
+    }
+  )
 }
 
 watch(
@@ -326,32 +358,28 @@ watch(
           </n-radio-button>
         </n-radio-group>
         <n-button v-if="canManage" type="primary" @click="openCreate">
+          <template #icon>
+            <n-icon :component="AddOutline" />
+          </template>
           {{ t('admin.contests.create') }}
         </n-button>
       </n-space>
-      <n-empty
-        v-if="!loading && !contests.length"
-        class="empty-state"
-        :description="t('contests.empty')"
-      >
-        <template #extra>
-          <n-button secondary size="small" @click="loadContests">
-            {{ t('common.refresh') }}
-          </n-button>
-        </template>
-      </n-empty>
       <n-data-table
-        v-else
         remote
         :columns="columns"
         :data="contests"
         :bordered="false"
         :loading="loading"
         :pagination="pagination"
-        :scroll-x="canManage ? 940 : 660"
+        :scroll-x="canManage ? 900 : 760"
+        :row-props="rowProps"
         @update:page="handlePageChange"
         @update:page-size="handlePageSizeChange"
-      />
+      >
+        <template #empty>
+          <n-empty :description="t('contests.empty')" />
+        </template>
+      </n-data-table>
     </n-card>
 
     <n-modal
@@ -360,8 +388,9 @@ watch(
       preset="card"
       :title="modalTitle"
       class="form-modal"
+      style="width: min(760px, calc(100vw - 32px))"
     >
-      <n-form :model="form" label-placement="top">
+      <n-form :model="form" label-placement="top" class="contest-form">
         <n-alert v-if="editingLocked" type="warning" class="card-alert">
           {{ t('admin.contests.runningEditHint') }}
         </n-alert>
@@ -407,7 +436,7 @@ watch(
             />
           </n-form-item>
         </div>
-        <n-space justify="end" class="form-actions">
+        <n-space justify="end" class="form-actions contest-form-actions">
           <n-button @click="showFormModal = false">{{ t('admin.cancel') }}</n-button>
           <n-button
             type="primary"
@@ -424,33 +453,57 @@ watch(
 </template>
 
 <style scoped lang="scss">
-.empty-state {
-  padding: 48px 0;
-}
-
 .status-filter { max-width: 360px; }
 
-.contest-title-cell {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.contest-title-row {
+:deep(.contest-title-row) {
   display: flex;
   gap: 8px;
   align-items: center;
   min-width: 0;
 }
 
-.contest-title {
+:deep(.contest-title) {
+  display: block;
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.contest-time-left {
-  font-size: 12px;
+:deep(.contest-date) {
+  white-space: nowrap;
+}
+
+:deep(.contest-row-current .n-data-table-td) {
+  background-color: rgba(16, 185, 129, 0.08);
+}
+
+:deep(.contest-row-current:hover .n-data-table-td) {
+  background-color: rgba(16, 185, 129, 0.12);
+}
+
+:deep(.contest-row-past .n-data-table-td) {
+  background-color: color-mix(in srgb, var(--surface-bg) 90%, var(--text-color) 10%);
+}
+
+:deep(.contest-row-past:hover .n-data-table-td) {
+  background-color: color-mix(in srgb, var(--surface-bg) 86%, var(--text-color) 14%);
+}
+
+.contest-form {
+  max-height: calc(100vh - 190px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.contest-form-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  padding-top: 12px;
+  padding-bottom: 2px;
+  background: var(--surface-bg);
 }
 </style>

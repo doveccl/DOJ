@@ -457,20 +457,22 @@ function isAssignmentEnded(row: AssignmentRow) {
 </template>
 
 <style scoped lang="scss">
-.assignment-title-cell {
+:deep(.assignment-title-cell) {
   display: grid;
   gap: 4px;
   min-width: 0;
 }
 
-.assignment-title-row {
+:deep(.assignment-title-row) {
   display: flex;
   gap: 8px;
   align-items: center;
   min-width: 0;
 }
 
-.assignment-title {
+:deep(.assignment-title) {
+  display: block;
+  flex: 0 1 auto;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
@@ -478,18 +480,18 @@ function isAssignmentEnded(row: AssignmentRow) {
   white-space: nowrap;
 }
 
-.assignment-date {
+:deep(.assignment-date) {
   white-space: nowrap;
 }
 
-.assignment-progress {
+:deep(.assignment-progress) {
   display: grid;
   grid-template-columns: minmax(90px, 1fr) auto;
   gap: 10px;
   align-items: center;
 }
 
-.assignment-progress-text {
+:deep(.assignment-progress-text) {
   color: var(--muted-color);
   font-size: 13px;
   white-space: nowrap;

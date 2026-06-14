@@ -85,7 +85,6 @@ const submissions = ref<SubmissionRow[]>([])
 const showFullScoreboard = ref(false)
 const activeTab = ref('problems')
 const canViewFullScoreboard = computed(() => auth.user?.admin ?? false)
-const canManage = computed(() => auth.user?.admin ?? false)
 const { t } = useI18n()
 const scoreboardPage = ref(1)
 const scoreboardPageSize = ref(DEFAULT_PAGE_SIZE)
@@ -299,15 +298,6 @@ function changeSubmissionsPageSize(pageSize: number) {
   void loadSubmissions()
 }
 
-async function toggleDeleted() {
-  if (!detail.value) return
-  try {
-    await apiFetch(`/api/admin/contests/${detail.value.contest.id}`, { method: 'DELETE' })
-    await loadDetail()
-  } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
-  }
-}
 </script>
 
 <template>
@@ -317,33 +307,18 @@ async function toggleDeleted() {
         <section class="page-header">
           <h1>{{ detail.contest.title }}</h1>
           <p v-if="detail.contest.description">{{ detail.contest.description }}</p>
-        </section>
-
-        <n-card :bordered="false" class="stacked-card">
-          <div class="meta-row">
+          <div class="contest-meta-line">
             <n-tag :bordered="false">{{ detail.contest.type }}</n-tag>
             <n-tag v-if="detail.contest.deletedAt" :bordered="false" type="error">
               {{ t('admin.contests.deleted') }}
             </n-tag>
             <span class="muted">{{ new Date(detail.contest.startAt).toLocaleString() }}</span>
-            <span class="muted"
-              >{{ t('contests.to') }} {{ new Date(detail.contest.endAt).toLocaleString() }}</span
-            >
+            <span class="muted">{{ t('contests.to') }} {{ new Date(detail.contest.endAt).toLocaleString() }}</span>
             <n-tag v-if="detail.contest.freezeAt" :bordered="false" type="warning">
               {{ t('contests.freezes') }} {{ new Date(detail.contest.freezeAt).toLocaleString() }}
             </n-tag>
-            <n-space v-if="canManage" size="small">
-              <n-popconfirm v-if="!detail.contest.deletedAt" @positive-click="toggleDeleted">
-                <template #trigger>
-                  <n-button size="small" tertiary type="error">
-                    {{ t('admin.delete') }}
-                  </n-button>
-                </template>
-                {{ t('admin.contests.deleteConfirm') }}
-              </n-popconfirm>
-            </n-space>
           </div>
-        </n-card>
+        </section>
 
         <n-card :bordered="false" class="stacked-card">
           <n-tabs v-model:value="activeTab" type="line" animated @update:value="handleTabUpdate">
@@ -435,3 +410,14 @@ async function toggleDeleted() {
     </n-spin>
   </main>
 </template>
+
+<style scoped lang="scss">
+.contest-meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin-top: 10px;
+  font-size: 13px;
+}
+</style>
