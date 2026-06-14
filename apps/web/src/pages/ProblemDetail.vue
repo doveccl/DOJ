@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SelectOption, SelectRenderOption, UploadCustomRequestOptions } from 'naive-ui'
+import type { SelectOption, SelectRenderLabel, UploadCustomRequestOptions } from 'naive-ui'
 import {
   CloseOutline,
   CreateOutline,
@@ -155,10 +155,16 @@ const assetEditorLanguage = computed(() => {
   const path = selectedAsset.value?.path.toLowerCase() ?? ''
   if (path.endsWith('.cc') || path.endsWith('.cpp') || path.endsWith('.hpp') || path.endsWith('.h')) return 'cpp'
   if (path.endsWith('.c')) return 'c'
+  if (path.endsWith('.go')) return 'go'
+  if (path.endsWith('.rs')) return 'rust'
+  if (path.endsWith('.java')) return 'java'
   if (path.endsWith('.py')) return 'py'
   if (path.endsWith('.sh')) return 'sh'
   if (path.endsWith('.js')) return 'js'
   if (path.endsWith('.ts')) return 'ts'
+  if (path.endsWith('.json')) return 'json'
+  if (path.endsWith('.yaml') || path.endsWith('.yml')) return 'yaml'
+  if (path.endsWith('.md')) return 'markdown'
   if (path.endsWith('dockerfile')) return 'dockerfile'
   return 'plaintext'
 })
@@ -377,11 +383,12 @@ async function ensureCustomJudgeTemplates() {
   }
 }
 
-const renderModeOption: SelectRenderOption = ({ option }) => {
+const renderModeLabel: SelectRenderLabel = (option) => {
   const item = option as SelectOption & { hint?: string }
+  if (!item.hint) return String(item.label ?? '')
   return h('div', { class: 'mode-option' }, [
     h('span', { class: 'mode-option-label' }, String(item.label ?? '')),
-    item.hint ? h('small', { class: 'mode-option-hint' }, item.hint) : null
+    h('small', { class: 'mode-option-hint' }, item.hint)
   ])
 }
 
@@ -668,7 +675,7 @@ async function saveAssetText(path: string, content: string) {
                     :value="problem.mode"
                     size="small"
                     :options="modeOptions"
-                    :render-option="renderModeOption"
+                    :render-label="renderModeLabel"
                     :consistent-menu-width="false"
                     :loading="saving"
                     class="mode-select"

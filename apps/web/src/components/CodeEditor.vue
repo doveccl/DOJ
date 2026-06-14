@@ -119,6 +119,7 @@ function mapLanguage(languageId?: string) {
   if (languageId === 'js') return 'javascript'
   if (languageId === 'c') return 'c'
   if (languageId === 'cc' || languageId === 'cpp') return 'cpp'
+  if (languageId === 'rs') return 'rust'
   return languageId || 'cpp'
 }
 

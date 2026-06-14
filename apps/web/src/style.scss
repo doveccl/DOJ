@@ -308,6 +308,25 @@ body {
   white-space: normal;
 }
 
+.n-base-selection-label .mode-option {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.n-base-selection-label .mode-option-label {
+  display: block;
+  font-weight: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.n-base-selection-label .mode-option-hint {
+  display: none;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

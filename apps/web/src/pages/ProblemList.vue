@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { NButton, NEllipsis, NIcon, NPopconfirm, NSpace, NTag, NTooltip } from 'naive-ui'
-import type { DataTableColumns, SelectOption, SelectRenderOption } from 'naive-ui'
+import type { DataTableColumns, SelectOption, SelectRenderLabel } from 'naive-ui'
 import type { Component } from 'vue'
 import {
   AddOutline,
@@ -267,11 +267,12 @@ function renderIcon(icon: Component) {
   return h(NIcon, { component: icon })
 }
 
-const renderModeOption: SelectRenderOption = ({ option }) => {
+const renderModeLabel: SelectRenderLabel = (option) => {
   const item = option as SelectOption & { hint?: string }
+  if (!item.hint) return String(item.label ?? '')
   return h('div', { class: 'mode-option' }, [
     h('span', { class: 'mode-option-label' }, String(item.label ?? '')),
-    item.hint ? h('small', { class: 'mode-option-hint' }, item.hint) : null
+    h('small', { class: 'mode-option-hint' }, item.hint)
   ])
 }
 
@@ -395,7 +396,7 @@ onMounted(() => {
           <n-select
             v-model:value="createForm.mode"
             :options="createModeOptions"
-            :render-option="renderModeOption"
+            :render-label="renderModeLabel"
             :consistent-menu-width="false"
           />
         </n-form-item>
