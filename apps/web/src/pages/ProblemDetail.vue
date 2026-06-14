@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { UploadCustomRequestOptions } from 'naive-ui'
+import type { SelectOption, SelectRenderOption, UploadCustomRequestOptions } from 'naive-ui'
 import {
   CloseOutline,
   CreateOutline,
@@ -87,6 +87,7 @@ const assets = ref<ProblemAsset[]>([])
 const selectedAsset = ref<ProblemAsset | null>(null)
 const assetContent = ref('')
 const assetSaving = ref(false)
+const dragSection = ref<ProblemAssetSection | null>(null)
 const editForm = reactive({
   title: '',
   tags: [] as string[],
@@ -123,9 +124,6 @@ const modeOptions = computed(() => [
     hint: t('admin.problems.modeCustomHint')
   }
 ])
-const problemModeLabel = computed(() =>
-  modeOptions.value.find((option) => option.value === problem.value?.mode)?.label ?? problem.value?.mode ?? ''
-)
 const limitText = computed(() => `${timeLimit.value}ms / ${memoryMb.value}MB`)
 const passRateText = computed(() => {
   const solved = problem.value?.solvedCount ?? 0
@@ -136,7 +134,7 @@ const passRateText = computed(() => {
 const recentSubmissionText = computed(() => {
   const recent = problem.value?.recentSubmission
   if (!recent) return t('problemDetail.noRecentSubmission')
-  return recent.score === null ? `#${recent.id} ${recent.displayStatus}` : `#${recent.id} ${recent.displayStatus} / ${recent.score}`
+  return recent.score === null ? recent.displayStatus : `${recent.displayStatus} / ${recent.score}`
 })
 const assignmentId = computed(() =>
   typeof route.query.assignmentId === 'string' ? route.query.assignmentId : ''
@@ -144,12 +142,12 @@ const assignmentId = computed(() =>
 const contestId = computed(() =>
   typeof route.query.contestId === 'string' ? route.query.contestId : ''
 )
-const assetSections = computed<Array<{ key: ProblemAssetSection; title: string; hint: string; draftPath: string }>>(() => {
-  const sections: Array<{ key: ProblemAssetSection; title: string; hint: string; draftPath: string }> = [
-    { key: 'data', title: t('admin.problems.dataAssets'), hint: 'data/*.in, data/*.out', draftPath: 'data/1.in' }
+const assetSections = computed<Array<{ key: ProblemAssetSection; title: string }>>(() => {
+  const sections: Array<{ key: ProblemAssetSection; title: string }> = [
+    { key: 'data', title: t('admin.problems.dataAssets') }
   ]
   if (problem.value?.mode === 'custom') {
-    sections.push({ key: 'root', title: t('admin.problems.rootResources'), hint: 'Dockerfile, main.cc', draftPath: 'Dockerfile' })
+    sections.push({ key: 'root', title: t('admin.problems.rootResources') })
   }
   return sections
 })
@@ -379,6 +377,14 @@ async function ensureCustomJudgeTemplates() {
   }
 }
 
+const renderModeOption: SelectRenderOption = ({ option }) => {
+  const item = option as SelectOption & { hint?: string }
+  return h('div', { class: 'mode-option' }, [
+    h('span', { class: 'mode-option-label' }, String(item.label ?? '')),
+    item.hint ? h('small', { class: 'mode-option-hint' }, item.hint) : null
+  ])
+}
+
 function uploadAssetForSection(section: ProblemAssetSection) {
   return async ({ file, onFinish, onError }: UploadCustomRequestOptions) => {
     if (!file.file || !problem.value) {
@@ -386,19 +392,37 @@ function uploadAssetForSection(section: ProblemAssetSection) {
       return
     }
     try {
-      const body = new FormData()
-      body.append('file', file.file)
-      body.append('path', `${assetUploadPrefix(section)}${file.name}`)
-      await apiFetch(`/api/admin/problems/${problem.value.id}/assets/upload`, {
-        method: 'POST',
-        body
-      })
+      await uploadAssetFile(section, file.file)
       await loadAssets()
       onFinish()
     } catch {
       onError()
     }
   }
+}
+
+async function uploadDroppedFiles(section: ProblemAssetSection, event: DragEvent) {
+  dragSection.value = null
+  const files = [...(event.dataTransfer?.files ?? [])]
+  if (!files.length) return
+  error.value = ''
+  try {
+    await Promise.all(files.map((file) => uploadAssetFile(section, file)))
+    await loadAssets()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : String(caught)
+  }
+}
+
+async function uploadAssetFile(section: ProblemAssetSection, file: File) {
+  if (!problem.value) return
+  const body = new FormData()
+  body.append('file', file)
+  body.append('path', `${assetUploadPrefix(section)}${file.name}`)
+  await apiFetch(`/api/admin/problems/${problem.value.id}/assets/upload`, {
+    method: 'POST',
+    body
+  })
 }
 
 function assetUploadPrefix(section: ProblemAssetSection) {
@@ -637,19 +661,19 @@ async function saveAssetText(path: string, content: string) {
                   <strong>{{ problem.discussionCount }}</strong>
                 </RouterLink>
               </section>
-              <section class="meta-section asset-meta-section">
+              <section v-if="canManage" class="meta-section asset-meta-section">
                 <div class="meta-row">
                   <span>{{ t('admin.problems.mode') }}</span>
                   <n-select
-                    v-if="canManage"
                     :value="problem.mode"
                     size="small"
                     :options="modeOptions"
+                    :render-option="renderModeOption"
+                    :consistent-menu-width="false"
                     :loading="saving"
                     class="mode-select"
                     @update:value="updateProblemMode"
                   />
-                  <n-tag v-else size="small" :bordered="false">{{ problemModeLabel }}</n-tag>
                 </div>
                 <div class="meta-row">
                   <span>{{ t('admin.problems.dataCases') }}</span>
@@ -659,13 +683,13 @@ async function saveAssetText(path: string, content: string) {
                   <span>{{ t('admin.problems.dataSize') }}</span>
                   <strong>{{ dataAssetSizeText }}</strong>
                 </div>
-                <div v-if="canManage && problem.deletedAt" class="meta-row">
+                <div v-if="problem.deletedAt" class="meta-row">
                   <span>{{ t('admin.problems.deleted') }}</span>
                   <n-tag size="small" :bordered="false" type="error">
                     {{ formatDate(problem.deletedAt) }}
                   </n-tag>
                 </div>
-                <div v-if="canManage" class="meta-actions">
+                <div class="meta-actions">
                   <n-button secondary size="small" @click="openManageModal">
                     <template #icon>
                       <n-icon :component="FolderOpenOutline" />
@@ -704,8 +728,6 @@ async function saveAssetText(path: string, content: string) {
                 <div class="asset-section-head">
                   <div class="asset-section-title">
                     <strong>{{ section.title }}</strong>
-                    <n-tag size="small" :bordered="false">{{ assetUploadPrefix(section.key) || '/' }}</n-tag>
-                    <span class="muted">{{ section.hint }}</span>
                   </div>
                   <n-upload
                     :custom-request="uploadAssetForSection(section.key)"
@@ -720,41 +742,49 @@ async function saveAssetText(path: string, content: string) {
                     </n-button>
                   </n-upload>
                 </div>
-                <div v-if="assetsBySection(section.key).length" class="asset-list">
-                  <div
-                    v-for="asset in assetsBySection(section.key)"
-                    :key="asset.path"
-                    class="asset-row"
-                  >
-                    <span class="asset-path">{{ asset.path }}</span>
-                    <span class="muted">{{ Math.round(asset.size / 1024) }} KB</span>
-                    <div class="asset-row-actions">
-                      <n-tooltip v-if="asset.text">
-                        <template #trigger>
-                          <n-button size="tiny" tertiary @click="openAssetEditor(asset)">
-                            <template #icon>
-                              <n-icon :component="CreateOutline" />
-                            </template>
-                          </n-button>
-                        </template>
-                        {{ t('admin.edit') }}
-                      </n-tooltip>
-                      <n-popconfirm @positive-click="deleteAsset(asset.path)">
-                        <template #trigger>
-                          <n-button size="tiny" tertiary type="error">
-                            <template #icon>
-                              <n-icon :component="TrashOutline" />
-                            </template>
-                          </n-button>
-                        </template>
-                        {{ t('admin.problems.assetDeleteConfirm') }}
-                      </n-popconfirm>
+                <div
+                  class="asset-dropzone"
+                  :class="{ 'is-dragging': dragSection === section.key }"
+                  @dragenter.prevent="dragSection = section.key"
+                  @dragover.prevent="dragSection = section.key"
+                  @dragleave.prevent="dragSection = null"
+                  @drop.prevent="uploadDroppedFiles(section.key, $event)"
+                >
+                  <div v-if="assetsBySection(section.key).length" class="asset-list">
+                    <div
+                      v-for="asset in assetsBySection(section.key)"
+                      :key="asset.path"
+                      class="asset-row"
+                    >
+                      <span class="asset-path">{{ asset.path }}</span>
+                      <span class="muted">{{ formatBytes(asset.size) }}</span>
+                      <div class="asset-row-actions">
+                        <n-tooltip v-if="asset.text">
+                          <template #trigger>
+                            <n-button size="tiny" tertiary @click="openAssetEditor(asset)">
+                              <template #icon>
+                                <n-icon :component="CreateOutline" />
+                              </template>
+                            </n-button>
+                          </template>
+                          {{ t('admin.edit') }}
+                        </n-tooltip>
+                        <n-popconfirm @positive-click="deleteAsset(asset.path)">
+                          <template #trigger>
+                            <n-button size="tiny" tertiary type="error">
+                              <template #icon>
+                                <n-icon :component="TrashOutline" />
+                              </template>
+                            </n-button>
+                          </template>
+                          {{ t('admin.problems.assetDeleteConfirm') }}
+                        </n-popconfirm>
+                      </div>
                     </div>
                   </div>
+                  <n-empty v-else size="small" />
                 </div>
-                <n-empty v-else size="small" />
               </section>
-              <p v-if="problem.mode !== 'custom'" class="muted">{{ t('admin.problems.rootCustomOnly') }}</p>
             </div>
 
           </div>
@@ -766,6 +796,7 @@ async function saveAssetText(path: string, content: string) {
           preset="card"
           :title="selectedAsset?.path || t('admin.problems.packageContent')"
           class="asset-editor-modal"
+          :z-index="31000"
           style="width: min(920px, calc(100vw - 32px))"
         >
           <code-editor
@@ -956,28 +987,39 @@ async function saveAssetText(path: string, content: string) {
 }
 
 .asset-section-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  margin-bottom: 12px;
 }
 
 .asset-section-title {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
   min-width: 0;
+  font-size: 16px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
 
-  .muted {
-    flex-basis: 100%;
-  }
+.asset-dropzone {
+  min-height: 96px;
+  padding: 6px;
+  border: 1px dashed transparent;
+  border-radius: var(--radius-md);
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.asset-dropzone.is-dragging {
+  border-color: var(--brand);
+  background: var(--brand-soft);
 }
 
 .asset-list {
   display: grid;
   gap: 8px;
-  margin-top: 10px;
 }
 
 .asset-row {
@@ -1045,7 +1087,8 @@ async function saveAssetText(path: string, content: string) {
   }
 
   .asset-section-head {
-    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
   }
 
   .asset-row {

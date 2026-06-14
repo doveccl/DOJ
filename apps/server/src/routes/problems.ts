@@ -15,7 +15,7 @@ const maxAssetFileBytes = 64 * 1024 * 1024
 const maxAssetRequestBytes = maxAssetFileBytes + 1024 * 1024
 const textExtensions = new Set([
   '.txt', '.md', '.json', '.yaml', '.yml', '.xml', '.csv', '.in', '.out', '.ans',
-  '.cpp', '.c', '.h', '.hpp', '.py', '.js', '.ts', '.java', '.rs', '.go', 'dockerfile'
+  '.cc', '.cpp', '.c', '.h', '.hpp', '.py', '.js', '.ts', '.java', '.rs', '.go', 'dockerfile'
 ])
 
 export function registerProblemRoutes(app: Hono) {

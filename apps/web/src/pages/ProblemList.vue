@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { NButton, NEllipsis, NIcon, NPopconfirm, NSpace, NTag, NTooltip } from 'naive-ui'
-import type { DataTableColumns, SelectOption } from 'naive-ui'
+import type { DataTableColumns, SelectOption, SelectRenderOption } from 'naive-ui'
 import type { Component } from 'vue'
 import {
   AddOutline,
@@ -267,7 +267,7 @@ function renderIcon(icon: Component) {
   return h(NIcon, { component: icon })
 }
 
-function renderModeOption(option: SelectOption) {
+const renderModeOption: SelectRenderOption = ({ option }) => {
   const item = option as SelectOption & { hint?: string }
   return h('div', { class: 'mode-option' }, [
     h('span', { class: 'mode-option-label' }, String(item.label ?? '')),
@@ -395,7 +395,8 @@ onMounted(() => {
           <n-select
             v-model:value="createForm.mode"
             :options="createModeOptions"
-            :render-label="renderModeOption"
+            :render-option="renderModeOption"
+            :consistent-menu-width="false"
           />
         </n-form-item>
         <div class="form-grid two">
@@ -460,24 +461,6 @@ onMounted(() => {
 
 .problem-stats {
   white-space: nowrap;
-}
-
-:global(.mode-option) {
-  display: grid;
-  gap: 2px;
-  padding: 2px 0;
-}
-
-:global(.mode-option-label) {
-  font-weight: 600;
-  line-height: 1.3;
-}
-
-:global(.mode-option-hint) {
-  color: var(--muted-color);
-  font-size: 12px;
-  line-height: 1.4;
-  white-space: normal;
 }
 
 :deep(.problem-row-solved) {
