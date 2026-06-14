@@ -104,6 +104,9 @@ async function uploadImages(files: File[], callback: (urls: string[]) => void) {
       language="zh-CN"
       preview-theme="github"
       code-theme="github"
+      :no-mermaid="true"
+      :no-echarts="true"
+      :no-prettier="true"
       @update:model-value="update"
       @on-upload-img="uploadImages"
     />

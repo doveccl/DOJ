@@ -11,7 +11,14 @@ import {
   TrashOutline
 } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
-import { apiFetch, DEFAULT_PAGE_SIZE, getItems, PAGE_SIZE_OPTIONS, type Paged } from '../api'
+import {
+  apiFetch,
+  DEFAULT_PAGE_SIZE,
+  getItems,
+  isUnauthorized,
+  PAGE_SIZE_OPTIONS,
+  type Paged
+} from '../api'
 import { useAuthStore } from '../stores/auth'
 
 interface ProblemRow {
@@ -35,6 +42,7 @@ const canManage = computed(() => auth.user?.admin ?? false)
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
+const requireSignIn = ref(false)
 const showCreateModal = ref(false)
 const problems = ref<ProblemRow[]>([])
 const search = ref('')
@@ -73,6 +81,22 @@ const createModeOptions = computed(() => [
 ])
 
 const columns = computed<DataTableColumns<ProblemRow>>(() => [
+  {
+    title: t('problems.status'),
+    key: 'status',
+    width: 92,
+    render(row) {
+      if (row.solved)
+        return h(NTag, { bordered: false, size: 'small', type: 'success' }, () =>
+          t('problems.solved')
+        )
+      if (row.submitted)
+        return h(NTag, { bordered: false, size: 'small', type: 'warning' }, () =>
+          t('problems.attempted')
+        )
+      return h(NTag, { bordered: false, size: 'small' }, () => t('problems.unsolved'))
+    }
+  },
   { title: t('common.id'), key: 'id', width: 96 },
   {
     title: t('common.title'),
@@ -82,7 +106,14 @@ const columns = computed<DataTableColumns<ProblemRow>>(() => [
       return h(
         NEllipsis,
         { class: 'problem-title-line', tooltip: { placement: 'top-start' } },
-        { default: () => h(RouterLink, { to: `/problems/${row.id}`, class: 'table-link problem-title-link' }, () => row.title) }
+        {
+          default: () =>
+            h(
+              RouterLink,
+              { to: `/problems/${row.id}`, class: 'table-link problem-title-link' },
+              () => row.title
+            )
+        }
       )
     }
   },
@@ -101,7 +132,11 @@ const columns = computed<DataTableColumns<ProblemRow>>(() => [
             )
           ),
           row.tags.length > visibleTags.length
-            ? h(NTag, { key: 'more', bordered: false, size: 'small' }, () => `+${row.tags.length - visibleTags.length}`)
+            ? h(
+                NTag,
+                { key: 'more', bordered: false, size: 'small' },
+                () => `+${row.tags.length - visibleTags.length}`
+              )
             : null
         ].filter(Boolean)
       )
@@ -112,11 +147,11 @@ const columns = computed<DataTableColumns<ProblemRow>>(() => [
     key: 'passRate',
     width: 180,
     render(row) {
-      const percent = row.submissionCount > 0 ? (row.solvedCount / row.submissionCount) * 100 : 0
+      const percent = Math.round((row.passRate ?? 0) * 100)
       return h(
         'span',
         { class: 'problem-stats' },
-        `${row.solvedCount}/${row.submissionCount} (${percent.toFixed(0)}%)`
+        `${row.solvedCount}/${row.attemptedCount} (${percent}%)`
       )
     }
   },
@@ -139,12 +174,7 @@ const columns = computed<DataTableColumns<ProblemRow>>(() => [
                 { onPositiveClick: () => deleteProblem(row) },
                 {
                   trigger: () =>
-                    tooltipIconButton(
-                      TrashOutline,
-                      t('admin.delete'),
-                      () => {},
-                      { type: 'error' }
-                    ),
+                    tooltipIconButton(TrashOutline, t('admin.delete'), () => {}, { type: 'error' }),
                   default: () => t('problems.deleteConfirm')
                 }
               )
@@ -167,6 +197,16 @@ async function loadProblems() {
     const data = await apiFetch<Paged<ProblemRow>>(`/api/problems?${params}`)
     problems.value = getItems(data)
     pagination.itemCount = data.total
+    requireSignIn.value = false
+    error.value = ''
+  } catch (cause) {
+    if (isUnauthorized(cause)) {
+      requireSignIn.value = true
+      problems.value = []
+      pagination.itemCount = 0
+    } else {
+      error.value = cause instanceof Error ? cause.message : String(cause)
+    }
   } finally {
     loading.value = false
   }
@@ -254,13 +294,8 @@ function clearFilters() {
   applyFilters()
 }
 
-function rowProps(row: ProblemRow) {
-  const progressClass = row.solved ? 'problem-row-solved' : row.submitted ? 'problem-row-attempted' : ''
-  return {
-    class: [progressClass, row.visible ? '' : 'problem-row-hidden']
-      .filter(Boolean)
-      .join(' ')
-  }
+function rowClassName(row: ProblemRow) {
+  return row.visible ? '' : 'problem-row-hidden'
 }
 
 function renderIcon(icon: Component) {
@@ -312,70 +347,81 @@ onMounted(() => {
   void loadProblems()
   void loadTags()
 })
+
+watch(
+  () => auth.signedIn,
+  () => {
+    void loadProblems()
+    void loadTags()
+  }
+)
 </script>
 
 <template>
   <main class="page">
     <p v-if="error" class="form-error page-alert">{{ error }}</p>
     <n-card :bordered="false">
-      <div class="table-toolbar problem-toolbar">
-        <div class="toolbar-fields">
-          <n-input
-            v-model:value="search"
-            clearable
-            class="toolbar-field problem-search"
-            :placeholder="t('problems.search')"
-            @keyup.enter="applyFilters"
-            @clear="applyFilters"
-          />
-          <n-select
-            v-model:value="tag"
-            clearable
-            filterable
-            class="toolbar-field tag-filter"
-            :options="tags.map((item) => ({ label: item, value: item }))"
-            :placeholder="t('problems.tag')"
-            @update:value="applyFilters"
-          />
-          <n-button secondary @click="clearFilters">
-            <template #icon>
-              <n-icon :component="CloseOutline" />
-            </template>
-            {{ t('problems.clear') }}
-          </n-button>
+      <sign-in-required v-if="requireSignIn" />
+      <template v-else>
+        <div class="table-toolbar problem-toolbar">
+          <div class="toolbar-fields">
+            <n-input
+              v-model:value="search"
+              clearable
+              class="toolbar-field problem-search"
+              :placeholder="t('problems.search')"
+              @keyup.enter="applyFilters"
+              @clear="applyFilters"
+            />
+            <n-select
+              v-model:value="tag"
+              clearable
+              filterable
+              class="toolbar-field tag-filter"
+              :options="tags.map((item) => ({ label: item, value: item }))"
+              :placeholder="t('problems.tag')"
+              @update:value="applyFilters"
+            />
+            <n-button secondary @click="clearFilters">
+              <template #icon>
+                <n-icon :component="CloseOutline" />
+              </template>
+              {{ t('problems.clear') }}
+            </n-button>
+          </div>
+          <div class="toolbar-actions">
+            <n-button type="primary" @click="applyFilters">
+              <template #icon>
+                <n-icon :component="SearchOutline" />
+              </template>
+              {{ t('problems.searchAction') }}
+            </n-button>
+            <n-button v-if="canManage" type="primary" secondary @click="showCreateModal = true">
+              <template #icon>
+                <n-icon :component="AddOutline" />
+              </template>
+              {{ t('admin.problems.create') }}
+            </n-button>
+          </div>
         </div>
-        <div class="toolbar-actions">
-          <n-button type="primary" @click="applyFilters">
-            <template #icon>
-              <n-icon :component="SearchOutline" />
-            </template>
-            {{ t('problems.searchAction') }}
-          </n-button>
-          <n-button v-if="canManage" type="primary" secondary @click="showCreateModal = true">
-            <template #icon>
-              <n-icon :component="AddOutline" />
-            </template>
-            {{ t('admin.problems.create') }}
-          </n-button>
-        </div>
-      </div>
 
-      <n-data-table
-        remote
-        :columns="columns"
-        :data="problems"
-        :bordered="false"
-        :loading="loading"
-        :pagination="pagination"
-        :row-props="rowProps"
-        :scroll-x="canManage ? 840 : 660"
-        @update:page="handlePageChange"
-        @update:page-size="handlePageSizeChange"
-      >
-        <template #empty>
-          <n-empty :description="t('problems.empty')" />
-        </template>
-      </n-data-table>
+        <n-data-table
+          remote
+          :columns="columns"
+          :data="problems"
+          :bordered="false"
+          :loading="loading"
+          :pagination="pagination"
+          :row-class-name="rowClassName"
+          :scroll-x="canManage ? 940 : 760"
+          @update:page="handlePageChange"
+          @update:page-size="handlePageSizeChange"
+        >
+          <template #empty>
+            <n-empty :description="t('problems.empty')" />
+          </template>
+        </n-data-table>
+      </template>
     </n-card>
 
     <n-modal
@@ -464,35 +510,9 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-:deep(.problem-row-solved) {
-  --n-td-color: rgba(16, 185, 129, 0.12);
-  --n-td-color-hover: rgba(16, 185, 129, 0.16);
-}
-
-:deep(.problem-row-attempted) {
-  --n-td-color: rgba(245, 158, 11, 0.12);
-  --n-td-color-hover: rgba(245, 158, 11, 0.16);
-}
-
-:deep(.problem-row-solved .n-data-table-td) {
-  background-color: rgba(16, 185, 129, 0.12);
-}
-
-:deep(.problem-row-solved:hover .n-data-table-td) {
-  background-color: rgba(16, 185, 129, 0.16);
-}
-
-:deep(.problem-row-attempted .n-data-table-td) {
-  background-color: rgba(245, 158, 11, 0.12);
-}
-
-:deep(.problem-row-attempted:hover .n-data-table-td) {
-  background-color: rgba(245, 158, 11, 0.16);
-}
-
-:deep(.problem-row-hidden td:nth-child(1)),
 :deep(.problem-row-hidden td:nth-child(2)),
-:deep(.problem-row-hidden td:nth-child(2) .table-link) {
+:deep(.problem-row-hidden td:nth-child(3)),
+:deep(.problem-row-hidden td:nth-child(3) .table-link) {
   color: var(--muted-color);
 }
 

@@ -2,8 +2,9 @@
 import { NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { apiFetch, openApiWebSocket } from '../api'
+import { apiFetch, isUnauthorized, openApiWebSocket } from '../api'
 import MarkdownView from '../components/MarkdownView.vue'
+import { useAuthStore } from '../stores/auth'
 
 interface Submission {
   id: number
@@ -60,11 +61,13 @@ const route = useRoute()
 const loading = ref(true)
 const coachingLoading = ref(false)
 const error = ref('')
+const requireSignIn = ref(false)
 const coaching = ref('')
 const submission = ref<Submission | null>(null)
 const casePage = ref(1)
 const casePageSize = 50
 const { t } = useI18n()
+const auth = useAuthStore()
 let socket: WebSocket | null = null
 
 const statusType: Record<string, 'success' | 'warning' | 'error' | 'info'> = {
@@ -153,12 +156,29 @@ onUnmounted(() => {
   socket?.close()
 })
 
+watch(
+  () => auth.signedIn,
+  async () => {
+    socket?.close()
+    socket = null
+    await load()
+    connectProgressSocket()
+  }
+)
+
 async function load(showLoading = true) {
   if (showLoading) loading.value = true
   try {
     submission.value = await apiFetch<Submission>(`/api/submissions/${route.params.id}`)
+    requireSignIn.value = false
+    error.value = ''
   } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : String(caught)
+    if (isUnauthorized(caught)) {
+      requireSignIn.value = true
+      submission.value = null
+    } else {
+      error.value = caught instanceof Error ? caught.message : String(caught)
+    }
   } finally {
     loading.value = false
   }
@@ -252,7 +272,14 @@ function coachingToMarkdown(session: CoachingSession) {
   const nextSteps = session.nextSteps.length
     ? session.nextSteps.map((item) => `- ${item}`).join('\n')
     : '- 结合样例和边界条件继续排查。'
-  return [`### ${t('submissions.coachingSummary')}`, session.summary, `### ${t('submissions.coachingHints')}`, hints, `### ${t('submissions.coachingNextSteps')}`, nextSteps].join('\n\n')
+  return [
+    `### ${t('submissions.coachingSummary')}`,
+    session.summary,
+    `### ${t('submissions.coachingHints')}`,
+    hints,
+    `### ${t('submissions.coachingNextSteps')}`,
+    nextSteps
+  ].join('\n\n')
 }
 
 function formatDate(value: string) {
@@ -265,47 +292,56 @@ function formatDate(value: string) {
     <n-spin :show="loading">
       <section v-if="submission" class="submission-layout">
         <div>
-          <section class="page-header">
-            <h1>{{ t('submissions.detailTitle') }} {{ submission.id }}</h1>
-          </section>
-          <n-card :bordered="false">
-            <n-descriptions label-placement="left" bordered :column="2">
-              <n-descriptions-item :label="t('common.status')">
-                <n-tag :bordered="false" :type="statusType[submission.displayStatus ?? submission.status ?? ''] ?? 'default'">
+          <n-card :bordered="false" class="submission-main-card">
+            <template #header>
+              <div class="submission-title-row">
+                <span>{{ t('submissions.detailTitle') }} #{{ submission.id }}</span>
+                <n-tag
+                  :bordered="false"
+                  :type="
+                    statusType[submission.displayStatus ?? submission.status ?? ''] ?? 'default'
+                  "
+                >
                   {{ submission.displayStatus ?? submission.status ?? '-' }}
                 </n-tag>
-              </n-descriptions-item>
-              <n-descriptions-item :label="t('submissions.score')">
-                {{ submission.score ?? '-' }}
-              </n-descriptions-item>
-              <n-descriptions-item :label="t('common.language')">
-                {{ submission.languageId }}
-              </n-descriptions-item>
-              <n-descriptions-item :label="t('common.time')">
-                {{ submission.timeMs === null ? '-' : `${submission.timeMs} ms` }}
-              </n-descriptions-item>
-              <n-descriptions-item :label="t('common.memory')">
-                {{ submission.memoryBytes === null ? '-' : Math.round(submission.memoryBytes / 1024) }} KB
-              </n-descriptions-item>
-              <n-descriptions-item :label="t('common.problem')">
-                {{ submission.problem?.title ?? t('submissions.problemRestricted') }}
-              </n-descriptions-item>
-              <n-descriptions-item :label="t('common.user')">
-                {{ submission.user.name }}
-              </n-descriptions-item>
-              <n-descriptions-item :label="t('submissions.contest')">
-                {{ submission.contestId ? t('submissions.yes') : t('submissions.no') }}
-              </n-descriptions-item>
-              <n-descriptions-item :label="t('submissions.assignment')">
-                {{ submission.assignmentId ? t('submissions.yes') : t('submissions.no') }}
-              </n-descriptions-item>
-              <n-descriptions-item :label="t('submissions.publicCode')">
-                {{ submission.public ? t('submissions.yes') : t('submissions.no') }}
-              </n-descriptions-item>
-              <n-descriptions-item :label="t('submissions.createdAt')">
-                {{ formatDate(submission.createdAt) }}
-              </n-descriptions-item>
-            </n-descriptions>
+              </div>
+            </template>
+            <div class="submission-summary-grid">
+              <div class="summary-item">
+                <span>{{ t('submissions.score') }}</span>
+                <strong>{{ submission.score ?? '-' }}</strong>
+              </div>
+              <div class="summary-item">
+                <span>{{ t('common.language') }}</span>
+                <strong>{{ submission.languageId }}</strong>
+              </div>
+              <div class="summary-item">
+                <span>{{ t('common.time') }}</span>
+                <strong>{{ submission.timeMs === null ? '-' : `${submission.timeMs} ms` }}</strong>
+              </div>
+              <div class="summary-item">
+                <span>{{ t('common.memory') }}</span>
+                <strong>{{
+                  submission.memoryBytes === null
+                    ? '-'
+                    : `${Math.round(submission.memoryBytes / 1024)} KB`
+                }}</strong>
+              </div>
+              <div class="summary-item wide">
+                <span>{{ t('common.problem') }}</span>
+                <strong>{{
+                  submission.problem?.title ?? t('submissions.problemRestricted')
+                }}</strong>
+              </div>
+              <div class="summary-item">
+                <span>{{ t('common.user') }}</span>
+                <strong>{{ submission.user.name }}</strong>
+              </div>
+              <div class="summary-item">
+                <span>{{ t('submissions.createdAt') }}</span>
+                <strong>{{ formatDate(submission.createdAt) }}</strong>
+              </div>
+            </div>
             <p v-if="hasCroppedResult" class="muted cropped-hint">
               {{ t('submissions.resultRestricted') }}
             </p>
@@ -381,28 +417,110 @@ function formatDate(value: string) {
             />
           </n-card>
         </div>
-        <n-card :title="t('submissions.aiCoaching')" :bordered="false">
-          <p v-if="!canCoach" class="muted">
-            {{ t('submissions.coachingUnavailable') }}
-          </p>
-          <p v-if="error" class="form-error">{{ error }}</p>
-          <n-button
-            type="primary"
-            :disabled="!canCoach"
-            :loading="coachingLoading"
-            @click="getCoaching"
-          >
-            {{ t('submissions.getCoaching') }}
-          </n-button>
-          <markdown-view v-if="coaching" :source="coaching" class="coaching-output" />
-        </n-card>
+        <aside class="submission-side">
+          <n-card :bordered="false">
+            <div class="submission-meta-list">
+              <div>
+                <span>{{ t('submissions.contest') }}</span>
+                <strong>{{
+                  submission.contestId ? `#${submission.contestId}` : t('submissions.no')
+                }}</strong>
+              </div>
+              <div>
+                <span>{{ t('submissions.assignment') }}</span>
+                <strong>{{
+                  submission.assignmentId ? `#${submission.assignmentId}` : t('submissions.no')
+                }}</strong>
+              </div>
+              <div>
+                <span>{{ t('submissions.publicCode') }}</span>
+                <strong>{{
+                  submission.public ? t('submissions.yes') : t('submissions.no')
+                }}</strong>
+              </div>
+            </div>
+          </n-card>
+          <n-card :title="t('submissions.aiCoaching')" :bordered="false" class="stacked-card">
+            <p v-if="!canCoach" class="muted">
+              {{ t('submissions.coachingUnavailable') }}
+            </p>
+            <p v-if="error" class="form-error">{{ error }}</p>
+            <n-button
+              type="primary"
+              :disabled="!canCoach"
+              :loading="coachingLoading"
+              @click="getCoaching"
+            >
+              {{ t('submissions.getCoaching') }}
+            </n-button>
+            <markdown-view v-if="coaching" :source="coaching" class="coaching-output" />
+          </n-card>
+        </aside>
       </section>
+      <sign-in-required v-else-if="requireSignIn" />
       <p v-else-if="error" class="form-error">{{ error }}</p>
     </n-spin>
   </main>
 </template>
 
 <style scoped lang="scss">
+.submission-main-card,
+.submission-side > .n-card {
+  min-width: 0;
+}
+
+.submission-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.submission-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.summary-item,
+.submission-meta-list > div {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-bg) 94%, var(--text-color) 6%);
+}
+
+.summary-item.wide {
+  grid-column: 1 / -1;
+}
+
+.summary-item span,
+.submission-meta-list span {
+  color: var(--muted-color);
+  font-size: 12px;
+}
+
+.summary-item strong,
+.submission-meta-list strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.submission-side {
+  display: grid;
+  gap: 16px;
+}
+
+.submission-meta-list {
+  display: grid;
+  gap: 10px;
+}
+
 .progress-stack {
   display: grid;
   gap: 10px;
@@ -411,5 +529,11 @@ function formatDate(value: string) {
 .cropped-hint,
 .case-pagination {
   margin-top: 12px;
+}
+
+@media (max-width: 640px) {
+  .submission-summary-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

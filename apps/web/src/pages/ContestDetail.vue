@@ -2,7 +2,14 @@
 import { NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { apiFetch, DEFAULT_PAGE_SIZE, getItems, PAGE_SIZE_OPTIONS, type Paged } from '../api'
+import {
+  apiFetch,
+  DEFAULT_PAGE_SIZE,
+  getItems,
+  isUnauthorized,
+  PAGE_SIZE_OPTIONS,
+  type Paged
+} from '../api'
 import { useAuthStore } from '../stores/auth'
 
 interface Contest {
@@ -37,17 +44,20 @@ interface ScoreboardRow {
   effectiveAt?: string | null
   solved?: number
   penalty?: number
-  problems: Record<string, {
-    submitted: boolean
-    pending: boolean
-    score?: number | null
-    status?: string | null
-    accepted?: boolean
-    attempts?: number
-    wrongAttempts?: number
-    penalty?: number
-    submissionId?: number | null
-  }>
+  problems: Record<
+    string,
+    {
+      submitted: boolean
+      pending: boolean
+      score?: number | null
+      status?: string | null
+      accepted?: boolean
+      attempts?: number
+      wrongAttempts?: number
+      penalty?: number
+      submissionId?: number | null
+    }
+  >
 }
 
 interface Scoreboard {
@@ -78,6 +88,7 @@ const loading = ref(true)
 const scoreboardLoading = ref(false)
 const submissionsLoading = ref(false)
 const error = ref('')
+const requireSignIn = ref(false)
 const scoreError = ref('')
 const detail = ref<ContestDetail | null>(null)
 const scoreboard = ref<Scoreboard | null>(null)
@@ -154,7 +165,9 @@ const scoreboardColumns = computed<DataTableColumns<ScoreboardRow>>(() => [
       if (!cell?.submitted) return '-'
       if (cell.pending) return h(NTag, { bordered: false, type: 'warning' }, () => '?')
       if (detail.value?.contest.type === 'OI') return cell.score ?? '-'
-      return cell.accepted ? `+${cell.attempts && cell.attempts > 1 ? cell.attempts - 1 : ''}` : `-${cell.attempts ?? 0}`
+      return cell.accepted
+        ? `+${cell.attempts && cell.attempts > 1 ? cell.attempts - 1 : ''}`
+        : `-${cell.attempts ?? 0}`
     }
   })) ?? [])
 ])
@@ -173,7 +186,9 @@ const submissionColumns = computed<DataTableColumns<SubmissionRow>>(() => [
     key: 'id',
     width: 90,
     render(row) {
-      return h(RouterLink, { to: `/submissions/${row.id}`, class: 'table-link' }, () => String(row.id))
+      return h(RouterLink, { to: `/submissions/${row.id}`, class: 'table-link' }, () =>
+        String(row.id)
+      )
     }
   },
   {
@@ -182,7 +197,14 @@ const submissionColumns = computed<DataTableColumns<SubmissionRow>>(() => [
     minWidth: 180,
     render(row) {
       if (!row.problem) return '-'
-      return h(RouterLink, { to: `/problems/${row.problem.id}?contestId=${detail.value?.contest.id}`, class: 'table-link' }, () => row.problem?.title ?? '-')
+      return h(
+        RouterLink,
+        {
+          to: `/problems/${row.problem.id}?contestId=${detail.value?.contest.id}`,
+          class: 'table-link'
+        },
+        () => row.problem?.title ?? '-'
+      )
     }
   },
   {
@@ -216,14 +238,27 @@ onMounted(() => {
   void loadDetail()
 })
 
+watch(
+  () => auth.signedIn,
+  () => {
+    void loadDetail()
+  }
+)
+
 async function loadDetail() {
   loading.value = true
   error.value = ''
   try {
     detail.value = await apiFetch<ContestDetail>(`/api/contests/${route.params.id}`)
+    requireSignIn.value = false
     if (new Date() >= new Date(detail.value.contest.startAt)) void loadScoreboard(false)
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
+    if (isUnauthorized(cause)) {
+      requireSignIn.value = true
+      detail.value = null
+    } else {
+      error.value = cause instanceof Error ? cause.message : String(cause)
+    }
   } finally {
     loading.value = false
   }
@@ -272,8 +307,10 @@ async function loadSubmissions() {
 
 function handleTabUpdate(tab: string) {
   activeTab.value = tab
-  if (tab === 'scoreboard' && !scoreboard.value && !scoreboardLoading.value) void loadScoreboard(showFullScoreboard.value)
-  if (tab === 'submissions' && !submissions.value.length && !submissionsLoading.value) void loadSubmissions()
+  if (tab === 'scoreboard' && !scoreboard.value && !scoreboardLoading.value)
+    void loadScoreboard(showFullScoreboard.value)
+  if (tab === 'submissions' && !submissions.value.length && !submissionsLoading.value)
+    void loadSubmissions()
 }
 
 function changeScoreboardPage(page: number) {
@@ -297,7 +334,6 @@ function changeSubmissionsPageSize(pageSize: number) {
   submissionsPage.value = 1
   void loadSubmissions()
 }
-
 </script>
 
 <template>
@@ -313,7 +349,9 @@ function changeSubmissionsPageSize(pageSize: number) {
               {{ t('admin.contests.deleted') }}
             </n-tag>
             <span class="muted">{{ new Date(detail.contest.startAt).toLocaleString() }}</span>
-            <span class="muted">{{ t('contests.to') }} {{ new Date(detail.contest.endAt).toLocaleString() }}</span>
+            <span class="muted"
+              >{{ t('contests.to') }} {{ new Date(detail.contest.endAt).toLocaleString() }}</span
+            >
             <n-tag v-if="detail.contest.freezeAt" :bordered="false" type="warning">
               {{ t('contests.freezes') }} {{ new Date(detail.contest.freezeAt).toLocaleString() }}
             </n-tag>
@@ -323,7 +361,12 @@ function changeSubmissionsPageSize(pageSize: number) {
         <n-card :bordered="false" class="stacked-card">
           <n-tabs v-model:value="activeTab" type="line" animated @update:value="handleTabUpdate">
             <n-tab-pane name="problems" :tab="t('common.problem')">
-              <n-data-table :columns="columns" :data="detail.problems" :bordered="false" :scroll-x="520">
+              <n-data-table
+                :columns="columns"
+                :data="detail.problems"
+                :bordered="false"
+                :scroll-x="520"
+              >
                 <template #empty>
                   <n-empty :description="t('contests.problemsHidden')" />
                 </template>
@@ -406,6 +449,7 @@ function changeSubmissionsPageSize(pageSize: number) {
           </n-tabs>
         </n-card>
       </template>
+      <sign-in-required v-else-if="requireSignIn" />
       <p v-else-if="error" class="form-error">{{ error }}</p>
     </n-spin>
   </main>

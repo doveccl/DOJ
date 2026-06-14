@@ -36,7 +36,9 @@ function syncTheme() {
       preview-theme="github"
       code-theme="github"
       language="zh-CN"
-      :no-mermaid="false"
+      :no-mermaid="true"
+      :no-echarts="true"
+      :no-prettier="true"
       :no-katex="false"
     />
   </div>
@@ -83,11 +85,7 @@ function syncTheme() {
   }
 
   :deep(code) {
-    font-family:
-      'SFMono-Regular',
-      Consolas,
-      'Liberation Mono',
-      monospace;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
   }
 }
 </style>

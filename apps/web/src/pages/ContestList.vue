@@ -4,7 +4,14 @@ import type { DataTableColumns, SelectOption } from 'naive-ui'
 import type { Component } from 'vue'
 import { AddOutline, CreateOutline, TrashOutline } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
-import { apiFetch, DEFAULT_PAGE_SIZE, getItems, PAGE_SIZE_OPTIONS, type Paged } from '../api'
+import {
+  apiFetch,
+  DEFAULT_PAGE_SIZE,
+  getItems,
+  isUnauthorized,
+  PAGE_SIZE_OPTIONS,
+  type Paged
+} from '../api'
 import { useAuthStore } from '../stores/auth'
 
 interface ContestRow {
@@ -34,6 +41,7 @@ const auth = useAuthStore()
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
+const requireSignIn = ref(false)
 const showFormModal = ref(false)
 const editingId = ref<number | null>(null)
 const editingLocked = ref(false)
@@ -59,7 +67,9 @@ const pagination = reactive({
   pageSizes: [...PAGE_SIZE_OPTIONS]
 })
 
-const modalTitle = computed(() => (editingId.value ? t('admin.contests.edit') : t('admin.contests.create')))
+const modalTitle = computed(() =>
+  editingId.value ? t('admin.contests.edit') : t('admin.contests.create')
+)
 const statusOptions = computed(() => [
   { label: t('common.all'), value: 'all' },
   { label: t('contests.current'), value: 'current' },
@@ -75,8 +85,14 @@ const columns = computed<DataTableColumns<ContestRow>>(() => [
     render(row) {
       const state = contestState(row)
       return h('div', { class: 'contest-title-row' }, [
-        h(RouterLink, { to: `/contests/${row.id}`, class: 'table-link contest-title' }, () => row.title),
-        state ? h(NTag, { bordered: false, type: state.type, size: 'small' }, () => state.label) : null
+        h(
+          RouterLink,
+          { to: `/contests/${row.id}`, class: 'table-link contest-title' },
+          () => row.title
+        ),
+        state
+          ? h(NTag, { bordered: false, type: state.type, size: 'small' }, () => state.label)
+          : null
       ])
     }
   },
@@ -134,6 +150,14 @@ onMounted(() => {
   void loadProblemOptions()
 })
 
+watch(
+  () => auth.signedIn,
+  () => {
+    void loadContests()
+    void loadProblemOptions()
+  }
+)
+
 async function loadContests() {
   loading.value = true
   error.value = ''
@@ -146,8 +170,15 @@ async function loadContests() {
     const data = await apiFetch<Paged<ContestRow>>(`/api/contests?${params}`)
     contests.value = getItems(data)
     pagination.itemCount = data.total
+    requireSignIn.value = false
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
+    if (isUnauthorized(cause)) {
+      requireSignIn.value = true
+      contests.value = []
+      pagination.itemCount = 0
+    } else {
+      error.value = cause instanceof Error ? cause.message : String(cause)
+    }
   } finally {
     loading.value = false
   }
@@ -190,7 +221,9 @@ async function openEdit(id: number) {
     const detail = await apiFetch<ContestDetail>(`/api/contests/${id}`)
     const now = Date.now()
     editingId.value = id
-    editingLocked.value = now >= new Date(detail.contest.startAt).getTime() && now < new Date(detail.contest.endAt).getTime()
+    editingLocked.value =
+      now >= new Date(detail.contest.startAt).getTime() &&
+      now < new Date(detail.contest.endAt).getTime()
     form.title = detail.contest.title
     form.description = detail.contest.description
     form.type = detail.contest.type
@@ -223,13 +256,17 @@ async function saveContest() {
           type: form.type,
           startAt: new Date(form.startAt).toISOString(),
           endAt: new Date(form.endAt).toISOString(),
-          freezeAt: form.type === 'ICPC' && form.freezeAt ? new Date(form.freezeAt).toISOString() : null,
+          freezeAt:
+            form.type === 'ICPC' && form.freezeAt ? new Date(form.freezeAt).toISOString() : null,
           problemIds: form.problemIds
         }
-    await apiFetch(editingId.value ? `/api/admin/contests/${editingId.value}` : '/api/admin/contests', {
-      method: editingId.value ? 'PATCH' : 'POST',
-      body: JSON.stringify(body)
-    })
+    await apiFetch(
+      editingId.value ? `/api/admin/contests/${editingId.value}` : '/api/admin/contests',
+      {
+        method: editingId.value ? 'PATCH' : 'POST',
+        body: JSON.stringify(body)
+      }
+    )
     showFormModal.value = false
     resetForm()
     await loadContests()
@@ -273,18 +310,6 @@ function handlePageSizeChange(pageSize: number) {
   pagination.pageSize = pageSize
   pagination.page = 1
   void loadContests()
-}
-
-function rowProps(row: ContestRow) {
-  const now = Date.now()
-  const start = new Date(row.startAt).getTime()
-  const end = new Date(row.endAt).getTime()
-  return {
-    class: [
-      row.deletedAt || now >= end ? 'contest-row-past' : '',
-      now >= start && now < end ? 'contest-row-current' : ''
-    ].filter(Boolean).join(' ')
-  }
 }
 
 function renderIcon(icon: Component) {
@@ -343,43 +368,45 @@ watch(
   <main class="page">
     <n-alert v-if="error" type="error" class="page-alert">{{ error }}</n-alert>
     <n-card :bordered="false">
-      <n-space justify="space-between" align="center" class="table-toolbar">
-        <n-radio-group
-          v-model:value="statusFilter"
-          class="status-filter"
-          @update:value="handleStatusChange"
-        >
-          <n-radio-button
-            v-for="option in statusOptions"
-            :key="option.value"
-            :value="option.value"
+      <sign-in-required v-if="requireSignIn" />
+      <template v-else>
+        <n-space justify="space-between" align="center" class="table-toolbar">
+          <n-radio-group
+            v-model:value="statusFilter"
+            class="status-filter"
+            @update:value="handleStatusChange"
           >
-            {{ option.label }}
-          </n-radio-button>
-        </n-radio-group>
-        <n-button v-if="canManage" type="primary" @click="openCreate">
-          <template #icon>
-            <n-icon :component="AddOutline" />
+            <n-radio-button
+              v-for="option in statusOptions"
+              :key="option.value"
+              :value="option.value"
+            >
+              {{ option.label }}
+            </n-radio-button>
+          </n-radio-group>
+          <n-button v-if="canManage" type="primary" @click="openCreate">
+            <template #icon>
+              <n-icon :component="AddOutline" />
+            </template>
+            {{ t('admin.contests.create') }}
+          </n-button>
+        </n-space>
+        <n-data-table
+          remote
+          :columns="columns"
+          :data="contests"
+          :bordered="false"
+          :loading="loading"
+          :pagination="pagination"
+          :scroll-x="canManage ? 900 : 760"
+          @update:page="handlePageChange"
+          @update:page-size="handlePageSizeChange"
+        >
+          <template #empty>
+            <n-empty :description="t('contests.empty')" />
           </template>
-          {{ t('admin.contests.create') }}
-        </n-button>
-      </n-space>
-      <n-data-table
-        remote
-        :columns="columns"
-        :data="contests"
-        :bordered="false"
-        :loading="loading"
-        :pagination="pagination"
-        :scroll-x="canManage ? 900 : 760"
-        :row-props="rowProps"
-        @update:page="handlePageChange"
-        @update:page-size="handlePageSizeChange"
-      >
-        <template #empty>
-          <n-empty :description="t('contests.empty')" />
-        </template>
-      </n-data-table>
+        </n-data-table>
+      </template>
     </n-card>
 
     <n-modal
@@ -421,10 +448,20 @@ watch(
         </n-form-item>
         <div class="form-grid">
           <n-form-item :label="t('admin.contests.startAt')">
-            <n-date-picker v-model:value="form.startAt" type="datetime" :disabled="editingLocked" class="full-width" />
+            <n-date-picker
+              v-model:value="form.startAt"
+              type="datetime"
+              :disabled="editingLocked"
+              class="full-width"
+            />
           </n-form-item>
           <n-form-item :label="t('admin.contests.endAt')">
-            <n-date-picker v-model:value="form.endAt" type="datetime" :disabled="editingLocked" class="full-width" />
+            <n-date-picker
+              v-model:value="form.endAt"
+              type="datetime"
+              :disabled="editingLocked"
+              class="full-width"
+            />
           </n-form-item>
           <n-form-item v-if="form.type === 'ICPC'" :label="t('admin.contests.freezeAt')">
             <n-date-picker
@@ -441,7 +478,10 @@ watch(
           <n-button
             type="primary"
             :loading="saving"
-            :disabled="!form.title || (!editingLocked && (!form.problemIds.length || form.endAt <= form.startAt))"
+            :disabled="
+              !form.title ||
+              (!editingLocked && (!form.problemIds.length || form.endAt <= form.startAt))
+            "
             @click="saveContest"
           >
             {{ editingId ? t('admin.save') : t('admin.create') }}
@@ -453,7 +493,9 @@ watch(
 </template>
 
 <style scoped lang="scss">
-.status-filter { max-width: 360px; }
+.status-filter {
+  max-width: 360px;
+}
 
 :deep(.contest-title-row) {
   display: flex;
@@ -474,22 +516,6 @@ watch(
 
 :deep(.contest-date) {
   white-space: nowrap;
-}
-
-:deep(.contest-row-current .n-data-table-td) {
-  background-color: rgba(16, 185, 129, 0.08);
-}
-
-:deep(.contest-row-current:hover .n-data-table-td) {
-  background-color: rgba(16, 185, 129, 0.12);
-}
-
-:deep(.contest-row-past .n-data-table-td) {
-  background-color: color-mix(in srgb, var(--surface-bg) 90%, var(--text-color) 10%);
-}
-
-:deep(.contest-row-past:hover .n-data-table-td) {
-  background-color: color-mix(in srgb, var(--surface-bg) 86%, var(--text-color) 14%);
 }
 
 .contest-form {

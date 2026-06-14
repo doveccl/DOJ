@@ -71,7 +71,9 @@ const pagination = reactive({
   pageSizes: [...PAGE_SIZE_OPTIONS]
 })
 
-const modalTitle = computed(() => (editingId.value ? t('admin.assignments.edit') : t('admin.assignments.create')))
+const modalTitle = computed(() =>
+  editingId.value ? t('admin.assignments.edit') : t('admin.assignments.create')
+)
 
 const columns = computed<DataTableColumns<AssignmentRow>>(() => [
   {
@@ -81,8 +83,14 @@ const columns = computed<DataTableColumns<AssignmentRow>>(() => [
     render(row) {
       const state = assignmentState(row)
       return h('div', { class: 'assignment-title-row' }, [
-        h(RouterLink, { to: `/assignments/${row.id}`, class: 'table-link assignment-title' }, () => row.title),
-        state ? h(NTag, { bordered: false, type: state.type, size: 'small' }, () => state.label) : null
+        h(
+          RouterLink,
+          { to: `/assignments/${row.id}`, class: 'table-link assignment-title' },
+          () => row.title
+        ),
+        state
+          ? h(NTag, { bordered: false, type: state.type, size: 'small' }, () => state.label)
+          : null
       ])
     }
   },
@@ -218,7 +226,9 @@ async function openEdit(id: number) {
     form.endAt = new Date(detail.assignment.endAt).getTime()
     form.groupIds = detail.groups.map((group) => group.id)
     form.userIds = detail.users.map((user) => user.id)
-    form.problemIds = detail.problems.map((problem) => problem.id).filter((id): id is number => id !== null)
+    form.problemIds = detail.problems
+      .map((problem) => problem.id)
+      .filter((id): id is number => id !== null)
     showFormModal.value = true
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
@@ -244,10 +254,13 @@ async function saveAssignment() {
           userIds: form.userIds,
           problemIds: form.problemIds
         }
-    await apiFetch(editingId.value ? `/api/admin/assignments/${editingId.value}` : '/api/admin/assignments', {
-      method: editingId.value ? 'PATCH' : 'POST',
-      body: JSON.stringify(body)
-    })
+    await apiFetch(
+      editingId.value ? `/api/admin/assignments/${editingId.value}` : '/api/admin/assignments',
+      {
+        method: editingId.value ? 'PATCH' : 'POST',
+        body: JSON.stringify(body)
+      }
+    )
     showFormModal.value = false
     resetForm()
     await loadAssignments()
@@ -276,12 +289,6 @@ function handlePageSizeChange(pageSize: number) {
   pagination.pageSize = pageSize
   pagination.page = 1
   void loadAssignments()
-}
-
-function rowProps(row: AssignmentRow) {
-  return {
-    class: isAssignmentEnded(row) ? 'assignment-row-ended' : ''
-  }
 }
 
 function renderIcon(icon: Component) {
@@ -321,6 +328,10 @@ watch(
     if (signedIn) {
       void loadAssignments()
       void loadAdminOptions()
+    } else {
+      assignments.value = []
+      pagination.itemCount = 0
+      loading.value = false
     }
   }
 )
@@ -342,9 +353,11 @@ function assignmentProgressPercent(row: AssignmentRow) {
 function assignmentState(row: AssignmentRow) {
   if (row.deletedAt) return { label: t('admin.assignments.deleted'), type: 'error' as const }
   if (isAssignmentEnded(row)) return null
-  if (row.total > 0 && row.completed >= row.total) return { label: t('assignments.done'), type: 'success' as const }
+  if (row.total > 0 && row.completed >= row.total)
+    return { label: t('assignments.done'), type: 'success' as const }
   const end = new Date(row.endAt).getTime()
-  if (end - Date.now() <= 24 * 60 * 60 * 1000) return { label: t('assignments.dueSoon'), type: 'warning' as const }
+  if (end - Date.now() <= 24 * 60 * 60 * 1000)
+    return { label: t('assignments.dueSoon'), type: 'warning' as const }
   return { label: t('assignments.open'), type: 'info' as const }
 }
 
@@ -355,39 +368,37 @@ function isAssignmentEnded(row: AssignmentRow) {
 
 <template>
   <main class="page">
-    <n-alert v-if="!auth.signedIn" type="warning" class="page-alert">
-      {{ t('assignments.signIn') }}
-    </n-alert>
-
     <n-alert v-if="error" type="error" class="page-alert">
       {{ error }}
     </n-alert>
 
     <n-card :bordered="false">
-      <n-space v-if="canManage" justify="end" class="table-toolbar">
-        <n-button type="primary" @click="openCreate">
-          <template #icon>
-            <n-icon :component="AddOutline" />
+      <sign-in-required v-if="!auth.signedIn" />
+      <template v-else>
+        <n-space v-if="canManage" justify="end" class="table-toolbar">
+          <n-button type="primary" @click="openCreate">
+            <template #icon>
+              <n-icon :component="AddOutline" />
+            </template>
+            {{ t('admin.assignments.create') }}
+          </n-button>
+        </n-space>
+        <n-data-table
+          remote
+          :columns="columns"
+          :data="assignments"
+          :bordered="false"
+          :loading="loading"
+          :pagination="pagination"
+          :scroll-x="canManage ? 900 : 700"
+          @update:page="handlePageChange"
+          @update:page-size="handlePageSizeChange"
+        >
+          <template #empty>
+            <n-empty :description="t('assignments.empty')" />
           </template>
-          {{ t('admin.assignments.create') }}
-        </n-button>
-      </n-space>
-      <n-data-table
-        remote
-        :columns="columns"
-        :data="assignments"
-        :bordered="false"
-        :loading="loading"
-        :pagination="pagination"
-        :scroll-x="canManage ? 900 : 700"
-        :row-props="rowProps"
-        @update:page="handlePageChange"
-        @update:page-size="handlePageSizeChange"
-      >
-        <template #empty>
-          <n-empty :description="t('assignments.empty')" />
-        </template>
-      </n-data-table>
+        </n-data-table>
+      </template>
     </n-card>
 
     <n-modal
@@ -495,14 +506,6 @@ function isAssignmentEnded(row: AssignmentRow) {
   color: var(--muted-color);
   font-size: 13px;
   white-space: nowrap;
-}
-
-:deep(.assignment-row-ended .n-data-table-td) {
-  background-color: color-mix(in srgb, var(--surface-bg) 90%, var(--text-color) 10%);
-}
-
-:deep(.assignment-row-ended:hover .n-data-table-td) {
-  background-color: color-mix(in srgb, var(--surface-bg) 86%, var(--text-color) 14%);
 }
 
 .assignment-form {

@@ -4,7 +4,14 @@ import type { DataTableColumns } from 'naive-ui'
 import type { Component } from 'vue'
 import { AddOutline, PinOutline, PinSharp, TrashOutline } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
-import { apiFetch, DEFAULT_PAGE_SIZE, getItems, PAGE_SIZE_OPTIONS, type Paged } from '../api'
+import {
+  apiFetch,
+  DEFAULT_PAGE_SIZE,
+  getItems,
+  isUnauthorized,
+  PAGE_SIZE_OPTIONS,
+  type Paged
+} from '../api'
 import MarkdownEditor from '../components/MarkdownEditor.vue'
 import { useAuthStore } from '../stores/auth'
 
@@ -24,6 +31,7 @@ const route = useRoute()
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
+const requireSignIn = ref(false)
 const showCreateModal = ref(false)
 const topics = ref<TopicRow[]>([])
 const { t } = useI18n()
@@ -45,25 +53,36 @@ const columns = computed<DataTableColumns<TopicRow>>(() => [
   {
     title: t('discussion.topic'),
     key: 'title',
-    minWidth: 280,
+    minWidth: 360,
     render(row) {
-      return h('div', { class: 'topic-cell' }, [
-        h('div', { class: 'topic-title-row' }, [
+      return h(
+        'div',
+        { class: 'topic-title-row' },
+        [
           row.pinned
-            ? h(NTag, { type: 'success', bordered: false, size: 'small' }, () => t('discussion.pinned'))
+            ? h(NTag, { type: 'success', bordered: false, size: 'small' }, () =>
+                t('discussion.pinned')
+              )
             : null,
-          h(RouterLink, { to: `/discussion/${row.id}`, class: 'table-link topic-title' }, () => row.title)
-        ]),
-        h(NSpace, { size: 6, align: 'center', wrap: false, class: 'topic-tags' }, () =>
-          row.tags.map((tag) => h(NTag, { key: tag, bordered: false, size: 'small' }, () => tag))
-        )
-      ])
+          h(
+            RouterLink,
+            { to: `/discussion/${row.id}`, class: 'table-link topic-title' },
+            () => row.title
+          ),
+          ...row.tags
+            .slice(0, 2)
+            .map((tag) => h(NTag, { key: tag, bordered: false, size: 'small' }, () => tag)),
+          row.tags.length > 2
+            ? h(NTag, { bordered: false, size: 'small' }, () => `+${row.tags.length - 2}`)
+            : null
+        ].filter(Boolean)
+      )
     }
   },
   {
     title: t('discussion.author'),
     key: 'author',
-    width: 170,
+    width: 220,
     render(row) {
       return h('div', { class: 'topic-author' }, [
         h(NAvatar, { size: 24, src: row.author.avatarUrl, round: true }),
@@ -97,7 +116,8 @@ const columns = computed<DataTableColumns<TopicRow>>(() => [
                 NPopconfirm,
                 { onPositiveClick: () => deleteTopic(row) },
                 {
-                  trigger: () => tooltipIconButton(TrashOutline, t('admin.delete'), () => {}, { type: 'error' }),
+                  trigger: () =>
+                    tooltipIconButton(TrashOutline, t('admin.delete'), () => {}, { type: 'error' }),
                   default: () => t('discussion.deleteConfirm')
                 }
               )
@@ -118,13 +138,18 @@ async function loadTopics() {
     })
     const tags = routeTags()
     if (tags.length) params.set('tags', tags.join(','))
-    const data = await apiFetch<Paged<TopicRow>>(
-      `/api/discussion/topics?${params.toString()}`
-    )
+    const data = await apiFetch<Paged<TopicRow>>(`/api/discussion/topics?${params.toString()}`)
     topics.value = getItems(data)
     pagination.itemCount = data.total
+    requireSignIn.value = false
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
+    if (isUnauthorized(cause)) {
+      requireSignIn.value = true
+      topics.value = []
+      pagination.itemCount = 0
+    } else {
+      error.value = cause instanceof Error ? cause.message : String(cause)
+    }
   } finally {
     loading.value = false
   }
@@ -229,6 +254,13 @@ onMounted(() => {
 })
 
 watch(
+  () => auth.signedIn,
+  () => {
+    void loadTopics()
+  }
+)
+
+watch(
   () => route.query.tags,
   () => {
     pagination.page = 1
@@ -245,39 +277,42 @@ watch(
     </n-alert>
 
     <n-card :bordered="false">
-      <n-space v-if="auth.signedIn" justify="end" class="table-toolbar">
-        <n-button v-if="auth.signedIn" type="primary" @click="showCreateModal = true">
-          <template #icon>
-            <n-icon :component="AddOutline" />
-          </template>
-          {{ t('discussion.newTopic') }}
-        </n-button>
-      </n-space>
-      <n-empty
-        v-if="!loading && !topics.length"
-        class="empty-state"
-        :description="t('discussion.empty')"
-      >
-        <template #extra>
-          <n-button v-if="auth.signedIn" secondary size="small" @click="showCreateModal = true">
+      <sign-in-required v-if="requireSignIn" />
+      <template v-else>
+        <n-space v-if="auth.signedIn" justify="end" class="table-toolbar">
+          <n-button v-if="auth.signedIn" type="primary" @click="showCreateModal = true">
+            <template #icon>
+              <n-icon :component="AddOutline" />
+            </template>
             {{ t('discussion.newTopic') }}
           </n-button>
-          <span v-else class="muted">{{ t('discussion.signInTopic') }}</span>
-        </template>
-      </n-empty>
-      <n-data-table
-        v-else
-        remote
-        :columns="columns"
-        :data="topics"
-        :bordered="false"
-        :loading="loading"
-        :pagination="pagination"
-        :scroll-x="canManage ? 840 : 720"
-        class="admin-table"
-        @update:page="handlePageChange"
-        @update:page-size="handlePageSizeChange"
-      />
+        </n-space>
+        <n-empty
+          v-if="!loading && !topics.length"
+          class="empty-state"
+          :description="t('discussion.empty')"
+        >
+          <template #extra>
+            <n-button v-if="auth.signedIn" secondary size="small" @click="showCreateModal = true">
+              {{ t('discussion.newTopic') }}
+            </n-button>
+            <span v-else class="muted">{{ t('discussion.signInTopic') }}</span>
+          </template>
+        </n-empty>
+        <n-data-table
+          v-else
+          remote
+          :columns="columns"
+          :data="topics"
+          :bordered="false"
+          :loading="loading"
+          :pagination="pagination"
+          :scroll-x="canManage ? 840 : 720"
+          class="admin-table"
+          @update:page="handlePageChange"
+          @update:page-size="handlePageSizeChange"
+        />
+      </template>
     </n-card>
 
     <n-modal
@@ -317,17 +352,13 @@ watch(
   padding: 48px 0;
 }
 
-.topic-cell {
-  display: grid;
-  gap: 5px;
-  min-width: 0;
-}
-
 .topic-title-row {
   display: flex;
   gap: 6px;
   align-items: center;
   min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .topic-title {
@@ -336,11 +367,6 @@ watch(
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.topic-tags {
-  min-height: 22px;
-  overflow: hidden;
 }
 
 .topic-author {

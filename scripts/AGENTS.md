@@ -14,7 +14,8 @@
 
 - `bun run smoke` 是最小端到端验收入口；`bun run smoke -- <name>` 运行单项。
 - smoke name 与文件名保持一致。
-- 当前最小目标：`auth`、`settings`、`members`、`problem-assets`、`judge-default`、`judge-strict`、`judge-custom`、`submission-security`、`realtime-progress`、`redis-derived`、`assignments`、`contests`、`limits-and-hash`、`discussion`。
+- 默认 `bun run smoke` 只跑主链路轻量集合：`auth`、`settings`、`problem-assets`、`judge-default`、`submission-security`、`assignments`、`contests`、`discussion`。
+- 深度目标仍保留为显式单项：`members`、`judge-strict`、`judge-custom`、`realtime-progress`、`redis-derived`、`limits-and-hash`。
 - 评测类 smoke 必须通过 server + Agent 路径，不得绕过真实调度、WebSocket 或 Docker runner。
 - `limits-and-hash` 必须覆盖固定资源限制、output limit、wall-clock cap 和 `bundleHash`。
 - `redis-derived` 必须证明 Redis 派生统计可以从 PostgreSQL 修复。

@@ -15,8 +15,19 @@ const smokeTargets = {
   discussion: 'scripts/discussion-smoke.ts'
 } as const
 
+const defaultSmokeTargets: Array<keyof typeof smokeTargets> = [
+  'auth',
+  'settings',
+  'problem-assets',
+  'judge-default',
+  'submission-security',
+  'assignments',
+  'contests',
+  'discussion'
+]
+
 const requested = Bun.argv.slice(2)
-const targetNames = requested.length ? requested : Object.keys(smokeTargets)
+const targetNames = requested.length ? requested : defaultSmokeTargets
 const unknown = targetNames.filter((name) => !(name in smokeTargets))
 
 if (unknown.length) {

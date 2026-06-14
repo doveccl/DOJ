@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { apiFetch } from '../api'
+import { apiFetch, isUnauthorized } from '../api'
 import MarkdownEditor from '../components/MarkdownEditor.vue'
 import MarkdownView from '../components/MarkdownView.vue'
 import { useAuthStore } from '../stores/auth'
@@ -44,6 +44,7 @@ const auth = useAuthStore()
 const loading = ref(true)
 const replying = ref(false)
 const error = ref('')
+const requireSignIn = ref(false)
 const detail = ref<TopicDetail | null>(null)
 const replyText = ref('')
 const { t } = useI18n()
@@ -62,8 +63,14 @@ async function loadDetail() {
   error.value = ''
   try {
     detail.value = await apiFetch<TopicDetail>(`/api/discussion/topics/${route.params.id}`)
+    requireSignIn.value = false
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : String(cause)
+    if (isUnauthorized(cause)) {
+      requireSignIn.value = true
+      detail.value = null
+    } else {
+      error.value = cause instanceof Error ? cause.message : String(cause)
+    }
   } finally {
     loading.value = false
   }
@@ -89,6 +96,13 @@ async function createReply() {
 }
 
 onMounted(loadDetail)
+
+watch(
+  () => auth.signedIn,
+  () => {
+    void loadDetail()
+  }
+)
 </script>
 
 <template>
@@ -97,11 +111,6 @@ onMounted(loadDetail)
       <template v-if="detail">
         <section class="page-header">
           <h1>{{ topic.title }}</h1>
-          <p>
-            {{ t('discussion.by') }}
-            {{ detail.author?.name ?? posts[0]?.user.name ?? '-' }} ·
-            {{ topic.createdAt ? new Date(topic.createdAt).toLocaleString() : '-' }}
-          </p>
         </section>
 
         <div class="meta-row">
@@ -109,12 +118,20 @@ onMounted(loadDetail)
         </div>
 
         <n-card
-          v-for="post in posts"
+          v-for="(post, index) in posts"
           :key="post.id"
-          :title="post.user.name"
           :bordered="false"
           class="stacked-card"
         >
+          <template #header>
+            <div class="post-head">
+              <strong>{{ post.user.name }}</strong>
+              <n-tag v-if="index === 0" size="small" :bordered="false" type="success">
+                {{ t('discussion.topicOwner') }}
+              </n-tag>
+              <span class="muted">#{{ index + 1 }}</span>
+            </div>
+          </template>
           <markdown-view :source="post.content" />
           <p class="muted reply-time">{{ new Date(post.createdAt).toLocaleString() }}</p>
         </n-card>
@@ -139,9 +156,27 @@ onMounted(loadDetail)
         </n-card>
       </template>
 
+      <sign-in-required v-else-if="requireSignIn" />
+
       <n-alert v-else-if="error" type="error" class="page-alert">
         {{ error }}
       </n-alert>
     </n-spin>
   </main>
 </template>
+
+<style scoped lang="scss">
+.post-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.post-head strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>

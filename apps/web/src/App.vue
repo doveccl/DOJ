@@ -14,6 +14,7 @@ import { useI18n } from 'vue-i18n'
 import { apiFetch, errorMessage, type PublicConfig } from './api'
 import { setLocale, supportedLocales } from './i18n'
 import { useAuthStore } from './stores/auth'
+import { useUiStore } from './stores/ui'
 
 type ColorMode = 'system' | 'light' | 'dark'
 
@@ -21,8 +22,9 @@ const route = useRoute()
 const router = useRouter()
 const { t, locale } = useI18n()
 const auth = useAuthStore()
+const ui = useUiStore()
 
-const authMode = ref<'login' | 'register' | null>(null)
+const authMode = computed(() => ui.authMode)
 const authError = ref('')
 const authLoading = ref(false)
 const codeLoading = ref(false)
@@ -155,7 +157,8 @@ function openAuth(mode: 'login' | 'register') {
   if (mode === 'register' && !appConfig.value.signup) return
   authError.value = ''
   codeSent.value = false
-  authMode.value = mode
+  if (mode === 'register') ui.openRegister()
+  else ui.openLogin()
 }
 
 async function sendRegisterCode() {
@@ -185,7 +188,7 @@ async function submitAuth() {
         code: registerForm.code
       })
     }
-    authMode.value = null
+    ui.closeAuth()
   } catch (error) {
     authError.value = errorMessage(error)
   } finally {
@@ -298,7 +301,7 @@ function navActive(path: string) {
       :show="!!authMode"
       preset="dialog"
       :title="authMode === 'register' ? t('app.signUp') : t('app.signIn')"
-      @update:show="(show: boolean) => !show && (authMode = null)"
+      @update:show="(show: boolean) => !show && ui.closeAuth()"
     >
       <n-form v-if="authMode === 'login'" :model="loginForm" label-placement="top">
         <n-form-item :label="t('app.user')">
@@ -362,7 +365,7 @@ function navActive(path: string) {
       <p v-if="authError" class="form-error">{{ authError }}</p>
       <template #action>
         <n-space justify="end">
-          <n-button @click="authMode = null">{{ t('app.cancel') }}</n-button>
+          <n-button @click="ui.closeAuth()">{{ t('app.cancel') }}</n-button>
           <n-button type="primary" :loading="authLoading" @click="submitAuth">
             {{ authMode === 'register' ? t('app.signUp') : t('app.signIn') }}
           </n-button>

@@ -12,7 +12,7 @@ import {
   TrashOutline
 } from '@vicons/ionicons5'
 import { useI18n } from 'vue-i18n'
-import { apiFetch } from '../api'
+import { apiFetch, isUnauthorized } from '../api'
 import CodeEditor from '../components/CodeEditor.vue'
 import MarkdownEditor from '../components/MarkdownEditor.vue'
 import MarkdownView from '../components/MarkdownView.vue'
@@ -78,6 +78,7 @@ const editMode = ref(false)
 const showManageModal = ref(false)
 const showAssetEditor = ref(false)
 const error = ref('')
+const requireSignIn = ref(false)
 const problem = ref<Problem | null>(null)
 const languageId = ref('cpp')
 const sourceOpen = ref(false)
@@ -105,9 +106,15 @@ const memoryMb = computed(() =>
 )
 const timeLimit = computed(() => problem.value?.timeLimit ?? 0)
 const statement = computed(() => problem.value?.statement ?? '')
-const dataCaseCount = computed(() => countDataCases(assets.value.filter((asset) => asset.section === 'data')))
+const dataCaseCount = computed(() =>
+  countDataCases(assets.value.filter((asset) => asset.section === 'data'))
+)
 const dataAssetSizeText = computed(() =>
-  formatBytes(assets.value.filter((asset) => asset.section === 'data').reduce((total, asset) => total + asset.size, 0))
+  formatBytes(
+    assets.value
+      .filter((asset) => asset.section === 'data')
+      .reduce((total, asset) => total + asset.size, 0)
+  )
 )
 const modeOptions = computed(() => [
   {
@@ -129,9 +136,9 @@ const modeOptions = computed(() => [
 const limitText = computed(() => `${timeLimit.value}ms / ${memoryMb.value}MB`)
 const passRateText = computed(() => {
   const solved = problem.value?.solvedCount ?? 0
-  const submissions = problem.value?.submissionCount ?? 0
-  const percent = submissions > 0 ? (solved / submissions) * 100 : 0
-  return `${solved}/${submissions} (${percent.toFixed(0)}%)`
+  const attempted = problem.value?.attemptedCount ?? 0
+  const percent = Math.round((problem.value?.passRate ?? 0) * 100)
+  return `${solved}/${attempted} (${percent}%)`
 })
 const recentSubmissionText = computed(() => {
   const recent = problem.value?.recentSubmission
@@ -155,7 +162,8 @@ const assetSections = computed<Array<{ key: ProblemAssetSection; title: string }
 })
 const assetEditorLanguage = computed(() => {
   const path = selectedAsset.value?.path.toLowerCase() ?? ''
-  if (path.endsWith('.cc') || path.endsWith('.cpp') || path.endsWith('.hpp') || path.endsWith('.h')) return 'cpp'
+  if (path.endsWith('.cc') || path.endsWith('.cpp') || path.endsWith('.hpp') || path.endsWith('.h'))
+    return 'cpp'
   if (path.endsWith('.c')) return 'c'
   if (path.endsWith('.go')) return 'go'
   if (path.endsWith('.rs')) return 'rust'
@@ -171,7 +179,20 @@ const assetEditorLanguage = computed(() => {
   return 'plaintext'
 })
 
-onMounted(async () => {
+onMounted(() => {
+  void loadProblemDetail()
+})
+
+watch(
+  () => auth.signedIn,
+  () => {
+    void loadProblemDetail()
+  }
+)
+
+async function loadProblemDetail() {
+  loading.value = true
+  error.value = ''
   try {
     const [data, languages, config] = await Promise.all([
       apiFetch<Problem>(`/api/problems/${route.params.id}`),
@@ -179,6 +200,7 @@ onMounted(async () => {
       apiFetch<AppConfig>('/api/config')
     ])
     problem.value = data
+    requireSignIn.value = false
     sourceOpen.value = config.publicCode ?? false
     syncEditForm(data)
     languageOptions.value = languages.map((language) => ({
@@ -187,11 +209,16 @@ onMounted(async () => {
     }))
     if (auth.user?.admin) await loadAssets()
   } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : String(caught)
+    if (isUnauthorized(caught)) {
+      requireSignIn.value = true
+      problem.value = null
+    } else {
+      error.value = caught instanceof Error ? caught.message : String(caught)
+    }
   } finally {
     loading.value = false
   }
-})
+}
 
 async function submit() {
   if (!auth.user || !problem.value) return
@@ -375,12 +402,12 @@ async function ensureCustomJudgeTemplates() {
         '}',
         '',
         'string normalize(string value) {',
-        '  while (!value.empty() && (value.back() == \'\\n\' || value.back() == \'\\r\')) value.pop_back();',
+        "  while (!value.empty() && (value.back() == '\\n' || value.back() == '\\r')) value.pop_back();",
         '  stringstream input(value);',
         '  string line, output;',
         '  while (getline(input, line)) {',
         '    while (!line.empty() && isspace(static_cast<unsigned char>(line.back()))) line.pop_back();',
-        '    output += line + \'\\n\';',
+        "    output += line + '\\n';",
         '  }',
         '  return output;',
         '}',
@@ -622,7 +649,9 @@ async function saveAssetText(path: string, content: string) {
           :show-icon="false"
           class="problem-context"
         >
-          <span v-if="assignmentId">{{ t('problemDetail.assignmentContext') }} {{ assignmentId }}</span>
+          <span v-if="assignmentId"
+            >{{ t('problemDetail.assignmentContext') }} {{ assignmentId }}</span
+          >
           <span v-if="contestId">{{ t('problemDetail.contestContext') }} {{ contestId }}</span>
         </n-alert>
 
@@ -650,12 +679,7 @@ async function saveAssetText(path: string, content: string) {
                 <span>P{{ problem.id }}</span>
                 <template v-if="!editMode">
                   <n-tag size="small" :bordered="false" type="info">{{ limitText }}</n-tag>
-                  <n-tag
-                    v-for="item in problem.tags"
-                    :key="item"
-                    size="small"
-                    :bordered="false"
-                  >
+                  <n-tag v-for="item in problem.tags" :key="item" size="small" :bordered="false">
                     {{ item }}
                   </n-tag>
                 </template>
@@ -698,10 +722,18 @@ async function saveAssetText(path: string, content: string) {
                       <n-input v-model:value="editForm.title" />
                     </n-form-item>
                     <n-form-item :label="t('admin.problems.timeMs')">
-                      <n-input-number v-model:value="editForm.timeLimit" :min="100" class="full-width" />
+                      <n-input-number
+                        v-model:value="editForm.timeLimit"
+                        :min="100"
+                        class="full-width"
+                      />
                     </n-form-item>
                     <n-form-item :label="t('admin.problems.memoryMb')">
-                      <n-input-number v-model:value="editForm.memoryLimitMb" :min="16" class="full-width" />
+                      <n-input-number
+                        v-model:value="editForm.memoryLimitMb"
+                        :min="16"
+                        class="full-width"
+                      />
                     </n-form-item>
                   </div>
                   <n-form-item :label="t('common.tags')">
@@ -904,7 +936,6 @@ async function saveAssetText(path: string, content: string) {
                 </div>
               </section>
             </div>
-
           </div>
         </n-modal>
 
@@ -917,10 +948,7 @@ async function saveAssetText(path: string, content: string) {
           :z-index="31000"
           style="width: min(920px, calc(100vw - 32px))"
         >
-          <code-editor
-            v-model="assetContent"
-            :language-id="assetEditorLanguage"
-          />
+          <code-editor v-model="assetContent" :language-id="assetEditorLanguage" />
           <n-space justify="end" class="form-actions">
             <n-button @click="showAssetEditor = false">{{ t('admin.cancel') }}</n-button>
             <n-button type="primary" :loading="assetSaving" @click="saveSelectedAsset">
@@ -948,11 +976,7 @@ async function saveAssetText(path: string, content: string) {
                   class="language-select"
                   @update:value="updateTemplate"
                 />
-                <n-button
-                  type="primary"
-                  :loading="submitting"
-                  @click="submit"
-                >
+                <n-button type="primary" :loading="submitting" @click="submit">
                   {{ t('problemDetail.submit') }}
                 </n-button>
               </div>
@@ -964,6 +988,7 @@ async function saveAssetText(path: string, content: string) {
           </div>
         </n-card>
       </section>
+      <sign-in-required v-else-if="requireSignIn" />
       <p v-else-if="error" class="form-error">{{ error }}</p>
     </n-spin>
   </main>

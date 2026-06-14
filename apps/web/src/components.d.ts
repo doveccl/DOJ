@@ -59,5 +59,6 @@ declare module 'vue' {
     NUpload: typeof import('naive-ui')['NUpload']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SignInRequired: typeof import('./components/SignInRequired.vue')['default']
   }
 }

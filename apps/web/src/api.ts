@@ -71,6 +71,10 @@ export function errorMessage(cause: unknown) {
   return cause instanceof Error ? cause.message : String(cause)
 }
 
+export function isUnauthorized(cause: unknown) {
+  return cause instanceof ApiError && cause.status === 401
+}
+
 export function openApiWebSocket() {
   const token = localStorage.getItem('doj.token')
   const url = new URL('/api/ws', window.location.origin)

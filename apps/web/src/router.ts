@@ -7,13 +7,11 @@ const routes: RouteRecordRaw[] = [
   { path: '/problems/:id', component: () => import('./pages/ProblemDetail.vue') },
   {
     path: '/assignments',
-    component: () => import('./pages/AssignmentList.vue'),
-    meta: { requiresAuth: true }
+    component: () => import('./pages/AssignmentList.vue')
   },
   {
     path: '/assignments/:id',
-    component: () => import('./pages/AssignmentDetail.vue'),
-    meta: { requiresAuth: true }
+    component: () => import('./pages/AssignmentDetail.vue')
   },
   { path: '/contests', component: () => import('./pages/ContestList.vue') },
   { path: '/contests/:id', component: () => import('./pages/ContestDetail.vue') },

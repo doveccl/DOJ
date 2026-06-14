@@ -2,7 +2,15 @@
 import { NAvatar } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { apiFetch, DEFAULT_PAGE_SIZE, getItems, PAGE_SIZE_OPTIONS, type Paged } from '../api'
+import {
+  apiFetch,
+  DEFAULT_PAGE_SIZE,
+  getItems,
+  isUnauthorized,
+  PAGE_SIZE_OPTIONS,
+  type Paged
+} from '../api'
+import { useAuthStore } from '../stores/auth'
 
 interface RankRow {
   rank: number
@@ -14,10 +22,13 @@ interface RankRow {
 
 const loading = ref(true)
 const rows = ref<RankRow[]>([])
+const requireSignIn = ref(false)
+const error = ref('')
 const page = ref(1)
 const pageSize = ref(DEFAULT_PAGE_SIZE)
 const total = ref(0)
 const { t } = useI18n()
+const auth = useAuthStore()
 
 const columns = computed<DataTableColumns<RankRow>>(() => [
   {
@@ -35,10 +46,7 @@ const columns = computed<DataTableColumns<RankRow>>(() => [
     render(row) {
       return h('div', { class: 'rank-user' }, [
         h(NAvatar, { size: 28, src: row.user.avatarUrl, round: true }),
-        h('div', { class: 'rank-user-text' }, [
-          h('span', { class: 'rank-user-name' }, row.user.name),
-          h('span', { class: 'rank-user-intro' }, row.user.introduction || t('profile.noIntroduction'))
-        ])
+        h('span', { class: 'rank-user-name', title: row.user.name }, row.user.name)
       ])
     }
   },
@@ -64,37 +72,58 @@ async function load() {
     )
     rows.value = getItems(data)
     total.value = data.total
+    requireSignIn.value = false
+  } catch (cause) {
+    if (isUnauthorized(cause)) {
+      requireSignIn.value = true
+      rows.value = []
+      total.value = 0
+    } else {
+      error.value = cause instanceof Error ? cause.message : String(cause)
+    }
   } finally {
     loading.value = false
   }
 }
+
+watch(
+  () => auth.signedIn,
+  () => {
+    void load()
+  }
+)
 </script>
 
 <template>
   <main class="page">
-    <n-data-table
-      :columns="columns"
-      :data="rows"
-      :bordered="false"
-      :loading="loading"
-      :scroll-x="560"
-      :pagination="{
-        page,
-        pageSize,
-        itemCount: total,
-        showSizePicker: true,
-        pageSizes: [...PAGE_SIZE_OPTIONS],
-        onUpdatePage: (nextPage: number) => {
-          page = nextPage
-          load()
-        },
-        onUpdatePageSize: (nextPageSize: number) => {
-          pageSize = nextPageSize
-          page = 1
-          load()
-        }
-      }"
-    />
+    <n-alert v-if="error" type="error" class="page-alert">{{ error }}</n-alert>
+    <n-card :bordered="false">
+      <sign-in-required v-if="requireSignIn" />
+      <n-data-table
+        v-else
+        :columns="columns"
+        :data="rows"
+        :bordered="false"
+        :loading="loading"
+        :scroll-x="560"
+        :pagination="{
+          page,
+          pageSize,
+          itemCount: total,
+          showSizePicker: true,
+          pageSizes: [...PAGE_SIZE_OPTIONS],
+          onUpdatePage: (nextPage: number) => {
+            page = nextPage
+            load()
+          },
+          onUpdatePageSize: (nextPageSize: number) => {
+            pageSize = nextPageSize
+            page = 1
+            load()
+          }
+        }"
+      />
+    </n-card>
   </main>
 </template>
 
@@ -105,28 +134,15 @@ async function load() {
   gap: 9px;
   align-items: center;
   min-width: 0;
-}
-
-.rank-user-text {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.rank-user-name,
-.rank-user-intro {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-height: 32px;
 }
 
 .rank-user-name {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: 600;
-}
-
-.rank-user-intro {
-  color: var(--muted-color);
-  font-size: 12px;
 }
 </style>

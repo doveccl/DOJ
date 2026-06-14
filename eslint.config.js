@@ -21,6 +21,7 @@ export default tseslint.config(
         defineStore: 'readonly',
         h: 'readonly',
         nextTick: 'readonly',
+        onBeforeUnmount: 'readonly',
         onMounted: 'readonly',
         onUnmounted: 'readonly',
         reactive: 'readonly',

@@ -6,10 +6,12 @@ import {
   apiFetch,
   DEFAULT_PAGE_SIZE,
   getItems,
+  isUnauthorized,
   openApiWebSocket,
   PAGE_SIZE_OPTIONS,
   type Paged
 } from '../api'
+import { useAuthStore } from '../stores/auth'
 
 interface SubmissionRow {
   id: number
@@ -45,6 +47,7 @@ const statusType: Record<string, 'success' | 'warning' | 'error' | 'info'> = {
 const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
+const auth = useAuthStore()
 
 const languageNames = ref<Record<string, string>>({})
 const languageOptions = computed(() =>
@@ -78,7 +81,11 @@ const columns = computed(() => [
     key: 'status',
     render(row: SubmissionRow) {
       const displayStatus = row.displayStatus ?? row.status ?? '-'
-      return h(NTag, { bordered: false, type: statusType[displayStatus] ?? 'default' }, () => displayStatus)
+      return h(
+        NTag,
+        { bordered: false, type: statusType[displayStatus] ?? 'default' },
+        () => displayStatus
+      )
     }
   },
   {
@@ -97,7 +104,11 @@ const columns = computed(() => [
     minWidth: 220,
     render(row: SubmissionRow) {
       if (!row.problem) return '-'
-      return h(RouterLink, { to: `/problems/${row.problem.id}`, class: 'table-link' }, () => row.problem?.title ?? '-')
+      return h(
+        RouterLink,
+        { to: `/problems/${row.problem.id}`, class: 'table-link' },
+        () => row.problem?.title ?? '-'
+      )
     }
   },
   {
@@ -149,6 +160,8 @@ const columns = computed(() => [
 ])
 
 const loading = ref(true)
+const error = ref('')
+const requireSignIn = ref(false)
 const submissions = ref<SubmissionRow[]>([])
 const page = ref(1)
 const pageSize = ref(DEFAULT_PAGE_SIZE)
@@ -171,6 +184,16 @@ async function loadSubmissions(showLoading = false) {
     const data = await apiFetch<Paged<SubmissionRow>>(`/api/submissions?${params.toString()}`)
     submissions.value = getItems(data)
     total.value = data.total
+    requireSignIn.value = false
+    error.value = ''
+  } catch (cause) {
+    if (isUnauthorized(cause)) {
+      requireSignIn.value = true
+      submissions.value = []
+      total.value = 0
+    } else {
+      error.value = cause instanceof Error ? cause.message : String(cause)
+    }
   } finally {
     loading.value = false
   }
@@ -215,6 +238,20 @@ onMounted(async () => {
   connectFeedSocket()
 })
 
+watch(
+  () => auth.signedIn,
+  async (signedIn) => {
+    if (signedIn) {
+      await loadSubmissions(true)
+      connectFeedSocket()
+    } else {
+      socket?.close()
+      socket = null
+      await loadSubmissions(true)
+    }
+  }
+)
+
 onUnmounted(() => {
   socket?.close()
 })
@@ -232,7 +269,8 @@ function connectFeedSocket() {
     }
     if (message.type === 'submission-feed') {
       const index = submissions.value.findIndex((item) => item.id === message.item.id)
-      if (index >= 0) submissions.value.splice(index, 1, { ...submissions.value[index], ...message.item })
+      if (index >= 0)
+        submissions.value.splice(index, 1, { ...submissions.value[index], ...message.item })
     }
   })
 }
@@ -250,9 +288,7 @@ function subscribeCurrentPage() {
 
 function parseWsMessage(raw: string) {
   try {
-    return JSON.parse(raw) as
-      | { type: 'ping' }
-      | { type: 'submission-feed'; item: SubmissionRow }
+    return JSON.parse(raw) as { type: 'ping' } | { type: 'submission-feed'; item: SubmissionRow }
   } catch {
     return null
   }
@@ -277,59 +313,79 @@ function submissionRowProps(row: SubmissionRow) {
 
 <template>
   <main class="page">
+    <n-alert v-if="error" type="error" class="page-alert">{{ error }}</n-alert>
     <n-card :bordered="false">
-      <div class="table-toolbar submission-toolbar">
-        <div class="toolbar-fields submission-fields">
-          <n-input v-model:value="filters.problemId" clearable :placeholder="t('submissions.problemId')" />
-          <n-input v-model:value="filters.userId" clearable :placeholder="t('submissions.userId')" />
-          <n-select
-            v-model:value="filters.languageId"
-            clearable
-            filterable
-            :options="languageOptions"
-            :placeholder="t('common.language')"
-          />
-          <n-select
-            v-model:value="filters.status"
-            clearable
-            :options="statusOptions"
-            :placeholder="t('common.status')"
-          />
-          <n-input v-model:value="filters.contestId" clearable :placeholder="t('submissions.contestId')" />
-          <n-input v-model:value="filters.assignmentId" clearable :placeholder="t('submissions.assignmentId')" />
+      <sign-in-required v-if="requireSignIn" />
+      <template v-else>
+        <div class="table-toolbar submission-toolbar">
+          <div class="toolbar-fields submission-fields">
+            <n-input
+              v-model:value="filters.problemId"
+              clearable
+              :placeholder="t('submissions.problemId')"
+            />
+            <n-input
+              v-model:value="filters.userId"
+              clearable
+              :placeholder="t('submissions.userId')"
+            />
+            <n-select
+              v-model:value="filters.languageId"
+              clearable
+              filterable
+              :options="languageOptions"
+              :placeholder="t('common.language')"
+            />
+            <n-select
+              v-model:value="filters.status"
+              clearable
+              :options="statusOptions"
+              :placeholder="t('common.status')"
+            />
+            <n-input
+              v-model:value="filters.contestId"
+              clearable
+              :placeholder="t('submissions.contestId')"
+            />
+            <n-input
+              v-model:value="filters.assignmentId"
+              clearable
+              :placeholder="t('submissions.assignmentId')"
+            />
+          </div>
+          <div class="toolbar-actions">
+            <n-button secondary @click="clearFilters">
+              <template #icon>
+                <n-icon :component="CloseOutline" />
+              </template>
+              {{ t('problems.clear') }}
+            </n-button>
+            <n-button type="primary" @click="applyFilters">
+              <template #icon>
+                <n-icon :component="SearchOutline" />
+              </template>
+              {{ t('submissions.applyFilters') }}
+            </n-button>
+          </div>
         </div>
-        <div class="toolbar-actions">
-          <n-button secondary @click="clearFilters">
-            <template #icon>
-              <n-icon :component="CloseOutline" />
-            </template>
-            {{ t('problems.clear') }}
-          </n-button>
-          <n-button type="primary" @click="applyFilters">
-            <template #icon>
-              <n-icon :component="SearchOutline" />
-            </template>
-            {{ t('submissions.applyFilters') }}
-          </n-button>
-        </div>
-      </div>
-      <n-data-table
-        :columns="columns"
-        :data="submissions"
-        :bordered="false"
-        :loading="loading"
-        :scroll-x="1120"
-        :row-props="submissionRowProps"
-        :pagination="{
-          page,
-          pageSize,
-          itemCount: total,
-          showSizePicker: true,
-          pageSizes: [...PAGE_SIZE_OPTIONS],
-          onUpdatePage: changePage,
-          onUpdatePageSize: changePageSize
-        }"
-      />
+        <n-data-table
+          :columns="columns"
+          :data="submissions"
+          :bordered="false"
+          :loading="loading"
+          :scroll-x="1120"
+          :row-props="submissionRowProps"
+          :pagination="{
+            page,
+            pageSize,
+            itemCount: total,
+            showSizePicker: true,
+            pageSizes: [...PAGE_SIZE_OPTIONS],
+            onUpdatePage: changePage,
+            onUpdatePageSize: changePageSize
+          }"
+        />
+      </template>
     </n-card>
   </main>
 </template>

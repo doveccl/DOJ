@@ -81,6 +81,7 @@ declare global {
   const useRouter: typeof import('vue-router').useRouter
   const useSlots: typeof import('vue').useSlots
   const useTemplateRef: typeof import('vue').useTemplateRef
+  const useUiStore: typeof import('./stores/ui').useUiStore
   const watch: typeof import('vue').watch
   const watchEffect: typeof import('vue').watchEffect
   const watchPostEffect: typeof import('vue').watchPostEffect
@@ -94,4 +95,7 @@ declare global {
   // @ts-ignore
   export type { AuthUser } from './stores/auth'
   import('./stores/auth')
+  // @ts-ignore
+  export type { AuthMode } from './stores/ui'
+  import('./stores/ui')
 }

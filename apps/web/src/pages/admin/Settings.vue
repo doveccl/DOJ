@@ -144,7 +144,6 @@ async function saveSettings() {
     saving.value = false
   }
 }
-
 </script>
 
 <template>
@@ -159,8 +158,9 @@ async function saveSettings() {
 
     <n-spin :show="loading">
       <n-card v-if="canManage" :bordered="false">
-        <n-tabs type="line" animated>
-          <n-tab-pane name="general" :tab="t('admin.settings.tabGeneral')">
+        <div class="settings-sections">
+          <section class="settings-section">
+            <h2>{{ t('admin.settings.tabGeneral') }}</h2>
             <n-form :model="form" label-placement="left" label-width="180">
               <n-form-item :label="t('admin.settings.notice')">
                 <n-input
@@ -179,9 +179,10 @@ async function saveSettings() {
                 <n-switch v-model:value="form.publicCode" />
               </n-form-item>
             </n-form>
-          </n-tab-pane>
+          </section>
 
-          <n-tab-pane name="smtp" :tab="t('admin.settings.tabSmtp')">
+          <section class="settings-section">
+            <h2>{{ t('admin.settings.tabSmtp') }}</h2>
             <n-form :model="form" label-placement="left" label-width="180">
               <n-form-item :label="t('admin.settings.smtpEnabled')">
                 <n-switch v-model:value="form.smtpEnabled" />
@@ -193,7 +194,11 @@ async function saveSettings() {
                     :placeholder="t('admin.settings.secretPlaceholder')"
                   />
                   <n-tag size="small" :type="smtpHostSet ? 'success' : 'default'" :bordered="false">
-                    {{ smtpHostSet ? t('admin.settings.configured') : t('admin.settings.notConfigured') }}
+                    {{
+                      smtpHostSet
+                        ? t('admin.settings.configured')
+                        : t('admin.settings.notConfigured')
+                    }}
                   </n-tag>
                 </n-space>
               </n-form-item>
@@ -207,7 +212,11 @@ async function saveSettings() {
                     :placeholder="t('admin.settings.secretPlaceholder')"
                   />
                   <n-tag size="small" :type="smtpUserSet ? 'success' : 'default'" :bordered="false">
-                    {{ smtpUserSet ? t('admin.settings.configured') : t('admin.settings.notConfigured') }}
+                    {{
+                      smtpUserSet
+                        ? t('admin.settings.configured')
+                        : t('admin.settings.notConfigured')
+                    }}
                   </n-tag>
                 </n-space>
               </n-form-item>
@@ -224,7 +233,11 @@ async function saveSettings() {
                     :type="smtpPasswordSet ? 'success' : 'default'"
                     :bordered="false"
                   >
-                    {{ smtpPasswordSet ? t('admin.settings.configured') : t('admin.settings.notConfigured') }}
+                    {{
+                      smtpPasswordSet
+                        ? t('admin.settings.configured')
+                        : t('admin.settings.notConfigured')
+                    }}
                   </n-tag>
                 </n-space>
               </n-form-item>
@@ -232,9 +245,10 @@ async function saveSettings() {
                 <n-input v-model:value="form.smtpFrom" />
               </n-form-item>
             </n-form>
-          </n-tab-pane>
+          </section>
 
-          <n-tab-pane name="ai" :tab="t('admin.settings.tabAi')">
+          <section class="settings-section">
+            <h2>{{ t('admin.settings.tabAi') }}</h2>
             <n-form :model="form" label-placement="left" label-width="180">
               <n-form-item :label="t('admin.settings.aiEnabled')">
                 <n-switch v-model:value="form.aiEnabled" />
@@ -245,8 +259,16 @@ async function saveSettings() {
                     v-model:value="form.aiBaseUrl"
                     :placeholder="t('admin.settings.secretPlaceholder')"
                   />
-                  <n-tag size="small" :type="aiBaseUrlSet ? 'success' : 'default'" :bordered="false">
-                    {{ aiBaseUrlSet ? t('admin.settings.configured') : t('admin.settings.notConfigured') }}
+                  <n-tag
+                    size="small"
+                    :type="aiBaseUrlSet ? 'success' : 'default'"
+                    :bordered="false"
+                  >
+                    {{
+                      aiBaseUrlSet
+                        ? t('admin.settings.configured')
+                        : t('admin.settings.notConfigured')
+                    }}
                   </n-tag>
                 </n-space>
               </n-form-item>
@@ -257,7 +279,11 @@ async function saveSettings() {
                     :placeholder="t('admin.settings.secretPlaceholder')"
                   />
                   <n-tag size="small" :type="aiModelSet ? 'success' : 'default'" :bordered="false">
-                    {{ aiModelSet ? t('admin.settings.configured') : t('admin.settings.notConfigured') }}
+                    {{
+                      aiModelSet
+                        ? t('admin.settings.configured')
+                        : t('admin.settings.notConfigured')
+                    }}
                   </n-tag>
                 </n-space>
               </n-form-item>
@@ -270,13 +296,15 @@ async function saveSettings() {
                     :placeholder="t('admin.settings.secretPlaceholder')"
                   />
                   <n-tag size="small" :type="apiKeySet ? 'success' : 'default'" :bordered="false">
-                    {{ apiKeySet ? t('admin.settings.configured') : t('admin.settings.notConfigured') }}
+                    {{
+                      apiKeySet ? t('admin.settings.configured') : t('admin.settings.notConfigured')
+                    }}
                   </n-tag>
                 </n-space>
               </n-form-item>
             </n-form>
-          </n-tab-pane>
-        </n-tabs>
+          </section>
+        </div>
 
         <n-space justify="end">
           <n-button type="primary" :loading="saving" @click="saveSettings">
@@ -289,6 +317,28 @@ async function saveSettings() {
 </template>
 
 <style scoped lang="scss">
+.settings-sections {
+  display: grid;
+  gap: 20px;
+}
+
+.settings-section {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.settings-section:last-child {
+  border-bottom: 0;
+}
+
+.settings-section h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
 @media (max-width: 720px) {
   :deep(.n-form-item) {
     display: block;

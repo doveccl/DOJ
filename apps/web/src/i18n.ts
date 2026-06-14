@@ -93,7 +93,8 @@ const zhCNMessages = {
     tags: '标签',
     solved: '通过',
     refresh: '刷新',
-    all: '全部'
+    all: '全部',
+    signInRequired: '登录后查看此页内容。'
   },
   problems: {
     title: '题库',
@@ -104,6 +105,7 @@ const zhCNMessages = {
     tag: '标签',
     status: '状态',
     solved: '已通过',
+    attempted: '已尝试',
     unsolved: '未通过',
     passRate: '通过率',
     deleteConfirm: '确认删除该题目？'
@@ -203,6 +205,7 @@ const zhCNMessages = {
     problem: '题目',
     contest: '比赛',
     reply: '回复',
+    topicOwner: '楼主',
     signInReply: '登录后回复。',
     signInTopic: '登录后发帖。',
     newTopic: '新主题',
@@ -520,7 +523,8 @@ const enMessages = {
     tags: 'Tags',
     solved: 'Solved',
     refresh: 'Refresh',
-    all: 'All'
+    all: 'All',
+    signInRequired: 'Sign in to view this page.'
   },
   problems: {
     title: 'Problems',
@@ -531,6 +535,7 @@ const enMessages = {
     tag: 'Tag',
     status: 'Status',
     solved: 'Solved',
+    attempted: 'Attempted',
     unsolved: 'Unsolved',
     passRate: 'Pass rate',
     deleteConfirm: 'Delete this problem?'
@@ -579,7 +584,8 @@ const enMessages = {
     discussionCount: 'Discussions',
     recentSubmission: 'Recent submission',
     noRecentSubmission: 'No submissions yet',
-    adminHint: 'Admins can maintain the statement, metadata, and problem assets here while users stay on the same detail page.'
+    adminHint:
+      'Admins can maintain the statement, metadata, and problem assets here while users stay on the same detail page.'
   },
   assignments: {
     title: 'Assignments',
@@ -630,6 +636,7 @@ const enMessages = {
     problem: 'Problem',
     contest: 'Contest',
     reply: 'Reply',
+    topicOwner: 'Owner',
     signInReply: 'Sign in to reply.',
     signInTopic: 'Sign in to start a topic.',
     newTopic: 'New topic',
@@ -793,7 +800,8 @@ const enMessages = {
       custom: 'Custom package',
       default: 'Default judge',
       modeDefault: 'Default mode',
-      modeDefaultHint: 'Compare output line by line after trimming trailing spaces and extra blank lines.',
+      modeDefaultHint:
+        'Compare output line by line after trimming trailing spaces and extra blank lines.',
       modeStrict: 'Strict mode',
       modeStrictHint: 'Stricter than default mode; whitespace mismatch reports PE.',
       modeCustom: 'Custom mode',
@@ -861,7 +869,8 @@ const enMessages = {
       deleted: 'Deleted',
       deleteConfirm: 'Soft delete this contest?',
       restoreConfirm: 'Restore this contest?',
-      runningEditHint: 'Running contests can only update title and description; problem order, time, and freeze settings are locked.'
+      runningEditHint:
+        'Running contests can only update title and description; problem order, time, and freeze settings are locked.'
     }
   }
 }

@@ -32,6 +32,7 @@ const router = useRouter()
 const { t, locale } = useI18n()
 const auth = useAuthStore()
 const loading = ref(true)
+const heatmapLoading = ref(false)
 const error = ref('')
 const notice = ref('')
 const recommendedProblems = ref<HomeProblem[]>([])
@@ -75,9 +76,12 @@ watch(
 
 async function loadHome() {
   loading.value = true
+  heatmapLoading.value = auth.signedIn
   error.value = ''
   try {
-    const heatmapUrl = '/api/home/heatmap?tz=' + encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')
+    const heatmapUrl =
+      '/api/home/heatmap?tz=' +
+      encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')
     const [config, problems, contestPage, assignmentPage, heatmapData] = await Promise.all([
       apiFetch<PublicConfig>('/api/config'),
       fallbackForGuest(apiFetch<HomeProblem[]>('/api/home/recommended-problems'), []),
@@ -97,6 +101,7 @@ async function loadHome() {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
     loading.value = false
+    heatmapLoading.value = false
   }
 }
 
@@ -132,7 +137,14 @@ function assignmentProgress(assignment: HomeAssignment) {
     <n-spin :show="loading">
       <p v-if="error" class="form-error">{{ error }}</p>
       <template v-else>
-        <n-grid class="home-grid" cols="1 m:3" :x-gap="16" :y-gap="16" responsive="screen" item-responsive>
+        <n-grid
+          class="home-grid"
+          cols="1 m:3"
+          :x-gap="16"
+          :y-gap="16"
+          responsive="screen"
+          item-responsive
+        >
           <n-gi v-if="notice" span="1 m:3">
             <n-alert type="info" :show-icon="false" class="notice">{{ notice }}</n-alert>
           </n-gi>
@@ -146,11 +158,13 @@ function assignmentProgress(assignment: HomeAssignment) {
                 :show-week-labels="true"
                 :show-month-labels="true"
                 :show-color-indicator="true"
+                :loading="heatmapLoading"
                 :tooltip="{ placement: 'top' }"
                 size="small"
               >
                 <template #tooltip="{ timestamp, value }">
-                  {{ formatHeatmapDate(timestamp) }} · {{ t('home.submissionCount', { count: value ?? 0 }) }}
+                  {{ formatHeatmapDate(timestamp) }} ·
+                  {{ t('home.submissionCount', { count: value ?? 0 }) }}
                 </template>
                 <template #footer>
                   <span class="muted heatmap-total">{{ heatmapTotalLabel }}</span>
@@ -251,10 +265,20 @@ function assignmentProgress(assignment: HomeAssignment) {
 </template>
 
 <style scoped lang="scss">
-.home-page { min-width: 0; }
-.notice, .home-card, .heatmap-card { box-shadow: var(--shadow-sm); }
-.home-card { height: 100%; }
-.home-card :deep(.n-card__content) { min-height: 238px; }
+.home-page {
+  min-width: 0;
+}
+.notice,
+.home-card,
+.heatmap-card {
+  box-shadow: var(--shadow-sm);
+}
+.home-card {
+  height: 100%;
+}
+.home-card :deep(.n-card__content) {
+  min-height: 238px;
+}
 .home-list-item {
   min-height: 44px;
 
