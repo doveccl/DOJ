@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import type { SelectOption, SelectRenderLabel, UploadCustomRequestOptions } from 'naive-ui'
 import {
+  AddOutline,
   CloseOutline,
   CreateOutline,
+  DownloadOutline,
   EyeOffOutline,
   EyeOutline,
   FolderOpenOutline,
@@ -147,7 +149,7 @@ const assetSections = computed<Array<{ key: ProblemAssetSection; title: string }
     { key: 'data', title: t('admin.problems.dataAssets') }
   ]
   if (problem.value?.mode === 'custom') {
-    sections.push({ key: 'root', title: t('admin.problems.rootResources') })
+    sections.push({ key: 'root', title: t('admin.problems.judgerResources') })
   }
   return sections
 })
@@ -291,7 +293,6 @@ async function updateProblemMode(mode: 'default' | 'strict' | 'custom') {
     })
     problem.value = { ...updated, statement: problem.value.statement }
     syncEditForm(problem.value)
-    if (mode === 'custom') await ensureCustomJudgeTemplates()
     await loadAssets()
   } catch (caught) {
     if (problem.value) problem.value = { ...problem.value, mode: previous }
@@ -348,6 +349,7 @@ async function loadAssets() {
 
 async function ensureCustomJudgeTemplates() {
   if (!problem.value) return
+  error.value = ''
   const existing = new Set(assets.value.map((asset) => asset.path))
   const templates = [
     {
@@ -356,8 +358,8 @@ async function ensureCustomJudgeTemplates() {
         'FROM gcc:13',
         'WORKDIR /judge',
         'COPY main.cc .',
-        'RUN g++ -std=c++17 -O2 -pipe -static -s -o main main.cc',
-        'CMD ["./main"]',
+        'RUN g++ -std=c++17 -O2 -pipe -static -s -o judge main.cc',
+        'CMD ["./judge"]',
         ''
       ].join('\n')
     },
@@ -367,19 +369,93 @@ async function ensureCustomJudgeTemplates() {
         '#include <bits/stdc++.h>',
         'using namespace std;',
         '',
+        'string readFile(const char* path) {',
+        '  ifstream in(path, ios::binary);',
+        '  return string((istreambuf_iterator<char>(in)), istreambuf_iterator<char>());',
+        '}',
+        '',
+        'string normalize(string value) {',
+        '  while (!value.empty() && (value.back() == \'\\n\' || value.back() == \'\\r\')) value.pop_back();',
+        '  stringstream input(value);',
+        '  string line, output;',
+        '  while (getline(input, line)) {',
+        '    while (!line.empty() && isspace(static_cast<unsigned char>(line.back()))) line.pop_back();',
+        '    output += line + \'\\n\';',
+        '  }',
+        '  return output;',
+        '}',
+        '',
         'int main() {',
-        '  // Custom judge entry.',
-        '  // This program can implement both interactor and checker logic.',
-        '  // Read the runner contract before using it in production.',
-        '  return 0;',
+        '  // A custom judger talks to the submission through stdin/stdout.',
+        '  // INPUT and OUT point to the current test case files under /data.',
+        '  const char* inputPath = getenv("INPUT");',
+        '  const char* answerPath = getenv("OUT");',
+        '  if (!inputPath || !answerPath) {',
+        '    cerr << "Missing INPUT or OUT";',
+        '    return 8; // SE',
+        '  }',
+        '',
+        '  cout << readFile(inputPath) << flush;',
+        '  string contestant((istreambuf_iterator<char>(cin)), istreambuf_iterator<char>());',
+        '  string expected = readFile(answerPath);',
+        '',
+        '  if (normalize(contestant) == normalize(expected)) return 0; // AC',
+        '  cerr << "Answer differs from expected output";',
+        '  return 1; // WA',
         '}',
         ''
       ].join('\n')
     }
   ]
-  for (const template of templates) {
-    if (existing.has(template.path)) continue
-    await saveAssetText(template.path, template.content)
+  try {
+    for (const template of templates) {
+      if (existing.has(template.path)) continue
+      await saveAssetText(template.path, template.content)
+    }
+    await loadAssets()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : String(caught)
+  }
+}
+
+async function createDataCase() {
+  error.value = ''
+  const caseNo = nextDataCaseNo()
+  try {
+    await saveAssetText(`data/in${caseNo}.txt`, '')
+    await saveAssetText(`data/ans${caseNo}.txt`, '')
+    await loadAssets()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : String(caught)
+  }
+}
+
+function nextDataCaseNo() {
+  const numbers = assets.value
+    .filter((asset) => asset.section === 'data')
+    .flatMap((asset) => asset.name.match(/\d+/g)?.map(Number) ?? [])
+    .filter(Number.isFinite)
+  return (numbers.length ? Math.max(...numbers) : 0) + 1
+}
+
+async function downloadDataAssets() {
+  if (!problem.value) return
+  error.value = ''
+  try {
+    const token = localStorage.getItem('doj.token')
+    const response = await fetch(`/api/admin/problems/${problem.value.id}/assets/data.zip`, {
+      headers: token ? { authorization: `Bearer ${token}` } : undefined
+    })
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`)
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `P${problem.value.id}-data.zip`
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(url), 0)
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : String(caught)
   }
 }
 
@@ -736,18 +812,53 @@ async function saveAssetText(path: string, content: string) {
                   <div class="asset-section-title">
                     <strong>{{ section.title }}</strong>
                   </div>
-                  <n-upload
-                    :custom-request="uploadAssetForSection(section.key)"
-                    :show-file-list="false"
-                    accept="*"
-                  >
-                    <n-button size="small" secondary>
+                  <n-space :size="8" justify="end">
+                    <n-button
+                      v-if="section.key === 'data'"
+                      size="small"
+                      secondary
+                      @click="createDataCase"
+                    >
                       <template #icon>
-                        <n-icon :component="FolderOpenOutline" />
+                        <n-icon :component="AddOutline" />
                       </template>
-                      {{ t('admin.upload') }}
+                      {{ t('admin.problems.addDataCase') }}
                     </n-button>
-                  </n-upload>
+                    <n-button
+                      v-if="section.key === 'data'"
+                      size="small"
+                      secondary
+                      @click="downloadDataAssets"
+                    >
+                      <template #icon>
+                        <n-icon :component="DownloadOutline" />
+                      </template>
+                      {{ t('admin.problems.downloadDataZip') }}
+                    </n-button>
+                    <n-button
+                      v-if="section.key === 'root' && !assetsBySection(section.key).length"
+                      size="small"
+                      secondary
+                      @click="ensureCustomJudgeTemplates"
+                    >
+                      <template #icon>
+                        <n-icon :component="CreateOutline" />
+                      </template>
+                      {{ t('admin.problems.fillTemplate') }}
+                    </n-button>
+                    <n-upload
+                      :custom-request="uploadAssetForSection(section.key)"
+                      :show-file-list="false"
+                      accept="*"
+                    >
+                      <n-button size="small" secondary>
+                        <template #icon>
+                          <n-icon :component="FolderOpenOutline" />
+                        </template>
+                        {{ t('admin.upload') }}
+                      </n-button>
+                    </n-upload>
+                  </n-space>
                 </div>
                 <div
                   class="asset-dropzone"

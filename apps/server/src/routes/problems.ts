@@ -175,6 +175,31 @@ export function registerProblemRoutes(app: Hono) {
     return c.json(assets)
   })
 
+  app.get('/api/admin/problems/:id/assets/data.zip', authMiddleware, async (c) => {
+    const denied = await requireAdmin(c)
+    if (denied) return denied
+
+    const id = numericId.parse(c.req.param('id'))
+    if (!(await problemExists(id))) return notFound(c)
+    const objects = (await listObjects(problemObjectKey(id, 'data/')))
+      .filter((object) => object.key.startsWith(problemObjectKey(id, 'data/')))
+      .sort((left, right) => left.key.localeCompare(right.key))
+    const entries = await Promise.all(
+      objects.map(async (object) => {
+        const path = object.key.replace(problemObjectKey(id, ''), '')
+        return {
+          name: path,
+          bytes: await getObjectBytes(object.key)
+        }
+      })
+    )
+    const zip = createZip(entries)
+    c.header('content-type', 'application/zip')
+    c.header('content-disposition', `attachment; filename="P${id}-data.zip"`)
+    c.header('cache-control', 'private, no-store')
+    return c.body(zip)
+  })
+
   app.get('/api/admin/problems/:id/assets/content', authMiddleware, async (c) => {
     const denied = await requireAdmin(c)
     if (denied) return denied
@@ -542,6 +567,97 @@ function isTextAsset(path: string, contentType: string) {
   if (contentType.startsWith('text/') || contentType.includes('json') || contentType.includes('xml')) return true
   const lower = path.toLowerCase()
   return [...textExtensions].some((extension) => lower.endsWith(extension))
+}
+
+function createZip(entries: Array<{ name: string; bytes: Uint8Array }>) {
+  const encoder = new TextEncoder()
+  const chunks: Uint8Array[] = []
+  const central: Uint8Array[] = []
+  let offset = 0
+
+  for (const entry of entries) {
+    const name = encoder.encode(entry.name)
+    const crc = crc32(entry.bytes)
+    const local = new Uint8Array(30 + name.length)
+    const localView = new DataView(local.buffer)
+    writeZipLocalHeader(localView, { crc, size: entry.bytes.byteLength, nameLength: name.length })
+    local.set(name, 30)
+    chunks.push(local, entry.bytes)
+
+    const centralHeader = new Uint8Array(46 + name.length)
+    const centralView = new DataView(centralHeader.buffer)
+    writeZipCentralHeader(centralView, {
+      crc,
+      size: entry.bytes.byteLength,
+      nameLength: name.length,
+      offset
+    })
+    centralHeader.set(name, 46)
+    central.push(centralHeader)
+    offset += local.byteLength + entry.bytes.byteLength
+  }
+
+  const centralOffset = offset
+  const centralSize = central.reduce((total, chunk) => total + chunk.byteLength, 0)
+  const end = new Uint8Array(22)
+  const endView = new DataView(end.buffer)
+  endView.setUint32(0, 0x06054b50, true)
+  endView.setUint16(8, entries.length, true)
+  endView.setUint16(10, entries.length, true)
+  endView.setUint32(12, centralSize, true)
+  endView.setUint32(16, centralOffset, true)
+
+  return concatBytes([...chunks, ...central, end])
+}
+
+function writeZipLocalHeader(view: DataView, input: { crc: number; size: number; nameLength: number }) {
+  view.setUint32(0, 0x04034b50, true)
+  view.setUint16(4, 20, true)
+  view.setUint16(6, 0, true)
+  view.setUint16(8, 0, true)
+  view.setUint16(12, 33, true)
+  view.setUint32(14, input.crc, true)
+  view.setUint32(18, input.size, true)
+  view.setUint32(22, input.size, true)
+  view.setUint16(26, input.nameLength, true)
+}
+
+function writeZipCentralHeader(view: DataView, input: { crc: number; size: number; nameLength: number; offset: number }) {
+  view.setUint32(0, 0x02014b50, true)
+  view.setUint16(4, 20, true)
+  view.setUint16(6, 20, true)
+  view.setUint16(8, 0, true)
+  view.setUint16(10, 0, true)
+  view.setUint16(14, 33, true)
+  view.setUint32(16, input.crc, true)
+  view.setUint32(20, input.size, true)
+  view.setUint32(24, input.size, true)
+  view.setUint16(28, input.nameLength, true)
+  view.setUint32(42, input.offset, true)
+}
+
+function concatBytes(chunks: Uint8Array[]) {
+  const output = new Uint8Array(chunks.reduce((total, chunk) => total + chunk.byteLength, 0))
+  let offset = 0
+  for (const chunk of chunks) {
+    output.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return output
+}
+
+const crcTable = new Uint32Array(256).map((_, index) => {
+  let value = index
+  for (let bit = 0; bit < 8; bit += 1) {
+    value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1
+  }
+  return value >>> 0
+})
+
+function crc32(bytes: Uint8Array) {
+  let crc = 0xffffffff
+  for (const byte of bytes) crc = crcTable[(crc ^ byte) & 0xff] ^ (crc >>> 8)
+  return (crc ^ 0xffffffff) >>> 0
 }
 
 function problemSearchFilter(q: string) {
