@@ -53,16 +53,13 @@ const report = ref<AssignmentReport | null>(null)
 const activeTab = ref('problems')
 const { t } = useI18n()
 const canManage = computed(() => auth.user?.admin ?? false)
-const assignment = computed(
-  () =>
-    detail.value?.assignment ?? {
-      id: detail.value?.id ?? 0,
-      title: detail.value?.title ?? '',
-      description: detail.value?.description ?? '',
-      endAt: detail.value?.endAt ?? '',
-      deletedAt: null
-    }
-)
+const assignment = computed(() => detail.value?.assignment ?? {
+  id: detail.value?.id ?? 0,
+  title: detail.value?.title ?? '',
+  description: detail.value?.description ?? '',
+  endAt: detail.value?.endAt ?? '',
+  deletedAt: null
+})
 const problems = computed(() => detail.value?.problems ?? [])
 
 const columns = computed<DataTableColumns<AssignmentProblem>>(() => [
@@ -123,8 +120,10 @@ const columns = computed<DataTableColumns<AssignmentProblem>>(() => [
     minWidth: 180,
     render(row) {
       if (!row.submissionId || !row.submittedAt) return '-'
-      return h(RouterLink, { to: `/submissions/${row.submissionId}`, class: 'table-link' }, () =>
-        new Date(row.submittedAt as string).toLocaleString()
+      return h(
+        RouterLink,
+        { to: `/submissions/${row.submissionId}`, class: 'table-link' },
+        () => new Date(row.submittedAt as string).toLocaleString()
       )
     }
   }
@@ -146,10 +145,8 @@ const reportColumns = computed<DataTableColumns<AssignmentReportRow>>(() => [
     render(row: AssignmentReportRow) {
       const cell = row.problems[String(problem.problemId ?? problem.id)]
       if (!cell?.attempts) return '-'
-      return h(
-        NTag,
-        { bordered: false, type: cell.ac ? 'success' : 'warning' },
-        () => `${cell.ac ? 'AC' : cell.bestScore} (${cell.attempts})`
+      return h(NTag, { bordered: false, type: cell.ac ? 'success' : 'warning' }, () =>
+        `${cell.ac ? 'AC' : cell.bestScore} (${cell.attempts})`
       )
     }
   })) ?? [])
@@ -160,9 +157,7 @@ async function loadDetail() {
   error.value = ''
   try {
     detail.value = await apiFetch<AssignmentDetail>(
-      canManage.value
-        ? `/api/admin/assignments/${route.params.id}`
-        : `/api/my/assignments/${route.params.id}`
+      canManage.value ? `/api/admin/assignments/${route.params.id}` : `/api/my/assignments/${route.params.id}`
     )
     if (canManage.value && route.query.report === '1') {
       activeTab.value = 'report'
@@ -179,9 +174,7 @@ async function loadReport() {
   reportLoading.value = true
   error.value = ''
   try {
-    report.value = await apiFetch<AssignmentReport>(
-      `/api/admin/assignments/${route.params.id}/report`
-    )
+    report.value = await apiFetch<AssignmentReport>(`/api/admin/assignments/${route.params.id}/report`)
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
@@ -224,9 +217,19 @@ onMounted(() => {
         </section>
 
         <n-card :bordered="false" class="stacked-card assignment-detail-card">
-          <n-tabs :value="activeTab" type="line" animated @update:value="handleTabUpdate">
+          <n-tabs
+            :value="activeTab"
+            type="line"
+            animated
+            @update:value="handleTabUpdate"
+          >
             <n-tab-pane name="problems" :tab="t('common.problem')">
-              <n-data-table :columns="columns" :data="problems" :bordered="false" :scroll-x="760" />
+              <n-data-table
+                :columns="columns"
+                :data="problems"
+                :bordered="false"
+                :scroll-x="760"
+              />
             </n-tab-pane>
             <n-tab-pane v-if="canManage" name="report" :tab="t('admin.assignments.report')">
               <n-data-table

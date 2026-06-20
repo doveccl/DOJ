@@ -85,7 +85,11 @@ function syncTheme() {
   }
 
   :deep(code) {
-    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+    font-family:
+      'SFMono-Regular',
+      Consolas,
+      'Liberation Mono',
+      monospace;
   }
 }
 </style>
