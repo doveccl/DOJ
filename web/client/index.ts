@@ -56,28 +56,7 @@ export type AdminJudgerUpdate = components['schemas']['AdminJudgerUpdate']
 export type AdminJudgerCreate = components['schemas']['AdminJudgerCreate']
 
 function defaultBaseUrl() {
-  const configured = import.meta.env.VITE_API_BASE
-  if (configured) {
-    return absoluteApiBase(configured)
-  }
-  if (typeof window === 'undefined') {
-    return 'http://localhost:7974'
-  }
-  return `${window.location.protocol}//${window.location.hostname}:7974`
-}
-
-function absoluteApiBase(value: string) {
-  if (/^https?:\/\//i.test(value)) {
-    return normalizeApiBase(value)
-  }
-  if (typeof window === 'undefined') {
-    return normalizeApiBase(value)
-  }
-  return normalizeApiBase(new URL(value, window.location.origin).toString().replace(/\/$/, ''))
-}
-
-export function normalizeApiBase(value: string) {
-  return value.replace(/\/api\/?$/, '')
+  return typeof window === 'undefined' ? 'http://localhost:7974' : window.location.origin
 }
 
 const client = createClient<paths>({

@@ -71,7 +71,7 @@ Start the web dev server:
 pnpm dev --host 0.0.0.0 --port 28080
 ```
 
-The Vite app defaults to API port `7974`. The product server reads real database/storage state; it does not serve mock application data.
+The frontend calls same-origin `/api` by default. During Vite development, `/api` is proxied to the server on `7974`; in deployment, the Go server serves both API and built web files. The product server reads real database/storage state; it does not serve mock application data.
 
 During early development, GORM keeps the development schema aligned on startup. When the schema stabilizes, explicit migrations can be introduced without changing the OpenAPI workflow.
 
@@ -136,6 +136,11 @@ Go checks:
 ```bash
 go test ./...
 go test -tags server ./cmd
+```
+
+On Linux, also test judger and runner entrypoints:
+
+```bash
 go test -tags judger ./cmd
 go test -tags runner ./cmd
 ```
@@ -144,8 +149,8 @@ Release binary builds:
 
 ```bash
 CGO_ENABLED=0 go build -tags server -o .local/build/doj-server ./cmd/server.go
-CGO_ENABLED=0 go build -tags judger -o .local/build/doj-judger ./cmd/judger.go
-CGO_ENABLED=0 go build -tags runner -o .local/build/doj-runner ./cmd/runner.go
+GOOS=linux CGO_ENABLED=0 go build -tags judger -o .local/build/doj-judger ./cmd/judger.go
+GOOS=linux CGO_ENABLED=0 go build -tags runner -o .local/build/doj-runner ./cmd/runner.go
 ```
 
 Compose syntax check:
@@ -154,16 +159,10 @@ Compose syntax check:
 docker compose -f compose.example.yml config
 ```
 
-Linux cgroup tests require cgroup v2 and a writable test root:
+Linux judger tests automatically use Docker and cgroup v2 when available:
 
 ```bash
-CGROUP_TEST_ROOT=/sys/fs/cgroup/doj-test go test ./judger
-```
-
-Docker-backed judger tests are opt-in:
-
-```bash
-DOCKER_TEST=1 CGROUP_TEST_ROOT=/sys/fs/cgroup/doj-test go test ./judger -count=1
+go test ./judger -count=1
 ```
 
 ## Release Checklist
@@ -245,7 +244,7 @@ go run -tags server ./cmd/server.go
 pnpm dev --host 0.0.0.0 --port 28080
 ```
 
-Vite 前端默认访问 `7974` 端口的 API。产品 server 读取真实数据库和存储状态，不提供 mock 应用数据。
+前端默认访问同源 `/api`。Vite 开发时 `/api` 代理到 `7974` 端口的 server；部署时 Go server 同时提供 API 和构建后的前端文件。产品 server 读取真实数据库和存储状态，不提供 mock 应用数据。
 
 当前快速开发阶段，server 启动时使用 GORM 保持开发库结构同步。等表结构稳定后，可以在不改变 OpenAPI 工作流的前提下引入显式 migration。
 
@@ -310,6 +309,11 @@ Go 检查：
 ```bash
 go test ./...
 go test -tags server ./cmd
+```
+
+在 Linux 上额外测试 judger 和 runner 入口：
+
+```bash
 go test -tags judger ./cmd
 go test -tags runner ./cmd
 ```
@@ -318,8 +322,8 @@ go test -tags runner ./cmd
 
 ```bash
 CGO_ENABLED=0 go build -tags server -o .local/build/doj-server ./cmd/server.go
-CGO_ENABLED=0 go build -tags judger -o .local/build/doj-judger ./cmd/judger.go
-CGO_ENABLED=0 go build -tags runner -o .local/build/doj-runner ./cmd/runner.go
+GOOS=linux CGO_ENABLED=0 go build -tags judger -o .local/build/doj-judger ./cmd/judger.go
+GOOS=linux CGO_ENABLED=0 go build -tags runner -o .local/build/doj-runner ./cmd/runner.go
 ```
 
 Compose 语法检查：
@@ -328,16 +332,10 @@ Compose 语法检查：
 docker compose -f compose.example.yml config
 ```
 
-Linux cgroup 测试需要 cgroup v2 和可写测试目录：
+Linux 评测机测试会在可用时自动使用 Docker 和 cgroup v2：
 
 ```bash
-CGROUP_TEST_ROOT=/sys/fs/cgroup/doj-test go test ./judger
-```
-
-Docker 相关评测测试默认不跑：
-
-```bash
-DOCKER_TEST=1 CGROUP_TEST_ROOT=/sys/fs/cgroup/doj-test go test ./judger -count=1
+go test ./judger -count=1
 ```
 
 ## 发布检查

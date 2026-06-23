@@ -3,7 +3,6 @@
 package main
 
 import (
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,29 +11,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 )
-
-func TestIsDevOrigin(t *testing.T) {
-	config := corsConfig()
-	cases := []struct {
-		origin string
-		want   bool
-	}{
-		{origin: "http://localhost:28080", want: true},
-		{origin: "http://127.0.0.1:28080", want: true},
-		{origin: "http://" + net.IPv4(172, 16, 0, 10).String() + ":28080", want: true},
-		{origin: "https://example.com", want: false},
-		{origin: "not-a-url", want: false},
-	}
-	for _, tc := range cases {
-		got, err := config.AllowOriginFunc(tc.origin)
-		if err != nil {
-			t.Fatalf("AllowOriginFunc(%q) returned error: %v", tc.origin, err)
-		}
-		if got != tc.want {
-			t.Fatalf("AllowOriginFunc(%q) = %v, want %v", tc.origin, got, tc.want)
-		}
-	}
-}
 
 func TestDatabaseDSNDefaultAndOverride(t *testing.T) {
 	t.Setenv("DATABASE", "")

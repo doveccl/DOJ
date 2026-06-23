@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { normalizeApiBase } from './index'
+import { apiUrl } from './index'
 
-describe('normalizeApiBase', () => {
-  it('keeps the base before OpenAPI /api paths', () => {
-    expect(normalizeApiBase('http://example.test/api')).toBe('http://example.test')
-    expect(normalizeApiBase('http://example.test/judge/api')).toBe('http://example.test/judge')
-    expect(normalizeApiBase('http://example.test')).toBe('http://example.test')
+describe('apiUrl', () => {
+  it('uses the server origin when no browser origin exists', () => {
+    expect(apiUrl('/api/home').toString()).toBe('http://localhost:7974/api/home')
   })
 })

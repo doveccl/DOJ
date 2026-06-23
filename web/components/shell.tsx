@@ -78,7 +78,7 @@ export function Shell() {
     { key: 'dark', icon: <MoonOutlined />, label: text.prefs.dark }
   ]
   const profileItems: MenuProps['items'] = [
-    { key: 'profile', icon: <UserOutlined />, label: <Link to="/profile">{text.prefs.profile}</Link> },
+    { key: 'profile', icon: <UserOutlined />, label: <Link to={`/users/${session.name}`}>{text.prefs.profile}</Link> },
     { key: 'logout', icon: <LogoutOutlined />, label: text.prefs.logout }
   ]
 

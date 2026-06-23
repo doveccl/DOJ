@@ -1,4 +1,4 @@
-//go:build judger
+//go:build judger && linux
 
 package main
 

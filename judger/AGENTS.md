@@ -2,6 +2,8 @@
 
 `judger/` 放所有评测机相关代码，包括宿主侧 judger 和容器内 runner。
 
+评测机只支持 Linux。`doj-judger` 和 `doj-runner` 入口必须保持 Linux-only；不要增加 macOS、BSD 或 Windows 的运行时兼容分支。非 Linux stub 只允许用于让 Mac 上的 server/web 开发测试能够编译，不代表评测能力。
+
 ## 数据边界
 
 - judger 只访问 server API。
@@ -57,5 +59,5 @@ UserProgram 启动顺序：
 ## 测试要求
 
 - 普通题、custom checker、interactive judge、Quine 类回显、输出爆炸、超时、编译限制和 case 隔离必须有 Go 测试覆盖。
-- cgroup v2 的 memory/pids 恶意测试只在 Linux 上运行；设置 `CGROUP_TEST_ROOT` 后执行 `go test ./judger`。
-- 非 Linux 环境的本地测试只能证明 runner 协议、pipe 模型和普通进程清理，不能替代 Linux cgroup 资源隔离测试。
+- cgroup v2 和 Docker 恶意测试只在 Linux 上运行；测试代码自动检测前置条件，不要要求调用方通过环境变量开启测试。
+- Mac 上不要把 judger 相关测试通过视为评测机验收；评测链路必须在 Linux 上用真实 Docker/cgroup 跑通。

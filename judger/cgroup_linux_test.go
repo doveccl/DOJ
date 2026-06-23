@@ -14,10 +14,7 @@ import (
 )
 
 func TestCgroupLinuxSmoke(t *testing.T) {
-	root := os.Getenv("CGROUP_TEST_ROOT")
-	if root == "" {
-		t.Skip("set CGROUP_TEST_ROOT to run cgroup smoke test")
-	}
+	root := testCgroupRoot(t)
 	cg, err := PrepareCgroup(CgroupConfig{
 		Root:         root,
 		SubmissionID: "sub-smoke",
@@ -56,10 +53,7 @@ func TestCgroupLinuxSmoke(t *testing.T) {
 }
 
 func TestCgroupLinuxMemoryBomb(t *testing.T) {
-	root := os.Getenv("CGROUP_TEST_ROOT")
-	if root == "" {
-		t.Skip("set CGROUP_TEST_ROOT to run cgroup memory test")
-	}
+	root := testCgroupRoot(t)
 	cg := prepareTestCgroup(t, root, "sub-memory", "case-1", 32<<20, 32)
 	cmd, release := startCgroupHelper(t, cg, "memory")
 	release()
@@ -75,10 +69,7 @@ func TestCgroupLinuxMemoryBomb(t *testing.T) {
 }
 
 func TestCgroupLinuxPidsBomb(t *testing.T) {
-	root := os.Getenv("CGROUP_TEST_ROOT")
-	if root == "" {
-		t.Skip("set CGROUP_TEST_ROOT to run cgroup pids test")
-	}
+	root := testCgroupRoot(t)
 	cg := prepareTestCgroup(t, root, "sub-pids", "case-1", 128<<20, 8)
 	cmd, release := startCgroupHelper(t, cg, "pids")
 	release()
@@ -99,7 +90,7 @@ func TestCgroupLinuxPidsBomb(t *testing.T) {
 }
 
 func TestCgroupLinuxHelperProcess(t *testing.T) {
-	mode := os.Getenv("CGROUP_HELPER")
+	mode := helperMode()
 	if mode == "" {
 		return
 	}
@@ -147,6 +138,28 @@ func entryNames(entries []os.DirEntry) string {
 	return strings.Join(names, ",")
 }
 
+func testCgroupRoot(t *testing.T) string {
+	t.Helper()
+	root := "/sys/fs/cgroup/doj-test"
+	_ = os.RemoveAll(root)
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Skipf("writable cgroup v2 test root is required: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.RemoveAll(root)
+	})
+	return root
+}
+
+func helperMode() string {
+	for index, arg := range os.Args {
+		if arg == "--" && index+1 < len(os.Args) {
+			return os.Args[index+1]
+		}
+	}
+	return ""
+}
+
 func prepareTestCgroup(t *testing.T, root string, submission string, caseID string, memoryMax int64, pidsMax int) *CgroupCase {
 	t.Helper()
 	cg, err := PrepareCgroup(CgroupConfig{
@@ -171,8 +184,8 @@ func prepareTestCgroup(t *testing.T, root string, submission string, caseID stri
 
 func startCgroupHelper(t *testing.T, cg *CgroupCase, mode string) (*exec.Cmd, func()) {
 	t.Helper()
-	cmd := exec.Command(os.Args[0], "-test.run=TestCgroupLinuxHelperProcess", "--")
-	cmd.Env = append(os.Environ(), "CGROUP_HELPER="+mode)
+	cmd := exec.Command(os.Args[0], "-test.run=TestCgroupLinuxHelperProcess", "--", mode)
+	cmd.Env = os.Environ()
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	stdin, err := cmd.StdinPipe()
 	if err != nil {

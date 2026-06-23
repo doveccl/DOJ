@@ -170,7 +170,11 @@ const zh = {
   },
   user: {
     solved: 'AC 题目',
-    recent: '近期提交',
+    recent: '最近活动',
+    contributions: '提交记录',
+    submitted: '提交了',
+    noActivity: '暂无活动',
+    noSolved: '暂无 AC 题目',
     noBio: '暂无简介'
   },
   discussion: {
@@ -193,6 +197,8 @@ const zh = {
     password: '密码',
     avatar: '头像',
     avatarImageOnly: '请选择图片文件',
+    accountSettings: '资料设置',
+    editProfile: '编辑资料',
     email: '邮箱',
     bio: '简介',
     oldPassword: '旧密码',
@@ -462,7 +468,11 @@ const en: typeof zh = {
   },
   user: {
     solved: 'Solved',
-    recent: 'Recent submissions',
+    recent: 'Recent activity',
+    contributions: 'Contributions',
+    submitted: 'submitted',
+    noActivity: 'No activity',
+    noSolved: 'No solved problems',
     noBio: 'No bio'
   },
   discussion: {
@@ -485,6 +495,8 @@ const en: typeof zh = {
     password: 'Password',
     avatar: 'Avatar',
     avatarImageOnly: 'Choose an image file',
+    accountSettings: 'Profile settings',
+    editProfile: 'Edit profile',
     email: 'Email',
     bio: 'Bio',
     oldPassword: 'Current password',

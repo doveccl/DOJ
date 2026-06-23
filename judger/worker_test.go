@@ -1,3 +1,5 @@
+//go:build linux
+
 package judger
 
 import (
@@ -7,16 +9,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
 )
 
 func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
-	if os.Getenv("DOCKER_TEST") != "1" {
-		t.Skip("set DOCKER_TEST=1 to run worker execution test")
-	}
+	requireDocker(t)
 	runner := buildRunner(t)
 	work := t.TempDir()
 
@@ -90,9 +89,7 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 }
 
 func TestRunOneDownloadsAssetsForRelativeCases(t *testing.T) {
-	if os.Getenv("DOCKER_TEST") != "1" {
-		t.Skip("set DOCKER_TEST=1 to run worker execution test")
-	}
+	requireDocker(t)
 	runner := buildRunner(t)
 	work := t.TempDir()
 

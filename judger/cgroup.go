@@ -2,7 +2,7 @@ package judger
 
 import "errors"
 
-var ErrCgroupUnsupported = errors.New("cgroup v2 is only available on linux")
+var ErrCgroupUnsupported = errors.New("doj judger requires linux cgroup v2")
 
 type CgroupConfig struct {
 	Root         string

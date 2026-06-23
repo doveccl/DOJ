@@ -37,8 +37,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.server
-      args:
-        VITE_API_BASE: "${VITE_API_BASE:-/}"
     restart: unless-stopped
     stop_grace_period: 20s
     depends_on:

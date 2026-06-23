@@ -119,6 +119,27 @@ func TestAuthAndLeaseAuthorization(t *testing.T) {
 	}
 }
 
+func TestProxyLoopbackDoesNotBypassJudgerAuth(t *testing.T) {
+	db := newJudgerTestDB(t)
+	api := &API{db: db}
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/api/judger/lease", nil)
+	req.RemoteAddr = "127.0.0.1:1234"
+	req.Header.Set("X-Forwarded-For", "203.0.113.10")
+	req.Header.Set("X-Forwarded-Host", "example.test")
+	req.Header.Set("X-Forwarded-Proto", "https")
+	c := e.NewContext(req, httptest.NewRecorder())
+
+	err := api.auth(func(echo.Context) error { return nil })(c)
+	if err == nil {
+		t.Fatal("proxied loopback request bypassed judger auth")
+	}
+	expectHTTPStatus(t, err, http.StatusUnauthorized)
+	if isLocalJudger(c) {
+		t.Fatal("proxied loopback request was marked local")
+	}
+}
+
 func TestLeaseLongPollsWhenNoTask(t *testing.T) {
 	db := newJudgerTestDB(t)
 	api := &API{db: db, leaseWait: 30 * time.Millisecond}

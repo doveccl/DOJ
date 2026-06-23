@@ -129,7 +129,7 @@ func Register(e *echo.Echo, db *gorm.DB) {
 
 func (api *API) auth(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		if isLoopbackRequest(c) {
+		if isDirectLoopbackRequest(c) {
 			c.Set(contextJudgerLocal, true)
 			return next(c)
 		}
@@ -404,13 +404,26 @@ func bearerToken(c echo.Context) (string, bool) {
 	return value, true
 }
 
-func isLoopbackRequest(c echo.Context) bool {
+func isDirectLoopbackRequest(c echo.Context) bool {
+	if hasForwardedHeaders(c) {
+		return false
+	}
 	host, _, err := net.SplitHostPort(c.Request().RemoteAddr)
 	if err != nil {
 		host = c.Request().RemoteAddr
 	}
 	ip := net.ParseIP(strings.TrimSpace(host))
 	return ip != nil && ip.IsLoopback()
+}
+
+func hasForwardedHeaders(c echo.Context) bool {
+	headers := c.Request().Header
+	for _, name := range []string{"Forwarded", "X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto", "X-Real-IP"} {
+		if strings.TrimSpace(headers.Get(name)) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func isLocalJudger(c echo.Context) bool {

@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -651,7 +652,65 @@ func TestSafeAssetZipNameRejectsUnsafeNames(t *testing.T) {
 	}
 }
 
-func uploadAssetForTest(t *testing.T, e *echo.Echo, target string, section string, name string, content string) ProblemAssets {
+func TestLargeTextAssetIsNotEditableOnline(t *testing.T) {
+	t.Setenv("STORAGE", t.TempDir())
+	db := testWebDB(t)
+	allowGuest(t, db)
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	problem := models.Problem{ID: 1000, Title: "Visible", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	e := echo.New()
+	Register(e, db)
+	adminCookies := databaseSession(t, db, admin.ID)
+
+	assets := uploadAssetForTest(t, e, "/api/problems/1000/assets/files", adminCookies, "data", "big.txt", strings.Repeat("x", maxEditableAssetBytes+1))
+	if len(assets.Data) != 1 {
+		t.Fatalf("expected uploaded asset, got %+v", assets)
+	}
+	if assets.Data[0].Editable {
+		t.Fatalf("large text asset should not be editable: %+v", assets.Data[0])
+	}
+
+	target := "/api/problems/1000/assets/files/content?key=" + url.QueryEscape(assets.Data[0].Key)
+	res := requestWithCookies(e, http.MethodGet, target, adminCookies, nil)
+	if res.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("large asset content got %d body=%s", res.Code, res.Body.String())
+	}
+}
+
+func TestAssetContentUpdateRejectsLargeBody(t *testing.T) {
+	t.Setenv("STORAGE", t.TempDir())
+	db := testWebDB(t)
+	allowGuest(t, db)
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	problem := models.Problem{ID: 1000, Title: "Visible", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	e := echo.New()
+	Register(e, db)
+	adminCookies := databaseSession(t, db, admin.ID)
+	assets := uploadAssetForTest(t, e, "/api/problems/1000/assets/files", adminCookies, "judge", "main.cc", "int main(){}")
+	if len(assets.Judge) != 1 || !assets.Judge[0].Editable {
+		t.Fatalf("small judge asset should be editable: %+v", assets.Judge)
+	}
+
+	body := `{"key":"` + assets.Judge[0].Key + `","content":"` + strings.Repeat("x", maxEditableAssetBytes+1) + `"}`
+	res := requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000/assets/files/content", adminCookies, body)
+	if res.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("large asset update got %d body=%s", res.Code, res.Body.String())
+	}
+}
+
+func uploadAssetForTest(t *testing.T, e *echo.Echo, target string, cookies []*http.Cookie, section string, name string, content string) ProblemAssets {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -670,7 +729,10 @@ func uploadAssetForTest(t *testing.T, e *echo.Echo, target string, section strin
 	}
 	req := httptest.NewRequest(http.MethodPost, target, &body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.Header.Set("X-DOJ-Role", "admin")
+	for _, cookie := range cookies {
+		req.AddCookie(cookie)
+	}
+	addCSRFHeader(req, cookies)
 	res := httptest.NewRecorder()
 	e.ServeHTTP(res, req)
 	if res.Code != http.StatusCreated {

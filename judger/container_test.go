@@ -1,3 +1,5 @@
+//go:build linux
+
 package judger
 
 import (
@@ -11,12 +13,7 @@ import (
 )
 
 func TestRunContainerTaskNormalMultiCase(t *testing.T) {
-	if os.Getenv("DOCKER_TEST") != "1" {
-		t.Skip("set DOCKER_TEST=1 to run container task test")
-	}
-	if _, err := exec.LookPath("docker"); err != nil {
-		t.Skip("docker CLI is not available")
-	}
+	requireDocker(t)
 	runner := buildRunner(t)
 	work := t.TempDir()
 	writeCase(t, work, "1", "1 2\n", "3\n")
@@ -56,16 +53,8 @@ func TestRunContainerTaskNormalMultiCase(t *testing.T) {
 }
 
 func TestRunContainerTaskCgroupAttach(t *testing.T) {
-	if os.Getenv("DOCKER_TEST") != "1" {
-		t.Skip("set DOCKER_TEST=1 to run container task test")
-	}
-	root := os.Getenv("CGROUP_TEST_ROOT")
-	if root == "" {
-		t.Skip("set CGROUP_TEST_ROOT to run container cgroup attach test")
-	}
-	if _, err := exec.LookPath("docker"); err != nil {
-		t.Skip("docker CLI is not available")
-	}
+	requireDocker(t)
+	root := testCgroupRoot(t)
 	runner := buildRunner(t)
 	work := t.TempDir()
 	writeCase(t, work, "1", "ready\n", "ok\n")
@@ -104,12 +93,7 @@ func TestRunContainerTaskCgroupAttach(t *testing.T) {
 }
 
 func TestRunContainerTaskCustomInteractorFromAsset(t *testing.T) {
-	if os.Getenv("DOCKER_TEST") != "1" {
-		t.Skip("set DOCKER_TEST=1 to run container task test")
-	}
-	if _, err := exec.LookPath("docker"); err != nil {
-		t.Skip("docker CLI is not available")
-	}
+	requireDocker(t)
 	runner := buildRunner(t)
 	work := t.TempDir()
 	writeCase(t, work, "interactive", "", "")
@@ -158,12 +142,7 @@ fi
 }
 
 func TestRunContainerTaskCustomJudgeFromDockerfile(t *testing.T) {
-	if os.Getenv("DOCKER_TEST") != "1" {
-		t.Skip("set DOCKER_TEST=1 to run container task test")
-	}
-	if _, err := exec.LookPath("docker"); err != nil {
-		t.Skip("docker CLI is not available")
-	}
+	requireDocker(t)
 	runner := buildRunner(t)
 	work := t.TempDir()
 	writeCase(t, work, "docker", "5\n", "25")
@@ -216,12 +195,7 @@ fi
 }
 
 func TestRunContainerTaskUserCannotReadJobArtifacts(t *testing.T) {
-	if os.Getenv("DOCKER_TEST") != "1" {
-		t.Skip("set DOCKER_TEST=1 to run container task test")
-	}
-	if _, err := exec.LookPath("docker"); err != nil {
-		t.Skip("docker CLI is not available")
-	}
+	requireDocker(t)
 	runner := buildRunner(t)
 	work := t.TempDir()
 	writeCase(t, work, "secret", "probe\n", "safe\n")
@@ -273,6 +247,19 @@ fi
 	}
 	if result.Verdict != VerdictAccepted || result.Score != 100 || len(result.Cases) != 1 {
 		t.Fatalf("result = %#v", result)
+	}
+}
+
+func requireDocker(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("docker"); err != nil {
+		t.Skip("docker CLI is not available")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "docker", "info")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Skipf("docker daemon is not available: %v\n%s", err, out)
 	}
 }
 

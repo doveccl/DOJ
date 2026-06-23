@@ -34,6 +34,11 @@ type API struct {
 	db *gorm.DB
 }
 
+const (
+	maxAssetBytes         = 128 << 20
+	maxEditableAssetBytes = 1 << 20
+)
+
 type Home struct {
 	Notice      string       `json:"notice"`
 	Heatmap     []HeatCell   `json:"heatmap"`
@@ -1141,7 +1146,6 @@ func (api *API) uploadProblemAsset(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	const maxAssetBytes = 128 << 20
 	if file.Size > maxAssetBytes {
 		return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "asset file is too large")
 	}
@@ -1213,7 +1217,6 @@ func (api *API) problemAssetContent(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "asset not found")
 	}
 	defer reader.Close()
-	const maxEditableAssetBytes = 1 << 20
 	data, err := io.ReadAll(io.LimitReader(reader, maxEditableAssetBytes+1))
 	if err != nil {
 		return err
@@ -1237,7 +1240,6 @@ func (api *API) updateProblemAssetContent(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	const maxEditableAssetBytes = 1 << 20
 	if len(req.Content) > maxEditableAssetBytes {
 		return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "asset is too large to edit")
 	}
@@ -2756,7 +2758,7 @@ func cleanEditableAssetKey(id uint, raw string) (string, error) {
 	if err != nil || !problemAssetKeyAllowed(id, key) {
 		return "", echo.NewHTTPError(http.StatusBadRequest, "invalid asset key")
 	}
-	if !editableAsset(key) {
+	if !editableAssetName(key) {
 		return "", echo.NewHTTPError(http.StatusBadRequest, "asset is not editable")
 	}
 	return key, nil
@@ -2834,7 +2836,7 @@ func assetFiles(ctx context.Context, store utils.ObjectStore, prefix string) ([]
 			Key:      object.Key,
 			Name:     name,
 			Size:     object.Size,
-			Editable: editableAsset(name),
+			Editable: editableAsset(name, object.Size),
 		})
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].Name < items[j].Name })
@@ -2881,7 +2883,14 @@ func caseStem(name string) (string, string) {
 	}
 }
 
-func editableAsset(name string) bool {
+func editableAsset(name string, size int64) bool {
+	if size > maxEditableAssetBytes {
+		return false
+	}
+	return editableAssetName(name)
+}
+
+func editableAssetName(name string) bool {
 	switch strings.ToLower(path.Base(name)) {
 	case "dockerfile", "makefile":
 		return true

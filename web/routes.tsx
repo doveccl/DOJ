@@ -15,7 +15,6 @@ const HomePage = lazy(() => import('./pages/home').then((mod) => ({ default: mod
 const PostPage = lazy(() => import('./pages/post').then((mod) => ({ default: mod.PostPage })))
 const ProblemDetailPage = lazy(() => import('./pages/problem').then((mod) => ({ default: mod.ProblemDetailPage })))
 const ProblemsPage = lazy(() => import('./pages/problems').then((mod) => ({ default: mod.ProblemsPage })))
-const ProfilePage = lazy(() => import('./pages/profile').then((mod) => ({ default: mod.ProfilePage })))
 const RankPage = lazy(() => import('./pages/rank').then((mod) => ({ default: mod.RankPage })))
 const SubmissionDetailPage = lazy(() => import('./pages/submission').then((mod) => ({ default: mod.SubmissionDetailPage })))
 const SubmissionsPage = lazy(() => import('./pages/submissions').then((mod) => ({ default: mod.SubmissionsPage })))
@@ -44,7 +43,6 @@ export function AppRoutes() {
           <Route path="submissions" element={page(<SubmissionsPage />)} />
           <Route path="submissions/:id" element={page(<SubmissionDetailPage />)} />
           <Route path="admin" element={page(<AdminPage />)} />
-          <Route path="profile" element={page(<ProfilePage />)} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

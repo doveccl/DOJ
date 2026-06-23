@@ -1,4 +1,4 @@
-//go:build runner
+//go:build runner && linux
 
 package main
 

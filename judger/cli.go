@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 )
 
-const Version = "v4-dev"
+const Version = "v4"
 const JudgerRoot = "/var/lib/doj"
 
 const (

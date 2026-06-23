@@ -1,157 +1,207 @@
-import { Avatar, Card, Col, Flex, Row, Space, Table, Tag, Typography } from 'antd'
-import type { TableProps } from 'antd'
-import { useQuery } from '@tanstack/react-query'
-import { Link, useParams } from 'react-router-dom'
+import { CameraOutlined, EditOutlined } from '@ant-design/icons'
+import { App as AntApp, Button, Flex, Form, Input, Modal, Tabs, Upload } from 'antd'
+import type { UploadProps } from 'antd'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useParams } from 'react-router-dom'
 
-import { getUser } from '../client'
-import type { Problem, Submission } from '../client'
-import { YearHeatmap } from '../components/heatmap'
+import { getMe, getUser, updateMe, updatePassword, uploadImage } from '../client'
+import type { MeUpdate, PasswordUpdate } from '../client'
+import { ProfileOverview } from '../components/profile'
 import { ErrorBlock, LoadingBlock } from '../components/state'
-import { SubmissionStatus } from '../components/status'
 import { useLocale } from '../locale'
-import { formatPass, formatTime, problemCode } from '../utils/format'
+import { useSession } from '../session'
+
+type AccountForm = Pick<MeUpdate, 'mail' | 'bio'>
 
 export function UserPage() {
-  const { lang, text } = useLocale()
+  const { text } = useLocale()
+  const session = useSession()
+  const { message } = AntApp.useApp()
+  const client = useQueryClient()
   const params = useParams()
   const name = params.name ?? ''
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const isOwn = session.signedIn && name === session.name
   const query = useQuery({
     queryKey: ['user', name],
     queryFn: () => getUser(name),
     enabled: name !== ''
   })
+  const meQuery = useQuery({ queryKey: ['me'], queryFn: getMe, enabled: isOwn })
+  const account = useMutation({
+    mutationFn: updateMe,
+    onSuccess: (data) => {
+      client.setQueryData(['me'], data)
+      void client.invalidateQueries({ queryKey: ['user', data.name] })
+      void session.refresh()
+      message.success(text.common.saved)
+    },
+    onError: (error) => {
+      message.error(error instanceof Error ? error.message : text.common.loadingFailed)
+    }
+  })
 
-  if (query.isLoading) {
+  if (query.isLoading || (isOwn && meQuery.isLoading)) {
     return <LoadingBlock />
   }
   if (query.isError) {
     return <ErrorBlock error={query.error} />
   }
+  if (isOwn && meQuery.isError) {
+    return <ErrorBlock error={meQuery.error} />
+  }
   if (!query.data) {
     return <ErrorBlock error={text.common.emptyResponse} />
   }
+  if (isOwn && !meQuery.data) {
+    return <ErrorBlock error={text.common.emptyResponse} />
+  }
 
-  const profile = query.data
-  const user = profile.user
+  const me = meQuery.data
+  const uploadAvatar: UploadProps['beforeUpload'] = (file) => {
+    if (!me) {
+      return Upload.LIST_IGNORE
+    }
+    if (!file.type.startsWith('image/')) {
+      message.error(text.profile.avatarImageOnly)
+      return Upload.LIST_IGNORE
+    }
+    void uploadImage(file)
+      .then((src) => {
+        account.mutate({ mail: me.mail, bio: me.bio, avatar: src })
+      })
+      .catch((error: unknown) => {
+        message.error(error instanceof Error ? error.message : text.common.loadingFailed)
+      })
+    return false
+  }
 
   return (
-    <Flex vertical gap={20} className="pageStack">
-      <Card>
-        <Flex align="center" justify="space-between" gap={20} wrap>
-          <Flex align="center" gap={14}>
-            <Avatar size={56} src={user.avatar || undefined}>
-              {user.name.slice(0, 1).toUpperCase()}
-            </Avatar>
-            <Flex vertical gap={4}>
-              <Space size={8}>
-                <Typography.Title level={3} style={{ margin: 0 }}>
-                  {user.name}
-                </Typography.Title>
-                {user.admin ? <Tag color="cyan">{text.admin.roles.admin}</Tag> : null}
-              </Space>
-              <Typography.Text>{user.bio || text.user.noBio}</Typography.Text>
-            </Flex>
-          </Flex>
-          <Space size={24}>
-            <Stat label={text.rank.ac} value={user.ac} />
-            <Stat label={text.rank.submit} value={user.submit} />
-          </Space>
-        </Flex>
-      </Card>
-      <Card title={text.home.heatmap}>
-        <YearHeatmap cells={profile.heatmap} />
-      </Card>
-      <Row gutter={[20, 20]}>
-        <Col xs={24} lg={10}>
-          <Card title={text.user.solved}>
-            <Table<Problem>
-              rowKey="id"
-              size="small"
-              pagination={false}
-              columns={problemColumns(text)}
-              dataSource={profile.solved}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} lg={14}>
-          <Card title={text.user.recent}>
-            <Table<Submission>
-              rowKey="id"
-              size="small"
-              pagination={false}
-              columns={submissionColumns(text, lang)}
-              dataSource={profile.submissions}
-            />
-          </Card>
-        </Col>
-      </Row>
+    <Flex vertical className="pageStack">
+      <ProfileOverview
+        profile={query.data}
+        renderAvatar={
+          me
+            ? (avatar) => (
+                <Upload accept="image/*" beforeUpload={uploadAvatar} showUploadList={false}>
+                  <button type="button" className="profileAvatarButton" aria-label={text.profile.avatar} disabled={account.isPending}>
+                    {avatar}
+                    <span className="profileAvatarMask">
+                      <CameraOutlined />
+                    </span>
+                  </button>
+                </Upload>
+              )
+            : undefined
+        }
+        sidebarAction={
+          me ? (
+            <Button block icon={<EditOutlined />} onClick={() => setSettingsOpen(true)}>
+              {text.profile.editProfile}
+            </Button>
+          ) : undefined
+        }
+      />
+      {me ? (
+        <SettingsModal
+          open={settingsOpen}
+          onCancel={() => setSettingsOpen(false)}
+          me={me}
+          saving={account.isPending}
+          onSave={(values) => account.mutate({ ...values, avatar: me.avatar }, { onSuccess: () => setSettingsOpen(false) })}
+        />
+      ) : null}
     </Flex>
   )
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function SettingsModal({
+  open,
+  onCancel,
+  me,
+  saving,
+  onSave
+}: {
+  open: boolean
+  onCancel: () => void
+  me: MeUpdate
+  saving: boolean
+  onSave: (values: AccountForm) => void
+}) {
+  const { text } = useLocale()
+
   return (
-    <Flex vertical align="end">
-      <Typography.Text type="secondary">{label}</Typography.Text>
-      <Typography.Title level={3} style={{ margin: 0 }}>
-        {value}
-      </Typography.Title>
-    </Flex>
+    <Modal open={open} destroyOnHidden title={text.profile.accountSettings} footer={null} width={560} onCancel={onCancel}>
+      <Tabs
+        destroyOnHidden
+        items={[
+          {
+            key: 'account',
+            label: text.profile.account,
+            children: <AccountPane me={me} saving={saving} onSave={onSave} />
+          },
+          {
+            key: 'password',
+            label: text.profile.password,
+            children: <PasswordPane onSaved={onCancel} />
+          }
+        ]}
+      />
+    </Modal>
   )
 }
 
-function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Problem>['columns'] {
-  return [
-    {
-      title: text.problems.title,
-      render: (_, row) => (
-        <Typography.Text ellipsis className="lineText">
-          <Link to={`/problems/${row.id}`}>
-            {problemCode(row.id)} {row.title}
-          </Link>
-        </Typography.Text>
-      )
-    },
-    {
-      title: text.problems.tag,
-      dataIndex: 'tags',
-      width: 180,
-      render: (tags: string[]) => (
-        <Space size={[0, 4]} wrap>
-          {tags.slice(0, 2).map((tag) => (
-            <Tag key={tag}>{tag}</Tag>
-          ))}
-        </Space>
-      )
-    },
-    {
-      title: text.problems.pass,
-      width: 120,
-      render: (_, row) => formatPass(row)
-    }
-  ]
+function AccountPane({ me, saving, onSave }: { me: MeUpdate; saving: boolean; onSave: (values: AccountForm) => void }) {
+  const { text } = useLocale()
+
+  return (
+    <Form<AccountForm>
+      layout="vertical"
+      initialValues={{ mail: me.mail, bio: me.bio }}
+      key={`${me.mail}:${me.bio}`}
+      onFinish={onSave}
+    >
+      <Form.Item name="mail" label={text.profile.email} rules={[{ type: 'email' }]}>
+        <Input />
+      </Form.Item>
+      <Form.Item name="bio" label={text.profile.bio}>
+        <Input.TextArea maxLength={280} showCount rows={4} />
+      </Form.Item>
+      <Button type="primary" htmlType="submit" loading={saving}>
+        {text.profile.save}
+      </Button>
+    </Form>
+  )
 }
 
-function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: string): TableProps<Submission>['columns'] {
-  return [
-    {
-      title: text.submissions.id,
-      width: 90,
-      render: (_, row) => <Link to={`/submissions/${row.id}`}>#{row.id}</Link>
+function PasswordPane({ onSaved }: { onSaved: () => void }) {
+  const { text } = useLocale()
+  const { message } = AntApp.useApp()
+  const [form] = Form.useForm<PasswordUpdate>()
+  const password = useMutation({
+    mutationFn: updatePassword,
+    onSuccess: () => {
+      form.resetFields()
+      message.success(text.common.saved)
+      onSaved()
     },
-    {
-      title: text.submissions.problem,
-      render: (_, row) => <Link to={`/problems/${row.problemId}`}>{row.problemTitle}</Link>
-    },
-    {
-      title: text.submissions.status,
-      width: 90,
-      render: (_, row) => <SubmissionStatus status={row.status} />
-    },
-    {
-      title: text.submissions.created,
-      width: 140,
-      render: (_, row) => <Typography.Text className="nowrap">{formatTime(row.createdAt, lang)}</Typography.Text>
+    onError: (error) => {
+      message.error(error instanceof Error ? error.message : text.common.loadingFailed)
     }
-  ]
+  })
+
+  return (
+    <Form<PasswordUpdate> form={form} preserve={false} layout="vertical" onFinish={(values) => password.mutate(values)}>
+      <Form.Item name="oldPassword" label={text.profile.oldPassword}>
+        <Input.Password />
+      </Form.Item>
+      <Form.Item name="newPassword" label={text.profile.newPassword}>
+        <Input.Password />
+      </Form.Item>
+      <Button type="primary" htmlType="submit" loading={password.isPending}>
+        {text.profile.save}
+      </Button>
+    </Form>
+  )
 }

@@ -5,9 +5,7 @@ package main
 import (
 	"context"
 	"log/slog"
-	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"path"
@@ -38,7 +36,6 @@ func main() {
 	e.HideBanner = true
 	e.Use(middleware.Recover())
 	e.Use(middleware.Logger())
-	e.Use(middleware.CORSWithConfig(corsConfig()))
 	e.Use(securityHeaders())
 	e.Use(dojmw.CSRF())
 
@@ -124,32 +121,6 @@ func getenv(key string, fallback string) string {
 	return fallback
 }
 
-func corsConfig() middleware.CORSConfig {
-	config := middleware.CORSConfig{
-		AllowCredentials: true,
-		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, "X-DOJ-CSRF"},
-		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodDelete, http.MethodOptions},
-	}
-	config.AllowOriginFunc = func(origin string) (bool, error) { return isDevOrigin(origin), nil }
-	return config
-}
-
-func isDevOrigin(origin string) bool {
-	parsed, err := url.Parse(origin)
-	if err != nil || parsed.Hostname() == "" {
-		return false
-	}
-	host := parsed.Hostname()
-	if host == "localhost" {
-		return true
-	}
-	ip := net.ParseIP(host)
-	if ip == nil {
-		return false
-	}
-	return ip.IsLoopback() || ip.IsPrivate()
-}
-
 func registerWebApp(e *echo.Echo, root string) error {
 	root = strings.TrimSpace(root)
 	if root == "" {
@@ -179,7 +150,7 @@ func securityHeaders() echo.MiddlewareFunc {
 			h.Set(echo.HeaderXContentTypeOptions, "nosniff")
 			h.Set(echo.HeaderXFrameOptions, "DENY")
 			h.Set("Referrer-Policy", "same-origin")
-			h.Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://localhost:* http://127.0.0.1:*")
+			h.Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'")
 			return next(c)
 		}
 	}

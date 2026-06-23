@@ -25,15 +25,14 @@ const CSRFHeader = "X-DOJ-CSRF"
 
 const sessionDays = 30
 
-type DevSession struct {
+type Session struct {
 	UserID    uint
-	Role      string
 	ExpiresAt time.Time
 }
 
 var (
-	devSessionMu sync.Mutex
-	devSessions  = map[string]DevSession{}
+	memorySessionMu sync.Mutex
+	memorySessions  = map[string]Session{}
 
 	cookieConfigMu sync.RWMutex
 	cookieConfig   = CookieConfig{SameSite: http.SameSiteLaxMode}
@@ -174,7 +173,7 @@ func CreateUserSession(c echo.Context, userID uint, now time.Time) error {
 		return err
 	}
 	expiresAt := SessionExpiresAt(now)
-	if err := saveSession(c.Request().Context(), token, DevSession{UserID: userID, ExpiresAt: expiresAt}); err != nil {
+	if err := saveSession(c.Request().Context(), token, Session{UserID: userID, ExpiresAt: expiresAt}); err != nil {
 		return err
 	}
 	SetSessionCookie(c, token, expiresAt)
@@ -190,54 +189,25 @@ func DeleteSession(c echo.Context) error {
 	return nil
 }
 
-func CreateDevSession(c echo.Context, role string, now time.Time) error {
-	token, err := NewToken()
-	if err != nil {
-		return err
-	}
-	expiresAt := SessionExpiresAt(now)
-	if err := saveSession(c.Request().Context(), token, DevSession{Role: role, ExpiresAt: expiresAt}); err != nil {
-		return err
-	}
-	SetSessionCookie(c, token, expiresAt)
-	return nil
-}
-
-func DeleteDevSession(c echo.Context) {
-	token, ok := SessionToken(c)
-	if ok {
-		deleteSession(c.Request().Context(), token)
-	}
-	ClearSessionCookie(c)
-}
-
-func DevRole(c echo.Context, now time.Time) string {
-	session, err := readSession(c.Request().Context(), c, now)
-	if err == nil && session.Role != "" {
-		return session.Role
-	}
-	return "guest"
-}
-
-func readSession(ctx context.Context, c echo.Context, now time.Time) (DevSession, error) {
+func readSession(ctx context.Context, c echo.Context, now time.Time) (Session, error) {
 	token, ok := SessionToken(c)
 	if !ok {
-		return DevSession{}, gorm.ErrRecordNotFound
+		return Session{}, gorm.ErrRecordNotFound
 	}
 	if session, ok := readMemorySession(token, now); ok {
 		return session, nil
 	}
 	session, err := readRedisSession(ctx, token, now)
 	if err != nil {
-		return DevSession{}, err
+		return Session{}, err
 	}
 	return session, nil
 }
 
-func saveSession(ctx context.Context, token string, session DevSession) error {
-	devSessionMu.Lock()
-	devSessions[token] = session
-	devSessionMu.Unlock()
+func saveSession(ctx context.Context, token string, session Session) error {
+	memorySessionMu.Lock()
+	memorySessions[token] = session
+	memorySessionMu.Unlock()
 
 	client := sessionRedisClient(ctx)
 	if client == nil {
@@ -254,48 +224,48 @@ func saveSession(ctx context.Context, token string, session DevSession) error {
 }
 
 func deleteSession(ctx context.Context, token string) {
-	devSessionMu.Lock()
-	delete(devSessions, token)
-	devSessionMu.Unlock()
+	memorySessionMu.Lock()
+	delete(memorySessions, token)
+	memorySessionMu.Unlock()
 	if client := sessionRedisClient(ctx); client != nil {
 		_ = client.Del(ctx, sessionKey(token)).Err()
 	}
 }
 
-func readMemorySession(token string, now time.Time) (DevSession, bool) {
-	devSessionMu.Lock()
-	defer devSessionMu.Unlock()
-	session, ok := devSessions[token]
+func readMemorySession(token string, now time.Time) (Session, bool) {
+	memorySessionMu.Lock()
+	defer memorySessionMu.Unlock()
+	session, ok := memorySessions[token]
 	if !ok || !session.ExpiresAt.After(now) {
-		delete(devSessions, token)
-		return DevSession{}, false
+		delete(memorySessions, token)
+		return Session{}, false
 	}
 	return session, true
 }
 
-func readRedisSession(ctx context.Context, token string, now time.Time) (DevSession, error) {
+func readRedisSession(ctx context.Context, token string, now time.Time) (Session, error) {
 	client := sessionRedisClient(ctx)
 	if client == nil {
-		return DevSession{}, gorm.ErrRecordNotFound
+		return Session{}, gorm.ErrRecordNotFound
 	}
 	raw, err := client.Get(ctx, sessionKey(token)).Bytes()
 	if err == redis.Nil {
-		return DevSession{}, gorm.ErrRecordNotFound
+		return Session{}, gorm.ErrRecordNotFound
 	}
 	if err != nil {
-		return DevSession{}, err
+		return Session{}, err
 	}
-	var session DevSession
+	var session Session
 	if err := json.Unmarshal(raw, &session); err != nil {
-		return DevSession{}, err
+		return Session{}, err
 	}
 	if !session.ExpiresAt.After(now) {
 		_ = client.Del(ctx, sessionKey(token)).Err()
-		return DevSession{}, gorm.ErrRecordNotFound
+		return Session{}, gorm.ErrRecordNotFound
 	}
-	devSessionMu.Lock()
-	devSessions[token] = session
-	devSessionMu.Unlock()
+	memorySessionMu.Lock()
+	memorySessions[token] = session
+	memorySessionMu.Unlock()
 	return session, nil
 }
 
