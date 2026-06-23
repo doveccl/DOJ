@@ -1300,7 +1300,7 @@ components:
       $ref: "#/components/schemas/AdminLangUpdate"
     AdminJudger:
       type: object
-      required: [id, name, createdAt, updatedAt]
+      required: [id, name, online, connectedAt, activeAt, uptimeSeconds]
       properties:
         id:
           type: integer
@@ -1308,12 +1308,18 @@ components:
           type: string
         token:
           type: string
-        createdAt:
+        online:
+          type: boolean
+        connectedAt:
           type: string
           format: date-time
-        updatedAt:
+          nullable: true
+        activeAt:
           type: string
           format: date-time
+          nullable: true
+        uptimeSeconds:
+          type: integer
     AdminJudgeQueue:
       type: object
       required: [queued, running, done]

@@ -39,3 +39,20 @@ export function formatTime(value: string, lang: string) {
     minute: '2-digit'
   })
 }
+
+export function formatDuration(seconds: number, lang: string) {
+  const value = Math.max(0, Math.floor(seconds))
+  if (value < 60) {
+    return lang === 'zh' ? `${value} 秒` : `${value}s`
+  }
+  const minutes = Math.floor(value / 60)
+  if (minutes < 60) {
+    return lang === 'zh' ? `${minutes} 分钟` : `${minutes}m`
+  }
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) {
+    return lang === 'zh' ? `${hours} 小时` : `${hours}h`
+  }
+  const days = Math.floor(hours / 24)
+  return lang === 'zh' ? `${days} 天` : `${days}d`
+}

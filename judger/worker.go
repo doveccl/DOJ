@@ -70,6 +70,11 @@ type resultRequest struct {
 	Cases        []caseResult `json:"cases"`
 }
 
+type heartbeatRequest struct {
+	SubmissionID uint `json:"submissionId"`
+	Attempt      int  `json:"attempt"`
+}
+
 type caseResult struct {
 	No       int    `json:"no"`
 	Status   string `json:"status"`
@@ -88,6 +93,10 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 	if task == nil {
 		return false, nil
 	}
+
+	heartbeatCtx, stopHeartbeat := context.WithCancel(ctx)
+	defer stopHeartbeat()
+	go heartbeatLoop(heartbeatCtx, client, cfg, task.ID, task.SubmissionID, task.Attempt)
 
 	work := filepath.Join(cfg.Work, "sub-"+strconv.FormatUint(uint64(task.SubmissionID), 10), "attempt-"+strconv.Itoa(task.Attempt))
 	if err := os.RemoveAll(work); err != nil {
@@ -138,6 +147,19 @@ func (task leaseTask) needsAssets() bool {
 		}
 	}
 	return false
+}
+
+func heartbeatLoop(ctx context.Context, client *http.Client, cfg WorkerConfig, taskID uint, submissionID uint, attempt int) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			_ = postHeartbeat(ctx, client, cfg, taskID, submissionID, attempt)
+		}
+	}
 }
 
 func RunLoop(ctx context.Context, cfg LoopConfig) error {
@@ -238,6 +260,11 @@ func postResult(ctx context.Context, client *http.Client, cfg WorkerConfig, task
 		req.Cases = append(req.Cases, got)
 	}
 	return doJSON(ctx, client, cfg, http.MethodPost, fmt.Sprintf("/api/judger/tasks/%d/result", taskID), req, nil)
+}
+
+func postHeartbeat(ctx context.Context, client *http.Client, cfg WorkerConfig, taskID uint, submissionID uint, attempt int) error {
+	req := heartbeatRequest{SubmissionID: submissionID, Attempt: attempt}
+	return doJSON(ctx, client, cfg, http.MethodPost, fmt.Sprintf("/api/judger/tasks/%d/heartbeat", taskID), req, nil)
 }
 
 func downloadTaskAssets(ctx context.Context, client *http.Client, cfg WorkerConfig, taskID uint, work string) error {

@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/doveccl/doj/models"
+	judgersvc "github.com/doveccl/doj/services/judger"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
@@ -60,11 +62,13 @@ type Language struct {
 }
 
 type Judger struct {
-	ID        uint      `json:"id"`
-	Name      string    `json:"name"`
-	Token     string    `json:"token,omitempty"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID            uint       `json:"id"`
+	Name          string     `json:"name"`
+	Token         string     `json:"token,omitempty"`
+	Online        bool       `json:"online"`
+	ConnectedAt   *time.Time `json:"connectedAt"`
+	ActiveAt      *time.Time `json:"activeAt"`
+	UptimeSeconds int        `json:"uptimeSeconds"`
 }
 
 type JudgeQueue struct {
@@ -154,14 +158,14 @@ func (api *API) isAdmin(c echo.Context) bool {
 
 func (api *API) overview(c echo.Context) error {
 
-	overview, err := api.readOverview()
+	overview, err := api.readOverview(c.Request().Context())
 	if err != nil {
 		return err
 	}
 	return c.JSON(http.StatusOK, overview)
 }
 
-func (api *API) readOverview() (Overview, error) {
+func (api *API) readOverview(ctx context.Context) (Overview, error) {
 	settings, err := api.settings()
 	if err != nil {
 		return Overview{}, err
@@ -178,7 +182,7 @@ func (api *API) readOverview() (Overview, error) {
 	if err != nil {
 		return Overview{}, err
 	}
-	judgers, err := api.judgers()
+	judgers, err := api.judgers(ctx)
 	if err != nil {
 		return Overview{}, err
 	}
@@ -251,7 +255,7 @@ func (api *API) createUser(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	overview, err := api.readOverview()
+	overview, err := api.readOverview(c.Request().Context())
 	if err != nil {
 		return err
 	}
@@ -360,7 +364,7 @@ func (api *API) createGroup(c echo.Context) error {
 	if err := api.db.Create(&models.Group{Name: req.Name}).Error; err != nil {
 		return err
 	}
-	overview, err := api.readOverview()
+	overview, err := api.readOverview(c.Request().Context())
 	if err != nil {
 		return err
 	}
@@ -456,7 +460,7 @@ func (api *API) createLanguage(c echo.Context) error {
 	if err := api.db.Create(&row).Error; err != nil {
 		return err
 	}
-	overview, err := api.readOverview()
+	overview, err := api.readOverview(c.Request().Context())
 	if err != nil {
 		return err
 	}
@@ -521,7 +525,7 @@ func (api *API) createJudger(c echo.Context) error {
 	if err := api.db.Create(&row).Error; err != nil {
 		return err
 	}
-	overview, err := api.readOverview()
+	overview, err := api.readOverview(c.Request().Context())
 	if err != nil {
 		return err
 	}
@@ -650,14 +654,16 @@ func (api *API) languages() ([]Language, error) {
 	return items, nil
 }
 
-func (api *API) judgers() ([]Judger, error) {
+func (api *API) judgers(ctx context.Context) ([]Judger, error) {
 	var rows []models.Judger
 	if err := api.db.Order("id asc").Limit(200).Find(&rows).Error; err != nil {
 		return nil, err
 	}
+	now := time.Now()
 	items := make([]Judger, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, Judger{ID: row.ID, Name: row.Name, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt})
+		status := judgersvc.ReadStatus(ctx, row.ID, now)
+		items = append(items, Judger{ID: row.ID, Name: row.Name, Online: status.Online, ConnectedAt: status.ConnectedAt, ActiveAt: status.ActiveAt, UptimeSeconds: status.UptimeSeconds})
 	}
 	return items, nil
 }

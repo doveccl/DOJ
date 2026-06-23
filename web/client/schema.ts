@@ -825,10 +825,12 @@ export interface components {
             id: number;
             name: string;
             token?: string;
+            online: boolean;
             /** Format: date-time */
-            createdAt: string;
+            connectedAt: string | null;
             /** Format: date-time */
-            updatedAt: string;
+            activeAt: string | null;
+            uptimeSeconds: number;
         };
         AdminJudgeQueue: {
             queued: number;

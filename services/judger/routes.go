@@ -10,9 +10,7 @@ import (
 	"net/http"
 	"path"
 	"sort"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/doveccl/doj/models"
@@ -98,6 +96,11 @@ type ResultRequest struct {
 	Cases        []CaseResult `json:"cases"`
 }
 
+type HeartbeatRequest struct {
+	SubmissionID uint `json:"submissionId"`
+	Attempt      int  `json:"attempt"`
+}
+
 type CaseResult struct {
 	No       int    `json:"no"`
 	Status   string `json:"status"`
@@ -107,17 +110,6 @@ type CaseResult struct {
 	Message  string `json:"message"`
 }
 
-type submissionLease struct {
-	JudgerID uint
-	Attempt  int
-	Until    time.Time
-}
-
-var (
-	leaseMu sync.Mutex
-	leases  = map[uint]submissionLease{}
-)
-
 func Register(e *echo.Echo, db *gorm.DB) {
 	if db == nil {
 		panic("judger API requires a database")
@@ -126,6 +118,7 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group := e.Group("/api/judger", api.auth)
 	group.POST("/lease", api.lease)
 	group.GET("/tasks/:id/assets.zip", api.taskAssets)
+	group.POST("/tasks/:id/heartbeat", api.heartbeat)
 	group.POST("/tasks/:id/result", api.result)
 }
 
@@ -146,6 +139,7 @@ func (api *API) auth(next echo.HandlerFunc) echo.HandlerFunc {
 			}
 			return err
 		}
+		TouchStatus(c.Request().Context(), row.ID, time.Now())
 		c.Set(contextJudgerID, row.ID)
 		return next(c)
 	}
@@ -166,6 +160,8 @@ func (api *API) lease(c echo.Context) error {
 	defer unsubscribe()
 	timer := time.NewTimer(api.longPollWait())
 	defer timer.Stop()
+	active := time.NewTicker(5 * time.Second)
+	defer active.Stop()
 
 	for {
 		payload, err := api.tryLease(c.Request().Context(), judgerID)
@@ -182,6 +178,8 @@ func (api *API) lease(c echo.Context) error {
 			return nil
 		case <-timer.C:
 			return c.JSON(http.StatusOK, LeaseResponse{})
+		case now := <-active.C:
+			TouchStatus(c.Request().Context(), judgerID, now)
 		case <-ch:
 		}
 	}
@@ -200,32 +198,33 @@ func (api *API) tryLease(ctx context.Context, judgerID uint) (*TaskPayload, erro
 	err := api.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var rows []models.Submission
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
-			Where("status IN ?", []string{"queued", "judging"}).
+			Where("status = ? OR (status = ? AND (lease_until IS NULL OR lease_until < ?))", "queued", "judging", now).
 			Order("created_at asc").
-			Limit(20).
+			Limit(1).
 			Find(&rows).Error; err != nil {
 			return err
 		}
-		var submission *models.Submission
-		for index := range rows {
-			nextAttempt := rows[index].Attempt + 1
-			if reserveLease(ctx, rows[index].ID, judgerID, nextAttempt, now.Add(defaultLeaseSeconds*time.Second), now) {
-				rows[index].Attempt = nextAttempt
-				submission = &rows[index]
-				break
-			}
-		}
-		if submission == nil {
+		if len(rows) == 0 {
 			return nil
 		}
-		updates := map[string]any{"status": "judging", "attempt": submission.Attempt}
+		submission := rows[0]
+		nextAttempt := submission.Attempt + 1
+		until := now.Add(defaultLeaseSeconds * time.Second)
+		updates := map[string]any{
+			"status":      "judging",
+			"attempt":     nextAttempt,
+			"judger_id":   judgerID,
+			"lease_until": until,
+		}
 		if err := tx.Model(&models.Submission{}).Where("id = ?", submission.ID).Updates(updates).Error; err != nil {
-			releaseLease(ctx, submission.ID, judgerID, submission.Attempt)
 			return err
 		}
-		got, err := buildPayload(ctx, tx, *submission)
+		submission.Status = "judging"
+		submission.Attempt = nextAttempt
+		submission.JudgerID = &judgerID
+		submission.LeaseUntil = &until
+		got, err := buildPayload(ctx, tx, submission)
 		if err != nil {
-			releaseLease(ctx, submission.ID, judgerID, submission.Attempt)
 			return err
 		}
 		payload = got
@@ -269,6 +268,59 @@ func (api *API) taskAssets(c echo.Context) error {
 	return writeTaskAssetZip(c.Request().Context(), writer, store, submission.ProblemID, files)
 }
 
+func (api *API) heartbeat(c echo.Context) error {
+	var req HeartbeatRequest
+	if err := c.Bind(&req); err != nil {
+		return err
+	}
+	if err := validateHeartbeat(req); err != nil {
+		return err
+	}
+
+	taskID, err := parseTaskID(c)
+	if err != nil {
+		return err
+	}
+	if taskID != req.SubmissionID {
+		return c.NoContent(http.StatusAccepted)
+	}
+
+	applied := false
+	ownerID := uint(0)
+	now := time.Now()
+	err = api.db.Transaction(func(tx *gorm.DB) error {
+		var submission models.Submission
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&submission, req.SubmissionID).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return nil
+			}
+			return err
+		}
+		if submission.Attempt != req.Attempt {
+			return nil
+		}
+		if err := api.requireTaskOwner(c, submission); err != nil {
+			return err
+		}
+		if submission.JudgerID != nil {
+			ownerID = *submission.JudgerID
+		}
+		until := now.Add(defaultLeaseSeconds * time.Second)
+		if err := tx.Model(&models.Submission{}).Where("id = ? AND attempt = ?", submission.ID, req.Attempt).Update("lease_until", until).Error; err != nil {
+			return err
+		}
+		applied = true
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if applied {
+		TouchStatus(c.Request().Context(), ownerID, now)
+	}
+	return c.NoContent(http.StatusAccepted)
+}
+
 func (api *API) result(c echo.Context) error {
 	var req ResultRequest
 	if err := c.Bind(&req); err != nil {
@@ -285,11 +337,9 @@ func (api *API) result(c echo.Context) error {
 	if taskID != req.SubmissionID {
 		return c.NoContent(http.StatusAccepted)
 	}
-	if err := api.authorizeResult(c, req.SubmissionID, req.Attempt); err != nil {
-		return err
-	}
 
 	applied := false
+	ownerID := uint(0)
 	err = api.db.Transaction(func(tx *gorm.DB) error {
 		var submission models.Submission
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&submission, req.SubmissionID).Error; err != nil {
@@ -301,12 +351,20 @@ func (api *API) result(c echo.Context) error {
 		if submission.Attempt != req.Attempt {
 			return nil
 		}
+		if err := api.requireTaskOwner(c, submission); err != nil {
+			return err
+		}
+		if submission.JudgerID != nil {
+			ownerID = *submission.JudgerID
+		}
 		update := map[string]any{
-			"status":    req.Status,
-			"score":     req.Score,
-			"message":   req.Message,
-			"time_ms":   req.TimeMS,
-			"memory_kb": req.MemoryKB,
+			"status":      req.Status,
+			"score":       req.Score,
+			"message":     req.Message,
+			"time_ms":     req.TimeMS,
+			"memory_kb":   req.MemoryKB,
+			"judger_id":   nil,
+			"lease_until": nil,
 		}
 		if err := tx.Model(&models.Submission{}).Where("id = ?", req.SubmissionID).Updates(update).Error; err != nil {
 			return err
@@ -332,46 +390,14 @@ func (api *API) result(c echo.Context) error {
 		applied = true
 		return nil
 	})
-	if applied {
-		releaseLease(c.Request().Context(), req.SubmissionID, judgerID(c), req.Attempt)
-	}
 	if err != nil {
 		return err
 	}
 	if applied {
+		TouchStatus(c.Request().Context(), ownerID, time.Now())
 		events.SubmissionChanged()
 	}
 	return c.NoContent(http.StatusAccepted)
-}
-
-func reserveLease(ctx context.Context, submissionID uint, judgerID uint, attempt int, until time.Time, now time.Time) bool {
-	if client := utils.Redis(ctx); client != nil {
-		ok, err := client.SetNX(ctx, leaseKey(submissionID), leaseValue(judgerID, attempt), time.Until(until)).Result()
-		return err == nil && ok
-	}
-	leaseMu.Lock()
-	defer leaseMu.Unlock()
-	if current, ok := leases[submissionID]; ok && current.Until.After(now) {
-		return false
-	}
-	leases[submissionID] = submissionLease{JudgerID: judgerID, Attempt: attempt, Until: until}
-	return true
-}
-
-func releaseLease(ctx context.Context, submissionID uint, judgerID uint, attempt int) {
-	if client := utils.Redis(ctx); client != nil {
-		key := leaseKey(submissionID)
-		value, err := client.Get(ctx, key).Result()
-		if err == nil && value == leaseValue(judgerID, attempt) {
-			_ = client.Del(ctx, key).Err()
-		}
-		return
-	}
-	leaseMu.Lock()
-	if current, ok := leases[submissionID]; ok && current.JudgerID == judgerID && current.Attempt == attempt {
-		delete(leases, submissionID)
-	}
-	leaseMu.Unlock()
 }
 
 func (api *API) ensureJudger(c echo.Context, req LeaseRequest) (uint, error) {
@@ -395,12 +421,14 @@ func (api *API) ensureJudger(c echo.Context, req LeaseRequest) (uint, error) {
 			return 0, err
 		}
 		c.Set(contextJudgerID, row.ID)
+		TouchStatus(c.Request().Context(), row.ID, time.Now())
 		return row.ID, nil
 	}
 	if err != nil {
 		return 0, err
 	}
 	c.Set(contextJudgerID, row.ID)
+	TouchStatus(c.Request().Context(), row.ID, time.Now())
 	return row.ID, nil
 }
 
@@ -412,54 +440,33 @@ func (api *API) authorizeSubmission(c echo.Context, submissionID uint) error {
 	if !ok || judgerID == 0 {
 		return echo.NewHTTPError(http.StatusUnauthorized, "invalid judger auth")
 	}
-	if !leaseOwnedBy(c.Request().Context(), submissionID, judgerID, 0) {
+	var submission models.Submission
+	if err := api.db.First(&submission, submissionID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return echo.NewHTTPError(http.StatusNotFound, "task not found")
+		}
+		return err
+	}
+	if submission.JudgerID == nil || *submission.JudgerID != judgerID {
 		return echo.NewHTTPError(http.StatusUnauthorized, "invalid judger auth")
 	}
 	return nil
 }
 
-func (api *API) authorizeResult(c echo.Context, submissionID uint, attempt int) error {
+func (api *API) requireTaskOwner(c echo.Context, submission models.Submission) error {
 	if isLocalJudger(c) {
 		return nil
 	}
-	id := judgerID(c)
-	if id == 0 || !leaseOwnedBy(c.Request().Context(), submissionID, id, 0) {
+	id := taskJudgerID(c)
+	if id == 0 || submission.JudgerID == nil || *submission.JudgerID != id {
 		return echo.NewHTTPError(http.StatusUnauthorized, "invalid judger auth")
 	}
 	return nil
 }
 
-func judgerID(c echo.Context) uint {
+func taskJudgerID(c echo.Context) uint {
 	id, _ := c.Get(contextJudgerID).(uint)
 	return id
-}
-
-func leaseOwnedBy(ctx context.Context, submissionID uint, judgerID uint, attempt int) bool {
-	if client := utils.Redis(ctx); client != nil {
-		value, err := client.Get(ctx, leaseKey(submissionID)).Result()
-		if err != nil {
-			return false
-		}
-		if attempt > 0 {
-			return value == leaseValue(judgerID, attempt)
-		}
-		return strings.HasPrefix(value, strconv.FormatUint(uint64(judgerID), 10)+":")
-	}
-	leaseMu.Lock()
-	defer leaseMu.Unlock()
-	lease, ok := leases[submissionID]
-	if !ok || lease.JudgerID != judgerID {
-		return false
-	}
-	return attempt == 0 || lease.Attempt == attempt
-}
-
-func leaseKey(submissionID uint) string {
-	return "doj:lease:" + strconv.FormatUint(uint64(submissionID), 10)
-}
-
-func leaseValue(judgerID uint, attempt int) string {
-	return strconv.FormatUint(uint64(judgerID), 10) + ":" + strconv.Itoa(attempt)
 }
 
 func bearerToken(c echo.Context) (string, bool) {
@@ -522,6 +529,16 @@ func validateResult(req ResultRequest) error {
 		if !validVerdict(item.Status) {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid case status")
 		}
+	}
+	return nil
+}
+
+func validateHeartbeat(req HeartbeatRequest) error {
+	if req.SubmissionID == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid heartbeat target")
+	}
+	if req.Attempt <= 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid heartbeat attempt")
 	}
 	return nil
 }

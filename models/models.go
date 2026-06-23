@@ -56,22 +56,24 @@ type Language struct {
 }
 
 type Submission struct {
-	ID           uint      `gorm:"primaryKey" json:"id"`
-	UserID       uint      `gorm:"index;not null" json:"userId"`
-	ProblemID    uint      `gorm:"index;not null" json:"problemId"`
-	AssignmentID *uint     `gorm:"index" json:"assignmentId"`
-	ContestID    *uint     `gorm:"index" json:"contestId"`
-	Language     string    `gorm:"size:32;index;not null" json:"language"`
-	Code         string    `gorm:"type:text;not null" json:"code"`
-	Status       string    `gorm:"size:32;not null;default:'queued';index" json:"status"`
-	Score        int       `gorm:"not null;default:0" json:"score"`
-	Message      string    `gorm:"type:text;not null;default:''" json:"message"`
-	Attempt      int       `gorm:"not null;default:0" json:"attempt"`
-	TimeMS       *int      `json:"timeMs"`
-	MemoryKB     *int      `json:"memoryKb"`
-	Public       bool      `gorm:"not null;default:false" json:"public"`
-	CreatedAt    time.Time `gorm:"index" json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt"`
+	ID           uint       `gorm:"primaryKey" json:"id"`
+	UserID       uint       `gorm:"index;not null" json:"userId"`
+	ProblemID    uint       `gorm:"index;not null" json:"problemId"`
+	AssignmentID *uint      `gorm:"index" json:"assignmentId"`
+	ContestID    *uint      `gorm:"index" json:"contestId"`
+	Language     string     `gorm:"size:32;index;not null" json:"language"`
+	Code         string     `gorm:"type:text;not null" json:"code"`
+	Status       string     `gorm:"size:32;not null;default:'queued';index" json:"status"`
+	Score        int        `gorm:"not null;default:0" json:"score"`
+	Message      string     `gorm:"type:text;not null;default:''" json:"message"`
+	Attempt      int        `gorm:"not null;default:0" json:"attempt"`
+	JudgerID     *uint      `gorm:"index" json:"judgerId"`
+	LeaseUntil   *time.Time `gorm:"index" json:"leaseUntil"`
+	TimeMS       *int       `json:"timeMs"`
+	MemoryKB     *int       `json:"memoryKb"`
+	Public       bool       `gorm:"not null;default:false" json:"public"`
+	CreatedAt    time.Time  `gorm:"index" json:"createdAt"`
+	UpdatedAt    time.Time  `json:"updatedAt"`
 }
 
 type Case struct {

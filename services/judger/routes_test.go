@@ -101,11 +101,18 @@ func TestAuthAndLeaseAuthorization(t *testing.T) {
 	if id, ok := c.Get(contextJudgerID).(uint); !ok || id != remote.ID {
 		t.Fatalf("remote judger id = %#v", c.Get(contextJudgerID))
 	}
+	submission := models.Submission{UserID: 1, ProblemID: 1000, Language: "cpp", Code: "int main(){}", Status: "judging", Attempt: 1}
+	if err := db.Create(&submission).Error; err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
 	if err := api.authorizeSubmission(c, 1); err == nil {
 		t.Fatal("remote judger without lease should not authorize submission")
 	}
-	reserveLease(t.Context(), 1, remote.ID, 1, time.Now().Add(time.Minute), time.Now())
-	if err := api.authorizeSubmission(c, 1); err != nil {
+	until := time.Now().Add(time.Minute)
+	if err := db.Model(&models.Submission{}).Where("id = ?", submission.ID).Updates(map[string]any{"judger_id": remote.ID, "lease_until": until}).Error; err != nil {
+		t.Fatalf("set lease: %v", err)
+	}
+	if err := api.authorizeSubmission(c, submission.ID); err != nil {
 		t.Fatalf("remote judger lease rejected: %v", err)
 	}
 
@@ -179,12 +186,10 @@ func TestResultIgnoresStaleAttempt(t *testing.T) {
 	if err := db.Create(&remote).Error; err != nil {
 		t.Fatalf("create judger: %v", err)
 	}
-	submission := models.Submission{UserID: 1, ProblemID: 1000, Language: "cpp", Code: "int main(){}", Status: "judging", Attempt: 2}
+	until := time.Now().Add(time.Minute)
+	submission := models.Submission{UserID: 1, ProblemID: 1000, Language: "cpp", Code: "int main(){}", Status: "judging", Attempt: 2, JudgerID: &remote.ID, LeaseUntil: &until}
 	if err := db.Create(&submission).Error; err != nil {
 		t.Fatalf("create submission: %v", err)
-	}
-	if !reserveLease(t.Context(), submission.ID, remote.ID, 2, time.Now().Add(time.Minute), time.Now()) {
-		t.Fatal("reserve lease failed")
 	}
 	e := echo.New()
 	Register(e, db)
@@ -223,12 +228,95 @@ func TestResultIgnoresStaleAttempt(t *testing.T) {
 	}
 }
 
+func TestTryLeaseStoresDatabaseLease(t *testing.T) {
+	db := newJudgerTestDB(t)
+	seedTaskData(t, db)
+	remote := models.Judger{Name: "linux-a", Auth: utils.TokenHash("token-a")}
+	if err := db.Create(&remote).Error; err != nil {
+		t.Fatalf("create judger: %v", err)
+	}
+	submission := models.Submission{UserID: 1, ProblemID: 1000, Language: "cpp", Code: "int main(){}", Status: "queued"}
+	if err := db.Create(&submission).Error; err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+
+	api := &API{db: db}
+	payload, err := api.tryLease(t.Context(), remote.ID)
+	if err != nil {
+		t.Fatalf("try lease: %v", err)
+	}
+	if payload == nil || payload.SubmissionID != submission.ID || payload.Attempt != 1 {
+		t.Fatalf("payload = %+v", payload)
+	}
+	var got models.Submission
+	if err := db.First(&got, submission.ID).Error; err != nil {
+		t.Fatalf("read submission: %v", err)
+	}
+	if got.Status != "judging" || got.Attempt != 1 || got.JudgerID == nil || *got.JudgerID != remote.ID || got.LeaseUntil == nil {
+		t.Fatalf("submission lease not stored in db: %+v", got)
+	}
+}
+
+func TestHeartbeatExtendsDatabaseLease(t *testing.T) {
+	db := newJudgerTestDB(t)
+	remote := models.Judger{Name: "linux-a", Auth: utils.TokenHash("token-a")}
+	if err := db.Create(&remote).Error; err != nil {
+		t.Fatalf("create judger: %v", err)
+	}
+	oldLease := time.Now().Add(5 * time.Second)
+	submission := models.Submission{UserID: 1, ProblemID: 1000, Language: "cpp", Code: "int main(){}", Status: "judging", Attempt: 3, JudgerID: &remote.ID, LeaseUntil: &oldLease}
+	if err := db.Create(&submission).Error; err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+	e := echo.New()
+	Register(e, db)
+	target := "/api/judger/tasks/" + strconv.FormatUint(uint64(submission.ID), 10) + "/heartbeat"
+	body := `{"submissionId":` + strconv.FormatUint(uint64(submission.ID), 10) + `,"attempt":3}`
+	res := judgerJSON(e, target, "token-a", body)
+	if res.Code != http.StatusAccepted {
+		t.Fatalf("heartbeat got %d body=%s", res.Code, res.Body.String())
+	}
+	var got models.Submission
+	if err := db.First(&got, submission.ID).Error; err != nil {
+		t.Fatalf("read submission: %v", err)
+	}
+	if got.LeaseUntil == nil || !got.LeaseUntil.After(oldLease) {
+		t.Fatalf("lease not extended: old=%s got=%v", oldLease, got.LeaseUntil)
+	}
+	if got.JudgerID == nil || *got.JudgerID != remote.ID || got.Attempt != 3 {
+		t.Fatalf("heartbeat changed owner/attempt: %+v", got)
+	}
+}
+
 func TestJudgerRequestNameDefault(t *testing.T) {
 	if got := judgerRequestName(LeaseRequest{Host: " linux-a "}); got != "linux-a" {
 		t.Fatalf("name = %q", got)
 	}
 	if got := judgerRequestName(LeaseRequest{}); got != "local-judger" {
 		t.Fatalf("anonymous name = %q", got)
+	}
+}
+
+func seedTaskData(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	t.Setenv("STORAGE", t.TempDir())
+	store, err := utils.NewObjectStoreFromEnv()
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	for key, content := range map[string]string{
+		"problems/1000/data/1.in":  "1 2\n",
+		"problems/1000/data/1.out": "3\n",
+	} {
+		if err := store.Put(t.Context(), key, strings.NewReader(content), int64(len(content)), "text/plain"); err != nil {
+			t.Fatalf("put %s: %v", key, err)
+		}
+	}
+	if err := db.Create(&models.Language{ID: "cpp", Name: "C++", Source: "main.cc", Dockerfile: "FROM gcc"}).Error; err != nil {
+		t.Fatalf("create language: %v", err)
+	}
+	if err := db.Create(&models.Problem{ID: 1000, Title: "A+B", Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
 	}
 }
 
@@ -255,9 +343,6 @@ func TestSafeTaskAssetZipNameRejectsUnsafeNames(t *testing.T) {
 
 func newJudgerTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	leaseMu.Lock()
-	leases = map[uint]submissionLease{}
-	leaseMu.Unlock()
 	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "judger.db")), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite db: %v", err)

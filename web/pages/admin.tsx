@@ -1,5 +1,5 @@
 import { DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Statistic, Switch, Table, Tabs, Tooltip, Typography } from 'antd'
+import { App as AntApp, Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Statistic, Switch, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
@@ -24,7 +24,7 @@ import type { AdminGroupUpdate, AdminLangCreate, AdminOverview, AdminSettings, A
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { formatTime } from '../utils/format'
+import { formatDuration } from '../utils/format'
 
 type UserRow = AdminOverview['users'][number]
 type GroupRow = AdminOverview['groups'][number]
@@ -330,7 +330,6 @@ export function AdminPage() {
                     pagination={false}
                     dataSource={data.groups}
                     columns={[
-                      { title: 'ID', dataIndex: 'id', width: 100 },
                       { title: text.admin.name, dataIndex: 'name' },
                       {
                         title: text.admin.users,
@@ -374,7 +373,6 @@ export function AdminPage() {
                     pagination={false}
                     dataSource={data.languages}
                     columns={[
-                      { title: 'ID', dataIndex: 'id', width: 120 },
                       { title: text.problems.title, dataIndex: 'name', width: 180 },
                       { title: text.admin.source, dataIndex: 'source', width: 140 },
                       {
@@ -425,10 +423,19 @@ export function AdminPage() {
                     pagination={false}
                     dataSource={data.judgers}
                     columns={[
-                      { title: 'ID', dataIndex: 'id', width: 100 },
                       { title: text.admin.name, dataIndex: 'name' },
-                      { title: text.admin.createdAt, dataIndex: 'createdAt', render: (value: string) => formatTime(value, lang) },
-                      { title: text.admin.updatedAt, dataIndex: 'updatedAt', render: (value: string) => formatTime(value, lang) },
+                      {
+                        title: text.admin.status,
+                        dataIndex: 'online',
+                        width: 120,
+                        render: (online: boolean) => <Tag color={online ? 'green' : 'default'}>{online ? text.admin.online : text.admin.offline}</Tag>
+                      },
+                      {
+                        title: text.admin.uptime,
+                        dataIndex: 'uptimeSeconds',
+                        width: 160,
+                        render: (value: number, row) => (row.online ? formatDuration(value, lang) : '-')
+                      },
                       {
                         title: text.common.edit,
                         width: 112,
