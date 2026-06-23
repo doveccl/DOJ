@@ -19,7 +19,7 @@ func TestRunLocalCaseCustomChecker(t *testing.T) {
 		Runner:       runner,
 		Work:         work,
 		UserCommand:  "read n; echo $((n * n))",
-		JudgeCommand: "cat \"$DOJ_INPUT\"; exec 1>&-; got=$(cat); ans=$(cat \"$DOJ_ANSWER\"); if [ \"$got\" = \"$ans\" ]; then printf '{\"verdict\":\"AC\",\"score\":100}\\n' > \"$DOJ_RESULT\"; else printf '{\"verdict\":\"WA\",\"score\":0,\"message\":\"checker rejected\"}\\n' > \"$DOJ_RESULT\"; fi",
+		JudgeCommand: "cat \"$INPUT\"; exec 1>&-; got=$(cat); ans=$(cat \"$ANSWER\"); if [ \"$got\" = \"$ans\" ]; then printf '{\"verdict\":\"AC\",\"score\":100}\\n' > \"$RESULT\"; else printf '{\"verdict\":\"WA\",\"score\":0,\"message\":\"checker rejected\"}\\n' > \"$RESULT\"; fi",
 		Case:         Case{ID: "checker", Input: input, Answer: answer, Score: 100},
 		Limits:       Limits{TimeMS: 3000, OutputKB: 64},
 	})
@@ -42,7 +42,7 @@ func TestRunLocalCaseInteractor(t *testing.T) {
 		Runner:       runner,
 		Work:         work,
 		UserCommand:  "while read n; do echo $((n * n)); done",
-		JudgeCommand: "printf '3\\n'; read a; printf '4\\n'; read b; if [ \"$a\" = 9 ] && [ \"$b\" = 16 ]; then printf '{\"verdict\":\"AC\",\"score\":100}\\n' > \"$DOJ_RESULT\"; else printf '{\"verdict\":\"WA\",\"score\":0,\"message\":\"bad interaction\"}\\n' > \"$DOJ_RESULT\"; fi",
+		JudgeCommand: "printf '3\\n'; read a; printf '4\\n'; read b; if [ \"$a\" = 9 ] && [ \"$b\" = 16 ]; then printf '{\"verdict\":\"AC\",\"score\":100}\\n' > \"$RESULT\"; else printf '{\"verdict\":\"WA\",\"score\":0,\"message\":\"bad interaction\"}\\n' > \"$RESULT\"; fi",
 		Case:         Case{ID: "interactive", Input: input, Answer: answer, Score: 100},
 		Limits:       Limits{TimeMS: 3000, OutputKB: 64},
 	})
@@ -65,7 +65,7 @@ func TestRunLocalCaseQuineRejectedByChecker(t *testing.T) {
 		Runner:       runner,
 		Work:         work,
 		UserCommand:  "cat",
-		JudgeCommand: "cat \"$DOJ_INPUT\"; exec 1>&-; got=$(cat); ans=$(cat \"$DOJ_ANSWER\"); if [ \"$got\" = \"$ans\" ]; then printf '{\"verdict\":\"AC\",\"score\":100}\\n' > \"$DOJ_RESULT\"; else printf '{\"verdict\":\"WA\",\"score\":0,\"message\":\"quine echo is not accepted\"}\\n' > \"$DOJ_RESULT\"; fi",
+		JudgeCommand: "cat \"$INPUT\"; exec 1>&-; got=$(cat); ans=$(cat \"$ANSWER\"); if [ \"$got\" = \"$ans\" ]; then printf '{\"verdict\":\"AC\",\"score\":100}\\n' > \"$RESULT\"; else printf '{\"verdict\":\"WA\",\"score\":0,\"message\":\"quine echo is not accepted\"}\\n' > \"$RESULT\"; fi",
 		Case:         Case{ID: "quine", Input: input, Answer: answer, Score: 100},
 		Limits:       Limits{TimeMS: 3000, OutputKB: 64},
 	})

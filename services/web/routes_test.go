@@ -578,7 +578,7 @@ func TestDatabaseDiscussionAuthorsUseNames(t *testing.T) {
 }
 
 func TestImageUploadUsesRelativeMediaPathsAndHeaders(t *testing.T) {
-	t.Setenv("DOJ_UPLOAD_DIR", t.TempDir())
+	t.Setenv("STORAGE", t.TempDir())
 	db := testWebDB(t)
 	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
 	student := models.User{Name: "student", Mail: "student@example.com", Auth: "hash"}

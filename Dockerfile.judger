@@ -14,5 +14,4 @@ RUN apk add --no-cache ca-certificates docker-cli
 COPY --from=build /out/doj-judger /usr/local/bin/doj-judger
 COPY --from=build /out/doj-runner /usr/local/bin/doj-runner
 
-ENV DOJ_RUNNER=/usr/local/bin/doj-runner
-CMD ["doj-judger", "serve"]
+CMD ["doj-judger"]

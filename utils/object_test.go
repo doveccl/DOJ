@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"os"
 	"testing"
 )
 
@@ -17,6 +18,30 @@ func TestCleanObjectKey(t *testing.T) {
 	}
 	if _, err := CleanObjectKey(""); err == nil {
 		t.Fatal("empty key should be invalid")
+	}
+}
+
+func TestUploadRootUsesStorage(t *testing.T) {
+	t.Setenv("STORAGE", "")
+	if got := UploadRoot(); got != defaultStorageRoot {
+		t.Fatalf("default upload root = %q, want %q", got, defaultStorageRoot)
+	}
+	t.Setenv("STORAGE", t.TempDir())
+	if got := UploadRoot(); got != os.Getenv("STORAGE") {
+		t.Fatalf("upload root = %q, want STORAGE", got)
+	}
+}
+
+func TestParseS3Storage(t *testing.T) {
+	got, err := parseS3Storage("https://ak:sk@s3.example.com/doj?region=us-east-1")
+	if err != nil {
+		t.Fatalf("parse storage: %v", err)
+	}
+	if got.endpoint != "s3.example.com" || got.access != "ak" || got.secret != "sk" || got.bucket != "doj" || got.region != "us-east-1" || !got.secure {
+		t.Fatalf("unexpected storage config: %+v", got)
+	}
+	if _, err := parseS3Storage("https://ak:sk@s3.example.com/doj/prefix"); err == nil {
+		t.Fatalf("bucket path with prefix should be rejected")
 	}
 }
 

@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -74,26 +73,6 @@ func ConfigureCookies(config CookieConfig) {
 	cookieConfigMu.Lock()
 	cookieConfig = config
 	cookieConfigMu.Unlock()
-}
-
-func ConfigureCookiesFromEnv() error {
-	secure, err := cookieSecureFromEnv(os.Getenv("DOJ_COOKIE_SECURE"))
-	if err != nil {
-		return err
-	}
-	sameSite, err := sameSiteFromEnv(os.Getenv("DOJ_COOKIE_SAMESITE"))
-	if err != nil {
-		return err
-	}
-	if sameSite == http.SameSiteNoneMode && (secure == nil || !*secure) {
-		return fmt.Errorf("DOJ_COOKIE_SAMESITE=none requires DOJ_COOKIE_SECURE=true")
-	}
-	ConfigureCookies(CookieConfig{
-		Domain:   strings.TrimSpace(os.Getenv("DOJ_COOKIE_DOMAIN")),
-		Secure:   secure,
-		SameSite: sameSite,
-	})
-	return nil
 }
 
 func SetSessionCookie(c echo.Context, token string, expiresAt time.Time) {
@@ -163,35 +142,7 @@ func cookieSecure(c echo.Context, config CookieConfig) bool {
 	if config.Secure != nil {
 		return *config.Secure
 	}
-	return c.IsTLS()
-}
-
-func cookieSecureFromEnv(value string) (*bool, error) {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "", "auto":
-		return nil, nil
-	case "1", "true", "yes", "on":
-		secure := true
-		return &secure, nil
-	case "0", "false", "no", "off":
-		secure := false
-		return &secure, nil
-	default:
-		return nil, fmt.Errorf("invalid DOJ_COOKIE_SECURE %q", value)
-	}
-}
-
-func sameSiteFromEnv(value string) (http.SameSite, error) {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "", "lax":
-		return http.SameSiteLaxMode, nil
-	case "strict":
-		return http.SameSiteStrictMode, nil
-	case "none":
-		return http.SameSiteNoneMode, nil
-	default:
-		return 0, fmt.Errorf("invalid DOJ_COOKIE_SAMESITE %q", value)
-	}
+	return c.Scheme() == "https"
 }
 
 func SessionToken(c echo.Context) (string, bool) {
@@ -357,14 +308,15 @@ func sessionRedisClient(ctx context.Context) *redis.Client {
 	if sessionClient != nil {
 		return sessionClient
 	}
-	options := &redis.Options{Addr: valkeyAddr()}
-	if raw := strings.TrimSpace(os.Getenv("DOJ_VALKEY_URL")); raw != "" {
-		parsed, err := redis.ParseURL(raw)
-		if err != nil {
-			sessionNoRedis = true
-			return nil
-		}
-		options = parsed
+	raw := strings.TrimSpace(os.Getenv("REDIS"))
+	if raw == "" {
+		sessionNoRedis = true
+		return nil
+	}
+	options, err := redis.ParseURL(raw)
+	if err != nil {
+		sessionNoRedis = true
+		return nil
 	}
 	client := redis.NewClient(options)
 	pingCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
@@ -376,16 +328,6 @@ func sessionRedisClient(ctx context.Context) *redis.Client {
 	}
 	sessionClient = client
 	return sessionClient
-}
-
-func valkeyAddr() string {
-	if value := strings.TrimSpace(os.Getenv("DOJ_VALKEY_ADDR")); value != "" {
-		return value
-	}
-	if value := strings.TrimSpace(os.Getenv("REDIS_ADDR")); value != "" {
-		return value
-	}
-	return "localhost:6379"
 }
 
 func sessionKey(token string) string {

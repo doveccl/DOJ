@@ -14,8 +14,8 @@ import (
 )
 
 func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
-	if os.Getenv("DOJ_DOCKER_TEST") != "1" {
-		t.Skip("set DOJ_DOCKER_TEST=1 to run worker execution test")
+	if os.Getenv("DOCKER_TEST") != "1" {
+		t.Skip("set DOCKER_TEST=1 to run worker execution test")
 	}
 	runner := buildRunner(t)
 	work := t.TempDir()
@@ -69,12 +69,10 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	worked, err := RunOne(ctx, WorkerConfig{
-		Server:       server.URL,
-		Token:        "secret",
-		Name:         "test-judger",
-		Runner:       runner,
-		Work:         filepath.Join(work, "jobs"),
-		LeaseSeconds: 30,
+		Server: server.URL,
+		Token:  "secret",
+		Runner: runner,
+		Work:   filepath.Join(work, "jobs"),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -97,8 +95,8 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 }
 
 func TestRunOneDownloadsAssetsForRelativeCases(t *testing.T) {
-	if os.Getenv("DOJ_DOCKER_TEST") != "1" {
-		t.Skip("set DOJ_DOCKER_TEST=1 to run worker execution test")
+	if os.Getenv("DOCKER_TEST") != "1" {
+		t.Skip("set DOCKER_TEST=1 to run worker execution test")
 	}
 	runner := buildRunner(t)
 	work := t.TempDir()
@@ -147,12 +145,10 @@ func TestRunOneDownloadsAssetsForRelativeCases(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	worked, err := RunOne(ctx, WorkerConfig{
-		Server:       server.URL,
-		Token:        "secret",
-		Name:         "test-judger",
-		Runner:       runner,
-		Work:         filepath.Join(work, "jobs"),
-		LeaseSeconds: 30,
+		Server: server.URL,
+		Token:  "secret",
+		Runner: runner,
+		Work:   filepath.Join(work, "jobs"),
 	})
 	if err != nil {
 		t.Fatal(err)

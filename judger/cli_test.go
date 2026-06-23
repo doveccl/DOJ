@@ -1,35 +1,21 @@
 package judger
 
 import (
-	"os"
-	"path/filepath"
+	"context"
 	"testing"
 )
 
-func TestResolveTokenPrefersFlag(t *testing.T) {
-	file := filepath.Join(t.TempDir(), "token")
-	if err := os.WriteFile(file, []byte("file-token\n"), 0o600); err != nil {
-		t.Fatalf("write token file: %v", err)
+func TestJudgerCLIRejectsRuntimeFlags(t *testing.T) {
+	if code := JudgerCLI(context.Background(), []string{"serve"}); code != 2 {
+		t.Fatalf("JudgerCLI serve code = %d, want 2", code)
 	}
-	token, err := resolveToken(" flag-token ", file)
-	if err != nil {
-		t.Fatalf("resolveToken: %v", err)
-	}
-	if token != "flag-token" {
-		t.Fatalf("token = %q, want flag token", token)
+	if code := JudgerCLI(context.Background(), []string{"--server", "http://example.test"}); code != 2 {
+		t.Fatalf("JudgerCLI flag code = %d, want 2", code)
 	}
 }
 
-func TestResolveTokenReadsFile(t *testing.T) {
-	file := filepath.Join(t.TempDir(), "token")
-	if err := os.WriteFile(file, []byte(" file-token \n"), 0o600); err != nil {
-		t.Fatalf("write token file: %v", err)
-	}
-	token, err := resolveToken("", file)
-	if err != nil {
-		t.Fatalf("resolveToken: %v", err)
-	}
-	if token != "file-token" {
-		t.Fatalf("token = %q, want file token", token)
+func TestJudgerCLIVersion(t *testing.T) {
+	if code := JudgerCLI(context.Background(), []string{"version"}); code != 0 {
+		t.Fatalf("JudgerCLI version code = %d, want 0", code)
 	}
 }

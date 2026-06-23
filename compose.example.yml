@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: doj
       POSTGRES_USER: doj
-      POSTGRES_PASSWORD: "${DOJ_POSTGRES_PASSWORD:-doj}"
+      POSTGRES_PASSWORD: doj
     volumes:
       - postgres:/var/lib/postgresql
     healthcheck:
@@ -25,8 +25,8 @@ services:
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: "${DOJ_MINIO_ROOT_USER:-doj}"
-      MINIO_ROOT_PASSWORD: "${DOJ_MINIO_ROOT_PASSWORD:-doj-minio-password}"
+      MINIO_ROOT_USER: doj
+      MINIO_ROOT_PASSWORD: doj-minio-password
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -49,31 +49,11 @@ services:
       minio:
         condition: service_started
     environment:
-      DOJ_ADDR: ":7974"
-      DOJ_DATABASE_URL: "postgres://doj:${DOJ_POSTGRES_PASSWORD:-doj}@postgres:5432/doj?sslmode=disable"
-      DOJ_BOOTSTRAP_ADMIN: "${DOJ_BOOTSTRAP_ADMIN:-admin}"
-      DOJ_BOOTSTRAP_MAIL: "${DOJ_BOOTSTRAP_MAIL:-admin@example.com}"
-      DOJ_BOOTSTRAP_PASSWORD: "${DOJ_BOOTSTRAP_PASSWORD:-change-this-password}"
-      DOJ_CORS_ORIGINS: "${DOJ_CORS_ORIGINS:-http://localhost:28080,http://127.0.0.1:28080}"
-      DOJ_COOKIE_SECURE: "${DOJ_COOKIE_SECURE:-false}"
-      DOJ_COOKIE_SAMESITE: "${DOJ_COOKIE_SAMESITE:-lax}"
-      DOJ_BODY_LIMIT: "${DOJ_BODY_LIMIT:-160M}"
-      DOJ_READ_HEADER_TIMEOUT: "${DOJ_READ_HEADER_TIMEOUT:-5s}"
-      DOJ_READ_TIMEOUT: "${DOJ_READ_TIMEOUT:-0s}"
-      DOJ_WRITE_TIMEOUT: "${DOJ_WRITE_TIMEOUT:-0s}"
-      DOJ_IDLE_TIMEOUT: "${DOJ_IDLE_TIMEOUT:-60s}"
-      DOJ_SHUTDOWN_TIMEOUT: "${DOJ_SHUTDOWN_TIMEOUT:-15s}"
-      DOJ_UPLOAD_DIR: "/var/lib/doj/uploads"
-      DOJ_VALKEY_ADDR: "valkey:6379"
-      DOJ_S3_ENDPOINT: "http://minio:9000"
-      DOJ_S3_BUCKET: "doj"
-      DOJ_S3_ACCESS_KEY: "${DOJ_MINIO_ROOT_USER:-doj}"
-      DOJ_S3_SECRET_KEY: "${DOJ_MINIO_ROOT_PASSWORD:-doj-minio-password}"
-      DOJ_S3_USE_SSL: "false"
+      DATABASE: "postgres://doj:doj@postgres:5432/doj"
+      REDIS: "redis://valkey:6379/0"
+      STORAGE: "http://doj:doj-minio-password@minio:9000/doj"
     ports:
       - "28080:7974"
-    volumes:
-      - uploads:/var/lib/doj/uploads
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:7974/api/ready >/dev/null"]
       interval: 5s
@@ -94,36 +74,14 @@ services:
     depends_on:
       server:
         condition: service_healthy
-    secrets:
-      - judger_token
+    environment:
+      SERVER: "http://server:7974"
+      TOKEN: "replace-with-judger-token"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - judger:/var/lib/doj-judger
-    command:
-      - doj-judger
-      - serve
-      - --server
-      - http://server:7974
-      - --token-file
-      - /run/secrets/judger_token
-      - --name
-      - compose-judger
-      - --work
-      - /var/lib/doj-judger
-      - --runner
-      - /usr/local/bin/doj-runner
-      - --cgroup-root
-      - /sys/fs/cgroup/doj
-      - --proc-root
-      - /proc
-
-secrets:
-  judger_token:
-    file: ./judger.token
+      - /var/lib/doj:/var/lib/doj
 
 volumes:
   postgres:
   valkey:
   minio:
-  judger:
-  uploads:

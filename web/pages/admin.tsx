@@ -20,7 +20,7 @@ import {
   updateAdminUser,
   updateAdminSettings
 } from '../client'
-import type { AdminGroupUpdate, AdminJudgerCreate, AdminLangCreate, AdminOverview, AdminSettings, AdminUserCreate } from '../client'
+import type { AdminGroupUpdate, AdminLangCreate, AdminOverview, AdminSettings, AdminUserCreate } from '../client'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
@@ -30,7 +30,7 @@ type UserRow = AdminOverview['users'][number]
 type GroupRow = AdminOverview['groups'][number]
 type LanguageRow = AdminOverview['languages'][number]
 type JudgerRow = AdminOverview['judgers'][number]
-type JudgerForm = AdminJudgerCreate
+type JudgerForm = { name: string; auth?: string }
 type UserForm = AdminUserCreate
 type SettingsForm = Pick<AdminSettings, 'siteName' | 'registration' | 'guest' | 'defaultPublicSource'>
 
@@ -129,10 +129,28 @@ export function AdminPage() {
   })
   const judgerSave = useMutation({
     mutationFn: (values: JudgerForm) =>
-      editingJudger ? updateAdminJudger(editingJudger.id, { name: values.name, auth: values.auth || undefined }) : createAdminJudger(values),
+      editingJudger ? updateAdminJudger(editingJudger.id, { name: values.name, auth: values.auth || undefined }) : createAdminJudger({ name: values.name }),
     onSuccess: (data) => {
+      const created = data.judgers.find((row) => row.token)
       saveOverview(data)
       closeJudger()
+      if (created?.token) {
+        const command = `SERVER=http://server:7974 TOKEN=${created.token} doj-judger`
+        modal.info({
+          title: text.admin.judgerTokenCreated,
+          content: (
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Typography.Text type="secondary">{text.admin.judgerTokenHelp}</Typography.Text>
+              <Typography.Paragraph copyable code>
+                {created.token}
+              </Typography.Paragraph>
+              <Typography.Paragraph copyable={{ text: command }} code>
+                {command}
+              </Typography.Paragraph>
+            </Space>
+          )
+        })
+      }
     },
     onError: showError
   })
@@ -575,14 +593,16 @@ function JudgerModal({
   const [form] = Form.useForm<JudgerForm>()
   const initialValues = editingJudger ? { name: editingJudger.name, auth: '' } : { name: '', auth: '' }
   return (
-    <Modal open destroyOnHidden title={editingJudger ? text.admin.editJudger : text.admin.addJudger} okText={text.common.save} cancelText={text.common.cancel} confirmLoading={loading} onCancel={onCancel} onOk={() => form.submit()}>
+    <Modal open destroyOnHidden title={editingJudger ? text.admin.editJudger : text.admin.addJudger} okText={editingJudger ? text.common.save : text.common.create} cancelText={text.common.cancel} confirmLoading={loading} onCancel={onCancel} onOk={() => form.submit()}>
       <Form<JudgerForm> form={form} layout="vertical" initialValues={initialValues} onFinish={onSave}>
         <Form.Item name="name" label={text.admin.name} rules={[{ required: true, whitespace: true }]}>
           <Input />
         </Form.Item>
-        <Form.Item name="auth" label={text.admin.token} rules={editingJudger ? [] : [{ required: true, whitespace: true }]}>
-          <Input.Password placeholder={editingJudger ? text.admin.keepAuth : undefined} />
-        </Form.Item>
+        {editingJudger ? (
+          <Form.Item name="auth" label={text.admin.token}>
+            <Input.Password placeholder={text.admin.keepAuth} />
+          </Form.Item>
+        ) : null}
       </Form>
     </Modal>
   )

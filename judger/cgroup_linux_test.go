@@ -15,9 +15,9 @@ import (
 )
 
 func TestCgroupLinuxSmoke(t *testing.T) {
-	root := os.Getenv("DOJ_CGROUP_TEST_ROOT")
+	root := os.Getenv("CGROUP_TEST_ROOT")
 	if root == "" {
-		t.Skip("set DOJ_CGROUP_TEST_ROOT to run cgroup smoke test")
+		t.Skip("set CGROUP_TEST_ROOT to run cgroup smoke test")
 	}
 	cg, err := PrepareCgroup(CgroupConfig{
 		Root:         root,
@@ -57,9 +57,9 @@ func TestCgroupLinuxSmoke(t *testing.T) {
 }
 
 func TestCgroupLinuxMemoryBomb(t *testing.T) {
-	root := os.Getenv("DOJ_CGROUP_TEST_ROOT")
+	root := os.Getenv("CGROUP_TEST_ROOT")
 	if root == "" {
-		t.Skip("set DOJ_CGROUP_TEST_ROOT to run cgroup memory test")
+		t.Skip("set CGROUP_TEST_ROOT to run cgroup memory test")
 	}
 	cg := prepareTestCgroup(t, root, "sub-memory", "case-1", 32<<20, 32)
 	cmd, release := startCgroupHelper(t, cg, "memory")
@@ -76,9 +76,9 @@ func TestCgroupLinuxMemoryBomb(t *testing.T) {
 }
 
 func TestCgroupLinuxPidsBomb(t *testing.T) {
-	root := os.Getenv("DOJ_CGROUP_TEST_ROOT")
+	root := os.Getenv("CGROUP_TEST_ROOT")
 	if root == "" {
-		t.Skip("set DOJ_CGROUP_TEST_ROOT to run cgroup pids test")
+		t.Skip("set CGROUP_TEST_ROOT to run cgroup pids test")
 	}
 	cg := prepareTestCgroup(t, root, "sub-pids", "case-1", 128<<20, 8)
 	cmd, release := startCgroupHelper(t, cg, "pids")
@@ -100,7 +100,7 @@ func TestCgroupLinuxPidsBomb(t *testing.T) {
 }
 
 func TestCgroupLinuxHelperProcess(t *testing.T) {
-	mode := os.Getenv("DOJ_CGROUP_HELPER")
+	mode := os.Getenv("CGROUP_HELPER")
 	if mode == "" {
 		return
 	}
@@ -173,7 +173,7 @@ func prepareTestCgroup(t *testing.T, root string, submission string, caseID stri
 func startCgroupHelper(t *testing.T, cg *CgroupCase, mode string) (*exec.Cmd, func()) {
 	t.Helper()
 	cmd := exec.Command(os.Args[0], "-test.run=TestCgroupLinuxHelperProcess", "--")
-	cmd.Env = append(os.Environ(), "DOJ_CGROUP_HELPER="+mode)
+	cmd.Env = append(os.Environ(), "CGROUP_HELPER="+mode)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	stdin, err := cmd.StdinPipe()
 	if err != nil {

@@ -61,6 +61,7 @@ type Language struct {
 type Judger struct {
 	ID        uint      `json:"id"`
 	Name      string    `json:"name"`
+	Token     string    `json:"token,omitempty"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
@@ -507,17 +508,27 @@ func (api *API) createJudger(c echo.Context) error {
 		return err
 	}
 	cleanJudgerUpdate(&req.JudgerUpdate)
-	if err := validateJudger(req.JudgerUpdate, true); err != nil {
+	if err := validateJudger(req.JudgerUpdate, false); err != nil {
 		return err
 	}
 
-	row := models.Judger{Name: req.Name, Auth: tokenHash(req.Auth)}
+	token, err := utils.NewToken()
+	if err != nil {
+		return err
+	}
+	row := models.Judger{Name: req.Name, Auth: tokenHash(token)}
 	if err := api.db.Create(&row).Error; err != nil {
 		return err
 	}
 	overview, err := api.readOverview()
 	if err != nil {
 		return err
+	}
+	for index := range overview.Judgers {
+		if overview.Judgers[index].ID == row.ID {
+			overview.Judgers[index].Token = token
+			break
+		}
 	}
 	return c.JSON(http.StatusCreated, overview)
 }

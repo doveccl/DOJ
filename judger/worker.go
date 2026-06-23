@@ -17,30 +17,24 @@ import (
 )
 
 type WorkerConfig struct {
-	Server       string
-	Token        string
-	Name         string
-	Runner       string
-	Work         string
-	CgroupRoot   string
-	ProcRoot     string
-	LeaseSeconds int
-	HTTPClient   *http.Client
+	Server     string
+	Token      string
+	Runner     string
+	Work       string
+	CgroupRoot string
+	ProcRoot   string
+	HTTPClient *http.Client
 }
 
 type LoopConfig struct {
-	Worker       WorkerConfig
-	PollInterval time.Duration
-	TaskTimeout  time.Duration
-	Logf         func(format string, args ...any)
+	Worker WorkerConfig
+	Logf   func(format string, args ...any)
 }
 
 type leaseRequest struct {
-	Name         string `json:"name"`
-	Version      string `json:"version"`
-	Host         string `json:"host"`
-	Arch         string `json:"arch"`
-	LeaseSeconds int    `json:"leaseSeconds"`
+	Version string `json:"version"`
+	Host    string `json:"host"`
+	Arch    string `json:"arch"`
 }
 
 type leaseResponse struct {
@@ -147,24 +141,16 @@ func (task leaseTask) needsAssets() bool {
 }
 
 func RunLoop(ctx context.Context, cfg LoopConfig) error {
-	if cfg.PollInterval <= 0 {
-		cfg.PollInterval = time.Second
-	}
-	if cfg.TaskTimeout <= 0 {
-		cfg.TaskTimeout = 5 * time.Minute
-	}
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		runCtx, cancel := context.WithTimeout(ctx, cfg.TaskTimeout)
-		worked, err := RunOne(runCtx, cfg.Worker)
-		cancel()
+		worked, err := RunOne(ctx, cfg.Worker)
 		if err != nil && cfg.Logf != nil {
 			cfg.Logf("judger task failed: %v", err)
 		}
 		if !worked || err != nil {
-			if err := sleepContext(ctx, cfg.PollInterval); err != nil {
+			if err := sleepContext(ctx, time.Second); err != nil {
 				return err
 			}
 		}
@@ -206,11 +192,9 @@ func (task leaseTask) toTask() Task {
 func lease(ctx context.Context, client *http.Client, cfg WorkerConfig) (*leaseTask, error) {
 	host, _ := os.Hostname()
 	req := leaseRequest{
-		Name:         cfg.Name,
-		Version:      Version,
-		Host:         host,
-		Arch:         runtime.GOOS + "/" + runtime.GOARCH,
-		LeaseSeconds: cfg.LeaseSeconds,
+		Version: Version,
+		Host:    host,
+		Arch:    runtime.GOOS + "/" + runtime.GOARCH,
 	}
 	var resp leaseResponse
 	if err := doJSON(ctx, client, cfg, http.MethodPost, "/api/judger/lease", req, &resp); err != nil {

@@ -7,26 +7,56 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"strings"
-	"time"
 )
 
 const Version = "v4-dev"
+const JudgerRoot = "/var/lib/doj"
+
+const (
+	defaultServer = "http://localhost:7974"
+	runnerUID     = 20001
+	runnerGID     = 20001
+)
 
 func JudgerCLI(ctx context.Context, args []string) int {
 	if len(args) > 0 && args[0] == "version" {
 		fmt.Fprintln(os.Stdout, Version)
 		return 0
 	}
-	if len(args) > 0 && args[0] == "once" {
-		return judgerOnce(ctx, args[1:])
+	if len(args) > 0 {
+		judgerUsage(os.Stderr)
+		return 2
 	}
-	if len(args) > 0 && args[0] == "serve" {
-		return judgerServe(ctx, args[1:])
+	runner, err := installRunner()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
 	}
-	judgerUsage(os.Stderr)
-	return 2
+	work := filepath.Join(JudgerRoot, "jobs")
+	if err := os.MkdirAll(work, 0o755); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	err = RunLoop(ctx, LoopConfig{
+		Worker: WorkerConfig{
+			Server:     getenv("SERVER", defaultServer),
+			Token:      os.Getenv("TOKEN"),
+			Runner:     runner,
+			Work:       work,
+			CgroupRoot: filepath.Join("/sys/fs/cgroup", "doj"),
+			ProcRoot:   "/proc",
+		},
+		Logf: func(format string, args ...any) {
+			fmt.Fprintf(os.Stderr, format+"\n", args...)
+		},
+	})
+	if err != nil && !errors.Is(err, context.Canceled) {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	return 0
 }
 
 func RunnerCLI(ctx context.Context, args []string) int {
@@ -60,15 +90,10 @@ func runnerServe(ctx context.Context, args []string) int {
 	socket := flags.String("socket", "", "unix socket path")
 	work := flags.String("work", "", "job work directory")
 	runner := flags.String("runner", "", "runner binary path")
-	userUID := flags.Int("user-uid", getenvInt("DOJ_RUNNER_USER_UID", -1), "uid for user program; negative disables setuid")
-	userGID := flags.Int("user-gid", getenvInt("DOJ_RUNNER_USER_GID", -1), "gid for user program; negative disables setgid")
 	if err := flags.Parse(args); err != nil {
 		return 2
 	}
-	identity := ProcessIdentity{}
-	if *userUID >= 0 && *userGID >= 0 {
-		identity = ProcessIdentity{UID: uint32(*userUID), GID: uint32(*userGID), Enabled: true}
-	}
+	identity := ProcessIdentity{UID: runnerUID, GID: runnerGID, Enabled: true}
 	if err := ServeRunner(ctx, RunnerServe{Socket: *socket, Work: *work, Runner: *runner, UserIdentity: identity}); err != nil && !errors.Is(err, context.Canceled) {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
@@ -76,113 +101,9 @@ func runnerServe(ctx context.Context, args []string) int {
 	return 0
 }
 
-func judgerOnce(ctx context.Context, args []string) int {
-	flags := flag.NewFlagSet("once", flag.ContinueOnError)
-	flags.SetOutput(os.Stderr)
-	server := flags.String("server", getenv("DOJ_SERVER", "http://localhost:7974"), "server base URL")
-	token := flags.String("token", "", "judger API token")
-	tokenFile := flags.String("token-file", "", "file containing judger API token")
-	name := flags.String("name", getenv("DOJ_JUDGER_NAME", "local-judger"), "judger name")
-	runner := flags.String("runner", getenv("DOJ_RUNNER", "doj-runner"), "runner binary path")
-	work := flags.String("work", getenv("DOJ_WORK", filepath.Join(os.TempDir(), "doj-judger")), "work directory")
-	cgroupRoot := flags.String("cgroup-root", getenv("DOJ_CGROUP_ROOT", ""), "cgroup v2 root for user programs")
-	procRoot := flags.String("proc-root", getenv("DOJ_PROC_ROOT", "/proc"), "proc root for container pid mapping")
-	lease := flags.Int("lease", 60, "lease seconds")
-	timeout := flags.Duration("timeout", 5*time.Minute, "single task timeout")
-	if err := flags.Parse(args); err != nil {
-		return 2
-	}
-	resolvedToken, err := resolveToken(*token, *tokenFile)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
-	}
-	runCtx, cancel := context.WithTimeout(ctx, *timeout)
-	defer cancel()
-	worked, err := RunOne(runCtx, WorkerConfig{
-		Server:       *server,
-		Token:        resolvedToken,
-		Name:         *name,
-		Runner:       *runner,
-		Work:         *work,
-		CgroupRoot:   *cgroupRoot,
-		ProcRoot:     *procRoot,
-		LeaseSeconds: *lease,
-	})
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
-	}
-	if !worked {
-		fmt.Fprintln(os.Stdout, "no task")
-		return 0
-	}
-	fmt.Fprintln(os.Stdout, "task finished")
-	return 0
-}
-
-func judgerServe(ctx context.Context, args []string) int {
-	flags := flag.NewFlagSet("serve", flag.ContinueOnError)
-	flags.SetOutput(os.Stderr)
-	server := flags.String("server", getenv("DOJ_SERVER", "http://localhost:7974"), "server base URL")
-	token := flags.String("token", "", "judger API token")
-	tokenFile := flags.String("token-file", "", "file containing judger API token")
-	name := flags.String("name", getenv("DOJ_JUDGER_NAME", "local-judger"), "judger name")
-	runner := flags.String("runner", getenv("DOJ_RUNNER", "doj-runner"), "runner binary path")
-	work := flags.String("work", getenv("DOJ_WORK", filepath.Join(os.TempDir(), "doj-judger")), "work directory")
-	cgroupRoot := flags.String("cgroup-root", getenv("DOJ_CGROUP_ROOT", ""), "cgroup v2 root for user programs")
-	procRoot := flags.String("proc-root", getenv("DOJ_PROC_ROOT", "/proc"), "proc root for container pid mapping")
-	lease := flags.Int("lease", 60, "lease seconds")
-	timeout := flags.Duration("timeout", 5*time.Minute, "single task timeout")
-	interval := flags.Duration("interval", time.Second, "poll interval when idle or after errors")
-	if err := flags.Parse(args); err != nil {
-		return 2
-	}
-	resolvedToken, err := resolveToken(*token, *tokenFile)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
-	}
-	err = RunLoop(ctx, LoopConfig{
-		Worker: WorkerConfig{
-			Server:       *server,
-			Token:        resolvedToken,
-			Name:         *name,
-			Runner:       *runner,
-			Work:         *work,
-			CgroupRoot:   *cgroupRoot,
-			ProcRoot:     *procRoot,
-			LeaseSeconds: *lease,
-		},
-		TaskTimeout:  *timeout,
-		PollInterval: *interval,
-		Logf: func(format string, args ...any) {
-			fmt.Fprintf(os.Stderr, format+"\n", args...)
-		},
-	})
-	if err != nil && !errors.Is(err, context.Canceled) {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
-	}
-	return 0
-}
-
 func judgerUsage(w io.Writer) {
-	fmt.Fprintln(w, "usage: doj-judger once --server http://localhost:7974 --runner ./doj-runner")
-	fmt.Fprintln(w, "       doj-judger serve --server http://localhost:7974 --runner ./doj-runner")
-}
-
-func resolveToken(token string, file string) (string, error) {
-	token = strings.TrimSpace(token)
-	file = strings.TrimSpace(file)
-	if token != "" || file == "" {
-		return token, nil
-	}
-	content, err := os.ReadFile(file)
-	if err != nil {
-		return "", fmt.Errorf("read judger token file: %w", err)
-	}
-	return strings.TrimSpace(string(content)), nil
+	fmt.Fprintln(w, "usage: doj-judger")
+	fmt.Fprintln(w, "       doj-judger version")
 }
 
 func getenv(key string, fallback string) string {
@@ -192,14 +113,54 @@ func getenv(key string, fallback string) string {
 	return fallback
 }
 
-func getenvInt(key string, fallback int) int {
-	value := os.Getenv(key)
-	if value == "" {
-		return fallback
+func installRunner() (string, error) {
+	src, err := findRunner()
+	if err != nil {
+		return "", err
 	}
-	var parsed int
-	if _, err := fmt.Sscanf(value, "%d", &parsed); err != nil {
-		return fallback
+	target := filepath.Join(JudgerRoot, "bin", "doj-runner")
+	if sameFile(src, target) {
+		return target, nil
 	}
-	return parsed
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		return "", err
+	}
+	input, err := os.Open(src)
+	if err != nil {
+		return "", err
+	}
+	defer input.Close()
+	output, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
+	if err != nil {
+		return "", err
+	}
+	if _, err := io.Copy(output, input); err != nil {
+		_ = output.Close()
+		return "", err
+	}
+	if err := output.Close(); err != nil {
+		return "", err
+	}
+	return target, nil
+}
+
+func findRunner() (string, error) {
+	exe, err := os.Executable()
+	if err == nil {
+		candidate := filepath.Join(filepath.Dir(exe), "doj-runner")
+		if info, statErr := os.Stat(candidate); statErr == nil && info.Mode().IsRegular() {
+			return candidate, nil
+		}
+	}
+	path, err := exec.LookPath("doj-runner")
+	if err != nil {
+		return "", fmt.Errorf("doj-runner binary is required beside doj-judger or in PATH")
+	}
+	return path, nil
+}
+
+func sameFile(a string, b string) bool {
+	aInfo, aErr := os.Stat(a)
+	bInfo, bErr := os.Stat(b)
+	return aErr == nil && bErr == nil && os.SameFile(aInfo, bInfo)
 }

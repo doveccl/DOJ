@@ -20,7 +20,7 @@ func EnsureAdmin(db *gorm.DB, name string, mail string, password string) error {
 	name = strings.TrimSpace(name)
 	mail = strings.TrimSpace(mail)
 	if name == "" || mail == "" || password == "" {
-		return fmt.Errorf("bootstrap admin is required when no admin exists; set DOJ_BOOTSTRAP_ADMIN, DOJ_BOOTSTRAP_MAIL, and DOJ_BOOTSTRAP_PASSWORD")
+		return fmt.Errorf("default admin seed is incomplete")
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)

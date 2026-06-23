@@ -11,8 +11,8 @@ import (
 )
 
 func TestRunContainerTaskNormalMultiCase(t *testing.T) {
-	if os.Getenv("DOJ_DOCKER_TEST") != "1" {
-		t.Skip("set DOJ_DOCKER_TEST=1 to run container task test")
+	if os.Getenv("DOCKER_TEST") != "1" {
+		t.Skip("set DOCKER_TEST=1 to run container task test")
 	}
 	if _, err := exec.LookPath("docker"); err != nil {
 		t.Skip("docker CLI is not available")
@@ -52,12 +52,12 @@ func TestRunContainerTaskNormalMultiCase(t *testing.T) {
 }
 
 func TestRunContainerTaskCgroupAttach(t *testing.T) {
-	if os.Getenv("DOJ_DOCKER_TEST") != "1" {
-		t.Skip("set DOJ_DOCKER_TEST=1 to run container task test")
+	if os.Getenv("DOCKER_TEST") != "1" {
+		t.Skip("set DOCKER_TEST=1 to run container task test")
 	}
-	root := os.Getenv("DOJ_CGROUP_TEST_ROOT")
+	root := os.Getenv("CGROUP_TEST_ROOT")
 	if root == "" {
-		t.Skip("set DOJ_CGROUP_TEST_ROOT to run container cgroup attach test")
+		t.Skip("set CGROUP_TEST_ROOT to run container cgroup attach test")
 	}
 	if _, err := exec.LookPath("docker"); err != nil {
 		t.Skip("docker CLI is not available")
@@ -100,8 +100,8 @@ func TestRunContainerTaskCgroupAttach(t *testing.T) {
 }
 
 func TestRunContainerTaskCustomInteractorFromAsset(t *testing.T) {
-	if os.Getenv("DOJ_DOCKER_TEST") != "1" {
-		t.Skip("set DOJ_DOCKER_TEST=1 to run container task test")
+	if os.Getenv("DOCKER_TEST") != "1" {
+		t.Skip("set DOCKER_TEST=1 to run container task test")
 	}
 	if _, err := exec.LookPath("docker"); err != nil {
 		t.Skip("docker CLI is not available")
@@ -119,9 +119,9 @@ read a
 printf '4\n'
 read b
 if [ "$a" = 9 ] && [ "$b" = 16 ]; then
-  printf '{"verdict":"AC","score":100}\n' > "$DOJ_RESULT"
+  printf '{"verdict":"AC","score":100}\n' > "$RESULT"
 else
-  printf '{"verdict":"WA","score":0,"message":"bad interaction"}\n' > "$DOJ_RESULT"
+  printf '{"verdict":"WA","score":0,"message":"bad interaction"}\n' > "$RESULT"
 fi
 `
 	if err := os.WriteFile(filepath.Join(judgeDir, "interactor"), []byte(interactor), 0o700); err != nil {
@@ -154,8 +154,8 @@ fi
 }
 
 func TestRunContainerTaskCustomJudgeFromDockerfile(t *testing.T) {
-	if os.Getenv("DOJ_DOCKER_TEST") != "1" {
-		t.Skip("set DOJ_DOCKER_TEST=1 to run container task test")
+	if os.Getenv("DOCKER_TEST") != "1" {
+		t.Skip("set DOCKER_TEST=1 to run container task test")
 	}
 	if _, err := exec.LookPath("docker"); err != nil {
 		t.Skip("docker CLI is not available")
@@ -172,14 +172,14 @@ func TestRunContainerTaskCustomJudgeFromDockerfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	checker := `#!/bin/sh
-cat "$DOJ_INPUT"
+cat "$INPUT"
 exec 1>&-
 got="$(cat)"
-ans="$(cat "$DOJ_ANSWER")"
+ans="$(cat "$ANSWER")"
 if [ "$got" = "$ans" ]; then
-  printf '{"verdict":"AC","score":100}\n' > "$DOJ_RESULT"
+  printf '{"verdict":"AC","score":100}\n' > "$RESULT"
 else
-  printf '{"verdict":"WA","score":0,"message":"docker judge rejected"}\n' > "$DOJ_RESULT"
+  printf '{"verdict":"WA","score":0,"message":"docker judge rejected"}\n' > "$RESULT"
 fi
 `
 	if err := os.WriteFile(filepath.Join(judgeDir, "judge.sh"), []byte(checker), 0o600); err != nil {
@@ -212,8 +212,8 @@ fi
 }
 
 func TestRunContainerTaskUserCannotReadJobArtifacts(t *testing.T) {
-	if os.Getenv("DOJ_DOCKER_TEST") != "1" {
-		t.Skip("set DOJ_DOCKER_TEST=1 to run container task test")
+	if os.Getenv("DOCKER_TEST") != "1" {
+		t.Skip("set DOCKER_TEST=1 to run container task test")
 	}
 	if _, err := exec.LookPath("docker"); err != nil {
 		t.Skip("docker CLI is not available")

@@ -313,10 +313,10 @@ func judgeCommand(ctx context.Context, req LocalRun, resultPath string, outputLi
 	if req.JudgeCommand != "" {
 		cmd := shellCommand(ctx, req.JudgeCommand)
 		cmd.Env = append(os.Environ(),
-			"DOJ_INPUT="+req.Case.Input,
-			"DOJ_ANSWER="+req.Case.Answer,
-			"DOJ_RESULT="+resultPath,
-			"DOJ_OUTPUT_LIMIT="+strconv.FormatInt(outputLimit, 10),
+			"INPUT="+req.Case.Input,
+			"ANSWER="+req.Case.Answer,
+			"RESULT="+resultPath,
+			"OUTPUT_LIMIT="+strconv.FormatInt(outputLimit, 10),
 		)
 		return cmd
 	}

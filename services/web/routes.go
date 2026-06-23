@@ -2913,9 +2913,9 @@ static string trim_right(string s) {
 }
 
 int main() {
-  const char* inputPath = getenv("DOJ_INPUT");
-  const char* answerPath = getenv("DOJ_ANSWER");
-  const char* resultPath = getenv("DOJ_RESULT");
+  const char* inputPath = getenv("INPUT");
+  const char* answerPath = getenv("ANSWER");
+  const char* resultPath = getenv("RESULT");
   if (!inputPath || !answerPath || !resultPath) return 2;
 
   cout << read_file(inputPath);

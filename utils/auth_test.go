@@ -61,42 +61,6 @@ func TestSessionCookiesCanBeForcedForProductionProxy(t *testing.T) {
 	}
 }
 
-func TestConfigureCookiesFromEnvRejectsUnsafeNone(t *testing.T) {
-	resetCookieConfig(t)
-	t.Setenv("DOJ_COOKIE_SAMESITE", "none")
-	t.Setenv("DOJ_COOKIE_SECURE", "false")
-
-	if err := ConfigureCookiesFromEnv(); err == nil {
-		t.Fatalf("expected SameSite=None with Secure=false to fail")
-	}
-
-	resetCookieConfig(t)
-	t.Setenv("DOJ_COOKIE_SAMESITE", "none")
-	t.Setenv("DOJ_COOKIE_SECURE", "auto")
-	if err := ConfigureCookiesFromEnv(); err == nil {
-		t.Fatalf("expected SameSite=None with Secure=auto to fail")
-	}
-}
-
-func TestConfigureCookiesFromEnvParsesProductionSettings(t *testing.T) {
-	resetCookieConfig(t)
-	t.Setenv("DOJ_COOKIE_DOMAIN", "example.com")
-	t.Setenv("DOJ_COOKIE_SECURE", "true")
-	t.Setenv("DOJ_COOKIE_SAMESITE", "strict")
-
-	if err := ConfigureCookiesFromEnv(); err != nil {
-		t.Fatalf("ConfigureCookiesFromEnv failed: %v", err)
-	}
-	cookies := issueSessionCookies("http://api.example.com/")
-	session := cookieByName(cookies, SessionCookie)
-	if session == nil {
-		t.Fatalf("missing %s", SessionCookie)
-	}
-	if session.Domain != "example.com" || !session.Secure || session.SameSite != http.SameSiteStrictMode {
-		t.Fatalf("unexpected cookie config: domain=%q secure=%v samesite=%v", session.Domain, session.Secure, session.SameSite)
-	}
-}
-
 func resetCookieConfig(t *testing.T) {
 	t.Helper()
 	ConfigureCookies(CookieConfig{SameSite: http.SameSiteLaxMode})

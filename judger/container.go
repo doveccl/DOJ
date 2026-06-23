@@ -310,8 +310,6 @@ func startRunnerContainer(ctx context.Context, image string, runner string, work
 		"--socket", filepath.ToSlash(filepath.Join(containerWorkDir, "runner.sock")),
 		"--work", containerWorkDir,
 		"--runner", "/usr/local/bin/doj-runner",
-		"--user-uid", "65534",
-		"--user-gid", "65534",
 	}
 	out, err := runDockerStep(ctx, work, defaultCompileOutputLimit, args...)
 	if err != nil {

@@ -807,6 +807,7 @@ export interface components {
         AdminJudger: {
             id: number;
             name: string;
+            token?: string;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -823,7 +824,6 @@ export interface components {
         };
         AdminJudgerCreate: {
             name: string;
-            auth: string;
         };
         Problem: {
             id: number;

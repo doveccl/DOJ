@@ -25,13 +25,13 @@ FROM alpine:3.23
 
 RUN apk add --no-cache ca-certificates \
   && adduser -D -H doj \
-  && mkdir -p /var/lib/doj/uploads \
-  && chown -R doj:doj /var/lib/doj
+  && mkdir -p /app \
+  && mkdir -p /var/lib/doj \
+  && chown -R doj:doj /app /var/lib/doj
 COPY --from=build /out/doj-server /usr/local/bin/doj-server
-COPY --from=web /src/dist /usr/share/doj/web
+COPY --from=web --chown=doj:doj /src/dist /app/dist
 
-WORKDIR /var/lib/doj
-ENV DOJ_WEB_DIR=/usr/share/doj/web
+WORKDIR /app
 USER doj
 EXPOSE 7974
 CMD ["doj-server"]

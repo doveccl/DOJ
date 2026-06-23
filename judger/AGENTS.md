@@ -57,5 +57,5 @@ UserProgram 启动顺序：
 ## 测试要求
 
 - 普通题、custom checker、interactive judge、Quine 类回显、输出爆炸、超时、编译限制和 case 隔离必须有 Go 测试覆盖。
-- cgroup v2 的 memory/pids 恶意测试只在 Linux 上运行；设置 `DOJ_CGROUP_TEST_ROOT` 后执行 `go test ./judger`。
+- cgroup v2 的 memory/pids 恶意测试只在 Linux 上运行；设置 `CGROUP_TEST_ROOT` 后执行 `go test ./judger`。
 - 非 Linux 环境的本地测试只能证明 runner 协议、pipe 模型和普通进程清理，不能替代 Linux cgroup 资源隔离测试。

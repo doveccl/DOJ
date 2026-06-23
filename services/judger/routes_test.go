@@ -119,7 +119,7 @@ func TestAuthAndLeaseAuthorization(t *testing.T) {
 }
 
 func TestJudgerRequestNameFallback(t *testing.T) {
-	if got := judgerRequestName(LeaseRequest{Name: " linux-a "}); got != "linux-a" {
+	if got := judgerRequestName(LeaseRequest{Host: " linux-a "}); got != "linux-a" {
 		t.Fatalf("name fallback = %q", got)
 	}
 	if got := judgerRequestName(LeaseRequest{}); got != "local-judger" {

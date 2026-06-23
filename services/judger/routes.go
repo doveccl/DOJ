@@ -27,13 +27,15 @@ type API struct {
 }
 
 const (
-	contextJudgerID    = "judgerID"
-	contextJudgerLocal = "judgerLocal"
+	contextJudgerID     = "judgerID"
+	contextJudgerLocal  = "judgerLocal"
+	defaultLeaseSeconds = 60
 )
 
 type LeaseRequest struct {
-	Name         string `json:"name"`
-	LeaseSeconds int    `json:"leaseSeconds"`
+	Version string `json:"version"`
+	Host    string `json:"host"`
+	Arch    string `json:"arch"`
 }
 
 type LeaseResponse struct {
@@ -150,9 +152,6 @@ func (api *API) lease(c echo.Context) error {
 		return err
 	}
 
-	if req.LeaseSeconds <= 0 {
-		req.LeaseSeconds = 60
-	}
 	now := time.Now()
 	judgerID, err := api.ensureJudger(c, req)
 	if err != nil {
@@ -171,7 +170,7 @@ func (api *API) lease(c echo.Context) error {
 		}
 		var submission *models.Submission
 		for index := range rows {
-			if reserveLease(rows[index].ID, judgerID, now.Add(time.Duration(req.LeaseSeconds)*time.Second), now) {
+			if reserveLease(rows[index].ID, judgerID, now.Add(defaultLeaseSeconds*time.Second), now) {
 				submission = &rows[index]
 				break
 			}
@@ -312,6 +311,11 @@ func releaseLease(submissionID uint) {
 
 func (api *API) ensureJudger(c echo.Context, req LeaseRequest) (uint, error) {
 	if id, ok := c.Get(contextJudgerID).(uint); ok && id > 0 {
+		if host := strings.TrimSpace(req.Host); host != "" {
+			if err := api.db.Model(&models.Judger{}).Where("id = ? AND name = ?", id, "").Update("name", host).Error; err != nil {
+				return 0, err
+			}
+		}
 		return id, nil
 	}
 	if !isLocalJudger(c) {
@@ -408,7 +412,7 @@ func validVerdict(status string) bool {
 }
 
 func judgerRequestName(req LeaseRequest) string {
-	name := strings.TrimSpace(req.Name)
+	name := strings.TrimSpace(req.Host)
 	if name != "" {
 		return name
 	}

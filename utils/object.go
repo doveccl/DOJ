@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -10,7 +11,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/minio/minio-go/v7"
@@ -29,43 +29,76 @@ type ObjectInfo struct {
 	Size int64
 }
 
+const defaultStorageRoot = "/var/lib/doj"
+
 func NewObjectStoreFromEnv() (ObjectStore, error) {
-	bucket := os.Getenv("DOJ_S3_BUCKET")
-	endpoint := os.Getenv("DOJ_S3_ENDPOINT")
-	if bucket != "" || endpoint != "" {
-		if bucket == "" || endpoint == "" {
-			return nil, errors.New("DOJ_S3_ENDPOINT and DOJ_S3_BUCKET must be set together")
+	storage := storageURL()
+	if strings.HasPrefix(storage, "http://") || strings.HasPrefix(storage, "https://") {
+		config, err := parseS3Storage(storage)
+		if err != nil {
+			return nil, err
 		}
-		secure := true
-		if parsed, err := url.Parse(endpoint); err == nil && parsed.Host != "" {
-			secure = parsed.Scheme == "https"
-			endpoint = parsed.Host
-		}
-		if raw := os.Getenv("DOJ_S3_USE_SSL"); raw != "" {
-			value, err := strconv.ParseBool(raw)
-			if err != nil {
-				return nil, err
-			}
-			secure = value
-		}
-		client, err := minio.New(endpoint, &minio.Options{
-			Creds:  credentials.NewStaticV4(os.Getenv("DOJ_S3_ACCESS_KEY"), os.Getenv("DOJ_S3_SECRET_KEY"), ""),
-			Secure: secure,
-			Region: os.Getenv("DOJ_S3_REGION"),
+		client, err := minio.New(config.endpoint, &minio.Options{
+			Creds:  credentials.NewStaticV4(config.access, config.secret, ""),
+			Secure: config.secure,
+			Region: config.region,
 		})
 		if err != nil {
 			return nil, err
 		}
-		return s3Store{client: client, bucket: bucket}, nil
+		return s3Store{client: client, bucket: config.bucket, region: config.region}, nil
 	}
 	return localStore{root: UploadRoot()}, nil
 }
 
 func UploadRoot() string {
-	if root := os.Getenv("DOJ_UPLOAD_DIR"); root != "" {
-		return root
+	return storageURL()
+}
+
+func storageURL() string {
+	if value := strings.TrimSpace(os.Getenv("STORAGE")); value != "" {
+		return value
 	}
-	return ".data/uploads"
+	return defaultStorageRoot
+}
+
+type s3StorageConfig struct {
+	endpoint string
+	access   string
+	secret   string
+	bucket   string
+	region   string
+	secure   bool
+}
+
+func parseS3Storage(raw string) (s3StorageConfig, error) {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return s3StorageConfig{}, err
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return s3StorageConfig{}, fmt.Errorf("STORAGE must start with http:// or https:// for S3-compatible storage")
+	}
+	if parsed.Host == "" {
+		return s3StorageConfig{}, fmt.Errorf("STORAGE S3 endpoint host is required")
+	}
+	access := parsed.User.Username()
+	secret, _ := parsed.User.Password()
+	if access == "" || secret == "" {
+		return s3StorageConfig{}, fmt.Errorf("STORAGE S3 credentials are required")
+	}
+	bucket := strings.Trim(parsed.Path, "/")
+	if bucket == "" || strings.Contains(bucket, "/") {
+		return s3StorageConfig{}, fmt.Errorf("STORAGE S3 URL path must be exactly one bucket name")
+	}
+	return s3StorageConfig{
+		endpoint: parsed.Host,
+		access:   access,
+		secret:   secret,
+		bucket:   bucket,
+		region:   parsed.Query().Get("region"),
+		secure:   parsed.Scheme == "https",
+	}, nil
 }
 
 func CleanObjectKey(raw string) (string, error) {
@@ -179,6 +212,7 @@ func (store localStore) Delete(_ context.Context, key string) error {
 type s3Store struct {
 	client *minio.Client
 	bucket string
+	region string
 }
 
 func (store s3Store) Put(ctx context.Context, key string, data io.Reader, size int64, contentType string) error {
@@ -201,7 +235,7 @@ func (store s3Store) ensureBucket(ctx context.Context) error {
 	if exists {
 		return nil
 	}
-	return store.client.MakeBucket(ctx, store.bucket, minio.MakeBucketOptions{Region: os.Getenv("DOJ_S3_REGION")})
+	return store.client.MakeBucket(ctx, store.bucket, minio.MakeBucketOptions{Region: store.region})
 }
 
 func (store s3Store) Open(ctx context.Context, key string) (io.ReadCloser, string, error) {

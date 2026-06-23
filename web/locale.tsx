@@ -230,6 +230,8 @@ const zh = {
     editLang: '编辑语言',
     addJudger: '新增评测机',
     editJudger: '编辑评测机',
+    judgerTokenCreated: '评测机令牌',
+    judgerTokenHelp: '令牌只在创建时展示一次，请复制到评测机运行环境。',
     roles: {
       admin: '管理员',
       user: '用户'
@@ -520,6 +522,8 @@ const en: typeof zh = {
     editLang: 'Edit language',
     addJudger: 'Add judger',
     editJudger: 'Edit judger',
+    judgerTokenCreated: 'Judger token',
+    judgerTokenHelp: 'The token is shown only once. Copy it into the judger runtime environment.',
     roles: {
       admin: 'Admin',
       user: 'User'
