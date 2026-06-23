@@ -37,6 +37,7 @@ type ContestForm = {
   kind: string
   startAt: Dayjs
   endAt: Dayjs
+  freezeAt?: Dayjs | null
   problems?: number[]
 }
 
@@ -61,6 +62,7 @@ export function ContestsPage() {
         kind: values.kind,
         startAt: values.startAt.toISOString(),
         endAt: values.endAt.toISOString(),
+        freezeAt: values.freezeAt?.toISOString() ?? '',
         problems: values.problems ?? []
       }),
     onSuccess: (item) => {
@@ -83,6 +85,7 @@ export function ContestsPage() {
         kind: values.kind,
         startAt: values.startAt.toISOString(),
         endAt: values.endAt.toISOString(),
+        freezeAt: values.freezeAt?.toISOString() ?? '',
         problems: values.problems ?? []
       })
     },
@@ -202,9 +205,10 @@ function ContestModal({
           kind: detail.data.contest.kind,
           startAt: dayjs(detail.data.contest.startAt),
           endAt: dayjs(detail.data.contest.endAt),
+          freezeAt: detail.data.contest.freezeAt ? dayjs(detail.data.contest.freezeAt) : null,
           problems: detail.data.problems.map((problem) => problem.id)
         }
-      : { title: '', desc: '', kind: 'OI', problems: [] }
+      : { title: '', desc: '', kind: 'OI', freezeAt: null, problems: [] }
 
   const body =
     isEdit && detail.isLoading ? (
@@ -239,6 +243,9 @@ function ContestModal({
             <DatePicker showTime />
           </Form.Item>
           <Form.Item name="endAt" label={text.contests.end} rules={[{ required: true }]}>
+            <DatePicker showTime />
+          </Form.Item>
+          <Form.Item name="freezeAt" label={text.contests.freeze}>
             <DatePicker showTime />
           </Form.Item>
         </Space>

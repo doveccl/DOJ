@@ -967,6 +967,8 @@ export interface components {
             startAt: string;
             /** Format: date-time */
             endAt: string;
+            /** Format: date-time */
+            freezeAt: string | null;
             status: string;
             total: number;
         };
@@ -984,6 +986,7 @@ export interface components {
             startAt: string;
             /** Format: date-time */
             endAt: string;
+            freezeAt: string;
             problems: number[];
         };
         ContestUpdate: {
@@ -994,6 +997,7 @@ export interface components {
             startAt: string;
             /** Format: date-time */
             endAt: string;
+            freezeAt: string;
             problems: number[];
         };
         Submission: {
@@ -1035,6 +1039,8 @@ export interface components {
             avatar: string;
             ac: number;
             submit: number;
+            score: number;
+            penalty: number;
         };
         UserProfile: {
             user: components["schemas"]["PublicUser"];

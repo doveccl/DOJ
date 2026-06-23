@@ -1617,7 +1617,7 @@ components:
             type: integer
     Contest:
       type: object
-      required: [id, title, desc, kind, startAt, endAt, status, total]
+      required: [id, title, desc, kind, startAt, endAt, freezeAt, status, total]
       properties:
         id:
           type: integer
@@ -1633,6 +1633,10 @@ components:
         endAt:
           type: string
           format: date-time
+        freezeAt:
+          type: string
+          format: date-time
+          nullable: true
         status:
           type: string
         total:
@@ -1657,7 +1661,7 @@ components:
             $ref: "#/components/schemas/Submission"
     ContestCreate:
       type: object
-      required: [title, desc, kind, startAt, endAt, problems]
+      required: [title, desc, kind, startAt, endAt, freezeAt, problems]
       properties:
         title:
           type: string
@@ -1671,13 +1675,15 @@ components:
         endAt:
           type: string
           format: date-time
+        freezeAt:
+          type: string
         problems:
           type: array
           items:
             type: integer
     ContestUpdate:
       type: object
-      required: [title, desc, kind, startAt, endAt, problems]
+      required: [title, desc, kind, startAt, endAt, freezeAt, problems]
       properties:
         title:
           type: string
@@ -1691,6 +1697,8 @@ components:
         endAt:
           type: string
           format: date-time
+        freezeAt:
+          type: string
         problems:
           type: array
           items:
@@ -1762,7 +1770,7 @@ components:
           type: string
     RankUser:
       type: object
-      required: [rank, user, bio, avatar, ac, submit]
+      required: [rank, user, bio, avatar, ac, submit, score, penalty]
       properties:
         rank:
           type: integer
@@ -1775,6 +1783,10 @@ components:
         ac:
           type: integer
         submit:
+          type: integer
+        score:
+          type: integer
+        penalty:
           type: integer
     UserProfile:
       type: object

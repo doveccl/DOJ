@@ -141,9 +141,11 @@ const zh = {
     create: '创建比赛',
     running: '进行中',
     pending: '未开始',
+    frozen: '封榜中',
     ended: '已结束',
     start: '开始时间',
     end: '结束时间',
+    freeze: '封榜时间',
     total: (total: number) => `${total} 题`
   },
   submissions: {
@@ -168,7 +170,9 @@ const zh = {
     rank: '排名',
     user: '用户',
     ac: '通过',
-    submit: '提交'
+    submit: '提交',
+    score: '分数',
+    penalty: '罚时'
   },
   user: {
     solved: 'AC 题目',
@@ -441,9 +445,11 @@ const en: typeof zh = {
     create: 'Create contest',
     running: 'Running',
     pending: 'Pending',
+    frozen: 'Frozen',
     ended: 'Ended',
     start: 'Start time',
     end: 'End time',
+    freeze: 'Freeze time',
     total: (total: number) => `${total} problems`
   },
   submissions: {
@@ -468,7 +474,9 @@ const en: typeof zh = {
     rank: 'Rank',
     user: 'User',
     ac: 'AC',
-    submit: 'Submissions'
+    submit: 'Submissions',
+    score: 'Score',
+    penalty: 'Penalty'
   },
   user: {
     solved: 'Solved',

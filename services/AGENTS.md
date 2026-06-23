@@ -5,6 +5,9 @@
 - `admin/` 放管理员 API。
 - `judger/` 放 server 提供给 judger 的 API。
 - 管理员能力优先贴近对应业务页面，例如题目、作业、比赛、讨论。
+- 讨论 tags 是软关联文本，不因为题目隐藏、删除或赛前不可见而强制隐藏讨论、禁止发帖或禁止评论。
+- 比赛题目可见性是派生状态：赛前题库和题目详情都不可见，赛中题库不可见但题目详情可见，赛后回到题目自身 visible 口径。
+- 比赛榜单必须按赛制计算：OI 按每题最高分求和，ICPC 按首 AC 数和罚时；封榜后的非管理员榜单和比赛提交列表只计算 freezeAt 前提交。
 - judger API 负责任务领取、题包交付、结果回传和心跳，结果写入必须校验 task attempt。
 - 提交创建、judger 领取任务、judger 回传结果等会改变提交可见状态的路径，都要通过 `services/events` 广播轻量事件供 `/api/events` SSE 刷新前端。
 - 直连 loopback judger 可无 token，用于单机部署和本地开发；带 `Forwarded` / `X-Forwarded-*` / `X-Real-IP` 的反代请求不能走本地免 token。远程 judger 使用管理页配置的 auth。管理页删除 judger 后不再保留可见状态。

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -108,6 +109,7 @@ type CaseResult struct {
 
 type submissionLease struct {
 	JudgerID uint
+	Attempt  int
 	Until    time.Time
 }
 
@@ -206,7 +208,9 @@ func (api *API) tryLease(ctx context.Context, judgerID uint) (*TaskPayload, erro
 		}
 		var submission *models.Submission
 		for index := range rows {
-			if reserveLease(rows[index].ID, judgerID, now.Add(defaultLeaseSeconds*time.Second), now) {
+			nextAttempt := rows[index].Attempt + 1
+			if reserveLease(ctx, rows[index].ID, judgerID, nextAttempt, now.Add(defaultLeaseSeconds*time.Second), now) {
+				rows[index].Attempt = nextAttempt
 				submission = &rows[index]
 				break
 			}
@@ -214,13 +218,14 @@ func (api *API) tryLease(ctx context.Context, judgerID uint) (*TaskPayload, erro
 		if submission == nil {
 			return nil
 		}
-		if err := tx.Model(&models.Submission{}).Where("id = ?", submission.ID).Update("status", "judging").Error; err != nil {
-			releaseLease(submission.ID)
+		updates := map[string]any{"status": "judging", "attempt": submission.Attempt}
+		if err := tx.Model(&models.Submission{}).Where("id = ?", submission.ID).Updates(updates).Error; err != nil {
+			releaseLease(ctx, submission.ID, judgerID, submission.Attempt)
 			return err
 		}
 		got, err := buildPayload(ctx, tx, *submission)
 		if err != nil {
-			releaseLease(submission.ID)
+			releaseLease(ctx, submission.ID, judgerID, submission.Attempt)
 			return err
 		}
 		payload = got
@@ -280,10 +285,11 @@ func (api *API) result(c echo.Context) error {
 	if taskID != req.SubmissionID {
 		return c.NoContent(http.StatusAccepted)
 	}
-	if err := api.authorizeSubmission(c, req.SubmissionID); err != nil {
+	if err := api.authorizeResult(c, req.SubmissionID, req.Attempt); err != nil {
 		return err
 	}
 
+	applied := false
 	err = api.db.Transaction(func(tx *gorm.DB) error {
 		var submission models.Submission
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&submission, req.SubmissionID).Error; err != nil {
@@ -291,6 +297,9 @@ func (api *API) result(c echo.Context) error {
 				return nil
 			}
 			return err
+		}
+		if submission.Attempt != req.Attempt {
+			return nil
 		}
 		update := map[string]any{
 			"status":    req.Status,
@@ -320,29 +329,48 @@ func (api *API) result(c echo.Context) error {
 				}
 			}
 		}
+		applied = true
 		return nil
 	})
-	releaseLease(req.SubmissionID)
+	if applied {
+		releaseLease(c.Request().Context(), req.SubmissionID, judgerID(c), req.Attempt)
+	}
 	if err != nil {
 		return err
 	}
-	events.SubmissionChanged()
+	if applied {
+		events.SubmissionChanged()
+	}
 	return c.NoContent(http.StatusAccepted)
 }
 
-func reserveLease(submissionID uint, judgerID uint, until time.Time, now time.Time) bool {
+func reserveLease(ctx context.Context, submissionID uint, judgerID uint, attempt int, until time.Time, now time.Time) bool {
+	if client := utils.Redis(ctx); client != nil {
+		ok, err := client.SetNX(ctx, leaseKey(submissionID), leaseValue(judgerID, attempt), time.Until(until)).Result()
+		return err == nil && ok
+	}
 	leaseMu.Lock()
 	defer leaseMu.Unlock()
 	if current, ok := leases[submissionID]; ok && current.Until.After(now) {
 		return false
 	}
-	leases[submissionID] = submissionLease{JudgerID: judgerID, Until: until}
+	leases[submissionID] = submissionLease{JudgerID: judgerID, Attempt: attempt, Until: until}
 	return true
 }
 
-func releaseLease(submissionID uint) {
+func releaseLease(ctx context.Context, submissionID uint, judgerID uint, attempt int) {
+	if client := utils.Redis(ctx); client != nil {
+		key := leaseKey(submissionID)
+		value, err := client.Get(ctx, key).Result()
+		if err == nil && value == leaseValue(judgerID, attempt) {
+			_ = client.Del(ctx, key).Err()
+		}
+		return
+	}
 	leaseMu.Lock()
-	delete(leases, submissionID)
+	if current, ok := leases[submissionID]; ok && current.JudgerID == judgerID && current.Attempt == attempt {
+		delete(leases, submissionID)
+	}
 	leaseMu.Unlock()
 }
 
@@ -366,11 +394,13 @@ func (api *API) ensureJudger(c echo.Context, req LeaseRequest) (uint, error) {
 		if err := api.db.Create(&row).Error; err != nil {
 			return 0, err
 		}
+		c.Set(contextJudgerID, row.ID)
 		return row.ID, nil
 	}
 	if err != nil {
 		return 0, err
 	}
+	c.Set(contextJudgerID, row.ID)
 	return row.ID, nil
 }
 
@@ -382,13 +412,54 @@ func (api *API) authorizeSubmission(c echo.Context, submissionID uint) error {
 	if !ok || judgerID == 0 {
 		return echo.NewHTTPError(http.StatusUnauthorized, "invalid judger auth")
 	}
-	leaseMu.Lock()
-	lease, ok := leases[submissionID]
-	leaseMu.Unlock()
-	if !ok || lease.JudgerID != judgerID {
+	if !leaseOwnedBy(c.Request().Context(), submissionID, judgerID, 0) {
 		return echo.NewHTTPError(http.StatusUnauthorized, "invalid judger auth")
 	}
 	return nil
+}
+
+func (api *API) authorizeResult(c echo.Context, submissionID uint, attempt int) error {
+	if isLocalJudger(c) {
+		return nil
+	}
+	id := judgerID(c)
+	if id == 0 || !leaseOwnedBy(c.Request().Context(), submissionID, id, 0) {
+		return echo.NewHTTPError(http.StatusUnauthorized, "invalid judger auth")
+	}
+	return nil
+}
+
+func judgerID(c echo.Context) uint {
+	id, _ := c.Get(contextJudgerID).(uint)
+	return id
+}
+
+func leaseOwnedBy(ctx context.Context, submissionID uint, judgerID uint, attempt int) bool {
+	if client := utils.Redis(ctx); client != nil {
+		value, err := client.Get(ctx, leaseKey(submissionID)).Result()
+		if err != nil {
+			return false
+		}
+		if attempt > 0 {
+			return value == leaseValue(judgerID, attempt)
+		}
+		return strings.HasPrefix(value, strconv.FormatUint(uint64(judgerID), 10)+":")
+	}
+	leaseMu.Lock()
+	defer leaseMu.Unlock()
+	lease, ok := leases[submissionID]
+	if !ok || lease.JudgerID != judgerID {
+		return false
+	}
+	return attempt == 0 || lease.Attempt == attempt
+}
+
+func leaseKey(submissionID uint) string {
+	return "doj:lease:" + strconv.FormatUint(uint64(submissionID), 10)
+}
+
+func leaseValue(judgerID uint, attempt int) string {
+	return strconv.FormatUint(uint64(judgerID), 10) + ":" + strconv.Itoa(attempt)
 }
 
 func bearerToken(c echo.Context) (string, bool) {
@@ -434,6 +505,9 @@ func isLocalJudger(c echo.Context) bool {
 func validateResult(req ResultRequest) error {
 	if req.SubmissionID == 0 {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid result target")
+	}
+	if req.Attempt <= 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid result attempt")
 	}
 	if !validVerdict(req.Status) {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid result status")
@@ -490,7 +564,7 @@ func buildPayload(ctx context.Context, tx *gorm.DB, submission models.Submission
 	return &TaskPayload{
 		ID:           submission.ID,
 		SubmissionID: submission.ID,
-		Attempt:      1,
+		Attempt:      submission.Attempt,
 		Source:       submission.Code,
 		Lang: LangPayload{
 			ID:         lang.ID,

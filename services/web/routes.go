@@ -26,6 +26,7 @@ import (
 	"github.com/doveccl/doj/services/events"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
+	echomw "github.com/labstack/echo/v4/middleware"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -37,6 +38,9 @@ type API struct {
 const (
 	maxAssetBytes         = 128 << 20
 	maxEditableAssetBytes = 1 << 20
+	imageBodyLimit        = "6M"
+	assetBodyLimit        = "130M"
+	editAssetBodyLimit    = "2M"
 )
 
 type Home struct {
@@ -136,14 +140,15 @@ type AssignmentDetail struct {
 }
 
 type ContestDTO struct {
-	ID      uint      `json:"id"`
-	Title   string    `json:"title"`
-	Desc    string    `json:"desc"`
-	Kind    string    `json:"kind"`
-	StartAt time.Time `json:"startAt"`
-	EndAt   time.Time `json:"endAt"`
-	Status  string    `json:"status"`
-	Total   int       `json:"total"`
+	ID       uint       `json:"id"`
+	Title    string     `json:"title"`
+	Desc     string     `json:"desc"`
+	Kind     string     `json:"kind"`
+	StartAt  time.Time  `json:"startAt"`
+	EndAt    time.Time  `json:"endAt"`
+	FreezeAt *time.Time `json:"freezeAt"`
+	Status   string     `json:"status"`
+	Total    int        `json:"total"`
 }
 
 type ContestCreate struct {
@@ -152,6 +157,7 @@ type ContestCreate struct {
 	Kind     string `json:"kind"`
 	StartAt  string `json:"startAt"`
 	EndAt    string `json:"endAt"`
+	FreezeAt string `json:"freezeAt"`
 	Problems []uint `json:"problems"`
 }
 
@@ -161,6 +167,7 @@ type ContestUpdate struct {
 	Kind     string `json:"kind"`
 	StartAt  string `json:"startAt"`
 	EndAt    string `json:"endAt"`
+	FreezeAt string `json:"freezeAt"`
 	Problems []uint `json:"problems"`
 }
 
@@ -207,12 +214,14 @@ type CaseDTO struct {
 }
 
 type RankUserDTO struct {
-	Rank   int    `json:"rank"`
-	User   string `json:"user"`
-	Bio    string `json:"bio"`
-	Avatar string `json:"avatar"`
-	AC     int    `json:"ac"`
-	Submit int    `json:"submit"`
+	Rank    int    `json:"rank"`
+	User    string `json:"user"`
+	Bio     string `json:"bio"`
+	Avatar  string `json:"avatar"`
+	AC      int    `json:"ac"`
+	Submit  int    `json:"submit"`
+	Score   int    `json:"score"`
+	Penalty int    `json:"penalty"`
 }
 
 type PublicUserDTO struct {
@@ -371,7 +380,7 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.GET("/home", api.home)
 	group.GET("/languages", api.languages)
 	group.PATCH("/home/notice", api.updateNotice)
-	group.POST("/uploads/images", api.uploadImage)
+	group.POST("/uploads/images", api.uploadImage, echomw.BodyLimit(imageBodyLimit))
 	group.GET("/media/users/*", api.userMedia)
 	group.GET("/media/problems/:id/*", api.problemMedia)
 	group.GET("/problems", api.problems)
@@ -380,14 +389,14 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.PATCH("/problems/:id", api.updateProblem)
 	group.DELETE("/problems/:id", api.deleteProblem)
 	group.GET("/problems/:id/assets", api.problemAssets)
-	group.POST("/problems/:id/assets/images", api.uploadProblemImage)
+	group.POST("/problems/:id/assets/images", api.uploadProblemImage, echomw.BodyLimit(imageBodyLimit))
 	group.GET("/problems/:id/assets/raw/*", api.problemAssetRaw)
-	group.POST("/problems/:id/assets/files", api.uploadProblemAsset)
+	group.POST("/problems/:id/assets/files", api.uploadProblemAsset, echomw.BodyLimit(assetBodyLimit))
 	group.DELETE("/problems/:id/assets/files", api.deleteProblemAsset)
 	group.GET("/problems/:id/assets/files/content", api.problemAssetContent)
-	group.PATCH("/problems/:id/assets/files/content", api.updateProblemAssetContent)
-	group.POST("/problems/:id/assets/cases", api.createProblemCase)
-	group.POST("/problems/:id/assets/template", api.fillJudgeTemplate)
+	group.PATCH("/problems/:id/assets/files/content", api.updateProblemAssetContent, echomw.BodyLimit(editAssetBodyLimit))
+	group.POST("/problems/:id/assets/cases", api.createProblemCase, echomw.BodyLimit(editAssetBodyLimit))
+	group.POST("/problems/:id/assets/template", api.fillJudgeTemplate, echomw.BodyLimit(editAssetBodyLimit))
 	group.GET("/problems/:id/assets.zip", api.downloadProblemAssets)
 	group.GET("/assignments", api.assignments)
 	group.POST("/assignments", api.createAssignment)
@@ -629,6 +638,9 @@ func (api *API) updateMe(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	if err := api.ensureMailAvailable(req.Mail, user.ID); err != nil {
+		return err
+	}
 	user.Mail = req.Mail
 	user.Bio = req.Bio
 	user.Avatar = req.Avatar
@@ -639,22 +651,37 @@ func (api *API) updateMe(c echo.Context) error {
 }
 
 func normalizeMeUpdate(req *MeUpdate) {
-	req.Mail = strings.TrimSpace(req.Mail)
+	req.Mail = strings.ToLower(strings.TrimSpace(req.Mail))
 	req.Bio = strings.TrimSpace(req.Bio)
 	req.Avatar = strings.TrimSpace(req.Avatar)
 }
 
 func validateMeUpdate(req MeUpdate) error {
-	if req.Mail != "" {
-		if _, err := mail.ParseAddress(req.Mail); err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, "invalid mail")
-		}
+	if req.Mail == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid mail")
+	}
+	addr, err := mail.ParseAddress(req.Mail)
+	if err != nil || addr.Address != req.Mail {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid mail")
 	}
 	if len([]rune(req.Bio)) > 280 {
 		return echo.NewHTTPError(http.StatusBadRequest, "bio is too long")
 	}
 	if len(req.Avatar) > 512 {
 		return echo.NewHTTPError(http.StatusBadRequest, "avatar url is too long")
+	}
+	return nil
+}
+
+func (api *API) ensureMailAvailable(mail string, currentUserID uint) error {
+	var count int64
+	if err := api.db.Model(&models.User{}).
+		Where("LOWER(mail) = ? AND id <> ?", strings.ToLower(mail), currentUserID).
+		Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return echo.NewHTTPError(http.StatusConflict, "mail already exists")
 	}
 	return nil
 }
@@ -866,21 +893,17 @@ func (api *API) homeAssignments(c echo.Context) ([]Item, error) {
 
 func (api *API) homeContests(c echo.Context) ([]Item, error) {
 
-	includeHidden := api.isAdmin(c)
 	var rows []models.Contest
 	if err := api.db.Order("start_at desc").Limit(5).Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	items := make([]Item, 0, len(rows))
 	for _, row := range rows {
-		total, err := api.contestProblemCount(row.ID, includeHidden)
+		total, err := api.contestProblemCount(row, api.isAdmin(c))
 		if err != nil {
 			return nil, err
 		}
-		if !includeHidden && total == 0 {
-			continue
-		}
-		items = append(items, Item{ID: row.ID, Title: row.Title, Meta: row.Kind})
+		items = append(items, Item{ID: row.ID, Title: row.Title, Meta: row.Kind + " · " + strconv.Itoa(total)})
 	}
 	return items, nil
 }
@@ -929,7 +952,7 @@ func (api *API) problem(c echo.Context) error {
 		}
 		return err
 	}
-	if !problem.Visible && !api.isAdmin(c) {
+	if !api.isAdmin(c) && !api.problemVisibleInDetail(problem) {
 		return echo.NewHTTPError(http.StatusNotFound, "problem not found")
 	}
 	item, err := api.problemDTOWithStatement(c.Request().Context(), problem)
@@ -943,7 +966,7 @@ func (api *API) problem(c echo.Context) error {
 	if err := api.decorateProblemMines(c, items); err != nil {
 		return err
 	}
-	if err := api.decorateProblemDiscussions(c, items); err != nil {
+	if err := api.decorateProblemDiscussions(items); err != nil {
 		return err
 	}
 	return c.JSON(http.StatusOK, items[0])
@@ -1560,13 +1583,13 @@ func (api *API) assignment(c echo.Context) error {
 	for _, link := range links {
 		var problem models.Problem
 		if err := api.db.First(&problem, link.ProblemID).Error; err == nil {
-			if !problem.Visible && !api.isAdmin(c) {
+			if !api.isAdmin(c) && !api.problemVisibleInList(problem) {
 				continue
 			}
 			problems = append(problems, problemDTO(problem))
 		}
 	}
-	submissions, err := api.contextSubmissions(c, "assignment", row.ID)
+	submissions, err := api.contextSubmissions(c, "assignment", row.ID, nil, api.isAdmin(c))
 	if err != nil {
 		return err
 	}
@@ -1589,12 +1612,9 @@ func (api *API) contests(c echo.Context) error {
 	}
 	items := make([]ContestDTO, 0, len(rows))
 	for _, row := range rows {
-		total, err := api.contestProblemCount(row.ID, api.isAdmin(c))
+		total, err := api.contestProblemCount(row, api.isAdmin(c))
 		if err != nil {
 			return err
-		}
-		if !api.isAdmin(c) && total == 0 {
-			continue
 		}
 		items = append(items, contestDTO(row, total))
 	}
@@ -1631,11 +1651,15 @@ func (api *API) createContest(c echo.Context) error {
 	if !endAt.After(startAt) {
 		return echo.NewHTTPError(http.StatusBadRequest, "end time must be after start time")
 	}
+	freezeAt, err := parseContestFreezeAt(req.FreezeAt, startAt, endAt)
+	if err != nil {
+		return err
+	}
 
 	if err := api.validateProblemIDs(req.Problems); err != nil {
 		return err
 	}
-	row := models.Contest{Title: req.Title, Desc: req.Desc, Kind: req.Kind, StartAt: startAt, EndAt: endAt}
+	row := models.Contest{Title: req.Title, Desc: req.Desc, Kind: req.Kind, StartAt: startAt, EndAt: endAt, FreezeAt: freezeAt}
 	if err := api.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&row).Error; err != nil {
 			return err
@@ -1687,6 +1711,10 @@ func (api *API) updateContest(c echo.Context) error {
 	if !endAt.After(startAt) {
 		return echo.NewHTTPError(http.StatusBadRequest, "end time must be after start time")
 	}
+	freezeAt, err := parseContestFreezeAt(req.FreezeAt, startAt, endAt)
+	if err != nil {
+		return err
+	}
 
 	var row models.Contest
 	if err := api.db.First(&row, id).Error; err != nil {
@@ -1703,6 +1731,7 @@ func (api *API) updateContest(c echo.Context) error {
 	row.Kind = req.Kind
 	row.StartAt = startAt
 	row.EndAt = endAt
+	row.FreezeAt = freezeAt
 	if err := api.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Save(&row).Error; err != nil {
 			return err
@@ -1759,17 +1788,19 @@ func (api *API) contest(c echo.Context) error {
 	for _, link := range links {
 		var problem models.Problem
 		if err := api.db.First(&problem, link.ProblemID).Error; err == nil {
-			if !problem.Visible && !api.isAdmin(c) {
+			if !api.contestProblemVisible(row, problem, api.isAdmin(c)) {
 				continue
 			}
 			problems = append(problems, problemDTO(problem))
 		}
 	}
-	submissions, err := api.contextSubmissions(c, "contest", row.ID)
+	freezeAt := api.contestFreezeCutoff(c, row)
+	contestIncludeHidden := api.isAdmin(c) || contestRunning(row)
+	submissions, err := api.contextSubmissions(c, "contest", row.ID, freezeAt, contestIncludeHidden)
 	if err != nil {
 		return err
 	}
-	rank, err := api.contextRank("contest", row.ID, api.isAdmin(c))
+	rank, err := api.contestRank(row, contestIncludeHidden, freezeAt)
 	if err != nil {
 		return err
 	}
@@ -1781,7 +1812,8 @@ func (api *API) submissions(c echo.Context) error {
 	var rows []models.Submission
 	query := api.db.Order("created_at desc").Limit(50)
 	if !api.isAdmin(c) {
-		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id").Where("problems.visible = ?", true)
+		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
+		query = api.applyProblemListVisibility(query)
 	}
 	if status := c.QueryParam("status"); status != "" {
 		query = query.Where("status = ?", status)
@@ -1823,7 +1855,7 @@ func (api *API) submit(c echo.Context) error {
 		}
 		return err
 	}
-	if !problem.Visible && !api.isAdmin(c) {
+	if !api.isAdmin(c) && !api.problemVisibleInDetail(problem) {
 		return echo.NewHTTPError(http.StatusNotFound, "problem not found")
 	}
 	var language models.Language
@@ -1962,7 +1994,7 @@ func (api *API) activeContestFor(problemID uint, now time.Time) (*uint, error) {
 	return &row.ID, nil
 }
 
-func (api *API) contextSubmissions(c echo.Context, context string, id uint) ([]SubmissionDTO, error) {
+func (api *API) contextSubmissions(c echo.Context, context string, id uint, until *time.Time, includeHidden bool) ([]SubmissionDTO, error) {
 	var rows []models.Submission
 	query := api.db.Order("submissions.created_at desc").Limit(50)
 	switch context {
@@ -1973,8 +2005,12 @@ func (api *API) contextSubmissions(c echo.Context, context string, id uint) ([]S
 	default:
 		query = query.Where("1 = 0")
 	}
-	if !api.isAdmin(c) {
-		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id").Where("problems.visible = ?", true)
+	if until != nil {
+		query = query.Where("submissions.created_at < ?", *until)
+	}
+	if !includeHidden {
+		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
+		query = api.applyProblemListVisibility(query)
 	}
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
@@ -1986,7 +2022,177 @@ func (api *API) contextSubmissions(c echo.Context, context string, id uint) ([]S
 	return items, nil
 }
 
-func (api *API) contextRank(context string, id uint, includeHidden bool) ([]RankUserDTO, error) {
+func (api *API) contestRank(contest models.Contest, includeHidden bool, until *time.Time) ([]RankUserDTO, error) {
+	var rows []models.Submission
+	query := api.db.
+		Joins("JOIN users ON users.id = submissions.user_id AND users.deleted_at IS NULL").
+		Where("submissions.contest_id = ?", contest.ID).
+		Order("submissions.created_at asc")
+	if until != nil {
+		query = query.Where("submissions.created_at < ?", *until)
+	}
+	if !includeHidden {
+		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
+		query = api.applyProblemListVisibility(query)
+	}
+	if err := query.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	users, err := api.rankUsers(rows)
+	if err != nil {
+		return nil, err
+	}
+	if contest.Kind == "ICPC" {
+		return icpcRank(contest, rows, users), nil
+	}
+	return oiRank(rows, users), nil
+}
+
+func (api *API) rankUsers(submissions []models.Submission) (map[uint]models.User, error) {
+	ids := map[uint]bool{}
+	for _, row := range submissions {
+		ids[row.UserID] = true
+	}
+	if len(ids) == 0 {
+		return map[uint]models.User{}, nil
+	}
+	values := make([]uint, 0, len(ids))
+	for id := range ids {
+		values = append(values, id)
+	}
+	var rows []models.User
+	if err := api.db.Where("id IN ?", values).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	users := make(map[uint]models.User, len(rows))
+	for _, row := range rows {
+		users[row.ID] = row
+	}
+	return users, nil
+}
+
+func oiRank(submissions []models.Submission, users map[uint]models.User) []RankUserDTO {
+	type state struct {
+		user   models.User
+		submit int
+		best   map[uint]int
+	}
+	states := map[uint]*state{}
+	for _, row := range submissions {
+		user, ok := users[row.UserID]
+		if !ok {
+			continue
+		}
+		got := states[row.UserID]
+		if got == nil {
+			got = &state{user: user, best: map[uint]int{}}
+			states[row.UserID] = got
+		}
+		got.submit++
+		if row.Score > got.best[row.ProblemID] {
+			got.best[row.ProblemID] = row.Score
+		}
+	}
+	items := make([]RankUserDTO, 0, len(states))
+	for _, got := range states {
+		score := 0
+		ac := 0
+		for _, value := range got.best {
+			score += value
+			if value >= 100 {
+				ac++
+			}
+		}
+		items = append(items, RankUserDTO{User: got.user.Name, Bio: got.user.Bio, Avatar: got.user.Avatar, AC: ac, Submit: got.submit, Score: score})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Score != items[j].Score {
+			return items[i].Score > items[j].Score
+		}
+		if items[i].Submit != items[j].Submit {
+			return items[i].Submit < items[j].Submit
+		}
+		return items[i].User < items[j].User
+	})
+	for index := range items {
+		items[index].Rank = index + 1
+	}
+	return items
+}
+
+func icpcRank(contest models.Contest, submissions []models.Submission, users map[uint]models.User) []RankUserDTO {
+	type problemState struct {
+		wrong   int
+		solved  bool
+		penalty int
+	}
+	type state struct {
+		user     models.User
+		submit   int
+		problems map[uint]*problemState
+	}
+	states := map[uint]*state{}
+	for _, row := range submissions {
+		user, ok := users[row.UserID]
+		if !ok {
+			continue
+		}
+		got := states[row.UserID]
+		if got == nil {
+			got = &state{user: user, problems: map[uint]*problemState{}}
+			states[row.UserID] = got
+		}
+		got.submit++
+		problem := got.problems[row.ProblemID]
+		if problem == nil {
+			problem = &problemState{}
+			got.problems[row.ProblemID] = problem
+		}
+		if problem.solved {
+			continue
+		}
+		if row.Status == "AC" {
+			problem.solved = true
+			minutes := int(row.CreatedAt.Sub(contest.StartAt).Minutes())
+			if minutes < 0 {
+				minutes = 0
+			}
+			problem.penalty = minutes + problem.wrong*20
+			continue
+		}
+		problem.wrong++
+	}
+	items := make([]RankUserDTO, 0, len(states))
+	for _, got := range states {
+		ac := 0
+		penalty := 0
+		for _, problem := range got.problems {
+			if problem.solved {
+				ac++
+				penalty += problem.penalty
+			}
+		}
+		items = append(items, RankUserDTO{User: got.user.Name, Bio: got.user.Bio, Avatar: got.user.Avatar, AC: ac, Submit: got.submit, Score: ac, Penalty: penalty})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].AC != items[j].AC {
+			return items[i].AC > items[j].AC
+		}
+		if items[i].Penalty != items[j].Penalty {
+			return items[i].Penalty < items[j].Penalty
+		}
+		if items[i].Submit != items[j].Submit {
+			return items[i].Submit < items[j].Submit
+		}
+		return items[i].User < items[j].User
+	})
+	for index := range items {
+		items[index].Rank = index + 1
+	}
+	return items
+}
+
+func (api *API) contextRank(context string, id uint, includeHidden bool, until *time.Time) ([]RankUserDTO, error) {
 	var users []models.User
 	query := api.db.Model(&models.User{}).
 		Joins("JOIN submissions ON submissions.user_id = users.id").
@@ -2000,15 +2206,19 @@ func (api *API) contextRank(context string, id uint, includeHidden bool) ([]Rank
 	default:
 		query = query.Where("1 = 0")
 	}
+	if until != nil {
+		query = query.Where("submissions.created_at < ?", *until)
+	}
 	if !includeHidden {
-		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id").Where("problems.visible = ?", true)
+		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
+		query = api.applyProblemListVisibility(query)
 	}
 	if err := query.Find(&users).Error; err != nil {
 		return nil, err
 	}
 	items := make([]RankUserDTO, 0, len(users))
 	for _, user := range users {
-		ac, submit, err := api.contextUserStats(user.ID, context, id, includeHidden)
+		ac, submit, err := api.contextUserStats(user.ID, context, id, includeHidden, until)
 		if err != nil {
 			return nil, err
 		}
@@ -2032,7 +2242,7 @@ func (api *API) contextRank(context string, id uint, includeHidden bool) ([]Rank
 	return items, nil
 }
 
-func (api *API) contextUserStats(userID uint, context string, id uint, includeHidden bool) (int, int, error) {
+func (api *API) contextUserStats(userID uint, context string, id uint, includeHidden bool, until *time.Time) (int, int, error) {
 	submitQuery := api.db.Model(&models.Submission{}).
 		Where("submissions.user_id = ?", userID)
 	switch context {
@@ -2043,8 +2253,12 @@ func (api *API) contextUserStats(userID uint, context string, id uint, includeHi
 	default:
 		submitQuery = submitQuery.Where("1 = 0")
 	}
+	if until != nil {
+		submitQuery = submitQuery.Where("submissions.created_at < ?", *until)
+	}
 	if !includeHidden {
-		submitQuery = submitQuery.Joins("JOIN problems ON problems.id = submissions.problem_id").Where("problems.visible = ?", true)
+		submitQuery = submitQuery.Joins("JOIN problems ON problems.id = submissions.problem_id")
+		submitQuery = api.applyProblemListVisibility(submitQuery)
 	}
 	var submit int64
 	if err := submitQuery.Count(&submit).Error; err != nil {
@@ -2062,8 +2276,12 @@ func (api *API) contextUserStats(userID uint, context string, id uint, includeHi
 	default:
 		acQuery = acQuery.Where("1 = 0")
 	}
+	if until != nil {
+		acQuery = acQuery.Where("submissions.created_at < ?", *until)
+	}
 	if !includeHidden {
-		acQuery = acQuery.Joins("JOIN problems ON problems.id = submissions.problem_id").Where("problems.visible = ?", true)
+		acQuery = acQuery.Joins("JOIN problems ON problems.id = submissions.problem_id")
+		acQuery = api.applyProblemListVisibility(acQuery)
 	}
 	var ac int64
 	if err := acQuery.Count(&ac).Error; err != nil {
@@ -2090,7 +2308,7 @@ func (api *API) submission(c echo.Context) error {
 		if err := api.db.First(&problem, row.ProblemID).Error; err != nil {
 			return err
 		}
-		if !problem.Visible {
+		if !api.problemVisibleInDetail(problem) {
 			return echo.NewHTTPError(http.StatusNotFound, "submission not found")
 		}
 	}
@@ -2188,7 +2406,8 @@ func (api *API) user(c echo.Context) error {
 func (api *API) userStats(userID uint, includeHidden bool) (int, int, error) {
 	submitQuery := api.db.Model(&models.Submission{}).Where("submissions.user_id = ?", userID)
 	if !includeHidden {
-		submitQuery = submitQuery.Joins("JOIN problems ON problems.id = submissions.problem_id").Where("problems.visible = ?", true)
+		submitQuery = submitQuery.Joins("JOIN problems ON problems.id = submissions.problem_id")
+		submitQuery = api.applyProblemListVisibility(submitQuery)
 	}
 	var submit int64
 	if err := submitQuery.Count(&submit).Error; err != nil {
@@ -2199,7 +2418,8 @@ func (api *API) userStats(userID uint, includeHidden bool) (int, int, error) {
 		Where("submissions.user_id = ? AND submissions.status = ?", userID, "AC").
 		Distinct("submissions.problem_id")
 	if !includeHidden {
-		acQuery = acQuery.Joins("JOIN problems ON problems.id = submissions.problem_id").Where("problems.visible = ?", true)
+		acQuery = acQuery.Joins("JOIN problems ON problems.id = submissions.problem_id")
+		acQuery = api.applyProblemListVisibility(acQuery)
 	}
 	var ac int64
 	if err := acQuery.Count(&ac).Error; err != nil {
@@ -2212,7 +2432,8 @@ func (api *API) userSubmissions(userID uint, includeHidden bool) ([]models.Submi
 	var rows []models.Submission
 	query := api.db.Where("user_id = ?", userID).Order("submissions.created_at desc").Limit(20)
 	if !includeHidden {
-		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id").Where("problems.visible = ?", true)
+		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
+		query = api.applyProblemListVisibility(query)
 	}
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
@@ -2224,7 +2445,8 @@ func (api *API) solvedProblems(userID uint, includeHidden bool) ([]ProblemDTO, e
 	var rows []models.Submission
 	query := api.db.Where("submissions.user_id = ? AND submissions.status = ?", userID, "AC").Order("submissions.created_at desc").Limit(50)
 	if !includeHidden {
-		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id").Where("problems.visible = ?", true)
+		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
+		query = api.applyProblemListVisibility(query)
 	}
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
@@ -2238,7 +2460,7 @@ func (api *API) solvedProblems(userID uint, includeHidden bool) ([]ProblemDTO, e
 		seen[row.ProblemID] = true
 		var problem models.Problem
 		if err := api.db.First(&problem, row.ProblemID).Error; err == nil {
-			if !includeHidden && !problem.Visible {
+			if !includeHidden && !api.problemVisibleInList(problem) {
 				continue
 			}
 			items = append(items, problemDTO(problem))
@@ -2252,7 +2474,8 @@ func (api *API) userHeatmap(userID uint, includeHidden bool) ([]HeatCell, error)
 	var rows []models.Submission
 	query := api.db.Where("submissions.user_id = ? AND submissions.created_at >= ?", userID, since)
 	if !includeHidden {
-		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id").Where("problems.visible = ?", true)
+		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
+		query = api.applyProblemListVisibility(query)
 	}
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
@@ -2286,13 +2509,7 @@ func (api *API) discussions(c echo.Context) error {
 			Locked:    row.Locked,
 			CreatedAt: row.CreatedAt,
 		}
-		visible, err := api.discussionVisible(item, api.isAdmin(c))
-		if err != nil {
-			return err
-		}
-		if visible {
-			items = append(items, item)
-		}
+		items = append(items, item)
 	}
 	return c.JSON(http.StatusOK, items)
 }
@@ -2311,14 +2528,6 @@ func (api *API) createDiscussion(c echo.Context) error {
 	if req.Title == "" || req.Content == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "title and content are required")
 	}
-	allowed, err := api.discussionTagsAllowed(req.Tags, api.isAdmin(c))
-	if err != nil {
-		return err
-	}
-	if !allowed {
-		return echo.NewHTTPError(http.StatusNotFound, "problem not found")
-	}
-
 	user, err := api.currentUser(c)
 	if err != nil {
 		return err
@@ -2380,13 +2589,6 @@ func (api *API) discussion(c echo.Context) error {
 		Locked:    row.Locked,
 		Replies:   len(items),
 		CreatedAt: row.CreatedAt,
-	}
-	visible, err := api.discussionVisible(dto, api.isAdmin(c))
-	if err != nil {
-		return err
-	}
-	if !visible {
-		return echo.NewHTTPError(http.StatusNotFound, "discussion not found")
 	}
 	return c.JSON(http.StatusOK, DiscussionDetail{
 		Discussion: dto,
@@ -2487,17 +2689,6 @@ func (api *API) createComment(c echo.Context) error {
 	if discussion.Locked {
 		return echo.NewHTTPError(http.StatusForbidden, "discussion is locked")
 	}
-	visible, err := api.discussionVisible(DiscussionDTO{
-		ID:     discussion.ID,
-		Tags:   readTags([]byte(discussion.Tags)),
-		Locked: discussion.Locked,
-	}, api.isAdmin(c))
-	if err != nil {
-		return err
-	}
-	if !visible {
-		return echo.NewHTTPError(http.StatusNotFound, "discussion not found")
-	}
 	row := models.Comment{DiscussionID: uint(id), UserID: user.ID, Content: req.Content}
 	if err := api.db.Create(&row).Error; err != nil {
 		return err
@@ -2565,7 +2756,7 @@ func (api *API) searchProblems(c echo.Context, q string, tag string, limit int) 
 	var rows []models.Problem
 	query := api.db.Order("id desc").Limit(limit)
 	if !api.isAdmin(c) {
-		query = query.Where("visible = ?", true)
+		query = api.applyProblemListVisibility(query)
 	}
 	if q != "" {
 		query = query.Where("title ILIKE ?", "%"+q+"%")
@@ -2587,7 +2778,7 @@ func (api *API) searchProblems(c echo.Context, q string, tag string, limit int) 
 	if err := api.decorateProblemMines(c, items); err != nil {
 		return nil, err
 	}
-	if err := api.decorateProblemDiscussions(c, items); err != nil {
+	if err := api.decorateProblemDiscussions(items); err != nil {
 		return nil, err
 	}
 	return items, nil
@@ -2658,7 +2849,7 @@ func problemStatementKey(id uint) string {
 	return fmt.Sprintf("problems/%d/statement.md", id)
 }
 
-func (api *API) decorateProblemDiscussions(c echo.Context, items []ProblemDTO) error {
+func (api *API) decorateProblemDiscussions(items []ProblemDTO) error {
 	if len(items) == 0 {
 		return nil
 	}
@@ -2668,16 +2859,8 @@ func (api *API) decorateProblemDiscussions(c echo.Context, items []ProblemDTO) e
 	if err := api.db.Select("id", "tags", "pinned", "locked").Order("updated_at desc").Limit(1000).Find(&rows).Error; err != nil {
 		return err
 	}
-	includeHidden := api.isAdmin(c)
 	for _, row := range rows {
 		item := DiscussionDTO{ID: row.ID, Tags: readTags([]byte(row.Tags)), Pinned: row.Pinned, Locked: row.Locked}
-		visible, err := api.discussionVisible(item, includeHidden)
-		if err != nil {
-			return err
-		}
-		if !visible {
-			continue
-		}
 		for _, problemID := range discussionProblemIDs(item) {
 			counts[problemID]++
 		}
@@ -2735,7 +2918,7 @@ func (api *API) decorateProblemStats(ctx context.Context, items []ProblemDTO) er
 		id := items[index].ID
 		items[index].Submit = submitByProblem[id]
 		items[index].AC = acByProblem[id]
-		assets, err := problemAssetsFromStore(ctx, id, store)
+		assets, err := api.problemAssetsCached(ctx, id, store)
 		if err != nil {
 			return err
 		}
@@ -2834,10 +3017,56 @@ func (api *API) requireProblemVisible(c echo.Context, id uint) error {
 		}
 		return err
 	}
-	if !problem.Visible {
+	if !api.problemVisibleInDetail(problem) {
 		return echo.NewHTTPError(http.StatusNotFound, "problem not found")
 	}
 	return nil
+}
+
+func (api *API) problemVisibleInDetail(problem models.Problem) bool {
+	if api.problemVisibleInList(problem) {
+		return true
+	}
+	return api.problemInRunningContest(problem.ID)
+}
+
+func (api *API) problemVisibleInList(problem models.Problem) bool {
+	if !problem.Visible {
+		return false
+	}
+	return !api.problemInUnfinishedContest(problem.ID)
+}
+
+func (api *API) applyProblemListVisibility(query *gorm.DB) *gorm.DB {
+	now := time.Now()
+	return query.Where(
+		`problems.visible = ? AND NOT EXISTS (
+			SELECT 1 FROM contest_problems
+			JOIN contests ON contests.id = contest_problems.contest_id
+			WHERE contest_problems.problem_id = problems.id AND contests.end_at > ?
+		)`,
+		true,
+		now,
+	)
+}
+
+func (api *API) problemInUnfinishedContest(problemID uint) bool {
+	var count int64
+	err := api.db.Model(&models.ContestProblem{}).
+		Joins("JOIN contests ON contests.id = contest_problems.contest_id").
+		Where("contest_problems.problem_id = ? AND contests.end_at > ?", problemID, time.Now()).
+		Count(&count).Error
+	return err == nil && count > 0
+}
+
+func (api *API) problemInRunningContest(problemID uint) bool {
+	var count int64
+	now := time.Now()
+	err := api.db.Model(&models.ContestProblem{}).
+		Joins("JOIN contests ON contests.id = contest_problems.contest_id").
+		Where("contest_problems.problem_id = ? AND contests.start_at <= ? AND contests.end_at > ?", problemID, now, now).
+		Count(&count).Error
+	return err == nil && count > 0
 }
 
 func (api *API) syncProblemAssets(c echo.Context, id uint) (ProblemAssets, error) {
@@ -2849,7 +3078,42 @@ func (api *API) syncProblemAssets(c echo.Context, id uint) (ProblemAssets, error
 	if err != nil {
 		return ProblemAssets{}, err
 	}
+	api.cacheProblemAssets(c.Request().Context(), id, assets)
 	return assets, nil
+}
+
+func (api *API) problemAssetsCached(ctx context.Context, id uint, store utils.ObjectStore) (ProblemAssets, error) {
+	if client := utils.Redis(ctx); client != nil {
+		raw, err := client.Get(ctx, problemAssetsCacheKey(id)).Bytes()
+		if err == nil {
+			var cached ProblemAssets
+			if json.Unmarshal(raw, &cached) == nil {
+				return cached, nil
+			}
+		}
+	}
+	assets, err := problemAssetsFromStore(ctx, id, store)
+	if err != nil {
+		return ProblemAssets{}, err
+	}
+	api.cacheProblemAssets(ctx, id, assets)
+	return assets, nil
+}
+
+func (api *API) cacheProblemAssets(ctx context.Context, id uint, assets ProblemAssets) {
+	client := utils.Redis(ctx)
+	if client == nil {
+		return
+	}
+	raw, err := json.Marshal(assets)
+	if err != nil {
+		return
+	}
+	_ = client.Set(ctx, problemAssetsCacheKey(id), raw, time.Minute).Err()
+}
+
+func problemAssetsCacheKey(id uint) string {
+	return "doj:problem-assets:" + strconv.FormatUint(uint64(id), 10)
 }
 
 func cleanEditableAssetKey(id uint, raw string) (string, error) {
@@ -3148,7 +3412,8 @@ func (api *API) assignmentProblemCount(id uint, includeHidden bool) (int, error)
 	var count int64
 	query := api.db.Model(&models.AssignmentProblem{}).Where("assignment_id = ?", id)
 	if !includeHidden {
-		query = query.Joins("JOIN problems ON problems.id = assignment_problems.problem_id").Where("problems.visible = ?", true)
+		query = query.Joins("JOIN problems ON problems.id = assignment_problems.problem_id")
+		query = api.applyProblemListVisibility(query)
 	}
 	if err := query.Count(&count).Error; err != nil {
 		return 0, err
@@ -3172,7 +3437,8 @@ func (api *API) assignmentDoneCount(c echo.Context, id uint, includeHidden bool)
 		Joins("JOIN assignment_problems ON assignment_problems.problem_id = submissions.problem_id").
 		Where("assignment_problems.assignment_id = ? AND submissions.assignment_id = ? AND submissions.user_id = ? AND submissions.status = ?", id, id, user.ID, "AC")
 	if !includeHidden {
-		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id").Where("problems.visible = ?", true)
+		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
+		query = api.applyProblemListVisibility(query)
 	}
 	if err := query.Find(&rows).Error; err != nil {
 		return 0, err
@@ -3182,39 +3448,92 @@ func (api *API) assignmentDoneCount(c echo.Context, id uint, includeHidden bool)
 
 func contestDTO(row models.Contest, total int) ContestDTO {
 	return ContestDTO{
-		ID:      row.ID,
-		Title:   row.Title,
-		Desc:    row.Desc,
-		Kind:    row.Kind,
-		StartAt: row.StartAt,
-		EndAt:   row.EndAt,
-		Status:  contestStatus(row.StartAt, row.EndAt),
-		Total:   total,
+		ID:       row.ID,
+		Title:    row.Title,
+		Desc:     row.Desc,
+		Kind:     row.Kind,
+		StartAt:  row.StartAt,
+		EndAt:    row.EndAt,
+		FreezeAt: row.FreezeAt,
+		Status:   contestStatus(row),
+		Total:    total,
 	}
 }
 
-func (api *API) contestProblemCount(id uint, includeHidden bool) (int, error) {
-	var count int64
-	query := api.db.Model(&models.ContestProblem{}).Where("contest_id = ?", id)
-	if !includeHidden {
-		query = query.Joins("JOIN problems ON problems.id = contest_problems.problem_id").Where("problems.visible = ?", true)
-	}
-	if err := query.Count(&count).Error; err != nil {
+func (api *API) contestProblemCount(row models.Contest, admin bool) (int, error) {
+	var links []models.ContestProblem
+	if err := api.db.Where("contest_id = ?", row.ID).Find(&links).Error; err != nil {
 		return 0, err
 	}
-	return int(count), nil
+	if admin || !contestEnded(row) {
+		return len(links), nil
+	}
+	total := 0
+	for _, link := range links {
+		var problem models.Problem
+		if err := api.db.First(&problem, link.ProblemID).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				continue
+			}
+			return 0, err
+		}
+		if api.contestProblemVisible(row, problem, admin) {
+			total++
+		}
+	}
+	return total, nil
 }
 
-func contestStatus(startAt time.Time, endAt time.Time) string {
+func contestStatus(row models.Contest) string {
 	now := time.Now()
 	status := "running"
-	if startAt.After(now) {
+	if row.StartAt.After(now) {
 		status = "pending"
 	}
-	if endAt.Before(now) {
+	if row.EndAt.Before(now) {
 		status = "ended"
 	}
+	if status == "running" && contestFrozenForUser(row, false) {
+		status = "frozen"
+	}
 	return status
+}
+
+func contestFrozenForUser(row models.Contest, admin bool) bool {
+	if admin || row.FreezeAt == nil {
+		return false
+	}
+	now := time.Now()
+	return !now.Before(*row.FreezeAt) && now.Before(row.EndAt)
+}
+
+func (api *API) contestFreezeCutoff(c echo.Context, row models.Contest) *time.Time {
+	if contestFrozenForUser(row, api.isAdmin(c)) {
+		return row.FreezeAt
+	}
+	return nil
+}
+
+func contestRunning(row models.Contest) bool {
+	now := time.Now()
+	return !now.Before(row.StartAt) && now.Before(row.EndAt)
+}
+
+func contestEnded(row models.Contest) bool {
+	return !time.Now().Before(row.EndAt)
+}
+
+func (api *API) contestProblemVisible(row models.Contest, problem models.Problem, admin bool) bool {
+	if admin {
+		return true
+	}
+	if contestRunning(row) {
+		return true
+	}
+	if contestEnded(row) {
+		return problem.Visible
+	}
+	return false
 }
 
 func (api *API) submissionDTO(row models.Submission) SubmissionDTO {
@@ -3356,6 +3675,21 @@ func validContestKind(kind string) bool {
 	return kind == "OI" || kind == "ICPC"
 }
 
+func parseContestFreezeAt(raw string, startAt time.Time, endAt time.Time) (*time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	freezeAt, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid freeze time")
+	}
+	if freezeAt.Before(startAt) || !freezeAt.Before(endAt) {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "freeze time must be between start and end")
+	}
+	return &freezeAt, nil
+}
+
 func problemSort(index int) string {
 	if index >= 0 && index < 26 {
 		return string(rune('A' + index))
@@ -3493,46 +3827,6 @@ func discussionProblemIDs(item DiscussionDTO) []uint {
 		}
 	}
 	return ids
-}
-
-func (api *API) discussionVisible(item DiscussionDTO, includeHidden bool) (bool, error) {
-	if includeHidden {
-		return true, nil
-	}
-	for _, id := range discussionProblemIDs(item) {
-		var problem models.Problem
-		if err := api.db.First(&problem, id).Error; err != nil {
-			if err == gorm.ErrRecordNotFound {
-				continue
-			}
-			return false, err
-		}
-		if !problem.Visible {
-			return false, nil
-		}
-	}
-	return true, nil
-}
-
-func (api *API) discussionTagsAllowed(tags []string, includeHidden bool) (bool, error) {
-	if includeHidden {
-		return true, nil
-	}
-	ids := discussionProblemIDs(DiscussionDTO{Tags: tags})
-
-	for _, id := range ids {
-		var problem models.Problem
-		if err := api.db.Select("id", "visible").First(&problem, id).Error; err != nil {
-			if err == gorm.ErrRecordNotFound {
-				return false, nil
-			}
-			return false, err
-		}
-		if !problem.Visible {
-			return false, nil
-		}
-	}
-	return true, nil
 }
 
 func guestMe() MeDTO {

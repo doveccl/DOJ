@@ -1,5 +1,5 @@
 import { EditOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, DatePicker, Flex, Form, Input, Modal, Progress, Select, Space, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
+import { App as AntApp, Button, Card, DatePicker, Flex, Form, Input, Modal, Progress, Select, Table, Tabs, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
@@ -13,7 +13,7 @@ import { ErrorBlock, LoadingBlock } from '../components/state'
 import { AssignmentStatus, SubmissionStatus } from '../components/status'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { formatLimit, formatPass, formatTime, problemCode, progress } from '../utils/format'
+import { formatTime, problemCode, progress } from '../utils/format'
 
 type AssignmentForm = {
   title: string
@@ -117,7 +117,7 @@ export function AssignmentDetailPage() {
             {
               key: 'problems',
               label: text.assignments.problems,
-              children: <Table<Problem> rowKey="id" columns={problemColumns(text, assignment.id)} dataSource={problems} pagination={false} />
+              children: <Table<Problem> rowKey="id" columns={problemColumns(text)} dataSource={problems} pagination={false} />
             },
             {
               key: 'submissions',
@@ -258,7 +258,7 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: str
   ]
 }
 
-function problemColumns(text: ReturnType<typeof useLocale>['text'], assignmentId: number): TableProps<Problem>['columns'] {
+function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Problem>['columns'] {
   return [
     {
       title: text.problems.id,
@@ -271,29 +271,9 @@ function problemColumns(text: ReturnType<typeof useLocale>['text'], assignmentId
       dataIndex: 'title',
       render: (title: string, row) => (
         <Typography.Text ellipsis className="lineText">
-          <Link to={`/problems/${row.id}?context=assignment&contextId=${assignmentId}`}>{title}</Link>
+          <Link to={`/problems/${row.id}`}>{title}</Link>
         </Typography.Text>
       )
-    },
-    {
-      title: text.problems.tag,
-      dataIndex: 'tags',
-      width: 220,
-      render: (tags: string[]) => (
-        <Space size={[0, 4]} wrap>
-          {tags.map((tag) => (
-            <Tag key={tag}>{tag}</Tag>
-          ))}
-        </Space>
-      )
-    },
-    {
-      title: text.problems.limit,
-      render: (_, row) => <Typography.Text type="secondary">{formatLimit(row)}</Typography.Text>
-    },
-    {
-      title: text.problems.pass,
-      render: (_, row) => <Typography.Text>{formatPass(row)}</Typography.Text>
     }
   ]
 }

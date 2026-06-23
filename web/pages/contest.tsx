@@ -13,7 +13,7 @@ import { ErrorBlock, LoadingBlock } from '../components/state'
 import { ContestStatus, SubmissionStatus } from '../components/status'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { formatLimit, formatPass, formatTime, problemCode } from '../utils/format'
+import { formatTime, problemCode } from '../utils/format'
 
 type ContestForm = {
   title: string
@@ -21,6 +21,7 @@ type ContestForm = {
   kind: string
   startAt: Dayjs
   endAt: Dayjs
+  freezeAt?: Dayjs | null
   problems?: number[]
 }
 
@@ -49,6 +50,7 @@ export function ContestDetailPage() {
         kind: values.kind,
         startAt: values.startAt.toISOString(),
         endAt: values.endAt.toISOString(),
+        freezeAt: values.freezeAt?.toISOString() ?? '',
         problems: values.problems ?? []
       }),
     onSuccess: () => {
@@ -114,12 +116,12 @@ export function ContestDetailPage() {
             {
               key: 'problems',
               label: text.contests.problems,
-              children: <Table<Problem> rowKey="id" columns={problemColumns(text, contest.id)} dataSource={problems} pagination={false} />
+              children: <Table<Problem> rowKey="id" columns={problemColumns(text)} dataSource={problems} pagination={false} />
             },
             {
               key: 'rank',
               label: text.contests.rank,
-              children: <Table<RankUser> rowKey="rank" columns={rankColumns(text)} dataSource={rank} pagination={false} />
+              children: <Table<RankUser> rowKey="rank" columns={rankColumns(text, contest.kind)} dataSource={rank} pagination={false} />
             },
             {
               key: 'submissions',
@@ -153,7 +155,7 @@ function ContestEditModal({
   onCancel,
   onSave
 }: {
-  contest: { title: string; desc: string; kind: string; startAt: string; endAt: string }
+  contest: { title: string; desc: string; kind: string; startAt: string; endAt: string; freezeAt: string | null }
   problems: Problem[]
   problemOptions: { value: number; label: string }[]
   problemLoading: boolean
@@ -169,6 +171,7 @@ function ContestEditModal({
     kind: contest.kind,
     startAt: dayjs(contest.startAt),
     endAt: dayjs(contest.endAt),
+    freezeAt: contest.freezeAt ? dayjs(contest.freezeAt) : null,
     problems: problems.map((problem) => problem.id)
   }
 
@@ -205,6 +208,9 @@ function ContestEditModal({
           <Form.Item name="endAt" label={text.contests.end} rules={[{ required: true }]}>
             <DatePicker showTime />
           </Form.Item>
+          <Form.Item name="freezeAt" label={text.contests.freeze}>
+            <DatePicker showTime />
+          </Form.Item>
         </Space>
         <Form.Item name="problems" label={text.contests.problems}>
           <Select mode="multiple" options={problemOptions} loading={problemLoading} />
@@ -214,8 +220,8 @@ function ContestEditModal({
   )
 }
 
-function rankColumns(text: ReturnType<typeof useLocale>['text']): TableProps<RankUser>['columns'] {
-  return [
+function rankColumns(text: ReturnType<typeof useLocale>['text'], kind: string): TableProps<RankUser>['columns'] {
+  const columns: TableProps<RankUser>['columns'] = [
     {
       title: text.rank.rank,
       dataIndex: 'rank',
@@ -233,16 +239,34 @@ function rankColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Ran
       )
     },
     {
-      title: text.rank.ac,
-      dataIndex: 'ac',
-      width: 100
-    },
-    {
       title: text.rank.submit,
       dataIndex: 'submit',
       width: 100
     }
   ]
+  if (kind === 'OI') {
+    columns.splice(2, 0, {
+      title: text.rank.score,
+      dataIndex: 'score',
+      width: 100
+    })
+    return columns
+  }
+  columns.splice(
+    2,
+    0,
+    {
+      title: text.rank.ac,
+      dataIndex: 'ac',
+      width: 100
+    },
+    {
+      title: text.rank.penalty,
+      dataIndex: 'penalty',
+      width: 100
+    }
+  )
+  return columns
 }
 
 function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: string): TableProps<Submission>['columns'] {
@@ -289,7 +313,7 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: str
   ]
 }
 
-function problemColumns(text: ReturnType<typeof useLocale>['text'], contestId: number): TableProps<Problem>['columns'] {
+function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Problem>['columns'] {
   return [
     {
       title: text.problems.id,
@@ -302,29 +326,9 @@ function problemColumns(text: ReturnType<typeof useLocale>['text'], contestId: n
       dataIndex: 'title',
       render: (title: string, row) => (
         <Typography.Text ellipsis className="lineText">
-          <Link to={`/problems/${row.id}?context=contest&contextId=${contestId}`}>{title}</Link>
+          <Link to={`/problems/${row.id}`}>{title}</Link>
         </Typography.Text>
       )
-    },
-    {
-      title: text.problems.tag,
-      dataIndex: 'tags',
-      width: 220,
-      render: (tags: string[]) => (
-        <Space size={[0, 4]} wrap>
-          {tags.map((tag) => (
-            <Tag key={tag}>{tag}</Tag>
-          ))}
-        </Space>
-      )
-    },
-    {
-      title: text.problems.limit,
-      render: (_, row) => <Typography.Text type="secondary">{formatLimit(row)}</Typography.Text>
-    },
-    {
-      title: text.problems.pass,
-      render: (_, row) => <Typography.Text>{formatPass(row)}</Typography.Text>
     }
   ]
 }

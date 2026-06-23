@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -56,6 +57,7 @@ func TestCasePayloadsFromCommonDataNames(t *testing.T) {
 func TestValidateResult(t *testing.T) {
 	valid := ResultRequest{
 		SubmissionID: 1,
+		Attempt:      1,
 		Status:       "AC",
 		Score:        100,
 		Cases:        []CaseResult{{No: 1, Status: "AC", Score: 100}},
@@ -69,11 +71,12 @@ func TestValidateResult(t *testing.T) {
 		req  ResultRequest
 	}{
 		{name: "missing target", req: ResultRequest{Status: "AC", Score: 100}},
-		{name: "bad status", req: ResultRequest{SubmissionID: 1, Status: "queued", Score: 0}},
-		{name: "negative score", req: ResultRequest{SubmissionID: 1, Status: "WA", Score: -1}},
-		{name: "large score", req: ResultRequest{SubmissionID: 1, Status: "WA", Score: 101}},
-		{name: "bad case no", req: ResultRequest{SubmissionID: 1, Status: "WA", Score: 0, Cases: []CaseResult{{No: 0, Status: "WA"}}}},
-		{name: "bad case status", req: ResultRequest{SubmissionID: 1, Status: "WA", Score: 0, Cases: []CaseResult{{No: 1, Status: "queued"}}}},
+		{name: "missing attempt", req: ResultRequest{SubmissionID: 1, Status: "AC", Score: 100}},
+		{name: "bad status", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "queued", Score: 0}},
+		{name: "negative score", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: -1}},
+		{name: "large score", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 101}},
+		{name: "bad case no", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []CaseResult{{No: 0, Status: "WA"}}}},
+		{name: "bad case status", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []CaseResult{{No: 1, Status: "queued"}}}},
 	}
 	for _, item := range tests {
 		t.Run(item.name, func(t *testing.T) {
@@ -101,7 +104,7 @@ func TestAuthAndLeaseAuthorization(t *testing.T) {
 	if err := api.authorizeSubmission(c, 1); err == nil {
 		t.Fatal("remote judger without lease should not authorize submission")
 	}
-	reserveLease(1, remote.ID, time.Now().Add(time.Minute), time.Now())
+	reserveLease(t.Context(), 1, remote.ID, 1, time.Now().Add(time.Minute), time.Now())
 	if err := api.authorizeSubmission(c, 1); err != nil {
 		t.Fatalf("remote judger lease rejected: %v", err)
 	}
@@ -170,6 +173,56 @@ func TestLeaseLongPollsWhenNoTask(t *testing.T) {
 	}
 }
 
+func TestResultIgnoresStaleAttempt(t *testing.T) {
+	db := newJudgerTestDB(t)
+	remote := models.Judger{Name: "linux-a", Auth: utils.TokenHash("token-a")}
+	if err := db.Create(&remote).Error; err != nil {
+		t.Fatalf("create judger: %v", err)
+	}
+	submission := models.Submission{UserID: 1, ProblemID: 1000, Language: "cpp", Code: "int main(){}", Status: "judging", Attempt: 2}
+	if err := db.Create(&submission).Error; err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+	if !reserveLease(t.Context(), submission.ID, remote.ID, 2, time.Now().Add(time.Minute), time.Now()) {
+		t.Fatal("reserve lease failed")
+	}
+	e := echo.New()
+	Register(e, db)
+	target := "/api/judger/tasks/" + strconv.FormatUint(uint64(submission.ID), 10) + "/result"
+
+	stale := `{"submissionId":` + strconv.FormatUint(uint64(submission.ID), 10) + `,"attempt":1,"status":"AC","score":100,"message":"old","cases":[]}`
+	res := judgerJSON(e, target, "token-a", stale)
+	if res.Code != http.StatusAccepted {
+		t.Fatalf("stale result got %d body=%s", res.Code, res.Body.String())
+	}
+	var got models.Submission
+	if err := db.First(&got, submission.ID).Error; err != nil {
+		t.Fatalf("read submission: %v", err)
+	}
+	if got.Status != "judging" || got.Score != 0 {
+		t.Fatalf("stale attempt changed submission: %+v", got)
+	}
+
+	current := `{"submissionId":` + strconv.FormatUint(uint64(submission.ID), 10) + `,"attempt":2,"status":"AC","score":100,"message":"ok","cases":[{"no":1,"status":"AC","score":100}]}`
+	res = judgerJSON(e, target, "token-a", current)
+	if res.Code != http.StatusAccepted {
+		t.Fatalf("current result got %d body=%s", res.Code, res.Body.String())
+	}
+	if err := db.First(&got, submission.ID).Error; err != nil {
+		t.Fatalf("read updated submission: %v", err)
+	}
+	if got.Status != "AC" || got.Score != 100 || got.Message != "ok" {
+		t.Fatalf("current attempt did not update submission: %+v", got)
+	}
+	var cases int64
+	if err := db.Model(&models.Case{}).Where("submission_id = ?", submission.ID).Count(&cases).Error; err != nil {
+		t.Fatalf("count cases: %v", err)
+	}
+	if cases != 1 {
+		t.Fatalf("case results = %d, want 1", cases)
+	}
+}
+
 func TestJudgerRequestNameDefault(t *testing.T) {
 	if got := judgerRequestName(LeaseRequest{Host: " linux-a "}); got != "linux-a" {
 		t.Fatalf("name = %q", got)
@@ -177,6 +230,15 @@ func TestJudgerRequestNameDefault(t *testing.T) {
 	if got := judgerRequestName(LeaseRequest{}); got != "local-judger" {
 		t.Fatalf("anonymous name = %q", got)
 	}
+}
+
+func judgerJSON(e *echo.Echo, target string, token string, body string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodPost, target, strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("Authorization", "Bearer "+token)
+	res := httptest.NewRecorder()
+	e.ServeHTTP(res, req)
+	return res
 }
 
 func TestSafeTaskAssetZipNameRejectsUnsafeNames(t *testing.T) {
@@ -193,6 +255,9 @@ func TestSafeTaskAssetZipNameRejectsUnsafeNames(t *testing.T) {
 
 func newJudgerTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
+	leaseMu.Lock()
+	leases = map[uint]submissionLease{}
+	leaseMu.Unlock()
 	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "judger.db")), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite db: %v", err)

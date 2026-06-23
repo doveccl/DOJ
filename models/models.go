@@ -66,6 +66,7 @@ type Submission struct {
 	Status       string    `gorm:"size:32;not null;default:'queued';index" json:"status"`
 	Score        int       `gorm:"not null;default:0" json:"score"`
 	Message      string    `gorm:"type:text;not null;default:''" json:"message"`
+	Attempt      int       `gorm:"not null;default:0" json:"attempt"`
 	TimeMS       *int      `json:"timeMs"`
 	MemoryKB     *int      `json:"memoryKb"`
 	Public       bool      `gorm:"not null;default:false" json:"public"`

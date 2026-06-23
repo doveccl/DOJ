@@ -8,8 +8,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
-	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -36,10 +34,6 @@ var (
 
 	cookieConfigMu sync.RWMutex
 	cookieConfig   = CookieConfig{SameSite: http.SameSiteLaxMode}
-
-	sessionClientMu sync.Mutex
-	sessionClient   *redis.Client
-	sessionNoRedis  bool
 )
 
 type CookieConfig struct {
@@ -194,42 +188,41 @@ func readSession(ctx context.Context, c echo.Context, now time.Time) (Session, e
 	if !ok {
 		return Session{}, gorm.ErrRecordNotFound
 	}
+	if Redis(ctx) != nil {
+		session, err := readRedisSession(ctx, token, now)
+		if err != nil {
+			return Session{}, err
+		}
+		return session, nil
+	}
 	if session, ok := readMemorySession(token, now); ok {
 		return session, nil
 	}
-	session, err := readRedisSession(ctx, token, now)
-	if err != nil {
-		return Session{}, err
-	}
-	return session, nil
+	return Session{}, gorm.ErrRecordNotFound
 }
 
 func saveSession(ctx context.Context, token string, session Session) error {
+	if client := Redis(ctx); client != nil {
+		raw, err := json.Marshal(session)
+		if err != nil {
+			return err
+		}
+		return client.Set(ctx, sessionKey(token), raw, time.Until(session.ExpiresAt)).Err()
+	}
 	memorySessionMu.Lock()
 	memorySessions[token] = session
 	memorySessionMu.Unlock()
-
-	client := sessionRedisClient(ctx)
-	if client == nil {
-		return nil
-	}
-	raw, err := json.Marshal(session)
-	if err != nil {
-		return err
-	}
-	if err := client.Set(ctx, sessionKey(token), raw, time.Until(session.ExpiresAt)).Err(); err != nil {
-		return err
-	}
 	return nil
 }
 
 func deleteSession(ctx context.Context, token string) {
+	if client := Redis(ctx); client != nil {
+		_ = client.Del(ctx, sessionKey(token)).Err()
+		return
+	}
 	memorySessionMu.Lock()
 	delete(memorySessions, token)
 	memorySessionMu.Unlock()
-	if client := sessionRedisClient(ctx); client != nil {
-		_ = client.Del(ctx, sessionKey(token)).Err()
-	}
 }
 
 func readMemorySession(token string, now time.Time) (Session, bool) {
@@ -244,7 +237,7 @@ func readMemorySession(token string, now time.Time) (Session, bool) {
 }
 
 func readRedisSession(ctx context.Context, token string, now time.Time) (Session, error) {
-	client := sessionRedisClient(ctx)
+	client := Redis(ctx)
 	if client == nil {
 		return Session{}, gorm.ErrRecordNotFound
 	}
@@ -263,41 +256,7 @@ func readRedisSession(ctx context.Context, token string, now time.Time) (Session
 		_ = client.Del(ctx, sessionKey(token)).Err()
 		return Session{}, gorm.ErrRecordNotFound
 	}
-	memorySessionMu.Lock()
-	memorySessions[token] = session
-	memorySessionMu.Unlock()
 	return session, nil
-}
-
-func sessionRedisClient(ctx context.Context) *redis.Client {
-	sessionClientMu.Lock()
-	defer sessionClientMu.Unlock()
-	if sessionNoRedis {
-		return nil
-	}
-	if sessionClient != nil {
-		return sessionClient
-	}
-	raw := strings.TrimSpace(os.Getenv("REDIS"))
-	if raw == "" {
-		sessionNoRedis = true
-		return nil
-	}
-	options, err := redis.ParseURL(raw)
-	if err != nil {
-		sessionNoRedis = true
-		return nil
-	}
-	client := redis.NewClient(options)
-	pingCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
-	defer cancel()
-	if err := client.Ping(pingCtx).Err(); err != nil {
-		_ = client.Close()
-		sessionNoRedis = true
-		return nil
-	}
-	sessionClient = client
-	return sessionClient
 }
 
 func sessionKey(token string) string {

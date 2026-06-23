@@ -12,8 +12,8 @@ export function AssignmentStatus({ status }: { status: string }) {
 
 export function ContestStatus({ status }: { status: string }) {
   const { text } = useLocale()
-  const color = status === 'ended' ? 'default' : status === 'pending' ? 'gold' : 'green'
-  const label = status === 'ended' ? text.contests.ended : status === 'pending' ? text.contests.pending : text.contests.running
+  const color = status === 'ended' ? 'default' : status === 'pending' ? 'gold' : status === 'frozen' ? 'blue' : 'green'
+  const label = status === 'ended' ? text.contests.ended : status === 'pending' ? text.contests.pending : status === 'frozen' ? text.contests.frozen : text.contests.running
   return <Tag color={color}>{label}</Tag>
 }
 

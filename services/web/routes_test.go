@@ -25,7 +25,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func TestProblemDiscussionCountsRespectVisibility(t *testing.T) {
+func TestProblemDiscussionCountsUseTagsWithoutProblemVisibilityCoupling(t *testing.T) {
 	db := testWebDB(t)
 	allowGuest(t, db)
 	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
@@ -51,12 +51,12 @@ func TestProblemDiscussionCountsRespectVisibility(t *testing.T) {
 	Register(e, db)
 
 	guestProblem := decodeJSON[ProblemDTO](t, requestOK(t, e, http.MethodGet, "/api/problems/1000", ""))
-	if guestProblem.Discussions != 1 {
-		t.Fatalf("guest discussion count should ignore hidden-tagged discussions: %+v", guestProblem)
+	if guestProblem.Discussions != 2 {
+		t.Fatalf("guest discussion count should use soft tags regardless of other problem tags: %+v", guestProblem)
 	}
 	adminProblem := decodeJSON[ProblemDTO](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", databaseSession(t, db, admin.ID), nil))
 	if adminProblem.Discussions != 2 {
-		t.Fatalf("admin discussion count should include hidden-tagged discussions: %+v", adminProblem)
+		t.Fatalf("admin discussion count should match soft tag count: %+v", adminProblem)
 	}
 }
 
@@ -147,7 +147,7 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 	}
 
 	assignment := models.Assignment{Title: "HW", EndAt: time.Now().Add(time.Hour)}
-	contest := models.Contest{Title: "Round", Kind: "OI", StartAt: time.Now().Add(-time.Hour), EndAt: time.Now().Add(time.Hour)}
+	contest := models.Contest{Title: "Round", Kind: "OI", StartAt: time.Now().Add(-2 * time.Hour), EndAt: time.Now().Add(-time.Hour)}
 	if err := db.Create(&assignment).Error; err != nil {
 		t.Fatalf("create assignment: %v", err)
 	}
@@ -366,8 +366,8 @@ func TestDatabaseContestRankUsesContextSubmissions(t *testing.T) {
 		t.Fatalf("guest contest rank should include visible active competitors only: %+v", guest.Rank)
 	}
 	aliceGuest, ok := rankByUser(guest.Rank, "alice")
-	if !ok || aliceGuest.AC != 1 || aliceGuest.Submit != 2 {
-		t.Fatalf("alice guest contest rank should ignore hidden and normal submissions: %+v", guest.Rank)
+	if !ok || aliceGuest.AC != 2 || aliceGuest.Submit != 3 {
+		t.Fatalf("alice guest running contest rank should include contest-hidden problems and ignore normal submissions: %+v", guest.Rank)
 	}
 	if userInRank(guest.Rank, "disabled") {
 		t.Fatalf("contest rank should not include disabled users: %+v", guest.Rank)
@@ -424,6 +424,179 @@ func TestDatabaseSubmitStoresAndValidatesContext(t *testing.T) {
 	res = requestJSONWithCookies(e, http.MethodPost, "/api/submissions", cookies, normalBody)
 	if res.Code != http.StatusCreated {
 		t.Fatalf("normal submission got %d body=%s", res.Code, res.Body.String())
+	}
+}
+
+func TestContestProblemVisibilityIsDerivedFromContestTime(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	problem := models.Problem{ID: 1000, Title: "Contest Only", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	now := time.Now()
+	contest := models.Contest{Title: "Future", Kind: "OI", StartAt: now.Add(time.Hour), EndAt: now.Add(2 * time.Hour)}
+	if err := db.Create(&contest).Error; err != nil {
+		t.Fatalf("create contest: %v", err)
+	}
+	if err := db.Create(&models.ContestProblem{ContestID: contest.ID, ProblemID: problem.ID, Sort: "A"}).Error; err != nil {
+		t.Fatalf("create contest problem: %v", err)
+	}
+	e := echo.New()
+	Register(e, db)
+
+	guestList := decodeJSON[[]ProblemDTO](t, requestOK(t, e, http.MethodGet, "/api/problems", ""))
+	if hasProblem(guestList, problem.ID) {
+		t.Fatalf("upcoming contest problem leaked in problem list: %+v", guestList)
+	}
+	if res := request(e, http.MethodGet, "/api/problems/1000", "", nil); res.Code != http.StatusNotFound {
+		t.Fatalf("upcoming contest problem detail got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestWithCookies(e, http.MethodGet, "/api/problems/1000", databaseSession(t, db, admin.ID), nil); res.Code != http.StatusOK {
+		t.Fatalf("admin should see upcoming contest problem, got %d body=%s", res.Code, res.Body.String())
+	}
+
+	contest.StartAt = now.Add(-time.Hour)
+	contest.EndAt = now.Add(time.Hour)
+	if err := db.Save(&contest).Error; err != nil {
+		t.Fatalf("start contest: %v", err)
+	}
+	if err := db.Model(&problem).Update("visible", false).Error; err != nil {
+		t.Fatalf("hide problem: %v", err)
+	}
+	guestList = decodeJSON[[]ProblemDTO](t, requestOK(t, e, http.MethodGet, "/api/problems", ""))
+	if hasProblem(guestList, problem.ID) {
+		t.Fatalf("running contest problem leaked in problem list: %+v", guestList)
+	}
+	if res := request(e, http.MethodGet, "/api/problems/1000", "", nil); res.Code != http.StatusOK {
+		t.Fatalf("running contest problem detail should be visible, got %d body=%s", res.Code, res.Body.String())
+	}
+	contestDetail := decodeJSON[ContestDetail](t, requestOK(t, e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), ""))
+	if !hasProblem(contestDetail.Problems, problem.ID) {
+		t.Fatalf("running contest detail should include linked problem: %+v", contestDetail.Problems)
+	}
+
+	contest.EndAt = now.Add(-time.Minute)
+	if err := db.Save(&contest).Error; err != nil {
+		t.Fatalf("end contest: %v", err)
+	}
+	if res := request(e, http.MethodGet, "/api/problems/1000", "", nil); res.Code != http.StatusNotFound {
+		t.Fatalf("ended hidden contest problem detail got %d body=%s", res.Code, res.Body.String())
+	}
+	if err := db.Model(&problem).Update("visible", true).Error; err != nil {
+		t.Fatalf("show problem: %v", err)
+	}
+	if res := request(e, http.MethodGet, "/api/problems/1000", "", nil); res.Code != http.StatusOK {
+		t.Fatalf("ended visible contest problem detail got %d body=%s", res.Code, res.Body.String())
+	}
+}
+
+func TestContestFreezeHidesLateResultsFromNonAdmin(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	alice := models.User{Name: "alice", Mail: "alice@example.com", Auth: "hash"}
+	bob := models.User{Name: "bob", Mail: "bob@example.com", Auth: "hash"}
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	for _, user := range []*models.User{&alice, &bob, &admin} {
+		if err := db.Create(user).Error; err != nil {
+			t.Fatalf("create user %s: %v", user.Name, err)
+		}
+	}
+	problem := models.Problem{ID: 1000, Title: "Frozen", Tags: datatypes.JSON([]byte(`[]`)), Visible: false, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	now := time.Now()
+	freezeAt := now.Add(-time.Hour)
+	contest := models.Contest{Title: "Frozen Round", Kind: "OI", StartAt: now.Add(-2 * time.Hour), FreezeAt: &freezeAt, EndAt: now.Add(time.Hour)}
+	if err := db.Create(&contest).Error; err != nil {
+		t.Fatalf("create contest: %v", err)
+	}
+	if err := db.Create(&models.ContestProblem{ContestID: contest.ID, ProblemID: problem.ID, Sort: "A"}).Error; err != nil {
+		t.Fatalf("create contest problem: %v", err)
+	}
+	contestID := contest.ID
+	before := models.Submission{UserID: alice.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "before", Status: "AC", Score: 100, Public: true, CreatedAt: now.Add(-90 * time.Minute)}
+	after := models.Submission{UserID: bob.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "after", Status: "AC", Score: 100, Public: true, CreatedAt: now.Add(-30 * time.Minute)}
+	if err := db.Create(&before).Error; err != nil {
+		t.Fatalf("create before submission: %v", err)
+	}
+	if err := db.Create(&after).Error; err != nil {
+		t.Fatalf("create after submission: %v", err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+	target := "/api/contests/" + strconv.FormatUint(uint64(contest.ID), 10)
+	guest := decodeJSON[ContestDetail](t, requestOK(t, e, http.MethodGet, target, ""))
+	if guest.Contest.Status != "frozen" {
+		t.Fatalf("contest status should be frozen: %+v", guest.Contest)
+	}
+	if len(guest.Submissions) != 1 || guest.Submissions[0].User != "alice" {
+		t.Fatalf("guest should only see pre-freeze submissions: %+v", guest.Submissions)
+	}
+	if len(guest.Rank) != 1 || guest.Rank[0].User != "alice" {
+		t.Fatalf("guest rank should only use pre-freeze submissions: %+v", guest.Rank)
+	}
+
+	adminDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, admin.ID), nil))
+	if len(adminDetail.Submissions) != 2 {
+		t.Fatalf("admin should see all submissions: %+v", adminDetail.Submissions)
+	}
+	if _, ok := rankByUser(adminDetail.Rank, "bob"); !ok {
+		t.Fatalf("admin rank should include post-freeze submitter: %+v", adminDetail.Rank)
+	}
+}
+
+func TestContestICPCRankUsesPenalty(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	alice := models.User{Name: "alice", Mail: "alice@example.com", Auth: "hash"}
+	bob := models.User{Name: "bob", Mail: "bob@example.com", Auth: "hash"}
+	for _, user := range []*models.User{&alice, &bob} {
+		if err := db.Create(user).Error; err != nil {
+			t.Fatalf("create user %s: %v", user.Name, err)
+		}
+	}
+	problem := models.Problem{ID: 1000, Title: "ICPC", Tags: datatypes.JSON([]byte(`[]`)), Visible: false, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	startAt := time.Now().Add(-time.Hour)
+	contest := models.Contest{Title: "ICPC Round", Kind: "ICPC", StartAt: startAt, EndAt: time.Now().Add(time.Hour)}
+	if err := db.Create(&contest).Error; err != nil {
+		t.Fatalf("create contest: %v", err)
+	}
+	if err := db.Create(&models.ContestProblem{ContestID: contest.ID, ProblemID: problem.ID, Sort: "A"}).Error; err != nil {
+		t.Fatalf("create contest problem: %v", err)
+	}
+	contestID := contest.ID
+	submissions := []models.Submission{
+		{UserID: alice.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "wa", Status: "WA", Score: 0, Public: true, CreatedAt: startAt.Add(5 * time.Minute)},
+		{UserID: alice.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "ac", Status: "AC", Score: 100, Public: true, CreatedAt: startAt.Add(10 * time.Minute)},
+		{UserID: bob.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "ac", Status: "AC", Score: 100, Public: true, CreatedAt: startAt.Add(20 * time.Minute)},
+	}
+	for index := range submissions {
+		if err := db.Create(&submissions[index]).Error; err != nil {
+			t.Fatalf("create submission: %v", err)
+		}
+	}
+
+	e := echo.New()
+	Register(e, db)
+	detail := decodeJSON[ContestDetail](t, requestOK(t, e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), ""))
+	if len(detail.Rank) != 2 {
+		t.Fatalf("rank size = %+v", detail.Rank)
+	}
+	if detail.Rank[0].User != "bob" || detail.Rank[0].AC != 1 || detail.Rank[0].Penalty != 20 {
+		t.Fatalf("bob should win by lower penalty: %+v", detail.Rank)
+	}
+	if detail.Rank[1].User != "alice" || detail.Rank[1].AC != 1 || detail.Rank[1].Penalty != 30 {
+		t.Fatalf("alice penalty should include wrong submission: %+v", detail.Rank)
 	}
 }
 
@@ -562,7 +735,7 @@ func TestDatabaseAdminInputValidation(t *testing.T) {
 	}
 }
 
-func TestHiddenProblemDiscussionCannotBeCommentedByUser(t *testing.T) {
+func TestDiscussionProblemTagsAreSoftAssociations(t *testing.T) {
 	db := testWebDB(t)
 	student := models.User{Name: "student", Mail: "student@example.com", Auth: "hash"}
 	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
@@ -602,7 +775,7 @@ func TestHiddenProblemDiscussionCannotBeCommentedByUser(t *testing.T) {
 	adminCookies := databaseSession(t, db, admin.ID)
 	discussionBody := `{"title":"Hidden tagged discussion","content":"secret","tags":["P1000"]}`
 	res := requestJSONWithCookies(e, http.MethodPost, "/api/discussion", studentCookies, discussionBody)
-	if res.Code != http.StatusNotFound {
+	if res.Code != http.StatusCreated {
 		t.Fatalf("student create hidden discussion got %d body=%s", res.Code, res.Body.String())
 	}
 	res = requestJSONWithCookies(e, http.MethodPost, "/api/discussion", adminCookies, discussionBody)
@@ -613,7 +786,7 @@ func TestHiddenProblemDiscussionCannotBeCommentedByUser(t *testing.T) {
 	body := `{"content":"I should not see this"}`
 	target := "/api/discussion/" + strconv.FormatUint(uint64(discussion.ID), 10) + "/comments"
 	res = requestJSONWithCookies(e, http.MethodPost, target, studentCookies, body)
-	if res.Code != http.StatusNotFound {
+	if res.Code != http.StatusCreated {
 		t.Fatalf("student comment on hidden discussion got %d body=%s", res.Code, res.Body.String())
 	}
 
