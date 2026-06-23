@@ -16,6 +16,8 @@ type preparedLang struct {
 	Cleanup func()
 }
 
+const defaultLanguageBuildTimeout = 2 * time.Minute
+
 func prepareLanguageImage(ctx context.Context, work string, lang Lang, source string, limits Limits) (preparedLang, error) {
 	if strings.TrimSpace(lang.Dockerfile) == "" {
 		return preparedLang{}, fmt.Errorf("language Dockerfile is required")
@@ -37,11 +39,7 @@ func prepareLanguageImage(ctx context.Context, work string, lang Lang, source st
 		return preparedLang{}, err
 	}
 	iidFile := filepath.Join(dir, "image.iid")
-	timeout := 30 * time.Second
-	if limits.TimeMS > 0 {
-		timeout = time.Duration(limits.TimeMS) * time.Millisecond
-	}
-	buildCtx, cancel := context.WithTimeout(ctx, timeout)
+	buildCtx, cancel := context.WithTimeout(ctx, defaultLanguageBuildTimeout)
 	defer cancel()
 	outputLimit := int64(defaultCompileOutputLimit)
 	if limits.OutputKB > 0 {
