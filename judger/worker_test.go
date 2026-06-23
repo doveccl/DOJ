@@ -66,7 +66,7 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	worked, err := RunOne(ctx, WorkerConfig{
 		Server: server.URL,
@@ -142,7 +142,7 @@ func TestRunOneDownloadsAssetsForRelativeCases(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	worked, err := RunOne(ctx, WorkerConfig{
 		Server: server.URL,

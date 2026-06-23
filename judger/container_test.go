@@ -46,8 +46,12 @@ func TestRunContainerTaskNormalMultiCase(t *testing.T) {
 	if result.Verdict != VerdictAccepted || result.Score != 100 || len(result.Cases) != 2 {
 		t.Fatalf("result = %#v", result)
 	}
-	if _, err := os.Stat(filepath.Join(work, "main.sh")); err != nil {
-		t.Fatalf("compile did not happen inside mounted job dir: %v", err)
+	matches, err := filepath.Glob(filepath.Join(work, "lang-build-*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("language build context was not cleaned: %v", matches)
 	}
 }
 
