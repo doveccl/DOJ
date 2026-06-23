@@ -687,6 +687,7 @@ export interface components {
             siteName: string;
             registration: boolean;
             guest: boolean;
+            defaultPublicSource: boolean;
         };
         HeatCell: {
             date: string;
@@ -744,6 +745,7 @@ export interface components {
             siteName: string;
             registration: boolean;
             guest: boolean;
+            defaultPublicSource: boolean;
             notice: string;
         };
         AdminUser: {

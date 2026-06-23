@@ -32,10 +32,11 @@ type Overview struct {
 }
 
 type AdminSettings struct {
-	SiteName     string `json:"siteName"`
-	Registration bool   `json:"registration"`
-	Guest        bool   `json:"guest"`
-	Notice       string `json:"notice"`
+	SiteName            string `json:"siteName"`
+	Registration        bool   `json:"registration"`
+	Guest               bool   `json:"guest"`
+	DefaultPublicSource bool   `json:"defaultPublicSource"`
+	Notice              string `json:"notice"`
 }
 
 type User struct {
@@ -487,7 +488,7 @@ func (api *API) ensureOtherAdmin(userID uint) error {
 }
 
 func (api *API) settings() (AdminSettings, error) {
-	settings := AdminSettings{SiteName: "DOJ", Registration: true, Guest: true, Notice: ""}
+	settings := AdminSettings{SiteName: "DOJ", Registration: false, Guest: false, DefaultPublicSource: false, Notice: ""}
 	var row models.Setting
 	if err := api.db.First(&row, "key = ?", "site").Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -619,7 +620,7 @@ func (api *API) ensureGroups(ids []uint) error {
 
 func cleanUintList(values []uint) []uint {
 	if len(values) == 0 {
-		return nil
+		return []uint{}
 	}
 	sort.Slice(values, func(i, j int) bool { return values[i] < values[j] })
 	items := values[:0]
@@ -633,6 +634,9 @@ func cleanUintList(values []uint) []uint {
 		}
 		items = append(items, value)
 		last = value
+	}
+	if len(items) == 0 {
+		return []uint{}
 	}
 	return items
 }
@@ -746,7 +750,7 @@ func languageIDExists(id string, except string, items []Language) bool {
 func GuestAllowed(db *gorm.DB) bool {
 	settings, err := Settings(db)
 	if err != nil {
-		return true
+		return false
 	}
 	return settings.Guest
 }

@@ -1047,13 +1047,15 @@ components:
           type: string
     Site:
       type: object
-      required: [siteName, registration, guest]
+      required: [siteName, registration, guest, defaultPublicSource]
       properties:
         siteName:
           type: string
         registration:
           type: boolean
         guest:
+          type: boolean
+        defaultPublicSource:
           type: boolean
     HeatCell:
       type: object
@@ -1170,13 +1172,15 @@ components:
           $ref: "#/components/schemas/AdminJudgeQueue"
     AdminSettings:
       type: object
-      required: [siteName, registration, guest, notice]
+      required: [siteName, registration, guest, defaultPublicSource, notice]
       properties:
         siteName:
           type: string
         registration:
           type: boolean
         guest:
+          type: boolean
+        defaultPublicSource:
           type: boolean
         notice:
           type: string

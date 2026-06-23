@@ -30,7 +30,30 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	Register(e, db)
 	adminCookies := databaseSession(t, admin.ID)
 
-	res := requestJSONWithCookies(e, http.MethodPatch, "/api/admin/users/other", adminCookies, `{"role":"user","groups":[]}`)
+	res := requestWithCookies(e, http.MethodGet, "/api/admin", adminCookies)
+	if res.Code != http.StatusOK {
+		t.Fatalf("overview got %d body=%s", res.Code, res.Body.String())
+	}
+	overview := decodeOverview(t, res)
+	if overview.Settings.Registration || overview.Settings.Guest || overview.Settings.DefaultPublicSource {
+		t.Fatalf("site switches should default off: %+v", overview.Settings)
+	}
+	if user, ok := findUser(overview, "student"); !ok || user.Groups == nil {
+		t.Fatalf("user groups should be an empty array, got %+v", user)
+	}
+	res = requestJSONWithCookies(e, http.MethodPatch, "/api/admin/settings", adminCookies, `{"siteName":"DOJ","registration":true,"guest":true,"defaultPublicSource":true,"notice":""}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("update settings got %d body=%s", res.Code, res.Body.String())
+	}
+	var saved AdminSettings
+	if err := json.Unmarshal(res.Body.Bytes(), &saved); err != nil {
+		t.Fatalf("decode settings: %v body=%s", err, res.Body.String())
+	}
+	if !saved.Registration || !saved.Guest || !saved.DefaultPublicSource {
+		t.Fatalf("site switches should roundtrip: %+v", saved)
+	}
+
+	res = requestJSONWithCookies(e, http.MethodPatch, "/api/admin/users/other", adminCookies, `{"role":"user","groups":[]}`)
 	if res.Code != http.StatusOK {
 		t.Fatalf("demote admin got %d body=%s", res.Code, res.Body.String())
 	}
@@ -51,7 +74,7 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	if res.Code != http.StatusCreated {
 		t.Fatalf("create group got %d body=%s", res.Code, res.Body.String())
 	}
-	overview := decodeOverview(t, res)
+	overview = decodeOverview(t, res)
 	group, ok := findGroup(overview, "team-a")
 	if !ok {
 		t.Fatalf("created group missing: %+v", overview.Groups)
@@ -120,6 +143,16 @@ func requestJSONWithCookies(e *echo.Echo, method string, target string, cookies 
 		if cookie.Name == utils.CSRFCookie {
 			req.Header.Set(utils.CSRFHeader, cookie.Value)
 		}
+	}
+	res := httptest.NewRecorder()
+	e.ServeHTTP(res, req)
+	return res
+}
+
+func requestWithCookies(e *echo.Echo, method string, target string, cookies []*http.Cookie) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(method, target, nil)
+	for _, cookie := range cookies {
+		req.AddCookie(cookie)
 	}
 	res := httptest.NewRecorder()
 	e.ServeHTTP(res, req)

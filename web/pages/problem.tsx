@@ -45,6 +45,7 @@ import {
   getProblem,
   getProblemAssetContent,
   getProblemAssets,
+  getSite,
   submitCode,
   updateProblem,
   updateProblemAssetContent,
@@ -93,6 +94,7 @@ export function ProblemDetailPage() {
   const [source, setSource] = useState(sourceTemplate)
   const [sourceDirty, setSourceDirty] = useState(false)
   const [publicSource, setPublicSource] = useState(false)
+  const [publicSourceTouched, setPublicSourceTouched] = useState(false)
   const [problemEditing, setProblemEditing] = useState(false)
   const [assetsOpen, setAssetsOpen] = useState(false)
   const [caseOpen, setCaseOpen] = useState(false)
@@ -104,12 +106,18 @@ export function ProblemDetailPage() {
     queryFn: () => getProblem(id),
     enabled: Number.isFinite(id)
   })
+  const site = useQuery({ queryKey: ['site'], queryFn: getSite })
   const languages = useQuery({ queryKey: ['languages'], queryFn: getLangs })
   const assets = useQuery({
     queryKey: ['problem-assets', id],
     queryFn: () => getProblemAssets(id),
     enabled: Number.isFinite(id) && session.admin && assetsOpen
   })
+  useEffect(() => {
+    if (!publicSourceTouched) {
+      setPublicSource(site.data?.defaultPublicSource ?? false)
+    }
+  }, [publicSourceTouched, site.data?.defaultPublicSource])
   useEffect(() => {
     const items = languages.data ?? []
     if (items.length === 0) {
@@ -459,7 +467,13 @@ export function ProblemDetailPage() {
                     aria-label={text.problem.language}
                     className="submitLang"
                   />
-                  <Checkbox checked={publicSource} onChange={(event) => setPublicSource(event.target.checked)}>
+                  <Checkbox
+                    checked={publicSource}
+                    onChange={(event) => {
+                      setPublicSourceTouched(true)
+                      setPublicSource(event.target.checked)
+                    }}
+                  >
                     {text.problem.publicSource}
                   </Checkbox>
                 </Space>

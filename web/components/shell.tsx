@@ -65,7 +65,7 @@ export function Shell() {
   const site = useQuery({ queryKey: ['site'], queryFn: getSite })
   const items = navItems(text, session.admin)
   const siteName = site.data?.siteName || 'DOJ'
-  const registrationOpen = site.data?.registration ?? true
+  const registrationOpen = site.data?.registration ?? false
   const guestBlocked = site.data?.guest === false && !session.signedIn
 
   const languageItems: MenuProps['items'] = [

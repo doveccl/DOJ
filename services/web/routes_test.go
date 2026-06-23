@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/doveccl/doj/models"
+	adminsvc "github.com/doveccl/doj/services/admin"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	"gorm.io/datatypes"
@@ -24,6 +25,7 @@ import (
 
 func TestProblemDiscussionCountsRespectVisibility(t *testing.T) {
 	db := testWebDB(t)
+	allowGuest(t, db)
 	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
 	if err := db.Create(&admin).Error; err != nil {
 		t.Fatalf("create admin: %v", err)
@@ -58,6 +60,7 @@ func TestProblemDiscussionCountsRespectVisibility(t *testing.T) {
 
 func TestPrivateSubmissionSourceVisibilityWithDatabase(t *testing.T) {
 	db := testWebDB(t)
+	allowGuest(t, db)
 	owner := models.User{Name: "owner", Mail: "owner@example.com", Auth: "hash"}
 	other := models.User{Name: "other", Mail: "other@example.com", Auth: "hash"}
 	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
@@ -108,6 +111,7 @@ func TestPrivateSubmissionSourceVisibilityWithDatabase(t *testing.T) {
 
 func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *testing.T) {
 	db := testWebDB(t)
+	allowGuest(t, db)
 	student := models.User{Name: "student", Mail: "student@example.com", Auth: "hash"}
 	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
 	if err := db.Create(&student).Error; err != nil {
@@ -208,6 +212,7 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 
 func TestDatabaseRankUsesVisibleSubmissionStatsAndActiveUsers(t *testing.T) {
 	db := testWebDB(t)
+	allowGuest(t, db)
 	alice := models.User{Name: "alice", Mail: "alice@example.com", Auth: "hash"}
 	bob := models.User{Name: "bob", Mail: "bob@example.com", Auth: "hash"}
 	disabled := models.User{Name: "disabled", Mail: "disabled@example.com", Auth: "hash"}
@@ -272,6 +277,7 @@ func TestDatabaseRankUsesVisibleSubmissionStatsAndActiveUsers(t *testing.T) {
 
 func TestDatabaseContestRankUsesContextSubmissions(t *testing.T) {
 	db := testWebDB(t)
+	allowGuest(t, db)
 	alice := models.User{Name: "alice", Mail: "alice@example.com", Auth: "hash"}
 	bob := models.User{Name: "bob", Mail: "bob@example.com", Auth: "hash"}
 	disabled := models.User{Name: "disabled", Mail: "disabled@example.com", Auth: "hash"}
@@ -523,6 +529,7 @@ func TestHiddenProblemDiscussionCannotBeCommentedByUser(t *testing.T) {
 
 func TestDatabaseDiscussionAuthorsUseNames(t *testing.T) {
 	db := testWebDB(t)
+	allowGuest(t, db)
 	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
 	student := models.User{Name: "student", Mail: "student@example.com", Auth: "hash"}
 	if err := db.Create(&admin).Error; err != nil {
@@ -723,35 +730,17 @@ func databaseSession(t *testing.T, db *gorm.DB, userID uint) []*http.Cookie {
 	return res.Result().Cookies()
 }
 
-func setGuestAccess(t *testing.T, e *echo.Echo, allowed bool) {
+func allowGuest(t *testing.T, db *gorm.DB) {
 	t.Helper()
-	body := `{"siteName":"DOJ","registration":true,"guest":false}`
-	if allowed {
-		body = `{"siteName":"DOJ","registration":true,"guest":true}`
+	settings := adminsvc.AdminSettings{
+		SiteName:            "DOJ",
+		Registration:        false,
+		Guest:               true,
+		DefaultPublicSource: false,
+		Notice:              "",
 	}
-	req := httptest.NewRequest(http.MethodPatch, "/api/admin/settings", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-DOJ-Role", "admin")
-	res := httptest.NewRecorder()
-	e.ServeHTTP(res, req)
-	if res.Code != http.StatusOK {
-		t.Fatalf("set guest access failed: %d body=%s", res.Code, res.Body.String())
-	}
-}
-
-func setRegistration(t *testing.T, e *echo.Echo, allowed bool) {
-	t.Helper()
-	body := `{"siteName":"DOJ","registration":false,"guest":true}`
-	if allowed {
-		body = `{"siteName":"DOJ","registration":true,"guest":true}`
-	}
-	req := httptest.NewRequest(http.MethodPatch, "/api/admin/settings", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-DOJ-Role", "admin")
-	res := httptest.NewRecorder()
-	e.ServeHTTP(res, req)
-	if res.Code != http.StatusOK {
-		t.Fatalf("set registration failed: %d body=%s", res.Code, res.Body.String())
+	if err := adminsvc.SaveSettings(db, settings); err != nil {
+		t.Fatalf("enable guest access: %v", err)
 	}
 }
 

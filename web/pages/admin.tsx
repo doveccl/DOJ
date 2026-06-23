@@ -30,7 +30,7 @@ type GroupRow = AdminOverview['groups'][number]
 type LanguageRow = AdminOverview['languages'][number]
 type JudgerRow = AdminOverview['judgers'][number]
 type JudgerForm = AdminJudgerCreate
-type SettingsForm = Pick<AdminSettings, 'siteName' | 'registration' | 'guest'>
+type SettingsForm = Pick<AdminSettings, 'siteName' | 'registration' | 'guest' | 'defaultPublicSource'>
 
 const defaultDockerfile = `FROM gcc:14
 WORKDIR /src
@@ -147,6 +147,7 @@ export function AdminPage() {
   const data = query.data
   const roleText: Record<string, string> = text.admin.roles
   const groupOptions = data.groups.map((group) => ({ value: group.id, label: group.name }))
+  const userGroupIds = (row: UserRow) => row.groups ?? []
 
   function openGroup(row?: GroupRow) {
     setEditingGroup(row ?? null)
@@ -192,7 +193,7 @@ export function AdminPage() {
                   layout="vertical"
                   style={{ maxWidth: 680 }}
                   initialValues={data.settings}
-                  key={`${data.settings.siteName}:${data.settings.registration}:${data.settings.guest}`}
+                  key={`${data.settings.siteName}:${data.settings.registration}:${data.settings.guest}:${data.settings.defaultPublicSource}`}
                   onFinish={(values) => settings.mutate(values)}
                 >
                   <Form.Item name="siteName" label={text.admin.siteName} rules={[{ required: true }]}>
@@ -202,6 +203,9 @@ export function AdminPage() {
                     <Switch />
                   </Form.Item>
                   <Form.Item name="guest" label={text.admin.guest} valuePropName="checked">
+                    <Switch />
+                  </Form.Item>
+                  <Form.Item name="defaultPublicSource" label={text.admin.defaultPublicSource} valuePropName="checked">
                     <Switch />
                   </Form.Item>
                   <Button type="primary" htmlType="submit" loading={settings.isPending}>
@@ -231,7 +235,7 @@ export function AdminPage() {
                             { value: 'admin', label: roleText.admin },
                             { value: 'user', label: roleText.user }
                           ]}
-                          onChange={(next) => userSave.mutate({ name: row.name, role: next, groups: row.groups })}
+                          onChange={(next) => userSave.mutate({ name: row.name, role: next, groups: userGroupIds(row) })}
                         />
                       )
                     },
@@ -239,10 +243,10 @@ export function AdminPage() {
                       title: text.admin.userGroups,
                       dataIndex: 'groups',
                       width: 260,
-                      render: (groups: number[], row) => (
+                      render: (groups: number[] | undefined, row) => (
                         <Select
                           mode="multiple"
-                          value={groups}
+                          value={groups ?? []}
                           options={groupOptions}
                           maxTagCount="responsive"
                           placeholder={text.admin.groups}
@@ -297,7 +301,7 @@ export function AdminPage() {
                       {
                         title: text.admin.users,
                         width: 120,
-                        render: (_, row) => data.users.filter((user) => user.groups.includes(row.id)).length
+                        render: (_, row) => data.users.filter((user) => userGroupIds(user).includes(row.id)).length
                       },
                       {
                         title: text.common.edit,
