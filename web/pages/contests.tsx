@@ -20,7 +20,7 @@ import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { createContest, deleteContest, getContest, getContests, getProblems, updateContest } from '../client'
@@ -47,7 +47,7 @@ export function ContestsPage() {
   const client = useQueryClient()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
-  const [editing, setEditing] = useState<Contest | null>(null)
+  const [editingId, setEditingId] = useState<number | null>(null)
   const query = useQuery({ queryKey: ['contests'], queryFn: getContests })
   const problems = useQuery({ queryKey: ['problems', '', ''], queryFn: () => getProblems() })
   const showError = (error: unknown) => {
@@ -74,10 +74,10 @@ export function ContestsPage() {
   })
   const update = useMutation({
     mutationFn: (values: ContestForm) => {
-      if (!editing) {
+      if (!editingId) {
         throw new Error(text.common.emptyResponse)
       }
-      return updateContest(editing.id, {
+      return updateContest(editingId, {
         title: values.title,
         desc: values.desc ?? '',
         kind: values.kind,
@@ -110,22 +110,22 @@ export function ContestsPage() {
   }))
 
   function openCreate() {
-    setEditing(null)
+    setEditingId(null)
     setOpen(true)
   }
 
   function openEdit(item: Contest) {
-    setEditing(item)
+    setEditingId(item.id)
     setOpen(true)
   }
 
   function closeModal() {
     setOpen(false)
-    setEditing(null)
+    setEditingId(null)
   }
 
   function save(values: ContestForm) {
-    if (editing) {
+    if (editingId) {
       update.mutate(values)
       return
     }
@@ -158,7 +158,7 @@ export function ContestsPage() {
       )}
       {session.admin && open ? (
         <ContestModal
-          editing={editing}
+          editingId={editingId}
           loading={create.isPending || update.isPending}
           problemOptions={problemOptions}
           problemLoading={problems.isLoading}
@@ -171,14 +171,14 @@ export function ContestsPage() {
 }
 
 function ContestModal({
-  editing,
+  editingId,
   loading,
   problemOptions,
   problemLoading,
   onCancel,
   onSave
 }: {
-  editing: Contest | null
+  editingId: number | null
   loading: boolean
   problemOptions: { value: number; label: string }[]
   problemLoading: boolean
@@ -187,39 +187,39 @@ function ContestModal({
 }) {
   const { text } = useLocale()
   const [form] = Form.useForm<ContestForm>()
+  const isEdit = editingId !== null
   const detail = useQuery({
-    queryKey: ['contest', editing?.id],
-    queryFn: () => getContest(editing?.id ?? 0),
-    enabled: !!editing
+    queryKey: ['contest', editingId],
+    queryFn: () => getContest(editingId ?? 0),
+    enabled: isEdit
   })
 
-  useEffect(() => {
-    if (editing) {
-      form.setFieldsValue({
-        title: editing.title,
-        desc: editing.desc,
-        kind: editing.kind,
-        startAt: dayjs(editing.startAt),
-        endAt: dayjs(editing.endAt),
-        problems: detail.data?.problems.map((problem) => problem.id)
-      })
-      return
-    }
-    form.setFieldsValue({ title: '', desc: '', kind: 'OI', problems: [] })
-  }, [detail.data, editing, form])
+  const initialValues: Partial<ContestForm> =
+    isEdit && detail.data
+      ? {
+          title: detail.data.contest.title,
+          desc: detail.data.contest.desc,
+          kind: detail.data.contest.kind,
+          startAt: dayjs(detail.data.contest.startAt),
+          endAt: dayjs(detail.data.contest.endAt),
+          problems: detail.data.problems.map((problem) => problem.id)
+        }
+      : { title: '', desc: '', kind: 'OI', problems: [] }
 
-  return (
-    <Modal
-      open
-      destroyOnHidden
-      title={editing ? text.common.edit : text.contests.create}
-      okText={editing ? text.common.save : text.common.create}
-      cancelText={text.common.cancel}
-      confirmLoading={loading}
-      onCancel={onCancel}
-      onOk={() => form.submit()}
-    >
-      <Form<ContestForm> form={form} preserve={false} layout="vertical" onFinish={onSave}>
+  const body =
+    isEdit && detail.isLoading ? (
+      <LoadingBlock />
+    ) : isEdit && detail.isError ? (
+      <ErrorBlock error={detail.error} />
+    ) : (
+      <Form<ContestForm>
+        key={isEdit ? `contest-${editingId}` : 'contest-new'}
+        form={form}
+        preserve={false}
+        layout="vertical"
+        initialValues={initialValues}
+        onFinish={onSave}
+      >
         <Form.Item name="title" label={text.contests.name} rules={[{ required: true, whitespace: true }]}>
           <Input maxLength={120} showCount />
         </Form.Item>
@@ -246,6 +246,21 @@ function ContestModal({
           <Select mode="multiple" options={problemOptions} loading={problemLoading || detail.isLoading} />
         </Form.Item>
       </Form>
+    )
+
+  return (
+    <Modal
+      open
+      destroyOnHidden
+      title={isEdit ? text.common.edit : text.contests.create}
+      okText={isEdit ? text.common.save : text.common.create}
+      cancelText={text.common.cancel}
+      confirmLoading={loading}
+      onCancel={onCancel}
+      onOk={() => form.submit()}
+      okButtonProps={{ disabled: isEdit && !detail.data }}
+    >
+      {body}
     </Modal>
   )
 }

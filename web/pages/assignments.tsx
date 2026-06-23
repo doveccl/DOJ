@@ -20,7 +20,7 @@ import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { createAssignment, deleteAssignment, getAssignment, getAssignments, getProblems, updateAssignment } from '../client'
@@ -45,7 +45,7 @@ export function AssignmentsPage() {
   const client = useQueryClient()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
-  const [editing, setEditing] = useState<Assignment | null>(null)
+  const [editingId, setEditingId] = useState<number | null>(null)
   const query = useQuery({ queryKey: ['assignments'], queryFn: getAssignments })
   const problems = useQuery({ queryKey: ['problems', '', ''], queryFn: () => getProblems() })
   const showError = (error: unknown) => {
@@ -70,10 +70,10 @@ export function AssignmentsPage() {
   })
   const update = useMutation({
     mutationFn: (values: AssignmentForm) => {
-      if (!editing) {
+      if (!editingId) {
         throw new Error(text.common.emptyResponse)
       }
-      return updateAssignment(editing.id, {
+      return updateAssignment(editingId, {
         title: values.title,
         desc: values.desc ?? '',
         endAt: values.endAt.toISOString(),
@@ -104,22 +104,22 @@ export function AssignmentsPage() {
   }))
 
   function openCreate() {
-    setEditing(null)
+    setEditingId(null)
     setOpen(true)
   }
 
   function openEdit(item: Assignment) {
-    setEditing(item)
+    setEditingId(item.id)
     setOpen(true)
   }
 
   function closeModal() {
     setOpen(false)
-    setEditing(null)
+    setEditingId(null)
   }
 
   function save(values: AssignmentForm) {
-    if (editing) {
+    if (editingId) {
       update.mutate(values)
       return
     }
@@ -152,7 +152,7 @@ export function AssignmentsPage() {
       )}
       {session.admin && open ? (
         <AssignmentModal
-          editing={editing}
+          editingId={editingId}
           loading={create.isPending || update.isPending}
           problemOptions={problemOptions}
           problemLoading={problems.isLoading}
@@ -165,14 +165,14 @@ export function AssignmentsPage() {
 }
 
 function AssignmentModal({
-  editing,
+  editingId,
   loading,
   problemOptions,
   problemLoading,
   onCancel,
   onSave
 }: {
-  editing: Assignment | null
+  editingId: number | null
   loading: boolean
   problemOptions: { value: number; label: string }[]
   problemLoading: boolean
@@ -181,37 +181,37 @@ function AssignmentModal({
 }) {
   const { text } = useLocale()
   const [form] = Form.useForm<AssignmentForm>()
+  const isEdit = editingId !== null
   const detail = useQuery({
-    queryKey: ['assignment', editing?.id],
-    queryFn: () => getAssignment(editing?.id ?? 0),
-    enabled: !!editing
+    queryKey: ['assignment', editingId],
+    queryFn: () => getAssignment(editingId ?? 0),
+    enabled: isEdit
   })
 
-  useEffect(() => {
-    if (editing) {
-      form.setFieldsValue({
-        title: editing.title,
-        desc: editing.desc,
-        endAt: dayjs(editing.endAt),
-        problems: detail.data?.problems.map((problem) => problem.id)
-      })
-      return
-    }
-    form.setFieldsValue({ title: '', desc: '', problems: [] })
-  }, [detail.data, editing, form])
+  const initialValues: Partial<AssignmentForm> =
+    isEdit && detail.data
+      ? {
+          title: detail.data.assignment.title,
+          desc: detail.data.assignment.desc,
+          endAt: dayjs(detail.data.assignment.endAt),
+          problems: detail.data.problems.map((problem) => problem.id)
+        }
+      : { title: '', desc: '', problems: [] }
 
-  return (
-    <Modal
-      open
-      destroyOnHidden
-      title={editing ? text.common.edit : text.assignments.create}
-      okText={editing ? text.common.save : text.common.create}
-      cancelText={text.common.cancel}
-      confirmLoading={loading}
-      onCancel={onCancel}
-      onOk={() => form.submit()}
-    >
-      <Form<AssignmentForm> form={form} preserve={false} layout="vertical" onFinish={onSave}>
+  const body =
+    isEdit && detail.isLoading ? (
+      <LoadingBlock />
+    ) : isEdit && detail.isError ? (
+      <ErrorBlock error={detail.error} />
+    ) : (
+      <Form<AssignmentForm>
+        key={isEdit ? `assignment-${editingId}` : 'assignment-new'}
+        form={form}
+        preserve={false}
+        layout="vertical"
+        initialValues={initialValues}
+        onFinish={onSave}
+      >
         <Form.Item name="title" label={text.assignments.name} rules={[{ required: true, whitespace: true }]}>
           <Input maxLength={120} showCount />
         </Form.Item>
@@ -225,6 +225,21 @@ function AssignmentModal({
           <Select mode="multiple" options={problemOptions} loading={problemLoading || detail.isLoading} />
         </Form.Item>
       </Form>
+    )
+
+  return (
+    <Modal
+      open
+      destroyOnHidden
+      title={isEdit ? text.common.edit : text.assignments.create}
+      okText={isEdit ? text.common.save : text.common.create}
+      cancelText={text.common.cancel}
+      confirmLoading={loading}
+      onCancel={onCancel}
+      onOk={() => form.submit()}
+      okButtonProps={{ disabled: isEdit && !detail.data }}
+    >
+      {body}
     </Modal>
   )
 }
