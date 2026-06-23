@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -115,6 +116,31 @@ func TestAuthAndLeaseAuthorization(t *testing.T) {
 	}
 	if err := api.authorizeSubmission(local, 999); err != nil {
 		t.Fatalf("local judger should authorize any leased submission: %v", err)
+	}
+}
+
+func TestLeaseLongPollsWhenNoTask(t *testing.T) {
+	db := newJudgerTestDB(t)
+	api := &API{db: db, leaseWait: 30 * time.Millisecond}
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/api/judger/lease", strings.NewReader("{}"))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.RemoteAddr = "127.0.0.1:1234"
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	started := time.Now()
+	if err := api.auth(api.lease)(c); err != nil {
+		t.Fatalf("lease: %v", err)
+	}
+	if elapsed := time.Since(started); elapsed < 20*time.Millisecond {
+		t.Fatalf("lease returned too early after %s", elapsed)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if got := strings.TrimSpace(rec.Body.String()); got != `{"task":null}` {
+		t.Fatalf("response = %s", got)
 	}
 }
 

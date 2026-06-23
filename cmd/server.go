@@ -179,7 +179,7 @@ func securityHeaders() echo.MiddlewareFunc {
 			h.Set(echo.HeaderXContentTypeOptions, "nosniff")
 			h.Set(echo.HeaderXFrameOptions, "DENY")
 			h.Set("Referrer-Policy", "same-origin")
-			h.Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*")
+			h.Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://localhost:* http://127.0.0.1:*")
 			return next(c)
 		}
 	}

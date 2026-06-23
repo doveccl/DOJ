@@ -24,13 +24,15 @@ import (
 )
 
 type API struct {
-	db *gorm.DB
+	db        *gorm.DB
+	leaseWait time.Duration
 }
 
 const (
 	contextJudgerID     = "judgerID"
 	contextJudgerLocal  = "judgerLocal"
 	defaultLeaseSeconds = 60
+	defaultLeaseWait    = 25 * time.Second
 )
 
 type LeaseRequest struct {
@@ -118,7 +120,7 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	if db == nil {
 		panic("judger API requires a database")
 	}
-	api := &API{db: db}
+	api := &API{db: db, leaseWait: defaultLeaseWait}
 	group := e.Group("/api/judger", api.auth)
 	group.POST("/lease", api.lease)
 	group.GET("/tasks/:id/assets.zip", api.taskAssets)
@@ -153,14 +155,47 @@ func (api *API) lease(c echo.Context) error {
 		return err
 	}
 
-	now := time.Now()
 	judgerID, err := api.ensureJudger(c, req)
 	if err != nil {
 		return err
 	}
 
+	ch, unsubscribe := events.Default.Subscribe()
+	defer unsubscribe()
+	timer := time.NewTimer(api.longPollWait())
+	defer timer.Stop()
+
+	for {
+		payload, err := api.tryLease(c.Request().Context(), judgerID)
+		if err != nil {
+			return err
+		}
+		if payload != nil {
+			events.SubmissionChanged()
+			return c.JSON(http.StatusOK, LeaseResponse{Task: payload})
+		}
+
+		select {
+		case <-c.Request().Context().Done():
+			return nil
+		case <-timer.C:
+			return c.JSON(http.StatusOK, LeaseResponse{})
+		case <-ch:
+		}
+	}
+}
+
+func (api *API) longPollWait() time.Duration {
+	if api.leaseWait > 0 {
+		return api.leaseWait
+	}
+	return defaultLeaseWait
+}
+
+func (api *API) tryLease(ctx context.Context, judgerID uint) (*TaskPayload, error) {
+	now := time.Now()
 	var payload *TaskPayload
-	err = api.db.Transaction(func(tx *gorm.DB) error {
+	err := api.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var rows []models.Submission
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
 			Where("status IN ?", []string{"queued", "judging"}).
@@ -183,7 +218,7 @@ func (api *API) lease(c echo.Context) error {
 			releaseLease(submission.ID)
 			return err
 		}
-		got, err := buildPayload(c.Request().Context(), tx, *submission)
+		got, err := buildPayload(ctx, tx, *submission)
 		if err != nil {
 			releaseLease(submission.ID)
 			return err
@@ -192,12 +227,9 @@ func (api *API) lease(c echo.Context) error {
 		return nil
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if payload != nil {
-		events.SubmissionChanged()
-	}
-	return c.JSON(http.StatusOK, LeaseResponse{Task: payload})
+	return payload, nil
 }
 
 func (api *API) taskAssets(c echo.Context) error {

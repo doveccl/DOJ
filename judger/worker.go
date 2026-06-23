@@ -146,13 +146,17 @@ func RunLoop(ctx context.Context, cfg LoopConfig) error {
 			return err
 		}
 		worked, err := RunOne(ctx, cfg.Worker)
-		if err != nil && cfg.Logf != nil {
-			cfg.Logf("judger task failed: %v", err)
-		}
-		if !worked || err != nil {
+		if err != nil {
+			if cfg.Logf != nil {
+				cfg.Logf("judger task failed: %v", err)
+			}
 			if err := sleepContext(ctx, time.Second); err != nil {
 				return err
 			}
+			continue
+		}
+		if !worked {
+			continue
 		}
 	}
 }
