@@ -45,7 +45,7 @@ func prepareLanguageImage(ctx context.Context, work string, lang Lang, source st
 	if limits.OutputKB > 0 {
 		outputLimit = int64(limits.OutputKB) * 1024
 	}
-	out, err := runDockerStep(buildCtx, dir, outputLimit, "build", "--iidfile", iidFile, ".")
+	out, err := runDockerStep(buildCtx, dir, outputLimit, "build", "--network", "none", "--iidfile", iidFile, ".")
 	if err != nil {
 		cleanup()
 		message := strings.TrimSpace(out)
