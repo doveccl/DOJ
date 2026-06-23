@@ -71,7 +71,7 @@ export function HomePage() {
                 size="small"
                 icon={<EditOutlined />}
                 onClick={() => {
-                  noticeForm.setFieldsValue({ content: home.notice || text.home.noticeFallback })
+                  noticeForm.setFieldsValue({ content: home.notice })
                   setNoticeEditing(true)
                 }}
               >
@@ -82,13 +82,15 @@ export function HomePage() {
         }
       >
         {noticeEditing ? (
-          <Form<NoticeForm> form={noticeForm} layout="vertical" initialValues={{ content: home.notice || text.home.noticeFallback }} onFinish={(values) => notice.mutate(values)}>
+          <Form<NoticeForm> form={noticeForm} layout="vertical" initialValues={{ content: home.notice }} onFinish={(values) => notice.mutate(values)}>
             <Form.Item name="content" rules={[{ required: true, whitespace: true }]} noStyle>
               <MarkdownEditor minHeight={320} trust="trusted" />
             </Form.Item>
           </Form>
+        ) : home.notice ? (
+          <MarkdownPreview value={home.notice} trust="trusted" />
         ) : (
-          <MarkdownPreview value={home.notice || text.home.noticeFallback} trust="trusted" />
+          <EmptyBlock />
         )}
       </Card>
       {home.heatmap.length > 0 ? (

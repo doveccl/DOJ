@@ -1126,6 +1126,7 @@ func findCookie(cookies []*http.Cookie, name string) *http.Cookie {
 
 func testWebDB(t *testing.T) *gorm.DB {
 	t.Helper()
+	utils.ResetCacheForTest()
 	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "web.db")), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite db: %v", err)

@@ -6,14 +6,12 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/doveccl/doj/models"
 	"github.com/labstack/echo/v4"
-	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
@@ -29,9 +27,6 @@ type Session struct {
 }
 
 var (
-	memorySessionMu sync.Mutex
-	memorySessions  = map[string]Session{}
-
 	cookieConfigMu sync.RWMutex
 	cookieConfig   = CookieConfig{SameSite: http.SameSiteLaxMode}
 )
@@ -188,75 +183,24 @@ func readSession(ctx context.Context, c echo.Context, now time.Time) (Session, e
 	if !ok {
 		return Session{}, gorm.ErrRecordNotFound
 	}
-	if Redis(ctx) != nil {
-		session, err := readRedisSession(ctx, token, now)
-		if err != nil {
-			return Session{}, err
-		}
-		return session, nil
-	}
-	if session, ok := readMemorySession(token, now); ok {
-		return session, nil
-	}
-	return Session{}, gorm.ErrRecordNotFound
-}
-
-func saveSession(ctx context.Context, token string, session Session) error {
-	if client := Redis(ctx); client != nil {
-		raw, err := json.Marshal(session)
-		if err != nil {
-			return err
-		}
-		return client.Set(ctx, sessionKey(token), raw, time.Until(session.ExpiresAt)).Err()
-	}
-	memorySessionMu.Lock()
-	memorySessions[token] = session
-	memorySessionMu.Unlock()
-	return nil
-}
-
-func deleteSession(ctx context.Context, token string) {
-	if client := Redis(ctx); client != nil {
-		_ = client.Del(ctx, sessionKey(token)).Err()
-		return
-	}
-	memorySessionMu.Lock()
-	delete(memorySessions, token)
-	memorySessionMu.Unlock()
-}
-
-func readMemorySession(token string, now time.Time) (Session, bool) {
-	memorySessionMu.Lock()
-	defer memorySessionMu.Unlock()
-	session, ok := memorySessions[token]
-	if !ok || !session.ExpiresAt.After(now) {
-		delete(memorySessions, token)
-		return Session{}, false
-	}
-	return session, true
-}
-
-func readRedisSession(ctx context.Context, token string, now time.Time) (Session, error) {
-	client := Redis(ctx)
-	if client == nil {
-		return Session{}, gorm.ErrRecordNotFound
-	}
-	raw, err := client.Get(ctx, sessionKey(token)).Bytes()
-	if err == redis.Nil {
-		return Session{}, gorm.ErrRecordNotFound
-	}
+	var session Session
+	found, err := CacheGet(ctx, sessionKey(token), &session)
 	if err != nil {
 		return Session{}, err
 	}
-	var session Session
-	if err := json.Unmarshal(raw, &session); err != nil {
-		return Session{}, err
-	}
-	if !session.ExpiresAt.After(now) {
-		_ = client.Del(ctx, sessionKey(token)).Err()
+	if !found || !session.ExpiresAt.After(now) {
+		_ = CacheDelete(ctx, sessionKey(token))
 		return Session{}, gorm.ErrRecordNotFound
 	}
 	return session, nil
+}
+
+func saveSession(ctx context.Context, token string, session Session) error {
+	return CacheSet(ctx, sessionKey(token), session, time.Until(session.ExpiresAt))
+}
+
+func deleteSession(ctx context.Context, token string) {
+	_ = CacheDelete(ctx, sessionKey(token))
 }
 
 func sessionKey(token string) string {

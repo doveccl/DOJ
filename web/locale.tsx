@@ -51,7 +51,6 @@ const zh = {
   },
   home: {
     notice: '公告',
-    noticeFallback: '暂无公告',
     heatmap: '提交记录',
     year: '全年',
     less: '少',
@@ -179,8 +178,6 @@ const zh = {
     recent: '最近活动',
     contributions: '提交记录',
     submitted: '提交了',
-    noActivity: '暂无活动',
-    noSolved: '暂无 AC 题目',
     noBio: '暂无简介'
   },
   discussion: {
@@ -359,7 +356,6 @@ const en: typeof zh = {
   },
   home: {
     notice: 'Notice',
-    noticeFallback: 'No notice',
     heatmap: 'Submissions',
     year: 'Year',
     less: 'Less',
@@ -487,8 +483,6 @@ const en: typeof zh = {
     recent: 'Recent activity',
     contributions: 'Contributions',
     submitted: 'submitted',
-    noActivity: 'No activity',
-    noSolved: 'No solved problems',
     noBio: 'No bio'
   },
   discussion: {

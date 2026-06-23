@@ -79,7 +79,7 @@ function ActivityCard({ submissions }: { submissions: Submission[] }) {
   return (
     <Card title={text.user.recent} className="profileActivity">
       {submissions.length === 0 ? (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={text.user.noActivity} />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
       ) : (
         <Timeline
           items={submissions.slice(0, 12).map((row) => ({
@@ -114,7 +114,7 @@ function SolvedCard({ problems }: { problems: Problem[] }) {
   return (
     <Card title={text.user.solved}>
       {problems.length === 0 ? (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={text.user.noSolved} />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
       ) : (
         <Flex vertical className="profileProblemList">
           {problems.slice(0, 12).map((row) => (

@@ -966,7 +966,7 @@ func (api *API) problem(c echo.Context) error {
 	if err := api.decorateProblemMines(c, items); err != nil {
 		return err
 	}
-	if err := api.decorateProblemDiscussions(items); err != nil {
+	if err := api.decorateProblemDiscussions(c.Request().Context(), items); err != nil {
 		return err
 	}
 	return c.JSON(http.StatusOK, items[0])
@@ -2338,7 +2338,7 @@ func (api *API) rank(c echo.Context) error {
 	includeHidden := api.isAdmin(c)
 	items := make([]RankUserDTO, 0, len(users))
 	for _, user := range users {
-		ac, submit, err := api.userStats(user.ID, includeHidden)
+		ac, submit, err := api.userStats(c.Request().Context(), user.ID, includeHidden)
 		if err != nil {
 			return err
 		}
@@ -2391,7 +2391,7 @@ func (api *API) user(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	ac, submit, err := api.userStats(row.ID, includeHidden)
+	ac, submit, err := api.userStats(c.Request().Context(), row.ID, includeHidden)
 	if err != nil {
 		return err
 	}
@@ -2403,7 +2403,19 @@ func (api *API) user(c echo.Context) error {
 	})
 }
 
-func (api *API) userStats(userID uint, includeHidden bool) (int, int, error) {
+type userStatsCache struct {
+	AC     int `json:"ac"`
+	Submit int `json:"submit"`
+}
+
+func (api *API) userStats(ctx context.Context, userID uint, includeHidden bool) (int, int, error) {
+	key := userStatsCacheKey(userID, includeHidden)
+	var cached userStatsCache
+	found, err := utils.CacheGet(ctx, key, &cached)
+	if err == nil && found {
+		return cached.AC, cached.Submit, nil
+	}
+
 	submitQuery := api.db.Model(&models.Submission{}).Where("submissions.user_id = ?", userID)
 	if !includeHidden {
 		submitQuery = submitQuery.Joins("JOIN problems ON problems.id = submissions.problem_id")
@@ -2425,7 +2437,17 @@ func (api *API) userStats(userID uint, includeHidden bool) (int, int, error) {
 	if err := acQuery.Count(&ac).Error; err != nil {
 		return 0, 0, err
 	}
-	return int(ac), int(submit), nil
+	stats := userStatsCache{AC: int(ac), Submit: int(submit)}
+	_ = utils.CacheSet(ctx, key, stats, 10*time.Second)
+	return stats.AC, stats.Submit, nil
+}
+
+func userStatsCacheKey(userID uint, includeHidden bool) string {
+	visibility := "public"
+	if includeHidden {
+		visibility = "admin"
+	}
+	return "doj:user-stats:" + strconv.FormatUint(uint64(userID), 10) + ":" + visibility
 }
 
 func (api *API) userSubmissions(userID uint, includeHidden bool) ([]models.Submission, error) {
@@ -2778,7 +2800,7 @@ func (api *API) searchProblems(c echo.Context, q string, tag string, limit int) 
 	if err := api.decorateProblemMines(c, items); err != nil {
 		return nil, err
 	}
-	if err := api.decorateProblemDiscussions(items); err != nil {
+	if err := api.decorateProblemDiscussions(c.Request().Context(), items); err != nil {
 		return nil, err
 	}
 	return items, nil
@@ -2849,15 +2871,30 @@ func problemStatementKey(id uint) string {
 	return fmt.Sprintf("problems/%d/statement.md", id)
 }
 
-func (api *API) decorateProblemDiscussions(items []ProblemDTO) error {
+func (api *API) decorateProblemDiscussions(ctx context.Context, items []ProblemDTO) error {
 	if len(items) == 0 {
 		return nil
 	}
-	counts := map[uint]int{}
+	counts, err := api.problemDiscussionCounts(ctx)
+	if err != nil {
+		return err
+	}
 
+	for index := range items {
+		items[index].Discussions = counts[items[index].ID]
+	}
+	return nil
+}
+
+func (api *API) problemDiscussionCounts(ctx context.Context) (map[uint]int, error) {
+	counts := map[uint]int{}
+	found, err := utils.CacheGet(ctx, problemDiscussionsCacheKey(), &counts)
+	if err == nil && found {
+		return counts, nil
+	}
 	var rows []models.Discussion
 	if err := api.db.Select("id", "tags", "pinned", "locked").Order("updated_at desc").Limit(1000).Find(&rows).Error; err != nil {
-		return err
+		return nil, err
 	}
 	for _, row := range rows {
 		item := DiscussionDTO{ID: row.ID, Tags: readTags([]byte(row.Tags)), Pinned: row.Pinned, Locked: row.Locked}
@@ -2865,11 +2902,12 @@ func (api *API) decorateProblemDiscussions(items []ProblemDTO) error {
 			counts[problemID]++
 		}
 	}
+	_ = utils.CacheSet(ctx, problemDiscussionsCacheKey(), counts, 10*time.Second)
+	return counts, nil
+}
 
-	for index := range items {
-		items[index].Discussions = counts[items[index].ID]
-	}
-	return nil
+func problemDiscussionsCacheKey() string {
+	return "doj:problem-discussions"
 }
 
 func (api *API) decorateProblemStats(ctx context.Context, items []ProblemDTO) error {
@@ -3083,14 +3121,10 @@ func (api *API) syncProblemAssets(c echo.Context, id uint) (ProblemAssets, error
 }
 
 func (api *API) problemAssetsCached(ctx context.Context, id uint, store utils.ObjectStore) (ProblemAssets, error) {
-	if client := utils.Redis(ctx); client != nil {
-		raw, err := client.Get(ctx, problemAssetsCacheKey(id)).Bytes()
-		if err == nil {
-			var cached ProblemAssets
-			if json.Unmarshal(raw, &cached) == nil {
-				return cached, nil
-			}
-		}
+	var cached ProblemAssets
+	found, err := utils.CacheGet(ctx, problemAssetsCacheKey(id), &cached)
+	if err == nil && found {
+		return cached, nil
 	}
 	assets, err := problemAssetsFromStore(ctx, id, store)
 	if err != nil {
@@ -3101,15 +3135,7 @@ func (api *API) problemAssetsCached(ctx context.Context, id uint, store utils.Ob
 }
 
 func (api *API) cacheProblemAssets(ctx context.Context, id uint, assets ProblemAssets) {
-	client := utils.Redis(ctx)
-	if client == nil {
-		return
-	}
-	raw, err := json.Marshal(assets)
-	if err != nil {
-		return
-	}
-	_ = client.Set(ctx, problemAssetsCacheKey(id), raw, time.Minute).Err()
+	_ = utils.CacheSet(ctx, problemAssetsCacheKey(id), assets, time.Minute)
 }
 
 func problemAssetsCacheKey(id uint) string {

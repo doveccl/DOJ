@@ -3,7 +3,6 @@ package judger
 import (
 	"context"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/doveccl/doj/utils"
@@ -26,64 +25,33 @@ type stateRecord struct {
 	ActiveAt    time.Time
 }
 
-var (
-	stateMu     sync.Mutex
-	memoryState = map[uint]stateRecord{}
-)
-
 func TouchStatus(ctx context.Context, id uint, now time.Time) {
 	if id == 0 {
 		return
 	}
-	if client := utils.Redis(ctx); client != nil {
-		key := stateKey(id)
-		values, _ := client.HGetAll(ctx, key).Result()
-		activeAt, hasActive := parseStateTime(values["active_at"])
-		connectedAt, hasConnected := parseStateTime(values["connected_at"])
-		if !hasActive || activeAt.Before(now.Add(-stateOnlineWindow)) || !hasConnected {
-			connectedAt = now
-		}
-		_ = client.HSet(ctx, key, map[string]string{
-			"connected_at": connectedAt.Format(time.RFC3339Nano),
-			"active_at":    now.Format(time.RFC3339Nano),
-		}).Err()
-		_ = client.Expire(ctx, key, stateTTL).Err()
+	key := stateKey(id)
+	var record stateRecord
+	found, err := utils.CacheGet(ctx, key, &record)
+	if err != nil {
 		return
 	}
-
-	stateMu.Lock()
-	record, ok := memoryState[id]
-	if !ok || record.ActiveAt.Before(now.Add(-stateOnlineWindow)) {
+	if !found || record.ActiveAt.Before(now.Add(-stateOnlineWindow)) {
 		record.ConnectedAt = now
 	}
 	record.ActiveAt = now
-	memoryState[id] = record
-	stateMu.Unlock()
+	_ = utils.CacheSet(ctx, key, record, stateTTL)
 }
 
 func ReadStatus(ctx context.Context, id uint, now time.Time) Status {
 	if id == 0 {
 		return Status{}
 	}
-	if client := utils.Redis(ctx); client != nil {
-		values, err := client.HGetAll(ctx, stateKey(id)).Result()
-		if err == nil {
-			connectedAt, hasConnected := parseStateTime(values["connected_at"])
-			activeAt, hasActive := parseStateTime(values["active_at"])
-			if hasActive {
-				return buildStatus(connectedAt, hasConnected, activeAt, now)
-			}
-		}
+	var record stateRecord
+	found, err := utils.CacheGet(ctx, stateKey(id), &record)
+	if err != nil || !found || record.ActiveAt.IsZero() {
 		return Status{}
 	}
-
-	stateMu.Lock()
-	record, ok := memoryState[id]
-	stateMu.Unlock()
-	if !ok {
-		return Status{}
-	}
-	return buildStatus(record.ConnectedAt, true, record.ActiveAt, now)
+	return buildStatus(record.ConnectedAt, !record.ConnectedAt.IsZero(), record.ActiveAt, now)
 }
 
 func buildStatus(connectedAt time.Time, hasConnected bool, activeAt time.Time, now time.Time) Status {
@@ -106,14 +74,6 @@ func buildStatus(connectedAt time.Time, hasConnected bool, activeAt time.Time, n
 		status.UptimeSeconds = uptime
 	}
 	return status
-}
-
-func parseStateTime(raw string) (time.Time, bool) {
-	if raw == "" {
-		return time.Time{}, false
-	}
-	got, err := time.Parse(time.RFC3339Nano, raw)
-	return got, err == nil
 }
 
 func stateKey(id uint) string {

@@ -10,7 +10,7 @@
 - 比赛榜单必须按赛制计算：OI 按每题最高分求和，ICPC 按首 AC 数和罚时；封榜后的非管理员榜单和比赛提交列表只计算 freezeAt 前提交。
 - judger API 负责任务领取、题包交付、结果回传和心跳，结果写入必须校验 task attempt。
 - task lease 属于提交执行状态，保存在 `submissions.judger_id` / `submissions.lease_until` / `submissions.attempt`；不要再引入独立 tasks 表或 Redis lease。
-- judger 在线态、连接时间、活跃时间和在线时长是运行态，放 Redis；无 Redis 时可用内存单一来源兜底，但不要加到 `judgers` 表。
+- judger 在线态、连接时间、活跃时间和在线时长是运行态，走统一缓存源；`REDIS` 为空时使用进程内存，非空时使用 Redis，不要双写双读，也不要加到 `judgers` 表。
 - 提交创建、judger 领取任务、judger 回传结果等会改变提交可见状态的路径，都要通过 `services/events` 广播轻量事件供 `/api/events` SSE 刷新前端。
 - 直连 loopback judger 可无 token，用于单机部署和本地开发；带 `Forwarded` / `X-Forwarded-*` / `X-Real-IP` 的反代请求不能走本地免 token。远程 judger 使用管理页配置的 auth。管理页删除 judger 后不再保留可见状态。
 - lease 使用长轮询；没有任务时由 server 等待一小段时间，judger 客户端不要再做秒级空转轮询。
