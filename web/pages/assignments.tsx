@@ -23,7 +23,7 @@ import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
-import { createAssignment, deleteAssignment, getAssignment, getAssignments, getProblems, updateAssignment } from '../client'
+import { createAssignment, deleteAssignment, getAdmin, getAssignment, getAssignments, getProblems, updateAssignment } from '../client'
 import type { Assignment } from '../client'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { AssignmentStatus } from '../components/status'
@@ -36,6 +36,8 @@ type AssignmentForm = {
   desc: string
   endAt: Dayjs
   problems?: number[]
+  users?: number[]
+  groups?: number[]
 }
 
 export function AssignmentsPage() {
@@ -48,6 +50,7 @@ export function AssignmentsPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const query = useQuery({ queryKey: ['assignments'], queryFn: getAssignments })
   const problems = useQuery({ queryKey: ['problems', '', ''], queryFn: () => getProblems() })
+  const admin = useQuery({ queryKey: ['admin'], queryFn: getAdmin, enabled: session.admin && open })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
@@ -57,7 +60,9 @@ export function AssignmentsPage() {
         title: values.title,
         desc: values.desc ?? '',
         endAt: values.endAt.toISOString(),
-        problems: values.problems ?? []
+        problems: values.problems ?? [],
+        users: values.users ?? [],
+        groups: values.groups ?? []
       }),
     onSuccess: (item) => {
       void client.invalidateQueries({ queryKey: ['assignments'] })
@@ -77,7 +82,9 @@ export function AssignmentsPage() {
         title: values.title,
         desc: values.desc ?? '',
         endAt: values.endAt.toISOString(),
-        problems: values.problems ?? []
+        problems: values.problems ?? [],
+        users: values.users ?? [],
+        groups: values.groups ?? []
       })
     },
     onSuccess: (item) => {
@@ -101,6 +108,14 @@ export function AssignmentsPage() {
   const problemOptions = (problems.data ?? []).map((item) => ({
     value: item.id,
     label: `${item.id} ${item.title}`
+  }))
+  const userOptions = (admin.data?.users ?? []).map((item) => ({
+    value: item.id,
+    label: item.name
+  }))
+  const groupOptions = (admin.data?.groups ?? []).map((item) => ({
+    value: item.id,
+    label: item.name
   }))
 
   function openCreate() {
@@ -156,6 +171,9 @@ export function AssignmentsPage() {
           loading={create.isPending || update.isPending}
           problemOptions={problemOptions}
           problemLoading={problems.isLoading}
+          userOptions={userOptions}
+          groupOptions={groupOptions}
+          memberLoading={admin.isLoading}
           onCancel={closeModal}
           onSave={save}
         />
@@ -169,6 +187,9 @@ function AssignmentModal({
   loading,
   problemOptions,
   problemLoading,
+  userOptions,
+  groupOptions,
+  memberLoading,
   onCancel,
   onSave
 }: {
@@ -176,6 +197,9 @@ function AssignmentModal({
   loading: boolean
   problemOptions: { value: number; label: string }[]
   problemLoading: boolean
+  userOptions: { value: number; label: string }[]
+  groupOptions: { value: number; label: string }[]
+  memberLoading: boolean
   onCancel: () => void
   onSave: (values: AssignmentForm) => void
 }) {
@@ -194,9 +218,11 @@ function AssignmentModal({
           title: detail.data.assignment.title,
           desc: detail.data.assignment.desc,
           endAt: dayjs(detail.data.assignment.endAt),
-          problems: detail.data.problems.map((problem) => problem.id)
+          problems: detail.data.problems.map((problem) => problem.id),
+          users: detail.data.assignment.users,
+          groups: detail.data.assignment.groups
         }
-      : { title: '', desc: '', problems: [] }
+      : { title: '', desc: '', problems: [], users: [], groups: [] }
 
   const body =
     isEdit && detail.isLoading ? (
@@ -223,6 +249,12 @@ function AssignmentModal({
         </Form.Item>
         <Form.Item name="problems" label={text.assignments.problems}>
           <Select mode="multiple" options={problemOptions} loading={problemLoading || detail.isLoading} />
+        </Form.Item>
+        <Form.Item name="users" label={text.assignments.users}>
+          <Select mode="multiple" options={userOptions} loading={memberLoading} />
+        </Form.Item>
+        <Form.Item name="groups" label={text.assignments.groups}>
+          <Select mode="multiple" options={groupOptions} loading={memberLoading} />
         </Form.Item>
       </Form>
     )

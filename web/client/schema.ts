@@ -781,6 +781,7 @@ export interface components {
             notice: string;
         };
         AdminUser: {
+            id: number;
             name: string;
             mail: string;
             role: string;
@@ -931,6 +932,8 @@ export interface components {
             status: string;
             total: number;
             done: number;
+            users: number[];
+            groups: number[];
         };
         AssignmentDetail: {
             assignment: components["schemas"]["Assignment"];
@@ -943,6 +946,8 @@ export interface components {
             /** Format: date-time */
             endAt: string;
             problems: number[];
+            users: number[];
+            groups: number[];
         };
         AssignmentUpdate: {
             title: string;
@@ -950,6 +955,8 @@ export interface components {
             /** Format: date-time */
             endAt: string;
             problems: number[];
+            users: number[];
+            groups: number[];
         };
         Contest: {
             id: number;

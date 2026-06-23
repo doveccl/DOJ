@@ -107,6 +107,8 @@ type AssignmentDTO struct {
 	Status string    `json:"status"`
 	Total  int       `json:"total"`
 	Done   int       `json:"done"`
+	Users  []uint    `json:"users"`
+	Groups []uint    `json:"groups"`
 }
 
 type AssignmentCreate struct {
@@ -114,6 +116,8 @@ type AssignmentCreate struct {
 	Desc     string `json:"desc"`
 	EndAt    string `json:"endAt"`
 	Problems []uint `json:"problems"`
+	Users    []uint `json:"users"`
+	Groups   []uint `json:"groups"`
 }
 
 type AssignmentUpdate struct {
@@ -121,6 +125,8 @@ type AssignmentUpdate struct {
 	Desc     string `json:"desc"`
 	EndAt    string `json:"endAt"`
 	Problems []uint `json:"problems"`
+	Users    []uint `json:"users"`
+	Groups   []uint `json:"groups"`
 }
 
 type AssignmentDetail struct {
@@ -835,6 +841,13 @@ func (api *API) homeAssignments(c echo.Context) ([]Item, error) {
 	}
 	items := make([]Item, 0, len(rows))
 	for _, row := range rows {
+		allowed, err := api.assignmentVisible(c, row.ID)
+		if err != nil {
+			return nil, err
+		}
+		if !allowed {
+			continue
+		}
 		total, err := api.assignmentProblemCount(row.ID, includeHidden)
 		if err != nil {
 			return nil, err
@@ -1355,6 +1368,13 @@ func (api *API) assignments(c echo.Context) error {
 	includeHidden := api.isAdmin(c)
 	items := make([]AssignmentDTO, 0, len(rows))
 	for _, row := range rows {
+		allowed, err := api.assignmentVisible(c, row.ID)
+		if err != nil {
+			return err
+		}
+		if !allowed {
+			continue
+		}
 		total, err := api.assignmentProblemCount(row.ID, includeHidden)
 		if err != nil {
 			return err
@@ -1366,7 +1386,11 @@ func (api *API) assignments(c echo.Context) error {
 		if err != nil {
 			return err
 		}
-		items = append(items, assignmentDTO(row, total, done))
+		dto, err := api.assignmentDTO(c, row, total, done)
+		if err != nil {
+			return err
+		}
+		items = append(items, dto)
 	}
 	return c.JSON(http.StatusOK, items)
 }
@@ -1391,6 +1415,14 @@ func (api *API) createAssignment(c echo.Context) error {
 	if err := api.validateProblemIDs(req.Problems); err != nil {
 		return err
 	}
+	req.Users = cleanUintList(req.Users)
+	req.Groups = cleanUintList(req.Groups)
+	if err := api.validateUserIDs(req.Users); err != nil {
+		return err
+	}
+	if err := api.validateGroupIDs(req.Groups); err != nil {
+		return err
+	}
 	row := models.Assignment{Title: req.Title, Desc: req.Desc, EndAt: endAt}
 	if err := api.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&row).Error; err != nil {
@@ -1402,11 +1434,18 @@ func (api *API) createAssignment(c echo.Context) error {
 				return err
 			}
 		}
+		if err := saveAssignmentMembers(tx, row.ID, req.Users, req.Groups); err != nil {
+			return err
+		}
 		return nil
 	}); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusCreated, assignmentDTO(row, len(req.Problems), 0))
+	dto, err := api.assignmentDTO(c, row, len(req.Problems), 0)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusCreated, dto)
 }
 
 func (api *API) updateAssignment(c echo.Context) error {
@@ -1440,6 +1479,14 @@ func (api *API) updateAssignment(c echo.Context) error {
 	if err := api.validateProblemIDs(req.Problems); err != nil {
 		return err
 	}
+	req.Users = cleanUintList(req.Users)
+	req.Groups = cleanUintList(req.Groups)
+	if err := api.validateUserIDs(req.Users); err != nil {
+		return err
+	}
+	if err := api.validateGroupIDs(req.Groups); err != nil {
+		return err
+	}
 	row.Title = req.Title
 	row.Desc = req.Desc
 	row.EndAt = endAt
@@ -1456,11 +1503,18 @@ func (api *API) updateAssignment(c echo.Context) error {
 				return err
 			}
 		}
+		if err := saveAssignmentMembers(tx, row.ID, req.Users, req.Groups); err != nil {
+			return err
+		}
 		return nil
 	}); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, assignmentDTO(row, len(req.Problems), 0))
+	dto, err := api.assignmentDTO(c, row, len(req.Problems), 0)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, dto)
 }
 
 func (api *API) deleteAssignment(c echo.Context) error {
@@ -1491,6 +1545,13 @@ func (api *API) assignment(c echo.Context) error {
 		}
 		return err
 	}
+	allowed, err := api.assignmentVisible(c, row.ID)
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return echo.NewHTTPError(http.StatusNotFound, "assignment not found")
+	}
 	var links []models.AssignmentProblem
 	if err := api.db.Where("assignment_id = ?", row.ID).Order("sort asc").Find(&links).Error; err != nil {
 		return err
@@ -1513,7 +1574,11 @@ func (api *API) assignment(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, AssignmentDetail{Assignment: assignmentDTO(row, len(problems), done), Problems: problems, Submissions: submissions})
+	dto, err := api.assignmentDTO(c, row, len(problems), done)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, AssignmentDetail{Assignment: dto, Problems: problems, Submissions: submissions})
 }
 
 func (api *API) contests(c echo.Context) error {
@@ -1845,6 +1910,40 @@ func (api *API) userAssignedTo(assignmentID uint, userID uint) (bool, error) {
 		return false, err
 	}
 	return byGroup > 0, nil
+}
+
+func (api *API) assignmentVisible(c echo.Context, assignmentID uint) (bool, error) {
+	if api.isAdmin(c) {
+		return true, nil
+	}
+	if api.role(c) == "guest" {
+		return false, nil
+	}
+	user, err := api.currentUser(c)
+	if err != nil {
+		return false, err
+	}
+	return api.userAssignedTo(assignmentID, user.ID)
+}
+
+func saveAssignmentMembers(tx *gorm.DB, assignmentID uint, users []uint, groups []uint) error {
+	if err := tx.Where("assignment_id = ?", assignmentID).Delete(&models.AssignmentUser{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Where("assignment_id = ?", assignmentID).Delete(&models.AssignmentGroup{}).Error; err != nil {
+		return err
+	}
+	for _, userID := range users {
+		if err := tx.Create(&models.AssignmentUser{AssignmentID: assignmentID, UserID: userID}).Error; err != nil {
+			return err
+		}
+	}
+	for _, groupID := range groups {
+		if err := tx.Create(&models.AssignmentGroup{AssignmentID: assignmentID, GroupID: groupID}).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (api *API) activeContestFor(problemID uint, now time.Time) (*uint, error) {
@@ -2997,13 +3096,13 @@ int main() {
 	}
 }
 
-func assignmentDTO(row models.Assignment, total int, done int) AssignmentDTO {
+func (api *API) assignmentDTO(c echo.Context, row models.Assignment, total int, done int) (AssignmentDTO, error) {
 	now := time.Now()
 	status := "running"
 	if row.EndAt.Before(now) {
 		status = "ended"
 	}
-	return AssignmentDTO{
+	dto := AssignmentDTO{
 		ID:     row.ID,
 		Title:  row.Title,
 		Desc:   row.Desc,
@@ -3011,7 +3110,38 @@ func assignmentDTO(row models.Assignment, total int, done int) AssignmentDTO {
 		Status: status,
 		Total:  total,
 		Done:   done,
+		Users:  []uint{},
+		Groups: []uint{},
 	}
+	if api.isAdmin(c) {
+		users, groups, err := api.assignmentMembers(row.ID)
+		if err != nil {
+			return AssignmentDTO{}, err
+		}
+		dto.Users = users
+		dto.Groups = groups
+	}
+	return dto, nil
+}
+
+func (api *API) assignmentMembers(id uint) ([]uint, []uint, error) {
+	var users []models.AssignmentUser
+	if err := api.db.Where("assignment_id = ?", id).Order("user_id asc").Find(&users).Error; err != nil {
+		return nil, nil, err
+	}
+	var groups []models.AssignmentGroup
+	if err := api.db.Where("assignment_id = ?", id).Order("group_id asc").Find(&groups).Error; err != nil {
+		return nil, nil, err
+	}
+	userIDs := make([]uint, 0, len(users))
+	for _, row := range users {
+		userIDs = append(userIDs, row.UserID)
+	}
+	groupIDs := make([]uint, 0, len(groups))
+	for _, row := range groups {
+		groupIDs = append(groupIDs, row.GroupID)
+	}
+	return userIDs, groupIDs, nil
 }
 
 func (api *API) assignmentProblemCount(id uint, includeHidden bool) (int, error) {
@@ -3040,7 +3170,7 @@ func (api *API) assignmentDoneCount(c echo.Context, id uint, includeHidden bool)
 	query := api.db.Model(&models.Submission{}).
 		Select("DISTINCT submissions.problem_id").
 		Joins("JOIN assignment_problems ON assignment_problems.problem_id = submissions.problem_id").
-		Where("assignment_problems.assignment_id = ? AND submissions.user_id = ? AND submissions.status = ?", id, user.ID, "AC")
+		Where("assignment_problems.assignment_id = ? AND submissions.assignment_id = ? AND submissions.user_id = ? AND submissions.status = ?", id, id, user.ID, "AC")
 	if !includeHidden {
 		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id").Where("problems.visible = ?", true)
 	}
@@ -3255,6 +3385,70 @@ func (api *API) validateProblemIDs(ids []uint) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "problem not found")
 	}
 	return nil
+}
+
+func (api *API) validateUserIDs(ids []uint) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	seen := make(map[uint]bool, len(ids))
+	for _, id := range ids {
+		if id == 0 {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid user id")
+		}
+		if seen[id] {
+			return echo.NewHTTPError(http.StatusBadRequest, "duplicate user id")
+		}
+		seen[id] = true
+	}
+	var count int64
+	if err := api.db.Model(&models.User{}).Where("id IN ?", ids).Count(&count).Error; err != nil {
+		return err
+	}
+	if count != int64(len(ids)) {
+		return echo.NewHTTPError(http.StatusBadRequest, "user not found")
+	}
+	return nil
+}
+
+func (api *API) validateGroupIDs(ids []uint) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	seen := make(map[uint]bool, len(ids))
+	for _, id := range ids {
+		if id == 0 {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid group id")
+		}
+		if seen[id] {
+			return echo.NewHTTPError(http.StatusBadRequest, "duplicate group id")
+		}
+		seen[id] = true
+	}
+	var count int64
+	if err := api.db.Model(&models.Group{}).Where("id IN ?", ids).Count(&count).Error; err != nil {
+		return err
+	}
+	if count != int64(len(ids)) {
+		return echo.NewHTTPError(http.StatusBadRequest, "group not found")
+	}
+	return nil
+}
+
+func cleanUintList(values []uint) []uint {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[uint]bool, len(values))
+	items := make([]uint, 0, len(values))
+	for _, value := range values {
+		if seen[value] {
+			continue
+		}
+		seen[value] = true
+		items = append(items, value)
+	}
+	return items
 }
 
 func validateRegister(req RegisterRequest) error {

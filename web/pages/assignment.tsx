@@ -7,7 +7,7 @@ import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
-import { getAssignment, getProblems, updateAssignment } from '../client'
+import { getAdmin, getAssignment, getProblems, updateAssignment } from '../client'
 import type { Problem, Submission } from '../client'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { AssignmentStatus, SubmissionStatus } from '../components/status'
@@ -20,6 +20,8 @@ type AssignmentForm = {
   desc: string
   endAt: Dayjs
   problems?: number[]
+  users?: number[]
+  groups?: number[]
 }
 
 export function AssignmentDetailPage() {
@@ -36,6 +38,7 @@ export function AssignmentDetailPage() {
     enabled: Number.isFinite(id)
   })
   const problemsQuery = useQuery({ queryKey: ['problems', '', ''], queryFn: () => getProblems(), enabled: editOpen })
+  const adminQuery = useQuery({ queryKey: ['admin'], queryFn: getAdmin, enabled: session.admin && editOpen })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
@@ -45,7 +48,9 @@ export function AssignmentDetailPage() {
         title: values.title,
         desc: values.desc ?? '',
         endAt: values.endAt.toISOString(),
-        problems: values.problems ?? []
+        problems: values.problems ?? [],
+        users: values.users ?? [],
+        groups: values.groups ?? []
       }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['assignments'] })
@@ -72,6 +77,8 @@ export function AssignmentDetailPage() {
     value: item.id,
     label: `${problemCode(item.id)} ${item.title}`
   }))
+  const userOptions = (adminQuery.data?.users ?? []).map((item) => ({ value: item.id, label: item.name }))
+  const groupOptions = (adminQuery.data?.groups ?? []).map((item) => ({ value: item.id, label: item.name }))
 
   function openEdit() {
     setEditOpen(true)
@@ -80,8 +87,8 @@ export function AssignmentDetailPage() {
   return (
     <Flex vertical gap={16}>
       <Card>
-        <Flex justify="space-between" align="flex-start" gap={20} wrap>
-          <Flex vertical gap={8}>
+        <Flex vertical gap={8}>
+          <Flex justify="space-between" align="center" gap={20} wrap>
             <Flex align="center" gap={10}>
               <Typography.Title level={3} style={{ margin: 0 }}>
                 {assignment.title}
@@ -93,15 +100,15 @@ export function AssignmentDetailPage() {
                 </Tooltip>
               ) : null}
             </Flex>
-            <Typography.Text type="secondary">{assignment.desc}</Typography.Text>
-          </Flex>
-          <Flex align="center" justify="flex-end" gap={16} style={{ minWidth: 'min(420px, 100%)' }}>
-            <Typography.Text>{formatTime(assignment.endAt, lang)}</Typography.Text>
-            <Flex align="center" gap={10} style={{ width: 180 }}>
-              <Progress percent={progress(assignment)} size="small" showInfo={false} />
-              <Typography.Text className="nowrap">{text.assignments.done(assignment.done, assignment.total)}</Typography.Text>
+            <Flex align="center" justify="flex-end" gap={16} style={{ minWidth: 'min(420px, 100%)' }}>
+              <Typography.Text>{formatTime(assignment.endAt, lang)}</Typography.Text>
+              <Flex align="center" gap={10} style={{ width: 180 }}>
+                <Progress percent={progress(assignment)} size="small" showInfo={false} />
+                <Typography.Text className="nowrap">{text.assignments.done(assignment.done, assignment.total)}</Typography.Text>
+              </Flex>
             </Flex>
           </Flex>
+          <Typography.Text type="secondary">{assignment.desc}</Typography.Text>
         </Flex>
       </Card>
       <Card>
@@ -126,6 +133,9 @@ export function AssignmentDetailPage() {
           problems={problems}
           problemOptions={problemOptions}
           problemLoading={problemsQuery.isLoading}
+          userOptions={userOptions}
+          groupOptions={groupOptions}
+          memberLoading={adminQuery.isLoading}
           loading={update.isPending}
           onCancel={() => setEditOpen(false)}
           onSave={(values) => update.mutate(values)}
@@ -140,14 +150,20 @@ function AssignmentEditModal({
   problems,
   problemOptions,
   problemLoading,
+  userOptions,
+  groupOptions,
+  memberLoading,
   loading,
   onCancel,
   onSave
 }: {
-  assignment: { title: string; desc: string; endAt: string }
+  assignment: { title: string; desc: string; endAt: string; users: number[]; groups: number[] }
   problems: Problem[]
   problemOptions: { value: number; label: string }[]
   problemLoading: boolean
+  userOptions: { value: number; label: string }[]
+  groupOptions: { value: number; label: string }[]
+  memberLoading: boolean
   loading: boolean
   onCancel: () => void
   onSave: (values: AssignmentForm) => void
@@ -158,7 +174,9 @@ function AssignmentEditModal({
     title: assignment.title,
     desc: assignment.desc,
     endAt: dayjs(assignment.endAt),
-    problems: problems.map((problem) => problem.id)
+    problems: problems.map((problem) => problem.id),
+    users: assignment.users,
+    groups: assignment.groups
   }
 
   return (
@@ -184,6 +202,12 @@ function AssignmentEditModal({
         </Form.Item>
         <Form.Item name="problems" label={text.assignments.problems}>
           <Select mode="multiple" options={problemOptions} loading={problemLoading} />
+        </Form.Item>
+        <Form.Item name="users" label={text.assignments.users}>
+          <Select mode="multiple" options={userOptions} loading={memberLoading} />
+        </Form.Item>
+        <Form.Item name="groups" label={text.assignments.groups}>
+          <Select mode="multiple" options={groupOptions} loading={memberLoading} />
         </Form.Item>
       </Form>
     </Modal>

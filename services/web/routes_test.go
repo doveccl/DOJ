@@ -126,9 +126,13 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 	db := testWebDB(t)
 	allowGuest(t, db)
 	student := models.User{Name: "student", Mail: "student@example.com", Auth: "hash"}
+	outsider := models.User{Name: "outsider", Mail: "outsider@example.com", Auth: "hash"}
 	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
 	if err := db.Create(&student).Error; err != nil {
 		t.Fatalf("create student: %v", err)
+	}
+	if err := db.Create(&outsider).Error; err != nil {
+		t.Fatalf("create outsider: %v", err)
 	}
 	if err := db.Create(&admin).Error; err != nil {
 		t.Fatalf("create admin: %v", err)
@@ -160,6 +164,9 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 		if err := db.Create(link).Error; err != nil {
 			t.Fatalf("create link: %v", err)
 		}
+	}
+	if err := db.Create(&models.AssignmentUser{AssignmentID: assignment.ID, UserID: student.ID}).Error; err != nil {
+		t.Fatalf("assign student: %v", err)
 	}
 
 	assignmentID := assignment.ID
@@ -193,11 +200,23 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 		t.Fatalf("guest profile heatmap should count visible submissions only, got %d", got)
 	}
 
-	assignmentDetail := decodeJSON[AssignmentDetail](t, requestOK(t, e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(assignment.ID), 10), ""))
-	if hasProblem(assignmentDetail.Problems, hidden.ID) || hasSubmissionProblem(assignmentDetail.Submissions, hidden.ID) {
-		t.Fatalf("guest assignment leaked hidden problem: %+v", assignmentDetail)
+	if res := requestOK(t, e, http.MethodGet, "/api/assignments", ""); res.Body.String() != "[]\n" {
+		t.Fatalf("guest assignment list should be empty, body=%s", res.Body.String())
+	}
+	if res := requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(assignment.ID), 10), nil, nil); res.Code != http.StatusNotFound {
+		t.Fatalf("guest assignment detail should be hidden, got %d body=%s", res.Code, res.Body.String())
+	}
+	outsiderCookies := databaseSession(t, db, outsider.ID)
+	if res := requestWithCookies(e, http.MethodGet, "/api/assignments", outsiderCookies, nil); res.Body.String() != "[]\n" {
+		t.Fatalf("unassigned assignment list should be empty, body=%s", res.Body.String())
+	}
+	if res := requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(assignment.ID), 10), outsiderCookies, nil); res.Code != http.StatusNotFound {
+		t.Fatalf("unassigned assignment detail should be hidden, got %d body=%s", res.Code, res.Body.String())
 	}
 	studentAssignment := decodeJSON[AssignmentDetail](t, requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(assignment.ID), 10), databaseSession(t, db, student.ID), nil))
+	if hasProblem(studentAssignment.Problems, hidden.ID) || hasSubmissionProblem(studentAssignment.Submissions, hidden.ID) {
+		t.Fatalf("student assignment leaked hidden problem: %+v", studentAssignment)
+	}
 	if studentAssignment.Assignment.Done != 1 || studentAssignment.Assignment.Total != 1 {
 		t.Fatalf("student assignment progress should count visible AC only: %+v", studentAssignment.Assignment)
 	}

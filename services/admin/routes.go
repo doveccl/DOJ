@@ -40,6 +40,7 @@ type AdminSettings struct {
 }
 
 type User struct {
+	ID     uint   `json:"id"`
 	Name   string `json:"name"`
 	Mail   string `json:"mail"`
 	Role   string `json:"role"`
@@ -620,7 +621,7 @@ func (api *API) users() ([]User, error) {
 		if row.Admin {
 			role = "admin"
 		}
-		items = append(items, User{Name: row.Name, Mail: row.Mail, Role: role, Groups: cleanUintList(groupMap[row.ID])})
+		items = append(items, User{ID: row.ID, Name: row.Name, Mail: row.Mail, Role: role, Groups: cleanUintList(groupMap[row.ID])})
 	}
 	return items, nil
 }

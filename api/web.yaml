@@ -1212,8 +1212,10 @@ components:
           type: string
     AdminUser:
       type: object
-      required: [name, mail, role, groups]
+      required: [id, name, mail, role, groups]
       properties:
+        id:
+          type: integer
         name:
           type: string
         mail:
@@ -1528,7 +1530,7 @@ components:
           type: string
     Assignment:
       type: object
-      required: [id, title, desc, endAt, status, total, done]
+      required: [id, title, desc, endAt, status, total, done, users, groups]
       properties:
         id:
           type: integer
@@ -1545,6 +1547,14 @@ components:
           type: integer
         done:
           type: integer
+        users:
+          type: array
+          items:
+            type: integer
+        groups:
+          type: array
+          items:
+            type: integer
     AssignmentDetail:
       type: object
       required: [assignment, problems, submissions]
@@ -1561,7 +1571,7 @@ components:
             $ref: "#/components/schemas/Submission"
     AssignmentCreate:
       type: object
-      required: [title, desc, endAt, problems]
+      required: [title, desc, endAt, problems, users, groups]
       properties:
         title:
           type: string
@@ -1574,9 +1584,17 @@ components:
           type: array
           items:
             type: integer
+        users:
+          type: array
+          items:
+            type: integer
+        groups:
+          type: array
+          items:
+            type: integer
     AssignmentUpdate:
       type: object
-      required: [title, desc, endAt, problems]
+      required: [title, desc, endAt, problems, users, groups]
       properties:
         title:
           type: string
@@ -1586,6 +1604,14 @@ components:
           type: string
           format: date-time
         problems:
+          type: array
+          items:
+            type: integer
+        users:
+          type: array
+          items:
+            type: integer
+        groups:
           type: array
           items:
             type: integer
