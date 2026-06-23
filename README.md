@@ -75,6 +75,10 @@ The Vite app defaults to API port `7974`. The product server reads real database
 
 During early development, GORM keeps the development schema aligned on startup. When the schema stabilizes, explicit migrations can be introduced without changing the OpenAPI workflow.
 
+## Live Updates
+
+The browser uses SSE at `/api/events` for lightweight live updates. Submission creation, judger lease, and judger result callbacks publish a generic submission-change event, and the frontend invalidates relevant TanStack Query data instead of keeping a second client-side cache.
+
 ## API Contract
 
 `api/web.yaml` is the web/admin API contract. Regenerate the frontend schema after contract changes:
@@ -242,6 +246,10 @@ pnpm dev --host 0.0.0.0 --port 28080
 Vite 前端默认访问 `7974` 端口的 API。产品 server 读取真实数据库和存储状态，不提供 mock 应用数据。
 
 当前快速开发阶段，server 启动时使用 GORM 保持开发库结构同步。等表结构稳定后，可以在不改变 OpenAPI 工作流的前提下引入显式 migration。
+
+## 实时更新
+
+浏览器通过 `/api/events` 的 SSE 获取轻量实时更新。创建提交、judger 领取任务、judger 回传结果时会广播通用的提交变化事件，前端只失效相关 TanStack Query 数据，不再维护第二套客户端缓存。
 
 ## API 契约
 

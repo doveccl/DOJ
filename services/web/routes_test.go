@@ -59,6 +59,17 @@ func TestProblemDiscussionCountsRespectVisibility(t *testing.T) {
 	}
 }
 
+func TestWriteSSE(t *testing.T) {
+	var out bytes.Buffer
+	if err := writeSSE(&out, "submission", []byte("{\"changed\":\"submission\"}")); err != nil {
+		t.Fatalf("write sse: %v", err)
+	}
+	want := "event: submission\ndata: {\"changed\":\"submission\"}\n\n"
+	if out.String() != want {
+		t.Fatalf("sse = %q, want %q", out.String(), want)
+	}
+}
+
 func TestPrivateSubmissionSourceVisibilityWithDatabase(t *testing.T) {
 	db := testWebDB(t)
 	allowGuest(t, db)

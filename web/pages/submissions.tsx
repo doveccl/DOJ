@@ -11,7 +11,7 @@ import { SubmissionStatus } from '../components/status'
 import { useLocale } from '../locale'
 import { formatTime, problemCode } from '../utils/format'
 
-const statusOptions = ['AC', 'WA', 'TLE', 'MLE', 'RE', 'CE']
+const statusOptions = ['queued', 'judging', 'AC', 'WA', 'TLE', 'MLE', 'RE', 'CE']
 
 export function SubmissionsPage() {
   const { lang, text } = useLocale()

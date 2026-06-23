@@ -23,6 +23,7 @@ import (
 
 	"github.com/doveccl/doj/models"
 	adminsvc "github.com/doveccl/doj/services/admin"
+	"github.com/doveccl/doj/services/events"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
@@ -355,6 +356,7 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	e.PATCH("/api/me", api.updateMe)
 	e.PATCH("/api/me/password", api.updatePassword)
 	group := e.Group("/api", api.requireGuestAccess)
+	group.GET("/events", api.events)
 	group.GET("/home", api.home)
 	group.GET("/languages", api.languages)
 	group.PATCH("/home/notice", api.updateNotice)
@@ -422,6 +424,72 @@ func (api *API) ready(c echo.Context) error {
 		return c.JSON(http.StatusServiceUnavailable, map[string]string{"status": "not_ready"})
 	}
 	return c.JSON(http.StatusOK, map[string]string{"status": "ready"})
+}
+
+func (api *API) events(c echo.Context) error {
+	flusher, ok := c.Response().Writer.(http.Flusher)
+	if !ok {
+		return echo.NewHTTPError(http.StatusInternalServerError, "streaming is not supported")
+	}
+
+	response := c.Response()
+	response.Header().Set(echo.HeaderContentType, "text/event-stream")
+	response.Header().Set(echo.HeaderCacheControl, "no-cache")
+	response.Header().Set(echo.HeaderConnection, "keep-alive")
+	response.Header().Set("X-Accel-Buffering", "no")
+	response.WriteHeader(http.StatusOK)
+
+	if err := writeSSE(response.Writer, "ready", []byte("{}")); err != nil {
+		return nil
+	}
+	flusher.Flush()
+
+	ch, unsubscribe := events.Default.Subscribe()
+	defer unsubscribe()
+	ticker := time.NewTicker(25 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-c.Request().Context().Done():
+			return nil
+		case event, ok := <-ch:
+			if !ok {
+				return nil
+			}
+			if err := writeSSE(response.Writer, event.Type, event.Data); err != nil {
+				return nil
+			}
+			flusher.Flush()
+		case <-ticker.C:
+			if _, err := io.WriteString(response.Writer, ": ping\n\n"); err != nil {
+				return nil
+			}
+			flusher.Flush()
+		}
+	}
+}
+
+func writeSSE(writer io.Writer, event string, data []byte) error {
+	if _, err := fmt.Fprintf(writer, "event: %s\n", event); err != nil {
+		return err
+	}
+	if _, err := writer.Write([]byte("data: ")); err != nil {
+		return err
+	}
+	lines := bytes.Split(data, []byte("\n"))
+	for index, line := range lines {
+		if index > 0 {
+			if _, err := writer.Write([]byte("\ndata: ")); err != nil {
+				return err
+			}
+		}
+		if _, err := writer.Write(line); err != nil {
+			return err
+		}
+	}
+	_, err := writer.Write([]byte("\n\n"))
+	return err
 }
 
 func (api *API) site(c echo.Context) error {
@@ -1719,6 +1787,7 @@ func (api *API) submit(c echo.Context) error {
 	if err := api.db.Create(&row).Error; err != nil {
 		return err
 	}
+	events.SubmissionChanged()
 	return c.JSON(http.StatusCreated, api.submissionDTO(row))
 }
 

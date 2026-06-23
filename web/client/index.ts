@@ -100,10 +100,14 @@ function authHeaders(base?: HeadersInit, extra?: HeadersInit) {
 }
 
 async function apiFetch(path: string, init?: RequestInit) {
-  const url = new URL(path, defaultBaseUrl())
+  const url = apiUrl(path)
   const headers = authHeaders(undefined, init?.headers)
   addCSRFHeader(headers, init?.method ?? 'GET')
   return fetch(url, { ...init, credentials: 'include', headers })
+}
+
+export function apiUrl(path: string) {
+  return new URL(path, defaultBaseUrl())
 }
 
 function hasJsonBody(body: BodyInit | null | undefined) {

@@ -29,6 +29,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Health"
+  /api/events:
+    get:
+      operationId: watchEvents
+      responses:
+        "200":
+          description: Server-sent events for lightweight live updates
+          content:
+            text/event-stream:
+              schema:
+                type: string
   /api/site:
     get:
       operationId: getSite

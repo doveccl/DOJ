@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/doveccl/doj/models"
+	"github.com/doveccl/doj/services/events"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	"gorm.io/datatypes"
@@ -193,6 +194,9 @@ func (api *API) lease(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	if payload != nil {
+		events.SubmissionChanged()
+	}
 	return c.JSON(http.StatusOK, LeaseResponse{Task: payload})
 }
 
@@ -290,6 +294,7 @@ func (api *API) result(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	events.SubmissionChanged()
 	return c.NoContent(http.StatusAccepted)
 }
 

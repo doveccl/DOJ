@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import 'antd/dist/reset.css'
 import './style.css'
 import { ColorProvider, useColor } from './color'
+import { LiveEvents } from './components/live'
 import { LocaleProvider, useLocale } from './locale'
 import { AppRoutes } from './routes'
 import { SessionProvider } from './session'
@@ -58,6 +59,7 @@ root.render(
       <ColorProvider>
         <QueryClientProvider client={queryClient}>
           <SessionProvider>
+            <LiveEvents />
             <Root />
           </SessionProvider>
         </QueryClientProvider>

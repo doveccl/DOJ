@@ -18,6 +18,6 @@ export function ContestStatus({ status }: { status: string }) {
 }
 
 export function SubmissionStatus({ status }: { status: string }) {
-  const color = status === 'AC' ? 'green' : status === 'CE' ? 'default' : status === 'TLE' || status === 'MLE' ? 'gold' : 'red'
+  const color = status === 'AC' ? 'green' : status === 'queued' ? 'blue' : status === 'judging' ? 'geekblue' : status === 'CE' ? 'default' : status === 'TLE' || status === 'MLE' ? 'gold' : 'red'
   return <Tag color={color}>{status}</Tag>
 }
