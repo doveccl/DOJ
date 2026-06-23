@@ -576,6 +576,53 @@ func TestDatabaseDiscussionAuthorsUseNames(t *testing.T) {
 	}
 }
 
+func TestImageUploadUsesRelativeMediaPathsAndHeaders(t *testing.T) {
+	t.Setenv("DOJ_UPLOAD_DIR", t.TempDir())
+	db := testWebDB(t)
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	student := models.User{Name: "student", Mail: "student@example.com", Auth: "hash"}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	if err := db.Create(&student).Error; err != nil {
+		t.Fatalf("create student: %v", err)
+	}
+	problem := models.Problem{ID: 1000, Title: "Visible", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+	studentCookies := databaseSession(t, db, student.ID)
+	adminCookies := databaseSession(t, db, admin.ID)
+
+	userImage := uploadImageForTest(t, e, "/api/uploads/images", studentCookies, "avatar.png", tinyPNG())
+	if !strings.HasPrefix(userImage.URL, "/api/media/users/") || strings.Contains(userImage.URL, "://") {
+		t.Fatalf("user image url should be a relative media path, got %q", userImage.URL)
+	}
+	res := requestWithCookies(e, http.MethodGet, userImage.URL, studentCookies, nil)
+	if res.Code != http.StatusOK {
+		t.Fatalf("read user image got %d body=%s", res.Code, res.Body.String())
+	}
+	if cache := res.Header().Get(echo.HeaderCacheControl); cache != "public, max-age=31536000, immutable" {
+		t.Fatalf("user image cache header = %q", cache)
+	}
+	res = requestWithCookiesAndReferer(e, http.MethodGet, userImage.URL, studentCookies, "https://evil.example/post")
+	if res.Code != http.StatusForbidden {
+		t.Fatalf("cross-site media request got %d body=%s", res.Code, res.Body.String())
+	}
+
+	problemImage := uploadImageForTest(t, e, "/api/problems/1000/assets/images", adminCookies, "statement.png", tinyPNG())
+	if !strings.HasPrefix(problemImage.URL, "/api/media/problems/1000/images/") || strings.Contains(problemImage.URL, "://") {
+		t.Fatalf("problem image url should be a relative media path, got %q", problemImage.URL)
+	}
+	res = requestWithCookies(e, http.MethodGet, problemImage.URL, adminCookies, nil)
+	if res.Code != http.StatusOK {
+		t.Fatalf("read problem image got %d body=%s", res.Code, res.Body.String())
+	}
+}
+
 func TestSafeAssetZipNameRejectsUnsafeNames(t *testing.T) {
 	name, ok := safeAssetZipName("data", "cases/1.in")
 	if !ok || name != "data/cases/1.in" {
@@ -614,6 +661,34 @@ func uploadAssetForTest(t *testing.T, e *echo.Echo, target string, section strin
 		t.Fatalf("upload asset got %d body=%s", res.Code, res.Body.String())
 	}
 	return decodeJSON[ProblemAssets](t, res)
+}
+
+func uploadImageForTest(t *testing.T, e *echo.Echo, target string, cookies []*http.Cookie, name string, content []byte) UploadResult {
+	t.Helper()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("file", name)
+	if err != nil {
+		t.Fatalf("create form file failed: %v", err)
+	}
+	if _, err := part.Write(content); err != nil {
+		t.Fatalf("write image failed: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart failed: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, target, &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	for _, cookie := range cookies {
+		req.AddCookie(cookie)
+	}
+	addCSRFHeader(req, cookies)
+	res := httptest.NewRecorder()
+	e.ServeHTTP(res, req)
+	if res.Code != http.StatusCreated {
+		t.Fatalf("upload image got %d body=%s", res.Code, res.Body.String())
+	}
+	return decodeJSON[UploadResult](t, res)
 }
 
 func requestOK(t *testing.T, e *echo.Echo, method string, target string, role string) *httptest.ResponseRecorder {
@@ -672,6 +747,18 @@ func requestJSONWithCookies(e *echo.Echo, method string, target string, cookies 
 
 func requestWithCookies(e *echo.Echo, method string, target string, cookies []*http.Cookie, body io.Reader) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, target, body)
+	for _, cookie := range cookies {
+		req.AddCookie(cookie)
+	}
+	addCSRFHeader(req, cookies)
+	res := httptest.NewRecorder()
+	e.ServeHTTP(res, req)
+	return res
+}
+
+func requestWithCookiesAndReferer(e *echo.Echo, method string, target string, cookies []*http.Cookie, referer string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(method, target, nil)
+	req.Header.Set("Referer", referer)
 	for _, cookie := range cookies {
 		req.AddCookie(cookie)
 	}

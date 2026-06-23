@@ -10,8 +10,10 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/mail"
+	"net/url"
 	"path"
 	"path/filepath"
 	"sort"
@@ -357,6 +359,8 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.GET("/languages", api.languages)
 	group.PATCH("/home/notice", api.updateNotice)
 	group.POST("/uploads/images", api.uploadImage)
+	group.GET("/media/users/*", api.userMedia)
+	group.GET("/media/problems/:id/*", api.problemMedia)
 	group.GET("/uploads/*", api.uploadFile)
 	group.GET("/problems", api.problems)
 	group.POST("/problems", api.createProblem)
@@ -645,7 +649,7 @@ func (api *API) uploadImage(c echo.Context) error {
 	if err := store.Put(c.Request().Context(), key, bytes.NewReader(data), int64(len(data)), mime); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusCreated, UploadResult{URL: "/api/uploads/" + key})
+	return c.JSON(http.StatusCreated, UploadResult{URL: "/api/media/" + key})
 }
 
 func readUploadedImage(file *multipart.FileHeader) ([]byte, string, string, string, error) {
@@ -685,15 +689,36 @@ func (api *API) uploadFile(c echo.Context) error {
 	if !userUploadKeyAllowed(key) {
 		return echo.NewHTTPError(http.StatusNotFound, "upload not found")
 	}
+	return streamMedia(c, key, "upload not found")
+}
+
+func (api *API) userMedia(c echo.Context) error {
+	rel, err := utils.CleanObjectKey(c.Param("*"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "media not found")
+	}
+	key := path.Join("users", rel)
+	if !userUploadKeyAllowed(key) {
+		return echo.NewHTTPError(http.StatusNotFound, "media not found")
+	}
+	return streamMedia(c, key, "media not found")
+}
+
+func streamMedia(c echo.Context, key string, notFound string) error {
+	if !sameSiteMediaRequest(c) {
+		return echo.NewHTTPError(http.StatusForbidden, "media hotlink is not allowed")
+	}
 	store, err := utils.NewObjectStoreFromEnv()
 	if err != nil {
 		return err
 	}
 	reader, contentType, err := store.Open(c.Request().Context(), key)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "upload not found")
+		return echo.NewHTTPError(http.StatusNotFound, notFound)
 	}
 	defer reader.Close()
+	c.Response().Header().Set(echo.HeaderCacheControl, "public, max-age=31536000, immutable")
+	c.Response().Header().Set(echo.HeaderXContentTypeOptions, "nosniff")
 	return c.Stream(http.StatusOK, contentType, reader)
 }
 
@@ -980,7 +1005,7 @@ func (api *API) uploadProblemImage(c echo.Context) error {
 		return err
 	}
 	year, month, day := uploadDateParts(time.Now())
-	rel := path.Join("assets", year, month, day, sha+ext)
+	rel := path.Join("images", year, month, day, sha+ext)
 	key := path.Join("problems", strconv.Itoa(int(id)), rel)
 	store, err := utils.NewObjectStoreFromEnv()
 	if err != nil {
@@ -989,7 +1014,7 @@ func (api *API) uploadProblemImage(c echo.Context) error {
 	if err := store.Put(c.Request().Context(), key, bytes.NewReader(data), int64(len(data)), mime); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusCreated, UploadResult{URL: fmt.Sprintf("/api/problems/%d/assets/raw/%s", id, rel)})
+	return c.JSON(http.StatusCreated, UploadResult{URL: fmt.Sprintf("/api/media/problems/%d/%s", id, rel)})
 }
 
 func (api *API) problemAssetRaw(c echo.Context) error {
@@ -1005,16 +1030,42 @@ func (api *API) problemAssetRaw(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "asset not found")
 	}
 	key := path.Join("problems", strconv.Itoa(int(id)), rel)
-	store, err := utils.NewObjectStoreFromEnv()
+	return streamMedia(c, key, "asset not found")
+}
+
+func (api *API) problemMedia(c echo.Context) error {
+	id, err := parseID(c, "id", "invalid problem id")
 	if err != nil {
 		return err
 	}
-	reader, contentType, err := store.Open(c.Request().Context(), key)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "asset not found")
+	if err := api.requireProblemVisible(c, id); err != nil {
+		return err
 	}
-	defer reader.Close()
-	return c.Stream(http.StatusOK, contentType, reader)
+	rel, err := utils.CleanObjectKey(c.Param("*"))
+	if err != nil || !strings.HasPrefix(rel, "images/") {
+		return echo.NewHTTPError(http.StatusNotFound, "media not found")
+	}
+	key := path.Join("problems", strconv.Itoa(int(id)), rel)
+	return streamMedia(c, key, "media not found")
+}
+
+func sameSiteMediaRequest(c echo.Context) bool {
+	raw := c.Request().Referer()
+	if raw == "" {
+		return true
+	}
+	ref, err := url.Parse(raw)
+	if err != nil || ref.Hostname() == "" {
+		return false
+	}
+	return strings.EqualFold(ref.Hostname(), requestHostname(c.Request().Host))
+}
+
+func requestHostname(host string) string {
+	if value, _, err := net.SplitHostPort(host); err == nil {
+		return strings.Trim(value, "[]")
+	}
+	return strings.Trim(host, "[]")
 }
 
 func (api *API) uploadProblemAsset(c echo.Context) error {

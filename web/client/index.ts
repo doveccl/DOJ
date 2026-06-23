@@ -246,10 +246,7 @@ export async function uploadImage(file: File) {
     throw new Error(await response.text())
   }
   const data = (await response.json()) as UploadResult
-  if (data.url.startsWith('http://') || data.url.startsWith('https://')) {
-    return data.url
-  }
-  return new URL(data.url, defaultBaseUrl()).toString()
+  return data.url
 }
 
 export async function uploadProblemImage(id: number, file: File) {
@@ -260,10 +257,7 @@ export async function uploadProblemImage(id: number, file: File) {
     throw new Error(await response.text())
   }
   const data = (await response.json()) as UploadResult
-  if (data.url.startsWith('http://') || data.url.startsWith('https://')) {
-    return data.url
-  }
-  return new URL(data.url, defaultBaseUrl()).toString()
+  return data.url
 }
 
 export async function getAdmin() {
