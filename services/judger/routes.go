@@ -593,7 +593,7 @@ func casePayloadsFromObjects(problemID uint, objects []utils.ObjectInfo) []CaseP
 			continue
 		}
 		name := strings.TrimPrefix(object.Key, prefix)
-		stem, kind := caseStem(name)
+		stem, kind := utils.DataCaseStem(name)
 		if stem == "" || kind == "" {
 			continue
 		}
@@ -629,19 +629,6 @@ func casePayloadsFromObjects(problemID uint, objects []utils.ObjectInfo) []CaseP
 
 func problemAssetPrefix(id uint, section string) string {
 	return fmt.Sprintf("problems/%d/%s", id, section)
-}
-
-func caseStem(name string) (string, string) {
-	base := path.Base(name)
-	lower := strings.ToLower(base)
-	switch {
-	case strings.HasSuffix(lower, ".in"):
-		return base[:len(base)-3], "in"
-	case strings.HasSuffix(lower, ".out"):
-		return base[:len(base)-4], "out"
-	default:
-		return "", ""
-	}
 }
 
 func readTags(raw datatypes.JSON) []string {

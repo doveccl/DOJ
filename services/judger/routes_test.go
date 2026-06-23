@@ -34,6 +34,25 @@ func TestCasePayloadsFromObjects(t *testing.T) {
 	}
 }
 
+func TestCasePayloadsFromCommonDataNames(t *testing.T) {
+	cases := casePayloadsFromObjects(1000, []utils.ObjectInfo{
+		{Key: "problems/1000/data/output2.txt", Size: 2},
+		{Key: "problems/1000/data/input1.txt", Size: 4},
+		{Key: "problems/1000/data/answer1.txt", Size: 2},
+		{Key: "problems/1000/data/input2.txt", Size: 4},
+		{Key: "problems/1000/data/readme.txt", Size: 10},
+	})
+	if len(cases) != 2 {
+		t.Fatalf("cases = %+v", cases)
+	}
+	if cases[0].ID != "1" || cases[0].Input != "data/input1.txt" || cases[0].Answer != "data/answer1.txt" || cases[0].Score != 50 {
+		t.Fatalf("case 1 = %+v", cases[0])
+	}
+	if cases[1].ID != "2" || cases[1].Input != "data/input2.txt" || cases[1].Answer != "data/output2.txt" || cases[1].Score != 50 {
+		t.Fatalf("case 2 = %+v", cases[1])
+	}
+}
+
 func TestValidateResult(t *testing.T) {
 	valid := ResultRequest{
 		SubmissionID: 1,

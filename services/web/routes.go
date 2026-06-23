@@ -2849,7 +2849,7 @@ func dataStats(files []AssetFile) (int, int64) {
 	var bytes int64
 	for _, file := range files {
 		bytes += file.Size
-		stem, kind := caseStem(file.Name)
+		stem, kind := utils.DataCaseStem(file.Name)
 		switch kind {
 		case "in":
 			inputs[stem] = true
@@ -2864,19 +2864,6 @@ func dataStats(files []AssetFile) (int, int64) {
 		}
 	}
 	return cases, bytes
-}
-
-func caseStem(name string) (string, string) {
-	base := path.Base(name)
-	lower := strings.ToLower(base)
-	switch {
-	case strings.HasSuffix(lower, ".in"):
-		return base[:len(base)-3], "in"
-	case strings.HasSuffix(lower, ".out"):
-		return base[:len(base)-4], "out"
-	default:
-		return "", ""
-	}
 }
 
 func editableAsset(name string, size int64) bool {
@@ -2951,7 +2938,7 @@ func caseName(raw string, assets ProblemAssets) (string, error) {
 func nextCaseName(assets ProblemAssets) string {
 	used := map[string]bool{}
 	for _, file := range assets.Data {
-		stem, kind := caseStem(file.Name)
+		stem, kind := utils.DataCaseStem(file.Name)
 		if kind != "" {
 			used[stem] = true
 		}
