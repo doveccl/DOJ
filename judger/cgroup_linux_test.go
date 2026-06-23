@@ -3,7 +3,6 @@
 package judger
 
 import (
-	"context"
 	"io"
 	"os"
 	"os/exec"
