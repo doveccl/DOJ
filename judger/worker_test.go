@@ -19,14 +19,6 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 	}
 	runner := buildRunner(t)
 	work := t.TempDir()
-	input := filepath.Join(work, "1.in")
-	answer := filepath.Join(work, "1.out")
-	if err := os.WriteFile(input, []byte("42\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(answer, []byte("42\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
 
 	gotResult := make(chan resultRequest, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -46,11 +38,14 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 				Limits:       Limits{TimeMS: 1000, OutputKB: 64},
 				Cases: []casePayload{{
 					ID:     "1",
-					Input:  input,
-					Answer: answer,
+					Input:  "data/1.in",
+					Answer: "data/1.out",
 					Score:  100,
 				}},
 			}})
+		case "/api/judger/tasks/7/assets.zip":
+			w.Header().Set("Content-Type", "application/zip")
+			_, _ = w.Write(testAssetZip(t))
 		case "/api/judger/tasks/7/result":
 			var req resultRequest
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
