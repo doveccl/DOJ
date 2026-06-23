@@ -76,8 +76,8 @@ Problem memory limits are stored and edited in MB. Judger limits, submission mem
 
 The WYSIWYG Markdown editor is lazy-loaded. Its editor chunk is intentionally larger than ordinary page chunks, while the initial application shell stays separate.
 
-Image uploads used by avatars and Markdown editors use the same server endpoint in every environment. By default the server stores objects under `DOJ_UPLOAD_DIR`; when S3/MinIO variables are configured, it stores them in the bucket and serves public user uploads back through `/api/uploads/*`. Problem data and judge assets are not exposed through the public upload route.
-In the UI, the Markdown editor image upload hook uses this endpoint. The server detects image content type, derives the stored extension from the detected MIME type, and rejects SVG content.
+Image uploads used by avatars and Markdown editors use the same server endpoint in every environment. By default the server stores objects under `DOJ_UPLOAD_DIR`; when S3/MinIO variables are configured, it stores them in the bucket. Stored object keys keep the stable business convention: user images use `users/{uid}/{yyyy}/{mm}/{dd}/{hash}.ext`, and problem Markdown images use `problems/{pid}/assets/{yyyy}/{mm}/{dd}/{hash}.ext`. The API returns shorter relative media URLs such as `/api/media/users/...` and `/api/media/problems/{pid}/...`; those URLs do not change the S3 key convention.
+In the UI, the Markdown editor image upload hook uses this endpoint. The server detects image content type, derives the stored extension from the detected MIME type, rejects SVG content, proxies media with immutable cache headers, and applies a same-site referer guard for media reads.
 
 ```bash
 DOJ_BODY_LIMIT=160M
@@ -274,8 +274,8 @@ DOJ_COOKIE_DOMAIN=example.com
 
 WYSIWYG Markdown 编辑器按需懒加载。它的编辑器 chunk 会明显大于普通页面 chunk，但不会进入首屏应用壳。
 
-头像和 Markdown 编辑器图片上传共用同一个 server 接口。默认写入 `DOJ_UPLOAD_DIR`；配置 S3/MinIO 后写入对象存储桶，并通过 `/api/uploads/*` 由 server 代理读取公开的用户上传。题目数据和评测资源不会通过这个公开上传路由暴露。
-前端里，Markdown 编辑器的图片上传 hook 会走这个接口。server 会检测图片内容类型，按照检测到的 MIME 类型决定存储扩展名，并拒绝 SVG 内容。
+头像和 Markdown 编辑器图片上传共用同一个 server 接口。默认写入 `DOJ_UPLOAD_DIR`；配置 S3/MinIO 后写入对象存储桶。对象 key 继续遵守固定业务约定：用户图片使用 `users/{uid}/{yyyy}/{mm}/{dd}/{hash}.ext`，题目 Markdown 图片使用 `problems/{pid}/assets/{yyyy}/{mm}/{dd}/{hash}.ext`。API 返回更短的相对媒体 URL，例如 `/api/media/users/...` 和 `/api/media/problems/{pid}/...`；这个 URL 变化不代表 S3 key 约定变化。
+前端里，Markdown 编辑器的图片上传 hook 会走这个接口。server 会检测图片内容类型，按照检测到的 MIME 类型决定存储扩展名，拒绝 SVG 内容，并在代理读取媒体时加长期缓存头和同站 referer 防外链检查。
 
 ```bash
 DOJ_BODY_LIMIT=160M

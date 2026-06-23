@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -614,8 +615,12 @@ func TestImageUploadUsesRelativeMediaPathsAndHeaders(t *testing.T) {
 	}
 
 	problemImage := uploadImageForTest(t, e, "/api/problems/1000/assets/images", adminCookies, "statement.png", tinyPNG())
-	if !strings.HasPrefix(problemImage.URL, "/api/media/problems/1000/images/") || strings.Contains(problemImage.URL, "://") {
+	if !strings.HasPrefix(problemImage.URL, "/api/media/problems/1000/") || strings.Contains(problemImage.URL, "://") || strings.Contains(problemImage.URL, "/assets/") {
 		t.Fatalf("problem image url should be a relative media path, got %q", problemImage.URL)
+	}
+	rel := strings.TrimPrefix(problemImage.URL, "/api/media/problems/1000/")
+	if _, err := os.Stat(filepath.Join(utils.UploadRoot(), "problems", "1000", "assets", filepath.FromSlash(rel))); err != nil {
+		t.Fatalf("problem image should keep the existing object key convention: %v", err)
 	}
 	res = requestWithCookies(e, http.MethodGet, problemImage.URL, adminCookies, nil)
 	if res.Code != http.StatusOK {

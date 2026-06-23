@@ -361,7 +361,6 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.POST("/uploads/images", api.uploadImage)
 	group.GET("/media/users/*", api.userMedia)
 	group.GET("/media/problems/:id/*", api.problemMedia)
-	group.GET("/uploads/*", api.uploadFile)
 	group.GET("/problems", api.problems)
 	group.POST("/problems", api.createProblem)
 	group.GET("/problems/:id", api.problem)
@@ -681,17 +680,6 @@ func uploadDateParts(now time.Time) (string, string, string) {
 	return now.Format("2006"), now.Format("01"), now.Format("02")
 }
 
-func (api *API) uploadFile(c echo.Context) error {
-	key, err := utils.CleanObjectKey(c.Param("*"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "upload not found")
-	}
-	if !userUploadKeyAllowed(key) {
-		return echo.NewHTTPError(http.StatusNotFound, "upload not found")
-	}
-	return streamMedia(c, key, "upload not found")
-}
-
 func (api *API) userMedia(c echo.Context) error {
 	rel, err := utils.CleanObjectKey(c.Param("*"))
 	if err != nil {
@@ -1005,8 +993,8 @@ func (api *API) uploadProblemImage(c echo.Context) error {
 		return err
 	}
 	year, month, day := uploadDateParts(time.Now())
-	rel := path.Join("images", year, month, day, sha+ext)
-	key := path.Join("problems", strconv.Itoa(int(id)), rel)
+	rel := path.Join(year, month, day, sha+ext)
+	key := path.Join("problems", strconv.Itoa(int(id)), "assets", rel)
 	store, err := utils.NewObjectStoreFromEnv()
 	if err != nil {
 		return err
@@ -1042,10 +1030,10 @@ func (api *API) problemMedia(c echo.Context) error {
 		return err
 	}
 	rel, err := utils.CleanObjectKey(c.Param("*"))
-	if err != nil || !strings.HasPrefix(rel, "images/") {
+	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "media not found")
 	}
-	key := path.Join("problems", strconv.Itoa(int(id)), rel)
+	key := path.Join("problems", strconv.Itoa(int(id)), "assets", rel)
 	return streamMedia(c, key, "media not found")
 }
 
