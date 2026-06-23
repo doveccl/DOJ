@@ -1,0 +1,624 @@
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
+
+export type Lang = 'zh' | 'en'
+
+const zh = {
+  nav: {
+    problems: '题库',
+    assignments: '作业',
+    contests: '比赛',
+    discussion: '讨论',
+    rank: '排名',
+    submissions: '提交',
+    admin: '管理'
+  },
+  prefs: {
+    language: '语言',
+    chinese: '中文',
+    english: 'English',
+    theme: '外观',
+    system: '跟随系统',
+    light: '浅色',
+    dark: '深色',
+    login: '登录',
+    register: '注册',
+    loginTitle: '账号登录',
+    username: '用户名',
+    password: '密码',
+    loginFailed: '用户名或密码不正确',
+    guest: '游客',
+    profile: '个人信息',
+    logout: '退出登录'
+  },
+  common: {
+    loadingFailed: '加载失败',
+    emptyResponse: '空响应',
+    clear: '清空',
+    search: '搜索',
+    edit: '编辑',
+    create: '创建',
+    cancel: '取消',
+    delete: '删除',
+    save: '保存',
+    confirmDelete: '确认删除？',
+    forbidden: '无权访问',
+    guestClosedTitle: '需要登录',
+    guestClosedDescription: '当前站点未开放游客访问，请登录后继续使用。',
+    createProblem: '创建题目',
+    submitCode: '提交代码',
+    saved: '已保存'
+  },
+  home: {
+    notice: '公告',
+    noticeFallback: '暂无公告',
+    heatmap: '提交记录',
+    year: '全年',
+    less: '少',
+    more: '多',
+    count: (count: number) => `${count} 次提交`,
+    total: (count: number) => `全年提交 ${count} 次`,
+    latestProblems: '题目上新',
+    assignments: '近期作业',
+    contests: '近期比赛'
+  },
+  problems: {
+    q: '搜索题目',
+    tag: '标签',
+    id: '编号',
+    title: '标题',
+    limit: '限制',
+    pass: '通过率',
+    hidden: '隐藏',
+    visible: '可见',
+    currentVisible: '当前可见',
+    currentHidden: '已隐藏',
+    show: '显示题目',
+    hide: '隐藏题目',
+    shown: '已设为可见',
+    hiddenDone: '已设为隐藏',
+    time: '时间限制',
+    memory: '内存限制'
+  },
+  problem: {
+    statement: '题面',
+    visible: '普通用户可见',
+    record: '上次提交',
+    passed: '已通过',
+    tried: '已尝试',
+    none: '无记录',
+    pass: '通过率',
+    discussion: '讨论数',
+    resources: '评测资源',
+    mode: '评测模式',
+    cases: '数据组数',
+    data: '数据',
+    dataSize: '数据大小',
+    assets: '资产',
+    judge: '评测器',
+    upload: '上传',
+    addCase: '新增一组数据',
+    downloadAssets: '打包下载',
+    fillTemplate: '填入模板',
+    caseName: '数据组',
+    dataFile: '数据文件',
+    judgeFile: '评测器文件',
+    attachments: '附件',
+    assetFile: '附件文件',
+    size: '大小',
+    submit: '提交',
+    language: '语言',
+    noLanguages: '请先配置语言',
+    publicSource: '公开源码',
+    queued: '提交已进入队列'
+  },
+  assignments: {
+    title: '作业',
+    name: '标题',
+    desc: '说明',
+    deadline: '截止时间',
+    status: '状态',
+    progress: '进度',
+    create: '创建作业',
+    problems: '题目',
+    submissions: '提交',
+    running: '进行中',
+    ended: '已结束',
+    done: (done: number, total: number) => `${done}/${total}`
+  },
+  contests: {
+    title: '比赛',
+    name: '标题',
+    desc: '说明',
+    kind: '赛制',
+    time: '时间',
+    status: '状态',
+    problems: '题目',
+    rank: '榜单',
+    submissions: '提交',
+    create: '创建比赛',
+    running: '进行中',
+    pending: '未开始',
+    ended: '已结束',
+    start: '开始时间',
+    end: '结束时间',
+    total: (total: number) => `${total} 题`
+  },
+  submissions: {
+    title: '提交',
+    id: '编号',
+    problem: '题目',
+    user: '用户',
+    language: '语言',
+    status: '状态',
+    score: '分数',
+    time: '时间',
+    memory: '内存',
+    created: '提交时间',
+    source: '源码',
+    cases: '测试点',
+    message: '消息',
+    public: '公开',
+    searchProblem: '题目编号',
+    allStatus: '全部状态'
+  },
+  rank: {
+    rank: '排名',
+    user: '用户',
+    ac: '通过',
+    submit: '提交'
+  },
+  user: {
+    solved: 'AC 题目',
+    recent: '近期提交',
+    noBio: '暂无简介'
+  },
+  discussion: {
+    title: '标题',
+    author: '作者',
+    tags: '标签',
+    replies: '回复',
+    created: '发布于',
+    content: '内容',
+    create: '发帖',
+    createdTip: '帖子已发布',
+    reply: '回复',
+    repliedTip: '回复已发布',
+    pinned: '置顶',
+    locked: '锁定'
+  },
+  profile: {
+    title: '个人信息',
+    account: '资料',
+    password: '密码',
+    avatar: '头像',
+    avatarImageOnly: '请选择图片文件',
+    email: '邮箱',
+    bio: '简介',
+    oldPassword: '旧密码',
+    newPassword: '新密码',
+    save: '保存'
+  },
+  admin: {
+    settings: '设置',
+    users: '用户',
+    groups: '用户组',
+    languages: '语言',
+    judgers: '评测机',
+    siteName: '站点名称',
+    registration: '开放注册',
+    guest: '游客访问',
+    role: '角色',
+    userGroups: '所属用户组',
+    name: '名称',
+    source: '源文件',
+    dockerfile: 'Dockerfile',
+    token: '令牌',
+    queued: '排队',
+    running: '运行中',
+    done: '已完成',
+    createdAt: '创建时间',
+    updatedAt: '更新时间',
+    resetPassword: '重置密码',
+    keepAuth: '留空则不修改',
+    addGroup: '新增用户组',
+    editGroup: '编辑用户组',
+    addLang: '新增语言',
+    editLang: '编辑语言',
+    addJudger: '新增评测机',
+    editJudger: '编辑评测机',
+    roles: {
+      admin: '管理员',
+      user: '用户'
+    }
+  },
+  modes: {
+    default: '默认模式',
+    strict: '严格模式',
+    custom: '自定义评测'
+  },
+  modeDescriptions: {
+    default: '忽略行末空格和多余空行，逐行比较',
+    strict: '空白字符不一致会判为 PE',
+    custom: '由自定义检查器或交互器判定'
+  },
+  editor: {
+    image: '上传图片',
+    placeholder: '输入 Markdown 内容',
+    paragraph: '正文',
+    textGroup: '文本',
+    text: '正文',
+    heading1: '一级标题',
+    heading2: '二级标题',
+    heading3: '三级标题',
+    heading4: '四级标题',
+    heading5: '五级标题',
+    heading6: '六级标题',
+    quote: '引用',
+    divider: '分割线',
+    listGroup: '列表',
+    bulletList: '无序列表',
+    orderedList: '有序列表',
+    taskList: '任务列表',
+    advancedGroup: '插入',
+    codeBlock: '代码块',
+    table: '表格',
+    math: '公式',
+    upload: '上传',
+    uploadFile: '上传文件',
+    pasteLink: '或粘贴链接',
+    captionPlaceholder: '填写图片说明',
+    confirm: '确认',
+    linkPlaceholder: '粘贴链接...',
+    searchLanguage: '搜索语言',
+    noResult: '无结果',
+    copy: '复制代码',
+    editCode: '编辑',
+    hideCode: '隐藏'
+  },
+  calendar: {
+    months: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+    weekdays: ['日', '一', '二', '三', '四', '五', '六']
+  },
+  pages: {
+    assignments: '作业',
+    contests: '比赛',
+    discussion: '讨论',
+    rank: '排名',
+    submissions: '提交',
+    admin: '管理'
+  }
+}
+
+const en: typeof zh = {
+  nav: {
+    problems: 'Problems',
+    assignments: 'Assignments',
+    contests: 'Contests',
+    discussion: 'Discussion',
+    rank: 'Rank',
+    submissions: 'Submissions',
+    admin: 'Admin'
+  },
+  prefs: {
+    language: 'Language',
+    chinese: '中文',
+    english: 'English',
+    theme: 'Theme',
+    system: 'System',
+    light: 'Light',
+    dark: 'Dark',
+    login: 'Sign in',
+    register: 'Register',
+    loginTitle: 'Sign in',
+    username: 'Username',
+    password: 'Password',
+    loginFailed: 'Invalid username or password',
+    guest: 'Guest',
+    profile: 'Profile',
+    logout: 'Sign out'
+  },
+  common: {
+    loadingFailed: 'Load failed',
+    emptyResponse: 'Empty response',
+    clear: 'Clear',
+    search: 'Search',
+    edit: 'Edit',
+    create: 'Create',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    save: 'Save',
+    confirmDelete: 'Delete this item?',
+    forbidden: 'Forbidden',
+    guestClosedTitle: 'Sign in required',
+    guestClosedDescription: 'Guest access is disabled. Sign in to continue.',
+    createProblem: 'Create problem',
+    submitCode: 'Submit code',
+    saved: 'Saved'
+  },
+  home: {
+    notice: 'Notice',
+    noticeFallback: 'No notice',
+    heatmap: 'Submissions',
+    year: 'Year',
+    less: 'Less',
+    more: 'More',
+    count: (count: number) => `${count} submissions`,
+    total: (count: number) => `${count} submissions this year`,
+    latestProblems: 'New Problems',
+    assignments: 'Assignments',
+    contests: 'Contests'
+  },
+  problems: {
+    q: 'Search problems',
+    tag: 'Tag',
+    id: 'ID',
+    title: 'Title',
+    limit: 'Limit',
+    pass: 'Pass rate',
+    hidden: 'Hidden',
+    visible: 'Visible',
+    currentVisible: 'Currently visible',
+    currentHidden: 'Hidden',
+    show: 'Show problem',
+    hide: 'Hide problem',
+    shown: 'Problem is now visible',
+    hiddenDone: 'Problem is now hidden',
+    time: 'Time limit',
+    memory: 'Memory limit'
+  },
+  problem: {
+    statement: 'Statement',
+    visible: 'Visible to regular users',
+    record: 'Last submission',
+    passed: 'Accepted',
+    tried: 'Tried',
+    none: 'No record',
+    pass: 'Pass rate',
+    discussion: 'Discussions',
+    resources: 'Judge resources',
+    mode: 'Judge mode',
+    cases: 'Cases',
+    data: 'Data',
+    dataSize: 'Data size',
+    assets: 'Assets',
+    judge: 'Judge program',
+    upload: 'Upload',
+    addCase: 'Add case',
+    downloadAssets: 'Download zip',
+    fillTemplate: 'Fill template',
+    caseName: 'Case',
+    dataFile: 'Data file',
+    judgeFile: 'Judge file',
+    attachments: 'Attachments',
+    assetFile: 'Attachment file',
+    size: 'Size',
+    submit: 'Submit',
+    language: 'Language',
+    noLanguages: 'Configure a language first',
+    publicSource: 'Public source',
+    queued: 'Submission queued'
+  },
+  assignments: {
+    title: 'Assignments',
+    name: 'Title',
+    desc: 'Description',
+    deadline: 'Deadline',
+    status: 'Status',
+    progress: 'Progress',
+    create: 'Create assignment',
+    problems: 'Problems',
+    submissions: 'Submissions',
+    running: 'Running',
+    ended: 'Ended',
+    done: (done: number, total: number) => `${done}/${total}`
+  },
+  contests: {
+    title: 'Contests',
+    name: 'Title',
+    desc: 'Description',
+    kind: 'Format',
+    time: 'Time',
+    status: 'Status',
+    problems: 'Problems',
+    rank: 'Standings',
+    submissions: 'Submissions',
+    create: 'Create contest',
+    running: 'Running',
+    pending: 'Pending',
+    ended: 'Ended',
+    start: 'Start time',
+    end: 'End time',
+    total: (total: number) => `${total} problems`
+  },
+  submissions: {
+    title: 'Submissions',
+    id: 'ID',
+    problem: 'Problem',
+    user: 'User',
+    language: 'Language',
+    status: 'Status',
+    score: 'Score',
+    time: 'Time',
+    memory: 'Memory',
+    created: 'Submitted at',
+    source: 'Source',
+    cases: 'Cases',
+    message: 'Message',
+    public: 'Public',
+    searchProblem: 'Problem ID',
+    allStatus: 'All statuses'
+  },
+  rank: {
+    rank: 'Rank',
+    user: 'User',
+    ac: 'AC',
+    submit: 'Submissions'
+  },
+  user: {
+    solved: 'Solved',
+    recent: 'Recent submissions',
+    noBio: 'No bio'
+  },
+  discussion: {
+    title: 'Title',
+    author: 'Author',
+    tags: 'Tags',
+    replies: 'Replies',
+    created: 'Created at',
+    content: 'Content',
+    create: 'New post',
+    createdTip: 'Post created',
+    reply: 'Reply',
+    repliedTip: 'Reply posted',
+    pinned: 'Pinned',
+    locked: 'Locked'
+  },
+  profile: {
+    title: 'Profile',
+    account: 'Account',
+    password: 'Password',
+    avatar: 'Avatar',
+    avatarImageOnly: 'Choose an image file',
+    email: 'Email',
+    bio: 'Bio',
+    oldPassword: 'Current password',
+    newPassword: 'New password',
+    save: 'Save'
+  },
+  admin: {
+    settings: 'Settings',
+    users: 'Users',
+    groups: 'Groups',
+    languages: 'Languages',
+    judgers: 'Judgers',
+    siteName: 'Site name',
+    registration: 'Registration',
+    guest: 'Guest access',
+    role: 'Role',
+    userGroups: 'Groups',
+    name: 'Name',
+    source: 'Source',
+    dockerfile: 'Dockerfile',
+    token: 'Token',
+    queued: 'Queued',
+    running: 'Running',
+    done: 'Done',
+    createdAt: 'Created at',
+    updatedAt: 'Updated at',
+    resetPassword: 'Reset password',
+    keepAuth: 'Leave blank to keep current value',
+    addGroup: 'Add group',
+    editGroup: 'Edit group',
+    addLang: 'Add language',
+    editLang: 'Edit language',
+    addJudger: 'Add judger',
+    editJudger: 'Edit judger',
+    roles: {
+      admin: 'Admin',
+      user: 'User'
+    }
+  },
+  modes: {
+    default: 'Default',
+    strict: 'Strict',
+    custom: 'Custom judge'
+  },
+  modeDescriptions: {
+    default: 'Trim trailing blanks, then compare lines',
+    strict: 'Whitespace mismatches are judged as PE',
+    custom: 'Checker or interactor decides the result'
+  },
+  editor: {
+    image: 'Upload image',
+    placeholder: 'Write Markdown content',
+    paragraph: 'Paragraph',
+    textGroup: 'Text',
+    text: 'Text',
+    heading1: 'Heading 1',
+    heading2: 'Heading 2',
+    heading3: 'Heading 3',
+    heading4: 'Heading 4',
+    heading5: 'Heading 5',
+    heading6: 'Heading 6',
+    quote: 'Quote',
+    divider: 'Divider',
+    listGroup: 'List',
+    bulletList: 'Bullet list',
+    orderedList: 'Ordered list',
+    taskList: 'Task list',
+    advancedGroup: 'Insert',
+    codeBlock: 'Code block',
+    table: 'Table',
+    math: 'Math',
+    upload: 'Upload',
+    uploadFile: 'Upload file',
+    pasteLink: 'or paste link',
+    captionPlaceholder: 'Write image caption',
+    confirm: 'Confirm',
+    linkPlaceholder: 'Paste link...',
+    searchLanguage: 'Search language',
+    noResult: 'No result',
+    copy: 'Copy code',
+    editCode: 'Edit',
+    hideCode: 'Hide'
+  },
+  calendar: {
+    months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+    weekdays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  },
+  pages: {
+    assignments: 'Assignments',
+    contests: 'Contests',
+    discussion: 'Discussion',
+    rank: 'Rank',
+    submissions: 'Submissions',
+    admin: 'Admin'
+  }
+}
+
+const dicts = { zh, en }
+
+type LocaleState = {
+  lang: Lang
+  text: typeof zh
+  setLang: (lang: Lang) => void
+}
+
+const LocaleContext = createContext<LocaleState | null>(null)
+
+function readLang(): Lang {
+  if (typeof window === 'undefined') {
+    return 'zh'
+  }
+  const stored = window.localStorage.getItem('doj.lang')
+  if (stored === 'zh' || stored === 'en') {
+    return stored
+  }
+  return window.navigator.language.toLowerCase().startsWith('zh') ? 'zh' : 'en'
+}
+
+export function LocaleProvider({ children }: { children: ReactNode }) {
+  const [lang, setValue] = useState<Lang>(readLang)
+
+  useEffect(() => {
+    document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en'
+  }, [lang])
+
+  const setLang = useCallback((next: Lang) => {
+    setValue(next)
+    window.localStorage.setItem('doj.lang', next)
+  }, [])
+
+  const value = useMemo(() => ({ lang, setLang, text: dicts[lang] }), [lang, setLang])
+
+  return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>
+}
+
+export function useLocale() {
+  const value = useContext(LocaleContext)
+  if (!value) {
+    throw new Error('LocaleProvider is missing')
+  }
+  return value
+}

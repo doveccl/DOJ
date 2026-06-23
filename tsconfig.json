@@ -1,0 +1,12 @@
+{
+  "include": ["web"],
+  "compilerOptions": {
+    "strict": true,
+    "jsx": "preserve",
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  }
+}

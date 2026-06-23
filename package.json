@@ -1,0 +1,39 @@
+{
+  "name": "doj",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.8.0",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "api:gen": "pnpm dlx openapi-typescript api/web.yaml -o web/client/schema.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^6.2.5",
+    "@codemirror/language": "^6.12.3",
+    "@codemirror/language-data": "^6.5.2",
+    "@codemirror/view": "^6.43.1",
+    "@tanstack/react-query": "^5.101.0",
+    "@uiw/codemirror-theme-github": "^4.25.10",
+    "@uiw/react-codemirror": "^4.25.10",
+    "@vavt/markdown-theme": "^5.0.2",
+    "antd": "^6.4.4",
+    "dayjs": "^1.11.21",
+    "dompurify": "^3.4.11",
+    "md-editor-rt": "^6.5.2",
+    "openapi-fetch": "^0.17.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.9"
+  }
+}

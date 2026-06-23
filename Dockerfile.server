@@ -1,0 +1,37 @@
+FROM node:24-alpine AS web
+
+WORKDIR /src
+RUN corepack enable
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+COPY api ./api
+COPY web ./web
+COPY tsconfig.json vite.config.ts ./
+ARG VITE_API_BASE=/
+ENV VITE_API_BASE=${VITE_API_BASE}
+RUN pnpm build
+
+FROM golang:1.26-alpine AS build
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 go build -tags server -o /out/doj-server ./cmd/server.go
+
+FROM alpine:3.23
+
+RUN apk add --no-cache ca-certificates \
+  && adduser -D -H doj \
+  && mkdir -p /var/lib/doj/uploads \
+  && chown -R doj:doj /var/lib/doj
+COPY --from=build /out/doj-server /usr/local/bin/doj-server
+COPY --from=web /src/dist /usr/share/doj/web
+
+WORKDIR /var/lib/doj
+ENV DOJ_WEB_DIR=/usr/share/doj/web
+USER doj
+EXPOSE 7974
+CMD ["doj-server"]

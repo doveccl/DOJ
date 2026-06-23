@@ -1,0 +1,16 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+coverage/
+.cache/
+.vite/
+*.log
+*.token
+tmp/
+data/
+.data/
+*.local
+*.override.*

@@ -1,0 +1,24 @@
+# web 规则
+
+- `web/` 只放前端源码；Vite HTML 入口放仓库根目录 `index.html`。
+- OpenAPI 生成的 TypeScript client 放在 `web/client/`，不要放 `web/api/`，避免 Vite dev URL 与后端 `/api/*` 代理冲突。
+- 使用 React + Vite + TypeScript + antd。
+- API 数据使用 TanStack Query；表单和弹窗使用 React local state / antd Form。
+- 登录态通过 TanStack Query 的 `['me']` 缓存管理；不要再单独复制一份 session `useState`。
+- 第一版不引入 Redux / Zustand。
+- Vitest 使用要克制，只测稳定纯逻辑或关键组件，不替代浏览器走查。
+- 优先使用 antd 原生组件和能力。必要时查：
+  - `https://ant.design/llms.txt`
+  - 组件 Markdown 文档，例如 `https://ant.design/components/table-cn.md`
+- 默认不显式指定 antd 组件 `size`；弹窗里嵌套 Card、Table、工具按钮这类高密度管理区域时，内部组件统一用 `small`。
+- antd `Space` 使用 `orientation` 或 `vertical`，不要使用已废弃的 `direction`。
+- antd Table 行状态优先用 Tag 表达；只有明确原生能力或小范围样式足够稳定时再做行背景。
+- 首页顺序：公告、热力图、最新题目/作业/比赛。
+- 公告渲染 Markdown，管理员可就地编辑。
+- 管理设置页不展示公告 textarea。
+- 后台文案统一用“用户 / 用户组”，不要混用“成员”。
+- 题目编辑能力放题目列表和题目详情页。
+- 作业、比赛、讨论也按当前用户身份在业务页面展示管理能力。
+- 需要用户信息页：所有人可看热力图、近期活动、AC 题目；本人可编辑资料和改密码。
+- 代码编辑器语言高亮只从语言配置的 `id` 匹配 CodeMirror `language-data`；匹配不到时降级纯文本，不按管理员输入拼接任意运行时代码。
+- Markdown 和头像图片上传走 server API，前端只使用返回 URL，不写入 data URL。

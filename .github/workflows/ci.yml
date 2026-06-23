@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check generated API client
+        run: |
+          pnpm api:gen
+          git diff --exit-code -- web/client/schema.ts
+
+      - name: Run Go tests
+        run: |
+          go test ./...
+          go test -tags server ./cmd
+
+      - name: Run frontend checks
+        run: |
+          pnpm typecheck
+          pnpm test
+          pnpm build
+
+      - name: Check compose example
+        run: docker compose -f compose.example.yml config >/tmp/doj-compose.yml
+
+      - name: Build Docker images
+        run: |
+          docker build -f Dockerfile.server -t doj-server-ci .
+          docker build -f Dockerfile.judger -t doj-judger-ci .
+
+      - name: Build release binaries
+        run: |
+          mkdir -p .local/build
+          CGO_ENABLED=0 go build -tags server -o .local/build/doj-server ./cmd/server.go
+          CGO_ENABLED=0 go build -tags judger -o .local/build/doj-judger ./cmd/judger.go
+          CGO_ENABLED=0 go build -tags runner -o .local/build/doj-runner ./cmd/runner.go
+
+      - name: Scan for private local details
+        run: |
+          git grep -nE '10\.0\.|/Users/|NAS|nas|MacBook' -- . \
+            ':!go.sum' \
+            ':!pnpm-lock.yaml' \
+            ':!web/dist/**' \
+            ':!.github/workflows/ci.yml' > /tmp/doj-local-hits || true
+          if [ -s /tmp/doj-local-hits ]; then
+            cat /tmp/doj-local-hits
+            echo "Unexpected private local host or path found"
+            exit 1
+          fi

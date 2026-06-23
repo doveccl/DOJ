@@ -1,0 +1,131 @@
+package judger
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+)
+
+const defaultOutputLimit = 64 << 20
+
+type JudgeReport struct {
+	Verdict Verdict `json:"verdict"`
+	Score   int     `json:"score"`
+	Message string  `json:"message"`
+}
+
+func BuiltinJudgeMain(args []string) int {
+	flags := flag.NewFlagSet("judge", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	mode := flags.String("mode", string(ModeDefault), "judge mode")
+	input := flags.String("input", "", "input file")
+	answer := flags.String("answer", "", "answer file")
+	result := flags.String("result", "", "result file")
+	outputLimit := flags.Int64("output-limit", defaultOutputLimit, "user output limit in bytes")
+	if err := flags.Parse(args); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	if *input == "" || *answer == "" || *result == "" {
+		fmt.Fprintln(os.Stderr, "judge requires --input, --answer, and --result")
+		return 2
+	}
+
+	inputBytes, err := os.ReadFile(*input)
+	if err != nil {
+		writeReport(*result, JudgeReport{Verdict: VerdictSystemError, Message: err.Error()})
+		return 2
+	}
+	answerBytes, err := os.ReadFile(*answer)
+	if err != nil {
+		writeReport(*result, JudgeReport{Verdict: VerdictSystemError, Message: err.Error()})
+		return 2
+	}
+	if _, err := os.Stdout.Write(inputBytes); err != nil {
+		writeReport(*result, JudgeReport{Verdict: VerdictSystemError, Message: err.Error()})
+		return 2
+	}
+	_ = os.Stdout.Close()
+
+	output, err := readLimited(os.Stdin, *outputLimit)
+	if err != nil {
+		writeReport(*result, JudgeReport{Verdict: VerdictOutputLimit, Message: err.Error()})
+		return 0
+	}
+	verdict, message := Compare(JudgeMode(*mode), answerBytes, output)
+	score := 0
+	if verdict == VerdictAccepted {
+		score = 100
+	}
+	if err := writeReport(*result, JudgeReport{Verdict: verdict, Score: score, Message: message}); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	return 0
+}
+
+func Compare(mode JudgeMode, answer []byte, output []byte) (Verdict, string) {
+	switch mode {
+	case ModeDefault, "":
+		if equalDefault(answer, output) {
+			return VerdictAccepted, ""
+		}
+		return VerdictWrongAnswer, "output differs"
+	case ModeStrict:
+		if bytes.Equal(answer, output) {
+			return VerdictAccepted, ""
+		}
+		if equalDefault(answer, output) {
+			return VerdictPresentationError, "whitespace differs"
+		}
+		return VerdictWrongAnswer, "output differs"
+	default:
+		return VerdictSystemError, "unsupported builtin judge mode"
+	}
+}
+
+func equalDefault(answer []byte, output []byte) bool {
+	return normalizedLines(answer) == normalizedLines(output)
+}
+
+func normalizedLines(raw []byte) string {
+	value := strings.ReplaceAll(string(raw), "\r\n", "\n")
+	value = strings.ReplaceAll(value, "\r", "\n")
+	lines := strings.Split(value, "\n")
+	for i := range lines {
+		lines[i] = strings.TrimRight(lines[i], " \t")
+	}
+	for len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	return strings.Join(lines, "\n")
+}
+
+func readLimited(r io.Reader, limit int64) ([]byte, error) {
+	if limit <= 0 {
+		limit = defaultOutputLimit
+	}
+	var buf bytes.Buffer
+	n, err := io.CopyN(&buf, r, limit+1)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, err
+	}
+	if n > limit {
+		return nil, fmt.Errorf("output exceeds %d bytes", limit)
+	}
+	return buf.Bytes(), nil
+}
+
+func writeReport(path string, report JudgeReport) error {
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return json.NewEncoder(file).Encode(report)
+}

@@ -1,0 +1,13 @@
+.git
+.local
+.cache
+.data
+node_modules
+web/dist
+dist
+coverage
+tmp
+data
+.env
+.env.*
+*.log

@@ -1,0 +1,1822 @@
+openapi: 3.1.0
+info:
+  title: DOJ Web API
+  version: 0.1.0
+paths:
+  /api/health:
+    get:
+      operationId: health
+      responses:
+        "200":
+          description: Server health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /api/ready:
+    get:
+      operationId: ready
+      responses:
+        "200":
+          description: Server dependencies are ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        "503":
+          description: Server dependencies are not ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /api/site:
+    get:
+      operationId: getSite
+      responses:
+        "200":
+          description: Public site settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Site"
+  /api/me:
+    get:
+      operationId: getMe
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+    patch:
+      operationId: updateMe
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeUpdate"
+      responses:
+        "200":
+          description: Updated current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+  /api/me/password:
+    patch:
+      operationId: updatePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordUpdate"
+      responses:
+        "204":
+          description: Password updated
+  /api/auth/login:
+    post:
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Signed in user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+  /api/auth/register:
+    post:
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Registered user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+  /api/auth/logout:
+    post:
+      operationId: logout
+      responses:
+        "204":
+          description: Signed out
+  /api/languages:
+    get:
+      operationId: getLangs
+      responses:
+        "200":
+          description: Submit languages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Lang"
+  /api/uploads/images:
+    post:
+      operationId: uploadImage
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Uploaded image
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResult"
+  /api/admin:
+    get:
+      operationId: getAdmin
+      responses:
+        "200":
+          description: Admin overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
+  /api/admin/settings:
+    patch:
+      operationId: updateAdminSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminSettings"
+      responses:
+        "200":
+          description: Updated admin settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSettings"
+  /api/admin/users/{name}:
+    patch:
+      operationId: updateAdminUser
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUserUpdate"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
+    delete:
+      operationId: deleteAdminUser
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
+  /api/admin/users/{name}/password:
+    post:
+      operationId: resetAdminUserPassword
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Reset user password
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordReset"
+  /api/admin/groups:
+    post:
+      operationId: createAdminGroup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminGroupUpdate"
+      responses:
+        "201":
+          description: Created group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
+  /api/admin/groups/{id}:
+    patch:
+      operationId: updateAdminGroup
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminGroupUpdate"
+      responses:
+        "200":
+          description: Updated group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
+    delete:
+      operationId: deleteAdminGroup
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
+  /api/admin/languages/{id}:
+    patch:
+      operationId: updateAdminLang
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLangUpdate"
+      responses:
+        "200":
+          description: Updated language
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
+    delete:
+      operationId: deleteAdminLang
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted language
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
+  /api/admin/languages:
+    post:
+      operationId: createAdminLang
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLangCreate"
+      responses:
+        "201":
+          description: Created language
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
+  /api/admin/judgers/{id}:
+    patch:
+      operationId: updateAdminJudger
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminJudgerUpdate"
+      responses:
+        "200":
+          description: Updated judger
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
+    delete:
+      operationId: deleteAdminJudger
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted judger
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
+  /api/admin/judgers:
+    post:
+      operationId: createAdminJudger
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminJudgerCreate"
+      responses:
+        "201":
+          description: Created judger
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
+  /api/home:
+    get:
+      operationId: home
+      responses:
+        "200":
+          description: Home data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Home"
+  /api/home/notice:
+    patch:
+      operationId: updateNotice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoticeUpdate"
+      responses:
+        "200":
+          description: Updated notice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Home"
+  /api/problems:
+    get:
+      operationId: listProblems
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: tag
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Problem list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Problem"
+    post:
+      operationId: createProblem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProblemCreate"
+      responses:
+        "201":
+          description: Problem created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /api/problems/{id}:
+    get:
+      operationId: getProblem
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Problem detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: Problem not found
+    patch:
+      operationId: updateProblem
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProblemUpdate"
+      responses:
+        "200":
+          description: Problem updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: Problem not found
+    delete:
+      operationId: deleteProblem
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Problem deleted
+  /api/problems/{id}/assets:
+    get:
+      operationId: getProblemAssets
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Problem assets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemAssets"
+  /api/problems/{id}/assets/images:
+    post:
+      operationId: uploadProblemImage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Problem image uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResult"
+  /api/problems/{id}/assets/files:
+    post:
+      operationId: uploadProblemAsset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [section, file]
+              properties:
+                section:
+                  type: string
+                  enum: [data, judge, assets]
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Problem asset uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemAssets"
+    delete:
+      operationId: deleteProblemAsset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: key
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Problem asset deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemAssets"
+  /api/problems/{id}/assets/files/content:
+    get:
+      operationId: getProblemAssetContent
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: key
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Text asset content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetContent"
+    patch:
+      operationId: updateProblemAssetContent
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetContentUpdate"
+      responses:
+        "200":
+          description: Text asset updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemAssets"
+  /api/problems/{id}/assets/cases:
+    post:
+      operationId: createProblemCase
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetCaseCreate"
+      responses:
+        "201":
+          description: Problem case created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemAssets"
+  /api/problems/{id}/assets/template:
+    post:
+      operationId: fillJudgeTemplate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Judge template written
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemAssets"
+  /api/problems/{id}/assets.zip:
+    get:
+      operationId: downloadProblemAssets
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Problem assets zip
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+  /api/assignments:
+    get:
+      operationId: listAssignments
+      responses:
+        "200":
+          description: Assignment list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Assignment"
+    post:
+      operationId: createAssignment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignmentCreate"
+      responses:
+        "201":
+          description: Assignment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assignment"
+  /api/assignments/{id}:
+    get:
+      operationId: getAssignment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Assignment detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssignmentDetail"
+        "404":
+          description: Assignment not found
+    patch:
+      operationId: updateAssignment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignmentUpdate"
+      responses:
+        "200":
+          description: Assignment updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assignment"
+        "404":
+          description: Assignment not found
+    delete:
+      operationId: deleteAssignment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Assignment deleted
+  /api/contests:
+    get:
+      operationId: listContests
+      responses:
+        "200":
+          description: Contest list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Contest"
+    post:
+      operationId: createContest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContestCreate"
+      responses:
+        "201":
+          description: Contest created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contest"
+  /api/contests/{id}:
+    get:
+      operationId: getContest
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Contest detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContestDetail"
+        "404":
+          description: Contest not found
+    patch:
+      operationId: updateContest
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContestUpdate"
+      responses:
+        "200":
+          description: Contest updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contest"
+        "404":
+          description: Contest not found
+    delete:
+      operationId: deleteContest
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Contest deleted
+  /api/submissions:
+    get:
+      operationId: listSubmissions
+      parameters:
+        - name: problem
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Submission list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Submission"
+    post:
+      operationId: createSubmission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitRequest"
+      responses:
+        "201":
+          description: Submission created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Submission"
+  /api/submissions/{id}:
+    get:
+      operationId: getSubmission
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Submission detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmissionDetail"
+        "404":
+          description: Submission not found
+  /api/rank:
+    get:
+      operationId: getRank
+      responses:
+        "200":
+          description: Rank list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RankUser"
+  /api/users/{name}:
+    get:
+      operationId: getUser
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "404":
+          description: User not found
+  /api/discussion:
+    get:
+      operationId: listDiscussions
+      parameters:
+        - name: tags
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Discussion list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Discussion"
+    post:
+      operationId: createDiscussion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiscussionCreate"
+      responses:
+        "201":
+          description: Discussion created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Discussion"
+  /api/discussion/{id}:
+    get:
+      operationId: getDiscussion
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Discussion detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscussionDetail"
+        "404":
+          description: Discussion not found
+    patch:
+      operationId: updateDiscussion
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiscussionUpdate"
+      responses:
+        "200":
+          description: Discussion updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Discussion"
+        "404":
+          description: Discussion not found
+    delete:
+      operationId: deleteDiscussion
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Discussion deleted
+  /api/discussion/{id}/comments:
+    post:
+      operationId: createComment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommentCreate"
+      responses:
+        "201":
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+components:
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+    Site:
+      type: object
+      required: [siteName, registration, guest]
+      properties:
+        siteName:
+          type: string
+        registration:
+          type: boolean
+        guest:
+          type: boolean
+    HeatCell:
+      type: object
+      required: [date, count]
+      properties:
+        date:
+          type: string
+        count:
+          type: integer
+    Item:
+      type: object
+      required: [id, title, meta]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        meta:
+          type: string
+    Me:
+      type: object
+      required: [id, name, mail, bio, avatar, admin]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        mail:
+          type: string
+          format: email
+        bio:
+          type: string
+          maxLength: 280
+        avatar:
+          type: string
+          maxLength: 512
+        admin:
+          type: boolean
+    MeUpdate:
+      type: object
+      required: [mail, bio, avatar]
+      properties:
+        mail:
+          type: string
+        bio:
+          type: string
+        avatar:
+          type: string
+    LoginRequest:
+      type: object
+      required: [name, password]
+      properties:
+        name:
+          type: string
+        password:
+          type: string
+    RegisterRequest:
+      type: object
+      required: [name, mail, password]
+      properties:
+        name:
+          type: string
+        mail:
+          type: string
+        password:
+          type: string
+    Lang:
+      type: object
+      required: [id, name, source]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        source:
+          type: string
+    UploadResult:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+    PasswordUpdate:
+      type: object
+      required: [oldPassword, newPassword]
+      properties:
+        oldPassword:
+          type: string
+        newPassword:
+          type: string
+    AdminOverview:
+      type: object
+      required: [settings, users, groups, languages, judgers, queue]
+      properties:
+        settings:
+          $ref: "#/components/schemas/AdminSettings"
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUser"
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminGroup"
+        languages:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminLang"
+        judgers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminJudger"
+        queue:
+          $ref: "#/components/schemas/AdminJudgeQueue"
+    AdminSettings:
+      type: object
+      required: [siteName, registration, guest, notice]
+      properties:
+        siteName:
+          type: string
+        registration:
+          type: boolean
+        guest:
+          type: boolean
+        notice:
+          type: string
+    AdminUser:
+      type: object
+      required: [name, mail, role, groups]
+      properties:
+        name:
+          type: string
+        mail:
+          type: string
+        role:
+          type: string
+        groups:
+          type: array
+          items:
+            type: integer
+    AdminUserUpdate:
+      type: object
+      required: [role, groups]
+      properties:
+        role:
+          type: string
+        groups:
+          type: array
+          items:
+            type: integer
+    PasswordReset:
+      type: object
+      required: [password]
+      properties:
+        password:
+          type: string
+    AdminGroup:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+    AdminGroupUpdate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+    AdminLang:
+      type: object
+      required: [id, name, source, dockerfile]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        source:
+          type: string
+        dockerfile:
+          type: string
+    AdminLangUpdate:
+      type: object
+      required: [id, name, source, dockerfile]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        source:
+          type: string
+        dockerfile:
+          type: string
+    AdminLangCreate:
+      $ref: "#/components/schemas/AdminLangUpdate"
+    AdminJudger:
+      type: object
+      required: [id, name, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    AdminJudgeQueue:
+      type: object
+      required: [queued, running, done]
+      properties:
+        queued:
+          type: integer
+        running:
+          type: integer
+        done:
+          type: integer
+    AdminJudgerUpdate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        auth:
+          type: string
+    AdminJudgerCreate:
+      type: object
+      required: [name, auth]
+      properties:
+        name:
+          type: string
+        auth:
+          type: string
+    Problem:
+      type: object
+      required:
+        - id
+        - title
+        - tags
+        - visible
+        - mode
+        - timeMs
+        - memoryMb
+        - cases
+        - dataBytes
+        - ac
+        - submit
+        - discussions
+        - mine
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        statement:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        visible:
+          type: boolean
+        mode:
+          type: string
+        timeMs:
+          type: integer
+        memoryMb:
+          type: integer
+        cases:
+          type: integer
+        dataBytes:
+          type: integer
+          format: int64
+        ac:
+          type: integer
+        submit:
+          type: integer
+        discussions:
+          type: integer
+        mine:
+          type: string
+          enum: [none, tried, ac]
+        latest:
+          $ref: "#/components/schemas/ProblemRecord"
+    ProblemRecord:
+      type: object
+      required: [id, status, score, createdAt]
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+        score:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+    ProblemCreate:
+      type: object
+      required: [title, tags, mode, timeMs, memoryMb]
+      properties:
+        title:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        mode:
+          type: string
+        timeMs:
+          type: integer
+        memoryMb:
+          type: integer
+    ProblemUpdate:
+      type: object
+      required: [title, statement, tags, visible, mode, timeMs, memoryMb]
+      properties:
+        title:
+          type: string
+        statement:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        visible:
+          type: boolean
+        mode:
+          type: string
+        timeMs:
+          type: integer
+        memoryMb:
+          type: integer
+    AssetFile:
+      type: object
+      required: [key, name, size, editable]
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        size:
+          type: integer
+          format: int64
+        editable:
+          type: boolean
+    ProblemAssets:
+      type: object
+      required: [data, judge, assets, cases, dataBytes]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetFile"
+        judge:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetFile"
+        assets:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetFile"
+        cases:
+          type: integer
+        dataBytes:
+          type: integer
+          format: int64
+    AssetCaseCreate:
+      type: object
+      required: [name, input, output]
+      properties:
+        name:
+          type: string
+        input:
+          type: string
+        output:
+          type: string
+    AssetContent:
+      type: object
+      required: [key, name, content]
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        content:
+          type: string
+    AssetContentUpdate:
+      type: object
+      required: [key, content]
+      properties:
+        key:
+          type: string
+        content:
+          type: string
+    Home:
+      type: object
+      required: [notice, heatmap, problems, assignments, contests]
+      properties:
+        notice:
+          type: string
+        heatmap:
+          type: array
+          items:
+            $ref: "#/components/schemas/HeatCell"
+        problems:
+          type: array
+          items:
+            $ref: "#/components/schemas/Problem"
+        assignments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Item"
+        contests:
+          type: array
+          items:
+            $ref: "#/components/schemas/Item"
+    NoticeUpdate:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+    Assignment:
+      type: object
+      required: [id, title, desc, endAt, status, total, done]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        desc:
+          type: string
+        endAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+        total:
+          type: integer
+        done:
+          type: integer
+    AssignmentDetail:
+      type: object
+      required: [assignment, problems, submissions]
+      properties:
+        assignment:
+          $ref: "#/components/schemas/Assignment"
+        problems:
+          type: array
+          items:
+            $ref: "#/components/schemas/Problem"
+        submissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Submission"
+    AssignmentCreate:
+      type: object
+      required: [title, desc, endAt, problems]
+      properties:
+        title:
+          type: string
+        desc:
+          type: string
+        endAt:
+          type: string
+          format: date-time
+        problems:
+          type: array
+          items:
+            type: integer
+    AssignmentUpdate:
+      type: object
+      required: [title, desc, endAt, problems]
+      properties:
+        title:
+          type: string
+        desc:
+          type: string
+        endAt:
+          type: string
+          format: date-time
+        problems:
+          type: array
+          items:
+            type: integer
+    Contest:
+      type: object
+      required: [id, title, desc, kind, startAt, endAt, status, total]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        desc:
+          type: string
+        kind:
+          type: string
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+        total:
+          type: integer
+    ContestDetail:
+      type: object
+      required: [contest, problems, rank, submissions]
+      properties:
+        contest:
+          $ref: "#/components/schemas/Contest"
+        problems:
+          type: array
+          items:
+            $ref: "#/components/schemas/Problem"
+        rank:
+          type: array
+          items:
+            $ref: "#/components/schemas/RankUser"
+        submissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Submission"
+    ContestCreate:
+      type: object
+      required: [title, desc, kind, startAt, endAt, problems]
+      properties:
+        title:
+          type: string
+        desc:
+          type: string
+        kind:
+          type: string
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        problems:
+          type: array
+          items:
+            type: integer
+    ContestUpdate:
+      type: object
+      required: [title, desc, kind, startAt, endAt, problems]
+      properties:
+        title:
+          type: string
+        desc:
+          type: string
+        kind:
+          type: string
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        problems:
+          type: array
+          items:
+            type: integer
+    Submission:
+      type: object
+      required: [id, problemId, problemTitle, user, language, status, score, public, createdAt]
+      properties:
+        id:
+          type: integer
+        problemId:
+          type: integer
+        problemTitle:
+          type: string
+        user:
+          type: string
+        language:
+          type: string
+        status:
+          type: string
+        score:
+          type: integer
+        timeMs:
+          type: integer
+        memoryKb:
+          type: integer
+        public:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+    SubmissionDetail:
+      type: object
+      required: [submission, code, cases]
+      properties:
+        submission:
+          $ref: "#/components/schemas/Submission"
+        code:
+          type: string
+        cases:
+          type: array
+          items:
+            $ref: "#/components/schemas/Case"
+    SubmitRequest:
+      type: object
+      required: [problemId, language, code, public]
+      properties:
+        problemId:
+          type: integer
+        language:
+          type: string
+        code:
+          type: string
+        public:
+          type: boolean
+    Case:
+      type: object
+      required: [no, status, message]
+      properties:
+        no:
+          type: integer
+        status:
+          type: string
+        timeMs:
+          type: integer
+        memoryKb:
+          type: integer
+        message:
+          type: string
+    RankUser:
+      type: object
+      required: [rank, user, bio, avatar, ac, submit]
+      properties:
+        rank:
+          type: integer
+        user:
+          type: string
+        bio:
+          type: string
+        avatar:
+          type: string
+        ac:
+          type: integer
+        submit:
+          type: integer
+    UserProfile:
+      type: object
+      required: [user, heatmap, solved, submissions]
+      properties:
+        user:
+          $ref: "#/components/schemas/PublicUser"
+        heatmap:
+          type: array
+          items:
+            $ref: "#/components/schemas/HeatCell"
+        solved:
+          type: array
+          items:
+            $ref: "#/components/schemas/Problem"
+        submissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Submission"
+    PublicUser:
+      type: object
+      required: [name, bio, avatar, admin, ac, submit]
+      properties:
+        name:
+          type: string
+        bio:
+          type: string
+        avatar:
+          type: string
+        admin:
+          type: boolean
+        ac:
+          type: integer
+        submit:
+          type: integer
+    Discussion:
+      type: object
+      required: [id, title, author, tags, pinned, locked, replies, createdAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        author:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        pinned:
+          type: boolean
+        locked:
+          type: boolean
+        replies:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+    DiscussionCreate:
+      type: object
+      required: [title, content, tags]
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+    DiscussionUpdate:
+      type: object
+      required: [title, content, tags, pinned, locked]
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        pinned:
+          type: boolean
+        locked:
+          type: boolean
+    DiscussionDetail:
+      type: object
+      required: [discussion, content, comments]
+      properties:
+        discussion:
+          $ref: "#/components/schemas/Discussion"
+        content:
+          type: string
+        comments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Comment"
+    Comment:
+      type: object
+      required: [id, author, content, createdAt]
+      properties:
+        id:
+          type: integer
+        author:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    CommentCreate:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
