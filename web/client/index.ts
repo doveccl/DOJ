@@ -45,6 +45,7 @@ export type LoginRequest = components['schemas']['LoginRequest']
 export type RegisterRequest = components['schemas']['RegisterRequest']
 export type AdminOverview = components['schemas']['AdminOverview']
 export type AdminSettings = components['schemas']['AdminSettings']
+export type AdminUserCreate = components['schemas']['AdminUserCreate']
 export type AdminUserUpdate = components['schemas']['AdminUserUpdate']
 export type PasswordReset = components['schemas']['PasswordReset']
 export type AdminGroup = components['schemas']['AdminGroup']
@@ -272,6 +273,11 @@ export async function getAdmin() {
 
 export async function updateAdminSettings(body: AdminSettings) {
   const { data, error } = await client.PATCH('/api/admin/settings', { body })
+  return assertData(data, error)
+}
+
+export async function createAdminUser(body: AdminUserCreate) {
+  const { data, error } = await client.POST('/api/admin/users', { body })
   return assertData(data, error)
 }
 

@@ -12,6 +12,7 @@ import (
 	"github.com/doveccl/doj/models"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -90,6 +91,26 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	res = requestJSONWithCookies(e, http.MethodPatch, "/api/admin/groups/"+itoa(group.ID), adminCookies, `{"name":"team-b"}`)
 	if res.Code != http.StatusOK {
 		t.Fatalf("update group got %d body=%s", res.Code, res.Body.String())
+	}
+	res = requestJSONWithCookies(e, http.MethodPost, "/api/admin/users", adminCookies, `{"name":"New_User","mail":"New_User@example.com","password":"password123","role":"user","groups":[`+itoa(group.ID)+`]}`)
+	if res.Code != http.StatusCreated {
+		t.Fatalf("create user got %d body=%s", res.Code, res.Body.String())
+	}
+	overview = decodeOverview(t, res)
+	created, ok := findUser(overview, "new_user")
+	if !ok || created.Mail != "new_user@example.com" || len(created.Groups) != 1 || created.Groups[0] != group.ID {
+		t.Fatalf("created user missing or malformed: %+v", overview.Users)
+	}
+	var createdRow models.User
+	if err := db.First(&createdRow, "name = ?", "new_user").Error; err != nil {
+		t.Fatalf("read created user: %v", err)
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(createdRow.Auth), []byte("password123")); err != nil {
+		t.Fatalf("created user password hash mismatch: %v", err)
+	}
+	res = requestJSONWithCookies(e, http.MethodPost, "/api/admin/users", adminCookies, `{"name":"new_user","mail":"other@example.com","password":"password123","role":"user","groups":[]}`)
+	if res.Code != http.StatusConflict {
+		t.Fatalf("duplicate user got %d body=%s", res.Code, res.Body.String())
 	}
 
 	langBody := `{"id":"py","name":"Python","source":"main.py","dockerfile":"FROM python:3.13\nCMD [\"python3\", \"/src/main.py\"]"}`

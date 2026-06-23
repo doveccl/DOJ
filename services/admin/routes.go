@@ -76,6 +76,14 @@ type UserUpdate struct {
 	Groups []uint `json:"groups"`
 }
 
+type UserCreate struct {
+	Name     string `json:"name"`
+	Mail     string `json:"mail"`
+	Password string `json:"password"`
+	Role     string `json:"role"`
+	Groups   []uint `json:"groups"`
+}
+
 type PasswordReset struct {
 	Password string `json:"password"`
 }
@@ -112,6 +120,7 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group := e.Group("/api/admin", api.requireAdmin)
 	group.GET("", api.overview)
 	group.PATCH("/settings", api.updateSettings)
+	group.POST("/users", api.createUser)
 	group.PATCH("/users/:name", api.updateUser)
 	group.DELETE("/users/:name", api.deleteUser)
 	group.POST("/users/:name/password", api.resetUserPassword)
@@ -192,6 +201,59 @@ func (api *API) updateSettings(c echo.Context) error {
 		return err
 	}
 	return c.JSON(http.StatusOK, req)
+}
+
+func (api *API) createUser(c echo.Context) error {
+	var req UserCreate
+	if err := c.Bind(&req); err != nil {
+		return err
+	}
+	cleanUserCreate(&req)
+	if err := validateUserCreate(req); err != nil {
+		return err
+	}
+	if err := api.ensureGroups(req.Groups); err != nil {
+		return err
+	}
+
+	var count int64
+	if err := api.db.Model(&models.User{}).Where("LOWER(name) = ? OR LOWER(mail) = ?", req.Name, req.Mail).Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return echo.NewHTTPError(http.StatusConflict, "user already exists")
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	err = api.db.Transaction(func(tx *gorm.DB) error {
+		user := models.User{
+			Name:  req.Name,
+			Mail:  req.Mail,
+			Auth:  string(hash),
+			Admin: req.Role == "admin",
+		}
+		if err := tx.Create(&user).Error; err != nil {
+			return err
+		}
+		items := make([]models.GroupUser, 0, len(req.Groups))
+		for _, id := range req.Groups {
+			items = append(items, models.GroupUser{UserID: user.ID, GroupID: id})
+		}
+		if len(items) > 0 {
+			return tx.Create(&items).Error
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	overview, err := api.readOverview()
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusCreated, overview)
 }
 
 func (api *API) updateUser(c echo.Context) error {
@@ -639,6 +701,49 @@ func cleanUintList(values []uint) []uint {
 		return []uint{}
 	}
 	return items
+}
+
+func cleanUserCreate(req *UserCreate) {
+	req.Name = strings.ToLower(strings.TrimSpace(req.Name))
+	req.Mail = strings.ToLower(strings.TrimSpace(req.Mail))
+	req.Role = strings.TrimSpace(req.Role)
+	req.Groups = cleanUintList(req.Groups)
+}
+
+func validateUserCreate(req UserCreate) error {
+	if len(req.Name) < 3 || len(req.Name) > 32 || !validUserName(req.Name) {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid username")
+	}
+	if req.Mail == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid mail")
+	}
+	addr, err := mail.ParseAddress(req.Mail)
+	if err != nil || addr.Address != req.Mail {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid mail")
+	}
+	if len(req.Password) < 8 {
+		return echo.NewHTTPError(http.StatusBadRequest, "password is too short")
+	}
+	if req.Role != "admin" && req.Role != "user" {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid role")
+	}
+	return nil
+}
+
+func validUserName(name string) bool {
+	for _, r := range name {
+		if r >= 'a' && r <= 'z' {
+			continue
+		}
+		if r >= '0' && r <= '9' {
+			continue
+		}
+		if r == '_' || r == '-' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func cleanLanguageUpdate(req *LanguageUpdate) {

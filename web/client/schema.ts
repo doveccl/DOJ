@@ -196,6 +196,22 @@ export interface paths {
         patch: operations["updateAdminSettings"];
         trace?: never;
     };
+    "/api/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createAdminUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users/{name}": {
         parameters: {
             query?: never;
@@ -755,6 +771,13 @@ export interface components {
             groups: number[];
         };
         AdminUserUpdate: {
+            role: string;
+            groups: number[];
+        };
+        AdminUserCreate: {
+            name: string;
+            mail: string;
+            password: string;
             role: string;
             groups: number[];
         };
@@ -1339,6 +1362,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminSettings"];
+                };
+            };
+        };
+    };
+    createAdminUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminUserCreate"];
+            };
+        };
+        responses: {
+            /** @description Created user */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOverview"];
                 };
             };
         };

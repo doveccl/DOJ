@@ -173,6 +173,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminSettings"
+  /api/admin/users:
+    post:
+      operationId: createAdminUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUserCreate"
+      responses:
+        "201":
+          description: Created user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
   /api/admin/users/{name}:
     patch:
       operationId: updateAdminUser
@@ -1202,6 +1218,22 @@ components:
       type: object
       required: [role, groups]
       properties:
+        role:
+          type: string
+        groups:
+          type: array
+          items:
+            type: integer
+    AdminUserCreate:
+      type: object
+      required: [name, mail, password, role, groups]
+      properties:
+        name:
+          type: string
+        mail:
+          type: string
+        password:
+          type: string
         role:
           type: string
         groups:

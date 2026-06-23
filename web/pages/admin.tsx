@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import {
+  createAdminUser,
   createAdminGroup,
   createAdminJudger,
   createAdminLang,
@@ -19,7 +20,7 @@ import {
   updateAdminUser,
   updateAdminSettings
 } from '../client'
-import type { AdminGroupUpdate, AdminJudgerCreate, AdminLangCreate, AdminOverview, AdminSettings } from '../client'
+import type { AdminGroupUpdate, AdminJudgerCreate, AdminLangCreate, AdminOverview, AdminSettings, AdminUserCreate } from '../client'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
@@ -30,6 +31,7 @@ type GroupRow = AdminOverview['groups'][number]
 type LanguageRow = AdminOverview['languages'][number]
 type JudgerRow = AdminOverview['judgers'][number]
 type JudgerForm = AdminJudgerCreate
+type UserForm = AdminUserCreate
 type SettingsForm = Pick<AdminSettings, 'siteName' | 'registration' | 'guest' | 'defaultPublicSource'>
 
 const defaultDockerfile = `FROM gcc:14
@@ -45,6 +47,7 @@ export function AdminPage() {
   const { message, modal } = AntApp.useApp()
   const client = useQueryClient()
   const [groupOpen, setGroupOpen] = useState(false)
+  const [userOpen, setUserOpen] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const [judgerOpen, setJudgerOpen] = useState(false)
   const [editingGroup, setEditingGroup] = useState<GroupRow | null>(null)
@@ -73,6 +76,14 @@ export function AdminPage() {
   const userSave = useMutation({
     mutationFn: ({ name, role, groups }: { name: string; role: string; groups: number[] }) => updateAdminUser(name, { role, groups }),
     onSuccess: saveOverview,
+    onError: showError
+  })
+  const userCreate = useMutation({
+    mutationFn: createAdminUser,
+    onSuccess: (data) => {
+      saveOverview(data)
+      setUserOpen(false)
+    },
     onError: showError
   })
   const userDelete = useMutation({
@@ -218,69 +229,74 @@ export function AdminPage() {
               key: 'users',
               label: text.admin.users,
               children: (
-                <Table<UserRow>
-                  rowKey="name"
-                  pagination={false}
-                  dataSource={data.users}
-                  columns={[
-                    { title: text.rank.user, dataIndex: 'name' },
-                    { title: text.profile.email, dataIndex: 'mail' },
-                    {
-                      title: text.admin.role,
-                      dataIndex: 'role',
-                      render: (role: string, row) => (
-                        <Select
-                          value={role}
-                          options={[
-                            { value: 'admin', label: roleText.admin },
-                            { value: 'user', label: roleText.user }
-                          ]}
-                          onChange={(next) => userSave.mutate({ name: row.name, role: next, groups: userGroupIds(row) })}
-                        />
-                      )
-                    },
-                    {
-                      title: text.admin.userGroups,
-                      dataIndex: 'groups',
-                      width: 260,
-                      render: (groups: number[] | undefined, row) => (
-                        <Select
-                          mode="multiple"
-                          value={groups ?? []}
-                          options={groupOptions}
-                          maxTagCount="responsive"
-                          placeholder={text.admin.groups}
-                          style={{ width: '100%' }}
-                          onChange={(next) => userSave.mutate({ name: row.name, role: row.role, groups: next })}
-                        />
-                      )
-                    },
-                    {
-                      title: text.common.edit,
-                      width: 112,
-                      render: (_, row) => (
-                        <Space size={4}>
-                          <Tooltip title={text.admin.resetPassword}>
-                            <Button
-                              type="text"
-                              icon={<KeyOutlined />}
-                              loading={userPassword.isPending && userPassword.variables === row.name}
-                              onClick={() => userPassword.mutate(row.name)}
-                            />
-                          </Tooltip>
-                          <Popconfirm
-                            title={text.common.confirmDelete}
-                            okText={text.common.delete}
-                            cancelText={text.common.cancel}
-                            onConfirm={() => userDelete.mutate(row.name)}
-                          >
-                            <Button type="text" danger icon={<DeleteOutlined />} />
-                          </Popconfirm>
-                        </Space>
-                      )
-                    }
-                  ]}
-                />
+                <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+                  <Button type="primary" icon={<PlusOutlined />} onClick={() => setUserOpen(true)}>
+                    {text.admin.addUser}
+                  </Button>
+                  <Table<UserRow>
+                    rowKey="name"
+                    pagination={false}
+                    dataSource={data.users}
+                    columns={[
+                      { title: text.rank.user, dataIndex: 'name' },
+                      { title: text.profile.email, dataIndex: 'mail' },
+                      {
+                        title: text.admin.role,
+                        dataIndex: 'role',
+                        render: (role: string, row) => (
+                          <Select
+                            value={role}
+                            options={[
+                              { value: 'admin', label: roleText.admin },
+                              { value: 'user', label: roleText.user }
+                            ]}
+                            onChange={(next) => userSave.mutate({ name: row.name, role: next, groups: userGroupIds(row) })}
+                          />
+                        )
+                      },
+                      {
+                        title: text.admin.userGroups,
+                        dataIndex: 'groups',
+                        width: 260,
+                        render: (groups: number[] | undefined, row) => (
+                          <Select
+                            mode="multiple"
+                            value={groups ?? []}
+                            options={groupOptions}
+                            maxTagCount="responsive"
+                            placeholder={text.admin.groups}
+                            style={{ width: '100%' }}
+                            onChange={(next) => userSave.mutate({ name: row.name, role: row.role, groups: next })}
+                          />
+                        )
+                      },
+                      {
+                        title: text.common.edit,
+                        width: 112,
+                        render: (_, row) => (
+                          <Space size={4}>
+                            <Tooltip title={text.admin.resetPassword}>
+                              <Button
+                                type="text"
+                                icon={<KeyOutlined />}
+                                loading={userPassword.isPending && userPassword.variables === row.name}
+                                onClick={() => userPassword.mutate(row.name)}
+                              />
+                            </Tooltip>
+                            <Popconfirm
+                              title={text.common.confirmDelete}
+                              okText={text.common.delete}
+                              cancelText={text.common.cancel}
+                              onConfirm={() => userDelete.mutate(row.name)}
+                            >
+                              <Button type="text" danger icon={<DeleteOutlined />} />
+                            </Popconfirm>
+                          </Space>
+                        )
+                      }
+                    ]}
+                  />
+                </Space>
               )
             },
             {
@@ -422,6 +438,18 @@ export function AdminPage() {
           ]}
         />
       </Card>
+      {userOpen ? (
+        <UserModal
+          loading={userCreate.isPending}
+          groupOptions={groupOptions}
+          roleOptions={[
+            { value: 'user', label: roleText.user },
+            { value: 'admin', label: roleText.admin }
+          ]}
+          onCancel={() => setUserOpen(false)}
+          onSave={(values) => userCreate.mutate(values)}
+        />
+      ) : null}
       {groupOpen ? <GroupModal editingGroup={editingGroup} loading={groupSave.isPending} onCancel={closeGroup} onSave={(values) => groupSave.mutate(values)} /> : null}
       {langOpen ? <LangModal editingLang={editingLang} loading={langSave.isPending} onCancel={closeLang} onSave={(values) => langSave.mutate(values)} /> : null}
       {judgerOpen ? (
@@ -433,6 +461,44 @@ export function AdminPage() {
         />
       ) : null}
     </>
+  )
+}
+
+function UserModal({
+  loading,
+  groupOptions,
+  roleOptions,
+  onCancel,
+  onSave
+}: {
+  loading: boolean
+  groupOptions: { value: number; label: string }[]
+  roleOptions: { value: string; label: string }[]
+  onCancel: () => void
+  onSave: (values: UserForm) => void
+}) {
+  const { text } = useLocale()
+  const [form] = Form.useForm<UserForm>()
+  return (
+    <Modal open destroyOnHidden title={text.admin.addUser} okText={text.common.create} cancelText={text.common.cancel} confirmLoading={loading} onCancel={onCancel} onOk={() => form.submit()}>
+      <Form<UserForm> form={form} layout="vertical" initialValues={{ name: '', mail: '', password: '', role: 'user', groups: [] }} onFinish={onSave}>
+        <Form.Item name="name" label={text.prefs.username} rules={[{ required: true, whitespace: true }, { min: 3 }, { max: 32 }]}>
+          <Input autoComplete="off" />
+        </Form.Item>
+        <Form.Item name="mail" label={text.profile.email} rules={[{ required: true }, { type: 'email' }]}>
+          <Input autoComplete="off" />
+        </Form.Item>
+        <Form.Item name="password" label={text.admin.initialPassword} rules={[{ required: true }, { min: 8 }]}>
+          <Input.Password autoComplete="new-password" />
+        </Form.Item>
+        <Form.Item name="role" label={text.admin.role} rules={[{ required: true }]}>
+          <Select options={roleOptions} />
+        </Form.Item>
+        <Form.Item name="groups" label={text.admin.userGroups}>
+          <Select mode="multiple" options={groupOptions} maxTagCount="responsive" />
+        </Form.Item>
+      </Form>
+    </Modal>
   )
 }
 
