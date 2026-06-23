@@ -114,11 +114,11 @@ func databaseDSN() string {
 	return getenv("DATABASE", defaultDatabaseURL)
 }
 
-func getenv(key string, fallback string) string {
+func getenv(key string, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
 	}
-	return fallback
+	return defaultValue
 }
 
 func registerWebApp(e *echo.Echo, root string) error {

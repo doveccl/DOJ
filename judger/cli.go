@@ -106,11 +106,11 @@ func judgerUsage(w io.Writer) {
 	fmt.Fprintln(w, "       doj-judger version")
 }
 
-func getenv(key string, fallback string) string {
+func getenv(key string, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
 	}
-	return fallback
+	return defaultValue
 }
 
 func installRunner() (string, error) {

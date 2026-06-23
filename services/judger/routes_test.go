@@ -34,20 +34,6 @@ func TestCasePayloadsFromObjects(t *testing.T) {
 	}
 }
 
-func TestCasePayloadsFromCompatNames(t *testing.T) {
-	cases := casePayloadsFromObjects(1000, []utils.ObjectInfo{
-		{Key: "problems/1000/data/in1.txt", Size: 4},
-		{Key: "problems/1000/data/ans1.txt", Size: 2},
-		{Key: "problems/1000/data/in2.txt", Size: 4},
-	})
-	if len(cases) != 1 {
-		t.Fatalf("cases = %+v", cases)
-	}
-	if cases[0].Input != "data/in1.txt" || cases[0].Answer != "data/ans1.txt" || cases[0].Score != 100 {
-		t.Fatalf("compat case = %+v", cases[0])
-	}
-}
-
 func TestValidateResult(t *testing.T) {
 	valid := ResultRequest{
 		SubmissionID: 1,
@@ -165,12 +151,12 @@ func TestLeaseLongPollsWhenNoTask(t *testing.T) {
 	}
 }
 
-func TestJudgerRequestNameFallback(t *testing.T) {
+func TestJudgerRequestNameDefault(t *testing.T) {
 	if got := judgerRequestName(LeaseRequest{Host: " linux-a "}); got != "linux-a" {
-		t.Fatalf("name fallback = %q", got)
+		t.Fatalf("name = %q", got)
 	}
 	if got := judgerRequestName(LeaseRequest{}); got != "local-judger" {
-		t.Fatalf("anonymous fallback = %q", got)
+		t.Fatalf("anonymous name = %q", got)
 	}
 }
 

@@ -2874,10 +2874,6 @@ func caseStem(name string) (string, string) {
 		return base[:len(base)-3], "in"
 	case strings.HasSuffix(lower, ".out"):
 		return base[:len(base)-4], "out"
-	case strings.HasPrefix(lower, "in") && strings.HasSuffix(lower, ".txt"):
-		return strings.TrimSuffix(base[2:], filepath.Ext(base)), "in"
-	case strings.HasPrefix(lower, "ans") && strings.HasSuffix(lower, ".txt"):
-		return strings.TrimSuffix(base[3:], filepath.Ext(base)), "out"
 	default:
 		return "", ""
 	}
