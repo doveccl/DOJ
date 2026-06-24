@@ -122,6 +122,85 @@ func TestPrivateSubmissionSourceVisibilityWithDatabase(t *testing.T) {
 	}
 }
 
+func TestContextSubmissionSourceLockedUntilContextEnds(t *testing.T) {
+	db := testWebDB(t)
+	owner := models.User{Name: "owner", Mail: "owner@example.com", Auth: "hash"}
+	other := models.User{Name: "other", Mail: "other@example.com", Auth: "hash"}
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	for _, user := range []*models.User{&owner, &other, &admin} {
+		if err := db.Create(user).Error; err != nil {
+			t.Fatalf("create user %s: %v", user.Name, err)
+		}
+	}
+	problem := models.Problem{ID: 1000, Title: "Visible", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	now := time.Now()
+	liveContest := models.Contest{Title: "Live Contest", Kind: "ICPC", StartAt: now.Add(-time.Hour), EndAt: now.Add(time.Hour)}
+	endedContest := models.Contest{Title: "Ended Contest", Kind: "ICPC", StartAt: now.Add(-2 * time.Hour), EndAt: now.Add(-time.Hour)}
+	liveAssignment := models.Assignment{Title: "Live Assignment", EndAt: now.Add(time.Hour)}
+	endedAssignment := models.Assignment{Title: "Ended Assignment", EndAt: now.Add(-time.Hour)}
+	for _, row := range []any{&liveContest, &endedContest, &liveAssignment, &endedAssignment} {
+		if err := db.Create(row).Error; err != nil {
+			t.Fatalf("create context: %v", err)
+		}
+	}
+	liveContestID := liveContest.ID
+	endedContestID := endedContest.ID
+	liveAssignmentID := liveAssignment.ID
+	endedAssignmentID := endedAssignment.ID
+	submissions := []models.Submission{
+		{UserID: owner.ID, ProblemID: problem.ID, ContestID: &liveContestID, Language: "cpp", Code: "live contest", Status: "AC", Score: 100, Public: true},
+		{UserID: owner.ID, ProblemID: problem.ID, ContestID: &endedContestID, Language: "cpp", Code: "ended contest", Status: "AC", Score: 100, Public: true},
+		{UserID: owner.ID, ProblemID: problem.ID, AssignmentID: &liveAssignmentID, Language: "cpp", Code: "live assignment", Status: "AC", Score: 100, Public: true},
+		{UserID: owner.ID, ProblemID: problem.ID, AssignmentID: &endedAssignmentID, Language: "cpp", Code: "ended assignment", Status: "AC", Score: 100, Public: true},
+		{UserID: owner.ID, ProblemID: problem.ID, Language: "cpp", Code: "private", Status: "AC", Score: 100, Public: false},
+	}
+	for index := range submissions {
+		if err := db.Create(&submissions[index]).Error; err != nil {
+			t.Fatalf("create submission: %v", err)
+		}
+	}
+
+	e := echo.New()
+	Register(e, db)
+	ownerCookies := databaseSession(t, db, owner.ID)
+	otherCookies := databaseSession(t, db, other.ID)
+	adminCookies := databaseSession(t, db, admin.ID)
+	target := func(row models.Submission) string {
+		return "/api/submissions/" + strconv.FormatUint(uint64(row.ID), 10)
+	}
+
+	if res := requestWithCookies(e, http.MethodGet, target(submissions[0]), otherCookies, nil); res.Code != http.StatusForbidden {
+		t.Fatalf("other user should not read live contest public source, got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestWithCookies(e, http.MethodGet, target(submissions[0]), ownerCookies, nil); res.Code != http.StatusOK {
+		t.Fatalf("owner should read live contest source, got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestWithCookies(e, http.MethodGet, target(submissions[0]), adminCookies, nil); res.Code != http.StatusOK {
+		t.Fatalf("admin should read live contest source, got %d body=%s", res.Code, res.Body.String())
+	}
+	if got := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, target(submissions[1]), otherCookies, nil)); got.Code != "ended contest" {
+		t.Fatalf("other user should read ended contest public source: %+v", got)
+	}
+	if res := requestWithCookies(e, http.MethodGet, target(submissions[2]), otherCookies, nil); res.Code != http.StatusForbidden {
+		t.Fatalf("other user should not read live assignment public source, got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestWithCookies(e, http.MethodGet, target(submissions[2]), ownerCookies, nil); res.Code != http.StatusOK {
+		t.Fatalf("owner should read live assignment source, got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestWithCookies(e, http.MethodGet, target(submissions[2]), adminCookies, nil); res.Code != http.StatusOK {
+		t.Fatalf("admin should read live assignment source, got %d body=%s", res.Code, res.Body.String())
+	}
+	if got := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, target(submissions[3]), otherCookies, nil)); got.Code != "ended assignment" {
+		t.Fatalf("other user should read ended assignment public source: %+v", got)
+	}
+	if res := requestWithCookies(e, http.MethodGet, target(submissions[4]), otherCookies, nil); res.Code != http.StatusForbidden {
+		t.Fatalf("other user should never read private source, got %d body=%s", res.Code, res.Body.String())
+	}
+}
+
 func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *testing.T) {
 	db := testWebDB(t)
 	allowGuest(t, db)
@@ -362,21 +441,28 @@ func TestDatabaseContestRankUsesContextSubmissions(t *testing.T) {
 	Register(e, db)
 
 	guest := decodeJSON[ContestDetail](t, requestOK(t, e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), ""))
-	if len(guest.Rank) != 2 || guest.Rank[0].User != "bob" {
-		t.Fatalf("guest contest rank should include visible active competitors only: %+v", guest.Rank)
+	if len(guest.Submissions) != 0 || len(guest.Rank) != 0 {
+		t.Fatalf("OI running contest should hide submissions and rank from non-admin users: %+v %+v", guest.Submissions, guest.Rank)
 	}
-	aliceGuest, ok := rankByUser(guest.Rank, "alice")
-	if !ok || aliceGuest.AC != 2 || aliceGuest.Submit != 3 {
-		t.Fatalf("alice guest running contest rank should include contest-hidden problems and ignore normal submissions: %+v", guest.Rank)
+	if !hasProblem(guest.Problems, hidden.ID) {
+		t.Fatalf("OI running contest should still expose linked problems: %+v", guest.Problems)
 	}
-	if userInRank(guest.Rank, "disabled") {
-		t.Fatalf("contest rank should not include disabled users: %+v", guest.Rank)
+	aliceDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), databaseSession(t, db, alice.ID), nil))
+	if len(aliceDetail.Submissions) != 0 || len(aliceDetail.Rank) != 0 {
+		t.Fatalf("OI running contest should hide submissions and rank from signed-in users: %+v %+v", aliceDetail.Submissions, aliceDetail.Rank)
 	}
 
 	adminDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), databaseSession(t, db, admin.ID), nil))
 	aliceAdmin, ok := rankByUser(adminDetail.Rank, "alice")
-	if !ok || aliceAdmin.AC != 2 || aliceAdmin.Submit != 3 {
-		t.Fatalf("admin contest rank should include hidden contest submissions: %+v", adminDetail.Rank)
+	if !ok || aliceAdmin.AC != 1 || aliceAdmin.Score != 100 || aliceAdmin.Submit != 3 {
+		t.Fatalf("admin OI rank should use last score and include hidden contest submissions: %+v", adminDetail.Rank)
+	}
+	bobAdmin, ok := rankByUser(adminDetail.Rank, "bob")
+	if !ok || bobAdmin.AC != 2 || bobAdmin.Score != 200 {
+		t.Fatalf("admin OI rank should include bob contest submissions: %+v", adminDetail.Rank)
+	}
+	if userInRank(adminDetail.Rank, "disabled") {
+		t.Fatalf("contest rank should not include disabled users: %+v", adminDetail.Rank)
 	}
 }
 
@@ -512,7 +598,7 @@ func TestContestFreezeHidesLateResultsFromNonAdmin(t *testing.T) {
 	}
 	now := time.Now()
 	freezeAt := now.Add(-time.Hour)
-	contest := models.Contest{Title: "Frozen Round", Kind: "OI", StartAt: now.Add(-2 * time.Hour), FreezeAt: &freezeAt, EndAt: now.Add(time.Hour)}
+	contest := models.Contest{Title: "Frozen Round", Kind: "ICPC", StartAt: now.Add(-2 * time.Hour), FreezeAt: &freezeAt, EndAt: now.Add(time.Hour)}
 	if err := db.Create(&contest).Error; err != nil {
 		t.Fatalf("create contest: %v", err)
 	}
@@ -521,12 +607,16 @@ func TestContestFreezeHidesLateResultsFromNonAdmin(t *testing.T) {
 	}
 	contestID := contest.ID
 	before := models.Submission{UserID: alice.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "before", Status: "AC", Score: 100, Public: true, CreatedAt: now.Add(-90 * time.Minute)}
-	after := models.Submission{UserID: bob.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "after", Status: "AC", Score: 100, Public: true, CreatedAt: now.Add(-30 * time.Minute)}
+	aliceAfter := models.Submission{UserID: alice.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "alice after", Status: "WA", Score: 0, Public: true, CreatedAt: now.Add(-30 * time.Minute)}
+	bobAfter := models.Submission{UserID: bob.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "bob after", Status: "AC", Score: 100, Public: true, CreatedAt: now.Add(-20 * time.Minute)}
 	if err := db.Create(&before).Error; err != nil {
 		t.Fatalf("create before submission: %v", err)
 	}
-	if err := db.Create(&after).Error; err != nil {
-		t.Fatalf("create after submission: %v", err)
+	if err := db.Create(&aliceAfter).Error; err != nil {
+		t.Fatalf("create alice after submission: %v", err)
+	}
+	if err := db.Create(&bobAfter).Error; err != nil {
+		t.Fatalf("create bob after submission: %v", err)
 	}
 
 	e := echo.New()
@@ -543,12 +633,85 @@ func TestContestFreezeHidesLateResultsFromNonAdmin(t *testing.T) {
 		t.Fatalf("guest rank should only use pre-freeze submissions: %+v", guest.Rank)
 	}
 
+	aliceDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, alice.ID), nil))
+	if !hasSubmission(aliceDetail.Submissions, before.ID) || !hasSubmission(aliceDetail.Submissions, aliceAfter.ID) || hasSubmission(aliceDetail.Submissions, bobAfter.ID) {
+		t.Fatalf("alice should see pre-freeze submissions and her own post-freeze submissions only: %+v", aliceDetail.Submissions)
+	}
+
+	bobDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, bob.ID), nil))
+	if !hasSubmission(bobDetail.Submissions, before.ID) || hasSubmission(bobDetail.Submissions, aliceAfter.ID) || !hasSubmission(bobDetail.Submissions, bobAfter.ID) {
+		t.Fatalf("bob should see pre-freeze submissions and his own post-freeze submissions only: %+v", bobDetail.Submissions)
+	}
+
 	adminDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, admin.ID), nil))
-	if len(adminDetail.Submissions) != 2 {
+	if len(adminDetail.Submissions) != 3 {
 		t.Fatalf("admin should see all submissions: %+v", adminDetail.Submissions)
 	}
 	if _, ok := rankByUser(adminDetail.Rank, "bob"); !ok {
 		t.Fatalf("admin rank should include post-freeze submitter: %+v", adminDetail.Rank)
+	}
+}
+
+func TestContestOIIgnoresFreezeAndUsesLastScoreAfterEnd(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	alice := models.User{Name: "alice", Mail: "alice@example.com", Auth: "hash"}
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	for _, user := range []*models.User{&alice, &admin} {
+		if err := db.Create(user).Error; err != nil {
+			t.Fatalf("create user %s: %v", user.Name, err)
+		}
+	}
+	problem := models.Problem{ID: 1000, Title: "OI", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	now := time.Now()
+	freezeAt := now.Add(-90 * time.Minute)
+	contest := models.Contest{Title: "OI Round", Kind: "OI", StartAt: now.Add(-2 * time.Hour), FreezeAt: &freezeAt, EndAt: now.Add(-time.Minute)}
+	if err := db.Create(&contest).Error; err != nil {
+		t.Fatalf("create contest: %v", err)
+	}
+	if err := db.Create(&models.ContestProblem{ContestID: contest.ID, ProblemID: problem.ID, Sort: "A"}).Error; err != nil {
+		t.Fatalf("create contest problem: %v", err)
+	}
+	contestID := contest.ID
+	submissions := []models.Submission{
+		{UserID: alice.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "full", Status: "AC", Score: 100, Public: true, CreatedAt: now.Add(-110 * time.Minute)},
+		{UserID: alice.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "partial", Status: "WA", Score: 30, Public: true, CreatedAt: now.Add(-80 * time.Minute)},
+	}
+	for index := range submissions {
+		if err := db.Create(&submissions[index]).Error; err != nil {
+			t.Fatalf("create submission: %v", err)
+		}
+	}
+
+	e := echo.New()
+	Register(e, db)
+	target := "/api/contests/" + strconv.FormatUint(uint64(contest.ID), 10)
+	guest := decodeJSON[ContestDetail](t, requestOK(t, e, http.MethodGet, target, ""))
+	if guest.Contest.Status == "frozen" {
+		t.Fatalf("OI should ignore freeze status: %+v", guest.Contest)
+	}
+	if guest.Contest.FreezeAt != nil {
+		t.Fatalf("OI detail should not expose freezeAt: %+v", guest.Contest)
+	}
+	if len(guest.Submissions) != 2 {
+		t.Fatalf("ended OI contest should expose submissions: %+v", guest.Submissions)
+	}
+	aliceRank, ok := rankByUser(guest.Rank, "alice")
+	if !ok || aliceRank.Score != 30 || aliceRank.AC != 0 {
+		t.Fatalf("OI score should use the last submission score after contest ends: %+v", guest.Rank)
+	}
+
+	createBody := `{"title":"New OI","desc":"","kind":"OI","startAt":"` + now.Add(time.Hour).UTC().Format(time.RFC3339) + `","endAt":"` + now.Add(2*time.Hour).UTC().Format(time.RFC3339) + `","freezeAt":"` + now.Add(90*time.Minute).UTC().Format(time.RFC3339) + `","problems":[1000]}`
+	res := requestJSONWithCookies(e, http.MethodPost, "/api/contests", databaseSession(t, db, admin.ID), createBody)
+	if res.Code != http.StatusCreated {
+		t.Fatalf("create OI with freeze got %d body=%s", res.Code, res.Body.String())
+	}
+	created := decodeJSON[ContestDTO](t, res)
+	if created.FreezeAt != nil {
+		t.Fatalf("OI create should ignore freezeAt: %+v", created)
 	}
 }
 
@@ -576,9 +739,12 @@ func TestContestICPCRankUsesPenalty(t *testing.T) {
 	}
 	contestID := contest.ID
 	submissions := []models.Submission{
+		{UserID: alice.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "ce", Status: "CE", Score: 0, Public: true, CreatedAt: startAt.Add(2 * time.Minute)},
 		{UserID: alice.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "wa", Status: "WA", Score: 0, Public: true, CreatedAt: startAt.Add(5 * time.Minute)},
 		{UserID: alice.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "ac", Status: "AC", Score: 100, Public: true, CreatedAt: startAt.Add(10 * time.Minute)},
+		{UserID: bob.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "se", Status: "SE", Score: 0, Public: true, CreatedAt: startAt.Add(3 * time.Minute)},
 		{UserID: bob.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "ac", Status: "AC", Score: 100, Public: true, CreatedAt: startAt.Add(20 * time.Minute)},
+		{UserID: bob.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "late wa", Status: "WA", Score: 0, Public: true, CreatedAt: startAt.Add(25 * time.Minute)},
 	}
 	for index := range submissions {
 		if err := db.Create(&submissions[index]).Error; err != nil {
@@ -1196,6 +1362,15 @@ func problemByID(items []ProblemDTO, id uint) (ProblemDTO, bool) {
 func hasSubmissionProblem(items []SubmissionDTO, id uint) bool {
 	for _, item := range items {
 		if item.ProblemID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func hasSubmission(items []SubmissionDTO, id uint) bool {
+	for _, item := range items {
+		if item.ID == id {
 			return true
 		}
 	}

@@ -54,17 +54,17 @@ export function ContestsPage() {
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
+  const payload = (values: ContestForm) => ({
+    title: values.title,
+    desc: values.desc ?? '',
+    kind: values.kind,
+    startAt: values.startAt.toISOString(),
+    endAt: values.endAt.toISOString(),
+    freezeAt: values.kind === 'ICPC' ? (values.freezeAt?.toISOString() ?? '') : '',
+    problems: values.problems ?? []
+  })
   const create = useMutation({
-    mutationFn: (values: ContestForm) =>
-      createContest({
-        title: values.title,
-        desc: values.desc ?? '',
-        kind: values.kind,
-        startAt: values.startAt.toISOString(),
-        endAt: values.endAt.toISOString(),
-        freezeAt: values.freezeAt?.toISOString() ?? '',
-        problems: values.problems ?? []
-      }),
+    mutationFn: (values: ContestForm) => createContest(payload(values)),
     onSuccess: (item) => {
       void client.invalidateQueries({ queryKey: ['contests'] })
       void client.invalidateQueries({ queryKey: ['home'] })
@@ -79,15 +79,7 @@ export function ContestsPage() {
       if (!editingId) {
         throw new Error(text.common.emptyResponse)
       }
-      return updateContest(editingId, {
-        title: values.title,
-        desc: values.desc ?? '',
-        kind: values.kind,
-        startAt: values.startAt.toISOString(),
-        endAt: values.endAt.toISOString(),
-        freezeAt: values.freezeAt?.toISOString() ?? '',
-        problems: values.problems ?? []
-      })
+      return updateContest(editingId, payload(values))
     },
     onSuccess: (item) => {
       void client.invalidateQueries({ queryKey: ['contests'] })
@@ -209,6 +201,7 @@ function ContestModal({
           problems: detail.data.problems.map((problem) => problem.id)
         }
       : { title: '', desc: '', kind: 'OI', freezeAt: null, problems: [] }
+  const kind = Form.useWatch('kind', form) ?? initialValues.kind ?? 'OI'
 
   const body =
     isEdit && detail.isLoading ? (
@@ -245,9 +238,11 @@ function ContestModal({
           <Form.Item name="endAt" label={text.contests.end} rules={[{ required: true }]}>
             <DatePicker showTime />
           </Form.Item>
-          <Form.Item name="freezeAt" label={text.contests.freeze}>
-            <DatePicker showTime />
-          </Form.Item>
+          {kind === 'ICPC' ? (
+            <Form.Item name="freezeAt" label={text.contests.freeze}>
+              <DatePicker showTime />
+            </Form.Item>
+          ) : null}
         </Space>
         <Form.Item name="problems" label={text.contests.problems}>
           <Select mode="multiple" options={problemOptions} loading={problemLoading || detail.isLoading} />

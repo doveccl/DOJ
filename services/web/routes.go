@@ -1589,7 +1589,7 @@ func (api *API) assignment(c echo.Context) error {
 			problems = append(problems, problemDTO(problem))
 		}
 	}
-	submissions, err := api.contextSubmissions(c, "assignment", row.ID, nil, api.isAdmin(c))
+	submissions, err := api.contextSubmissions(c, "assignment", row.ID, nil, api.isAdmin(c), 0)
 	if err != nil {
 		return err
 	}
@@ -1651,9 +1651,13 @@ func (api *API) createContest(c echo.Context) error {
 	if !endAt.After(startAt) {
 		return echo.NewHTTPError(http.StatusBadRequest, "end time must be after start time")
 	}
-	freezeAt, err := parseContestFreezeAt(req.FreezeAt, startAt, endAt)
-	if err != nil {
-		return err
+	var freezeAt *time.Time
+	if req.Kind == "ICPC" {
+		var err error
+		freezeAt, err = parseContestFreezeAt(req.FreezeAt, startAt, endAt)
+		if err != nil {
+			return err
+		}
 	}
 
 	if err := api.validateProblemIDs(req.Problems); err != nil {
@@ -1711,9 +1715,13 @@ func (api *API) updateContest(c echo.Context) error {
 	if !endAt.After(startAt) {
 		return echo.NewHTTPError(http.StatusBadRequest, "end time must be after start time")
 	}
-	freezeAt, err := parseContestFreezeAt(req.FreezeAt, startAt, endAt)
-	if err != nil {
-		return err
+	var freezeAt *time.Time
+	if req.Kind == "ICPC" {
+		var err error
+		freezeAt, err = parseContestFreezeAt(req.FreezeAt, startAt, endAt)
+		if err != nil {
+			return err
+		}
 	}
 
 	var row models.Contest
@@ -1794,15 +1802,24 @@ func (api *API) contest(c echo.Context) error {
 			problems = append(problems, problemDTO(problem))
 		}
 	}
-	freezeAt := api.contestFreezeCutoff(c, row)
-	contestIncludeHidden := api.isAdmin(c) || contestRunning(row)
-	submissions, err := api.contextSubmissions(c, "contest", row.ID, freezeAt, contestIncludeHidden)
-	if err != nil {
-		return err
-	}
-	rank, err := api.contestRank(row, contestIncludeHidden, freezeAt)
-	if err != nil {
-		return err
+	admin := api.isAdmin(c)
+	submissions := []SubmissionDTO{}
+	rank := []RankUserDTO{}
+	if row.Kind != "OI" || !contestRunning(row) || admin {
+		freezeAt := api.contestFreezeCutoff(c, row)
+		contestIncludeHidden := admin || contestRunning(row)
+		viewerID, err := api.viewerID(c)
+		if err != nil {
+			return err
+		}
+		submissions, err = api.contextSubmissions(c, "contest", row.ID, freezeAt, contestIncludeHidden, viewerID)
+		if err != nil {
+			return err
+		}
+		rank, err = api.contestRank(row, contestIncludeHidden, freezeAt)
+		if err != nil {
+			return err
+		}
 	}
 	return c.JSON(http.StatusOK, ContestDetail{Contest: contestDTO(row, len(problems)), Problems: problems, Rank: rank, Submissions: submissions})
 }
@@ -1994,7 +2011,7 @@ func (api *API) activeContestFor(problemID uint, now time.Time) (*uint, error) {
 	return &row.ID, nil
 }
 
-func (api *API) contextSubmissions(c echo.Context, context string, id uint, until *time.Time, includeHidden bool) ([]SubmissionDTO, error) {
+func (api *API) contextSubmissions(c echo.Context, context string, id uint, until *time.Time, includeHidden bool, viewerID uint) ([]SubmissionDTO, error) {
 	var rows []models.Submission
 	query := api.db.Order("submissions.created_at desc").Limit(50)
 	switch context {
@@ -2006,7 +2023,11 @@ func (api *API) contextSubmissions(c echo.Context, context string, id uint, unti
 		query = query.Where("1 = 0")
 	}
 	if until != nil {
-		query = query.Where("submissions.created_at < ?", *until)
+		if viewerID > 0 {
+			query = query.Where("(submissions.created_at < ? OR submissions.user_id = ?)", *until, viewerID)
+		} else {
+			query = query.Where("submissions.created_at < ?", *until)
+		}
 	}
 	if !includeHidden {
 		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
@@ -2089,9 +2110,7 @@ func oiRank(submissions []models.Submission, users map[uint]models.User) []RankU
 			states[row.UserID] = got
 		}
 		got.submit++
-		if row.Score > got.best[row.ProblemID] {
-			got.best[row.ProblemID] = row.Score
-		}
+		got.best[row.ProblemID] = row.Score
 	}
 	items := make([]RankUserDTO, 0, len(states))
 	for _, got := range states {
@@ -2108,9 +2127,6 @@ func oiRank(submissions []models.Submission, users map[uint]models.User) []RankU
 	sort.Slice(items, func(i, j int) bool {
 		if items[i].Score != items[j].Score {
 			return items[i].Score > items[j].Score
-		}
-		if items[i].Submit != items[j].Submit {
-			return items[i].Submit < items[j].Submit
 		}
 		return items[i].User < items[j].User
 	})
@@ -2160,7 +2176,9 @@ func icpcRank(contest models.Contest, submissions []models.Submission, users map
 			problem.penalty = minutes + problem.wrong*20
 			continue
 		}
-		problem.wrong++
+		if penalizable(row.Status) {
+			problem.wrong++
+		}
 	}
 	items := make([]RankUserDTO, 0, len(states))
 	for _, got := range states {
@@ -2190,6 +2208,15 @@ func icpcRank(contest models.Contest, submissions []models.Submission, users map
 		items[index].Rank = index + 1
 	}
 	return items
+}
+
+func penalizable(status string) bool {
+	switch status {
+	case "AC", "CE", "SE":
+		return false
+	default:
+		return true
+	}
 }
 
 func (api *API) contextRank(context string, id uint, includeHidden bool, until *time.Time) ([]RankUserDTO, error) {
@@ -2312,10 +2339,16 @@ func (api *API) submission(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusNotFound, "submission not found")
 		}
 	}
-	if !row.Public && !api.isAdmin(c) {
+	if !api.isAdmin(c) {
 		user, err := api.currentUser(c)
 		if err != nil || user.ID != row.UserID {
-			return echo.NewHTTPError(http.StatusForbidden, "submission source is not public")
+			locked, err := api.submissionSourceLocked(row)
+			if err != nil {
+				return err
+			}
+			if locked || !row.Public {
+				return echo.NewHTTPError(http.StatusForbidden, "submission source is not public")
+			}
 		}
 	}
 	var cases []models.Case
@@ -2327,6 +2360,38 @@ func (api *API) submission(c echo.Context) error {
 		items = append(items, CaseDTO{No: item.No, Status: item.Status, TimeMS: item.TimeMS, MemoryKB: item.MemoryKB, Message: item.Message})
 	}
 	return c.JSON(http.StatusOK, SubmissionDetail{Submission: api.submissionDTO(row), Code: row.Code, Cases: items})
+}
+
+func (api *API) submissionSourceLocked(row models.Submission) (bool, error) {
+	if row.ContestID != nil {
+		var contest models.Contest
+		if err := api.db.First(&contest, *row.ContestID).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return false, nil
+			}
+			return false, err
+		}
+		if !contestEnded(contest) {
+			return true, nil
+		}
+	}
+	if row.AssignmentID != nil {
+		var assignment models.Assignment
+		if err := api.db.First(&assignment, *row.AssignmentID).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return false, nil
+			}
+			return false, err
+		}
+		if !assignmentEnded(assignment) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func assignmentEnded(row models.Assignment) bool {
+	return !time.Now().Before(row.EndAt)
 }
 
 func (api *API) rank(c echo.Context) error {
@@ -2741,6 +2806,17 @@ func (api *API) currentUser(c echo.Context) (models.User, error) {
 		return user, err
 	}
 	return user, nil
+}
+
+func (api *API) viewerID(c echo.Context) (uint, error) {
+	if api.role(c) == "guest" {
+		return 0, nil
+	}
+	user, err := api.currentUser(c)
+	if err != nil {
+		return 0, err
+	}
+	return user.ID, nil
 }
 
 func meDTO(user models.User) MeDTO {
@@ -3473,6 +3549,10 @@ func (api *API) assignmentDoneCount(c echo.Context, id uint, includeHidden bool)
 }
 
 func contestDTO(row models.Contest, total int) ContestDTO {
+	freezeAt := row.FreezeAt
+	if row.Kind == "OI" {
+		freezeAt = nil
+	}
 	return ContestDTO{
 		ID:       row.ID,
 		Title:    row.Title,
@@ -3480,7 +3560,7 @@ func contestDTO(row models.Contest, total int) ContestDTO {
 		Kind:     row.Kind,
 		StartAt:  row.StartAt,
 		EndAt:    row.EndAt,
-		FreezeAt: row.FreezeAt,
+		FreezeAt: freezeAt,
 		Status:   contestStatus(row),
 		Total:    total,
 	}
@@ -3526,7 +3606,7 @@ func contestStatus(row models.Contest) string {
 }
 
 func contestFrozenForUser(row models.Contest, admin bool) bool {
-	if admin || row.FreezeAt == nil {
+	if admin || row.Kind == "OI" || row.FreezeAt == nil {
 		return false
 	}
 	now := time.Now()
@@ -3871,21 +3951,6 @@ func (api *API) requireAdmin(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusForbidden, "admin required")
 	}
 	return nil
-}
-
-func (api *API) actor(c echo.Context) string {
-	user, err := api.currentUser(c)
-	if err == nil && user.Name != "" {
-		return user.Name
-	}
-	return "guest"
-}
-
-func (api *API) canViewSubmissionDetail(c echo.Context, owner string, public bool) bool {
-	if public || api.isAdmin(c) {
-		return true
-	}
-	return api.actor(c) == owner
 }
 
 func (api *API) userName(id uint) string {
