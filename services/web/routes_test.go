@@ -1053,6 +1053,9 @@ func TestImageUploadUsesRelativeMediaPathsAndHeaders(t *testing.T) {
 		t.Fatalf("problem image url should be a relative media path, got %q", problemImage.URL)
 	}
 	rel := strings.TrimPrefix(problemImage.URL, "/api/media/problems/1000/")
+	if strings.Contains(rel, "/") {
+		t.Fatalf("problem image should not include date folders, got %q", problemImage.URL)
+	}
 	if _, err := os.Stat(filepath.Join(utils.UploadRoot(), "problems", "1000", "assets", filepath.FromSlash(rel))); err != nil {
 		t.Fatalf("problem image should keep the existing object key convention: %v", err)
 	}

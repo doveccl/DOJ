@@ -1101,8 +1101,7 @@ func (api *API) uploadProblemImage(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	year, month, day := uploadDateParts(time.Now())
-	rel := path.Join(year, month, day, sha+ext)
+	rel := sha + ext
 	key := path.Join("problems", strconv.Itoa(int(id)), "assets", rel)
 	store, err := utils.NewObjectStoreFromEnv()
 	if err != nil {
