@@ -1094,7 +1094,7 @@ func TestProblemAssetDownloadsSupportNestedPathsAndExistingProblems(t *testing.T
 		t.Fatalf("write nested data file: %v", err)
 	}
 	for key, body := range map[string]string{
-		filepath.Join(utils.UploadRoot(), "problems", "1000", "statement.md"):           "# Visible\n\n![img](/api/problems/1000/assets/note.png)",
+		filepath.Join(utils.UploadRoot(), "problems", "1000", "statement.md"):           "# Visible\n\n![img](./assets/note.png)",
 		filepath.Join(utils.UploadRoot(), "problems", "1000", "data", "cases", "1.out"): "nested output",
 		filepath.Join(utils.UploadRoot(), "problems", "1000", "judge", "main.cc"):       "int main(){}",
 		filepath.Join(utils.UploadRoot(), "problems", "1000", "assets", "note.txt"):     "asset note",

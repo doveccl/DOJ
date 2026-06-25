@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import {
   clearMarkdownAssetBase,
   configureMarkdownAssetRenderer,
-  relativeProblemAssetURL,
   rewriteAssetURL,
   setMarkdownAssetBase
 } from './markdown'
@@ -15,12 +14,6 @@ describe('markdown assets', () => {
     expect(rewriteAssetURL('/assets/a.png', '/api/problems/1000/assets')).toBe('/api/problems/1000/assets/a.png')
     expect(rewriteAssetURL('https://example.com/assets/a.png', '/api/problems/1000/assets')).toBe('https://example.com/assets/a.png')
     expect(rewriteAssetURL('./data/1.in', '/api/problems/1000/assets')).toBe('./data/1.in')
-  })
-
-  it('keeps uploaded problem image markdown relative to the statement', () => {
-    expect(relativeProblemAssetURL('/api/problems/1000/assets/a.png', 1000)).toBe('./assets/a.png')
-    expect(relativeProblemAssetURL('/api/problems/1000/assets/nested/a.png', 1000)).toBe('./assets/nested/a.png')
-    expect(relativeProblemAssetURL('/api/problems/1001/assets/a.png', 1000)).toBe('/api/problems/1001/assets/a.png')
   })
 
   it('rewrites image and link tokens during markdown rendering', () => {

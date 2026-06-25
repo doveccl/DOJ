@@ -3010,7 +3010,7 @@ func (api *API) problemStatement(ctx context.Context, id uint, title string) (st
 	if strings.TrimSpace(string(data)) == "" {
 		return "# " + title, nil
 	}
-	return normalizeProblemStatementAssets(id, string(data)), nil
+	return string(data), nil
 }
 
 func (api *API) writeProblemStatement(ctx context.Context, id uint, statement string) error {
@@ -3022,16 +3022,11 @@ func (api *API) writeProblemStatement(ctx context.Context, id uint, statement st
 	if body == "" {
 		body = "# P" + strconv.Itoa(int(id))
 	}
-	body = normalizeProblemStatementAssets(id, body)
 	return store.Put(ctx, problemStatementKey(id), strings.NewReader(body), int64(len(body)), "text/markdown; charset=utf-8")
 }
 
 func problemStatementKey(id uint) string {
 	return fmt.Sprintf("problems/%d/statement.md", id)
-}
-
-func normalizeProblemStatementAssets(id uint, statement string) string {
-	return strings.ReplaceAll(statement, fmt.Sprintf("/api/problems/%d/assets/", id), "./assets/")
 }
 
 func (api *API) decorateProblemDiscussions(ctx context.Context, items []ProblemDTO) error {
