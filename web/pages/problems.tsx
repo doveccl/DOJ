@@ -20,7 +20,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
-import { createProblem, deleteProblem, getProblems, updateProblem } from '../client'
+import { createProblem, deleteProblem, getProblems, updateProblemVisibility } from '../client'
 import type { Problem } from '../client'
 import { JudgeModeSelect } from '../components/judge'
 import { LimitInput } from '../components/limit'
@@ -80,14 +80,8 @@ export function ProblemsPage() {
   })
   const visibility = useMutation({
     mutationFn: (item: Problem) =>
-      updateProblem(item.id, {
-        title: item.title,
-        statement: item.statement || `# ${item.title}`,
-        tags: item.tags,
-        visible: !item.visible,
-        mode: item.mode,
-        timeMs: item.timeMs,
-        memoryMb: item.memoryMb
+      updateProblemVisibility(item.id, {
+        visible: !item.visible
       }),
     onSuccess: (item) => {
       replaceProblemInCaches(client, item)

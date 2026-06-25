@@ -436,6 +436,22 @@ export interface paths {
         patch: operations["updateProblem"];
         trace?: never;
     };
+    "/api/problems/{id}/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateProblemVisibility"];
+        trace?: never;
+    };
     "/api/problems/{id}/assets": {
         parameters: {
             query?: never;
@@ -952,6 +968,9 @@ export interface components {
             mode: string;
             timeMs: number;
             memoryMb: number;
+        };
+        ProblemVisibilityUpdate: {
+            visible: boolean;
         };
         AssetFile: {
             key: string;
@@ -1988,6 +2007,39 @@ export interface operations {
         };
         responses: {
             /** @description Problem updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Problem not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateProblemVisibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProblemVisibilityUpdate"];
+            };
+        };
+        responses: {
+            /** @description Problem visibility updated */
             200: {
                 headers: {
                     [name: string]: unknown;

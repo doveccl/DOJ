@@ -10,6 +10,7 @@ export type UploadResult = components['schemas']['UploadResult']
 export type Problem = components['schemas']['Problem']
 export type ProblemCreate = components['schemas']['ProblemCreate']
 export type ProblemUpdate = components['schemas']['ProblemUpdate']
+export type ProblemVisibilityUpdate = components['schemas']['ProblemVisibilityUpdate']
 export type ProblemAssets = components['schemas']['ProblemAssets']
 export type AssetFile = components['schemas']['AssetFile']
 export type AssetCaseCreate = components['schemas']['AssetCaseCreate']
@@ -364,6 +365,14 @@ export async function createProblem(body: ProblemCreate) {
 
 export async function updateProblem(id: number, body: ProblemUpdate) {
   const { data, error } = await client.PATCH('/api/problems/{id}', {
+    params: { path: { id } },
+    body
+  })
+  return assertData(data, error)
+}
+
+export async function updateProblemVisibility(id: number, body: ProblemVisibilityUpdate) {
+  const { data, error } = await client.PATCH('/api/problems/{id}/visibility', {
     params: { path: { id } },
     body
   })

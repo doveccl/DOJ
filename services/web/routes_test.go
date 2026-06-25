@@ -980,6 +980,35 @@ func TestDatabaseAdminInputValidation(t *testing.T) {
 	}
 }
 
+func TestProblemVisibilityUpdateDoesNotTouchStatementStorage(t *testing.T) {
+	db := testWebDB(t)
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	problem := models.Problem{ID: 1000, Title: "Visible", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	blockedStorage := filepath.Join(t.TempDir(), "storage-file")
+	if err := os.WriteFile(blockedStorage, []byte("not a directory"), 0o644); err != nil {
+		t.Fatalf("create blocked storage marker: %v", err)
+	}
+	t.Setenv("STORAGE", blockedStorage)
+
+	e := echo.New()
+	Register(e, db)
+	cookies := databaseSession(t, db, admin.ID)
+	res := requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000/visibility", cookies, `{"visible":false}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("visibility update got %d body=%s", res.Code, res.Body.String())
+	}
+	updated := decodeJSON[ProblemDTO](t, res)
+	if updated.Visible {
+		t.Fatalf("problem should be hidden after visibility update: %+v", updated)
+	}
+}
+
 func TestDiscussionProblemTagsAreSoftAssociations(t *testing.T) {
 	db := testWebDB(t)
 	student := models.User{Name: "student", Mail: "student@example.com", Auth: "hash"}

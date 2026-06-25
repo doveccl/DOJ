@@ -49,6 +49,7 @@ import {
   submitCode,
   updateProblem,
   updateProblemAssetContent,
+  updateProblemVisibility,
   uploadProblemImage,
   uploadProblemAsset
 } from '../client'
@@ -184,17 +185,11 @@ export function ProblemDetailPage() {
   })
   const visibility = useMutation({
     mutationFn: (target: Problem) =>
-      updateProblem(id, {
-        title: target.title,
-        statement: target.statement || `# ${target.title}`,
-        tags: target.tags,
-        visible: !target.visible,
-        mode: target.mode,
-        timeMs: target.timeMs,
-        memoryMb: target.memoryMb
+      updateProblemVisibility(id, {
+        visible: !target.visible
       }),
     onSuccess: (next) => {
-      client.setQueryData(['problem', id], next)
+      client.setQueryData(['problem', id], (current: Problem | undefined) => ({ ...next, statement: current?.statement }))
       void client.invalidateQueries({ queryKey: ['problems'] })
       void client.invalidateQueries({ queryKey: ['home'] })
       message.success(next.visible ? text.problems.shown : text.problems.hiddenDone)

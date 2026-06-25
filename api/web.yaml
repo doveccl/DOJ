@@ -562,6 +562,30 @@ paths:
       responses:
         "204":
           description: Problem deleted
+  /api/problems/{id}/visibility:
+    patch:
+      operationId: updateProblemVisibility
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProblemVisibilityUpdate"
+      responses:
+        "200":
+          description: Problem visibility updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "404":
+          description: Problem not found
   /api/problems/{id}/assets:
     get:
       operationId: getProblemAssets
@@ -1582,6 +1606,12 @@ components:
           type: integer
         memoryMb:
           type: integer
+    ProblemVisibilityUpdate:
+      type: object
+      required: [visible]
+      properties:
+        visible:
+          type: boolean
     AssetFile:
       type: object
       required: [key, name, size, editable]

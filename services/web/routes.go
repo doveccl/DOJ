@@ -343,6 +343,10 @@ type ProblemUpdate struct {
 	MemoryMB  int      `json:"memoryMb"`
 }
 
+type ProblemVisibilityUpdate struct {
+	Visible bool `json:"visible"`
+}
+
 type ProblemAssets struct {
 	Data      []AssetFile `json:"data"`
 	Judge     []AssetFile `json:"judge"`
@@ -404,6 +408,7 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.POST("/problems", api.createProblem)
 	group.GET("/problems/:id", api.problem)
 	group.PATCH("/problems/:id", api.updateProblem, echomw.BodyLimit(markdownBodyLimit))
+	group.PATCH("/problems/:id/visibility", api.updateProblemVisibility, echomw.BodyLimit(shortTextBodyLimit))
 	group.DELETE("/problems/:id", api.deleteProblem)
 	group.GET("/problems/:id/assets", api.problemAssets)
 	group.POST("/problems/:id/assets/images", api.uploadProblemImage, api.rateLimit("problem-upload", 60, time.Minute), echomw.BodyLimit(imageBodyLimit))
@@ -1123,6 +1128,33 @@ func (api *API) updateProblem(c echo.Context) error {
 		return err
 	}
 	return c.JSON(http.StatusOK, item)
+}
+
+func (api *API) updateProblemVisibility(c echo.Context) error {
+	if err := api.requireAdmin(c); err != nil {
+		return err
+	}
+	id, err := parseID(c, "id", "invalid problem id")
+	if err != nil {
+		return err
+	}
+	var req ProblemVisibilityUpdate
+	if err := c.Bind(&req); err != nil {
+		return err
+	}
+
+	var row models.Problem
+	if err := api.db.First(&row, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return echo.NewHTTPError(http.StatusNotFound, "problem not found")
+		}
+		return err
+	}
+	row.Visible = req.Visible
+	if err := api.db.Save(&row).Error; err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, problemDTO(row))
 }
 
 func (api *API) deleteProblem(c echo.Context) error {
