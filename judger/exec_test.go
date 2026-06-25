@@ -74,7 +74,7 @@ func TestRunLocalCaseWrongAnswer(t *testing.T) {
 func buildRunner(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "doj-runner")
-	cmd := exec.Command("go", "build", "-buildvcs=false", "-tags", "runner", "-o", path, "../cmd")
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-tags", "runner", "-o", path, "../cmd/runner.go")
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("build runner: %v\n%s", err, out)

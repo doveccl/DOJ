@@ -239,7 +239,7 @@ func (api *API) createUser(c echo.Context) error {
 	}
 
 	var count int64
-	if err := api.db.Model(&models.User{}).Where("LOWER(name) = ? OR LOWER(mail) = ?", req.Name, req.Mail).Count(&count).Error; err != nil {
+	if err := api.db.Model(&models.User{}).Where("LOWER(name) = ? OR LOWER(mail) = ?", userNameKey(req.Name), req.Mail).Count(&count).Error; err != nil {
 		return err
 	}
 	if count > 0 {
@@ -289,11 +289,8 @@ func (api *API) updateUser(c echo.Context) error {
 	}
 	req.Groups = cleanUintList(req.Groups)
 
-	var row models.User
-	if err := api.db.First(&row, "name = ?", c.Param("name")).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return echo.NewHTTPError(http.StatusNotFound, "user not found")
-		}
+	row, err := api.userByName(c.Param("name"))
+	if err != nil {
 		return err
 	}
 	if row.Admin && req.Role != "admin" {
@@ -304,7 +301,7 @@ func (api *API) updateUser(c echo.Context) error {
 	if err := api.ensureGroups(req.Groups); err != nil {
 		return err
 	}
-	err := api.db.Transaction(func(tx *gorm.DB) error {
+	err = api.db.Transaction(func(tx *gorm.DB) error {
 		row.Admin = req.Role == "admin"
 		if err := tx.Save(&row).Error; err != nil {
 			return err
@@ -329,11 +326,8 @@ func (api *API) updateUser(c echo.Context) error {
 
 func (api *API) deleteUser(c echo.Context) error {
 
-	var row models.User
-	if err := api.db.First(&row, "name = ?", c.Param("name")).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return echo.NewHTTPError(http.StatusNotFound, "user not found")
-		}
+	row, err := api.userByName(c.Param("name"))
+	if err != nil {
 		return err
 	}
 	if row.Admin {
@@ -348,6 +342,10 @@ func (api *API) deleteUser(c echo.Context) error {
 }
 
 func (api *API) resetUserPassword(c echo.Context) error {
+	row, err := api.userByName(c.Param("name"))
+	if err != nil {
+		return err
+	}
 	password, err := randomPassword()
 	if err != nil {
 		return err
@@ -357,12 +355,9 @@ func (api *API) resetUserPassword(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	updated := api.db.Model(&models.User{}).Where("name = ?", c.Param("name")).Update("auth", string(hash))
+	updated := api.db.Model(&models.User{}).Where("id = ?", row.ID).Update("auth", string(hash))
 	if updated.Error != nil {
 		return updated.Error
-	}
-	if updated.RowsAffected == 0 {
-		return echo.NewHTTPError(http.StatusNotFound, "user not found")
 	}
 	return c.JSON(http.StatusOK, PasswordReset{Password: password})
 }
@@ -616,6 +611,21 @@ func (api *API) ensureOtherAdmin(userID uint) error {
 	return nil
 }
 
+func (api *API) userByName(name string) (models.User, error) {
+	var row models.User
+	nameKey := userNameKey(name)
+	if nameKey == "" {
+		return row, echo.NewHTTPError(http.StatusBadRequest, "user name is required")
+	}
+	if err := api.db.Where("LOWER(name) = ?", nameKey).First(&row).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return row, echo.NewHTTPError(http.StatusNotFound, "user not found")
+		}
+		return row, err
+	}
+	return row, nil
+}
+
 func (api *API) settings() (AdminSettings, error) {
 	settings := defaultSettings()
 	var rows []models.Setting
@@ -863,7 +873,7 @@ func cleanUintList(values []uint) []uint {
 }
 
 func cleanUserCreate(req *UserCreate) {
-	req.Name = strings.ToLower(strings.TrimSpace(req.Name))
+	req.Name = strings.TrimSpace(req.Name)
 	req.Mail = strings.ToLower(strings.TrimSpace(req.Mail))
 	req.Role = strings.TrimSpace(req.Role)
 	req.Groups = cleanUintList(req.Groups)
@@ -894,6 +904,9 @@ func validUserName(name string) bool {
 		if r >= 'a' && r <= 'z' {
 			continue
 		}
+		if r >= 'A' && r <= 'Z' {
+			continue
+		}
 		if r >= '0' && r <= '9' {
 			continue
 		}
@@ -903,6 +916,10 @@ func validUserName(name string) bool {
 		return false
 	}
 	return true
+}
+
+func userNameKey(name string) string {
+	return strings.ToLower(strings.TrimSpace(name))
 }
 
 func cleanLanguageUpdate(req *LanguageUpdate) {

@@ -23,7 +23,7 @@ export function UserPage() {
   const params = useParams()
   const name = params.name ?? ''
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const isOwn = session.signedIn && name === session.name
+  const isOwn = session.signedIn && name.toLowerCase() === session.name.toLowerCase()
   const query = useQuery({
     queryKey: ['user', name],
     queryFn: () => getUser(name),
@@ -34,7 +34,7 @@ export function UserPage() {
     mutationFn: updateMe,
     onSuccess: (data) => {
       client.setQueryData(['me'], data)
-      void client.invalidateQueries({ queryKey: ['user', data.name] })
+      void client.invalidateQueries({ queryKey: ['user', name] })
       void session.refresh()
       message.success(text.common.saved)
     },

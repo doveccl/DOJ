@@ -18,16 +18,20 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 go build -tags server -o /out/doj-server ./cmd/server.go
+RUN CGO_ENABLED=0 go build -o /out/doj-server ./cmd/server.go
+RUN CGO_ENABLED=0 go build -tags judger -o /out/doj-judger ./cmd/judger.go
+RUN CGO_ENABLED=0 go build -tags runner -o /out/doj-runner ./cmd/runner.go
 
 FROM alpine:3.23
 
-RUN apk add --no-cache ca-certificates \
-  && adduser -D -H doj \
-  && mkdir -p /app \
-  && mkdir -p /var/lib/doj \
+RUN apk add --no-cache ca-certificates docker-cli \
+  && adduser -D -h /var/lib/doj doj \
+  && mkdir -p /app /var/lib/doj \
   && chown -R doj:doj /app /var/lib/doj
+
 COPY --from=build /out/doj-server /usr/local/bin/doj-server
+COPY --from=build /out/doj-judger /usr/local/bin/doj-judger
+COPY --from=build /out/doj-runner /usr/local/bin/doj-runner
 COPY --from=web --chown=doj:doj /src/dist /app/dist
 
 WORKDIR /app

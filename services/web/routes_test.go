@@ -72,6 +72,65 @@ func TestWriteSSE(t *testing.T) {
 	}
 }
 
+func TestUsernamePreservesCaseAndMatchesCaseInsensitively(t *testing.T) {
+	db := testWebDB(t)
+	if err := adminsvc.SaveSettings(db, adminsvc.AdminSettings{
+		SiteName:                "DOJ",
+		AllowRegistration:       true,
+		AllowGuestAccess:        true,
+		DefaultSubmissionPublic: false,
+		Notice:                  "",
+	}); err != nil {
+		t.Fatalf("enable registration: %v", err)
+	}
+	e := echo.New()
+	Register(e, db)
+
+	registerRes := requestJSON(e, http.MethodPost, "/api/auth/register", "", `{"name":"Alice_One","mail":"Alice@example.com","password":"password123"}`)
+	if registerRes.Code != http.StatusCreated {
+		t.Fatalf("register mixed case user got %d body=%s", registerRes.Code, registerRes.Body.String())
+	}
+	registered := decodeJSON[MeDTO](t, registerRes)
+	if registered.Name != "Alice_One" || registered.Mail != "alice@example.com" {
+		t.Fatalf("registered user should preserve username case and lowercase mail: %+v", registered)
+	}
+
+	duplicate := requestJSON(e, http.MethodPost, "/api/auth/register", "", `{"name":"alice_one","mail":"other@example.com","password":"password123"}`)
+	if duplicate.Code != http.StatusConflict {
+		t.Fatalf("case folded duplicate register got %d body=%s", duplicate.Code, duplicate.Body.String())
+	}
+
+	loginRes := requestJSON(e, http.MethodPost, "/api/auth/login", "", `{"name":"alice_one","password":"password123"}`)
+	if loginRes.Code != http.StatusOK {
+		t.Fatalf("case folded login got %d body=%s", loginRes.Code, loginRes.Body.String())
+	}
+	loggedIn := decodeJSON[MeDTO](t, loginRes)
+	if loggedIn.Name != "Alice_One" {
+		t.Fatalf("login should return stored username case: %+v", loggedIn)
+	}
+
+	profile := decodeJSON[UserProfile](t, requestOK(t, e, http.MethodGet, "/api/users/alice_one", ""))
+	if profile.User.Name != "Alice_One" {
+		t.Fatalf("profile lookup should be case-insensitive and return stored name: %+v", profile.User)
+	}
+
+	problem := models.Problem{ID: 1000, Title: "Visible", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	var user models.User
+	if err := db.Where("LOWER(name) = ?", "alice_one").First(&user).Error; err != nil {
+		t.Fatalf("read user: %v", err)
+	}
+	if err := db.Create(&models.Submission{UserID: user.ID, ProblemID: problem.ID, Language: "cpp", Code: "code", Status: "AC", Score: 100, Public: true}).Error; err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+	submissions := decodeJSON[[]SubmissionDTO](t, requestOK(t, e, http.MethodGet, "/api/submissions?user=ALICE_ONE", ""))
+	if len(submissions) != 1 || submissions[0].User != "Alice_One" {
+		t.Fatalf("submission user filter should be case-insensitive: %+v", submissions)
+	}
+}
+
 func TestPrivateSubmissionSourceVisibilityWithDatabase(t *testing.T) {
 	db := testWebDB(t)
 	allowGuest(t, db)

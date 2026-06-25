@@ -12,7 +12,7 @@ DOJ is a self-hosted online judge with a React web app, a Go API server, and a G
 
 ## Quick Start
 
-The example compose file starts PostgreSQL, Valkey, MinIO, and one server image that serves both the API and the built web app:
+The example compose file starts PostgreSQL, Valkey, MinIO, and one DOJ image. The server container serves both the API and the built web app:
 
 ```bash
 docker compose -f compose.example.yml up --build
@@ -62,7 +62,7 @@ To run the compose judger profile, create a judger in the admin UI, copy the tok
 TOKEN=replace-with-generated-token docker compose -f compose.example.yml --profile judger up --build
 ```
 
-The judger profile is privileged, uses the host Docker socket, and mounts `/var/lib/doj:/var/lib/doj`.
+The judger profile uses the same DOJ image with a different command. It is privileged, uses the host Docker socket, and mounts `/var/lib/doj:/var/lib/doj`.
 
 ## Development
 
@@ -75,7 +75,7 @@ pnpm install
 Run the server:
 
 ```bash
-go run -tags server ./cmd/server.go
+go run ./cmd/server.go
 ```
 
 Run the Vite dev server:
@@ -120,7 +120,7 @@ DOJ 是一个可自部署的在线评测系统，包含 React 前端、Go API �
 
 ## 快速开始
 
-示例 compose 会启动 PostgreSQL、Valkey、MinIO，以及一个同时提供 API 和前端静态文件的 server 镜像：
+示例 compose 会启动 PostgreSQL、Valkey、MinIO，以及一个 DOJ 镜像。server 容器同时提供 API 和前端静态文件：
 
 ```bash
 docker compose -f compose.example.yml up --build
@@ -170,7 +170,7 @@ server 固定监听 `:7974`。存在 `dist/` 时，server 会提供前端静态�
 TOKEN=replace-with-generated-token docker compose -f compose.example.yml --profile judger up --build
 ```
 
-评测机 profile 使用 privileged 模式，挂载宿主机 Docker socket，并挂载 `/var/lib/doj:/var/lib/doj`。
+评测机 profile 使用同一个 DOJ 镜像，但用不同 command 启动。它使用 privileged 模式，挂载宿主机 Docker socket，并挂载 `/var/lib/doj:/var/lib/doj`。
 
 ## 本地开发
 
@@ -183,7 +183,7 @@ pnpm install
 启动 server：
 
 ```bash
-go run -tags server ./cmd/server.go
+go run ./cmd/server.go
 ```
 
 启动 Vite：

@@ -597,15 +597,15 @@ func (api *API) login(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
-	name := strings.ToLower(strings.TrimSpace(req.Name))
-	if name == "" {
+	nameKey := userNameKey(req.Name)
+	if nameKey == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "username is required")
 	}
 
 	now := time.Now()
 
 	var user models.User
-	err := api.db.Where("LOWER(name) = ? OR LOWER(mail) = ?", name, name).First(&user).Error
+	err := api.db.Where("LOWER(name) = ? OR LOWER(mail) = ?", nameKey, nameKey).First(&user).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return echo.NewHTTPError(http.StatusUnauthorized, "invalid username or password")
@@ -629,7 +629,7 @@ func (api *API) register(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
-	req.Name = strings.ToLower(strings.TrimSpace(req.Name))
+	req.Name = strings.TrimSpace(req.Name)
 	req.Mail = strings.ToLower(strings.TrimSpace(req.Mail))
 	if err := validateRegister(req); err != nil {
 		return err
@@ -637,8 +637,9 @@ func (api *API) register(c echo.Context) error {
 
 	now := time.Now()
 
+	nameKey := userNameKey(req.Name)
 	var count int64
-	if err := api.db.Model(&models.User{}).Where("LOWER(name) = ? OR LOWER(mail) = ?", req.Name, req.Mail).Count(&count).Error; err != nil {
+	if err := api.db.Model(&models.User{}).Where("LOWER(name) = ? OR LOWER(mail) = ?", nameKey, req.Mail).Count(&count).Error; err != nil {
 		return err
 	}
 	if count > 0 {
@@ -2019,7 +2020,7 @@ func (api *API) submissions(c echo.Context) error {
 	}
 	if user := strings.TrimSpace(c.QueryParam("user")); user != "" {
 		query = query.Joins("JOIN users submission_users ON submission_users.id = submissions.user_id AND submission_users.deleted_at IS NULL").
-			Where("submission_users.name = ?", user)
+			Where("LOWER(submission_users.name) = ?", userNameKey(user))
 	}
 	if assignment := c.QueryParam("assignment"); assignment != "" {
 		id, err := parseQueryID(assignment, "invalid assignment id")
@@ -2827,13 +2828,13 @@ func (api *API) rank(c echo.Context) error {
 }
 
 func (api *API) user(c echo.Context) error {
-	name := c.Param("name")
-	if name == "" {
+	nameKey := userNameKey(c.Param("name"))
+	if nameKey == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "user name is required")
 	}
 
 	var row models.User
-	if err := api.db.Where("name = ?", name).First(&row).Error; err != nil {
+	if err := api.db.Where("LOWER(name) = ?", nameKey).First(&row).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return echo.NewHTTPError(http.StatusNotFound, "user not found")
 		}
@@ -4438,6 +4439,9 @@ func validName(name string) bool {
 		if r >= 'a' && r <= 'z' {
 			continue
 		}
+		if r >= 'A' && r <= 'Z' {
+			continue
+		}
 		if r >= '0' && r <= '9' {
 			continue
 		}
@@ -4447,6 +4451,10 @@ func validName(name string) bool {
 		return false
 	}
 	return true
+}
+
+func userNameKey(name string) string {
+	return strings.ToLower(strings.TrimSpace(name))
 }
 
 func validateMail(value string) error {

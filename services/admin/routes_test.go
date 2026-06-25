@@ -114,16 +114,28 @@ func TestDatabaseAdminCrud(t *testing.T) {
 		t.Fatalf("create user got %d body=%s", res.Code, res.Body.String())
 	}
 	overview = decodeOverview(t, res)
-	created, ok := findUser(overview, "new_user")
+	created, ok := findUser(overview, "New_User")
 	if !ok || created.Mail != "new_user@example.com" || len(created.Groups) != 1 || created.Groups[0] != group.ID {
 		t.Fatalf("created user missing or malformed: %+v", overview.Users)
 	}
 	var createdRow models.User
-	if err := db.First(&createdRow, "name = ?", "new_user").Error; err != nil {
+	if err := db.First(&createdRow, "name = ?", "New_User").Error; err != nil {
 		t.Fatalf("read created user: %v", err)
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(createdRow.Auth), []byte("password123")); err != nil {
 		t.Fatalf("created user password hash mismatch: %v", err)
+	}
+	res = requestJSONWithCookies(e, http.MethodPost, "/api/admin/users", adminCookies, `{"name":"new_user","mail":"other@example.com","password":"password123","role":"user","groups":[]}`)
+	if res.Code != http.StatusConflict {
+		t.Fatalf("case folded duplicate user got %d body=%s", res.Code, res.Body.String())
+	}
+	res = requestJSONWithCookies(e, http.MethodPatch, "/api/admin/users/new_user", adminCookies, `{"role":"user","groups":[`+itoa(group.ID)+`]}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("case folded update user got %d body=%s", res.Code, res.Body.String())
+	}
+	res = requestJSONWithCookies(e, http.MethodPost, "/api/admin/users/new_user/password", adminCookies, `{}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("case folded reset user password got %d body=%s", res.Code, res.Body.String())
 	}
 	res = requestJSONWithCookies(e, http.MethodPatch, "/api/admin/groups/"+itoa(group.ID), adminCookies, `{"name":"team-c","users":[`+itoa(student.ID)+`,`+itoa(created.ID)+`]}`)
 	if res.Code != http.StatusOK {
@@ -137,7 +149,7 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	if user, ok := findUser(overview, "student"); !ok || len(user.Groups) != 1 || user.Groups[0] != group.ID {
 		t.Fatalf("student group not reflected after group edit: %+v", overview.Users)
 	}
-	if user, ok := findUser(overview, "new_user"); !ok || len(user.Groups) != 1 || user.Groups[0] != group.ID {
+	if user, ok := findUser(overview, "New_User"); !ok || len(user.Groups) != 1 || user.Groups[0] != group.ID {
 		t.Fatalf("new user group not reflected after group edit: %+v", overview.Users)
 	}
 	assignment := models.Assignment{Title: "Homework", EndAt: time.Now().Add(time.Hour)}
@@ -152,7 +164,7 @@ func TestDatabaseAdminCrud(t *testing.T) {
 		t.Fatalf("delete user got %d body=%s", res.Code, res.Body.String())
 	}
 	overview = decodeOverview(t, res)
-	if _, ok := findUser(overview, "new_user"); ok {
+	if _, ok := findUser(overview, "New_User"); ok {
 		t.Fatalf("deleted user should be hidden from admin overview: %+v", overview.Users)
 	}
 	group, ok = findGroup(overview, "team-c")
@@ -191,11 +203,6 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	if assignmentGroupLinks != 0 {
 		t.Fatalf("deleted group should remove assignment_groups, got %d", assignmentGroupLinks)
 	}
-	res = requestJSONWithCookies(e, http.MethodPost, "/api/admin/users", adminCookies, `{"name":"new_user","mail":"other@example.com","password":"password123","role":"user","groups":[]}`)
-	if res.Code != http.StatusConflict {
-		t.Fatalf("duplicate user got %d body=%s", res.Code, res.Body.String())
-	}
-
 	langBody := `{"id":"py","name":"Python","source":"main.py","dockerfile":"FROM python:3.13\nCMD [\"python3\", \"/src/main.py\"]"}`
 	res = requestJSONWithCookies(e, http.MethodPost, "/api/admin/languages", adminCookies, langBody)
 	if res.Code != http.StatusCreated {
