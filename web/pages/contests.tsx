@@ -24,21 +24,21 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { createContest, deleteContest, getContest, getContests, getProblems, updateContest } from '../client'
-import type { Contest } from '../client'
+import type { Contest, ProblemRef } from '../client'
+import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { ContestStatus } from '../components/status'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { formatTime } from '../utils/format'
+import { formatTime, problemCode, relativeDeadline } from '../utils/format'
 
 type ContestForm = {
   title: string
-  desc: string
   kind: string
   startAt: Dayjs
   endAt: Dayjs
   freezeAt?: Dayjs | null
-  problems?: number[]
+  problems?: ProblemRef[]
 }
 
 export function ContestsPage() {
@@ -56,7 +56,6 @@ export function ContestsPage() {
   }
   const payload = (values: ContestForm) => ({
     title: values.title,
-    desc: values.desc ?? '',
     kind: values.kind,
     startAt: values.startAt.toISOString(),
     endAt: values.endAt.toISOString(),
@@ -101,7 +100,7 @@ export function ContestsPage() {
   })
   const problemOptions = (problems.data ?? []).map((item) => ({
     value: item.id,
-    label: `${item.id} ${item.title}`
+    label: `${problemCode(item.id)} ${item.title}`
   }))
 
   function openCreate() {
@@ -193,14 +192,13 @@ function ContestModal({
     isEdit && detail.data
       ? {
           title: detail.data.contest.title,
-          desc: detail.data.contest.desc,
           kind: detail.data.contest.kind,
           startAt: dayjs(detail.data.contest.startAt),
           endAt: dayjs(detail.data.contest.endAt),
           freezeAt: detail.data.contest.freezeAt ? dayjs(detail.data.contest.freezeAt) : null,
-          problems: detail.data.problems.map((problem) => problem.id)
+          problems: detail.data.problems.map((problem, index) => ({ id: problem.id, sort: problem.sort || defaultProblemSort(index) }))
         }
-      : { title: '', desc: '', kind: 'OI', freezeAt: null, problems: [] }
+      : { title: '', kind: 'OI', freezeAt: null, problems: [] }
   const kind = Form.useWatch('kind', form) ?? initialValues.kind ?? 'OI'
 
   const body =
@@ -219,9 +217,6 @@ function ContestModal({
       >
         <Form.Item name="title" label={text.contests.name} rules={[{ required: true, whitespace: true }]}>
           <Input maxLength={120} showCount />
-        </Form.Item>
-        <Form.Item name="desc" label={text.contests.desc}>
-          <Input.TextArea rows={3} maxLength={500} showCount />
         </Form.Item>
         <Form.Item name="kind" label={text.contests.kind}>
           <Select
@@ -245,7 +240,7 @@ function ContestModal({
           ) : null}
         </Space>
         <Form.Item name="problems" label={text.contests.problems}>
-          <Select mode="multiple" options={problemOptions} loading={problemLoading || detail.isLoading} />
+          <ProblemRefInput options={problemOptions} loading={problemLoading || detail.isLoading} />
         </Form.Item>
       </Form>
     )
@@ -285,27 +280,37 @@ function contestColumns(
           <Typography.Text ellipsis className="lineText">
             <Link to={`/contests/${row.id}`}>{title}</Link>
           </Typography.Text>
-          <Tag>{row.kind}</Tag>
-          <ContestStatus status={row.status} />
         </Flex>
       )
     },
     {
-      title: text.contests.desc,
-      dataIndex: 'desc',
-      render: (desc: string, row) => (
-        <Typography.Text type="secondary" ellipsis className="lineText">
-          {desc} · {text.contests.total(row.total)}
-        </Typography.Text>
-      )
+      title: text.contests.status,
+      dataIndex: 'status',
+      width: 110,
+      render: (status: string) => <ContestStatus status={status} />
+    },
+    {
+      title: text.contests.kind,
+      dataIndex: 'kind',
+      width: 100,
+      render: (kind: string) => <Tag>{kind}</Tag>
+    },
+    {
+      title: text.contests.problems,
+      dataIndex: 'total',
+      width: 120,
+      render: (total: number) => <Typography.Text>{text.contests.total(total)}</Typography.Text>
     },
     {
       title: text.contests.time,
       width: 300,
       render: (_, row) => (
-        <Typography.Text className="nowrap">
-          {formatTime(row.startAt, lang)} - {formatTime(row.endAt, lang)}
-        </Typography.Text>
+        <Flex vertical gap={0}>
+          <Typography.Text className="nowrap">{relativeDeadline(row.status === 'pending' ? row.startAt : row.endAt, row.status, lang, 'contest')}</Typography.Text>
+          <Typography.Text type="secondary" className="nowrap">
+            {formatTime(row.startAt, lang)} - {formatTime(row.endAt, lang)}
+          </Typography.Text>
+        </Flex>
       )
     }
   ]

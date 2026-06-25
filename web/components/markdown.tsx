@@ -7,6 +7,7 @@ type MarkdownEditorProps = {
   minHeight?: number
   readOnly?: boolean
   trust?: MarkdownTrust
+  assetBase?: string
   upload?: (file: File) => Promise<string>
   variant?: 'editor' | 'preview'
   onChange?: (value: string) => void
@@ -22,10 +23,10 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
   )
 }
 
-export function MarkdownPreview({ value, trust = 'ugc' }: { value: string; trust?: MarkdownTrust }) {
+export function MarkdownPreview({ value, trust = 'ugc', assetBase }: { value: string; trust?: MarkdownTrust; assetBase?: string }) {
   if (!value.trim()) {
     return null
   }
 
-  return <MarkdownEditor value={value} minHeight={0} readOnly trust={trust} variant="preview" />
+  return <MarkdownEditor value={value} minHeight={0} readOnly trust={trust} assetBase={assetBase} variant="preview" />
 }

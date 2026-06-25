@@ -45,3 +45,20 @@ func TestMemoryCacheTTL(t *testing.T) {
 		t.Fatalf("expired cache found=%v value=%q err=%v", found, got, err)
 	}
 }
+
+func TestMemoryCacheAllow(t *testing.T) {
+	t.Setenv("REDIS", "")
+	ResetCacheForTest()
+	t.Cleanup(ResetCacheForTest)
+
+	for i := 0; i < 2; i++ {
+		allowed, err := CacheAllow(t.Context(), "test:rate", 2, time.Minute)
+		if err != nil || !allowed {
+			t.Fatalf("rate allow #%d allowed=%v err=%v", i+1, allowed, err)
+		}
+	}
+	allowed, err := CacheAllow(t.Context(), "test:rate", 2, time.Minute)
+	if err != nil || allowed {
+		t.Fatalf("rate should block third request allowed=%v err=%v", allowed, err)
+	}
+}

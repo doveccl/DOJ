@@ -36,13 +36,13 @@ func TestDatabaseAdminCrud(t *testing.T) {
 		t.Fatalf("overview got %d body=%s", res.Code, res.Body.String())
 	}
 	overview := decodeOverview(t, res)
-	if overview.Settings.Registration || overview.Settings.Guest || overview.Settings.DefaultPublicSource {
+	if overview.Settings.AllowRegistration || overview.Settings.AllowGuestAccess || overview.Settings.DefaultSubmissionPublic {
 		t.Fatalf("site switches should default off: %+v", overview.Settings)
 	}
 	if user, ok := findUser(overview, "student"); !ok || user.Groups == nil {
 		t.Fatalf("user groups should be an empty array, got %+v", user)
 	}
-	res = requestJSONWithCookies(e, http.MethodPatch, "/api/admin/settings", adminCookies, `{"siteName":"DOJ","registration":true,"guest":true,"defaultPublicSource":true,"notice":""}`)
+	res = requestJSONWithCookies(e, http.MethodPatch, "/api/admin/settings", adminCookies, `{"siteName":"DOJ","allowRegistration":true,"allowGuestAccess":true,"defaultSubmissionPublic":true,"notice":""}`)
 	if res.Code != http.StatusOK {
 		t.Fatalf("update settings got %d body=%s", res.Code, res.Body.String())
 	}
@@ -50,8 +50,24 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	if err := json.Unmarshal(res.Body.Bytes(), &saved); err != nil {
 		t.Fatalf("decode settings: %v body=%s", err, res.Body.String())
 	}
-	if !saved.Registration || !saved.Guest || !saved.DefaultPublicSource {
+	if !saved.AllowRegistration || !saved.AllowGuestAccess || !saved.DefaultSubmissionPublic {
 		t.Fatalf("site switches should roundtrip: %+v", saved)
+	}
+	var settingRows []models.Setting
+	if err := db.Order("key asc").Find(&settingRows).Error; err != nil {
+		t.Fatalf("read settings rows: %v", err)
+	}
+	keys := map[string]bool{}
+	for _, row := range settingRows {
+		keys[row.Key] = true
+	}
+	for _, key := range []string{"allow_guest_access", "allow_registration", "default_submission_public", "home_notice", "site_name"} {
+		if !keys[key] {
+			t.Fatalf("stored settings missing row %q: %+v", key, settingRows)
+		}
+	}
+	if keys["site"] {
+		t.Fatalf("stored settings should not be packed into one site row: %+v", settingRows)
 	}
 
 	res = requestJSONWithCookies(e, http.MethodPatch, "/api/admin/users/other", adminCookies, `{"role":"user","groups":[]}`)
@@ -107,6 +123,44 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(createdRow.Auth), []byte("password123")); err != nil {
 		t.Fatalf("created user password hash mismatch: %v", err)
+	}
+	res = requestJSONWithCookies(e, http.MethodPatch, "/api/admin/groups/"+itoa(group.ID), adminCookies, `{"name":"team-c","users":[`+itoa(student.ID)+`,`+itoa(created.ID)+`]}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("update group users got %d body=%s", res.Code, res.Body.String())
+	}
+	overview = decodeOverview(t, res)
+	group, ok = findGroup(overview, "team-c")
+	if !ok || len(group.Users) != 2 || group.Users[0] != student.ID || group.Users[1] != created.ID {
+		t.Fatalf("group side users not saved: %+v", overview.Groups)
+	}
+	if user, ok := findUser(overview, "student"); !ok || len(user.Groups) != 1 || user.Groups[0] != group.ID {
+		t.Fatalf("student group not reflected after group edit: %+v", overview.Users)
+	}
+	if user, ok := findUser(overview, "new_user"); !ok || len(user.Groups) != 1 || user.Groups[0] != group.ID {
+		t.Fatalf("new user group not reflected after group edit: %+v", overview.Users)
+	}
+	res = requestJSONWithCookies(e, http.MethodDelete, "/api/admin/users/new_user", adminCookies, `{}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("delete user got %d body=%s", res.Code, res.Body.String())
+	}
+	overview = decodeOverview(t, res)
+	if _, ok := findUser(overview, "new_user"); ok {
+		t.Fatalf("deleted user should be hidden from admin overview: %+v", overview.Users)
+	}
+	group, ok = findGroup(overview, "team-c")
+	if !ok || len(group.Users) != 1 || group.Users[0] != student.ID {
+		t.Fatalf("deleted user should be hidden from group users: %+v", overview.Groups)
+	}
+	res = requestJSONWithCookies(e, http.MethodDelete, "/api/admin/groups/"+itoa(group.ID), adminCookies, `{}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("delete group got %d body=%s", res.Code, res.Body.String())
+	}
+	overview = decodeOverview(t, res)
+	if _, ok := findGroup(overview, "team-c"); ok {
+		t.Fatalf("deleted group should be hidden from admin overview: %+v", overview.Groups)
+	}
+	if user, ok := findUser(overview, "student"); !ok || len(user.Groups) != 0 {
+		t.Fatalf("deleted group should not stay in user groups: %+v", overview.Users)
 	}
 	res = requestJSONWithCookies(e, http.MethodPost, "/api/admin/users", adminCookies, `{"name":"new_user","mail":"other@example.com","password":"password123","role":"user","groups":[]}`)
 	if res.Code != http.StatusConflict {

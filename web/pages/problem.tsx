@@ -15,7 +15,6 @@ import {
   Card,
   Checkbox,
   Col,
-  Empty,
   Flex,
   Form,
   Input,
@@ -40,6 +39,7 @@ import {
   createProblemCase,
   deleteProblemAsset,
   downloadProblemAssets,
+  downloadProblemFile,
   fillJudgeTemplate,
   getLangs,
   getProblem,
@@ -74,6 +74,8 @@ int main() {
 }
 `
 
+const languageStorageKey = 'doj.language'
+
 type ProblemEditForm = {
   title: string
   statement: string
@@ -101,6 +103,7 @@ export function ProblemDetailPage() {
   const [assetEdit, setAssetEdit] = useState<AssetContent | null>(null)
   const [assetDraft, setAssetDraft] = useState('')
   const uploadStatementImage = useCallback((file: File) => uploadProblemImage(id, file), [id])
+  const statementAssetBase = Number.isFinite(id) ? `/api/problems/${id}/assets/` : undefined
   const query = useQuery({
     queryKey: ['problem', id],
     queryFn: () => getProblem(id),
@@ -115,9 +118,9 @@ export function ProblemDetailPage() {
   })
   useEffect(() => {
     if (!publicSourceTouched) {
-      setPublicSource(site.data?.defaultPublicSource ?? false)
+      setPublicSource(site.data?.defaultSubmissionPublic ?? false)
     }
-  }, [publicSourceTouched, site.data?.defaultPublicSource])
+  }, [publicSourceTouched, site.data?.defaultSubmissionPublic])
   useEffect(() => {
     const items = languages.data ?? []
     if (items.length === 0) {
@@ -127,8 +130,10 @@ export function ProblemDetailPage() {
     if (items.some((item) => item.id === lang)) {
       return
     }
-    const first = items[0]
+    const stored = readStoredLanguage()
+    const first = items.find((item) => item.id === stored) ?? items[0]
     setLang(first.id)
+    storeLanguage(first.id)
     if (!sourceDirty) {
       setSource(templateForLang(first))
     }
@@ -284,6 +289,11 @@ export function ProblemDetailPage() {
     onSuccess: (blob) => saveBlob(blob, `${problemCode(id)}-assets.zip`),
     onError: showError
   })
+  const downloadAsset = useMutation({
+    mutationFn: ({ section, file }: { section: 'data' | 'judge'; file: AssetFile }) => downloadProblemFile(id, section, file.name),
+    onSuccess: (blob, variables) => saveBlob(blob, variables.file.name),
+    onError: showError
+  })
 
   if (query.isLoading) {
     return <LoadingBlock />
@@ -302,6 +312,7 @@ export function ProblemDetailPage() {
 
   function changeLang(next: string) {
     setLang(next)
+    storeLanguage(next)
     if (!sourceDirty) {
       setSource(templateForLang((languages.data ?? []).find((item) => item.id === next)))
     }
@@ -387,11 +398,11 @@ export function ProblemDetailPage() {
                     </Col>
                   </Row>
                   <Form.Item name="statement" label={text.problem.statement} rules={[{ required: true, whitespace: true }]}>
-                    <MarkdownEditor minHeight={420} trust="trusted" upload={uploadStatementImage} />
+                    <MarkdownEditor minHeight={420} trust="trusted" assetBase={statementAssetBase} upload={uploadStatementImage} />
                   </Form.Item>
                 </Form>
               ) : (
-                <MarkdownPreview value={problem.statement || `# ${problem.title}`} trust="trusted" />
+                <MarkdownPreview value={problem.statement || `# ${problem.title}`} trust="trusted" assetBase={statementAssetBase} />
               )}
             </Card>
           </Col>
@@ -418,11 +429,16 @@ export function ProblemDetailPage() {
               </Card>
               {session.admin ? (
                 <Card
-                  title={text.problem.resources}
+                  title={text.problem.assets}
                   extra={
-                    <Button size="small" icon={<FolderOpenOutlined />} onClick={() => setAssetsOpen(true)}>
-                      {text.problem.assets}
-                    </Button>
+                    <Space size={6}>
+                      <Button size="small" icon={<DownloadOutlined />} loading={downloadAssets.isPending} onClick={() => downloadAssets.mutate()}>
+                        {text.problem.downloadAssets}
+                      </Button>
+                      <Button size="small" icon={<FolderOpenOutlined />} onClick={() => setAssetsOpen(true)}>
+                        {text.problem.manage}
+                      </Button>
+                    </Space>
                   }
                 >
                   <Flex vertical gap={12}>
@@ -509,16 +525,12 @@ export function ProblemDetailPage() {
                 loading={assets.isLoading || uploadAsset.isPending || removeAsset.isPending}
                 onUpload={(file) => uploadAsset.mutate({ section: 'data', file })}
                 onEdit={(file) => openAsset.mutate(file)}
+                onDownload={(file) => downloadAsset.mutate({ section: 'data', file })}
                 onDelete={(key) => removeAsset.mutate(key)}
                 extra={
-                  <Space wrap size={6}>
-                    <Button size="small" icon={<FileAddOutlined />} onClick={() => setCaseOpen(true)}>
-                      {text.problem.addCase}
-                    </Button>
-                    <Button size="small" icon={<DownloadOutlined />} loading={downloadAssets.isPending} onClick={() => downloadAssets.mutate()}>
-                      {text.problem.downloadAssets}
-                    </Button>
-                  </Space>
+                  <Button size="small" icon={<FileAddOutlined />} onClick={() => setCaseOpen(true)}>
+                    {text.problem.addCase}
+                  </Button>
                 }
               />
               <AssetSection
@@ -528,6 +540,7 @@ export function ProblemDetailPage() {
                 loading={assets.isLoading || uploadAsset.isPending || removeAsset.isPending || fillTemplate.isPending}
                 onUpload={(file) => uploadAsset.mutate({ section: 'judge', file })}
                 onEdit={(file) => openAsset.mutate(file)}
+                onDownload={(file) => downloadAsset.mutate({ section: 'judge', file })}
                 onDelete={(key) => removeAsset.mutate(key)}
                 extra={
                   (assets.data?.judge.length ?? 0) === 0 ? (
@@ -565,6 +578,20 @@ export function ProblemDetailPage() {
       ) : null}
     </>
   )
+}
+
+function readStoredLanguage() {
+  if (typeof window === 'undefined') {
+    return ''
+  }
+  return window.localStorage.getItem(languageStorageKey) ?? ''
+}
+
+function storeLanguage(value: string) {
+  if (typeof window === 'undefined') {
+    return
+  }
+  window.localStorage.setItem(languageStorageKey, value)
 }
 
 function CaseModal({
@@ -613,6 +640,7 @@ function AssetSection({
   extra,
   onUpload,
   onEdit,
+  onDownload,
   onDelete
 }: {
   title: string
@@ -622,6 +650,7 @@ function AssetSection({
   extra?: ReactNode
   onUpload: (file: File) => void
   onEdit: (file: AssetFile) => void
+  onDownload: (file: AssetFile) => void
   onDelete: (key: string) => void
 }) {
   const { text } = useLocale()
@@ -654,7 +683,6 @@ function AssetSection({
           size="small"
           loading={loading}
           pagination={false}
-          locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
           dataSource={files}
           columns={[
             {
@@ -672,12 +700,13 @@ function AssetSection({
             {
               title: '',
               key: 'actions',
-              width: 112,
+              width: 136,
               render: (_, row) => (
                 <Space size={4}>
                   {row.editable ? (
                     <Button size="small" type="text" icon={<EditOutlined />} aria-label={text.common.edit} onClick={() => onEdit(row)} />
                   ) : null}
+                  <Button size="small" type="text" icon={<DownloadOutlined />} aria-label={text.problem.downloadAssets} onClick={() => onDownload(row)} />
                   <Popconfirm title={text.common.confirmDelete} okText={text.common.delete} cancelText={text.common.cancel} onConfirm={() => onDelete(row.key)}>
                     <Button size="small" danger type="text" icon={<DeleteOutlined />} aria-label={text.common.delete} />
                   </Popconfirm>

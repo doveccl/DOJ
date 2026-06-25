@@ -43,10 +43,12 @@ const zh = {
     save: '保存',
     confirmDelete: '确认删除？',
     forbidden: '无权访问',
+    sort: '序号',
     guestClosedTitle: '需要登录',
     guestClosedDescription: '当前站点未开放游客访问，请登录后继续使用。',
     createProblem: '创建题目',
     submitCode: '提交代码',
+    send: '发送',
     saved: '已保存'
   },
   home: {
@@ -94,6 +96,7 @@ const zh = {
     data: '数据',
     dataSize: '数据大小',
     assets: '资产',
+    manage: '管理',
     judge: '评测器',
     upload: '上传',
     addCase: '新增一组数据',
@@ -114,7 +117,6 @@ const zh = {
   assignments: {
     title: '作业',
     name: '标题',
-    desc: '说明',
     deadline: '截止时间',
     status: '状态',
     progress: '进度',
@@ -130,7 +132,6 @@ const zh = {
   contests: {
     title: '比赛',
     name: '标题',
-    desc: '说明',
     kind: '赛制',
     time: '时间',
     status: '状态',
@@ -163,7 +164,20 @@ const zh = {
     message: '消息',
     public: '公开',
     searchProblem: '题目编号',
-    allStatus: '全部状态'
+    allStatus: '全部状态',
+    statuses: {
+      queued: '排队中',
+      judging: '评测中',
+      AC: '通过',
+      WA: '答案错误',
+      PE: '格式错误',
+      TLE: '时间超限',
+      MLE: '内存超限',
+      OLE: '输出超限',
+      RE: '运行错误',
+      CE: '编译错误',
+      SE: '系统错误'
+    }
   },
   rank: {
     rank: '排名',
@@ -192,7 +206,10 @@ const zh = {
     reply: '回复',
     repliedTip: '回复已发布',
     pinned: '置顶',
-    locked: '锁定'
+    unpin: '取消置顶',
+    locked: '锁定',
+    unlock: '解锁',
+    floor: (value: number) => `${value} 楼`
   },
   profile: {
     title: '个人信息',
@@ -215,12 +232,12 @@ const zh = {
     languages: '语言',
     judgers: '评测机',
     siteName: '站点名称',
-    registration: '开放注册',
-    guest: '游客访问',
-    defaultPublicSource: '默认公开源码',
+    allowRegistration: '允许注册',
+    allowGuestAccess: '允许游客访问',
+    defaultSubmissionPublic: '提交默认公开源码',
     role: '角色',
     userGroups: '所属用户组',
-    name: '名称',
+    name: '名字',
     source: '源文件',
     dockerfile: 'Dockerfile',
     token: '令牌',
@@ -348,10 +365,12 @@ const en: typeof zh = {
     save: 'Save',
     confirmDelete: 'Delete this item?',
     forbidden: 'Forbidden',
+    sort: 'Order',
     guestClosedTitle: 'Sign in required',
     guestClosedDescription: 'Guest access is disabled. Sign in to continue.',
     createProblem: 'Create problem',
     submitCode: 'Submit code',
+    send: 'Send',
     saved: 'Saved'
   },
   home: {
@@ -399,6 +418,7 @@ const en: typeof zh = {
     data: 'Data',
     dataSize: 'Data size',
     assets: 'Assets',
+    manage: 'Manage',
     judge: 'Judge program',
     upload: 'Upload',
     addCase: 'Add case',
@@ -419,7 +439,6 @@ const en: typeof zh = {
   assignments: {
     title: 'Assignments',
     name: 'Title',
-    desc: 'Description',
     deadline: 'Deadline',
     status: 'Status',
     progress: 'Progress',
@@ -435,7 +454,6 @@ const en: typeof zh = {
   contests: {
     title: 'Contests',
     name: 'Title',
-    desc: 'Description',
     kind: 'Format',
     time: 'Time',
     status: 'Status',
@@ -468,7 +486,20 @@ const en: typeof zh = {
     message: 'Message',
     public: 'Public',
     searchProblem: 'Problem ID',
-    allStatus: 'All statuses'
+    allStatus: 'All statuses',
+    statuses: {
+      queued: 'Queued',
+      judging: 'Judging',
+      AC: 'Accepted',
+      WA: 'Wrong Answer',
+      PE: 'Presentation Error',
+      TLE: 'Time Limit Exceeded',
+      MLE: 'Memory Limit Exceeded',
+      OLE: 'Output Limit Exceeded',
+      RE: 'Runtime Error',
+      CE: 'Compile Error',
+      SE: 'System Error'
+    }
   },
   rank: {
     rank: 'Rank',
@@ -497,7 +528,10 @@ const en: typeof zh = {
     reply: 'Reply',
     repliedTip: 'Reply posted',
     pinned: 'Pinned',
-    locked: 'Locked'
+    unpin: 'Unpin',
+    locked: 'Locked',
+    unlock: 'Unlock',
+    floor: (value: number) => `#${value}`
   },
   profile: {
     title: 'Profile',
@@ -520,9 +554,9 @@ const en: typeof zh = {
     languages: 'Languages',
     judgers: 'Judgers',
     siteName: 'Site name',
-    registration: 'Registration',
-    guest: 'Guest access',
-    defaultPublicSource: 'Public source by default',
+    allowRegistration: 'Allow registration',
+    allowGuestAccess: 'Allow guest access',
+    defaultSubmissionPublic: 'Public source by default',
     role: 'Role',
     userGroups: 'Groups',
     name: 'Name',
@@ -622,12 +656,13 @@ type LocaleState = {
 }
 
 const LocaleContext = createContext<LocaleState | null>(null)
+const localeStorageKey = 'doj.locale'
 
 function readLang(): Lang {
   if (typeof window === 'undefined') {
     return 'zh'
   }
-  const stored = window.localStorage.getItem('doj.lang')
+  const stored = window.localStorage.getItem(localeStorageKey)
   if (stored === 'zh' || stored === 'en') {
     return stored
   }
@@ -643,7 +678,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
 
   const setLang = useCallback((next: Lang) => {
     setValue(next)
-    window.localStorage.setItem('doj.lang', next)
+    window.localStorage.setItem(localeStorageKey, next)
   }, [])
 
   const value = useMemo(() => ({ lang, setLang, text: dicts[lang] }), [lang, setLang])

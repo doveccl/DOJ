@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
-import { getSubmission } from '../client'
+import { getLangs, getSubmission } from '../client'
 import type { Case } from '../client'
 import { MarkdownPreview } from '../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../components/state'
@@ -21,6 +21,7 @@ export function SubmissionDetailPage() {
     queryFn: () => getSubmission(id),
     enabled: Number.isFinite(id)
   })
+  const languages = useQuery({ queryKey: ['languages'], queryFn: getLangs })
 
   if (query.isLoading) {
     return <LoadingBlock />
@@ -33,24 +34,32 @@ export function SubmissionDetailPage() {
   }
 
   const { submission, code, cases } = query.data
+  const languageName = (languages.data ?? []).find((item) => item.id === submission.language)?.name ?? submission.language
 
   return (
-    <Row gutter={[20, 20]} align="top">
-      <Col xs={24} lg={16}>
-        <Card
-          title={
-            <Space size={10}>
-              <Typography.Text strong>#{submission.id}</Typography.Text>
-              <SubmissionStatus status={submission.status} />
-              {submission.public ? <Tag>{text.submissions.public}</Tag> : null}
-            </Space>
-          }
-        >
-          <MarkdownPreview value={codeMarkdown(code, submission.language)} />
-        </Card>
-      </Col>
-      <Col xs={24} lg={8}>
-        <Flex vertical gap={16}>
+    <Flex vertical gap={20}>
+      <Row gutter={[20, 20]} align="top">
+        <Col xs={24} lg={16}>
+          <Card
+            title={
+              <Space size={10}>
+                <Typography.Text strong>#{submission.id}</Typography.Text>
+                <SubmissionStatus status={submission.status} />
+                {submission.public ? <Tag>{text.submissions.public}</Tag> : null}
+              </Space>
+            }
+            extra={
+              <Space size={12} wrap>
+                <MetaInline label={text.submissions.score}>{submission.score}</MetaInline>
+                <MetaInline label={text.submissions.time}>{submission.timeMs === undefined ? '-' : `${submission.timeMs}ms`}</MetaInline>
+                <MetaInline label={text.submissions.memory}>{memoryText(submission.memoryKb)}</MetaInline>
+              </Space>
+            }
+          >
+            <Table<Case> rowKey="no" columns={caseColumns(text)} dataSource={cases} pagination={false} size="small" />
+          </Card>
+        </Col>
+        <Col xs={24} lg={8}>
           <Card>
             <Flex vertical gap={12}>
               <Meta label={text.submissions.problem}>
@@ -61,19 +70,18 @@ export function SubmissionDetailPage() {
               <Meta label={text.submissions.user}>
                 <Link to={`/users/${submission.user}`}>{submission.user}</Link>
               </Meta>
-              <Meta label={text.submissions.language}>{submission.language}</Meta>
-              <Meta label={text.submissions.score}>{submission.score}</Meta>
-              <Meta label={text.submissions.time}>{submission.timeMs === undefined ? '-' : `${submission.timeMs}ms`}</Meta>
-              <Meta label={text.submissions.memory}>{memoryText(submission.memoryKb)}</Meta>
+              <Meta label={text.submissions.language}>{languageName}</Meta>
               <Meta label={text.submissions.created}>{formatTime(submission.createdAt, lang)}</Meta>
             </Flex>
           </Card>
-          <Card title={text.submissions.cases}>
-            <Table<Case> rowKey="no" columns={caseColumns(text)} dataSource={cases} pagination={false} size="small" />
-          </Card>
-        </Flex>
-      </Col>
-    </Row>
+        </Col>
+      </Row>
+      {code.trim() ? (
+        <Card title={text.submissions.source}>
+          <MarkdownPreview value={codeMarkdown(code, submission.language)} />
+        </Card>
+      ) : null}
+    </Flex>
   )
 }
 
@@ -92,6 +100,15 @@ function Meta({ label, children }: { label: string; children: ReactNode }) {
       <Typography.Text type="secondary">{label}</Typography.Text>
       <Typography.Text>{children}</Typography.Text>
     </Flex>
+  )
+}
+
+function MetaInline({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Space size={4}>
+      <Typography.Text type="secondary">{label}</Typography.Text>
+      <Typography.Text strong>{children}</Typography.Text>
+    </Space>
   )
 }
 

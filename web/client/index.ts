@@ -18,6 +18,7 @@ export type AssetContentUpdate = components['schemas']['AssetContentUpdate']
 export type Item = components['schemas']['Item']
 export type HeatCell = components['schemas']['HeatCell']
 export type Assignment = components['schemas']['Assignment']
+export type ProblemRef = components['schemas']['ProblemRef']
 export type AssignmentCreate = components['schemas']['AssignmentCreate']
 export type AssignmentUpdate = components['schemas']['AssignmentUpdate']
 export type AssignmentDetail = components['schemas']['AssignmentDetail']
@@ -432,7 +433,20 @@ export async function fillJudgeTemplate(id: number) {
 }
 
 export async function downloadProblemAssets(id: number) {
-  const response = await apiFetch(`/api/problems/${id}/assets.zip`)
+  const response = await apiFetch(`/api/problems/${id}.zip`)
+  if (!response.ok) {
+    throw new Error(await response.text())
+  }
+  return response.blob()
+}
+
+export async function downloadProblemFile(id: number, section: 'data' | 'judge', name: string) {
+  const path = name
+    .split('/')
+    .filter(Boolean)
+    .map((part) => encodeURIComponent(part))
+    .join('/')
+  const response = await apiFetch(`/api/problems/${id}/${section}/${path}`)
   if (!response.ok) {
     throw new Error(await response.text())
   }

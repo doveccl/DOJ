@@ -27,8 +27,9 @@ type WorkerConfig struct {
 }
 
 type LoopConfig struct {
-	Worker WorkerConfig
-	Logf   func(format string, args ...any)
+	Worker      WorkerConfig
+	Concurrency int
+	Logf        func(format string, args ...any)
 }
 
 type leaseRequest struct {
@@ -50,6 +51,11 @@ type leaseTask struct {
 	Mode         JudgeMode     `json:"mode"`
 	Limits       Limits        `json:"limits"`
 	Cases        []casePayload `json:"cases"`
+	Problem      taskProblem   `json:"problem"`
+}
+
+type taskProblem struct {
+	ID uint `json:"id"`
 }
 
 type casePayload struct {
@@ -98,7 +104,7 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 	defer stopHeartbeat()
 	go heartbeatLoop(heartbeatCtx, client, cfg, task.ID, task.SubmissionID, task.Attempt)
 
-	work := filepath.Join(cfg.Work, "sub-"+strconv.FormatUint(uint64(task.SubmissionID), 10), "attempt-"+strconv.Itoa(task.Attempt))
+	work := filepath.Join(cfg.Work, strconv.FormatUint(uint64(task.SubmissionID), 10), strconv.Itoa(task.Attempt))
 	if err := os.RemoveAll(work); err != nil {
 		return true, err
 	}
@@ -106,7 +112,7 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 		return true, err
 	}
 	if task.needsAssets() {
-		if err := downloadTaskAssets(ctx, client, cfg, task.ID, work); err != nil {
+		if err := downloadTaskAssets(ctx, client, cfg, task.Problem.ID, work); err != nil {
 			result := TaskResult{
 				SubmissionID: task.SubmissionID,
 				Attempt:      task.Attempt,
@@ -163,6 +169,20 @@ func heartbeatLoop(ctx context.Context, client *http.Client, cfg WorkerConfig, t
 }
 
 func RunLoop(ctx context.Context, cfg LoopConfig) error {
+	workers := cfg.Concurrency
+	if workers <= 1 {
+		return runLoopWorker(ctx, cfg)
+	}
+	errCh := make(chan error, workers)
+	for i := 0; i < workers; i++ {
+		go func() {
+			errCh <- runLoopWorker(ctx, cfg)
+		}()
+	}
+	return <-errCh
+}
+
+func runLoopWorker(ctx context.Context, cfg LoopConfig) error {
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -267,8 +287,8 @@ func postHeartbeat(ctx context.Context, client *http.Client, cfg WorkerConfig, t
 	return doJSON(ctx, client, cfg, http.MethodPost, fmt.Sprintf("/api/judger/tasks/%d/heartbeat", taskID), req, nil)
 }
 
-func downloadTaskAssets(ctx context.Context, client *http.Client, cfg WorkerConfig, taskID uint, work string) error {
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, cfg.Server+fmt.Sprintf("/api/judger/tasks/%d/assets.zip", taskID), nil)
+func downloadTaskAssets(ctx context.Context, client *http.Client, cfg WorkerConfig, problemID uint, work string) error {
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, cfg.Server+fmt.Sprintf("/api/judger/P%d.zip", problemID), nil)
 	if err != nil {
 		return err
 	}
@@ -281,7 +301,7 @@ func downloadTaskAssets(ctx context.Context, client *http.Client, cfg WorkerConf
 	}
 	defer httpResp.Body.Close()
 	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
-		return fmt.Errorf("GET task assets returned %s", httpResp.Status)
+		return fmt.Errorf("GET problem package returned %s", httpResp.Status)
 	}
 	const maxTaskAssetBytes = 512 << 20
 	data, err := io.ReadAll(io.LimitReader(httpResp.Body, maxTaskAssetBytes+1))

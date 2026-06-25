@@ -97,9 +97,9 @@ Business object keys are derived from ids and are not duplicated in the database
 
 - User assets: `users/{uid}/{yyyy}/{mm}/{dd}/{hash}.ext`
 - Problem assets: `problems/{pid}/*`
-- Problem Markdown images: `problems/{pid}/assets/{yyyy}/{mm}/{dd}/{hash}.ext`
+- Problem Markdown images: `problems/{pid}/assets/{hash}.ext`
 
-The API returns relative media URLs such as `/api/media/users/...` and `/api/media/problems/{pid}/...`. The server rejects SVG uploads, detects image content type, serves media with immutable cache headers, and applies a same-site referer guard for media reads.
+The API returns relative media URLs such as `/api/users/{uid}/{yyyy}/{mm}/{dd}/{file}` and `/api/problems/{pid}/assets/{file}`. The server rejects SVG uploads, detects image content type, serves media with immutable cache headers, and applies a same-site referer guard for media reads.
 
 Problem memory limits are stored and edited in MB. Judger limits, submission memory, and per-case memory use KB.
 
@@ -270,9 +270,9 @@ Go Echo handler 必须和契约保持一致。OpenAPI 变更应小步提交，�
 
 - 用户资产：`users/{uid}/{yyyy}/{mm}/{dd}/{hash}.ext`
 - 题目资产：`problems/{pid}/*`
-- 题目 Markdown 图片：`problems/{pid}/assets/{yyyy}/{mm}/{dd}/{hash}.ext`
+- 题目 Markdown 图片：`problems/{pid}/assets/{hash}.ext`
 
-API 返回 `/api/media/users/...`、`/api/media/problems/{pid}/...` 这类相对媒体 URL。server 会拒绝 SVG 上传、检测图片 MIME、为媒体读取加长期缓存头，并对媒体读取做同站 referer 防外链检查。
+API 返回 `/api/users/{uid}/{yyyy}/{mm}/{dd}/{file}`、`/api/problems/{pid}/assets/{file}` 这类相对媒体 URL。server 会拒绝 SVG 上传、检测图片 MIME、为媒体读取加长期缓存头，并对媒体读取做同站 referer 防外链检查。
 
 题目内存限制使用 MB 存储和编辑。judger 限制、提交内存和单点内存使用 KB。
 

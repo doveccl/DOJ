@@ -388,6 +388,22 @@ export interface paths {
         patch: operations["updateNotice"];
         trace?: never;
     };
+    "/api/users/{id}/{year}/{month}/{day}/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["userMedia"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/problems": {
         parameters: {
             query?: never;
@@ -446,6 +462,54 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["uploadProblemImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/problems/{id}/assets/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["problemPublicAsset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/problems/{id}/data/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["problemPrivateData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/problems/{id}/judge/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["problemPrivateJudge"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -516,7 +580,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/problems/{id}/assets.zip": {
+    "/api/problems/{id}.zip": {
         parameters: {
             query?: never;
             header?: never;
@@ -717,9 +781,9 @@ export interface components {
         };
         Site: {
             siteName: string;
-            registration: boolean;
-            guest: boolean;
-            defaultPublicSource: boolean;
+            allowRegistration: boolean;
+            allowGuestAccess: boolean;
+            defaultSubmissionPublic: boolean;
         };
         HeatCell: {
             date: string;
@@ -775,9 +839,9 @@ export interface components {
         };
         AdminSettings: {
             siteName: string;
-            registration: boolean;
-            guest: boolean;
-            defaultPublicSource: boolean;
+            allowRegistration: boolean;
+            allowGuestAccess: boolean;
+            defaultSubmissionPublic: boolean;
             notice: string;
         };
         AdminUser: {
@@ -804,9 +868,11 @@ export interface components {
         AdminGroup: {
             id: number;
             name: string;
+            users: number[];
         };
         AdminGroupUpdate: {
             name: string;
+            users: number[];
         };
         AdminLang: {
             id: string;
@@ -846,6 +912,7 @@ export interface components {
         };
         Problem: {
             id: number;
+            sort?: string;
             title: string;
             statement?: string;
             tags: string[];
@@ -928,7 +995,6 @@ export interface components {
         Assignment: {
             id: number;
             title: string;
-            desc: string;
             /** Format: date-time */
             endAt: string;
             status: string;
@@ -944,26 +1010,23 @@ export interface components {
         };
         AssignmentCreate: {
             title: string;
-            desc: string;
             /** Format: date-time */
             endAt: string;
-            problems: number[];
+            problems: components["schemas"]["ProblemRef"][];
             users: number[];
             groups: number[];
         };
         AssignmentUpdate: {
             title: string;
-            desc: string;
             /** Format: date-time */
             endAt: string;
-            problems: number[];
+            problems: components["schemas"]["ProblemRef"][];
             users: number[];
             groups: number[];
         };
         Contest: {
             id: number;
             title: string;
-            desc: string;
             kind: string;
             /** Format: date-time */
             startAt: string;
@@ -982,25 +1045,27 @@ export interface components {
         };
         ContestCreate: {
             title: string;
-            desc: string;
             kind: string;
             /** Format: date-time */
             startAt: string;
             /** Format: date-time */
             endAt: string;
             freezeAt: string;
-            problems: number[];
+            problems: components["schemas"]["ProblemRef"][];
         };
         ContestUpdate: {
             title: string;
-            desc: string;
             kind: string;
             /** Format: date-time */
             startAt: string;
             /** Format: date-time */
             endAt: string;
             freezeAt: string;
-            problems: number[];
+            problems: components["schemas"]["ProblemRef"][];
+        };
+        ProblemRef: {
+            id: number;
+            sort: string;
         };
         Submission: {
             id: number;
@@ -1771,6 +1836,32 @@ export interface operations {
             };
         };
     };
+    userMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                year: string;
+                month: string;
+                day: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User uploaded media */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+        };
+    };
     listProblems: {
         parameters: {
             query?: {
@@ -1947,6 +2038,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UploadResult"];
+                };
+            };
+        };
+    };
+    problemPublicAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public problem asset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+        };
+    };
+    problemPrivateData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Private problem data file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+        };
+    };
+    problemPrivateJudge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Private problem judge file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
                 };
             };
         };

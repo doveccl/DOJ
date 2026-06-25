@@ -13,6 +13,7 @@ type MarkdownEditorProps = {
   minHeight?: number
   readOnly?: boolean
   trust?: MarkdownTrust
+  assetBase?: string
   upload?: (file: File) => Promise<string>
   variant?: 'editor' | 'preview'
   onChange?: (value: string) => void
@@ -46,12 +47,13 @@ export function MarkdownEditor({
   minHeight = 260,
   readOnly = false,
   trust = 'ugc',
+  assetBase,
   upload: uploadFile = uploadImage,
   variant = 'editor',
   onChange
 }: MarkdownEditorProps) {
   const { color } = useColor()
-  const { lang, text } = useLocale()
+  const { lang } = useLocale()
   const editorID = `md-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
   const language = lang === 'zh' ? 'zh-CN' : 'en-US'
   const theme = color === 'dark' ? 'dark' : 'light'
@@ -62,8 +64,7 @@ export function MarkdownEditor({
     language,
     previewTheme: 'github',
     codeTheme: 'github',
-    showCodeRowNumber: false,
-    sanitize: sanitizerForTrust(trust),
+    sanitize: sanitizerForTrust(trust, { assetBase }),
     noMermaid: true,
     noEcharts: true,
     noImgZoomIn: true
@@ -81,11 +82,11 @@ export function MarkdownEditor({
     <div className="markdownShell">
       <MdEditor
         {...common}
+        placeholder=""
         onChange={(next) => onChange?.(next)}
         onUploadImg={(files, callback) => {
           void uploadFiles(files, uploadFile).then(callback)
         }}
-        placeholder={text.editor.placeholder}
         toolbars={[...toolbars]}
         footers={[]}
         noPrettier

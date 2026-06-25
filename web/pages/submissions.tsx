@@ -4,14 +4,14 @@ import type { TableProps } from 'antd'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
-import { getSubmissions } from '../client'
+import { getLangs, getSubmissions } from '../client'
 import type { Submission } from '../client'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { SubmissionStatus } from '../components/status'
 import { useLocale } from '../locale'
 import { formatTime, problemCode } from '../utils/format'
 
-const statusOptions = ['queued', 'judging', 'AC', 'WA', 'TLE', 'MLE', 'RE', 'CE']
+const statusOptions = ['queued', 'judging', 'AC', 'WA', 'PE', 'TLE', 'MLE', 'OLE', 'RE', 'CE', 'SE']
 
 export function SubmissionsPage() {
   const { lang, text } = useLocale()
@@ -23,6 +23,8 @@ export function SubmissionsPage() {
     queryKey: ['submissions', problem, status],
     queryFn: () => getSubmissions({ problem, status })
   })
+  const languages = useQuery({ queryKey: ['languages'], queryFn: getLangs })
+  const languageNames = new Map((languages.data ?? []).map((item) => [item.id, item.name]))
 
   function submit(values: { problem?: string; status?: string }) {
     const next = new URLSearchParams()
@@ -51,7 +53,7 @@ export function SubmissionsPage() {
             <Select
               placeholder={text.submissions.allStatus}
               allowClear
-              options={statusOptions.map((item) => ({ label: item, value: item }))}
+              options={statusOptions.map((item) => ({ label: text.submissions.statuses[item as keyof typeof text.submissions.statuses] ?? item, value: item }))}
               style={{ width: 220 }}
             />
           </Form.Item>
@@ -81,7 +83,7 @@ export function SubmissionsPage() {
               navigate(`/submissions/${row.id}`)
             }
           })}
-          columns={submissionColumns(text, lang)}
+          columns={submissionColumns(text, lang, languageNames)}
           dataSource={query.data}
           pagination={{ pageSize: 20, showSizeChanger: true }}
         />
@@ -90,7 +92,7 @@ export function SubmissionsPage() {
   )
 }
 
-function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: string): TableProps<Submission>['columns'] {
+function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: string, languageNames: Map<string, string>): TableProps<Submission>['columns'] {
   return [
     {
       title: text.submissions.id,
@@ -102,11 +104,10 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: str
       title: text.submissions.problem,
       render: (_, row) => (
         <Flex align="center" gap={8} className="tableTitleLine">
-          <Typography.Text type="secondary" className="nowrap">
-            {problemCode(row.problemId)}
-          </Typography.Text>
           <Typography.Text ellipsis className="lineText">
-            <Link to={`/problems/${row.problemId}`}>{row.problemTitle}</Link>
+            <Link to={`/problems/${row.problemId}`}>
+              {problemCode(row.problemId)} {row.problemTitle}
+            </Link>
           </Typography.Text>
         </Flex>
       )
@@ -130,9 +131,8 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: str
     },
     {
       title: text.submissions.language,
-      dataIndex: 'language',
       width: 120,
-      render: (language: string) => <Tag>{language}</Tag>
+      render: (_, row) => <Tag>{languageNames.get(row.language) ?? row.language}</Tag>
     },
     {
       title: text.submissions.created,

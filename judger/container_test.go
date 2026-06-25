@@ -87,7 +87,7 @@ func TestRunContainerTaskCgroupAttach(t *testing.T) {
 	if result.Cases[0].MemoryKB <= 0 {
 		t.Fatalf("missing cgroup memory stats: %#v", result.Cases[0])
 	}
-	if entries, _ := os.ReadDir(filepath.Join(root, "sub-81-attempt-2")); len(entries) != 0 {
+	if entries, _ := os.ReadDir(filepath.Join(root, "81-2")); len(entries) != 0 {
 		t.Fatalf("cgroup submission directory was not cleaned: %s", containerEntryNames(entries))
 	}
 }
@@ -210,7 +210,7 @@ func TestRunContainerTaskUserCannotReadJobArtifacts(t *testing.T) {
 	source := `#!/bin/sh
 read _
 bad=""
-for p in /jobs/secret.out /jobs/judge-program /jobs/judge-result-secret-probe.json /jobs/runner.sock; do
+for p in /work/secret.out /work/judge-program /work/judge-result-secret-probe.json /work/runner.sock; do
   if [ -r "$p" ]; then
     if [ -S "$p" ] || cat "$p" >/dev/null 2>&1; then
       bad="$p"

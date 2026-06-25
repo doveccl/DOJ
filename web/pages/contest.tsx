@@ -8,21 +8,21 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { getContest, getProblems, updateContest } from '../client'
-import type { Problem, RankUser, Submission } from '../client'
+import type { Problem, ProblemRef, RankUser, Submission } from '../client'
+import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { ContestStatus, SubmissionStatus } from '../components/status'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { formatTime, problemCode } from '../utils/format'
+import { formatTime, problemCode, relativeDeadline } from '../utils/format'
 
 type ContestForm = {
   title: string
-  desc: string
   kind: string
   startAt: Dayjs
   endAt: Dayjs
   freezeAt?: Dayjs | null
-  problems?: number[]
+  problems?: ProblemRef[]
 }
 
 export function ContestDetailPage() {
@@ -46,7 +46,6 @@ export function ContestDetailPage() {
     mutationFn: (values: ContestForm) =>
       updateContest(id, {
         title: values.title,
-        desc: values.desc ?? '',
         kind: values.kind,
         startAt: values.startAt.toISOString(),
         endAt: values.endAt.toISOString(),
@@ -100,9 +99,9 @@ export function ContestDetailPage() {
                 </Tooltip>
               ) : null}
             </Flex>
-            <Typography.Text type="secondary">{contest.desc}</Typography.Text>
           </Flex>
           <Flex vertical align="flex-end" gap={8}>
+            <Typography.Text strong>{relativeDeadline(contest.status === 'pending' ? contest.startAt : contest.endAt, contest.status, lang, 'contest')}</Typography.Text>
             <Typography.Text className="nowrap">
               {formatTime(contest.startAt, lang)} - {formatTime(contest.endAt, lang)}
             </Typography.Text>
@@ -155,7 +154,7 @@ function ContestEditModal({
   onCancel,
   onSave
 }: {
-  contest: { title: string; desc: string; kind: string; startAt: string; endAt: string; freezeAt: string | null }
+  contest: { title: string; kind: string; startAt: string; endAt: string; freezeAt: string | null }
   problems: Problem[]
   problemOptions: { value: number; label: string }[]
   problemLoading: boolean
@@ -167,12 +166,11 @@ function ContestEditModal({
   const [form] = Form.useForm<ContestForm>()
   const initialValues = {
     title: contest.title,
-    desc: contest.desc,
     kind: contest.kind,
     startAt: dayjs(contest.startAt),
     endAt: dayjs(contest.endAt),
     freezeAt: contest.freezeAt ? dayjs(contest.freezeAt) : null,
-    problems: problems.map((problem) => problem.id)
+    problems: problems.map((problem, index) => ({ id: problem.id, sort: problem.sort || defaultProblemSort(index) }))
   }
 
   return (
@@ -189,9 +187,6 @@ function ContestEditModal({
       <Form<ContestForm> form={form} preserve={false} layout="vertical" initialValues={initialValues} onFinish={onSave}>
         <Form.Item name="title" label={text.contests.name} rules={[{ required: true, whitespace: true }]}>
           <Input maxLength={120} showCount />
-        </Form.Item>
-        <Form.Item name="desc" label={text.contests.desc}>
-          <Input.TextArea rows={3} maxLength={500} showCount />
         </Form.Item>
         <Form.Item name="kind" label={text.contests.kind}>
           <Select
@@ -213,7 +208,7 @@ function ContestEditModal({
           </Form.Item>
         </Space>
         <Form.Item name="problems" label={text.contests.problems}>
-          <Select mode="multiple" options={problemOptions} loading={problemLoading} />
+          <ProblemRefInput options={problemOptions} loading={problemLoading} />
         </Form.Item>
       </Form>
     </Modal>
@@ -315,6 +310,12 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: str
 
 function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Problem>['columns'] {
   return [
+    {
+      title: text.common.sort,
+      dataIndex: 'sort',
+      width: 90,
+      render: (sort: string | undefined, row) => <Typography.Text>{sort || problemCode(row.id)}</Typography.Text>
+    },
     {
       title: text.problems.id,
       dataIndex: 'id',

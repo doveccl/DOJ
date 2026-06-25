@@ -32,7 +32,7 @@ type LanguageRow = AdminOverview['languages'][number]
 type JudgerRow = AdminOverview['judgers'][number]
 type JudgerForm = { name: string; auth?: string }
 type UserForm = AdminUserCreate
-type SettingsForm = Pick<AdminSettings, 'siteName' | 'registration' | 'guest' | 'defaultPublicSource'>
+type SettingsForm = Pick<AdminSettings, 'siteName' | 'allowRegistration' | 'allowGuestAccess' | 'defaultSubmissionPublic'>
 
 const defaultDockerfile = `FROM gcc:14
 WORKDIR /src
@@ -139,7 +139,7 @@ export function AdminPage() {
         modal.info({
           title: text.admin.judgerTokenCreated,
           content: (
-            <Space direction="vertical" style={{ width: '100%' }}>
+            <Space orientation="vertical" style={{ width: '100%' }}>
               <Typography.Text type="secondary">{text.admin.judgerTokenHelp}</Typography.Text>
               <Typography.Paragraph copyable code>
                 {created.token}
@@ -176,6 +176,7 @@ export function AdminPage() {
   const data = query.data
   const roleText: Record<string, string> = text.admin.roles
   const groupOptions = data.groups.map((group) => ({ value: group.id, label: group.name }))
+  const userOptions = data.users.map((user) => ({ value: user.id, label: user.name }))
   const userGroupIds = (row: UserRow) => row.groups ?? []
 
   function openGroup(row?: GroupRow) {
@@ -222,19 +223,19 @@ export function AdminPage() {
                   layout="vertical"
                   style={{ maxWidth: 680 }}
                   initialValues={data.settings}
-                  key={`${data.settings.siteName}:${data.settings.registration}:${data.settings.guest}:${data.settings.defaultPublicSource}`}
+                  key={`${data.settings.siteName}:${data.settings.allowRegistration}:${data.settings.allowGuestAccess}:${data.settings.defaultSubmissionPublic}`}
                   onFinish={(values) => settings.mutate(values)}
                 >
                   <Form.Item name="siteName" label={text.admin.siteName} rules={[{ required: true }]}>
                     <Input />
                   </Form.Item>
-                  <Form.Item name="registration" label={text.admin.registration} valuePropName="checked">
+                  <Form.Item name="allowRegistration" label={text.admin.allowRegistration} valuePropName="checked">
                     <Switch />
                   </Form.Item>
-                  <Form.Item name="guest" label={text.admin.guest} valuePropName="checked">
+                  <Form.Item name="allowGuestAccess" label={text.admin.allowGuestAccess} valuePropName="checked">
                     <Switch />
                   </Form.Item>
-                  <Form.Item name="defaultPublicSource" label={text.admin.defaultPublicSource} valuePropName="checked">
+                  <Form.Item name="defaultSubmissionPublic" label={text.admin.defaultSubmissionPublic} valuePropName="checked">
                     <Switch />
                   </Form.Item>
                   <Button type="primary" htmlType="submit" loading={settings.isPending}>
@@ -373,7 +374,7 @@ export function AdminPage() {
                     pagination={false}
                     dataSource={data.languages}
                     columns={[
-                      { title: text.problems.title, dataIndex: 'name', width: 180 },
+                      { title: text.admin.name, dataIndex: 'name', width: 180 },
                       { title: text.admin.source, dataIndex: 'source', width: 140 },
                       {
                         title: text.admin.dockerfile,
@@ -475,7 +476,15 @@ export function AdminPage() {
           onSave={(values) => userCreate.mutate(values)}
         />
       ) : null}
-      {groupOpen ? <GroupModal editingGroup={editingGroup} loading={groupSave.isPending} onCancel={closeGroup} onSave={(values) => groupSave.mutate(values)} /> : null}
+      {groupOpen ? (
+        <GroupModal
+          editingGroup={editingGroup}
+          loading={groupSave.isPending}
+          userOptions={userOptions}
+          onCancel={closeGroup}
+          onSave={(values) => groupSave.mutate(values)}
+        />
+      ) : null}
       {langOpen ? <LangModal editingLang={editingLang} loading={langSave.isPending} onCancel={closeLang} onSave={(values) => langSave.mutate(values)} /> : null}
       {judgerOpen ? (
         <JudgerModal
@@ -530,21 +539,27 @@ function UserModal({
 function GroupModal({
   editingGroup,
   loading,
+  userOptions,
   onCancel,
   onSave
 }: {
   editingGroup: GroupRow | null
   loading: boolean
+  userOptions: { value: number; label: string }[]
   onCancel: () => void
   onSave: (values: AdminGroupUpdate) => void
 }) {
   const { text } = useLocale()
   const [form] = Form.useForm<AdminGroupUpdate>()
+  const initialValues = editingGroup ?? { name: '', users: [] }
   return (
     <Modal open destroyOnHidden title={editingGroup ? text.admin.editGroup : text.admin.addGroup} okText={text.common.save} cancelText={text.common.cancel} confirmLoading={loading} onCancel={onCancel} onOk={() => form.submit()}>
-      <Form<AdminGroupUpdate> form={form} layout="vertical" initialValues={editingGroup ?? { name: '' }} onFinish={onSave}>
+      <Form<AdminGroupUpdate> form={form} layout="vertical" initialValues={initialValues} onFinish={onSave}>
         <Form.Item name="name" label={text.admin.name} rules={[{ required: true, whitespace: true }]}>
           <Input />
+        </Form.Item>
+        <Form.Item name="users" label={text.admin.users}>
+          <Select mode="multiple" options={userOptions} maxTagCount="responsive" />
         </Form.Item>
       </Form>
     </Modal>
@@ -571,7 +586,7 @@ function LangModal({
         <Form.Item name="id" label="ID" rules={[{ required: true, whitespace: true }]}>
           <Input />
         </Form.Item>
-        <Form.Item name="name" label={text.problems.title} rules={[{ required: true, whitespace: true }]}>
+        <Form.Item name="name" label={text.admin.name} rules={[{ required: true, whitespace: true }]}>
           <Input />
         </Form.Item>
         <Form.Item name="source" label={text.admin.source} rules={[{ required: true, whitespace: true }]}>

@@ -35,6 +35,7 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 				Lang:         testShellLang(),
 				Mode:         ModeDefault,
 				Limits:       Limits{TimeMS: 1000, OutputKB: 64},
+				Problem:      taskProblem{ID: 1000},
 				Cases: []casePayload{{
 					ID:     "1",
 					Input:  "data/1.in",
@@ -42,7 +43,7 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 					Score:  100,
 				}},
 			}})
-		case "/api/judger/tasks/7/assets.zip":
+		case "/api/judger/P1000.zip":
 			w.Header().Set("Content-Type", "application/zip")
 			_, _ = w.Write(testAssetZip(t))
 		case "/api/judger/tasks/7/result":
@@ -109,6 +110,7 @@ func TestRunOneDownloadsAssetsForRelativeCases(t *testing.T) {
 				Lang:         testShellLang(),
 				Mode:         ModeDefault,
 				Limits:       Limits{TimeMS: 1000, OutputKB: 64},
+				Problem:      taskProblem{ID: 1000},
 				Cases: []casePayload{{
 					ID:     "1",
 					Input:  "data/1.in",
@@ -116,7 +118,7 @@ func TestRunOneDownloadsAssetsForRelativeCases(t *testing.T) {
 					Score:  100,
 				}},
 			}})
-		case "/api/judger/tasks/8/assets.zip":
+		case "/api/judger/P1000.zip":
 			w.Header().Set("Content-Type", "application/zip")
 			_, _ = w.Write(testAssetZip(t))
 		case "/api/judger/tasks/8/result":

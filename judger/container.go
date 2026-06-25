@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const containerWorkDir = "/jobs"
+const containerWorkDir = "/work"
 
 type ContainerTask struct {
 	Runner     string
@@ -74,7 +74,7 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error
 		cgroupRoot: req.CgroupRoot,
 		procRoot:   req.ProcRoot,
 		initPID:    initPID,
-		taskID:     safeCaseID(fmt.Sprintf("sub-%d-attempt-%d", req.Task.SubmissionID, req.Task.Attempt)),
+		taskID:     safeCaseID(fmt.Sprintf("%d-%d", req.Task.SubmissionID, req.Task.Attempt)),
 		limits:     req.Task.Limits,
 		work:       work,
 	}

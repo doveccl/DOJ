@@ -48,6 +48,7 @@ func JudgerCLI(ctx context.Context, args []string) int {
 			CgroupRoot: filepath.Join("/sys/fs/cgroup", "doj"),
 			ProcRoot:   "/proc",
 		},
+		Concurrency: getenvInt("CONCURRENCY", 1),
 		Logf: func(format string, args ...any) {
 			fmt.Fprintf(os.Stderr, format+"\n", args...)
 		},
@@ -111,6 +112,18 @@ func getenv(key string, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func getenvInt(key string, defaultValue int) int {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	var got int
+	if _, err := fmt.Sscanf(value, "%d", &got); err != nil || got <= 0 {
+		return defaultValue
+	}
+	return got
 }
 
 func installRunner() (string, error) {

@@ -16,9 +16,15 @@ type memoryCacheItem struct {
 	ExpiresAt time.Time
 }
 
+type memoryRateItem struct {
+	Count     int
+	ExpiresAt time.Time
+}
+
 var (
 	cacheMu     sync.Mutex
 	cacheItems  = map[string]memoryCacheItem{}
+	rateItems   = map[string]memoryRateItem{}
 	redisClient *redis.Client
 )
 
@@ -92,6 +98,40 @@ func CacheDelete(ctx context.Context, key string) error {
 	return nil
 }
 
+func CacheAllow(ctx context.Context, key string, limit int, window time.Duration) (bool, error) {
+	if limit <= 0 || window <= 0 {
+		return true, nil
+	}
+	if CacheUsesRedis() {
+		client, err := redisCache(ctx)
+		if err != nil {
+			return false, err
+		}
+		count, err := client.Incr(ctx, key).Result()
+		if err != nil {
+			return false, err
+		}
+		if count == 1 {
+			if err := client.Expire(ctx, key, window).Err(); err != nil {
+				return false, err
+			}
+		}
+		return count <= int64(limit), nil
+	}
+
+	now := time.Now()
+	cacheMu.Lock()
+	item := rateItems[key]
+	if item.ExpiresAt.IsZero() || !item.ExpiresAt.After(now) {
+		item = memoryRateItem{ExpiresAt: now.Add(window)}
+	}
+	item.Count++
+	rateItems[key] = item
+	allowed := item.Count <= limit
+	cacheMu.Unlock()
+	return allowed, nil
+}
+
 func redisCache(ctx context.Context) (*redis.Client, error) {
 	cacheMu.Lock()
 	defer cacheMu.Unlock()
@@ -124,5 +164,6 @@ func ResetCacheForTest() {
 		redisClient = nil
 	}
 	cacheItems = map[string]memoryCacheItem{}
+	rateItems = map[string]memoryRateItem{}
 	cacheMu.Unlock()
 }

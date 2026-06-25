@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -117,7 +118,7 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	api := &API{db: db, leaseWait: defaultLeaseWait}
 	group := e.Group("/api/judger", api.auth)
 	group.POST("/lease", api.lease)
-	group.GET("/tasks/:id/assets.zip", api.taskAssets)
+	group.GET("/:problem.zip", api.problemPackage)
 	group.POST("/tasks/:id/heartbeat", api.heartbeat)
 	group.POST("/tasks/:id/result", api.result)
 }
@@ -236,19 +237,15 @@ func (api *API) tryLease(ctx context.Context, judgerID uint) (*TaskPayload, erro
 	return payload, nil
 }
 
-func (api *API) taskAssets(c echo.Context) error {
-
-	submissionID, err := parseTaskID(c)
+func (api *API) problemPackage(c echo.Context) error {
+	problemID, err := parseProblemCode(c.Param("problem"))
 	if err != nil {
 		return err
 	}
-	if err := api.authorizeSubmission(c, submissionID); err != nil {
-		return err
-	}
-	var submission models.Submission
-	if err := api.db.First(&submission, submissionID).Error; err != nil {
+	var problem models.Problem
+	if err := api.db.First(&problem, problemID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return echo.NewHTTPError(http.StatusNotFound, "task not found")
+			return echo.NewHTTPError(http.StatusNotFound, "problem not found")
 		}
 		return err
 	}
@@ -256,16 +253,16 @@ func (api *API) taskAssets(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	files, err := listProblemObjects(c.Request().Context(), store, submission.ProblemID)
+	files, err := listProblemObjectsCached(c.Request().Context(), store, problem.ID)
 	if err != nil {
 		return err
 	}
 	c.Response().Header().Set(echo.HeaderContentType, "application/zip")
-	c.Response().Header().Set(echo.HeaderContentDisposition, fmt.Sprintf(`attachment; filename="task-%d-assets.zip"`, submission.ID))
+	c.Response().Header().Set(echo.HeaderContentDisposition, fmt.Sprintf(`attachment; filename="P%d.zip"`, problem.ID))
 	c.Response().WriteHeader(http.StatusOK)
 	writer := zip.NewWriter(c.Response().Writer)
 	defer writer.Close()
-	return writeTaskAssetZip(c.Request().Context(), writer, store, submission.ProblemID, files)
+	return writeTaskAssetZip(c.Request().Context(), writer, store, problem.ID, files)
 }
 
 func (api *API) heartbeat(c echo.Context) error {
@@ -619,6 +616,24 @@ func listProblemObjects(ctx context.Context, store utils.ObjectStore, problemID 
 	return files, nil
 }
 
+func listProblemObjectsCached(ctx context.Context, store utils.ObjectStore, problemID uint) ([]utils.ObjectInfo, error) {
+	var cached []utils.ObjectInfo
+	found, err := utils.CacheGet(ctx, problemPackageCacheKey(problemID), &cached)
+	if err == nil && found {
+		return cached, nil
+	}
+	files, err := listProblemObjects(ctx, store, problemID)
+	if err != nil {
+		return nil, err
+	}
+	_ = utils.CacheSet(ctx, problemPackageCacheKey(problemID), files, time.Minute)
+	return files, nil
+}
+
+func problemPackageCacheKey(problemID uint) string {
+	return "doj:problem:" + strconv.FormatUint(uint64(problemID), 10) + ":package"
+}
+
 func writeTaskAssetZip(ctx context.Context, writer *zip.Writer, store utils.ObjectStore, problemID uint, files []utils.ObjectInfo) error {
 	for _, object := range files {
 		section, name, ok := taskAssetZipName(problemID, object.Key)
@@ -648,6 +663,18 @@ func writeTaskAssetZip(ctx context.Context, writer *zip.Writer, store utils.Obje
 		}
 	}
 	return nil
+}
+
+func parseProblemCode(raw string) (uint, error) {
+	code := strings.TrimPrefix(strings.TrimSpace(raw), "P")
+	if code == raw {
+		code = strings.TrimPrefix(strings.TrimSpace(raw), "p")
+	}
+	value, err := strconv.ParseUint(strings.TrimSuffix(code, ".zip"), 10, 64)
+	if err != nil || value == 0 {
+		return 0, echo.NewHTTPError(http.StatusBadRequest, "invalid problem code")
+	}
+	return uint(value), nil
 }
 
 func safeTaskAssetZipName(section string, name string) (string, bool) {

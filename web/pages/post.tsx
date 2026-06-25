@@ -1,5 +1,5 @@
-import { DeleteOutlined, EditOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, Divider, Flex, Form, Input, Modal, Popconfirm, Select, Space, Switch, Tag, Tooltip, Typography } from 'antd'
+import { DeleteOutlined, EditOutlined, LockOutlined, PushpinOutlined, UnlockOutlined } from '@ant-design/icons'
+import { App as AntApp, Button, Card, Divider, Flex, Form, Input, Modal, Pagination, Popconfirm, Select, Space, Tag, Tooltip, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -12,6 +12,8 @@ import { useLocale } from '../locale'
 import { useSession } from '../session'
 import { formatTime } from '../utils/format'
 
+const commentPageSize = 20
+
 export function PostPage() {
   const { lang, text } = useLocale()
   const session = useSession()
@@ -20,6 +22,7 @@ export function PostPage() {
   const navigate = useNavigate()
   const [form] = Form.useForm<CommentCreate>()
   const [editOpen, setEditOpen] = useState(false)
+  const [commentPage, setCommentPage] = useState(1)
   const params = useParams()
   const id = Number(params.id)
   const query = useQuery({
@@ -33,6 +36,8 @@ export function PostPage() {
   const reply = useMutation({
     mutationFn: (values: CommentCreate) => createComment(id, values),
     onSuccess: (item) => {
+      const nextCount = (query.data?.comments.length ?? 0) + 1
+      setCommentPage(Math.max(1, Math.ceil(nextCount / commentPageSize)))
       client.setQueryData<DiscussionDetail>(['discussion', id], (old) =>
         old
           ? {
@@ -61,6 +66,27 @@ export function PostPage() {
     },
     onError: showError
   })
+  const toggleState = useMutation({
+    mutationFn: (values: { pinned?: boolean; locked?: boolean }) => {
+      if (!query.data) {
+        throw new Error(text.common.emptyResponse)
+      }
+      return updateDiscussion(id, {
+        title: query.data.discussion.title,
+        content: query.data.content,
+        tags: query.data.discussion.tags,
+        pinned: values.pinned ?? query.data.discussion.pinned,
+        locked: values.locked ?? query.data.discussion.locked
+      })
+    },
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ['discussion'] })
+      void client.invalidateQueries({ queryKey: ['discussion', id] })
+      message.success(text.common.saved)
+      query.refetch()
+    },
+    onError: showError
+  })
   const remove = useMutation({
     mutationFn: () => deleteDiscussion(id),
     onSuccess: () => {
@@ -82,6 +108,8 @@ export function PostPage() {
   }
 
   const { discussion, content, comments } = query.data
+  const pageStart = (commentPage - 1) * commentPageSize
+  const pageComments = comments.slice(pageStart, pageStart + commentPageSize)
 
   return (
     <Flex vertical gap={16}>
@@ -97,6 +125,28 @@ export function PostPage() {
             </Flex>
             {session.admin ? (
               <Space size={4}>
+                <Tooltip title={discussion.pinned ? text.discussion.unpin : text.discussion.pinned}>
+                  <Button
+                    aria-label={`${discussion.pinned ? text.discussion.unpin : text.discussion.pinned} #${discussion.id}`}
+                    type="text"
+                    size="small"
+                    icon={<PushpinOutlined />}
+                    style={{ color: discussion.pinned ? 'var(--ant-color-primary)' : undefined }}
+                    loading={toggleState.isPending && toggleState.variables?.pinned !== undefined}
+                    onClick={() => toggleState.mutate({ pinned: !discussion.pinned })}
+                  />
+                </Tooltip>
+                <Tooltip title={discussion.locked ? text.discussion.unlock : text.discussion.locked}>
+                  <Button
+                    aria-label={`${discussion.locked ? text.discussion.unlock : text.discussion.locked} #${discussion.id}`}
+                    type="text"
+                    size="small"
+                    icon={discussion.locked ? <LockOutlined /> : <UnlockOutlined />}
+                    style={{ color: discussion.locked ? 'var(--ant-color-warning)' : undefined }}
+                    loading={toggleState.isPending && toggleState.variables?.locked !== undefined}
+                    onClick={() => toggleState.mutate({ locked: !discussion.locked })}
+                  />
+                </Tooltip>
                 <Tooltip title={text.common.edit}>
                   <Button aria-label={`${text.common.edit} #${discussion.id}`} type="text" size="small" icon={<EditOutlined />} onClick={() => setEditOpen(true)} />
                 </Tooltip>
@@ -120,11 +170,12 @@ export function PostPage() {
       </Card>
       <Card title={text.discussion.replies}>
         <Flex vertical gap={16}>
-          {comments.map((item, index) => (
+          {pageComments.map((item, index) => (
             <div key={item.id}>
               {index > 0 ? <Divider className="softDivider" /> : null}
               <Flex vertical gap={8} style={{ width: '100%' }}>
                 <Space size={8}>
+                  <Typography.Text type="secondary">{text.discussion.floor(pageStart + index + 1)}</Typography.Text>
                   <Typography.Text strong>{item.author}</Typography.Text>
                   <Typography.Text type="secondary">{formatTime(item.createdAt, lang)}</Typography.Text>
                 </Space>
@@ -134,13 +185,16 @@ export function PostPage() {
               </Flex>
             </div>
           ))}
+          {comments.length > commentPageSize ? (
+            <Pagination current={commentPage} pageSize={commentPageSize} total={comments.length} showSizeChanger={false} onChange={setCommentPage} />
+          ) : null}
           {!discussion.locked && session.signedIn ? (
             <Form<CommentCreate> form={form} layout="vertical" onFinish={(values) => reply.mutate(values)}>
-              <Form.Item name="content" label={text.discussion.reply} rules={[{ required: true, whitespace: true }]}>
+              <Form.Item name="content" rules={[{ required: true, whitespace: true }]}>
                 <MarkdownEditor minHeight={180} />
               </Form.Item>
               <Button type="primary" htmlType="submit" loading={reply.isPending}>
-                {text.discussion.reply}
+                {text.common.send}
               </Button>
             </Form>
           ) : null}
@@ -151,7 +205,7 @@ export function PostPage() {
           initial={{ title: discussion.title, content, tags: discussion.tags, pinned: discussion.pinned, locked: discussion.locked }}
           loading={edit.isPending}
           onCancel={() => setEditOpen(false)}
-          onSave={(values) => edit.mutate(values)}
+          onSave={(values) => edit.mutate({ ...values, pinned: discussion.pinned, locked: discussion.locked })}
         />
       ) : null}
     </Flex>
@@ -193,14 +247,6 @@ function PostEditModal({
         <Form.Item name="content" label={text.discussion.content} rules={[{ required: true, whitespace: true }]}>
           <MarkdownEditor minHeight={300} />
         </Form.Item>
-        <Space size={24}>
-          <Form.Item name="pinned" label={text.discussion.pinned} valuePropName="checked">
-            <Switch />
-          </Form.Item>
-          <Form.Item name="locked" label={text.discussion.locked} valuePropName="checked">
-            <Switch />
-          </Form.Item>
-        </Space>
       </Form>
     </Modal>
   )

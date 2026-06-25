@@ -1,5 +1,5 @@
-import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, Flex, Form, Input, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Tooltip, Typography } from 'antd'
+import { DeleteOutlined, EditOutlined, LockOutlined, PlusOutlined, PushpinOutlined, UnlockOutlined } from '@ant-design/icons'
+import { App as AntApp, Button, Card, Flex, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -62,6 +62,24 @@ export function DiscussionPage() {
     },
     onError: showError
   })
+  const toggleState = useMutation({
+    mutationFn: async ({ item, pinned, locked }: { item: Discussion; pinned?: boolean; locked?: boolean }) => {
+      const detail = await client.fetchQuery({ queryKey: ['discussion', item.id], queryFn: () => getDiscussion(item.id) })
+      return updateDiscussion(item.id, {
+        title: detail.discussion.title,
+        content: detail.content,
+        tags: detail.discussion.tags,
+        pinned: pinned ?? detail.discussion.pinned,
+        locked: locked ?? detail.discussion.locked
+      })
+    },
+    onSuccess: (item) => {
+      void client.invalidateQueries({ queryKey: ['discussion'] })
+      void client.invalidateQueries({ queryKey: ['discussion', item.id] })
+      message.success(text.common.saved)
+    },
+    onError: showError
+  })
   const remove = useMutation({
     mutationFn: deleteDiscussion,
     onSuccess: () => {
@@ -87,6 +105,7 @@ export function DiscussionPage() {
     setEditing(item)
     try {
       const detail = await client.fetchQuery({ queryKey: ['discussion', item.id], queryFn: () => getDiscussion(item.id) })
+      setEditing(detail.discussion)
       setDraft({
         title: detail.discussion.title,
         content: detail.content,
@@ -103,7 +122,11 @@ export function DiscussionPage() {
 
   function save(values: DiscussionUpdate) {
     if (editing) {
-      update.mutate(values)
+      update.mutate({
+        ...values,
+        pinned: editing.pinned,
+        locked: editing.locked
+      })
       return
     }
     const body: DiscussionCreate = {
@@ -132,6 +155,8 @@ export function DiscussionPage() {
           rowKey="id"
           columns={discussionColumns(text, lang, {
             edit: openEdit,
+            togglePin: (item) => toggleState.mutate({ item, pinned: !item.pinned }),
+            toggleLock: (item) => toggleState.mutate({ item, locked: !item.locked }),
             remove: (id) => remove.mutate(id)
           }, session.admin)}
           dataSource={query.data}
@@ -188,16 +213,6 @@ function DiscussionModal({
         <Form.Item name="content" label={text.discussion.content} rules={[{ required: true, whitespace: true }]}>
           <MarkdownEditor minHeight={300} />
         </Form.Item>
-        {editing ? (
-          <Space size={24}>
-            <Form.Item name="pinned" label={text.discussion.pinned} valuePropName="checked">
-              <Switch />
-            </Form.Item>
-            <Form.Item name="locked" label={text.discussion.locked} valuePropName="checked">
-              <Switch />
-            </Form.Item>
-          </Space>
-        ) : null}
       </Form>
     </Modal>
   )
@@ -208,6 +223,8 @@ function discussionColumns(
   lang: string,
   actions: {
     edit: (item: Discussion) => void
+    togglePin: (item: Discussion) => void
+    toggleLock: (item: Discussion) => void
     remove: (id: number) => void
   },
   admin: boolean
@@ -253,6 +270,24 @@ function discussionColumns(
       align: 'right',
       render: (_, row) => (
         <Space size={4}>
+          <Tooltip title={row.pinned ? text.discussion.unpin : text.discussion.pinned}>
+            <Button
+              aria-label={`${row.pinned ? text.discussion.unpin : text.discussion.pinned} #${row.id}`}
+              type="text"
+              icon={<PushpinOutlined />}
+              style={{ color: row.pinned ? 'var(--ant-color-primary)' : undefined }}
+              onClick={() => actions.togglePin(row)}
+            />
+          </Tooltip>
+          <Tooltip title={row.locked ? text.discussion.unlock : text.discussion.locked}>
+            <Button
+              aria-label={`${row.locked ? text.discussion.unlock : text.discussion.locked} #${row.id}`}
+              type="text"
+              icon={row.locked ? <LockOutlined /> : <UnlockOutlined />}
+              style={{ color: row.locked ? 'var(--ant-color-warning)' : undefined }}
+              onClick={() => actions.toggleLock(row)}
+            />
+          </Tooltip>
           <Tooltip title={text.common.edit}>
             <Button aria-label={`${text.common.edit} #${row.id}`} type="text" icon={<EditOutlined />} onClick={() => actions.edit(row)} />
           </Tooltip>

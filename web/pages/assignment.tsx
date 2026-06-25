@@ -8,18 +8,18 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { getAdmin, getAssignment, getProblems, updateAssignment } from '../client'
-import type { Problem, Submission } from '../client'
+import type { Problem, ProblemRef, Submission } from '../client'
+import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { AssignmentStatus, SubmissionStatus } from '../components/status'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { formatTime, problemCode, progress } from '../utils/format'
+import { formatTime, problemCode, progress, relativeDeadline } from '../utils/format'
 
 type AssignmentForm = {
   title: string
-  desc: string
   endAt: Dayjs
-  problems?: number[]
+  problems?: ProblemRef[]
   users?: number[]
   groups?: number[]
 }
@@ -46,7 +46,6 @@ export function AssignmentDetailPage() {
     mutationFn: (values: AssignmentForm) =>
       updateAssignment(id, {
         title: values.title,
-        desc: values.desc ?? '',
         endAt: values.endAt.toISOString(),
         problems: values.problems ?? [],
         users: values.users ?? [],
@@ -101,14 +100,13 @@ export function AssignmentDetailPage() {
               ) : null}
             </Flex>
             <Flex align="center" justify="flex-end" gap={16} style={{ minWidth: 'min(420px, 100%)' }}>
-              <Typography.Text>{formatTime(assignment.endAt, lang)}</Typography.Text>
+              <Typography.Text>{relativeDeadline(assignment.endAt, assignment.status, lang, 'assignment')}</Typography.Text>
               <Flex align="center" gap={10} style={{ width: 180 }}>
                 <Progress percent={progress(assignment)} size="small" showInfo={false} />
                 <Typography.Text className="nowrap">{text.assignments.done(assignment.done, assignment.total)}</Typography.Text>
               </Flex>
             </Flex>
           </Flex>
-          <Typography.Text type="secondary">{assignment.desc}</Typography.Text>
         </Flex>
       </Card>
       <Card>
@@ -157,7 +155,7 @@ function AssignmentEditModal({
   onCancel,
   onSave
 }: {
-  assignment: { title: string; desc: string; endAt: string; users: number[]; groups: number[] }
+  assignment: { title: string; endAt: string; users: number[]; groups: number[] }
   problems: Problem[]
   problemOptions: { value: number; label: string }[]
   problemLoading: boolean
@@ -172,9 +170,8 @@ function AssignmentEditModal({
   const [form] = Form.useForm<AssignmentForm>()
   const initialValues = {
     title: assignment.title,
-    desc: assignment.desc,
     endAt: dayjs(assignment.endAt),
-    problems: problems.map((problem) => problem.id),
+    problems: problems.map((problem, index) => ({ id: problem.id, sort: problem.sort || defaultProblemSort(index) })),
     users: assignment.users,
     groups: assignment.groups
   }
@@ -194,14 +191,11 @@ function AssignmentEditModal({
         <Form.Item name="title" label={text.assignments.name} rules={[{ required: true, whitespace: true }]}>
           <Input maxLength={120} showCount />
         </Form.Item>
-        <Form.Item name="desc" label={text.assignments.desc}>
-          <Input.TextArea rows={3} maxLength={500} showCount />
-        </Form.Item>
         <Form.Item name="endAt" label={text.assignments.deadline} rules={[{ required: true }]}>
           <DatePicker showTime style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item name="problems" label={text.assignments.problems}>
-          <Select mode="multiple" options={problemOptions} loading={problemLoading} />
+          <ProblemRefInput options={problemOptions} loading={problemLoading} />
         </Form.Item>
         <Form.Item name="users" label={text.assignments.users}>
           <Select mode="multiple" options={userOptions} loading={memberLoading} />
@@ -260,6 +254,12 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: str
 
 function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Problem>['columns'] {
   return [
+    {
+      title: text.common.sort,
+      dataIndex: 'sort',
+      width: 90,
+      render: (sort: string | undefined, row) => <Typography.Text>{sort || problemCode(row.id)}</Typography.Text>
+    },
     {
       title: text.problems.id,
       dataIndex: 'id',

@@ -23,7 +23,7 @@ export function LiveEvents() {
   const client = useQueryClient()
   const session = useSession()
   const site = useQuery({ queryKey: ['site'], queryFn: getSite })
-  const enabled = session.signedIn || site.data?.guest === true
+  const enabled = session.signedIn || site.data?.allowGuestAccess === true
 
   useEffect(() => {
     if (!enabled || typeof EventSource === 'undefined') {

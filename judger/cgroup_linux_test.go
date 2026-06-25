@@ -17,7 +17,7 @@ func TestCgroupLinuxSmoke(t *testing.T) {
 	root := testCgroupRoot(t)
 	cg, err := PrepareCgroup(CgroupConfig{
 		Root:         root,
-		SubmissionID: "sub-smoke",
+		SubmissionID: "smoke",
 		CaseID:       "case-1",
 		MemoryMax:    64 << 20,
 		PidsMax:      16,
@@ -29,7 +29,7 @@ func TestCgroupLinuxSmoke(t *testing.T) {
 		if err := cg.Cleanup(); err != nil && !os.IsNotExist(err) {
 			t.Fatalf("cleanup cgroup: %v", err)
 		}
-		_ = os.Remove(filepath.Join(root, "sub-smoke"))
+		_ = os.Remove(filepath.Join(root, "smoke"))
 		_ = os.Remove(root)
 	}()
 
@@ -54,7 +54,7 @@ func TestCgroupLinuxSmoke(t *testing.T) {
 
 func TestCgroupLinuxMemoryBomb(t *testing.T) {
 	root := testCgroupRoot(t)
-	cg := prepareTestCgroup(t, root, "sub-memory", "case-1", 32<<20, 32)
+	cg := prepareTestCgroup(t, root, "memory", "case-1", 32<<20, 32)
 	cmd, release := startCgroupHelper(t, cg, "memory")
 	release()
 	waitOrKill(t, cmd, 5*time.Second)
@@ -70,7 +70,7 @@ func TestCgroupLinuxMemoryBomb(t *testing.T) {
 
 func TestCgroupLinuxPidsBomb(t *testing.T) {
 	root := testCgroupRoot(t)
-	cg := prepareTestCgroup(t, root, "sub-pids", "case-1", 128<<20, 8)
+	cg := prepareTestCgroup(t, root, "pids", "case-1", 128<<20, 8)
 	cmd, release := startCgroupHelper(t, cg, "pids")
 	release()
 	time.Sleep(500 * time.Millisecond)

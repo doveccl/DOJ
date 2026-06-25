@@ -271,12 +271,12 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 	if hasProblem(profile.Solved, hidden.ID) || hasSubmissionProblem(profile.Submissions, hidden.ID) {
 		t.Fatalf("guest profile leaked hidden problem: %+v", profile)
 	}
-	if profile.User.AC != 1 || profile.User.Submit != 3 {
-		t.Fatalf("guest profile stats should count visible activity only: %+v", profile.User)
+	if profile.User.AC != 2 || profile.User.Submit != 6 {
+		t.Fatalf("guest profile stats should include all activity: %+v", profile.User)
 	}
 	today := time.Now().Format("2006-01-02")
-	if got := countForDate(profile.Heatmap, today); got != 3 {
-		t.Fatalf("guest profile heatmap should count visible submissions only, got %d", got)
+	if got := countForDate(profile.Heatmap, today); got != 6 {
+		t.Fatalf("guest profile heatmap should include all submissions, got %d", got)
 	}
 
 	if res := requestOK(t, e, http.MethodGet, "/api/assignments", ""); res.Body.String() != "[]\n" {
@@ -296,13 +296,19 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 	if hasProblem(studentAssignment.Problems, hidden.ID) || hasSubmissionProblem(studentAssignment.Submissions, hidden.ID) {
 		t.Fatalf("student assignment leaked hidden problem: %+v", studentAssignment)
 	}
-	if studentAssignment.Assignment.Done != 1 || studentAssignment.Assignment.Total != 1 {
-		t.Fatalf("student assignment progress should count visible AC only: %+v", studentAssignment.Assignment)
+	if len(studentAssignment.Problems) != 1 || studentAssignment.Problems[0].Sort != "A" {
+		t.Fatalf("student assignment should expose collection problem order: %+v", studentAssignment.Problems)
+	}
+	if studentAssignment.Assignment.Done != 2 || studentAssignment.Assignment.Total != 2 {
+		t.Fatalf("student assignment progress should include hidden problems in aggregate stats: %+v", studentAssignment.Assignment)
 	}
 
 	contestDetail := decodeJSON[ContestDetail](t, requestOK(t, e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), ""))
 	if hasProblem(contestDetail.Problems, hidden.ID) || hasSubmissionProblem(contestDetail.Submissions, hidden.ID) {
 		t.Fatalf("guest contest leaked hidden problem: %+v", contestDetail)
+	}
+	if len(contestDetail.Problems) != 1 || contestDetail.Problems[0].Sort != "A" {
+		t.Fatalf("guest contest should expose collection problem order: %+v", contestDetail.Problems)
 	}
 
 	adminProfileRes := requestWithCookies(e, http.MethodGet, "/api/users/student", databaseSession(t, db, admin.ID), nil)
@@ -375,8 +381,8 @@ func TestDatabaseRankUsesVisibleSubmissionStatsAndActiveUsers(t *testing.T) {
 		t.Fatalf("disabled user profile should be hidden, got %d body=%s", res.Code, res.Body.String())
 	}
 	aliceGuest, ok := rankByUser(guestRank, "alice")
-	if !ok || aliceGuest.AC != 1 || aliceGuest.Submit != 2 {
-		t.Fatalf("alice guest stats should ignore hidden problem: %+v", guestRank)
+	if !ok || aliceGuest.AC != 2 || aliceGuest.Submit != 3 {
+		t.Fatalf("alice guest stats should include hidden problem in aggregate stats: %+v", guestRank)
 	}
 
 	adminRank := decodeJSON[[]RankUserDTO](t, requestWithCookies(e, http.MethodGet, "/api/rank", databaseSession(t, db, admin.ID), nil))
@@ -704,7 +710,7 @@ func TestContestOIIgnoresFreezeAndUsesLastScoreAfterEnd(t *testing.T) {
 		t.Fatalf("OI score should use the last submission score after contest ends: %+v", guest.Rank)
 	}
 
-	createBody := `{"title":"New OI","desc":"","kind":"OI","startAt":"` + now.Add(time.Hour).UTC().Format(time.RFC3339) + `","endAt":"` + now.Add(2*time.Hour).UTC().Format(time.RFC3339) + `","freezeAt":"` + now.Add(90*time.Minute).UTC().Format(time.RFC3339) + `","problems":[1000]}`
+	createBody := `{"title":"New OI","kind":"OI","startAt":"` + now.Add(time.Hour).UTC().Format(time.RFC3339) + `","endAt":"` + now.Add(2*time.Hour).UTC().Format(time.RFC3339) + `","freezeAt":"` + now.Add(90*time.Minute).UTC().Format(time.RFC3339) + `","problems":[{"id":1000,"sort":"A"}]}`
 	res := requestJSONWithCookies(e, http.MethodPost, "/api/contests", databaseSession(t, db, admin.ID), createBody)
 	if res.Code != http.StatusCreated {
 		t.Fatalf("create OI with freeze got %d body=%s", res.Code, res.Body.String())
@@ -792,7 +798,7 @@ func TestAssignmentMembershipCreateUpdateAndVisibility(t *testing.T) {
 	Register(e, db)
 	adminCookies := databaseSession(t, db, admin.ID)
 	deadline := time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)
-	createBody := `{"title":"HW","desc":"body","endAt":"` + deadline + `","problems":[1000],"users":[],"groups":[` + strconv.FormatUint(uint64(group.ID), 10) + `]}`
+	createBody := `{"title":"HW","endAt":"` + deadline + `","problems":[{"id":1000,"sort":"A"}],"users":[],"groups":[` + strconv.FormatUint(uint64(group.ID), 10) + `]}`
 	createRes := requestJSONWithCookies(e, http.MethodPost, "/api/assignments", adminCookies, createBody)
 	if createRes.Code != http.StatusCreated {
 		t.Fatalf("create assignment got %d body=%s", createRes.Code, createRes.Body.String())
@@ -811,7 +817,7 @@ func TestAssignmentMembershipCreateUpdateAndVisibility(t *testing.T) {
 		t.Fatalf("unassigned user should not see assignment, got %d body=%s", bobDetail.Code, bobDetail.Body.String())
 	}
 
-	updateBody := `{"title":"HW","desc":"body","endAt":"` + deadline + `","problems":[1000],"users":[` + strconv.FormatUint(uint64(bob.ID), 10) + `],"groups":[]}`
+	updateBody := `{"title":"HW","endAt":"` + deadline + `","problems":[{"id":1000,"sort":"A"}],"users":[` + strconv.FormatUint(uint64(bob.ID), 10) + `],"groups":[]}`
 	updateRes := requestJSONWithCookies(e, http.MethodPatch, "/api/assignments/"+strconv.FormatUint(uint64(created.ID), 10), adminCookies, updateBody)
 	if updateRes.Code != http.StatusOK {
 		t.Fatalf("update assignment got %d body=%s", updateRes.Code, updateRes.Body.String())
@@ -870,25 +876,25 @@ func TestDatabaseAdminInputValidation(t *testing.T) {
 			name:   "create assignment duplicate problem",
 			method: http.MethodPost,
 			path:   "/api/assignments",
-			body:   `{"title":"HW","desc":"","endAt":"` + deadline + `","problems":[1000,1000]}`,
+			body:   `{"title":"HW","endAt":"` + deadline + `","problems":[{"id":1000,"sort":"A"},{"id":1000,"sort":"B"}]}`,
 		},
 		{
 			name:   "create assignment missing problem",
 			method: http.MethodPost,
 			path:   "/api/assignments",
-			body:   `{"title":"HW","desc":"","endAt":"` + deadline + `","problems":[9999]}`,
+			body:   `{"title":"HW","endAt":"` + deadline + `","problems":[{"id":9999,"sort":"A"}]}`,
 		},
 		{
 			name:   "create contest invalid kind",
 			method: http.MethodPost,
 			path:   "/api/contests",
-			body:   `{"title":"Round","desc":"","kind":"abc","startAt":"` + startAt + `","endAt":"` + endAt + `","problems":[1000]}`,
+			body:   `{"title":"Round","kind":"abc","startAt":"` + startAt + `","endAt":"` + endAt + `","problems":[{"id":1000,"sort":"A"}]}`,
 		},
 		{
 			name:   "create contest missing problem",
 			method: http.MethodPost,
 			path:   "/api/contests",
-			body:   `{"title":"Round","desc":"","kind":"OI","startAt":"` + startAt + `","endAt":"` + endAt + `","problems":[9999]}`,
+			body:   `{"title":"Round","kind":"OI","startAt":"` + startAt + `","endAt":"` + endAt + `","problems":[{"id":9999,"sort":"A"}]}`,
 		},
 	}
 	for _, item := range tests {
@@ -1033,7 +1039,7 @@ func TestImageUploadUsesRelativeMediaPathsAndHeaders(t *testing.T) {
 	adminCookies := databaseSession(t, db, admin.ID)
 
 	userImage := uploadImageForTest(t, e, "/api/uploads/images", studentCookies, "avatar.png", tinyPNG())
-	if !strings.HasPrefix(userImage.URL, "/api/media/users/") || strings.Contains(userImage.URL, "://") {
+	if !strings.HasPrefix(userImage.URL, "/api/users/") || strings.Contains(userImage.URL, "://") {
 		t.Fatalf("user image url should be a relative media path, got %q", userImage.URL)
 	}
 	res := requestWithCookies(e, http.MethodGet, userImage.URL, studentCookies, nil)
@@ -1049,10 +1055,10 @@ func TestImageUploadUsesRelativeMediaPathsAndHeaders(t *testing.T) {
 	}
 
 	problemImage := uploadImageForTest(t, e, "/api/problems/1000/assets/images", adminCookies, "statement.png", tinyPNG())
-	if !strings.HasPrefix(problemImage.URL, "/api/media/problems/1000/") || strings.Contains(problemImage.URL, "://") || strings.Contains(problemImage.URL, "/assets/") {
+	if !strings.HasPrefix(problemImage.URL, "/api/problems/1000/assets/") || strings.Contains(problemImage.URL, "://") {
 		t.Fatalf("problem image url should be a relative media path, got %q", problemImage.URL)
 	}
-	rel := strings.TrimPrefix(problemImage.URL, "/api/media/problems/1000/")
+	rel := strings.TrimPrefix(problemImage.URL, "/api/problems/1000/assets/")
 	if strings.Contains(rel, "/") {
 		t.Fatalf("problem image should not include date folders, got %q", problemImage.URL)
 	}
@@ -1062,6 +1068,39 @@ func TestImageUploadUsesRelativeMediaPathsAndHeaders(t *testing.T) {
 	res = requestWithCookies(e, http.MethodGet, problemImage.URL, adminCookies, nil)
 	if res.Code != http.StatusOK {
 		t.Fatalf("read problem image got %d body=%s", res.Code, res.Body.String())
+	}
+}
+
+func TestProblemAssetDownloadsSupportNestedPathsAndExistingProblems(t *testing.T) {
+	t.Setenv("STORAGE", t.TempDir())
+	db := testWebDB(t)
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	problem := models.Problem{ID: 1000, Title: "Visible", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+	adminCookies := databaseSession(t, db, admin.ID)
+	nestedPath := filepath.Join(utils.UploadRoot(), "problems", "1000", "data", "cases", "1.in")
+	if err := os.MkdirAll(filepath.Dir(nestedPath), 0o755); err != nil {
+		t.Fatalf("create nested data dir: %v", err)
+	}
+	if err := os.WriteFile(nestedPath, []byte("nested input"), 0o644); err != nil {
+		t.Fatalf("write nested data file: %v", err)
+	}
+
+	res := requestWithCookies(e, http.MethodGet, "/api/problems/1000/data/cases/1.in", adminCookies, nil)
+	if res.Code != http.StatusOK || res.Body.String() != "nested input" {
+		t.Fatalf("nested asset download got %d body=%q", res.Code, res.Body.String())
+	}
+	res = requestWithCookies(e, http.MethodGet, "/api/problems/404.zip", adminCookies, nil)
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("missing problem zip got %d body=%s", res.Code, res.Body.String())
 	}
 }
 
@@ -1324,11 +1363,11 @@ func databaseSession(t *testing.T, db *gorm.DB, userID uint) []*http.Cookie {
 func allowGuest(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	settings := adminsvc.AdminSettings{
-		SiteName:            "DOJ",
-		Registration:        false,
-		Guest:               true,
-		DefaultPublicSource: false,
-		Notice:              "",
+		SiteName:                "DOJ",
+		AllowRegistration:       false,
+		AllowGuestAccess:        true,
+		DefaultSubmissionPublic: false,
+		Notice:                  "",
 	}
 	if err := adminsvc.SaveSettings(db, settings); err != nil {
 		t.Fatalf("enable guest access: %v", err)

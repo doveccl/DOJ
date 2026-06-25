@@ -437,6 +437,43 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Home"
+  /api/users/{id}/{year}/{month}/{day}/{name}:
+    get:
+      operationId: userMedia
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: month
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: day
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User uploaded media
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
   /api/problems:
     get:
       operationId: listProblems
@@ -568,6 +605,72 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UploadResult"
+  /api/problems/{id}/assets/{name}:
+    get:
+      operationId: problemPublicAsset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Public problem asset
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+  /api/problems/{id}/data/{name}:
+    get:
+      operationId: problemPrivateData
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Private problem data file
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+  /api/problems/{id}/judge/{name}:
+    get:
+      operationId: problemPrivateJudge
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Private problem judge file
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
   /api/problems/{id}/assets/files:
     post:
       operationId: uploadProblemAsset
@@ -698,7 +801,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProblemAssets"
-  /api/problems/{id}/assets.zip:
+  /api/problems/{id}.zip:
     get:
       operationId: downloadProblemAssets
       parameters:
@@ -1073,15 +1176,15 @@ components:
           type: string
     Site:
       type: object
-      required: [siteName, registration, guest, defaultPublicSource]
+      required: [siteName, allowRegistration, allowGuestAccess, defaultSubmissionPublic]
       properties:
         siteName:
           type: string
-        registration:
+        allowRegistration:
           type: boolean
-        guest:
+        allowGuestAccess:
           type: boolean
-        defaultPublicSource:
+        defaultSubmissionPublic:
           type: boolean
     HeatCell:
       type: object
@@ -1198,15 +1301,15 @@ components:
           $ref: "#/components/schemas/AdminJudgeQueue"
     AdminSettings:
       type: object
-      required: [siteName, registration, guest, defaultPublicSource, notice]
+      required: [siteName, allowRegistration, allowGuestAccess, defaultSubmissionPublic, notice]
       properties:
         siteName:
           type: string
-        registration:
+        allowRegistration:
           type: boolean
-        guest:
+        allowGuestAccess:
           type: boolean
-        defaultPublicSource:
+        defaultSubmissionPublic:
           type: boolean
         notice:
           type: string
@@ -1260,18 +1363,26 @@ components:
           type: string
     AdminGroup:
       type: object
-      required: [id, name]
+      required: [id, name, users]
       properties:
         id:
           type: integer
         name:
           type: string
+        users:
+          type: array
+          items:
+            type: integer
     AdminGroupUpdate:
       type: object
-      required: [name]
+      required: [name, users]
       properties:
         name:
           type: string
+        users:
+          type: array
+          items:
+            type: integer
     AdminLang:
       type: object
       required: [id, name, source, dockerfile]
@@ -1363,6 +1474,8 @@ components:
       properties:
         id:
           type: integer
+        sort:
+          type: string
         title:
           type: string
         statement:
@@ -1536,13 +1649,11 @@ components:
           type: string
     Assignment:
       type: object
-      required: [id, title, desc, endAt, status, total, done, users, groups]
+      required: [id, title, endAt, status, total, done, users, groups]
       properties:
         id:
           type: integer
         title:
-          type: string
-        desc:
           type: string
         endAt:
           type: string
@@ -1577,11 +1688,9 @@ components:
             $ref: "#/components/schemas/Submission"
     AssignmentCreate:
       type: object
-      required: [title, desc, endAt, problems, users, groups]
+      required: [title, endAt, problems, users, groups]
       properties:
         title:
-          type: string
-        desc:
           type: string
         endAt:
           type: string
@@ -1589,7 +1698,7 @@ components:
         problems:
           type: array
           items:
-            type: integer
+            $ref: "#/components/schemas/ProblemRef"
         users:
           type: array
           items:
@@ -1600,11 +1709,9 @@ components:
             type: integer
     AssignmentUpdate:
       type: object
-      required: [title, desc, endAt, problems, users, groups]
+      required: [title, endAt, problems, users, groups]
       properties:
         title:
-          type: string
-        desc:
           type: string
         endAt:
           type: string
@@ -1612,7 +1719,7 @@ components:
         problems:
           type: array
           items:
-            type: integer
+            $ref: "#/components/schemas/ProblemRef"
         users:
           type: array
           items:
@@ -1623,13 +1730,11 @@ components:
             type: integer
     Contest:
       type: object
-      required: [id, title, desc, kind, startAt, endAt, freezeAt, status, total]
+      required: [id, title, kind, startAt, endAt, freezeAt, status, total]
       properties:
         id:
           type: integer
         title:
-          type: string
-        desc:
           type: string
         kind:
           type: string
@@ -1667,11 +1772,9 @@ components:
             $ref: "#/components/schemas/Submission"
     ContestCreate:
       type: object
-      required: [title, desc, kind, startAt, endAt, freezeAt, problems]
+      required: [title, kind, startAt, endAt, freezeAt, problems]
       properties:
         title:
-          type: string
-        desc:
           type: string
         kind:
           type: string
@@ -1686,14 +1789,12 @@ components:
         problems:
           type: array
           items:
-            type: integer
+            $ref: "#/components/schemas/ProblemRef"
     ContestUpdate:
       type: object
-      required: [title, desc, kind, startAt, endAt, freezeAt, problems]
+      required: [title, kind, startAt, endAt, freezeAt, problems]
       properties:
         title:
-          type: string
-        desc:
           type: string
         kind:
           type: string
@@ -1708,7 +1809,15 @@ components:
         problems:
           type: array
           items:
-            type: integer
+            $ref: "#/components/schemas/ProblemRef"
+    ProblemRef:
+      type: object
+      required: [id, sort]
+      properties:
+        id:
+          type: integer
+        sort:
+          type: string
     Submission:
       type: object
       required: [id, problemId, problemTitle, user, language, status, score, public, createdAt]

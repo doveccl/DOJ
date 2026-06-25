@@ -24,18 +24,18 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { createAssignment, deleteAssignment, getAdmin, getAssignment, getAssignments, getProblems, updateAssignment } from '../client'
-import type { Assignment } from '../client'
+import type { Assignment, ProblemRef } from '../client'
+import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { AssignmentStatus } from '../components/status'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { formatTime, progress } from '../utils/format'
+import { problemCode, progress, relativeDeadline } from '../utils/format'
 
 type AssignmentForm = {
   title: string
-  desc: string
   endAt: Dayjs
-  problems?: number[]
+  problems?: ProblemRef[]
   users?: number[]
   groups?: number[]
 }
@@ -58,7 +58,6 @@ export function AssignmentsPage() {
     mutationFn: (values: AssignmentForm) =>
       createAssignment({
         title: values.title,
-        desc: values.desc ?? '',
         endAt: values.endAt.toISOString(),
         problems: values.problems ?? [],
         users: values.users ?? [],
@@ -80,7 +79,6 @@ export function AssignmentsPage() {
       }
       return updateAssignment(editingId, {
         title: values.title,
-        desc: values.desc ?? '',
         endAt: values.endAt.toISOString(),
         problems: values.problems ?? [],
         users: values.users ?? [],
@@ -107,7 +105,7 @@ export function AssignmentsPage() {
   })
   const problemOptions = (problems.data ?? []).map((item) => ({
     value: item.id,
-    label: `${item.id} ${item.title}`
+    label: `${problemCode(item.id)} ${item.title}`
   }))
   const userOptions = (admin.data?.users ?? []).map((item) => ({
     value: item.id,
@@ -216,13 +214,12 @@ function AssignmentModal({
     isEdit && detail.data
       ? {
           title: detail.data.assignment.title,
-          desc: detail.data.assignment.desc,
           endAt: dayjs(detail.data.assignment.endAt),
-          problems: detail.data.problems.map((problem) => problem.id),
+          problems: detail.data.problems.map((problem, index) => ({ id: problem.id, sort: problem.sort || defaultProblemSort(index) })),
           users: detail.data.assignment.users,
           groups: detail.data.assignment.groups
         }
-      : { title: '', desc: '', problems: [], users: [], groups: [] }
+      : { title: '', problems: [], users: [], groups: [] }
 
   const body =
     isEdit && detail.isLoading ? (
@@ -241,14 +238,11 @@ function AssignmentModal({
         <Form.Item name="title" label={text.assignments.name} rules={[{ required: true, whitespace: true }]}>
           <Input maxLength={120} showCount />
         </Form.Item>
-        <Form.Item name="desc" label={text.assignments.desc}>
-          <Input.TextArea rows={3} maxLength={500} showCount />
-        </Form.Item>
         <Form.Item name="endAt" label={text.assignments.deadline} rules={[{ required: true }]}>
           <DatePicker showTime style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item name="problems" label={text.assignments.problems}>
-          <Select mode="multiple" options={problemOptions} loading={problemLoading || detail.isLoading} />
+          <ProblemRefInput options={problemOptions} loading={problemLoading || detail.isLoading} />
         </Form.Item>
         <Form.Item name="users" label={text.assignments.users}>
           <Select mode="multiple" options={userOptions} loading={memberLoading} />
@@ -294,18 +288,14 @@ function assignmentColumns(
           <Typography.Text ellipsis className="lineText">
             <Link to={`/assignments/${row.id}`}>{title}</Link>
           </Typography.Text>
-          <AssignmentStatus status={row.status} />
         </Flex>
       )
     },
     {
-      title: text.assignments.desc,
-      dataIndex: 'desc',
-      render: (desc: string) => (
-        <Typography.Text type="secondary" ellipsis className="lineText">
-          {desc}
-        </Typography.Text>
-      )
+      title: text.assignments.status,
+      dataIndex: 'status',
+      width: 110,
+      render: (status: string) => <AssignmentStatus status={status} />
     },
     {
       title: text.assignments.progress,
@@ -319,9 +309,8 @@ function assignmentColumns(
     },
     {
       title: text.assignments.deadline,
-      dataIndex: 'endAt',
       width: 220,
-      render: (endAt: string) => <Typography.Text>{formatTime(endAt, lang)}</Typography.Text>
+      render: (_, row) => <Typography.Text>{relativeDeadline(row.endAt, row.status, lang, 'assignment')}</Typography.Text>
     }
   ]
   if (admin) {

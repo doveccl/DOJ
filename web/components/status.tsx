@@ -18,6 +18,30 @@ export function ContestStatus({ status }: { status: string }) {
 }
 
 export function SubmissionStatus({ status }: { status: string }) {
-  const color = status === 'AC' ? 'green' : status === 'queued' ? 'blue' : status === 'judging' ? 'geekblue' : status === 'CE' ? 'default' : status === 'TLE' || status === 'MLE' ? 'gold' : 'red'
-  return <Tag color={color}>{status}</Tag>
+  const { text } = useLocale()
+  return <Tag color={submissionStatusColor(status)}>{text.submissions.statuses[status as keyof typeof text.submissions.statuses] ?? status}</Tag>
+}
+
+export function submissionStatusColor(status: string) {
+  switch (status) {
+    case 'AC':
+      return 'success'
+    case 'queued':
+      return 'processing'
+    case 'judging':
+      return 'blue'
+    case 'CE':
+      return 'default'
+    case 'TLE':
+    case 'MLE':
+    case 'OLE':
+      return 'warning'
+    case 'WA':
+    case 'PE':
+    case 'RE':
+    case 'SE':
+      return 'error'
+    default:
+      return 'default'
+  }
 }

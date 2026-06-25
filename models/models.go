@@ -22,7 +22,7 @@ type User struct {
 
 type Group struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
-	Name      string         `gorm:"size:80;uniqueIndex;not null" json:"name"`
+	Name      string         `gorm:"size:64;uniqueIndex;not null" json:"name"`
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -35,7 +35,7 @@ type GroupUser struct {
 
 type Problem struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
-	Title     string         `gorm:"size:200;not null" json:"title"`
+	Title     string         `gorm:"size:255;not null" json:"title"`
 	Tags      datatypes.JSON `gorm:"type:jsonb;not null;default:'[]'" json:"tags"`
 	Visible   bool           `gorm:"not null;default:false" json:"visible"`
 	Mode      string         `gorm:"size:16;not null;default:'default'" json:"mode"`
@@ -48,8 +48,8 @@ type Problem struct {
 
 type Language struct {
 	ID         string    `gorm:"size:32;primaryKey" json:"id"`
-	Name       string    `gorm:"size:80;not null" json:"name"`
-	Source     string    `gorm:"size:80;not null" json:"source"`
+	Name       string    `gorm:"size:64;not null" json:"name"`
+	Source     string    `gorm:"size:128;not null" json:"source"`
 	Dockerfile string    `gorm:"type:text;not null" json:"dockerfile"`
 	CreatedAt  time.Time `json:"createdAt"`
 	UpdatedAt  time.Time `json:"updatedAt"`
@@ -83,13 +83,13 @@ type Case struct {
 	Status       string    `gorm:"size:32;not null" json:"status"`
 	TimeMS       *int      `json:"timeMs"`
 	MemoryKB     *int      `json:"memoryKb"`
-	Message      string    `gorm:"size:1000;not null;default:''" json:"message"`
+	Message      string    `gorm:"size:1024;not null;default:''" json:"message"`
 	CreatedAt    time.Time `json:"createdAt"`
 }
 
 type Judger struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
-	Name      string    `gorm:"size:80;uniqueIndex;not null" json:"name"`
+	Name      string    `gorm:"size:64;uniqueIndex;not null" json:"name"`
 	Auth      string    `gorm:"size:255;not null" json:"-"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
@@ -97,8 +97,7 @@ type Judger struct {
 
 type Assignment struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
-	Title     string         `gorm:"size:200;not null" json:"title"`
-	Desc      string         `gorm:"type:text;not null;default:''" json:"desc"`
+	Title     string         `gorm:"size:255;not null" json:"title"`
 	EndAt     time.Time      `gorm:"index;not null" json:"endAt"`
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
@@ -123,8 +122,7 @@ type AssignmentGroup struct {
 
 type Contest struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
-	Title     string         `gorm:"size:200;not null" json:"title"`
-	Desc      string         `gorm:"type:text;not null;default:''" json:"desc"`
+	Title     string         `gorm:"size:255;not null" json:"title"`
 	Kind      string         `gorm:"size:8;not null;default:'OI'" json:"kind"`
 	StartAt   time.Time      `gorm:"index;not null" json:"startAt"`
 	EndAt     time.Time      `gorm:"index;not null" json:"endAt"`
@@ -142,7 +140,7 @@ type ContestProblem struct {
 
 type Discussion struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
-	Title     string         `gorm:"size:200;not null" json:"title"`
+	Title     string         `gorm:"size:255;not null" json:"title"`
 	Content   string         `gorm:"type:text;not null" json:"content"`
 	UserID    uint           `gorm:"index;not null" json:"userId"`
 	Tags      datatypes.JSON `gorm:"type:jsonb;not null;default:'[]'" json:"tags"`
@@ -164,8 +162,8 @@ type Comment struct {
 }
 
 type Setting struct {
-	Key       string         `gorm:"size:120;primaryKey" json:"key"`
-	Value     datatypes.JSON `gorm:"type:jsonb;not null;default:'{}'" json:"value"`
+	Key       string         `gorm:"size:64;primaryKey" json:"key"`
+	Value     datatypes.JSON `gorm:"type:jsonb;not null" json:"value"`
 	UpdatedAt time.Time      `json:"updatedAt"`
 }
 

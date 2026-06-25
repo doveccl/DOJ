@@ -15,6 +15,7 @@ import (
 	judgersvc "github.com/doveccl/doj/services/judger"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
+	echomw "github.com/labstack/echo/v4/middleware"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -34,11 +35,11 @@ type Overview struct {
 }
 
 type AdminSettings struct {
-	SiteName            string `json:"siteName"`
-	Registration        bool   `json:"registration"`
-	Guest               bool   `json:"guest"`
-	DefaultPublicSource bool   `json:"defaultPublicSource"`
-	Notice              string `json:"notice"`
+	SiteName                string `json:"siteName"`
+	AllowRegistration       bool   `json:"allowRegistration"`
+	AllowGuestAccess        bool   `json:"allowGuestAccess"`
+	DefaultSubmissionPublic bool   `json:"defaultSubmissionPublic"`
+	Notice                  string `json:"notice"`
 }
 
 type User struct {
@@ -50,8 +51,9 @@ type User struct {
 }
 
 type Group struct {
-	ID   uint   `json:"id"`
-	Name string `json:"name"`
+	ID    uint   `json:"id"`
+	Name  string `json:"name"`
+	Users []uint `json:"users"`
 }
 
 type Language struct {
@@ -95,7 +97,8 @@ type PasswordReset struct {
 }
 
 type GroupUpdate struct {
-	Name string `json:"name"`
+	Name  string `json:"name"`
+	Users []uint `json:"users"`
 }
 
 type LanguageUpdate struct {
@@ -118,6 +121,20 @@ type JudgerCreate struct {
 	JudgerUpdate
 }
 
+const (
+	dockerfileBodyLimit = "128K"
+	settingsBodyLimit   = "2M"
+	maxNameRunes        = 64
+)
+
+const (
+	settingSiteName                = "site_name"
+	settingAllowRegistration       = "allow_registration"
+	settingAllowGuestAccess        = "allow_guest_access"
+	settingDefaultSubmissionPublic = "default_submission_public"
+	settingHomeNotice              = "home_notice"
+)
+
 func Register(e *echo.Echo, db *gorm.DB) {
 	if db == nil {
 		panic("admin API requires a database")
@@ -125,7 +142,7 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	api := &API{db: db}
 	group := e.Group("/api/admin", api.requireAdmin)
 	group.GET("", api.overview)
-	group.PATCH("/settings", api.updateSettings)
+	group.PATCH("/settings", api.updateSettings, echomw.BodyLimit(settingsBodyLimit))
 	group.POST("/users", api.createUser)
 	group.PATCH("/users/:name", api.updateUser)
 	group.DELETE("/users/:name", api.deleteUser)
@@ -133,8 +150,8 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.POST("/groups", api.createGroup)
 	group.PATCH("/groups/:id", api.updateGroup)
 	group.DELETE("/groups/:id", api.deleteGroup)
-	group.POST("/languages", api.createLanguage)
-	group.PATCH("/languages/:id", api.updateLanguage)
+	group.POST("/languages", api.createLanguage, echomw.BodyLimit(dockerfileBodyLimit))
+	group.PATCH("/languages/:id", api.updateLanguage, echomw.BodyLimit(dockerfileBodyLimit))
 	group.DELETE("/languages/:id", api.deleteLanguage)
 	group.POST("/judgers", api.createJudger)
 	group.PATCH("/judgers/:id", api.updateJudger)
@@ -201,6 +218,9 @@ func (api *API) updateSettings(c echo.Context) error {
 	req.SiteName = strings.TrimSpace(req.SiteName)
 	if req.SiteName == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "site name is required")
+	}
+	if len([]rune(req.SiteName)) > maxNameRunes {
+		return echo.NewHTTPError(http.StatusBadRequest, "site name is too long")
 	}
 
 	if err := SaveSettings(api.db, req); err != nil {
@@ -357,11 +377,24 @@ func (api *API) createGroup(c echo.Context) error {
 		return err
 	}
 	req.Name = strings.TrimSpace(req.Name)
+	req.Users = cleanUintList(req.Users)
 	if req.Name == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "group name is required")
 	}
+	if len([]rune(req.Name)) > maxNameRunes {
+		return echo.NewHTTPError(http.StatusBadRequest, "group name is too long")
+	}
+	if err := api.ensureUsers(req.Users); err != nil {
+		return err
+	}
 
-	if err := api.db.Create(&models.Group{Name: req.Name}).Error; err != nil {
+	if err := api.db.Transaction(func(tx *gorm.DB) error {
+		group := models.Group{Name: req.Name}
+		if err := tx.Create(&group).Error; err != nil {
+			return err
+		}
+		return saveGroupUsers(tx, group.ID, req.Users)
+	}); err != nil {
 		return err
 	}
 	overview, err := api.readOverview(c.Request().Context())
@@ -381,16 +414,29 @@ func (api *API) updateGroup(c echo.Context) error {
 		return err
 	}
 	req.Name = strings.TrimSpace(req.Name)
+	req.Users = cleanUintList(req.Users)
 	if req.Name == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "group name is required")
 	}
-
-	updated := api.db.Model(&models.Group{}).Where("id = ?", id).Update("name", req.Name)
-	if updated.Error != nil {
-		return updated.Error
+	if len([]rune(req.Name)) > maxNameRunes {
+		return echo.NewHTTPError(http.StatusBadRequest, "group name is too long")
 	}
-	if updated.RowsAffected == 0 {
-		return echo.NewHTTPError(http.StatusNotFound, "group not found")
+	if err := api.ensureUsers(req.Users); err != nil {
+		return err
+	}
+
+	err = api.db.Transaction(func(tx *gorm.DB) error {
+		updated := tx.Model(&models.Group{}).Where("id = ?", id).Update("name", req.Name)
+		if updated.Error != nil {
+			return updated.Error
+		}
+		if updated.RowsAffected == 0 {
+			return echo.NewHTTPError(http.StatusNotFound, "group not found")
+		}
+		return saveGroupUsers(tx, id, req.Users)
+	})
+	if err != nil {
+		return err
 	}
 	return api.overview(c)
 }
@@ -566,15 +612,16 @@ func (api *API) ensureOtherAdmin(userID uint) error {
 }
 
 func (api *API) settings() (AdminSettings, error) {
-	settings := AdminSettings{SiteName: "DOJ", Registration: false, Guest: false, DefaultPublicSource: false, Notice: ""}
-	var row models.Setting
-	if err := api.db.First(&row, "key = ?", "site").Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return settings, nil
-		}
+	settings := defaultSettings()
+	var rows []models.Setting
+	if err := api.db.Find(&rows, "key IN ?", settingKeys()).Error; err != nil {
 		return settings, err
 	}
-	_ = json.Unmarshal(row.Value, &settings)
+	for _, row := range rows {
+		if err := applySetting(&settings, row); err != nil {
+			return settings, err
+		}
+	}
 	if settings.SiteName == "" {
 		settings.SiteName = "DOJ"
 	}
@@ -587,12 +634,54 @@ func Settings(db *gorm.DB) (AdminSettings, error) {
 }
 
 func SaveSettings(db *gorm.DB, settings AdminSettings) error {
-	raw, err := json.Marshal(settings)
+	return db.Transaction(func(tx *gorm.DB) error {
+		values := map[string]any{
+			settingSiteName:                settings.SiteName,
+			settingAllowRegistration:       settings.AllowRegistration,
+			settingAllowGuestAccess:        settings.AllowGuestAccess,
+			settingDefaultSubmissionPublic: settings.DefaultSubmissionPublic,
+			settingHomeNotice:              settings.Notice,
+		}
+		for _, key := range settingKeys() {
+			if err := saveSetting(tx, key, values[key]); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func defaultSettings() AdminSettings {
+	return AdminSettings{SiteName: "DOJ", AllowRegistration: false, AllowGuestAccess: false, DefaultSubmissionPublic: false, Notice: ""}
+}
+
+func settingKeys() []string {
+	return []string{settingSiteName, settingAllowRegistration, settingAllowGuestAccess, settingDefaultSubmissionPublic, settingHomeNotice}
+}
+
+func saveSetting(db *gorm.DB, key string, value any) error {
+	raw, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
-	row := models.Setting{Key: "site", Value: datatypes.JSON(raw)}
-	return db.Save(&row).Error
+	return db.Save(&models.Setting{Key: key, Value: datatypes.JSON(raw)}).Error
+}
+
+func applySetting(settings *AdminSettings, row models.Setting) error {
+	switch row.Key {
+	case settingSiteName:
+		return json.Unmarshal(row.Value, &settings.SiteName)
+	case settingAllowRegistration:
+		return json.Unmarshal(row.Value, &settings.AllowRegistration)
+	case settingAllowGuestAccess:
+		return json.Unmarshal(row.Value, &settings.AllowGuestAccess)
+	case settingDefaultSubmissionPublic:
+		return json.Unmarshal(row.Value, &settings.DefaultSubmissionPublic)
+	case settingHomeNotice:
+		return json.Unmarshal(row.Value, &settings.Notice)
+	default:
+		return nil
+	}
 }
 
 func (api *API) users() ([]User, error) {
@@ -635,9 +724,28 @@ func (api *API) groups() ([]Group, error) {
 	if err := api.db.Order("id asc").Limit(200).Find(&rows).Error; err != nil {
 		return nil, err
 	}
+	groupIDs := make([]uint, 0, len(rows))
+	for _, row := range rows {
+		groupIDs = append(groupIDs, row.ID)
+	}
+	userMap := map[uint][]uint{}
+	if len(groupIDs) > 0 {
+		var links []models.GroupUser
+		if err := api.db.Table("group_users").
+			Select("group_users.group_id, group_users.user_id").
+			Joins("JOIN users ON users.id = group_users.user_id AND users.deleted_at IS NULL").
+			Where("group_users.group_id IN ?", groupIDs).
+			Order("group_users.user_id asc").
+			Find(&links).Error; err != nil {
+			return nil, err
+		}
+		for _, link := range links {
+			userMap[link.GroupID] = append(userMap[link.GroupID], link.UserID)
+		}
+	}
 	items := make([]Group, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, Group{ID: row.ID, Name: row.Name})
+		items = append(items, Group{ID: row.ID, Name: row.Name, Users: cleanUintList(userMap[row.ID])})
 	}
 	return items, nil
 }
@@ -698,6 +806,34 @@ func (api *API) ensureGroups(ids []uint) error {
 	return nil
 }
 
+func (api *API) ensureUsers(ids []uint) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	var count int64
+	if err := api.db.Model(&models.User{}).Where("id IN ?", ids).Count(&count).Error; err != nil {
+		return err
+	}
+	if count != int64(len(ids)) {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid user")
+	}
+	return nil
+}
+
+func saveGroupUsers(tx *gorm.DB, groupID uint, users []uint) error {
+	if err := tx.Where("group_id = ?", groupID).Delete(&models.GroupUser{}).Error; err != nil {
+		return err
+	}
+	items := make([]models.GroupUser, 0, len(users))
+	for _, id := range users {
+		items = append(items, models.GroupUser{GroupID: groupID, UserID: id})
+	}
+	if len(items) > 0 {
+		return tx.Create(&items).Error
+	}
+	return nil
+}
+
 func cleanUintList(values []uint) []uint {
 	if len(values) == 0 {
 		return []uint{}
@@ -732,7 +868,7 @@ func validateUserCreate(req UserCreate) error {
 	if len(req.Name) < 3 || len(req.Name) > 32 || !validUserName(req.Name) {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid username")
 	}
-	if req.Mail == "" {
+	if req.Mail == "" || len(req.Mail) > 255 {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid mail")
 	}
 	addr, err := mail.ParseAddress(req.Mail)
@@ -781,8 +917,14 @@ func validateLanguage(req LanguageUpdate) error {
 	if req.Name == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "language name is required")
 	}
+	if len([]rune(req.Name)) > maxNameRunes {
+		return echo.NewHTTPError(http.StatusBadRequest, "language name is too long")
+	}
 	if req.Source == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "language source is required")
+	}
+	if len([]rune(req.Source)) > 128 {
+		return echo.NewHTTPError(http.StatusBadRequest, "language source is too long")
 	}
 	if req.Dockerfile == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "language dockerfile is required")
@@ -816,6 +958,9 @@ func cleanJudgerUpdate(req *JudgerUpdate) {
 func validateJudger(req JudgerUpdate, requireAuth bool) error {
 	if req.Name == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "judger name is required")
+	}
+	if len([]rune(req.Name)) > maxNameRunes {
+		return echo.NewHTTPError(http.StatusBadRequest, "judger name is too long")
 	}
 	if requireAuth && req.Auth == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "judger auth is required")
@@ -875,7 +1020,7 @@ func GuestAllowed(db *gorm.DB) bool {
 	if err != nil {
 		return false
 	}
-	return settings.Guest
+	return settings.AllowGuestAccess
 }
 
 func RegistrationAllowed(db *gorm.DB) bool {
@@ -883,12 +1028,15 @@ func RegistrationAllowed(db *gorm.DB) bool {
 	if err != nil {
 		return false
 	}
-	return settings.Registration
+	return settings.AllowRegistration
 }
 
 func ValidateMail(value string) error {
 	if value == "" {
 		return nil
+	}
+	if len(value) > 255 {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid mail")
 	}
 	if _, err := mail.ParseAddress(value); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid mail")
