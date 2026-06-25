@@ -429,7 +429,7 @@ export function AdminPage() {
                         title: text.admin.status,
                         dataIndex: 'online',
                         width: 120,
-                        render: (online: boolean) => <Tag color={online ? 'green' : 'default'}>{online ? text.admin.online : text.admin.offline}</Tag>
+                        render: (online: boolean) => (online ? <Tag color="green">{text.admin.online}</Tag> : <Tag>{text.admin.offline}</Tag>)
                       },
                       {
                         title: text.admin.uptime,
