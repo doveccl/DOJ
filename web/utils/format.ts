@@ -5,11 +5,11 @@ export function problemCode(id: number) {
 }
 
 export function submissionCode(id: number) {
-  return `S${id}`
+  return `#${id}`
 }
 
 export function caseCode(no: number) {
-  return `C${no}`
+  return String(no)
 }
 
 export function formatLimit(problem: Pick<Problem, 'timeMs' | 'memoryMb'>) {
