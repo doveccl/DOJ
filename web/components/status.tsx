@@ -7,12 +7,12 @@ export function AssignmentStatus({ status }: { status: string }) {
   if (status === 'ended') {
     return <Tag>{text.assignments.ended}</Tag>
   }
-  return <Tag color="green">{text.assignments.running}</Tag>
+  return <Tag color="success">{text.assignments.running}</Tag>
 }
 
 export function ContestStatus({ status }: { status: string }) {
   const { text } = useLocale()
-  const color = status === 'ended' ? undefined : status === 'pending' ? 'blue' : status === 'frozen' ? 'gold' : 'green'
+  const color = status === 'ended' ? undefined : status === 'pending' ? 'processing' : status === 'frozen' ? 'warning' : 'success'
   const label = status === 'ended' ? text.contests.ended : status === 'pending' ? text.contests.pending : status === 'frozen' ? text.contests.frozen : text.contests.running
   return <Tag color={color}>{label}</Tag>
 }
@@ -25,21 +25,21 @@ export function SubmissionStatus({ status }: { status: string }) {
 export function submissionStatusColor(status: string) {
   switch (status) {
     case 'AC':
-      return 'green'
+      return 'success'
     case 'queued':
     case 'judging':
-      return 'blue'
+      return 'processing'
     case 'CE':
       return undefined
     case 'TLE':
     case 'MLE':
     case 'OLE':
-      return 'gold'
+      return 'warning'
     case 'WA':
     case 'PE':
     case 'RE':
     case 'SE':
-      return 'red'
+      return 'error'
     default:
       return undefined
   }

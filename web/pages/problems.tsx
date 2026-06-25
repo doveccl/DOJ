@@ -309,10 +309,10 @@ function problemColumns(
 function ProblemRecordTag({ mine }: { mine?: string }) {
   const { text } = useLocale()
   if (mine === 'ac') {
-    return <Tag color="green">{text.problem.passed}</Tag>
+    return <Tag color="success">{text.problem.passed}</Tag>
   }
   if (mine === 'tried') {
-    return <Tag color="gold">{text.problem.tried}</Tag>
+    return <Tag color="warning">{text.problem.tried}</Tag>
   }
   return null
 }

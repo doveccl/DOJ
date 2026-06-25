@@ -74,7 +74,7 @@ export function ScheduleTag({ kind, status, target, range, onFinish }: ScheduleT
   }
   return (
     <Tooltip title={tooltip}>
-      <Tag color={status === 'pending' ? 'blue' : 'green'}>
+      <Tag color={status === 'pending' ? 'processing' : 'success'}>
         <TimerText copy={timerCopy(status, kind, text)} targetMs={targetMs} compact onFinish={onFinish} />
       </Tag>
     </Tooltip>
@@ -108,12 +108,24 @@ function TimerText({
       suffix={copy.suffix}
       onFinish={onFinish}
       styles={{
+        root: {
+          color: 'currentColor'
+        },
         content: {
-          color: 'inherit',
+          color: 'currentColor',
           fontSize: compact ? 12 : strong ? 20 : 14,
           fontWeight: strong ? 600 : 500,
           lineHeight: compact ? '20px' : strong ? '28px' : '22px',
           fontVariantNumeric: 'tabular-nums'
+        },
+        value: {
+          color: 'currentColor'
+        },
+        prefix: {
+          color: 'currentColor'
+        },
+        suffix: {
+          color: 'currentColor'
         }
       }}
     />
