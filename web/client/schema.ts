@@ -830,6 +830,7 @@ export interface components {
         };
         RegisterRequest: {
             name: string;
+            /** Format: email */
             mail: string;
             password: string;
         };
@@ -863,6 +864,7 @@ export interface components {
         AdminUser: {
             id: number;
             name: string;
+            /** Format: email */
             mail: string;
             role: string;
             groups: number[];
@@ -873,6 +875,7 @@ export interface components {
         };
         AdminUserCreate: {
             name: string;
+            /** Format: email */
             mail: string;
             password: string;
             role: string;
@@ -956,6 +959,7 @@ export interface components {
         ProblemCreate: {
             title: string;
             tags: string[];
+            visible: boolean;
             mode: string;
             timeMs: number;
             memoryMb: number;
@@ -1026,6 +1030,18 @@ export interface components {
             assignment: components["schemas"]["Assignment"];
             problems: components["schemas"]["Problem"][];
             submissions: components["schemas"]["Submission"][];
+            progress: components["schemas"]["AssignmentProgress"][];
+        };
+        AssignmentProgress: {
+            user: string;
+            ac: number;
+            submit: number;
+            problems: components["schemas"]["AssignmentProblemProgress"][];
+        };
+        AssignmentProblemProgress: {
+            problemId: number;
+            /** @enum {string} */
+            status: "none" | "tried" | "ac";
         };
         AssignmentCreate: {
             title: string;
@@ -1121,6 +1137,14 @@ export interface components {
             memoryKb?: number;
             message: string;
         };
+        RankProblem: {
+            problemId: number;
+            /** @enum {string} */
+            status: "none" | "tried" | "ac";
+            submit: number;
+            score: number;
+            penalty: number;
+        };
         RankUser: {
             rank: number;
             user: string;
@@ -1130,6 +1154,7 @@ export interface components {
             submit: number;
             score: number;
             penalty: number;
+            problems: components["schemas"]["RankProblem"][];
         };
         UserProfile: {
             user: components["schemas"]["PublicUser"];
@@ -2608,7 +2633,9 @@ export interface operations {
         parameters: {
             query?: {
                 problem?: string;
-                status?: string;
+                user?: string;
+                assignment?: string;
+                contest?: string;
             };
             header?: never;
             path?: never;

@@ -140,6 +140,13 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	if user, ok := findUser(overview, "new_user"); !ok || len(user.Groups) != 1 || user.Groups[0] != group.ID {
 		t.Fatalf("new user group not reflected after group edit: %+v", overview.Users)
 	}
+	assignment := models.Assignment{Title: "Homework", EndAt: time.Now().Add(time.Hour)}
+	if err := db.Create(&assignment).Error; err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+	if err := db.Create(&models.AssignmentGroup{AssignmentID: assignment.ID, GroupID: group.ID}).Error; err != nil {
+		t.Fatalf("create assignment group: %v", err)
+	}
 	res = requestJSONWithCookies(e, http.MethodDelete, "/api/admin/users/new_user", adminCookies, `{}`)
 	if res.Code != http.StatusOK {
 		t.Fatalf("delete user got %d body=%s", res.Code, res.Body.String())
@@ -162,6 +169,27 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	}
 	if user, ok := findUser(overview, "student"); !ok || len(user.Groups) != 0 {
 		t.Fatalf("deleted group should not stay in user groups: %+v", overview.Users)
+	}
+	var groupRows int64
+	if err := db.Model(&models.Group{}).Where("id = ?", group.ID).Count(&groupRows).Error; err != nil {
+		t.Fatalf("count groups: %v", err)
+	}
+	if groupRows != 0 {
+		t.Fatalf("deleted group should be hard deleted")
+	}
+	var groupLinks int64
+	if err := db.Model(&models.GroupUser{}).Where("group_id = ?", group.ID).Count(&groupLinks).Error; err != nil {
+		t.Fatalf("count group users: %v", err)
+	}
+	if groupLinks != 0 {
+		t.Fatalf("deleted group should remove group_users, got %d", groupLinks)
+	}
+	var assignmentGroupLinks int64
+	if err := db.Model(&models.AssignmentGroup{}).Where("group_id = ?", group.ID).Count(&assignmentGroupLinks).Error; err != nil {
+		t.Fatalf("count assignment groups: %v", err)
+	}
+	if assignmentGroupLinks != 0 {
+		t.Fatalf("deleted group should remove assignment_groups, got %d", assignmentGroupLinks)
 	}
 	res = requestJSONWithCookies(e, http.MethodPost, "/api/admin/users", adminCookies, `{"name":"new_user","mail":"other@example.com","password":"password123","role":"user","groups":[]}`)
 	if res.Code != http.StatusConflict {

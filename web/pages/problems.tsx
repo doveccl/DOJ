@@ -18,16 +18,18 @@ import {
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { createProblem, deleteProblem, getProblems, updateProblemVisibility } from '../client'
 import type { Problem } from '../client'
+import { ProblemLink } from '../components/entity'
 import { JudgeModeSelect } from '../components/judge'
 import { LimitInput } from '../components/limit'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
 import { formatLimit, formatPass, problemCode } from '../utils/format'
+import { limits } from '../utils/limits'
 
 type ProblemForm = {
   title: string
@@ -56,6 +58,7 @@ export function ProblemsPage() {
       createProblem({
         title: values.title,
         tags: values.tags ?? [],
+        visible: true,
         mode: values.mode,
         timeMs: values.timeMs,
         memoryMb: values.memoryMb
@@ -131,41 +134,43 @@ export function ProblemsPage() {
 
   return (
     <Card>
-      <Form layout="inline" initialValues={{ q: q || undefined, tag: tag || undefined }} onFinish={submit} key={`${q}:${tag}`}>
-        <Flex align="center" justify="space-between" gap={16} wrap style={{ width: '100%', marginBottom: 18 }}>
-          <Flex align="center" gap={10} wrap style={{ flex: '1 1 520px', minWidth: 0 }}>
+      <Flex vertical gap={16}>
+        <Form layout="inline" initialValues={{ q: q || undefined, tag: tag || undefined }} onFinish={submit} key={`${q}:${tag}`}>
           <Form.Item name="q">
-            <Input placeholder={text.problems.q} allowClear style={{ minWidth: 240 }} />
+            <Input placeholder={text.problems.q} allowClear style={{ width: 280 }} />
           </Form.Item>
           <Form.Item name="tag">
-            <Select placeholder={text.problems.tag} allowClear options={allTags} style={{ width: 220 }} />
+            <Select showSearch optionFilterProp="label" placeholder={text.problems.tag} allowClear options={allTags} style={{ width: 220 }} />
           </Form.Item>
-          <Button onClick={clear}>{text.common.clear}</Button>
-          </Flex>
-          <Flex align="center" gap={10} wrap>
-          <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>
-            {text.common.search}
-          </Button>
-          {session.admin ? (
-            <Button icon={<PlusOutlined />} onClick={openCreate}>
-              {text.common.createProblem}
+          <Form.Item>
+            <Button onClick={clear}>{text.common.clear}</Button>
+          </Form.Item>
+          <Form.Item>
+            <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>
+              {text.common.search}
             </Button>
+          </Form.Item>
+          {session.admin ? (
+            <Form.Item>
+              <Button icon={<PlusOutlined />} onClick={openCreate}>
+                {text.common.createProblem}
+              </Button>
+            </Form.Item>
           ) : null}
-          </Flex>
-        </Flex>
-      </Form>
-      {query.isError ? (
-        <ErrorBlock error={query.error} />
-      ) : query.isLoading ? (
-        <LoadingBlock />
-      ) : (
-        <Table<Problem>
-          rowKey="id"
-          columns={columns}
-          dataSource={query.data}
-          pagination={{ pageSize: 20, showSizeChanger: true }}
-        />
-      )}
+        </Form>
+        {query.isError ? (
+          <ErrorBlock error={query.error} />
+        ) : query.isLoading ? (
+          <LoadingBlock />
+        ) : (
+          <Table<Problem>
+            rowKey="id"
+            columns={columns}
+            dataSource={query.data}
+            pagination={{ pageSize: 20, showSizeChanger: true }}
+          />
+        )}
+      </Flex>
       {session.admin && open ? (
         <ProblemModal loading={create.isPending} onCancel={closeModal} onSave={save} />
       ) : null}
@@ -199,7 +204,7 @@ function ProblemModal({
     >
       <Form<ProblemForm> form={form} preserve={false} layout="vertical" initialValues={initialValues} onFinish={onSave}>
         <Form.Item name="title" label={text.problems.title} rules={[{ required: true, whitespace: true }]}>
-          <Input maxLength={120} showCount />
+          <Input maxLength={limits.title} showCount />
         </Form.Item>
         <Form.Item name="tags" label={text.problems.tag}>
           <Select mode="tags" tokenSeparators={[',', '，', ' ']} />
@@ -231,19 +236,11 @@ function problemColumns(
 ): TableProps<Problem>['columns'] {
   const columns: TableProps<Problem>['columns'] = [
     {
-      title: text.problems.id,
-      dataIndex: 'id',
-      width: 120,
-      render: (id: number) => <Typography.Text>{problemCode(id)}</Typography.Text>
-    },
-    {
-      title: text.problems.title,
+      title: text.submissions.problem,
       dataIndex: 'title',
       render: (title: string, row) => (
         <Flex align="center" gap={8} className="tableTitleLine">
-          <Typography.Text ellipsis className="lineText">
-            <Link to={`/problems/${row.id}`}>{title}</Link>
-          </Typography.Text>
+          <ProblemLink id={row.id} title={title} />
           <ProblemRecordTag mine={row.mine} />
           {!row.visible ? <Tag>{text.problems.hidden}</Tag> : null}
         </Flex>
@@ -252,7 +249,6 @@ function problemColumns(
     {
       title: text.problems.tag,
       dataIndex: 'tags',
-      width: 220,
       render: (tags: string[]) => (
         <Space size={[0, 4]} wrap>
           {tags.map((tag) => (
@@ -272,8 +268,7 @@ function problemColumns(
   ]
   if (admin) {
     columns.push({
-      title: '',
-      width: 96,
+      title: text.common.actions,
       align: 'right',
       render: (_, row) => (
         <Space size={4}>

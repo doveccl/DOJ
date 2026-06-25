@@ -1,24 +1,33 @@
-# web 规则
+# Frontend Rules
 
-- `web/` 只放前端源码；Vite HTML 入口放仓库根目录 `index.html`。
-- OpenAPI 生成的 TypeScript client 放在 `web/client/`，不要放 `web/api/`，避免 Vite dev URL 与后端 `/api/*` 代理冲突。
-- 使用 React + Vite + TypeScript + antd。
-- API 数据使用 TanStack Query；表单和弹窗使用 React local state / antd Form。
-- 登录态通过 TanStack Query 的 `['me']` 缓存管理；不要再单独复制一份 session `useState`。
-- 第一版不引入 Redux / Zustand。
-- Vitest 使用要克制，只测稳定纯逻辑或关键组件，不替代浏览器走查。
-- 优先使用 antd 原生组件和能力。必要时查：
-  - `https://ant.design/llms.txt`
-  - 组件 Markdown 文档，例如 `https://ant.design/components/table-cn.md`
-- 默认不显式指定 antd 组件 `size`；弹窗里嵌套 Card、Table、工具按钮这类高密度管理区域时，内部组件统一用 `small`。
-- antd `Space` 使用 `orientation` 或 `vertical`，不要使用已废弃的 `direction`。
-- antd Table 行状态优先用 Tag 表达；只有明确原生能力或小范围样式足够稳定时再做行背景。
-- 首页顺序：公告、热力图、最新题目/作业/比赛。
-- 公告渲染 Markdown，管理员可就地编辑。
-- 管理设置页不展示公告 textarea。
-- 后台文案统一用“用户 / 用户组”，不要混用“成员”。
-- 题目编辑能力放题目列表和题目详情页。
-- 作业、比赛、讨论也按当前用户身份在业务页面展示管理能力。
-- 需要用户信息页：所有人可看热力图、近期活动、AC 题目；本人可编辑资料和改密码。
-- 代码编辑器语言高亮只从语言配置的 `id` 匹配 CodeMirror `language-data`；匹配不到时降级纯文本，不按管理员输入拼接任意运行时代码。
-- Markdown 和头像图片上传走 server API，前端只使用返回 URL，不写入 data URL。
+- `web/` contains frontend source. The Vite HTML entry stays at repository root as `index.html`.
+- OpenAPI-generated TypeScript schema/client wrappers live in `web/client/`.
+- API/server state uses TanStack Query. Do not keep a second independent `useState` cache for the same server data.
+- Forms and modals should use React local state and antd Form.
+- Do not introduce Redux or Zustand unless there is a real global client-state problem.
+
+## UI Rules
+
+- Prefer antd native components and documented props over custom CSS.
+- Check `https://ant.design/llms.txt` or the component Markdown docs when using unfamiliar antd APIs.
+- Do not use deprecated antd props.
+- Do not specify component `size` by default. In dense nested admin surfaces such as a modal containing cards/tables/tool buttons, use `small` consistently inside that surface.
+- Use Tag for row state when table row styling would require custom CSS.
+- Table action columns must have a visible header, usually `text.common.actions`.
+- User-facing text must go through locale data.
+- Use “用户” and “用户组” consistently in the admin UI; do not mix in “成员”.
+
+## Product UI
+
+- Home page order: notice, heatmap, latest problems/assignments/contests.
+- The notice is edited inline on the home page, not in admin settings.
+- Management actions should live near the business object: problems on problem pages, assignments on assignment pages, contests on contest pages, discussions on discussion pages.
+- Problem references should display as clickable `P{id} {title}` under a column named “题目”.
+- User references are clickable usernames; only the rank page shows avatars in the user column.
+- Markdown uploads must use server-returned relative URLs. Rendering may rewrite relative asset URLs to API URLs.
+- Code highlighting matches the configured language `id` through CodeMirror language data; unknown languages fall back to plain text.
+
+## Testing
+
+- Vitest is for stable pure logic and small key components. It does not replace browser walkthrough.
+- For pages touching permissions, visibility, assignments, contests, submissions, and statistics, rely on backend regression tests plus browser smoke checks.

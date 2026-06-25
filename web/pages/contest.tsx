@@ -1,21 +1,22 @@
 import { EditOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, DatePicker, Flex, Form, Input, Modal, Select, Space, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
+import { Alert, App as AntApp, Button, Card, DatePicker, Flex, Form, Input, Modal, Select, Space, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 
 import { getContest, getProblems, updateContest } from '../client'
-import type { Problem, ProblemRef, RankUser, Submission } from '../client'
+import type { Problem, ProblemRef, RankUser } from '../client'
+import { ProblemLink, UserLink } from '../components/entity'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../components/state'
-import { ContestStatus, SubmissionStatus } from '../components/status'
 import { contestTarget, DeadlineTimer } from '../components/time'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { formatTime, problemCode, submissionCode } from '../utils/format'
+import { formatTime, problemCode, problemLabel } from '../utils/format'
+import { limits } from '../utils/limits'
 
 type ContestForm = {
   title: string
@@ -73,10 +74,10 @@ export function ContestDetailPage() {
     return <ErrorBlock error={text.common.emptyResponse} />
   }
 
-  const { contest, problems, rank, submissions } = query.data
+  const { contest, problems, rank } = query.data
   const problemOptions = (problemsQuery.data ?? problems).map((item) => ({
     value: item.id,
-    label: `${problemCode(item.id)} ${item.title}`
+    label: problemLabel(item.id, item.title)
   }))
 
   function openEdit() {
@@ -86,33 +87,25 @@ export function ContestDetailPage() {
   return (
     <Flex vertical gap={16}>
       <Card>
-        <Flex justify="space-between" align="flex-start" gap={20} wrap>
-          <Flex vertical gap={8}>
-            <Flex align="center" gap={10}>
-              <Typography.Title level={3} style={{ margin: 0 }}>
-                {contest.title}
-              </Typography.Title>
-              <ContestStatus status={contest.status} />
-              <Tag>{contest.kind}</Tag>
-              {session.admin ? (
-                <Tooltip title={text.common.edit}>
-                  <Button aria-label={`${text.common.edit} #${contest.id}`} type="text" size="small" icon={<EditOutlined />} onClick={openEdit} />
-                </Tooltip>
-              ) : null}
-            </Flex>
+        <Flex justify="space-between" align="center" gap={20} wrap>
+          <Flex align="center" gap={10}>
+            <Typography.Title level={3} style={{ margin: 0 }}>
+              {contest.title}
+            </Typography.Title>
+            <Tag>{contest.kind}</Tag>
+            {session.admin ? (
+              <Tooltip title={text.common.edit}>
+                <Button aria-label={`${text.common.edit} #${contest.id}`} type="text" size="small" icon={<EditOutlined />} onClick={openEdit} />
+              </Tooltip>
+            ) : null}
           </Flex>
-          <Flex vertical align="flex-end" gap={8}>
-            <DeadlineTimer
-              kind="contest"
-              status={contest.status}
-              target={contestTarget(contest.status, contest.startAt, contest.endAt)}
-              range={`${formatTime(contest.startAt, lang)} - ${formatTime(contest.endAt, lang)}`}
-              strong
-              align="flex-end"
-              onFinish={() => void query.refetch()}
-            />
-            <Typography.Text type="secondary">{text.contests.total(contest.total)}</Typography.Text>
-          </Flex>
+          <DeadlineTimer
+            kind="contest"
+            status={contest.status}
+            target={contestTarget(contest.status, contest.startAt, contest.endAt)}
+            range={`${formatTime(contest.startAt, lang)} - ${formatTime(contest.endAt, lang)}`}
+            onFinish={() => void query.refetch()}
+          />
         </Flex>
       </Card>
       <Card>
@@ -126,12 +119,12 @@ export function ContestDetailPage() {
             {
               key: 'rank',
               label: text.contests.rank,
-              children: <Table<RankUser> rowKey="rank" columns={rankColumns(text, contest.kind)} dataSource={rank} pagination={false} />
-            },
-            {
-              key: 'submissions',
-              label: text.contests.submissions,
-              children: <Table<Submission> rowKey="id" columns={submissionColumns(text, lang)} dataSource={submissions} pagination={false} />
+              children: (
+                <Flex vertical gap={12}>
+                  {contest.status === 'frozen' ? <Alert type={session.admin ? 'info' : 'warning'} showIcon message={session.admin ? text.contests.realtimeRank : text.contests.frozenRank} /> : null}
+                  <Table<RankUser> rowKey="rank" columns={rankColumns(text, contest.kind, problems)} dataSource={rank} pagination={false} scroll={{ x: 'max-content' }} />
+                </Flex>
+              )
             }
           ]}
         />
@@ -192,7 +185,7 @@ function ContestEditModal({
     >
       <Form<ContestForm> form={form} preserve={false} layout="vertical" initialValues={initialValues} onFinish={onSave}>
         <Form.Item name="title" label={text.contests.name} rules={[{ required: true, whitespace: true }]}>
-          <Input maxLength={120} showCount />
+          <Input maxLength={limits.title} showCount />
         </Form.Item>
         <Form.Item name="kind" label={text.contests.kind}>
           <Select
@@ -221,37 +214,27 @@ function ContestEditModal({
   )
 }
 
-function rankColumns(text: ReturnType<typeof useLocale>['text'], kind: string): TableProps<RankUser>['columns'] {
-  const columns: TableProps<RankUser>['columns'] = [
+function rankColumns(text: ReturnType<typeof useLocale>['text'], kind: string, problems: Problem[]): TableProps<RankUser>['columns'] {
+  const columns: NonNullable<TableProps<RankUser>['columns']> = [
     {
       title: text.rank.rank,
       dataIndex: 'rank',
-      width: 90
     },
     {
       title: text.rank.user,
-      render: (_, row) => (
-        <Flex vertical gap={2}>
-          <Typography.Text strong>{row.user}</Typography.Text>
-          <Typography.Text type="secondary" ellipsis>
-            {row.bio}
-          </Typography.Text>
-        </Flex>
-      )
+      render: (_, row) => <UserLink name={row.user} strong />
     },
     {
       title: text.rank.submit,
       dataIndex: 'submit',
-      width: 100
     }
   ]
   if (kind === 'OI') {
     columns.splice(2, 0, {
       title: text.rank.score,
       dataIndex: 'score',
-      width: 100
     })
-    return columns
+    return [...columns, ...rankProblemColumns(kind, problems)]
   }
   columns.splice(
     2,
@@ -259,59 +242,48 @@ function rankColumns(text: ReturnType<typeof useLocale>['text'], kind: string): 
     {
       title: text.rank.ac,
       dataIndex: 'ac',
-      width: 100
     },
     {
       title: text.rank.penalty,
       dataIndex: 'penalty',
-      width: 100
     }
   )
-  return columns
+  return [...columns, ...rankProblemColumns(kind, problems)]
 }
 
-function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: string): TableProps<Submission>['columns'] {
-  return [
-    {
-      title: text.submissions.id,
-      dataIndex: 'id',
-      width: 110,
-      render: (id: number) => <Link to={`/submissions/${id}`}>{submissionCode(id)}</Link>
-    },
-    {
-      title: text.submissions.problem,
-      render: (_, row) => (
-        <Typography.Text ellipsis className="lineText">
-          <Link to={`/problems/${row.problemId}`}>
-            {problemCode(row.problemId)} {row.problemTitle}
-          </Link>
-        </Typography.Text>
+function rankProblemColumns(kind: string, problems: Problem[]): NonNullable<TableProps<RankUser>['columns']> {
+  return problems.map((problem) => ({
+    key: `problem-${problem.id}`,
+    align: 'center',
+    title: (
+      <Tooltip title={problemLabel(problem.id, problem.title)}>
+        <span>{problem.sort || problemCode(problem.id)}</span>
+      </Tooltip>
+    ),
+    render: (_, row) => <RankProblemCell kind={kind} item={row.problems.find((item) => item.problemId === problem.id)} />
+  }))
+}
+
+function RankProblemCell({ kind, item }: { kind: string; item?: RankUser['problems'][number] }) {
+  if (!item || item.status === 'none') {
+    return <Typography.Text type="secondary">-</Typography.Text>
+  }
+  if (kind === 'ICPC') {
+    if (item.status === 'ac') {
+      const wrong = Math.max(0, item.submit - 1)
+      return (
+        <Space direction="vertical" size={0} align="center">
+          <Tag color="success">{wrong > 0 ? `+${wrong}` : '+'}</Tag>
+          <Typography.Text type="secondary">{item.penalty}</Typography.Text>
+        </Space>
       )
-    },
-    {
-      title: text.submissions.user,
-      dataIndex: 'user',
-      width: 120,
-      render: (user: string) => <Link to={`/users/${user}`}>{user}</Link>
-    },
-    {
-      title: text.submissions.status,
-      dataIndex: 'status',
-      width: 110,
-      render: (status: string) => <SubmissionStatus status={status} />
-    },
-    {
-      title: text.submissions.score,
-      dataIndex: 'score',
-      width: 90
-    },
-    {
-      title: text.submissions.created,
-      dataIndex: 'createdAt',
-      width: 180,
-      render: (value: string) => <Typography.Text className="nowrap">{formatTime(value, lang)}</Typography.Text>
     }
-  ]
+    return <Tag color="error">-{item.submit}</Tag>
+  }
+  if (item.status === 'ac') {
+    return <Tag color="success">{item.score}</Tag>
+  }
+  return <Tag color={item.score > 0 ? 'warning' : 'error'}>{item.score}</Tag>
 }
 
 function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Problem>['columns'] {
@@ -319,23 +291,27 @@ function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<
     {
       title: text.common.sort,
       dataIndex: 'sort',
-      width: 90,
       render: (sort: string | undefined, row) => <Typography.Text>{sort || problemCode(row.id)}</Typography.Text>
     },
     {
-      title: text.problems.id,
-      dataIndex: 'id',
-      width: 120,
-      render: (id: number) => <Typography.Text>{problemCode(id)}</Typography.Text>
+      title: text.submissions.problem,
+      dataIndex: 'title',
+      render: (title: string, row) => <ProblemLink id={row.id} title={title} />
     },
     {
-      title: text.problems.title,
-      dataIndex: 'title',
-      render: (title: string, row) => (
-        <Typography.Text ellipsis className="lineText">
-          <Link to={`/problems/${row.id}`}>{title}</Link>
-        </Typography.Text>
-      )
+      title: text.contests.status,
+      dataIndex: 'mine',
+      render: (mine: string) => <ContestProblemStatus mine={mine} text={text} />
     }
   ]
+}
+
+function ContestProblemStatus({ mine, text }: { mine?: string; text: ReturnType<typeof useLocale>['text'] }) {
+  if (mine === 'ac') {
+    return <Tag color="success">{text.contests.completed}</Tag>
+  }
+  if (mine === 'tried') {
+    return <Tag color="warning">{text.contests.attempted}</Tag>
+  }
+  return <Tag>{text.contests.notCompleted}</Tag>
 }

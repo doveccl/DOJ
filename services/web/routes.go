@@ -38,13 +38,7 @@ type API struct {
 const (
 	maxAssetBytes         = 128 << 20
 	maxEditableAssetBytes = 1 << 20
-	imageBodyLimit        = "6M"
-	assetBodyLimit        = "130M"
-	editAssetBodyLimit    = "2M"
-	markdownBodyLimit     = "2M"
-	sourceBodyLimit       = "1M"
-	shortTextBodyLimit    = "256K"
-	maxTitleRunes         = 255
+	maxTitleRunes         = models.TitleMax
 )
 
 type Home struct {
@@ -140,9 +134,22 @@ type ProblemRef struct {
 }
 
 type AssignmentDetail struct {
-	Assignment  AssignmentDTO   `json:"assignment"`
-	Problems    []ProblemDTO    `json:"problems"`
-	Submissions []SubmissionDTO `json:"submissions"`
+	Assignment  AssignmentDTO           `json:"assignment"`
+	Problems    []ProblemDTO            `json:"problems"`
+	Submissions []SubmissionDTO         `json:"submissions"`
+	Progress    []AssignmentProgressDTO `json:"progress"`
+}
+
+type AssignmentProgressDTO struct {
+	User     string                         `json:"user"`
+	AC       int                            `json:"ac"`
+	Submit   int                            `json:"submit"`
+	Problems []AssignmentProblemProgressDTO `json:"problems"`
+}
+
+type AssignmentProblemProgressDTO struct {
+	ProblemID uint   `json:"problemId"`
+	Status    string `json:"status"`
 }
 
 type ContestDTO struct {
@@ -221,14 +228,23 @@ type CaseDTO struct {
 }
 
 type RankUserDTO struct {
-	Rank    int    `json:"rank"`
-	User    string `json:"user"`
-	Bio     string `json:"bio"`
-	Avatar  string `json:"avatar"`
-	AC      int    `json:"ac"`
-	Submit  int    `json:"submit"`
-	Score   int    `json:"score"`
-	Penalty int    `json:"penalty"`
+	Rank     int              `json:"rank"`
+	User     string           `json:"user"`
+	Bio      string           `json:"bio"`
+	Avatar   string           `json:"avatar"`
+	AC       int              `json:"ac"`
+	Submit   int              `json:"submit"`
+	Score    int              `json:"score"`
+	Penalty  int              `json:"penalty"`
+	Problems []RankProblemDTO `json:"problems"`
+}
+
+type RankProblemDTO struct {
+	ProblemID uint   `json:"problemId"`
+	Status    string `json:"status"`
+	Submit    int    `json:"submit"`
+	Score     int    `json:"score"`
+	Penalty   int    `json:"penalty"`
 }
 
 type PublicUserDTO struct {
@@ -328,6 +344,7 @@ type RecordDTO struct {
 type ProblemCreate struct {
 	Title    string   `json:"title"`
 	Tags     []string `json:"tags"`
+	Visible  *bool    `json:"visible"`
 	Mode     string   `json:"mode"`
 	TimeMS   int      `json:"timeMs"`
 	MemoryMB int      `json:"memoryMb"`
@@ -391,35 +408,35 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	e.GET("/api/health", api.health)
 	e.GET("/api/ready", api.ready)
 	e.GET("/api/site", api.site)
-	e.POST("/api/auth/login", api.login, api.rateLimit("auth", 20, time.Minute), echomw.BodyLimit(shortTextBodyLimit))
-	e.POST("/api/auth/register", api.register, api.rateLimit("auth", 20, time.Minute), echomw.BodyLimit(shortTextBodyLimit))
+	e.POST("/api/auth/login", api.login, api.rateLimit("auth", 20, time.Minute), echomw.BodyLimit(utils.BodyLimitShortText))
+	e.POST("/api/auth/register", api.register, api.rateLimit("auth", 20, time.Minute), echomw.BodyLimit(utils.BodyLimitShortText))
 	e.POST("/api/auth/logout", api.logout)
 	e.GET("/api/me", api.me)
-	e.PATCH("/api/me", api.updateMe, echomw.BodyLimit(shortTextBodyLimit))
+	e.PATCH("/api/me", api.updateMe, echomw.BodyLimit(utils.BodyLimitShortText))
 	e.PATCH("/api/me/password", api.updatePassword)
 	group := e.Group("/api", api.requireGuestAccess)
 	group.GET("/events", api.events)
 	group.GET("/home", api.home)
 	group.GET("/languages", api.languages)
-	group.PATCH("/home/notice", api.updateNotice, echomw.BodyLimit(markdownBodyLimit))
-	group.POST("/uploads/images", api.uploadImage, api.rateLimit("upload", 60, time.Minute), echomw.BodyLimit(imageBodyLimit))
+	group.PATCH("/home/notice", api.updateNotice, echomw.BodyLimit(utils.BodyLimitMarkdown))
+	group.POST("/uploads/images", api.uploadImage, api.rateLimit("upload", 60, time.Minute), echomw.BodyLimit(utils.BodyLimitImage))
 	group.GET("/users/:id/:year/:month/:day/*", api.userMedia)
 	group.GET("/problems", api.problems)
 	group.POST("/problems", api.createProblem)
 	group.GET("/problems/:id", api.problem)
-	group.PATCH("/problems/:id", api.updateProblem, echomw.BodyLimit(markdownBodyLimit))
-	group.PATCH("/problems/:id/visibility", api.updateProblemVisibility, echomw.BodyLimit(shortTextBodyLimit))
+	group.PATCH("/problems/:id", api.updateProblem, echomw.BodyLimit(utils.BodyLimitMarkdown))
+	group.PATCH("/problems/:id/visibility", api.updateProblemVisibility, echomw.BodyLimit(utils.BodyLimitShortText))
 	group.DELETE("/problems/:id", api.deleteProblem)
 	group.GET("/problems/:id/assets", api.problemAssets)
-	group.POST("/problems/:id/assets/images", api.uploadProblemImage, api.rateLimit("problem-upload", 60, time.Minute), echomw.BodyLimit(imageBodyLimit))
+	group.POST("/problems/:id/assets/images", api.uploadProblemImage, api.rateLimit("problem-upload", 60, time.Minute), echomw.BodyLimit(utils.BodyLimitImage))
 	group.GET("/problems/:id/data/*", api.problemPrivateData)
 	group.GET("/problems/:id/judge/*", api.problemPrivateJudge)
-	group.POST("/problems/:id/assets/files", api.uploadProblemAsset, api.rateLimit("problem-upload", 60, time.Minute), echomw.BodyLimit(assetBodyLimit))
+	group.POST("/problems/:id/assets/files", api.uploadProblemAsset, api.rateLimit("problem-upload", 60, time.Minute), echomw.BodyLimit(utils.BodyLimitAsset))
 	group.DELETE("/problems/:id/assets/files", api.deleteProblemAsset)
 	group.GET("/problems/:id/assets/files/content", api.problemAssetContent)
-	group.PATCH("/problems/:id/assets/files/content", api.updateProblemAssetContent, echomw.BodyLimit(editAssetBodyLimit))
-	group.POST("/problems/:id/assets/cases", api.createProblemCase, echomw.BodyLimit(editAssetBodyLimit))
-	group.POST("/problems/:id/assets/template", api.fillJudgeTemplate, echomw.BodyLimit(editAssetBodyLimit))
+	group.PATCH("/problems/:id/assets/files/content", api.updateProblemAssetContent, echomw.BodyLimit(utils.BodyLimitEditAsset))
+	group.POST("/problems/:id/assets/cases", api.createProblemCase, echomw.BodyLimit(utils.BodyLimitEditAsset))
+	group.POST("/problems/:id/assets/template", api.fillJudgeTemplate, echomw.BodyLimit(utils.BodyLimitEditAsset))
 	group.GET("/problems/:id/assets/*", api.problemPublicAsset)
 	group.GET("/assignments", api.assignments)
 	group.POST("/assignments", api.createAssignment)
@@ -432,17 +449,17 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.PATCH("/contests/:id", api.updateContest)
 	group.DELETE("/contests/:id", api.deleteContest)
 	group.GET("/submissions", api.submissions)
-	group.POST("/submissions", api.submit, api.rateLimit("submit", 30, time.Minute), echomw.BodyLimit(sourceBodyLimit))
+	group.POST("/submissions", api.submit, api.rateLimit("submit", 30, time.Minute), echomw.BodyLimit(utils.BodyLimitSource))
 	group.GET("/submissions/:id", api.submission)
 	group.PATCH("/submissions/:id", api.updateSubmission)
 	group.GET("/rank", api.rank)
 	group.GET("/users/:name", api.user)
 	group.GET("/discussion", api.discussions)
-	group.POST("/discussion", api.createDiscussion, api.rateLimit("discussion", 30, time.Minute), echomw.BodyLimit(markdownBodyLimit))
+	group.POST("/discussion", api.createDiscussion, api.rateLimit("discussion", 30, time.Minute), echomw.BodyLimit(utils.BodyLimitMarkdown))
 	group.GET("/discussion/:id", api.discussion)
-	group.PATCH("/discussion/:id", api.updateDiscussion, echomw.BodyLimit(markdownBodyLimit))
+	group.PATCH("/discussion/:id", api.updateDiscussion, echomw.BodyLimit(utils.BodyLimitMarkdown))
 	group.DELETE("/discussion/:id", api.deleteDiscussion)
-	group.POST("/discussion/:id/comments", api.createComment, api.rateLimit("comment", 60, time.Minute), echomw.BodyLimit(shortTextBodyLimit))
+	group.POST("/discussion/:id/comments", api.createComment, api.rateLimit("comment", 60, time.Minute), echomw.BodyLimit(utils.BodyLimitShortText))
 }
 
 func (api *API) requireGuestAccess(next echo.HandlerFunc) echo.HandlerFunc {
@@ -715,10 +732,10 @@ func validateMeUpdate(req MeUpdate) error {
 	if err := validateMail(req.Mail); err != nil {
 		return err
 	}
-	if len([]rune(req.Bio)) > 280 {
+	if len([]rune(req.Bio)) > models.BioMax {
 		return echo.NewHTTPError(http.StatusBadRequest, "bio is too long")
 	}
-	if len(req.Avatar) > 512 {
+	if len(req.Avatar) > models.AvatarMax {
 		return echo.NewHTTPError(http.StatusBadRequest, "avatar url is too long")
 	}
 	return nil
@@ -979,6 +996,9 @@ func (api *API) updateNotice(c echo.Context) error {
 	if strings.TrimSpace(req.Content) == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "notice content is required")
 	}
+	if err := validateTextBytes(req.Content, utils.MaxMarkdownBytes, "notice content is too large"); err != nil {
+		return err
+	}
 
 	settings, err := adminsvc.Settings(api.db)
 	if err != nil {
@@ -1066,10 +1086,15 @@ func (api *API) createProblem(c echo.Context) error {
 	}
 
 	tags, _ := json.Marshal(req.Tags)
+	visible := true
+	if req.Visible != nil {
+		visible = *req.Visible
+	}
+
 	row := models.Problem{
 		Title:    req.Title,
 		Tags:     tags,
-		Visible:  false,
+		Visible:  visible,
 		Mode:     req.Mode,
 		TimeMS:   req.TimeMS,
 		MemoryMB: req.MemoryMB,
@@ -1097,6 +1122,9 @@ func (api *API) updateProblem(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "title is required")
 	}
 	if err := validateTitle(req.Title); err != nil {
+		return err
+	}
+	if err := validateTextBytes(req.Statement, utils.MaxMarkdownBytes, "statement is too large"); err != nil {
 		return err
 	}
 	if !validProblemMode(req.Mode) {
@@ -1716,7 +1744,14 @@ func (api *API) assignment(c echo.Context) error {
 			problems = append(problems, item)
 		}
 	}
+	if err := api.decorateProblemMines(c, problems); err != nil {
+		return err
+	}
 	submissions, err := api.contextSubmissions(c, "assignment", row.ID, nil, api.isAdmin(c), 0)
+	if err != nil {
+		return err
+	}
+	progressRows, err := api.assignmentProgress(row.ID, problems)
 	if err != nil {
 		return err
 	}
@@ -1732,7 +1767,7 @@ func (api *API) assignment(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, AssignmentDetail{Assignment: dto, Problems: problems, Submissions: submissions})
+	return c.JSON(http.StatusOK, AssignmentDetail{Assignment: dto, Problems: problems, Submissions: submissions, Progress: progressRows})
 }
 
 func (api *API) contests(c echo.Context) error {
@@ -1942,6 +1977,9 @@ func (api *API) contest(c echo.Context) error {
 			problems = append(problems, item)
 		}
 	}
+	if err := api.decorateProblemMinesInContest(c, problems, row.ID); err != nil {
+		return err
+	}
 	admin := api.isAdmin(c)
 	submissions := []SubmissionDTO{}
 	rank := []RankUserDTO{}
@@ -1956,7 +1994,7 @@ func (api *API) contest(c echo.Context) error {
 		if err != nil {
 			return err
 		}
-		rank, err = api.contestRank(row, contestIncludeHidden, freezeAt)
+		rank, err = api.contestRank(row, problems, contestIncludeHidden, freezeAt)
 		if err != nil {
 			return err
 		}
@@ -1967,19 +2005,35 @@ func (api *API) contest(c echo.Context) error {
 func (api *API) submissions(c echo.Context) error {
 
 	var rows []models.Submission
-	query := api.db.Order("created_at desc").Limit(50)
+	query := api.db.Model(&models.Submission{}).Order("submissions.created_at desc").Limit(50)
 	if !api.isAdmin(c) {
 		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
 		query = api.applyProblemListVisibility(query)
 	}
-	if status := c.QueryParam("status"); status != "" {
-		query = query.Where("status = ?", status)
-	}
 	if problem := c.QueryParam("problem"); problem != "" {
-		if strings.HasPrefix(strings.ToUpper(problem), "P") {
-			problem = problem[1:]
+		id, err := parseProblemQuery(problem)
+		if err != nil {
+			return err
 		}
-		query = query.Where("problem_id = ?", problem)
+		query = query.Where("submissions.problem_id = ?", id)
+	}
+	if user := strings.TrimSpace(c.QueryParam("user")); user != "" {
+		query = query.Joins("JOIN users submission_users ON submission_users.id = submissions.user_id AND submission_users.deleted_at IS NULL").
+			Where("submission_users.name = ?", user)
+	}
+	if assignment := c.QueryParam("assignment"); assignment != "" {
+		id, err := parseQueryID(assignment, "invalid assignment id")
+		if err != nil {
+			return err
+		}
+		query = query.Where("submissions.assignment_id = ?", id)
+	}
+	if contest := c.QueryParam("contest"); contest != "" {
+		id, err := parseQueryID(contest, "invalid contest id")
+		if err != nil {
+			return err
+		}
+		query = query.Where("submissions.contest_id = ?", id)
 	}
 	if err := query.Find(&rows).Error; err != nil {
 		return err
@@ -2003,6 +2057,9 @@ func (api *API) submit(c echo.Context) error {
 	req.Code = strings.TrimSpace(req.Code)
 	if req.ProblemID == 0 || req.Language == "" || req.Code == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "problem, language and code are required")
+	}
+	if err := validateTextBytes(req.Code, utils.MaxSourceBytes, "source code is too large"); err != nil {
+		return err
 	}
 
 	var problem models.Problem
@@ -2183,7 +2240,7 @@ func (api *API) contextSubmissions(c echo.Context, context string, id uint, unti
 	return items, nil
 }
 
-func (api *API) contestRank(contest models.Contest, includeHidden bool, until *time.Time) ([]RankUserDTO, error) {
+func (api *API) contestRank(contest models.Contest, problems []ProblemDTO, includeHidden bool, until *time.Time) ([]RankUserDTO, error) {
 	var rows []models.Submission
 	query := api.db.
 		Joins("JOIN users ON users.id = submissions.user_id AND users.deleted_at IS NULL").
@@ -2204,9 +2261,9 @@ func (api *API) contestRank(contest models.Contest, includeHidden bool, until *t
 		return nil, err
 	}
 	if contest.Kind == "ICPC" {
-		return icpcRank(contest, rows, users), nil
+		return icpcRank(contest, rows, users, problems), nil
 	}
-	return oiRank(rows, users), nil
+	return oiRank(rows, users, problems), nil
 }
 
 func (api *API) rankUsers(submissions []models.Submission) (map[uint]models.User, error) {
@@ -2232,37 +2289,52 @@ func (api *API) rankUsers(submissions []models.Submission) (map[uint]models.User
 	return users, nil
 }
 
-func oiRank(submissions []models.Submission, users map[uint]models.User) []RankUserDTO {
+func oiRank(submissions []models.Submission, users map[uint]models.User, problems []ProblemDTO) []RankUserDTO {
 	type state struct {
-		user   models.User
-		submit int
-		best   map[uint]int
+		user    models.User
+		submit  int
+		score   map[uint]int
+		attempt map[uint]int
 	}
+	problemSet := rankProblemSet(problems)
 	states := map[uint]*state{}
 	for _, row := range submissions {
+		if !problemSet[row.ProblemID] {
+			continue
+		}
 		user, ok := users[row.UserID]
 		if !ok {
 			continue
 		}
 		got := states[row.UserID]
 		if got == nil {
-			got = &state{user: user, best: map[uint]int{}}
+			got = &state{user: user, score: map[uint]int{}, attempt: map[uint]int{}}
 			states[row.UserID] = got
 		}
 		got.submit++
-		got.best[row.ProblemID] = row.Score
+		got.attempt[row.ProblemID]++
+		got.score[row.ProblemID] = row.Score
 	}
 	items := make([]RankUserDTO, 0, len(states))
 	for _, got := range states {
 		score := 0
 		ac := 0
-		for _, value := range got.best {
-			score += value
+		problemItems := make([]RankProblemDTO, 0, len(problems))
+		for _, problem := range problems {
+			value := got.score[problem.ID]
+			submit := got.attempt[problem.ID]
+			status := "none"
+			if submit > 0 {
+				status = "tried"
+			}
 			if value >= 100 {
+				status = "ac"
 				ac++
 			}
+			score += value
+			problemItems = append(problemItems, RankProblemDTO{ProblemID: problem.ID, Status: status, Submit: submit, Score: value})
 		}
-		items = append(items, RankUserDTO{User: got.user.Name, Bio: got.user.Bio, Avatar: got.user.Avatar, AC: ac, Submit: got.submit, Score: score})
+		items = append(items, RankUserDTO{User: got.user.Name, Bio: got.user.Bio, Avatar: got.user.Avatar, AC: ac, Submit: got.submit, Score: score, Problems: problemItems})
 	}
 	sort.Slice(items, func(i, j int) bool {
 		if items[i].Score != items[j].Score {
@@ -2276,9 +2348,10 @@ func oiRank(submissions []models.Submission, users map[uint]models.User) []RankU
 	return items
 }
 
-func icpcRank(contest models.Contest, submissions []models.Submission, users map[uint]models.User) []RankUserDTO {
+func icpcRank(contest models.Contest, submissions []models.Submission, users map[uint]models.User, problems []ProblemDTO) []RankUserDTO {
 	type problemState struct {
 		wrong   int
+		submit  int
 		solved  bool
 		penalty int
 	}
@@ -2287,8 +2360,12 @@ func icpcRank(contest models.Contest, submissions []models.Submission, users map
 		submit   int
 		problems map[uint]*problemState
 	}
+	problemSet := rankProblemSet(problems)
 	states := map[uint]*state{}
 	for _, row := range submissions {
+		if !problemSet[row.ProblemID] {
+			continue
+		}
 		user, ok := users[row.UserID]
 		if !ok {
 			continue
@@ -2304,6 +2381,7 @@ func icpcRank(contest models.Contest, submissions []models.Submission, users map
 			problem = &problemState{}
 			got.problems[row.ProblemID] = problem
 		}
+		problem.submit++
 		if problem.solved {
 			continue
 		}
@@ -2324,13 +2402,27 @@ func icpcRank(contest models.Contest, submissions []models.Submission, users map
 	for _, got := range states {
 		ac := 0
 		penalty := 0
-		for _, problem := range got.problems {
-			if problem.solved {
-				ac++
-				penalty += problem.penalty
+		problemItems := make([]RankProblemDTO, 0, len(problems))
+		for _, contestProblem := range problems {
+			problem := got.problems[contestProblem.ID]
+			status := "none"
+			submit := 0
+			problemPenalty := 0
+			if problem != nil {
+				submit = problem.submit
+				if problem.solved {
+					status = "ac"
+					submit = problem.wrong + 1
+					problemPenalty = problem.penalty
+					ac++
+					penalty += problem.penalty
+				} else if problem.submit > 0 {
+					status = "tried"
+				}
 			}
+			problemItems = append(problemItems, RankProblemDTO{ProblemID: contestProblem.ID, Status: status, Submit: submit, Score: boolScore(status == "ac"), Penalty: problemPenalty})
 		}
-		items = append(items, RankUserDTO{User: got.user.Name, Bio: got.user.Bio, Avatar: got.user.Avatar, AC: ac, Submit: got.submit, Score: ac, Penalty: penalty})
+		items = append(items, RankUserDTO{User: got.user.Name, Bio: got.user.Bio, Avatar: got.user.Avatar, AC: ac, Submit: got.submit, Score: ac, Penalty: penalty, Problems: problemItems})
 	}
 	sort.Slice(items, func(i, j int) bool {
 		if items[i].AC != items[j].AC {
@@ -2348,6 +2440,21 @@ func icpcRank(contest models.Contest, submissions []models.Submission, users map
 		items[index].Rank = index + 1
 	}
 	return items
+}
+
+func rankProblemSet(problems []ProblemDTO) map[uint]bool {
+	items := make(map[uint]bool, len(problems))
+	for _, problem := range problems {
+		items[problem.ID] = true
+	}
+	return items
+}
+
+func boolScore(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
 }
 
 func penalizable(status string) bool {
@@ -2407,6 +2514,128 @@ func (api *API) contextRank(context string, id uint, includeHidden bool, until *
 		items[index].Rank = index + 1
 	}
 	return items, nil
+}
+
+func (api *API) assignmentProgress(id uint, problems []ProblemDTO) ([]AssignmentProgressDTO, error) {
+	userIDs, err := api.assignmentProgressUserIDs(id)
+	if err != nil {
+		return nil, err
+	}
+	if len(userIDs) == 0 {
+		return []AssignmentProgressDTO{}, nil
+	}
+
+	var users []models.User
+	if err := api.db.Where("id IN ?", userIDs).Order("name asc").Find(&users).Error; err != nil {
+		return nil, err
+	}
+
+	problemIDs := make([]uint, 0, len(problems))
+	for _, problem := range problems {
+		problemIDs = append(problemIDs, problem.ID)
+	}
+
+	type state struct {
+		item      AssignmentProgressDTO
+		byProblem map[uint]*AssignmentProblemProgressDTO
+	}
+	states := map[uint]*state{}
+	for _, user := range users {
+		item := AssignmentProgressDTO{
+			User:     user.Name,
+			Problems: make([]AssignmentProblemProgressDTO, 0, len(problems)),
+		}
+		byProblem := map[uint]*AssignmentProblemProgressDTO{}
+		for _, problem := range problems {
+			item.Problems = append(item.Problems, AssignmentProblemProgressDTO{ProblemID: problem.ID, Status: "none"})
+			byProblem[problem.ID] = &item.Problems[len(item.Problems)-1]
+		}
+		states[user.ID] = &state{item: item, byProblem: byProblem}
+	}
+
+	if len(problemIDs) > 0 {
+		var submissions []struct {
+			UserID    uint
+			ProblemID uint
+			Status    string
+		}
+		if err := api.db.Model(&models.Submission{}).
+			Select("user_id, problem_id, status").
+			Where("assignment_id = ? AND user_id IN ? AND problem_id IN ?", id, userIDs, problemIDs).
+			Find(&submissions).Error; err != nil {
+			return nil, err
+		}
+		for _, submission := range submissions {
+			got := states[submission.UserID]
+			if got == nil {
+				continue
+			}
+			got.item.Submit++
+			problem := got.byProblem[submission.ProblemID]
+			if problem == nil {
+				continue
+			}
+			if submission.Status == "AC" {
+				problem.Status = "ac"
+				continue
+			}
+			if problem.Status != "ac" {
+				problem.Status = "tried"
+			}
+		}
+	}
+
+	items := make([]AssignmentProgressDTO, 0, len(states))
+	for _, got := range states {
+		for _, problem := range got.item.Problems {
+			if problem.Status == "ac" {
+				got.item.AC++
+			}
+		}
+		items = append(items, got.item)
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].AC != items[j].AC {
+			return items[i].AC > items[j].AC
+		}
+		if items[i].Submit != items[j].Submit {
+			return items[i].Submit < items[j].Submit
+		}
+		return items[i].User < items[j].User
+	})
+	return items, nil
+}
+
+func (api *API) assignmentProgressUserIDs(id uint) ([]uint, error) {
+	userSet := map[uint]struct{}{}
+	var direct []models.AssignmentUser
+	if err := api.db.Where("assignment_id = ?", id).Find(&direct).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range direct {
+		userSet[row.UserID] = struct{}{}
+	}
+
+	var grouped []struct {
+		UserID uint
+	}
+	if err := api.db.Model(&models.GroupUser{}).
+		Select("group_users.user_id").
+		Joins("JOIN assignment_groups ON assignment_groups.group_id = group_users.group_id").
+		Where("assignment_groups.assignment_id = ?", id).
+		Find(&grouped).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range grouped {
+		userSet[row.UserID] = struct{}{}
+	}
+
+	userIDs := make([]uint, 0, len(userSet))
+	for id := range userSet {
+		userIDs = append(userIDs, id)
+	}
+	sort.Slice(userIDs, func(i, j int) bool { return userIDs[i] < userIDs[j] })
+	return userIDs, nil
 }
 
 func (api *API) contextUserStats(userID uint, context string, id uint, includeHidden bool, until *time.Time) (int, int, error) {
@@ -2810,6 +3039,9 @@ func (api *API) createDiscussion(c echo.Context) error {
 	if err := validateTitle(req.Title); err != nil {
 		return err
 	}
+	if err := validateTextBytes(req.Content, utils.MaxMarkdownBytes, "discussion content is too large"); err != nil {
+		return err
+	}
 	user, err := api.currentUser(c)
 	if err != nil {
 		return err
@@ -2900,6 +3132,9 @@ func (api *API) updateDiscussion(c echo.Context) error {
 	if err := validateTitle(req.Title); err != nil {
 		return err
 	}
+	if err := validateTextBytes(req.Content, utils.MaxMarkdownBytes, "discussion content is too large"); err != nil {
+		return err
+	}
 
 	var row models.Discussion
 	if err := api.db.First(&row, id).Error; err != nil {
@@ -2959,6 +3194,9 @@ func (api *API) createComment(c echo.Context) error {
 	if req.Content == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "content is required")
 	}
+	if err := validateTextBytes(req.Content, utils.MaxShortTextBytes, "comment content is too large"); err != nil {
+		return err
+	}
 
 	user, err := api.currentUser(c)
 	if err != nil {
@@ -2989,8 +3227,24 @@ func parseID(c echo.Context, name string, message string) (uint, error) {
 	return uint(id), nil
 }
 
+func parseQueryID(value string, message string) (uint, error) {
+	id, err := strconv.ParseUint(strings.TrimSpace(value), 10, 64)
+	if err != nil {
+		return 0, echo.NewHTTPError(http.StatusBadRequest, message)
+	}
+	return uint(id), nil
+}
+
+func parseProblemQuery(value string) (uint, error) {
+	value = strings.TrimSpace(value)
+	if strings.HasPrefix(strings.ToUpper(value), "P") {
+		value = value[1:]
+	}
+	return parseQueryID(value, "invalid problem id")
+}
+
 func (api *API) listProblems(c echo.Context, limit int) ([]ProblemDTO, error) {
-	return api.searchProblems(c, "", "", limit)
+	return api.findProblems(c, "", "", limit, "id desc")
 }
 
 func (api *API) currentUser(c echo.Context) (models.User, error) {
@@ -3048,9 +3302,12 @@ func uploadExt(_ string, mime string) string {
 }
 
 func (api *API) searchProblems(c echo.Context, q string, tag string, limit int) ([]ProblemDTO, error) {
+	return api.findProblems(c, q, tag, limit, "id asc")
+}
 
+func (api *API) findProblems(c echo.Context, q string, tag string, limit int, order string) ([]ProblemDTO, error) {
 	var rows []models.Problem
-	query := api.db.Order("id desc").Limit(limit)
+	query := api.db.Order(order).Limit(limit)
 	if !api.isAdmin(c) {
 		query = api.applyProblemListVisibility(query)
 	}
@@ -3115,12 +3372,11 @@ func (api *API) problemStatement(ctx context.Context, id uint, title string) (st
 		return "# " + title, nil
 	}
 	defer reader.Close()
-	const maxStatementBytes = 2 << 20
-	data, err := io.ReadAll(io.LimitReader(reader, maxStatementBytes+1))
+	data, err := io.ReadAll(io.LimitReader(reader, utils.MaxMarkdownBytes+1))
 	if err != nil {
 		return "", err
 	}
-	if len(data) > maxStatementBytes {
+	if len(data) > utils.MaxMarkdownBytes {
 		return "", echo.NewHTTPError(http.StatusRequestEntityTooLarge, "statement is too large")
 	}
 	if strings.TrimSpace(string(data)) == "" {
@@ -3132,6 +3388,9 @@ func (api *API) problemStatement(ctx context.Context, id uint, title string) (st
 func (api *API) writeProblemStatement(ctx context.Context, id uint, statement string) error {
 	store, err := utils.NewObjectStoreFromEnv()
 	if err != nil {
+		return err
+	}
+	if err := validateTextBytes(statement, utils.MaxMarkdownBytes, "statement is too large"); err != nil {
 		return err
 	}
 	body := strings.TrimSpace(statement)
@@ -3268,6 +3527,64 @@ func (api *API) decorateProblemMines(c echo.Context, items []ProblemDTO) error {
 	if err := api.db.Model(&models.Submission{}).
 		Select("problem_id, id, status, score, created_at").
 		Where("user_id = ? AND problem_id IN ?", user.ID, ids).
+		Order("created_at desc").
+		Find(&rows).Error; err != nil {
+		return err
+	}
+	mine := map[uint]string{}
+	latest := map[uint]RecordDTO{}
+	for _, row := range rows {
+		if _, ok := latest[row.ProblemID]; !ok {
+			latest[row.ProblemID] = RecordDTO{ID: row.ID, Status: row.Status, Score: row.Score, CreatedAt: row.CreatedAt}
+		}
+		if row.Status == "AC" {
+			mine[row.ProblemID] = "ac"
+			continue
+		}
+		if mine[row.ProblemID] == "" {
+			mine[row.ProblemID] = "tried"
+		}
+	}
+	for index := range items {
+		items[index].Mine = mine[items[index].ID]
+		if items[index].Mine == "" {
+			items[index].Mine = "none"
+		}
+		if item, ok := latest[items[index].ID]; ok {
+			items[index].Latest = &item
+		}
+	}
+	return nil
+}
+
+func (api *API) decorateProblemMinesInContest(c echo.Context, items []ProblemDTO, contestID uint) error {
+	if len(items) == 0 {
+		return nil
+	}
+	for index := range items {
+		items[index].Mine = "none"
+	}
+	if api.role(c) == "guest" {
+		return nil
+	}
+	user, err := api.currentUser(c)
+	if err != nil {
+		return err
+	}
+	ids := make([]uint, 0, len(items))
+	for _, item := range items {
+		ids = append(ids, item.ID)
+	}
+	var rows []struct {
+		ProblemID uint
+		ID        uint
+		Status    string
+		Score     int
+		CreatedAt time.Time
+	}
+	if err := api.db.Model(&models.Submission{}).
+		Select("problem_id, id, status, score, created_at").
+		Where("user_id = ? AND contest_id = ? AND problem_id IN ?", user.ID, contestID, ids).
 		Order("created_at desc").
 		Find(&rows).Error; err != nil {
 		return err
@@ -4023,7 +4340,7 @@ func (api *API) validateProblemRefs(items []ProblemRef) error {
 		if seen[item.ID] {
 			return echo.NewHTTPError(http.StatusBadRequest, "duplicate problem id")
 		}
-		if len([]rune(item.Sort)) > 16 {
+		if len([]rune(item.Sort)) > models.SortMax {
 			return echo.NewHTTPError(http.StatusBadRequest, "problem sort is too long")
 		}
 		seen[item.ID] = true
@@ -4104,7 +4421,7 @@ func cleanUintList(values []uint) []uint {
 }
 
 func validateRegister(req RegisterRequest) error {
-	if len(req.Name) < 3 || len(req.Name) > 32 || !validName(req.Name) {
+	if len(req.Name) < models.UserNameMin || len(req.Name) > models.UserNameMax || !validName(req.Name) {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid username")
 	}
 	if err := validateMail(req.Mail); err != nil {
@@ -4133,7 +4450,7 @@ func validName(name string) bool {
 }
 
 func validateMail(value string) error {
-	if value == "" || len(value) > 255 {
+	if value == "" || len(value) > models.MailMax {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid mail")
 	}
 	addr, err := mail.ParseAddress(value)
@@ -4146,6 +4463,13 @@ func validateMail(value string) error {
 func validateTitle(value string) error {
 	if len([]rune(value)) > maxTitleRunes {
 		return echo.NewHTTPError(http.StatusBadRequest, "title is too long")
+	}
+	return nil
+}
+
+func validateTextBytes(value string, max int, message string) error {
+	if len([]byte(value)) > max {
+		return echo.NewHTTPError(http.StatusRequestEntityTooLarge, message)
 	}
 	return nil
 }
@@ -4207,24 +4531,6 @@ func (api *API) role(c echo.Context) string {
 		return "admin"
 	}
 	return "user"
-}
-
-func filterSubmissions(items []SubmissionDTO, problem string, status string) []SubmissionDTO {
-	if problem == "" && status == "" {
-		return items
-	}
-	problem = strings.TrimPrefix(strings.ToUpper(problem), "P")
-	filtered := make([]SubmissionDTO, 0, len(items))
-	for _, item := range items {
-		if problem != "" && strconv.Itoa(int(item.ProblemID)) != problem {
-			continue
-		}
-		if status != "" && item.Status != status {
-			continue
-		}
-		filtered = append(filtered, item)
-	}
-	return filtered
 }
 
 func baseDiscussionDetails(now time.Time) []DiscussionDetail {

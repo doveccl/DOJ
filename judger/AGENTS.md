@@ -1,63 +1,34 @@
-# judger 规则
+# Judger Rules
 
-`judger/` 放所有评测机相关代码，包括宿主侧 judger 和容器内 runner。
+`judger/` contains both host-side judger code and container-side runner code. The real judger is Linux-only.
 
-评测机只支持 Linux。`doj-judger` 和 `doj-runner` 入口必须保持 Linux-only；不要增加 macOS、BSD 或 Windows 的运行时兼容分支。非 Linux stub 只允许用于让 Mac 上的 server/web 开发测试能够编译，不代表评测能力。
+## Boundaries
 
-## 数据边界
+- Judger talks only to the server API.
+- PostgreSQL, Redis/Valkey, and object storage are server-only dependencies.
+- Language config comes from the server as a source file name and Dockerfile. The Dockerfile prepares the user program; runner executes the command from `CMD`.
+- Server sends resource limits to judger in KB. Judger reports memory in KB.
 
-- judger 只访问 server API。
-- PostgreSQL、Valkey、S3/MinIO 只由 server 访问。
-- 题包、提交源码、语言配置、任务信息和结果回传都通过 server judger API 流转。
-- 语言配置来自 server 的源文件名和 Dockerfile。Dockerfile 需要复制提交源码并提供 `CMD`。
-- 题目表里的内存限制是 MB，server 下发给 judger 的资源限制是 KB，judger 回写提交和 case 内存也使用 KB。
+## Execution Model
 
-## 执行模型
-
-- 每个 submission 启动或复用一个 warm language container。
-- `doj-runner` 在 language container 内运行。
-- 每个 case 重新启动 JudgeProgram 和 UserProgram。
-- 普通评测、special judge、interactive judge 都使用同一 pipe 模型：
+- A submission runs in one language container.
+- Multiple cases reuse the container.
+- Each case starts fresh JudgeProgram and UserProgram processes.
+- Builtin judge, custom checker, and interactive judge all use the same pipe model:
   - JudgeProgram stdout -> UserProgram stdin
   - UserProgram stdout -> JudgeProgram stdin
-- JudgeProgram 的结构化结果走专用内部通道，UserProgram 不能继承该通道。
+- Control protocol uses Unix domain socket + Go gob, not stdout/stderr.
 
-## judger / runner 协议
+## Isolation
 
-- judger 与 runner 使用 Unix domain socket + Go gob。
-- 控制协议不复用 stdout/stderr。
-- job 目录由 judger 创建并 bind mount 到 language container。
+- cgroup v2 is the source of truth for per-case memory.
+- UserProgram must enter the case cgroup before exec.
+- JudgeProgram and UserProgram use different child processes, UIDs/GIDs, and process groups.
+- Runner internal fds, answer files, result files, judge binaries, and control sockets must not be inherited by UserProgram.
+- Every case must kill process groups, reap children, close pipes/fds, clean temp files, and clean remaining cgroup processes.
 
-## cgroup 与进程
+## Tests
 
-- Linux cgroup v2 是资源统计真值。
-- 每个 case 建独立 cgroup。
-- memory 真值来自 `memory.peak`。
-- time、memory、OOM、exit code、signal 由 judger 观测。
-- UserProgram 必须先进入 cgroup，再 exec 用户代码。
-- JudgeProgram 和 UserProgram 使用不同子进程、不同 UID/GID、不同 process group。
-
-UserProgram 启动顺序：
-
-1. runner fork UserProgram child。
-2. child 暂停，暂不 exec。
-3. runner 通知 judger inner PID。
-4. judger 映射 host PID。
-5. judger 创建并配置 case cgroup。
-6. judger 将 host PID 写入 cgroup.procs。
-7. judger 通知 runner 放行。
-8. child 设置 UID/GID、rlimit、关闭 fd 后 exec。
-
-## 清理要求
-
-- 每个 case 结束后清理 JudgeProgram process group。
-- 每个 case 结束后清理 UserProgram process group。
-- 关闭所有 pipe 和内部 fd。
-- 清理 case 临时目录。
-- 使用 cgroup 清理残留 UserProgram 进程。
-
-## 测试要求
-
-- 普通题、custom checker、interactive judge、Quine 类回显、输出爆炸、超时、编译限制和 case 隔离必须有 Go 测试覆盖。
-- cgroup v2 和 Docker 恶意测试只在 Linux 上运行；测试代码自动检测前置条件，不要要求调用方通过环境变量开启测试。
-- Mac 上不要把 judger 相关测试通过视为评测机验收；评测链路必须在 Linux 上用真实 Docker/cgroup 跑通。
+- Keep tests for normal judging, custom checker, interactive judging, Quine-style interaction, output flood, timeout, compile limits, case isolation, fd inheritance, Docker, and cgroup behavior.
+- Docker and cgroup tests may skip when prerequisites are missing, but Linux validation must run them on a real Linux host before treating the judger as accepted.
+- Non-Linux stubs are only for compiling server/web development on non-Linux hosts; they are not judger support.

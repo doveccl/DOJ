@@ -70,14 +70,17 @@ func TestValidateResult(t *testing.T) {
 	tests := []struct {
 		name string
 		req  ResultRequest
+		want int
 	}{
-		{name: "missing target", req: ResultRequest{Status: "AC", Score: 100}},
-		{name: "missing attempt", req: ResultRequest{SubmissionID: 1, Status: "AC", Score: 100}},
-		{name: "bad status", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "queued", Score: 0}},
-		{name: "negative score", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: -1}},
-		{name: "large score", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 101}},
-		{name: "bad case no", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []CaseResult{{No: 0, Status: "WA"}}}},
-		{name: "bad case status", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []CaseResult{{No: 1, Status: "queued"}}}},
+		{name: "missing target", req: ResultRequest{Status: "AC", Score: 100}, want: http.StatusBadRequest},
+		{name: "missing attempt", req: ResultRequest{SubmissionID: 1, Status: "AC", Score: 100}, want: http.StatusBadRequest},
+		{name: "bad status", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "queued", Score: 0}, want: http.StatusBadRequest},
+		{name: "negative score", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: -1}, want: http.StatusBadRequest},
+		{name: "large score", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 101}, want: http.StatusBadRequest},
+		{name: "large message", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Message: strings.Repeat("x", utils.MaxJudgerMessageBytes+1)}, want: http.StatusRequestEntityTooLarge},
+		{name: "bad case no", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []CaseResult{{No: 0, Status: "WA"}}}, want: http.StatusBadRequest},
+		{name: "bad case status", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []CaseResult{{No: 1, Status: "queued"}}}, want: http.StatusBadRequest},
+		{name: "large case message", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []CaseResult{{No: 1, Status: "WA", Message: strings.Repeat("x", models.CaseMessageMax+1)}}}, want: http.StatusRequestEntityTooLarge},
 	}
 	for _, item := range tests {
 		t.Run(item.name, func(t *testing.T) {
@@ -85,7 +88,7 @@ func TestValidateResult(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected validation error")
 			}
-			expectHTTPStatus(t, err, http.StatusBadRequest)
+			expectHTTPStatus(t, err, item.want)
 		})
 	}
 }

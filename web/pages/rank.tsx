@@ -30,33 +30,34 @@ function rankColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Ran
     {
       title: text.rank.rank,
       dataIndex: 'rank',
-      width: 100
     },
     {
       title: text.rank.user,
       render: (_, row) => (
         <Flex align="center" gap={12}>
           <Avatar src={row.avatar || undefined}>{row.user.slice(0, 1).toUpperCase()}</Avatar>
-          <Flex vertical>
-            <Typography.Text strong>
-              <Link to={`/users/${row.user}`}>{row.user}</Link>
-            </Typography.Text>
-            <Typography.Text type="secondary" ellipsis className="lineText">
-              {row.bio}
-            </Typography.Text>
-          </Flex>
+          <Typography.Text strong>
+            <Link to={`/users/${row.user}`}>{row.user}</Link>
+          </Typography.Text>
         </Flex>
+      )
+    },
+    {
+      title: text.profile.bio,
+      dataIndex: 'bio',
+      render: (bio: string) => (
+        <Typography.Text type={bio ? undefined : 'secondary'} ellipsis className="lineText">
+          {bio || text.user.noBio}
+        </Typography.Text>
       )
     },
     {
       title: text.rank.ac,
       dataIndex: 'ac',
-      width: 120
     },
     {
       title: text.rank.submit,
       dataIndex: 'submit',
-      width: 140
     }
   ]
 }

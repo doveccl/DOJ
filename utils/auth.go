@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/doveccl/doj/models"
@@ -24,17 +23,6 @@ const sessionDays = 30
 type Session struct {
 	UserID    uint
 	ExpiresAt time.Time
-}
-
-var (
-	cookieConfigMu sync.RWMutex
-	cookieConfig   = CookieConfig{SameSite: http.SameSiteLaxMode}
-)
-
-type CookieConfig struct {
-	Domain   string
-	Secure   *bool
-	SameSite http.SameSite
 }
 
 func NewToken() (string, error) {
@@ -54,83 +42,54 @@ func SessionExpiresAt(now time.Time) time.Time {
 	return now.Add(sessionDays * 24 * time.Hour)
 }
 
-func ConfigureCookies(config CookieConfig) {
-	if config.SameSite == 0 {
-		config.SameSite = http.SameSiteLaxMode
-	}
-	cookieConfigMu.Lock()
-	cookieConfig = config
-	cookieConfigMu.Unlock()
-}
-
 func SetSessionCookie(c echo.Context, token string, expiresAt time.Time) {
-	config := currentCookieConfig()
 	c.SetCookie(&http.Cookie{
 		Name:     SessionCookie,
 		Value:    token,
 		Path:     "/",
-		Domain:   config.Domain,
 		Expires:  expiresAt,
 		MaxAge:   int(time.Until(expiresAt).Seconds()),
 		HttpOnly: true,
-		SameSite: config.SameSite,
-		Secure:   cookieSecure(c, config),
+		SameSite: http.SameSiteLaxMode,
+		Secure:   c.Scheme() == "https",
 	})
 	SetCSRFCookie(c, token, expiresAt)
 }
 
 func SetCSRFCookie(c echo.Context, token string, expiresAt time.Time) {
-	config := currentCookieConfig()
 	c.SetCookie(&http.Cookie{
 		Name:     CSRFCookie,
 		Value:    TokenHash(token),
 		Path:     "/",
-		Domain:   config.Domain,
 		Expires:  expiresAt,
 		MaxAge:   int(time.Until(expiresAt).Seconds()),
 		HttpOnly: false,
-		SameSite: config.SameSite,
-		Secure:   cookieSecure(c, config),
+		SameSite: http.SameSiteLaxMode,
+		Secure:   c.Scheme() == "https",
 	})
 }
 
 func ClearSessionCookie(c echo.Context) {
-	config := currentCookieConfig()
 	c.SetCookie(&http.Cookie{
 		Name:     SessionCookie,
 		Value:    "",
 		Path:     "/",
-		Domain:   config.Domain,
 		Expires:  time.Unix(0, 0),
 		MaxAge:   -1,
 		HttpOnly: true,
-		SameSite: config.SameSite,
-		Secure:   cookieSecure(c, config),
+		SameSite: http.SameSiteLaxMode,
+		Secure:   c.Scheme() == "https",
 	})
 	c.SetCookie(&http.Cookie{
 		Name:     CSRFCookie,
 		Value:    "",
 		Path:     "/",
-		Domain:   config.Domain,
 		Expires:  time.Unix(0, 0),
 		MaxAge:   -1,
 		HttpOnly: false,
-		SameSite: config.SameSite,
-		Secure:   cookieSecure(c, config),
+		SameSite: http.SameSiteLaxMode,
+		Secure:   c.Scheme() == "https",
 	})
-}
-
-func currentCookieConfig() CookieConfig {
-	cookieConfigMu.RLock()
-	defer cookieConfigMu.RUnlock()
-	return cookieConfig
-}
-
-func cookieSecure(c echo.Context, config CookieConfig) bool {
-	if config.Secure != nil {
-		return *config.Secure
-	}
-	return c.Scheme() == "https"
 }
 
 func SessionToken(c echo.Context) (string, bool) {

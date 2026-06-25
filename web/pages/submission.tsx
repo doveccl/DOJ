@@ -2,16 +2,17 @@ import { App as AntApp, Card, Col, Flex, Row, Space, Switch, Table, Typography }
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 
 import { getLangs, getSubmission, updateSubmission } from '../client'
 import type { Case, SubmissionDetail } from '../client'
+import { ProblemLink, UserLink } from '../components/entity'
 import { MarkdownPreview } from '../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { SubmissionStatus } from '../components/status'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { caseCode, formatTime, memoryText, problemCode, submissionCode } from '../utils/format'
+import { caseCode, formatTime, memoryText, submissionCode } from '../utils/format'
 
 export function SubmissionDetailPage() {
   const { message } = AntApp.useApp()
@@ -75,12 +76,10 @@ export function SubmissionDetailPage() {
           <Card>
             <Flex vertical gap={12}>
               <Meta label={text.submissions.problem}>
-                <Link to={`/problems/${submission.problemId}`}>
-                  {problemCode(submission.problemId)} {submission.problemTitle}
-                </Link>
+                <ProblemLink id={submission.problemId} title={submission.problemTitle} />
               </Meta>
               <Meta label={text.submissions.user}>
-                <Link to={`/users/${submission.user}`}>{submission.user}</Link>
+                <UserLink name={submission.user} />
               </Meta>
               <Meta label={text.submissions.language}>{languageName}</Meta>
               <Meta label={text.submissions.created}>{formatTime(submission.createdAt, lang)}</Meta>
@@ -125,7 +124,7 @@ function Meta({ label, children }: { label: string; children: ReactNode }) {
   return (
     <Flex justify="space-between" gap={12}>
       <Typography.Text type="secondary">{label}</Typography.Text>
-      <Typography.Text>{children}</Typography.Text>
+      <span>{children}</span>
     </Flex>
   )
 }
@@ -141,7 +140,7 @@ function MetaInline({ label, children }: { label: string; children: ReactNode })
 
 function caseColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Case>['columns'] {
   return [
-    { title: text.submissions.cases, dataIndex: 'no', width: 86, render: (no: number) => caseCode(no) },
+    { title: text.submissions.cases, dataIndex: 'no', render: (no: number) => caseCode(no) },
     {
       title: text.submissions.status,
       dataIndex: 'status',
@@ -150,13 +149,11 @@ function caseColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Cas
     {
       title: text.submissions.time,
       dataIndex: 'timeMs',
-      width: 90,
       render: (value?: number) => (value === undefined ? '-' : `${value}ms`)
     },
     {
       title: text.submissions.memory,
       dataIndex: 'memoryKb',
-      width: 110,
       render: (value?: number) => memoryText(value)
     },
     {

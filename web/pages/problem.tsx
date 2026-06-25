@@ -63,6 +63,7 @@ import { SubmissionStatus } from '../components/status'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
 import { formatBytes, formatLimit, problemCode } from '../utils/format'
+import { limits } from '../utils/limits'
 import { problemAssetUploadMarkdownURL } from '../utils/markdown'
 
 const sourceTemplate = `#include <bits/stdc++.h>
@@ -379,7 +380,7 @@ export function ProblemDetailPage() {
                   onFinish={(values) => edit.mutate(values)}
                 >
                   <Form.Item name="title" label={text.problems.title} rules={[{ required: true, whitespace: true }]}>
-                    <Input maxLength={120} showCount />
+                    <Input maxLength={limits.title} showCount />
                   </Form.Item>
                   <Form.Item name="tags" label={text.problems.tag}>
                     <Select mode="tags" tokenSeparators={[',', '，', ' ']} />
@@ -693,13 +694,11 @@ function AssetSection({
             {
               title: text.problem.size,
               dataIndex: 'size',
-              width: 110,
               render: (size: number) => <Typography.Text type="secondary">{formatBytes(size)}</Typography.Text>
             },
             {
-              title: '',
+              title: text.common.actions,
               key: 'actions',
-              width: 136,
               render: (_, row) => (
                 <Space size={4}>
                   {row.editable ? (

@@ -23,6 +23,7 @@ export type ProblemRef = components['schemas']['ProblemRef']
 export type AssignmentCreate = components['schemas']['AssignmentCreate']
 export type AssignmentUpdate = components['schemas']['AssignmentUpdate']
 export type AssignmentDetail = components['schemas']['AssignmentDetail']
+export type AssignmentProgress = components['schemas']['AssignmentProgress']
 export type Contest = components['schemas']['Contest']
 export type ContestCreate = components['schemas']['ContestCreate']
 export type ContestUpdate = components['schemas']['ContestUpdate']
@@ -33,6 +34,7 @@ export type SubmitRequest = components['schemas']['SubmitRequest']
 export type SubmissionUpdate = components['schemas']['SubmissionUpdate']
 export type Case = components['schemas']['Case']
 export type RankUser = components['schemas']['RankUser']
+export type RankProblem = components['schemas']['RankProblem']
 export type UserProfile = components['schemas']['UserProfile']
 export type UserActivity = components['schemas']['UserActivity']
 export type PublicUser = components['schemas']['PublicUser']
@@ -532,7 +534,7 @@ export async function getContest(id: number) {
   return assertData(data, error)
 }
 
-export async function getSubmissions(params: { problem?: string; status?: string } = {}) {
+export async function getSubmissions(params: { problem?: string; user?: string; assignment?: string; contest?: string } = {}) {
   const { data, error } = await client.GET('/api/submissions', {
     params: { query: params }
   })

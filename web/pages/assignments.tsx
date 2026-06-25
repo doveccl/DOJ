@@ -10,7 +10,6 @@ import {
   Modal,
   Popconfirm,
   Progress,
-  Select,
   Space,
   Table,
   Tooltip,
@@ -25,12 +24,14 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { createAssignment, deleteAssignment, getAdmin, getAssignment, getAssignments, getProblems, updateAssignment } from '../client'
 import type { Assignment, ProblemRef } from '../client'
+import { IdSelect } from '../components/id-select'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { ScheduleTag } from '../components/time'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { problemCode, progress } from '../utils/format'
+import { problemLabel, progress } from '../utils/format'
+import { limits } from '../utils/limits'
 
 type AssignmentForm = {
   title: string
@@ -105,7 +106,7 @@ export function AssignmentsPage() {
   })
   const problemOptions = (problems.data ?? []).map((item) => ({
     value: item.id,
-    label: `${problemCode(item.id)} ${item.title}`
+    label: problemLabel(item.id, item.title)
   }))
   const userOptions = (admin.data?.users ?? []).map((item) => ({
     value: item.id,
@@ -241,7 +242,7 @@ function AssignmentModal({
         onFinish={onSave}
       >
         <Form.Item name="title" label={text.assignments.name} rules={[{ required: true, whitespace: true }]}>
-          <Input maxLength={120} showCount />
+          <Input maxLength={limits.title} showCount />
         </Form.Item>
         <Form.Item name="endAt" label={text.assignments.deadline} rules={[{ required: true }]}>
           <DatePicker showTime style={{ width: '100%' }} />
@@ -250,10 +251,10 @@ function AssignmentModal({
           <ProblemRefInput options={problemOptions} loading={problemLoading || detail.isLoading} />
         </Form.Item>
         <Form.Item name="users" label={text.assignments.users}>
-          <Select mode="multiple" options={userOptions} loading={memberLoading} />
+          <IdSelect disabled={memberLoading} loading={memberLoading} options={userOptions} />
         </Form.Item>
         <Form.Item name="groups" label={text.assignments.groups}>
-          <Select mode="multiple" options={groupOptions} loading={memberLoading} />
+          <IdSelect disabled={memberLoading} loading={memberLoading} options={groupOptions} />
         </Form.Item>
       </Form>
     )
@@ -262,6 +263,7 @@ function AssignmentModal({
     <Modal
       open
       destroyOnHidden
+      width={780}
       title={isEdit ? text.common.edit : text.assignments.create}
       okText={isEdit ? text.common.save : text.common.create}
       cancelText={text.common.cancel}
@@ -298,12 +300,10 @@ function assignmentColumns(
     },
     {
       title: text.assignments.status,
-      width: 150,
       render: (_, row) => <ScheduleTag kind="assignment" status={row.status} target={row.endAt} onFinish={actions.refresh} />
     },
     {
       title: text.assignments.progress,
-      width: 220,
       render: (_, row) => (
         <Flex align="center" gap={10} style={{ minWidth: 160 }}>
           <Progress percent={progress(row)} size="small" showInfo={false} style={{ minWidth: 96 }} />
@@ -314,8 +314,7 @@ function assignmentColumns(
   ]
   if (admin) {
     columns.push({
-      title: '',
-      width: 96,
+      title: text.common.actions,
       align: 'right',
       render: (_, row) => (
         <Space size={4}>

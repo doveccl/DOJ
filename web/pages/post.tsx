@@ -6,11 +6,13 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { createComment, deleteDiscussion, getDiscussion, updateDiscussion } from '../client'
 import type { CommentCreate, DiscussionDetail, DiscussionUpdate } from '../client'
+import { UserLink } from '../components/entity'
 import { MarkdownEditor, MarkdownPreview } from '../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
 import { formatTime } from '../utils/format'
+import { limits } from '../utils/limits'
 
 const commentPageSize = 20
 
@@ -157,7 +159,7 @@ export function PostPage() {
             ) : null}
           </Flex>
           <Space size={8} wrap>
-            <Typography.Text type="secondary">{discussion.author}</Typography.Text>
+            <UserLink name={discussion.author} />
             <Typography.Text type="secondary">{formatTime(discussion.createdAt, lang)}</Typography.Text>
             {discussion.tags.map((tag) => (
               <Tag key={tag}>
@@ -176,7 +178,7 @@ export function PostPage() {
               <Flex vertical gap={8} style={{ width: '100%' }}>
                 <Space size={8}>
                   <Typography.Text type="secondary">{text.discussion.floor(pageStart + index + 1)}</Typography.Text>
-                  <Typography.Text strong>{item.author}</Typography.Text>
+                  <UserLink name={item.author} strong />
                   <Typography.Text type="secondary">{formatTime(item.createdAt, lang)}</Typography.Text>
                 </Space>
                 <div className="compactMarkdown">
@@ -239,7 +241,7 @@ function PostEditModal({
     >
       <Form<DiscussionUpdate> form={form} layout="vertical" initialValues={initial} onFinish={onSave}>
         <Form.Item name="title" label={text.discussion.title} rules={[{ required: true, whitespace: true }]}>
-          <Input maxLength={120} showCount />
+          <Input maxLength={limits.title} showCount />
         </Form.Item>
         <Form.Item name="tags" label={text.discussion.tags}>
           <Select mode="tags" tokenSeparators={[',', '，', ' ']} />

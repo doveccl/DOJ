@@ -1,4 +1,4 @@
-import { DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined } from '@ant-design/icons'
+import { DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import { App as AntApp, Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Statistic, Switch, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
@@ -21,10 +21,13 @@ import {
   updateAdminSettings
 } from '../client'
 import type { AdminGroupUpdate, AdminLangCreate, AdminOverview, AdminSettings, AdminUserCreate } from '../client'
+import { UserLink } from '../components/entity'
 import { ErrorBlock, LoadingBlock } from '../components/state'
+import { IdSelect } from '../components/id-select'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
 import { formatDuration } from '../utils/format'
+import { limits } from '../utils/limits'
 
 type UserRow = AdminOverview['users'][number]
 type GroupRow = AdminOverview['groups'][number]
@@ -32,6 +35,8 @@ type LanguageRow = AdminOverview['languages'][number]
 type JudgerRow = AdminOverview['judgers'][number]
 type JudgerForm = { name: string; auth?: string }
 type UserForm = AdminUserCreate
+type UserEditForm = Pick<AdminUserCreate, 'role' | 'groups'>
+type GroupForm = AdminGroupUpdate
 type SettingsForm = Pick<AdminSettings, 'siteName' | 'allowRegistration' | 'allowGuestAccess' | 'defaultSubmissionPublic'>
 
 const defaultDockerfile = `FROM gcc:14
@@ -51,8 +56,11 @@ export function AdminPage() {
   const [langOpen, setLangOpen] = useState(false)
   const [judgerOpen, setJudgerOpen] = useState(false)
   const [editingGroup, setEditingGroup] = useState<GroupRow | null>(null)
+  const [editingUser, setEditingUser] = useState<UserRow | null>(null)
   const [editingLang, setEditingLang] = useState<LanguageRow | null>(null)
   const [editingJudger, setEditingJudger] = useState<JudgerRow | null>(null)
+  const [userSearch, setUserSearch] = useState('')
+  const [groupSearch, setGroupSearch] = useState('')
   const query = useQuery({ queryKey: ['admin'], queryFn: getAdmin })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
@@ -75,7 +83,10 @@ export function AdminPage() {
   })
   const userSave = useMutation({
     mutationFn: ({ name, role, groups }: { name: string; role: string; groups: number[] }) => updateAdminUser(name, { role, groups }),
-    onSuccess: saveOverview,
+    onSuccess: (data) => {
+      saveOverview(data)
+      setEditingUser(null)
+    },
     onError: showError
   })
   const userCreate = useMutation({
@@ -175,9 +186,29 @@ export function AdminPage() {
 
   const data = query.data
   const roleText: Record<string, string> = text.admin.roles
+  const roleOptions = [
+    { value: 'user', label: roleText.user },
+    { value: 'admin', label: roleText.admin }
+  ]
   const groupOptions = data.groups.map((group) => ({ value: group.id, label: group.name }))
   const userOptions = data.users.map((user) => ({ value: user.id, label: user.name }))
   const userGroupIds = (row: UserRow) => row.groups ?? []
+  const groupUserIds = (row: GroupRow) => data.users.filter((user) => userGroupIds(user).includes(row.id)).map((user) => user.id)
+  const userQuery = userSearch.trim().toLowerCase()
+  const groupQuery = groupSearch.trim().toLowerCase()
+  const groupName = (id: number) => data.groups.find((group) => group.id === id)?.name ?? ''
+  const filteredUsers = userQuery
+    ? data.users.filter((user) =>
+        [user.name, user.mail, roleText[user.role] ?? user.role, ...userGroupIds(user).map(groupName)].some((value) => value.toLowerCase().includes(userQuery))
+      )
+    : data.users
+  const filteredGroups = groupQuery
+    ? data.groups.filter((group) =>
+        [group.name, ...groupUserIds(group).map((id) => data.users.find((user) => user.id === id)?.name ?? '')].some((value) =>
+          value.toLowerCase().includes(groupQuery)
+        )
+      )
+    : data.groups
 
   function openGroup(row?: GroupRow) {
     setEditingGroup(row ?? null)
@@ -227,7 +258,7 @@ export function AdminPage() {
                   onFinish={(values) => settings.mutate(values)}
                 >
                   <Form.Item name="siteName" label={text.admin.siteName} rules={[{ required: true }]}>
-                    <Input />
+                    <Input maxLength={limits.name} showCount />
                   </Form.Item>
                   <Form.Item name="allowRegistration" label={text.admin.allowRegistration} valuePropName="checked">
                     <Switch />
@@ -249,51 +280,36 @@ export function AdminPage() {
               label: text.admin.users,
               children: (
                 <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-                  <Button type="primary" icon={<PlusOutlined />} onClick={() => setUserOpen(true)}>
-                    {text.admin.addUser}
-                  </Button>
+                  <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
+                    <Input allowClear prefix={<SearchOutlined />} placeholder={text.admin.searchUsers} value={userSearch} onChange={(event) => setUserSearch(event.target.value)} />
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setUserOpen(true)}>
+                      {text.admin.addUser}
+                    </Button>
+                  </Space>
                   <Table<UserRow>
                     rowKey="name"
-                    pagination={false}
-                    dataSource={data.users}
+                    pagination={{ defaultPageSize: 10, hideOnSinglePage: true, showSizeChanger: true }}
+                    dataSource={filteredUsers}
                     columns={[
-                      { title: text.rank.user, dataIndex: 'name' },
+                      { title: text.rank.user, dataIndex: 'name', render: (name: string) => <UserLink name={name} /> },
                       { title: text.profile.email, dataIndex: 'mail' },
                       {
                         title: text.admin.role,
                         dataIndex: 'role',
-                        render: (role: string, row) => (
-                          <Select
-                            value={role}
-                            options={[
-                              { value: 'admin', label: roleText.admin },
-                              { value: 'user', label: roleText.user }
-                            ]}
-                            onChange={(next) => userSave.mutate({ name: row.name, role: next, groups: userGroupIds(row) })}
-                          />
-                        )
+                        render: (role: string) => <Tag color={role === 'admin' ? 'blue' : undefined}>{roleText[role] ?? role}</Tag>
                       },
                       {
-                        title: text.admin.userGroups,
+                        title: text.admin.groupCount,
                         dataIndex: 'groups',
-                        width: 260,
-                        render: (groups: number[] | undefined, row) => (
-                          <Select
-                            mode="multiple"
-                            value={groups ?? []}
-                            options={groupOptions}
-                            maxTagCount="responsive"
-                            placeholder={text.admin.groups}
-                            style={{ width: '100%' }}
-                            onChange={(next) => userSave.mutate({ name: row.name, role: row.role, groups: next })}
-                          />
-                        )
+                        render: (groups: number[] | undefined) => <Typography.Text>{groups?.length ?? 0}</Typography.Text>
                       },
                       {
-                        title: text.common.edit,
-                        width: 112,
+                        title: text.common.actions,
                         render: (_, row) => (
                           <Space size={4}>
+                            <Tooltip title={text.common.edit}>
+                              <Button type="text" icon={<EditOutlined />} onClick={() => setEditingUser(row)} />
+                            </Tooltip>
                             <Tooltip title={text.admin.resetPassword}>
                               <Button
                                 type="text"
@@ -323,23 +339,24 @@ export function AdminPage() {
               label: text.admin.groups,
               children: (
                 <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-                  <Button type="primary" icon={<PlusOutlined />} onClick={() => openGroup()}>
-                    {text.admin.addGroup}
-                  </Button>
+                  <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
+                    <Input allowClear prefix={<SearchOutlined />} placeholder={text.admin.searchGroups} value={groupSearch} onChange={(event) => setGroupSearch(event.target.value)} />
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => openGroup()}>
+                      {text.admin.addGroup}
+                    </Button>
+                  </Space>
                   <Table<GroupRow>
                     rowKey="id"
-                    pagination={false}
-                    dataSource={data.groups}
+                    pagination={{ defaultPageSize: 10, hideOnSinglePage: true, showSizeChanger: true }}
+                    dataSource={filteredGroups}
                     columns={[
-                      { title: text.admin.name, dataIndex: 'name' },
+                      { title: text.admin.groups, dataIndex: 'name' },
                       {
-                        title: text.admin.users,
-                        width: 120,
-                        render: (_, row) => data.users.filter((user) => userGroupIds(user).includes(row.id)).length
+                        title: text.admin.userCount,
+                        render: (_, row) => <Typography.Text>{groupUserIds(row).length}</Typography.Text>
                       },
                       {
-                        title: text.common.edit,
-                        width: 112,
+                        title: text.common.actions,
                         render: (_, row) => (
                           <Space size={4}>
                             <Tooltip title={text.common.edit}>
@@ -374,8 +391,8 @@ export function AdminPage() {
                     pagination={false}
                     dataSource={data.languages}
                     columns={[
-                      { title: text.admin.name, dataIndex: 'name', width: 180 },
-                      { title: text.admin.source, dataIndex: 'source', width: 140 },
+                      { title: text.admin.name, dataIndex: 'name' },
+                      { title: text.admin.source, dataIndex: 'source' },
                       {
                         title: text.admin.dockerfile,
                         dataIndex: 'dockerfile',
@@ -383,8 +400,7 @@ export function AdminPage() {
                         render: (value: string) => <Typography.Text code>{value.split('\n')[0]}</Typography.Text>
                       },
                       {
-                        title: text.common.edit,
-                        width: 112,
+                        title: text.common.actions,
                         render: (_, row) => (
                           <Space size={4}>
                             <Tooltip title={text.common.edit}>
@@ -428,18 +444,15 @@ export function AdminPage() {
                       {
                         title: text.admin.status,
                         dataIndex: 'online',
-                        width: 120,
                         render: (online: boolean) => (online ? <Tag color="success">{text.admin.online}</Tag> : <Tag>{text.admin.offline}</Tag>)
                       },
                       {
                         title: text.admin.uptime,
                         dataIndex: 'uptimeSeconds',
-                        width: 160,
                         render: (value: number, row) => (row.online ? formatDuration(value, lang) : '-')
                       },
                       {
-                        title: text.common.edit,
-                        width: 112,
+                        title: text.common.actions,
                         render: (_, row) => (
                           <Space size={4}>
                             <Tooltip title={text.common.edit}>
@@ -467,13 +480,20 @@ export function AdminPage() {
       {userOpen ? (
         <UserModal
           loading={userCreate.isPending}
+          roleOptions={roleOptions}
           groupOptions={groupOptions}
-          roleOptions={[
-            { value: 'user', label: roleText.user },
-            { value: 'admin', label: roleText.admin }
-          ]}
           onCancel={() => setUserOpen(false)}
           onSave={(values) => userCreate.mutate(values)}
+        />
+      ) : null}
+      {editingUser ? (
+        <UserEditModal
+          user={editingUser}
+          roleOptions={roleOptions}
+          groupOptions={groupOptions}
+          loading={userSave.isPending}
+          onCancel={() => setEditingUser(null)}
+          onSave={(values) => userSave.mutate({ name: editingUser.name, role: values.role, groups: values.groups ?? [] })}
         />
       ) : null}
       {groupOpen ? (
@@ -500,27 +520,37 @@ export function AdminPage() {
 
 function UserModal({
   loading,
-  groupOptions,
   roleOptions,
+  groupOptions,
   onCancel,
   onSave
 }: {
   loading: boolean
-  groupOptions: { value: number; label: string }[]
   roleOptions: { value: string; label: string }[]
+  groupOptions: { value: number; label: string }[]
   onCancel: () => void
   onSave: (values: UserForm) => void
 }) {
   const { text } = useLocale()
   const [form] = Form.useForm<UserForm>()
   return (
-    <Modal open destroyOnHidden title={text.admin.addUser} okText={text.common.create} cancelText={text.common.cancel} confirmLoading={loading} onCancel={onCancel} onOk={() => form.submit()}>
+    <Modal
+      open
+      destroyOnHidden
+      width={760}
+      title={text.admin.addUser}
+      okText={text.common.create}
+      cancelText={text.common.cancel}
+      confirmLoading={loading}
+      onCancel={onCancel}
+      onOk={() => form.submit()}
+    >
       <Form<UserForm> form={form} layout="vertical" initialValues={{ name: '', mail: '', password: '', role: 'user', groups: [] }} onFinish={onSave}>
-        <Form.Item name="name" label={text.prefs.username} rules={[{ required: true, whitespace: true }, { min: 3 }, { max: 32 }]}>
-          <Input autoComplete="off" />
+        <Form.Item name="name" label={text.prefs.username} rules={[{ required: true, whitespace: true }, { min: limits.usernameMin }, { max: limits.username }]}>
+          <Input autoComplete="off" maxLength={limits.username} />
         </Form.Item>
         <Form.Item name="mail" label={text.profile.email} rules={[{ required: true }, { type: 'email' }]}>
-          <Input autoComplete="off" />
+          <Input autoComplete="off" maxLength={limits.mail} />
         </Form.Item>
         <Form.Item name="password" label={text.admin.initialPassword} rules={[{ required: true }, { min: 8 }]}>
           <Input.Password autoComplete="new-password" />
@@ -529,7 +559,48 @@ function UserModal({
           <Select options={roleOptions} />
         </Form.Item>
         <Form.Item name="groups" label={text.admin.userGroups}>
-          <Select mode="multiple" options={groupOptions} maxTagCount="responsive" />
+          <IdSelect options={groupOptions} />
+        </Form.Item>
+      </Form>
+    </Modal>
+  )
+}
+
+function UserEditModal({
+  user,
+  roleOptions,
+  groupOptions,
+  loading,
+  onCancel,
+  onSave
+}: {
+  user: UserRow
+  roleOptions: { value: string; label: string }[]
+  groupOptions: { value: number; label: string }[]
+  loading: boolean
+  onCancel: () => void
+  onSave: (values: UserEditForm) => void
+}) {
+  const { text } = useLocale()
+  const [form] = Form.useForm<UserEditForm>()
+  return (
+    <Modal
+      open
+      destroyOnHidden
+      width={760}
+      title={`${user.name} · ${text.common.edit}`}
+      okText={text.common.save}
+      cancelText={text.common.cancel}
+      confirmLoading={loading}
+      onCancel={onCancel}
+      onOk={() => form.submit()}
+    >
+      <Form<UserEditForm> form={form} layout="vertical" initialValues={{ role: user.role, groups: user.groups ?? [] }} onFinish={onSave}>
+        <Form.Item name="role" label={text.admin.role} rules={[{ required: true }]}>
+          <Select options={roleOptions} />
+        </Form.Item>
+        <Form.Item name="groups" label={text.admin.userGroups}>
+          <IdSelect options={groupOptions} />
         </Form.Item>
       </Form>
     </Modal>
@@ -547,19 +618,29 @@ function GroupModal({
   loading: boolean
   userOptions: { value: number; label: string }[]
   onCancel: () => void
-  onSave: (values: AdminGroupUpdate) => void
+  onSave: (values: GroupForm) => void
 }) {
   const { text } = useLocale()
-  const [form] = Form.useForm<AdminGroupUpdate>()
-  const initialValues = editingGroup ?? { name: '', users: [] }
+  const [form] = Form.useForm<GroupForm>()
+  const initialValues = { name: editingGroup?.name ?? '', users: editingGroup?.users ?? [] }
   return (
-    <Modal open destroyOnHidden title={editingGroup ? text.admin.editGroup : text.admin.addGroup} okText={text.common.save} cancelText={text.common.cancel} confirmLoading={loading} onCancel={onCancel} onOk={() => form.submit()}>
-      <Form<AdminGroupUpdate> form={form} layout="vertical" initialValues={initialValues} onFinish={onSave}>
+    <Modal
+      open
+      destroyOnHidden
+      width={760}
+      title={editingGroup ? text.admin.editGroup : text.admin.addGroup}
+      okText={text.common.save}
+      cancelText={text.common.cancel}
+      confirmLoading={loading}
+      onCancel={onCancel}
+      onOk={() => form.submit()}
+    >
+      <Form<GroupForm> form={form} layout="vertical" initialValues={initialValues} onFinish={onSave}>
         <Form.Item name="name" label={text.admin.name} rules={[{ required: true, whitespace: true }]}>
-          <Input />
+          <Input maxLength={limits.name} showCount />
         </Form.Item>
         <Form.Item name="users" label={text.admin.users}>
-          <Select mode="multiple" options={userOptions} maxTagCount="responsive" />
+          <IdSelect options={userOptions} />
         </Form.Item>
       </Form>
     </Modal>
@@ -584,13 +665,13 @@ function LangModal({
     <Modal open destroyOnHidden title={editingLang ? text.admin.editLang : text.admin.addLang} okText={text.common.save} cancelText={text.common.cancel} confirmLoading={loading} onCancel={onCancel} onOk={() => form.submit()} width={720}>
       <Form<AdminLangCreate> form={form} layout="vertical" initialValues={initialValues} onFinish={onSave}>
         <Form.Item name="id" label="ID" rules={[{ required: true, whitespace: true }]}>
-          <Input />
+          <Input maxLength={limits.languageId} />
         </Form.Item>
         <Form.Item name="name" label={text.admin.name} rules={[{ required: true, whitespace: true }]}>
-          <Input />
+          <Input maxLength={limits.name} showCount />
         </Form.Item>
         <Form.Item name="source" label={text.admin.source} rules={[{ required: true, whitespace: true }]}>
-          <Input placeholder="main.cc" />
+          <Input placeholder="main.cc" maxLength={limits.source} />
         </Form.Item>
         <Form.Item name="dockerfile" label={text.admin.dockerfile} rules={[{ required: true, whitespace: true }]}>
           <Input.TextArea rows={8} />
@@ -618,7 +699,7 @@ function JudgerModal({
     <Modal open destroyOnHidden title={editingJudger ? text.admin.editJudger : text.admin.addJudger} okText={editingJudger ? text.common.save : text.common.create} cancelText={text.common.cancel} confirmLoading={loading} onCancel={onCancel} onOk={() => form.submit()}>
       <Form<JudgerForm> form={form} layout="vertical" initialValues={initialValues} onFinish={onSave}>
         <Form.Item name="name" label={text.admin.name} rules={[{ required: true, whitespace: true }]}>
-          <Input />
+          <Input maxLength={limits.name} showCount />
         </Form.Item>
         {editingJudger ? (
           <Form.Item name="auth" label={text.admin.token}>

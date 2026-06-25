@@ -5,7 +5,8 @@ import { Link } from 'react-router-dom'
 
 import type { Problem, UserActivity, UserProfile } from '../client'
 import { useLocale } from '../locale'
-import { formatPass, formatTime, problemCode } from '../utils/format'
+import { formatPass, formatTime } from '../utils/format'
+import { ProblemLink } from './entity'
 import { YearHeatmap } from './heatmap'
 import { SubmissionStatus } from './status'
 
@@ -36,7 +37,6 @@ export function ProfileOverview({ profile, renderAvatar, sidebarAction }: Profil
                 <Typography.Title level={2} style={{ margin: 0 }}>
                   {user.name}
                 </Typography.Title>
-                {user.admin ? <Tag color="cyan">{text.admin.roles.admin}</Tag> : null}
               </Space>
               <Typography.Paragraph type={user.bio ? undefined : 'secondary'} className="profileBio">
                 {user.bio || text.user.noBio}
@@ -123,15 +123,7 @@ function ActivityItem({ activity, lang, submitted, posted }: { activity: UserAct
           </Link>
         ) : null}
         <Typography.Text>{submitted}</Typography.Text>
-        <Typography.Text ellipsis className="lineText">
-          {activity.problemId ? (
-            <Link to={`/problems/${activity.problemId}`}>
-              {problemCode(activity.problemId)} {activity.problemTitle}
-            </Link>
-          ) : (
-            activity.title
-          )}
-        </Typography.Text>
+        {activity.problemId ? <ProblemLink id={activity.problemId} title={activity.problemTitle} /> : <Typography.Text ellipsis className="lineText">{activity.title}</Typography.Text>}
       </Flex>
       <Typography.Text type="secondary">{formatTime(activity.createdAt, lang)}</Typography.Text>
     </Flex>
@@ -150,11 +142,7 @@ function SolvedCard({ problems }: { problems: Problem[] }) {
           {problems.slice(0, 12).map((row) => (
             <Flex key={row.id} align="center" justify="space-between" gap={12} className="profileProblemRow">
               <Flex align="center" gap={8} className="profileProblemTitle">
-                <Typography.Text ellipsis className="lineText">
-                  <Link to={`/problems/${row.id}`}>
-                    {problemCode(row.id)} {row.title}
-                  </Link>
-                </Typography.Text>
+                <ProblemLink id={row.id} title={row.title} />
                 {row.tags.slice(0, 2).map((tag) => (
                   <Tag key={tag}>{tag}</Tag>
                 ))}

@@ -9,10 +9,10 @@ import (
 
 type User struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
-	Name      string         `gorm:"size:64;uniqueIndex;not null" json:"name"`
-	Mail      string         `gorm:"size:255;uniqueIndex;not null" json:"mail"`
-	Auth      string         `gorm:"size:255;not null" json:"-"`
-	Bio       string         `gorm:"size:280;not null;default:''" json:"bio"`
+	Name      string         `gorm:"size:32;uniqueIndex;not null" json:"name"`
+	Mail      string         `gorm:"size:256;uniqueIndex;not null" json:"mail"`
+	Auth      string         `gorm:"size:128;not null" json:"-"`
+	Bio       string         `gorm:"size:256;not null;default:''" json:"bio"`
 	Avatar    string         `gorm:"size:512;not null;default:''" json:"avatar"`
 	Admin     bool           `gorm:"not null;default:false" json:"admin"`
 	CreatedAt time.Time      `json:"createdAt"`
@@ -21,11 +21,10 @@ type User struct {
 }
 
 type Group struct {
-	ID        uint           `gorm:"primaryKey" json:"id"`
-	Name      string         `gorm:"size:64;uniqueIndex;not null" json:"name"`
-	CreatedAt time.Time      `json:"createdAt"`
-	UpdatedAt time.Time      `json:"updatedAt"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Name      string    `gorm:"size:64;uniqueIndex;not null" json:"name"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 type GroupUser struct {
@@ -35,7 +34,7 @@ type GroupUser struct {
 
 type Problem struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
-	Title     string         `gorm:"size:255;not null" json:"title"`
+	Title     string         `gorm:"size:256;not null" json:"title"`
 	Tags      datatypes.JSON `gorm:"type:jsonb;not null;default:'[]'" json:"tags"`
 	Visible   bool           `gorm:"not null;default:false" json:"visible"`
 	Mode      string         `gorm:"size:16;not null;default:'default'" json:"mode"`
@@ -77,27 +76,26 @@ type Submission struct {
 }
 
 type Case struct {
-	ID           uint      `gorm:"primaryKey" json:"id"`
-	SubmissionID uint      `gorm:"uniqueIndex:idx_case_submission_no;not null" json:"submissionId"`
-	No           int       `gorm:"uniqueIndex:idx_case_submission_no;not null" json:"no"`
-	Status       string    `gorm:"size:32;not null" json:"status"`
-	TimeMS       *int      `json:"timeMs"`
-	MemoryKB     *int      `json:"memoryKb"`
-	Message      string    `gorm:"size:1024;not null;default:''" json:"message"`
-	CreatedAt    time.Time `json:"createdAt"`
+	ID           uint   `gorm:"primaryKey" json:"id"`
+	SubmissionID uint   `gorm:"uniqueIndex:idx_case_submission_no;not null" json:"submissionId"`
+	No           int    `gorm:"uniqueIndex:idx_case_submission_no;not null" json:"no"`
+	Status       string `gorm:"size:32;not null" json:"status"`
+	TimeMS       *int   `json:"timeMs"`
+	MemoryKB     *int   `json:"memoryKb"`
+	Message      string `gorm:"size:1024;not null;default:''" json:"message"`
 }
 
 type Judger struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	Name      string    `gorm:"size:64;uniqueIndex;not null" json:"name"`
-	Auth      string    `gorm:"size:255;not null" json:"-"`
+	Auth      string    `gorm:"size:128;not null" json:"-"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 type Assignment struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
-	Title     string         `gorm:"size:255;not null" json:"title"`
+	Title     string         `gorm:"size:256;not null" json:"title"`
 	EndAt     time.Time      `gorm:"index;not null" json:"endAt"`
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
@@ -122,7 +120,7 @@ type AssignmentGroup struct {
 
 type Contest struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
-	Title     string         `gorm:"size:255;not null" json:"title"`
+	Title     string         `gorm:"size:256;not null" json:"title"`
 	Kind      string         `gorm:"size:8;not null;default:'OI'" json:"kind"`
 	StartAt   time.Time      `gorm:"index;not null" json:"startAt"`
 	EndAt     time.Time      `gorm:"index;not null" json:"endAt"`
@@ -140,7 +138,7 @@ type ContestProblem struct {
 
 type Discussion struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
-	Title     string         `gorm:"size:255;not null" json:"title"`
+	Title     string         `gorm:"size:256;not null" json:"title"`
 	Content   string         `gorm:"type:text;not null" json:"content"`
 	UserID    uint           `gorm:"index;not null" json:"userId"`
 	Tags      datatypes.JSON `gorm:"type:jsonb;not null;default:'[]'" json:"tags"`
@@ -162,9 +160,8 @@ type Comment struct {
 }
 
 type Setting struct {
-	Key       string         `gorm:"size:64;primaryKey" json:"key"`
-	Value     datatypes.JSON `gorm:"type:jsonb;not null" json:"value"`
-	UpdatedAt time.Time      `json:"updatedAt"`
+	Key   string         `gorm:"size:64;primaryKey" json:"key"`
+	Value datatypes.JSON `gorm:"type:jsonb;not null" json:"value"`
 }
 
 func All() []any {

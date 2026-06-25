@@ -4,6 +4,10 @@ export function problemCode(id: number) {
   return `P${id}`
 }
 
+export function problemLabel(id: number, title?: string) {
+  return [problemCode(id), title].filter(Boolean).join(' ')
+}
+
 export function submissionCode(id: number) {
   return `#${id}`
 }

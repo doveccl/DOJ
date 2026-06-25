@@ -6,12 +6,13 @@ import { Link } from 'react-router-dom'
 
 import { getHome, updateNotice } from '../client'
 import type { Item, Problem } from '../client'
+import { ProblemLink } from '../components/entity'
 import { YearHeatmap } from '../components/heatmap'
 import { MarkdownEditor, MarkdownPreview } from '../components/markdown'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../components/state'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { formatPass, problemCode } from '../utils/format'
+import { formatPass } from '../utils/format'
 
 type NoticeForm = {
   content: string
@@ -124,11 +125,7 @@ function ProblemList({ title, items }: { title: string; items: Problem[] }) {
             <Flex vertical gap={8} key={item.id}>
               {index > 0 ? <Divider style={{ margin: 0 }} /> : null}
               <Flex vertical gap={8}>
-                <Typography.Text strong ellipsis className="lineText">
-                  <Link to={`/problems/${item.id}`}>
-                    {problemCode(item.id)} {item.title}
-                  </Link>
-                </Typography.Text>
+                <ProblemLink id={item.id} title={item.title} strong />
                 <Flex gap={8} wrap>
                   {item.tags.slice(0, 2).map((tag) => (
                     <Tag key={tag}>{tag}</Tag>

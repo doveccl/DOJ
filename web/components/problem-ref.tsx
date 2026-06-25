@@ -1,9 +1,11 @@
 import { Input, Select, Table, Typography } from 'antd'
 import type { TableProps } from 'antd'
+import { Link } from 'react-router-dom'
 
 import type { ProblemRef } from '../client'
 import { useLocale } from '../locale'
 import { problemCode } from '../utils/format'
+import { limits } from '../utils/limits'
 
 type Option = {
   value: number
@@ -38,12 +40,15 @@ export function ProblemRefInput({ value = [], onChange, options, loading }: Prob
   const columns: TableProps<ProblemRef>['columns'] = [
     {
       title: text.common.sort,
-      width: 120,
-      render: (_, row) => <Input value={row.sort} maxLength={16} onChange={(event) => setSort(row.id, event.target.value)} />
+      render: (_, row) => <Input value={row.sort} maxLength={limits.sort} onChange={(event) => setSort(row.id, event.target.value)} />
     },
     {
-      title: text.problems.title,
-      render: (_, row) => <Typography.Text ellipsis>{optionMap.get(row.id) || problemCode(row.id)}</Typography.Text>
+      title: text.submissions.problem,
+      render: (_, row) => (
+        <Typography.Text ellipsis className="lineText">
+          <Link to={`/problems/${row.id}`}>{optionMap.get(row.id) || problemCode(row.id)}</Link>
+        </Typography.Text>
+      )
     }
   ]
 

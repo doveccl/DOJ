@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func TestMemoryJudgerStatusWindow(t *testing.T) {
+func TestJudgerStatusWindow(t *testing.T) {
 	now := time.Now()
 	id := uint(now.UnixNano()%1_000_000_000) + 1_000_000_000
 

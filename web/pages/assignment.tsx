@@ -1,21 +1,23 @@
 import { EditOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, DatePicker, Flex, Form, Input, Modal, Progress, Select, Table, Tabs, Tooltip, Typography } from 'antd'
+import { App as AntApp, Button, Card, DatePicker, Flex, Form, Input, Modal, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 
 import { getAdmin, getAssignment, getProblems, updateAssignment } from '../client'
-import type { Problem, ProblemRef, Submission } from '../client'
+import type { AssignmentProgress, Problem, ProblemRef } from '../client'
+import { ProblemLink, UserLink } from '../components/entity'
+import { IdSelect } from '../components/id-select'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../components/state'
-import { AssignmentStatus, SubmissionStatus } from '../components/status'
 import { DeadlineTimer } from '../components/time'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { formatTime, problemCode, progress, submissionCode } from '../utils/format'
+import { problemCode, problemLabel } from '../utils/format'
+import { limits } from '../utils/limits'
 
 type AssignmentForm = {
   title: string
@@ -26,7 +28,7 @@ type AssignmentForm = {
 }
 
 export function AssignmentDetailPage() {
-  const { lang, text } = useLocale()
+  const { text } = useLocale()
   const session = useSession()
   const { message } = AntApp.useApp()
   const client = useQueryClient()
@@ -72,10 +74,10 @@ export function AssignmentDetailPage() {
     return <ErrorBlock error={text.common.emptyResponse} />
   }
 
-  const { assignment, problems, submissions } = query.data
+  const { assignment, problems, progress: assignmentProgress } = query.data
   const problemOptions = (problemsQuery.data ?? problems).map((item) => ({
     value: item.id,
-    label: `${problemCode(item.id)} ${item.title}`
+    label: problemLabel(item.id, item.title)
   }))
   const userOptions = (adminQuery.data?.users ?? []).map((item) => ({ value: item.id, label: item.name }))
   const groupOptions = (adminQuery.data?.groups ?? []).map((item) => ({ value: item.id, label: item.name }))
@@ -87,27 +89,18 @@ export function AssignmentDetailPage() {
   return (
     <Flex vertical gap={16}>
       <Card>
-        <Flex vertical gap={8}>
-          <Flex justify="space-between" align="center" gap={20} wrap>
-            <Flex align="center" gap={10}>
-              <Typography.Title level={3} style={{ margin: 0 }}>
-                {assignment.title}
-              </Typography.Title>
-              <AssignmentStatus status={assignment.status} />
-              {session.admin ? (
-                <Tooltip title={text.common.edit}>
-                  <Button aria-label={`${text.common.edit} #${assignment.id}`} type="text" size="small" icon={<EditOutlined />} onClick={openEdit} />
-                </Tooltip>
-              ) : null}
-            </Flex>
-            <Flex align="center" justify="flex-end" gap={16} style={{ minWidth: 'min(420px, 100%)' }}>
-              <DeadlineTimer kind="assignment" status={assignment.status} target={assignment.endAt} strong align="flex-end" onFinish={() => void query.refetch()} />
-              <Flex align="center" gap={10} style={{ width: 180 }}>
-                <Progress percent={progress(assignment)} size="small" showInfo={false} />
-                <Typography.Text className="nowrap">{text.assignments.done(assignment.done, assignment.total)}</Typography.Text>
-              </Flex>
-            </Flex>
+        <Flex justify="space-between" align="center" gap={20} wrap>
+          <Flex align="center" gap={10}>
+            <Typography.Title level={3} style={{ margin: 0 }}>
+              {assignment.title}
+            </Typography.Title>
+            {session.admin ? (
+              <Tooltip title={text.common.edit}>
+                <Button aria-label={`${text.common.edit} #${assignment.id}`} type="text" size="small" icon={<EditOutlined />} onClick={openEdit} />
+              </Tooltip>
+            ) : null}
           </Flex>
+          <DeadlineTimer kind="assignment" status={assignment.status} target={assignment.endAt} onFinish={() => void query.refetch()} />
         </Flex>
       </Card>
       <Card>
@@ -119,9 +112,9 @@ export function AssignmentDetailPage() {
               children: <Table<Problem> rowKey="id" columns={problemColumns(text)} dataSource={problems} pagination={false} />
             },
             {
-              key: 'submissions',
-              label: text.assignments.submissions,
-              children: <Table<Submission> rowKey="id" columns={submissionColumns(text, lang)} dataSource={submissions} pagination={false} />
+              key: 'progress',
+              label: text.assignments.completion,
+              children: <Table<AssignmentProgress> rowKey="user" columns={progressColumns(text, problems)} dataSource={assignmentProgress} pagination={false} />
             }
           ]}
         />
@@ -181,6 +174,7 @@ function AssignmentEditModal({
     <Modal
       open
       destroyOnHidden
+      width={780}
       title={text.common.edit}
       okText={text.common.save}
       cancelText={text.common.cancel}
@@ -190,7 +184,7 @@ function AssignmentEditModal({
     >
       <Form<AssignmentForm> form={form} preserve={false} layout="vertical" initialValues={initialValues} onFinish={onSave}>
         <Form.Item name="title" label={text.assignments.name} rules={[{ required: true, whitespace: true }]}>
-          <Input maxLength={120} showCount />
+          <Input maxLength={limits.title} showCount />
         </Form.Item>
         <Form.Item name="endAt" label={text.assignments.deadline} rules={[{ required: true }]}>
           <DatePicker showTime style={{ width: '100%' }} />
@@ -199,56 +193,38 @@ function AssignmentEditModal({
           <ProblemRefInput options={problemOptions} loading={problemLoading} />
         </Form.Item>
         <Form.Item name="users" label={text.assignments.users}>
-          <Select mode="multiple" options={userOptions} loading={memberLoading} />
+          <IdSelect disabled={memberLoading} loading={memberLoading} options={userOptions} />
         </Form.Item>
         <Form.Item name="groups" label={text.assignments.groups}>
-          <Select mode="multiple" options={groupOptions} loading={memberLoading} />
+          <IdSelect disabled={memberLoading} loading={memberLoading} options={groupOptions} />
         </Form.Item>
       </Form>
     </Modal>
   )
 }
 
-function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: string): TableProps<Submission>['columns'] {
+function progressColumns(text: ReturnType<typeof useLocale>['text'], problems: Problem[]): TableProps<AssignmentProgress>['columns'] {
   return [
     {
-      title: text.submissions.id,
-      dataIndex: 'id',
-      width: 110,
-      render: (id: number) => <Link to={`/submissions/${id}`}>{submissionCode(id)}</Link>
+      title: text.rank.user,
+      render: (_, row) => <UserLink name={row.user} strong />
+    },
+    ...problems.map((problem) => ({
+      key: `problem-${problem.id}`,
+      title: (
+        <Tooltip title={problemLabel(problem.id, problem.title)}>
+          <span>{problem.sort || problemCode(problem.id)}</span>
+        </Tooltip>
+      ),
+      render: (_: unknown, row: AssignmentProgress) => <AssignmentProblemStatus mine={row.problems?.find((item) => item.problemId === problem.id)?.status} text={text} />
+    })),
+    {
+      title: text.rank.ac,
+      dataIndex: 'ac',
     },
     {
-      title: text.submissions.problem,
-      render: (_, row) => (
-        <Typography.Text ellipsis className="lineText">
-          <Link to={`/problems/${row.problemId}`}>
-            {problemCode(row.problemId)} {row.problemTitle}
-          </Link>
-        </Typography.Text>
-      )
-    },
-    {
-      title: text.submissions.user,
-      dataIndex: 'user',
-      width: 120,
-      render: (user: string) => <Link to={`/users/${user}`}>{user}</Link>
-    },
-    {
-      title: text.submissions.status,
-      dataIndex: 'status',
-      width: 110,
-      render: (status: string) => <SubmissionStatus status={status} />
-    },
-    {
-      title: text.submissions.score,
-      dataIndex: 'score',
-      width: 90
-    },
-    {
-      title: text.submissions.created,
-      dataIndex: 'createdAt',
-      width: 180,
-      render: (value: string) => <Typography.Text className="nowrap">{formatTime(value, lang)}</Typography.Text>
+      title: text.rank.submit,
+      dataIndex: 'submit',
     }
   ]
 }
@@ -258,23 +234,27 @@ function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<
     {
       title: text.common.sort,
       dataIndex: 'sort',
-      width: 90,
       render: (sort: string | undefined, row) => <Typography.Text>{sort || problemCode(row.id)}</Typography.Text>
     },
     {
-      title: text.problems.id,
-      dataIndex: 'id',
-      width: 120,
-      render: (id: number) => <Typography.Text>{problemCode(id)}</Typography.Text>
+      title: text.submissions.problem,
+      dataIndex: 'title',
+      render: (title: string, row) => <ProblemLink id={row.id} title={title} />
     },
     {
-      title: text.problems.title,
-      dataIndex: 'title',
-      render: (title: string, row) => (
-        <Typography.Text ellipsis className="lineText">
-          <Link to={`/problems/${row.id}`}>{title}</Link>
-        </Typography.Text>
-      )
+      title: text.assignments.status,
+      dataIndex: 'mine',
+      render: (mine: string) => <AssignmentProblemStatus mine={mine} text={text} />
     }
   ]
+}
+
+function AssignmentProblemStatus({ mine, text }: { mine?: string; text: ReturnType<typeof useLocale>['text'] }) {
+  if (mine === 'ac') {
+    return <Tag color="success">{text.assignments.completed}</Tag>
+  }
+  if (mine === 'tried') {
+    return <Tag color="warning">{text.assignments.attempted}</Tag>
+  }
+  return <Tag>{text.assignments.notCompleted}</Tag>
 }

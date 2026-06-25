@@ -121,11 +121,7 @@ type JudgerCreate struct {
 	JudgerUpdate
 }
 
-const (
-	dockerfileBodyLimit = "128K"
-	settingsBodyLimit   = "2M"
-	maxNameRunes        = 64
-)
+const maxNameRunes = models.NameMax
 
 const (
 	settingSiteName                = "site_name"
@@ -142,7 +138,7 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	api := &API{db: db}
 	group := e.Group("/api/admin", api.requireAdmin)
 	group.GET("", api.overview)
-	group.PATCH("/settings", api.updateSettings, echomw.BodyLimit(settingsBodyLimit))
+	group.PATCH("/settings", api.updateSettings, echomw.BodyLimit(utils.BodyLimitSettings))
 	group.POST("/users", api.createUser)
 	group.PATCH("/users/:name", api.updateUser)
 	group.DELETE("/users/:name", api.deleteUser)
@@ -150,8 +146,8 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.POST("/groups", api.createGroup)
 	group.PATCH("/groups/:id", api.updateGroup)
 	group.DELETE("/groups/:id", api.deleteGroup)
-	group.POST("/languages", api.createLanguage, echomw.BodyLimit(dockerfileBodyLimit))
-	group.PATCH("/languages/:id", api.updateLanguage, echomw.BodyLimit(dockerfileBodyLimit))
+	group.POST("/languages", api.createLanguage, echomw.BodyLimit(utils.BodyLimitDockerfile))
+	group.PATCH("/languages/:id", api.updateLanguage, echomw.BodyLimit(utils.BodyLimitDockerfile))
 	group.DELETE("/languages/:id", api.deleteLanguage)
 	group.POST("/judgers", api.createJudger)
 	group.PATCH("/judgers/:id", api.updateJudger)
@@ -447,14 +443,23 @@ func (api *API) deleteGroup(c echo.Context) error {
 		return err
 	}
 
-	var row models.Group
-	if err := api.db.First(&row, id).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return echo.NewHTTPError(http.StatusNotFound, "group not found")
+	err = api.db.Transaction(func(tx *gorm.DB) error {
+		var row models.Group
+		if err := tx.First(&row, id).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return echo.NewHTTPError(http.StatusNotFound, "group not found")
+			}
+			return err
 		}
-		return err
-	}
-	if err := api.db.Delete(&row).Error; err != nil {
+		if err := tx.Where("group_id = ?", row.ID).Delete(&models.GroupUser{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("group_id = ?", row.ID).Delete(&models.AssignmentGroup{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&row).Error
+	})
+	if err != nil {
 		return err
 	}
 	return api.overview(c)
@@ -698,7 +703,7 @@ func (api *API) users() ([]User, error) {
 		var links []models.GroupUser
 		err := api.db.Table("group_users").
 			Select("group_users.group_id, group_users.user_id").
-			Joins("JOIN groups ON groups.id = group_users.group_id AND groups.deleted_at IS NULL").
+			Joins("JOIN groups ON groups.id = group_users.group_id").
 			Where("group_users.user_id IN ?", userIDs).
 			Find(&links).Error
 		if err != nil {
@@ -865,10 +870,10 @@ func cleanUserCreate(req *UserCreate) {
 }
 
 func validateUserCreate(req UserCreate) error {
-	if len(req.Name) < 3 || len(req.Name) > 32 || !validUserName(req.Name) {
+	if len(req.Name) < models.UserNameMin || len(req.Name) > models.UserNameMax || !validUserName(req.Name) {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid username")
 	}
-	if req.Mail == "" || len(req.Mail) > 255 {
+	if req.Mail == "" || len(req.Mail) > models.MailMax {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid mail")
 	}
 	addr, err := mail.ParseAddress(req.Mail)
@@ -923,17 +928,20 @@ func validateLanguage(req LanguageUpdate) error {
 	if req.Source == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "language source is required")
 	}
-	if len([]rune(req.Source)) > 128 {
+	if len([]rune(req.Source)) > models.SourceMax {
 		return echo.NewHTTPError(http.StatusBadRequest, "language source is too long")
 	}
 	if req.Dockerfile == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "language dockerfile is required")
 	}
+	if len([]byte(req.Dockerfile)) > utils.MaxDockerfileBytes {
+		return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "language dockerfile is too large")
+	}
 	return nil
 }
 
 func validLanguageID(id string) bool {
-	if len(id) == 0 || len(id) > 32 {
+	if len(id) == 0 || len(id) > models.LanguageIDMax {
 		return false
 	}
 	for _, char := range id {
@@ -1035,7 +1043,7 @@ func ValidateMail(value string) error {
 	if value == "" {
 		return nil
 	}
-	if len(value) > 255 {
+	if len(value) > models.MailMax {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid mail")
 	}
 	if _, err := mail.ParseAddress(value); err != nil {

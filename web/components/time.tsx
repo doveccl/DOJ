@@ -74,7 +74,7 @@ export function ScheduleTag({ kind, status, target, range, onFinish }: ScheduleT
   }
   return (
     <Tooltip title={tooltip}>
-      <Tag color={status === 'pending' ? 'processing' : 'success'}>
+      <Tag color={status === 'pending' ? 'processing' : status === 'frozen' ? 'warning' : 'success'}>
         <TimerText copy={timerCopy(status, kind, text)} targetMs={targetMs} compact onFinish={onFinish} />
       </Tag>
     </Tooltip>

@@ -375,6 +375,12 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 	if studentAssignment.Assignment.Done != 2 || studentAssignment.Assignment.Total != 2 {
 		t.Fatalf("student assignment progress should include hidden problems in aggregate stats: %+v", studentAssignment.Assignment)
 	}
+	if len(studentAssignment.Progress) != 1 || studentAssignment.Progress[0].User != "student" {
+		t.Fatalf("student assignment completion should include assigned student only: %+v", studentAssignment.Progress)
+	}
+	if len(studentAssignment.Progress[0].Problems) != 1 || studentAssignment.Progress[0].Problems[0].ProblemID != visible.ID || studentAssignment.Progress[0].Problems[0].Status != "ac" {
+		t.Fatalf("student assignment completion should expose visible problem status only: %+v", studentAssignment.Progress[0].Problems)
+	}
 
 	contestDetail := decodeJSON[ContestDetail](t, requestOK(t, e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), ""))
 	if hasProblem(contestDetail.Problems, hidden.ID) || hasSubmissionProblem(contestDetail.Submissions, hidden.ID) {
@@ -716,10 +722,16 @@ func TestContestFreezeHidesLateResultsFromNonAdmin(t *testing.T) {
 	if !hasSubmission(aliceDetail.Submissions, before.ID) || !hasSubmission(aliceDetail.Submissions, aliceAfter.ID) || hasSubmission(aliceDetail.Submissions, bobAfter.ID) {
 		t.Fatalf("alice should see pre-freeze submissions and her own post-freeze submissions only: %+v", aliceDetail.Submissions)
 	}
+	if len(aliceDetail.Rank) != 1 || aliceDetail.Rank[0].User != "alice" || aliceDetail.Rank[0].AC != 1 {
+		t.Fatalf("alice rank should still use only pre-freeze submissions: %+v", aliceDetail.Rank)
+	}
 
 	bobDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, bob.ID), nil))
 	if !hasSubmission(bobDetail.Submissions, before.ID) || hasSubmission(bobDetail.Submissions, aliceAfter.ID) || !hasSubmission(bobDetail.Submissions, bobAfter.ID) {
 		t.Fatalf("bob should see pre-freeze submissions and his own post-freeze submissions only: %+v", bobDetail.Submissions)
+	}
+	if len(bobDetail.Rank) != 1 || bobDetail.Rank[0].User != "alice" {
+		t.Fatalf("bob rank should not include his post-freeze accepted submission: %+v", bobDetail.Rank)
 	}
 
 	adminDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, admin.ID), nil))
@@ -782,6 +794,10 @@ func TestContestOIIgnoresFreezeAndUsesLastScoreAfterEnd(t *testing.T) {
 	if !ok || aliceRank.Score != 30 || aliceRank.AC != 0 {
 		t.Fatalf("OI score should use the last submission score after contest ends: %+v", guest.Rank)
 	}
+	aliceProblem, ok := rankProblemByID(aliceRank.Problems, problem.ID)
+	if !ok || aliceProblem.Status != "tried" || aliceProblem.Score != 30 || aliceProblem.Submit != 2 {
+		t.Fatalf("OI rank should expose per-problem score: %+v", aliceRank.Problems)
+	}
 
 	createBody := `{"title":"New OI","kind":"OI","startAt":"` + now.Add(time.Hour).UTC().Format(time.RFC3339) + `","endAt":"` + now.Add(2*time.Hour).UTC().Format(time.RFC3339) + `","freezeAt":"` + now.Add(90*time.Minute).UTC().Format(time.RFC3339) + `","problems":[{"id":1000,"sort":"A"}]}`
 	res := requestJSONWithCookies(e, http.MethodPost, "/api/contests", databaseSession(t, db, admin.ID), createBody)
@@ -805,8 +821,12 @@ func TestContestICPCRankUsesPenalty(t *testing.T) {
 		}
 	}
 	problem := models.Problem{ID: 1000, Title: "ICPC", Tags: datatypes.JSON([]byte(`[]`)), Visible: false, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	otherProblem := models.Problem{ID: 1001, Title: "Outside AC", Tags: datatypes.JSON([]byte(`[]`)), Visible: false, Mode: "default", TimeMS: 1000, MemoryMB: 256}
 	if err := db.Create(&problem).Error; err != nil {
 		t.Fatalf("create problem: %v", err)
+	}
+	if err := db.Create(&otherProblem).Error; err != nil {
+		t.Fatalf("create other problem: %v", err)
 	}
 	startAt := time.Now().Add(-time.Hour)
 	contest := models.Contest{Title: "ICPC Round", Kind: "ICPC", StartAt: startAt, EndAt: time.Now().Add(time.Hour)}
@@ -816,8 +836,12 @@ func TestContestICPCRankUsesPenalty(t *testing.T) {
 	if err := db.Create(&models.ContestProblem{ContestID: contest.ID, ProblemID: problem.ID, Sort: "A"}).Error; err != nil {
 		t.Fatalf("create contest problem: %v", err)
 	}
+	if err := db.Create(&models.ContestProblem{ContestID: contest.ID, ProblemID: otherProblem.ID, Sort: "B"}).Error; err != nil {
+		t.Fatalf("create other contest problem: %v", err)
+	}
 	contestID := contest.ID
 	submissions := []models.Submission{
+		{UserID: alice.ID, ProblemID: otherProblem.ID, Language: "cpp", Code: "outside", Status: "AC", Score: 100, Public: true, CreatedAt: startAt.Add(-time.Minute)},
 		{UserID: alice.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "ce", Status: "CE", Score: 0, Public: true, CreatedAt: startAt.Add(2 * time.Minute)},
 		{UserID: alice.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "wa", Status: "WA", Score: 0, Public: true, CreatedAt: startAt.Add(5 * time.Minute)},
 		{UserID: alice.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "ac", Status: "AC", Score: 100, Public: true, CreatedAt: startAt.Add(10 * time.Minute)},
@@ -840,8 +864,23 @@ func TestContestICPCRankUsesPenalty(t *testing.T) {
 	if detail.Rank[0].User != "bob" || detail.Rank[0].AC != 1 || detail.Rank[0].Penalty != 20 {
 		t.Fatalf("bob should win by lower penalty: %+v", detail.Rank)
 	}
+	bobProblem, ok := rankProblemByID(detail.Rank[0].Problems, problem.ID)
+	if !ok || bobProblem.Status != "ac" || bobProblem.Penalty != 20 || bobProblem.Submit != 1 {
+		t.Fatalf("bob ICPC rank should expose per-problem result without post-AC attempts: %+v", detail.Rank[0].Problems)
+	}
 	if detail.Rank[1].User != "alice" || detail.Rank[1].AC != 1 || detail.Rank[1].Penalty != 30 {
 		t.Fatalf("alice penalty should include wrong submission: %+v", detail.Rank)
+	}
+	aliceProblem, ok := rankProblemByID(detail.Rank[1].Problems, problem.ID)
+	if !ok || aliceProblem.Status != "ac" || aliceProblem.Penalty != 30 || aliceProblem.Submit != 2 {
+		t.Fatalf("alice ICPC rank should expose wrong-before-AC count: %+v", detail.Rank[1].Problems)
+	}
+	aliceDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), databaseSession(t, db, alice.ID), nil))
+	if len(aliceDetail.Problems) != 2 {
+		t.Fatalf("contest problems = %+v", aliceDetail.Problems)
+	}
+	if aliceDetail.Problems[0].Mine != "ac" || aliceDetail.Problems[1].Mine != "none" {
+		t.Fatalf("contest problem mine should use contest submissions only: %+v", aliceDetail.Problems)
 	}
 }
 
@@ -1006,6 +1045,39 @@ func TestProblemVisibilityUpdateDoesNotTouchStatementStorage(t *testing.T) {
 	updated := decodeJSON[ProblemDTO](t, res)
 	if updated.Visible {
 		t.Fatalf("problem should be hidden after visibility update: %+v", updated)
+	}
+}
+
+func TestProblemCreateDefaultsVisibleAndListSortsByID(t *testing.T) {
+	db := testWebDB(t)
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	rows := []models.Problem{
+		{ID: 1002, Title: "B", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256},
+		{ID: 1000, Title: "A", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256},
+	}
+	for _, row := range rows {
+		if err := db.Create(&row).Error; err != nil {
+			t.Fatalf("create problem %d: %v", row.ID, err)
+		}
+	}
+
+	e := echo.New()
+	Register(e, db)
+	cookies := databaseSession(t, db, admin.ID)
+	created := decodeJSON[ProblemDTO](t, requestJSONWithCookies(e, http.MethodPost, "/api/problems", cookies, `{"title":"Created","tags":[],"mode":"default","timeMs":1000,"memoryMb":256}`))
+	if !created.Visible {
+		t.Fatalf("created problem should default to visible: %+v", created)
+	}
+	items := decodeJSON[[]ProblemDTO](t, requestWithCookies(e, http.MethodGet, "/api/problems", cookies, nil))
+	if len(items) < 3 {
+		t.Fatalf("problem list too short: %+v", items)
+	}
+	ids := []uint{items[0].ID, items[1].ID, items[2].ID}
+	if ids[0] != 1000 || ids[1] != 1002 || ids[2] != created.ID {
+		t.Fatalf("problem list should sort by id asc, got %+v", ids)
 	}
 }
 
@@ -1610,6 +1682,15 @@ func rankByUser(items []RankUserDTO, user string) (RankUserDTO, bool) {
 		}
 	}
 	return RankUserDTO{}, false
+}
+
+func rankProblemByID(items []RankProblemDTO, id uint) (RankProblemDTO, bool) {
+	for _, item := range items {
+		if item.ProblemID == id {
+			return item, true
+		}
+	}
+	return RankProblemDTO{}, false
 }
 
 func countForDate(items []HeatCell, date string) int {

@@ -10,8 +10,6 @@ import (
 )
 
 func TestSessionCookiesUseAutoTLSByDefault(t *testing.T) {
-	resetCookieConfig(t)
-
 	httpCookies := issueSessionCookies("http://example.test/")
 	httpSession := cookieByName(httpCookies, SessionCookie)
 	if httpSession == nil {
@@ -32,41 +30,13 @@ func TestSessionCookiesUseAutoTLSByDefault(t *testing.T) {
 	if !httpsSession.Secure {
 		t.Fatalf("https request should set secure cookie in auto mode")
 	}
-}
-
-func TestSessionCookiesCanBeForcedForProductionProxy(t *testing.T) {
-	resetCookieConfig(t)
-	secure := true
-	ConfigureCookies(CookieConfig{
-		Domain:   "example.com",
-		Secure:   &secure,
-		SameSite: http.SameSiteNoneMode,
-	})
-
-	cookies := issueSessionCookies("http://api.example.com/")
-	for _, name := range []string{SessionCookie, CSRFCookie} {
-		cookie := cookieByName(cookies, name)
-		if cookie == nil {
-			t.Fatalf("missing %s", name)
-		}
-		if cookie.Domain != "example.com" {
-			t.Fatalf("%s domain = %q, want example.com", name, cookie.Domain)
-		}
-		if !cookie.Secure {
-			t.Fatalf("%s should be secure", name)
-		}
-		if cookie.SameSite != http.SameSiteNoneMode {
-			t.Fatalf("%s SameSite = %v, want none", name, cookie.SameSite)
-		}
+	httpsCSRF := cookieByName(httpsCookies, CSRFCookie)
+	if httpsCSRF == nil {
+		t.Fatalf("missing %s", CSRFCookie)
 	}
-}
-
-func resetCookieConfig(t *testing.T) {
-	t.Helper()
-	ConfigureCookies(CookieConfig{SameSite: http.SameSiteLaxMode})
-	t.Cleanup(func() {
-		ConfigureCookies(CookieConfig{SameSite: http.SameSiteLaxMode})
-	})
+	if httpsCSRF.HttpOnly {
+		t.Fatalf("%s must be readable by the browser for the csrf header", CSRFCookie)
+	}
 }
 
 func issueSessionCookies(target string) []*http.Cookie {

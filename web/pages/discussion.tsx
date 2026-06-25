@@ -7,11 +7,13 @@ import { useState } from 'react'
 
 import { createDiscussion, deleteDiscussion, getDiscussion, getDiscussions, updateDiscussion } from '../client'
 import type { Discussion, DiscussionCreate, DiscussionUpdate } from '../client'
+import { UserLink } from '../components/entity'
 import { MarkdownEditor } from '../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
 import { formatTime } from '../utils/format'
+import { limits } from '../utils/limits'
 
 export function DiscussionPage() {
   const { lang, text } = useLocale()
@@ -205,7 +207,7 @@ function DiscussionModal({
     >
       <Form<DiscussionUpdate> form={form} layout="vertical" initialValues={initial} onFinish={onSave}>
         <Form.Item name="title" label={text.discussion.title} rules={[{ required: true, whitespace: true }]}>
-          <Input maxLength={120} showCount />
+          <Input maxLength={limits.title} showCount />
         </Form.Item>
         <Form.Item name="tags" label={text.discussion.tags}>
           <Select mode="tags" tokenSeparators={[',', '，', ' ']} />
@@ -249,24 +251,21 @@ function discussionColumns(
     {
       title: text.discussion.author,
       dataIndex: 'author',
-      width: 140
+      render: (author: string) => <UserLink name={author} />
     },
     {
       title: text.discussion.replies,
       dataIndex: 'replies',
-      width: 100
     },
     {
       title: text.discussion.created,
       dataIndex: 'createdAt',
-      width: 180,
       render: (value: string) => <Typography.Text className="nowrap">{formatTime(value, lang)}</Typography.Text>
     }
   ]
   if (admin) {
     columns.push({
-      title: '',
-      width: 96,
+      title: text.common.actions,
       align: 'right',
       render: (_, row) => (
         <Space size={4}>

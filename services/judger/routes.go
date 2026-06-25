@@ -18,6 +18,7 @@ import (
 	"github.com/doveccl/doj/services/events"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
+	echomw "github.com/labstack/echo/v4/middleware"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -117,10 +118,10 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	}
 	api := &API{db: db, leaseWait: defaultLeaseWait}
 	group := e.Group("/api/judger", api.auth)
-	group.POST("/lease", api.lease)
+	group.POST("/lease", api.lease, echomw.BodyLimit(utils.BodyLimitShortText))
 	group.GET("/:problem.zip", api.problemPackage)
-	group.POST("/tasks/:id/heartbeat", api.heartbeat)
-	group.POST("/tasks/:id/result", api.result)
+	group.POST("/tasks/:id/heartbeat", api.heartbeat, echomw.BodyLimit(utils.BodyLimitShortText))
+	group.POST("/tasks/:id/result", api.result, echomw.BodyLimit(utils.BodyLimitJudgerResult))
 }
 
 func (api *API) auth(next echo.HandlerFunc) echo.HandlerFunc {
@@ -519,12 +520,18 @@ func validateResult(req ResultRequest) error {
 	if req.Score < 0 || req.Score > 100 {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid result score")
 	}
+	if len([]byte(req.Message)) > utils.MaxJudgerMessageBytes {
+		return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "result message is too large")
+	}
 	for _, item := range req.Cases {
 		if item.No <= 0 {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid case number")
 		}
 		if !validVerdict(item.Status) {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid case status")
+		}
+		if len([]rune(item.Message)) > models.CaseMessageMax {
+			return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "case message is too large")
 		}
 	}
 	return nil

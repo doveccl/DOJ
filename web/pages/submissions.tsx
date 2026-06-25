@@ -1,38 +1,60 @@
 import { SearchOutlined } from '@ant-design/icons'
-import { Button, Card, Flex, Form, Input, Select, Space, Table, Tag, Typography } from 'antd'
+import { Button, Card, Flex, Form, Select, Table, Tag, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
-import { getLangs, getSubmissions } from '../client'
+import { getAssignments, getContests, getLangs, getProblems, getRank, getSubmissions } from '../client'
 import type { Submission } from '../client'
+import { ProblemLink, UserLink } from '../components/entity'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { SubmissionStatus } from '../components/status'
 import { useLocale } from '../locale'
-import { formatTime, problemCode, submissionCode } from '../utils/format'
+import { formatTime, problemLabel, submissionCode } from '../utils/format'
 
-const statusOptions = ['queued', 'judging', 'AC', 'WA', 'PE', 'TLE', 'MLE', 'OLE', 'RE', 'CE', 'SE']
+type SubmissionFilters = {
+  problem?: string
+  user?: string
+  assignment?: string
+  contest?: string
+}
 
 export function SubmissionsPage() {
   const { lang, text } = useLocale()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const problem = params.get('problem') ?? ''
-  const status = params.get('status') ?? ''
+  const problem = normalizeProblemValue(params.get('problem') ?? '')
+  const user = params.get('user') ?? ''
+  const assignment = params.get('assignment') ?? ''
+  const contest = params.get('contest') ?? ''
   const query = useQuery({
-    queryKey: ['submissions', problem, status],
-    queryFn: () => getSubmissions({ problem, status })
+    queryKey: ['submissions', problem, user, assignment, contest],
+    queryFn: () => getSubmissions(cleanFilters({ problem, user, assignment, contest }))
   })
   const languages = useQuery({ queryKey: ['languages'], queryFn: getLangs })
+  const problems = useQuery({ queryKey: ['problems', '', ''], queryFn: () => getProblems() })
+  const users = useQuery({ queryKey: ['rank'], queryFn: getRank })
+  const assignments = useQuery({ queryKey: ['assignments'], queryFn: getAssignments })
+  const contests = useQuery({ queryKey: ['contests'], queryFn: getContests })
   const languageNames = new Map((languages.data ?? []).map((item) => [item.id, item.name]))
+  const problemOptions = (problems.data ?? []).map((item) => ({ value: String(item.id), label: problemLabel(item.id, item.title) }))
+  const userOptions = (users.data ?? []).map((item) => ({ value: item.user, label: item.user }))
+  const assignmentOptions = (assignments.data ?? []).map((item) => ({ value: String(item.id), label: item.title }))
+  const contestOptions = (contests.data ?? []).map((item) => ({ value: String(item.id), label: item.title }))
 
-  function submit(values: { problem?: string; status?: string }) {
+  function submit(values: SubmissionFilters) {
     const next = new URLSearchParams()
     if (values.problem) {
       next.set('problem', values.problem)
     }
-    if (values.status) {
-      next.set('status', values.status)
+    if (values.user) {
+      next.set('user', values.user)
+    }
+    if (values.assignment) {
+      next.set('assignment', values.assignment)
+    }
+    if (values.contest) {
+      next.set('contest', values.contest)
     }
     setParams(next)
   }
@@ -43,53 +65,94 @@ export function SubmissionsPage() {
 
   return (
     <Card>
-      <Form layout="inline" initialValues={{ problem: problem || undefined, status: status || undefined }} onFinish={submit} key={`${problem}:${status}`}>
-        <Flex align="center" justify="space-between" gap={16} wrap style={{ width: '100%', marginBottom: 18 }}>
-          <Flex align="center" gap={10} wrap style={{ flex: '1 1 520px', minWidth: 0 }}>
+      <Flex vertical gap={16}>
+        <Form layout="inline" initialValues={{ problem: problem || undefined, user: user || undefined, assignment: assignment || undefined, contest: contest || undefined }} onFinish={submit} key={`${problem}:${user}:${assignment}:${contest}`}>
           <Form.Item name="problem">
-            <Input placeholder={text.submissions.searchProblem} allowClear style={{ minWidth: 240 }} />
-          </Form.Item>
-          <Form.Item name="status">
             <Select
-              placeholder={text.submissions.allStatus}
+              showSearch
               allowClear
-              options={statusOptions.map((item) => ({ label: text.submissions.statuses[item as keyof typeof text.submissions.statuses] ?? item, value: item }))}
-              style={{ width: 220 }}
+              loading={problems.isLoading}
+              optionFilterProp="label"
+              placeholder={text.submissions.problem}
+              options={problemOptions}
+              style={{ width: 240 }}
             />
           </Form.Item>
-          <Button onClick={clear}>{text.common.clear}</Button>
-          </Flex>
-          <Flex align="center" gap={10} wrap>
-          <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>
-            {text.common.search}
-          </Button>
-          </Flex>
-        </Flex>
-      </Form>
-      {query.isError ? (
-        <ErrorBlock error={query.error} />
-      ) : query.isLoading ? (
-        <LoadingBlock />
-      ) : (
-        <Table<Submission>
-          rowKey="id"
-          rowClassName="clickableRow"
-          onRow={(row) => ({
-            onClick: (event) => {
-              const target = event.target as HTMLElement
-              if (target.closest('a, button, input, textarea, [role="button"], [role="combobox"]')) {
-                return
+          <Form.Item name="user">
+            <Select
+              showSearch
+              allowClear
+              loading={users.isLoading}
+              optionFilterProp="label"
+              placeholder={text.submissions.user}
+              options={userOptions}
+              style={{ width: 160 }}
+            />
+          </Form.Item>
+          <Form.Item name="assignment">
+            <Select
+              showSearch
+              allowClear
+              loading={assignments.isLoading}
+              optionFilterProp="label"
+              placeholder={text.assignments.title}
+              options={assignmentOptions}
+              style={{ width: 180 }}
+            />
+          </Form.Item>
+          <Form.Item name="contest">
+            <Select
+              showSearch
+              allowClear
+              loading={contests.isLoading}
+              optionFilterProp="label"
+              placeholder={text.contests.title}
+              options={contestOptions}
+              style={{ width: 180 }}
+            />
+          </Form.Item>
+          <Form.Item>
+            <Button onClick={clear}>{text.common.clear}</Button>
+          </Form.Item>
+          <Form.Item>
+            <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>
+              {text.common.search}
+            </Button>
+          </Form.Item>
+        </Form>
+        {query.isError ? (
+          <ErrorBlock error={query.error} />
+        ) : query.isLoading ? (
+          <LoadingBlock />
+        ) : (
+          <Table<Submission>
+            rowKey="id"
+            rowClassName="clickableRow"
+            onRow={(row) => ({
+              onClick: (event) => {
+                const target = event.target as HTMLElement
+                if (target.closest('a, button, input, textarea, [role="button"], [role="combobox"]')) {
+                  return
+                }
+                navigate(`/submissions/${row.id}`)
               }
-              navigate(`/submissions/${row.id}`)
-            }
-          })}
-          columns={submissionColumns(text, lang, languageNames)}
-          dataSource={query.data}
-          pagination={{ pageSize: 20, showSizeChanger: true }}
-        />
-      )}
+            })}
+            columns={submissionColumns(text, lang, languageNames)}
+            dataSource={query.data}
+            pagination={{ pageSize: 20, showSizeChanger: true }}
+          />
+        )}
+      </Flex>
     </Card>
   )
+}
+
+function cleanFilters(filters: SubmissionFilters) {
+  return Object.fromEntries(Object.entries(filters).filter(([, value]) => value)) as SubmissionFilters
+}
+
+function normalizeProblemValue(value: string) {
+  return value.trim().replace(/^p/i, '')
 }
 
 function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: string, languageNames: Map<string, string>): TableProps<Submission>['columns'] {
@@ -97,47 +160,37 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: str
     {
       title: text.submissions.id,
       dataIndex: 'id',
-      width: 110,
       render: (id: number) => <Link to={`/submissions/${id}`}>{submissionCode(id)}</Link>
     },
     {
       title: text.submissions.problem,
       render: (_, row) => (
         <Flex align="center" gap={8} className="tableTitleLine">
-          <Typography.Text ellipsis className="lineText">
-            <Link to={`/problems/${row.problemId}`}>
-              {problemCode(row.problemId)} {row.problemTitle}
-            </Link>
-          </Typography.Text>
+          <ProblemLink id={row.problemId} title={row.problemTitle} />
         </Flex>
       )
     },
     {
       title: text.submissions.user,
       dataIndex: 'user',
-      width: 120,
-      render: (user: string) => <Link to={`/users/${user}`}>{user}</Link>
+      render: (user: string) => <UserLink name={user} />
     },
     {
       title: text.submissions.status,
       dataIndex: 'status',
-      width: 110,
       render: (status: string) => <SubmissionStatus status={status} />
     },
     {
       title: text.submissions.score,
       dataIndex: 'score',
-      width: 90
     },
     {
       title: text.submissions.language,
-      width: 120,
       render: (_, row) => <Tag>{languageNames.get(row.language) ?? row.language}</Tag>
     },
     {
       title: text.submissions.created,
       dataIndex: 'createdAt',
-      width: 180,
       render: (value: string) => <Typography.Text className="nowrap">{formatTime(value, lang)}</Typography.Text>
     }
   ]

@@ -30,7 +30,8 @@ import { ErrorBlock, LoadingBlock } from '../components/state'
 import { contestTarget, ScheduleTag } from '../components/time'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { formatTime, problemCode } from '../utils/format'
+import { formatTime, problemLabel } from '../utils/format'
+import { limits } from '../utils/limits'
 
 type ContestForm = {
   title: string
@@ -100,7 +101,7 @@ export function ContestsPage() {
   })
   const problemOptions = (problems.data ?? []).map((item) => ({
     value: item.id,
-    label: `${problemCode(item.id)} ${item.title}`
+    label: problemLabel(item.id, item.title)
   }))
 
   function openCreate() {
@@ -222,7 +223,7 @@ function ContestModal({
         onFinish={onSave}
       >
         <Form.Item name="title" label={text.contests.name} rules={[{ required: true, whitespace: true }]}>
-          <Input maxLength={120} showCount />
+          <Input maxLength={limits.title} showCount />
         </Form.Item>
         <Form.Item name="kind" label={text.contests.kind}>
           <Select
@@ -292,7 +293,6 @@ function contestColumns(
     },
     {
       title: text.contests.status,
-      width: 150,
       render: (_, row) => (
         <ScheduleTag
           kind="contest"
@@ -306,20 +306,17 @@ function contestColumns(
     {
       title: text.contests.kind,
       dataIndex: 'kind',
-      width: 100,
       render: (kind: string) => <Tag>{kind}</Tag>
     },
     {
       title: text.contests.problems,
       dataIndex: 'total',
-      width: 120,
       render: (total: number) => <Typography.Text>{text.contests.total(total)}</Typography.Text>
     }
   ]
   if (admin) {
     columns.push({
-      title: '',
-      width: 96,
+      title: text.common.actions,
       align: 'right',
       render: (_, row) => (
         <Space size={4}>

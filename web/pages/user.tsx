@@ -11,6 +11,7 @@ import { ProfileOverview } from '../components/profile'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
+import { limits } from '../utils/limits'
 
 type AccountForm = Pick<MeUpdate, 'mail' | 'bio'>
 
@@ -163,10 +164,10 @@ function AccountPane({ me, saving, onSave }: { me: MeUpdate; saving: boolean; on
       onFinish={onSave}
     >
       <Form.Item name="mail" label={text.profile.email} rules={[{ type: 'email' }]}>
-        <Input />
+        <Input maxLength={limits.mail} />
       </Form.Item>
       <Form.Item name="bio" label={text.profile.bio}>
-        <Input.TextArea maxLength={280} showCount rows={4} />
+        <Input.TextArea maxLength={limits.bio} showCount rows={4} />
       </Form.Item>
       <Button type="primary" htmlType="submit" loading={saving}>
         {text.profile.save}

@@ -28,6 +28,7 @@ import type { ColorMode } from '../color'
 import { useLocale } from '../locale'
 import type { Lang } from '../locale'
 import { useSession } from '../session'
+import { limits } from '../utils/limits'
 
 function navItems(text: ReturnType<typeof useLocale>['text'], admin: boolean): MenuProps['items'] {
   const items: MenuProps['items'] = [
@@ -263,7 +264,7 @@ function LoginPane({ onCancel }: { onCancel: () => void }) {
       }}
     >
       <Form.Item name="name" label={text.prefs.username} rules={[{ required: true, whitespace: true }]}>
-        <Input autoComplete="username" />
+        <Input autoComplete="username" maxLength={limits.mail} />
       </Form.Item>
       <Form.Item name="password" label={text.prefs.password} rules={[{ required: true, whitespace: true }]}>
         <Input.Password autoComplete="current-password" />
@@ -311,11 +312,11 @@ function RegisterPane({ onCancel }: { onCancel: () => void }) {
         void submit()
       }}
     >
-      <Form.Item name="name" label={text.prefs.username} rules={[{ required: true, whitespace: true }]}>
-        <Input autoComplete="username" />
+      <Form.Item name="name" label={text.prefs.username} rules={[{ required: true, whitespace: true }, { min: limits.usernameMin }, { max: limits.username }]}>
+        <Input autoComplete="username" maxLength={limits.username} />
       </Form.Item>
       <Form.Item name="mail" label={text.profile.email} rules={[{ required: true, type: 'email' }]}>
-        <Input autoComplete="email" />
+        <Input autoComplete="email" maxLength={limits.mail} />
       </Form.Item>
       <Form.Item name="password" label={text.prefs.password} rules={[{ required: true, min: 8 }]}>
         <Input.Password autoComplete="new-password" />
