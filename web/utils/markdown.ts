@@ -57,6 +57,14 @@ export function rewriteAssetURL(value: string, assetBase?: string) {
   return `${base}${match[1]}`
 }
 
+export function problemAssetUploadMarkdownURL(value: string, problemID: number) {
+  const prefix = `/api/problems/${problemID}/assets/`
+  if (!value.startsWith(prefix)) {
+    return value
+  }
+  return `./assets/${value.slice(prefix.length)}`
+}
+
 export function setMarkdownAssetBase(editorID: string, assetBase?: string) {
   markdownAssetBases.set(editorID, assetBase)
 }

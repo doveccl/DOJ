@@ -62,6 +62,7 @@ import { SubmissionStatus } from '../components/status'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
 import { formatBytes, formatLimit, problemCode } from '../utils/format'
+import { problemAssetUploadMarkdownURL } from '../utils/markdown'
 
 const sourceTemplate = `#include <bits/stdc++.h>
 using namespace std;
@@ -102,7 +103,10 @@ export function ProblemDetailPage() {
   const [caseOpen, setCaseOpen] = useState(false)
   const [assetEdit, setAssetEdit] = useState<AssetContent | null>(null)
   const [assetDraft, setAssetDraft] = useState('')
-  const uploadStatementImage = useCallback((file: File) => uploadProblemImage(id, file), [id])
+  const uploadStatementImage = useCallback(
+    async (file: File) => problemAssetUploadMarkdownURL(await uploadProblemImage(id, file), id),
+    [id]
+  )
   const statementAssetBase = Number.isFinite(id) ? `/api/problems/${id}/assets/` : undefined
   const query = useQuery({
     queryKey: ['problem', id],
