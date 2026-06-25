@@ -1936,7 +1936,7 @@ components:
           type: integer
     UserProfile:
       type: object
-      required: [user, heatmap, solved, submissions]
+      required: [user, heatmap, solved, activities]
       properties:
         user:
           $ref: "#/components/schemas/PublicUser"
@@ -1948,10 +1948,30 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Problem"
-        submissions:
+        activities:
           type: array
           items:
-            $ref: "#/components/schemas/Submission"
+            $ref: "#/components/schemas/UserActivity"
+    UserActivity:
+      type: object
+      required: [type, id, title, createdAt]
+      properties:
+        type:
+          type: string
+          enum: [submission, discussion]
+        id:
+          type: integer
+        title:
+          type: string
+        status:
+          type: string
+        problemId:
+          type: integer
+        problemTitle:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
     PublicUser:
       type: object
       required: [name, bio, avatar, admin, ac, submit]

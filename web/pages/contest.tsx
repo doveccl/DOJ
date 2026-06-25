@@ -15,7 +15,7 @@ import { ContestStatus, SubmissionStatus } from '../components/status'
 import { contestTarget, DeadlineTimer } from '../components/time'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { formatTime, problemCode } from '../utils/format'
+import { formatTime, problemCode, submissionCode } from '../utils/format'
 
 type ContestForm = {
   title: string
@@ -276,7 +276,7 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: str
       title: text.submissions.id,
       dataIndex: 'id',
       width: 110,
-      render: (id: number) => <Link to={`/submissions/${id}`}>#{id}</Link>
+      render: (id: number) => <Link to={`/submissions/${id}`}>{submissionCode(id)}</Link>
     },
     {
       title: text.submissions.problem,

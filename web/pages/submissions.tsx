@@ -9,7 +9,7 @@ import type { Submission } from '../client'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { SubmissionStatus } from '../components/status'
 import { useLocale } from '../locale'
-import { formatTime, problemCode } from '../utils/format'
+import { formatTime, problemCode, submissionCode } from '../utils/format'
 
 const statusOptions = ['queued', 'judging', 'AC', 'WA', 'PE', 'TLE', 'MLE', 'OLE', 'RE', 'CE', 'SE']
 
@@ -98,7 +98,7 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: str
       title: text.submissions.id,
       dataIndex: 'id',
       width: 110,
-      render: (id: number) => <Link to={`/submissions/${id}`}>#{id}</Link>
+      render: (id: number) => <Link to={`/submissions/${id}`}>{submissionCode(id)}</Link>
     },
     {
       title: text.submissions.problem,

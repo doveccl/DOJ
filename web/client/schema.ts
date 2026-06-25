@@ -1116,7 +1116,18 @@ export interface components {
             user: components["schemas"]["PublicUser"];
             heatmap: components["schemas"]["HeatCell"][];
             solved: components["schemas"]["Problem"][];
-            submissions: components["schemas"]["Submission"][];
+            activities: components["schemas"]["UserActivity"][];
+        };
+        UserActivity: {
+            /** @enum {string} */
+            type: "submission" | "discussion";
+            id: number;
+            title: string;
+            status?: string;
+            problemId?: number;
+            problemTitle?: string;
+            /** Format: date-time */
+            createdAt: string;
         };
         PublicUser: {
             name: string;

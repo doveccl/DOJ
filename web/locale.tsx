@@ -203,6 +203,7 @@ const zh = {
     recent: '最近活动',
     contributions: '提交记录',
     submitted: '提交了',
+    posted: '发布了',
     noBio: '暂无简介'
   },
   discussion: {
@@ -229,7 +230,7 @@ const zh = {
     avatar: '头像',
     avatarImageOnly: '请选择图片文件',
     accountSettings: '资料设置',
-    editProfile: '编辑资料',
+    editProfile: '个人设置',
     email: '邮箱',
     bio: '简介',
     oldPassword: '旧密码',
@@ -533,6 +534,7 @@ const en: typeof zh = {
     recent: 'Recent activity',
     contributions: 'Contributions',
     submitted: 'submitted',
+    posted: 'posted',
     noBio: 'No bio'
   },
   discussion: {
@@ -559,7 +561,7 @@ const en: typeof zh = {
     avatar: 'Avatar',
     avatarImageOnly: 'Choose an image file',
     accountSettings: 'Profile settings',
-    editProfile: 'Edit profile',
+    editProfile: 'Profile settings',
     email: 'Email',
     bio: 'Bio',
     oldPassword: 'Current password',

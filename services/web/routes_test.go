@@ -329,13 +329,19 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 			t.Fatalf("create submission: %v", err)
 		}
 	}
+	if err := db.Create(&models.Discussion{Title: "Student note", Content: "body", UserID: student.ID, Tags: datatypes.JSON([]byte(`["P1000"]`))}).Error; err != nil {
+		t.Fatalf("create discussion: %v", err)
+	}
 
 	e := echo.New()
 	Register(e, db)
 
 	profile := decodeJSON[UserProfile](t, requestOK(t, e, http.MethodGet, "/api/users/student", ""))
-	if hasProblem(profile.Solved, hidden.ID) || hasSubmissionProblem(profile.Submissions, hidden.ID) {
+	if hasProblem(profile.Solved, hidden.ID) || hasActivityProblem(profile.Activities, hidden.ID) {
 		t.Fatalf("guest profile leaked hidden problem: %+v", profile)
+	}
+	if !hasActivity(profile.Activities, "discussion", "Student note") {
+		t.Fatalf("guest profile should include discussion activity: %+v", profile.Activities)
 	}
 	if profile.User.AC != 2 || profile.User.Submit != 6 {
 		t.Fatalf("guest profile stats should include all activity: %+v", profile.User)
@@ -382,7 +388,7 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 		t.Fatalf("admin profile got %d body=%s", adminProfileRes.Code, adminProfileRes.Body.String())
 	}
 	adminProfile := decodeJSON[UserProfile](t, adminProfileRes)
-	if !hasProblem(adminProfile.Solved, hidden.ID) || !hasSubmissionProblem(adminProfile.Submissions, hidden.ID) {
+	if !hasProblem(adminProfile.Solved, hidden.ID) || !hasActivityProblem(adminProfile.Activities, hidden.ID) {
 		t.Fatalf("admin profile should include hidden problem: %+v", adminProfile)
 	}
 	if adminProfile.User.AC != 2 || adminProfile.User.Submit != 6 {
@@ -1521,6 +1527,24 @@ func problemByID(items []ProblemDTO, id uint) (ProblemDTO, bool) {
 func hasSubmissionProblem(items []SubmissionDTO, id uint) bool {
 	for _, item := range items {
 		if item.ProblemID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func hasActivityProblem(items []UserActivityDTO, id uint) bool {
+	for _, item := range items {
+		if item.ProblemID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func hasActivity(items []UserActivityDTO, kind string, title string) bool {
+	for _, item := range items {
+		if item.Type == kind && item.Title == title {
 			return true
 		}
 	}

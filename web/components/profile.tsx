@@ -1,9 +1,9 @@
-import { CheckCircleOutlined, CodeOutlined, UserOutlined } from '@ant-design/icons'
+import { CheckCircleOutlined, CodeOutlined, MessageOutlined, UserOutlined } from '@ant-design/icons'
 import { Avatar, Card, Col, Empty, Flex, Row, Space, Statistic, Tag, Timeline, Typography } from 'antd'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
-import type { Problem, Submission, UserProfile } from '../client'
+import type { Problem, UserActivity, UserProfile } from '../client'
 import { useLocale } from '../locale'
 import { formatPass, formatTime, problemCode } from '../utils/format'
 import { YearHeatmap } from './heatmap'
@@ -61,7 +61,7 @@ export function ProfileOverview({ profile, renderAvatar, sidebarAction }: Profil
           </Card>
           <Row gutter={[20, 20]}>
             <Col xs={24} xl={14}>
-              <ActivityCard submissions={profile.submissions} />
+              <ActivityCard activities={profile.activities} />
             </Col>
             <Col xs={24} xl={10}>
               <SolvedCard problems={profile.solved} />
@@ -73,37 +73,68 @@ export function ProfileOverview({ profile, renderAvatar, sidebarAction }: Profil
   )
 }
 
-function ActivityCard({ submissions }: { submissions: Submission[] }) {
+function ActivityCard({ activities }: { activities: UserActivity[] }) {
   const { lang, text } = useLocale()
 
   return (
     <Card title={text.user.recent} className="profileActivity">
-      {submissions.length === 0 ? (
+      {activities.length === 0 ? (
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
       ) : (
         <Timeline
-          items={submissions.slice(0, 12).map((row) => ({
-            icon: row.status === 'AC' ? <CheckCircleOutlined /> : <CodeOutlined />,
-            content: (
-              <Flex vertical gap={4} className="profileActivityItem">
-                <Flex align="center" gap={8} wrap>
-                  <Link to={`/submissions/${row.id}`}>
-                    <SubmissionStatus status={row.status} />
-                  </Link>
-                  <Typography.Text>{text.user.submitted}</Typography.Text>
-                  <Typography.Text ellipsis className="lineText">
-                    <Link to={`/problems/${row.problemId}`}>
-                      {problemCode(row.problemId)} {row.problemTitle}
-                    </Link>
-                  </Typography.Text>
-                </Flex>
-                <Typography.Text type="secondary">{formatTime(row.createdAt, lang)}</Typography.Text>
-              </Flex>
-            )
+          items={activities.slice(0, 12).map((row) => ({
+            icon: activityIcon(row),
+            content: <ActivityItem activity={row} lang={lang} submitted={text.user.submitted} posted={text.user.posted} />
           }))}
         />
       )}
     </Card>
+  )
+}
+
+function activityIcon(row: UserActivity) {
+  if (row.type === 'discussion') {
+    return <MessageOutlined />
+  }
+  return row.status === 'AC' ? <CheckCircleOutlined /> : <CodeOutlined />
+}
+
+function ActivityItem({ activity, lang, submitted, posted }: { activity: UserActivity; lang: string; submitted: string; posted: string }) {
+  if (activity.type === 'discussion') {
+    return (
+      <Flex vertical gap={4} className="profileActivityItem">
+        <Flex align="center" gap={8} wrap>
+          <Typography.Text>{posted}</Typography.Text>
+          <Typography.Text ellipsis className="lineText">
+            <Link to={`/discussion/${activity.id}`}>{activity.title}</Link>
+          </Typography.Text>
+        </Flex>
+        <Typography.Text type="secondary">{formatTime(activity.createdAt, lang)}</Typography.Text>
+      </Flex>
+    )
+  }
+
+  return (
+    <Flex vertical gap={4} className="profileActivityItem">
+      <Flex align="center" gap={8} wrap>
+        {activity.status ? (
+          <Link to={`/submissions/${activity.id}`}>
+            <SubmissionStatus status={activity.status} />
+          </Link>
+        ) : null}
+        <Typography.Text>{submitted}</Typography.Text>
+        <Typography.Text ellipsis className="lineText">
+          {activity.problemId ? (
+            <Link to={`/problems/${activity.problemId}`}>
+              {problemCode(activity.problemId)} {activity.problemTitle}
+            </Link>
+          ) : (
+            activity.title
+          )}
+        </Typography.Text>
+      </Flex>
+      <Typography.Text type="secondary">{formatTime(activity.createdAt, lang)}</Typography.Text>
+    </Flex>
   )
 }
 

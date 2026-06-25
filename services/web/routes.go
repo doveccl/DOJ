@@ -241,10 +241,20 @@ type PublicUserDTO struct {
 }
 
 type UserProfile struct {
-	User        PublicUserDTO   `json:"user"`
-	Heatmap     []HeatCell      `json:"heatmap"`
-	Solved      []ProblemDTO    `json:"solved"`
-	Submissions []SubmissionDTO `json:"submissions"`
+	User       PublicUserDTO     `json:"user"`
+	Heatmap    []HeatCell        `json:"heatmap"`
+	Solved     []ProblemDTO      `json:"solved"`
+	Activities []UserActivityDTO `json:"activities"`
+}
+
+type UserActivityDTO struct {
+	Type         string    `json:"type"`
+	ID           uint      `json:"id"`
+	Title        string    `json:"title"`
+	Status       string    `json:"status,omitempty"`
+	ProblemID    uint      `json:"problemId,omitempty"`
+	ProblemTitle string    `json:"problemTitle,omitempty"`
+	CreatedAt    time.Time `json:"createdAt"`
 }
 
 type DiscussionDTO struct {
@@ -2570,16 +2580,11 @@ func (api *API) user(c echo.Context) error {
 	}
 
 	includeHidden := api.isAdmin(c)
-	submissions, err := api.userSubmissions(row.ID, includeHidden)
+	solved, err := api.solvedProblems(row.ID, includeHidden)
 	if err != nil {
 		return err
 	}
-	items := make([]SubmissionDTO, 0, len(submissions))
-	for _, item := range submissions {
-		items = append(items, api.submissionDTO(item))
-	}
-
-	solved, err := api.solvedProblems(row.ID, includeHidden)
+	activities, err := api.userActivities(row.ID, includeHidden)
 	if err != nil {
 		return err
 	}
@@ -2592,10 +2597,10 @@ func (api *API) user(c echo.Context) error {
 		return err
 	}
 	return c.JSON(http.StatusOK, UserProfile{
-		User:        PublicUserDTO{Name: row.Name, Bio: row.Bio, Avatar: row.Avatar, Admin: row.Admin, AC: ac, Submit: submit},
-		Heatmap:     heatmap,
-		Solved:      solved,
-		Submissions: items,
+		User:       PublicUserDTO{Name: row.Name, Bio: row.Bio, Avatar: row.Avatar, Admin: row.Admin, AC: ac, Submit: submit},
+		Heatmap:    heatmap,
+		Solved:     solved,
+		Activities: activities,
 	})
 }
 
@@ -2645,6 +2650,46 @@ func (api *API) userSubmissions(userID uint, includeHidden bool) ([]models.Submi
 		return nil, err
 	}
 	return rows, nil
+}
+
+func (api *API) userActivities(userID uint, includeHidden bool) ([]UserActivityDTO, error) {
+	submissions, err := api.userSubmissions(userID, includeHidden)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]UserActivityDTO, 0, len(submissions)+20)
+	for _, row := range submissions {
+		submission := api.submissionDTO(row)
+		items = append(items, UserActivityDTO{
+			Type:         "submission",
+			ID:           submission.ID,
+			Title:        submission.ProblemTitle,
+			Status:       submission.Status,
+			ProblemID:    submission.ProblemID,
+			ProblemTitle: submission.ProblemTitle,
+			CreatedAt:    submission.CreatedAt,
+		})
+	}
+
+	var discussions []models.Discussion
+	if err := api.db.Where("user_id = ?", userID).Order("created_at desc").Limit(20).Find(&discussions).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range discussions {
+		items = append(items, UserActivityDTO{
+			Type:      "discussion",
+			ID:        row.ID,
+			Title:     row.Title,
+			CreatedAt: row.CreatedAt,
+		})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].CreatedAt.After(items[j].CreatedAt)
+	})
+	if len(items) > 20 {
+		items = items[:20]
+	}
+	return items, nil
 }
 
 func (api *API) solvedProblems(userID uint, includeHidden bool) ([]ProblemDTO, error) {

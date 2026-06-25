@@ -4,6 +4,14 @@ export function problemCode(id: number) {
   return `P${id}`
 }
 
+export function submissionCode(id: number) {
+  return `S${id}`
+}
+
+export function caseCode(no: number) {
+  return `C${no}`
+}
+
 export function formatLimit(problem: Pick<Problem, 'timeMs' | 'memoryMb'>) {
   return `${problem.timeMs}ms / ${problem.memoryMb}MB`
 }

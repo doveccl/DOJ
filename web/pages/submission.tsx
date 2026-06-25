@@ -11,7 +11,7 @@ import { ErrorBlock, LoadingBlock } from '../components/state'
 import { SubmissionStatus } from '../components/status'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { formatTime, memoryText, problemCode } from '../utils/format'
+import { caseCode, formatTime, memoryText, problemCode, submissionCode } from '../utils/format'
 
 export function SubmissionDetailPage() {
   const { message } = AntApp.useApp()
@@ -56,7 +56,7 @@ export function SubmissionDetailPage() {
           <Card
             title={
               <Space size={10}>
-                <Typography.Text strong>#{submission.id}</Typography.Text>
+                <Typography.Text strong>{submissionCode(submission.id)}</Typography.Text>
                 <SubmissionStatus status={submission.status} />
               </Space>
             }
@@ -84,23 +84,27 @@ export function SubmissionDetailPage() {
               </Meta>
               <Meta label={text.submissions.language}>{languageName}</Meta>
               <Meta label={text.submissions.created}>{formatTime(submission.createdAt, lang)}</Meta>
-              {canUpdatePublic ? (
-                <Flex justify="space-between" align="center" gap={12}>
-                  <Typography.Text type="secondary">{text.problem.publicSource}</Typography.Text>
-                  <Switch
-                    checked={submission.public}
-                    loading={updatePublic.isPending}
-                    disabled={updatePublic.isPending}
-                    onChange={(checked) => updatePublic.mutate(checked)}
-                  />
-                </Flex>
-              ) : null}
             </Flex>
           </Card>
         </Col>
       </Row>
       {code.trim() ? (
-        <Card title={text.submissions.source}>
+        <Card
+          title={text.submissions.source}
+          extra={
+            canUpdatePublic ? (
+              <Space size={8}>
+                <Typography.Text type="secondary">{text.problem.publicSource}</Typography.Text>
+                <Switch
+                  checked={submission.public}
+                  loading={updatePublic.isPending}
+                  disabled={updatePublic.isPending}
+                  onChange={(checked) => updatePublic.mutate(checked)}
+                />
+              </Space>
+            ) : null
+          }
+        >
           <MarkdownPreview value={codeMarkdown(code, submission.language)} />
         </Card>
       ) : null}
@@ -137,7 +141,7 @@ function MetaInline({ label, children }: { label: string; children: ReactNode })
 
 function caseColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Case>['columns'] {
   return [
-    { title: '#', dataIndex: 'no', width: 56 },
+    { title: text.submissions.cases, dataIndex: 'no', width: 86, render: (no: number) => caseCode(no) },
     {
       title: text.submissions.status,
       dataIndex: 'status',
