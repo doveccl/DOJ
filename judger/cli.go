@@ -45,7 +45,7 @@ func JudgerCLI(ctx context.Context, args []string) int {
 			Token:      os.Getenv("TOKEN"),
 			Runner:     runner,
 			Work:       work,
-			CgroupRoot: filepath.Join("/sys/fs/cgroup", "doj"),
+			CgroupRoot: DefaultCgroupRoot(),
 			ProcRoot:   "/proc",
 		},
 		Concurrency: getenvInt("CONCURRENCY", 1),

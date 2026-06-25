@@ -119,7 +119,7 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	api := &API{db: db, leaseWait: defaultLeaseWait}
 	group := e.Group("/api/judger", api.auth)
 	group.POST("/lease", api.lease, echomw.BodyLimit(utils.BodyLimitShortText))
-	group.GET("/:problem.zip", api.problemPackage)
+	group.GET("/:problem", api.problemPackage)
 	group.POST("/tasks/:id/heartbeat", api.heartbeat, echomw.BodyLimit(utils.BodyLimitShortText))
 	group.POST("/tasks/:id/result", api.result, echomw.BodyLimit(utils.BodyLimitJudgerResult))
 }

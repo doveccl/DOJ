@@ -3,9 +3,14 @@ package judger
 import (
 	"testing"
 	"time"
+
+	"github.com/doveccl/doj/utils"
 )
 
 func TestJudgerStatusWindow(t *testing.T) {
+	startRedis(t)
+	utils.ResetCacheForTest()
+	t.Cleanup(utils.ResetCacheForTest)
 	now := time.Now()
 	id := uint(now.UnixNano()%1_000_000_000) + 1_000_000_000
 

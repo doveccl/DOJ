@@ -12,9 +12,23 @@ import (
 	"time"
 )
 
+func DefaultCgroupRoot() string {
+	for _, root := range []string{"/sys/fs/cgroup", "/sys/fs/cgroup/unified"} {
+		if isCgroupV2Root(root) {
+			return filepath.Join(root, "doj")
+		}
+	}
+	return filepath.Join("/sys/fs/cgroup", "doj")
+}
+
+func isCgroupV2Root(root string) bool {
+	info, err := os.Stat(filepath.Join(root, "cgroup.controllers"))
+	return err == nil && !info.IsDir()
+}
+
 func PrepareCgroup(cfg CgroupConfig) (*CgroupCase, error) {
 	if cfg.Root == "" {
-		cfg.Root = "/sys/fs/cgroup/doj"
+		cfg.Root = DefaultCgroupRoot()
 	}
 	if cfg.SubmissionID == "" || cfg.CaseID == "" {
 		return nil, fmt.Errorf("cgroup requires submission and case id")
@@ -140,6 +154,14 @@ func readInt(path string) (int64, error) {
 }
 
 func enableControllers(path string) error {
+	availableRaw, err := os.ReadFile(filepath.Join(path, "cgroup.controllers"))
+	if err != nil {
+		return err
+	}
+	available := map[string]bool{}
+	for _, item := range strings.Fields(string(availableRaw)) {
+		available[item] = true
+	}
 	currentRaw, err := os.ReadFile(filepath.Join(path, "cgroup.subtree_control"))
 	if err != nil {
 		return err
@@ -149,6 +171,9 @@ func enableControllers(path string) error {
 		current[strings.TrimPrefix(item, "+")] = true
 	}
 	for _, controller := range []string{"cpu", "memory", "pids"} {
+		if !available[controller] {
+			return fmt.Errorf("cgroup v2 controller %s is unavailable at %s", controller, path)
+		}
 		if current[controller] {
 			continue
 		}

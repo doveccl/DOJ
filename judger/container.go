@@ -6,10 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"time"
 )
 
@@ -54,7 +51,7 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error
 	if err != nil {
 		return TaskResult{}, err
 	}
-	defer dockerCleanup("rm", "-f", containerID)
+	defer dockerRemoveContainer(context.Background(), containerID)
 
 	initPID, err := dockerContainerPID(ctx, containerID)
 	if err != nil {
@@ -290,54 +287,41 @@ func applyCgroupStats(result *CaseResult, cgroup *CgroupCase) {
 }
 
 func startRunnerContainer(ctx context.Context, image string, runner string, work string, socket string) (string, error) {
-	if _, err := exec.LookPath("docker"); err != nil {
-		return "", fmt.Errorf("docker CLI is required for container tasks")
-	}
 	_ = os.Remove(socket)
-	args := []string{
-		"run", "-d",
-		"--network", "none",
-		"--security-opt", "no-new-privileges",
-		"--cap-drop", "ALL",
-		"--cap-add", "CHOWN",
-		"--cap-add", "SETUID",
-		"--cap-add", "SETGID",
-		"-v", work + ":" + containerWorkDir,
-		"-v", runner + ":/usr/local/bin/doj-runner:ro",
-		"-w", containerWorkDir,
-		image,
-		"/usr/local/bin/doj-runner", "serve",
-		"--socket", filepath.ToSlash(filepath.Join(containerWorkDir, "runner.sock")),
-		"--work", containerWorkDir,
-		"--runner", "/usr/local/bin/doj-runner",
-	}
-	out, err := runDockerStep(ctx, work, defaultCompileOutputLimit, args...)
+	containerID, err := dockerCreateContainer(ctx, dockerCreateRequest{
+		Image: image,
+		Cmd: []string{
+			"/usr/local/bin/doj-runner", "serve",
+			"--socket", filepath.ToSlash(filepath.Join(containerWorkDir, "runner.sock")),
+			"--work", containerWorkDir,
+			"--runner", "/usr/local/bin/doj-runner",
+		},
+		WorkingDir: containerWorkDir,
+		HostConfig: dockerHostConfig{
+			Binds: []string{
+				work + ":" + containerWorkDir,
+				runner + ":/usr/local/bin/doj-runner:ro",
+			},
+			NetworkMode: "none",
+			SecurityOpt: []string{"no-new-privileges"},
+			CapDrop:     []string{"ALL"},
+			CapAdd:      []string{"CHOWN", "SETUID", "SETGID"},
+		},
+	})
 	if err != nil {
-		message := strings.TrimSpace(out)
-		if message == "" {
-			message = err.Error()
-		}
-		return "", fmt.Errorf("start runner container: %s", message)
+		return "", fmt.Errorf("create runner container: %w", err)
 	}
-	containerID := firstNonEmptyLine(out)
-	if containerID == "" {
-		return "", fmt.Errorf("docker run produced an empty container id")
+	if err := dockerStartContainer(ctx, containerID); err != nil {
+		dockerRemoveContainer(context.Background(), containerID)
+		return "", fmt.Errorf("start runner container: %w", err)
 	}
 	return containerID, nil
 }
 
 func dockerContainerPID(ctx context.Context, containerID string) (int, error) {
-	out, err := runDockerStep(ctx, "", defaultCompileOutputLimit, "inspect", "--format", "{{.State.Pid}}", containerID)
+	pid, err := dockerInspectPID(ctx, containerID)
 	if err != nil {
-		message := strings.TrimSpace(out)
-		if message == "" {
-			message = err.Error()
-		}
-		return 0, fmt.Errorf("inspect runner container pid: %s", message)
-	}
-	pid, err := strconv.Atoi(strings.TrimSpace(out))
-	if err != nil || pid <= 0 {
-		return 0, fmt.Errorf("invalid container pid %q", strings.TrimSpace(out))
+		return 0, fmt.Errorf("inspect runner container pid: %w", err)
 	}
 	return pid, nil
 }
@@ -353,8 +337,7 @@ func containerError(ctx context.Context, containerID string, err error) error {
 func dockerContainerLogs(ctx context.Context, containerID string) string {
 	logCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	out, _ := runDockerStep(logCtx, "", defaultCompileOutputLimit, "logs", containerID)
-	return strings.TrimSpace(out)
+	return dockerLogs(logCtx, containerID, defaultCompileOutputLimit)
 }
 
 func waitUnixSocket(ctx context.Context, socket string) error {

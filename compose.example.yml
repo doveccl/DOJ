@@ -80,6 +80,7 @@ services:
       TOKEN: "${TOKEN:-replace-with-judger-token}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - /sys/fs/cgroup:/sys/fs/cgroup
       - /var/lib/doj:/var/lib/doj
 
 volumes:

@@ -2,11 +2,15 @@
 
 package judger
 
-func PrepareCgroup(CgroupConfig) (*CgroupCase, error) {
+func DefaultCgroupRoot() string {
+	return "/sys/fs/cgroup/doj"
+}
+
+func PrepareCgroup(cfg CgroupConfig) (*CgroupCase, error) {
 	return nil, ErrCgroupUnsupported
 }
 
-func (cg *CgroupCase) Add(int) error {
+func (cg *CgroupCase) Add(pid int) error {
 	return ErrCgroupUnsupported
 }
 
@@ -15,5 +19,5 @@ func (cg *CgroupCase) Stats() (CgroupStats, error) {
 }
 
 func (cg *CgroupCase) Cleanup() error {
-	return ErrCgroupUnsupported
+	return nil
 }

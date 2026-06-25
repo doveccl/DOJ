@@ -38,14 +38,13 @@ func prepareLanguageImage(ctx context.Context, work string, lang Lang, source st
 		cleanup()
 		return preparedLang{}, err
 	}
-	iidFile := filepath.Join(dir, "image.iid")
 	buildCtx, cancel := context.WithTimeout(ctx, defaultLanguageBuildTimeout)
 	defer cancel()
 	outputLimit := int64(defaultCompileOutputLimit)
 	if limits.OutputKB > 0 {
 		outputLimit = int64(limits.OutputKB) * 1024
 	}
-	out, err := runDockerStep(buildCtx, dir, outputLimit, "build", "--network", "none", "--iidfile", iidFile, ".")
+	image, out, err := dockerBuildImage(buildCtx, dir, "Dockerfile", outputLimit)
 	if err != nil {
 		cleanup()
 		message := strings.TrimSpace(out)
@@ -54,21 +53,11 @@ func prepareLanguageImage(ctx context.Context, work string, lang Lang, source st
 		}
 		return preparedLang{}, fmt.Errorf("build language image: %s", message)
 	}
-	imageID, err := os.ReadFile(iidFile)
-	if err != nil {
-		cleanup()
-		return preparedLang{}, fmt.Errorf("read language image id: %w", err)
-	}
-	image := strings.TrimSpace(string(imageID))
-	if image == "" {
-		cleanup()
-		return preparedLang{}, fmt.Errorf("language image build produced an empty image id")
-	}
 	return preparedLang{
 		Image:   image,
 		Command: command,
 		Cleanup: func() {
-			dockerCleanup("rmi", "-f", image)
+			dockerRemoveImage(context.Background(), image)
 			cleanup()
 		},
 	}, nil

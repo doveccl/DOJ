@@ -252,14 +252,10 @@ fi
 
 func requireDocker(t *testing.T) {
 	t.Helper()
-	if _, err := exec.LookPath("docker"); err != nil {
-		t.Skip("docker CLI is not available")
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "docker", "info")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Skipf("docker daemon is not available: %v\n%s", err, out)
+	if err := dockerPing(ctx); err != nil {
+		t.Skipf("docker engine is not available: %v", err)
 	}
 }
 

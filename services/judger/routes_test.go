@@ -1,8 +1,11 @@
 package judger
 
 import (
+	"archive/zip"
+	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -55,6 +58,34 @@ func TestCasePayloadsFromCommonDataNames(t *testing.T) {
 	}
 }
 
+func TestProblemPackageRouteAcceptsZipSuffix(t *testing.T) {
+	db := newJudgerTestDB(t)
+	storage := t.TempDir()
+	t.Setenv("STORAGE", storage)
+	if err := db.Create(&models.Problem{ID: 1000, Title: "A+B", Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 64}).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	mustWriteFile(t, filepath.Join(storage, "problems", "1000", "data", "1.in"), "1 2\n")
+	mustWriteFile(t, filepath.Join(storage, "problems", "1000", "data", "1.out"), "3\n")
+
+	e := echo.New()
+	Register(e, db)
+	req := httptest.NewRequest(http.MethodGet, "/api/judger/P1000.zip", nil)
+	req.RemoteAddr = "127.0.0.1:1234"
+	res := httptest.NewRecorder()
+	e.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("package status = %d body=%q", res.Code, res.Body.String())
+	}
+	reader, err := zip.NewReader(bytes.NewReader(res.Body.Bytes()), int64(res.Body.Len()))
+	if err != nil {
+		t.Fatalf("read package zip: %v", err)
+	}
+	if !zipHasFile(reader, "data/1.in") || !zipHasFile(reader, "data/1.out") {
+		t.Fatalf("package files = %+v", reader.File)
+	}
+}
+
 func TestValidateResult(t *testing.T) {
 	valid := ResultRequest{
 		SubmissionID: 1,
@@ -91,6 +122,25 @@ func TestValidateResult(t *testing.T) {
 			expectHTTPStatus(t, err, item.want)
 		})
 	}
+}
+
+func mustWriteFile(t *testing.T, file string, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", file, err)
+	}
+	if err := os.WriteFile(file, []byte(content), 0o644); err != nil {
+		t.Fatalf("write %s: %v", file, err)
+	}
+}
+
+func zipHasFile(reader *zip.Reader, name string) bool {
+	for _, file := range reader.File {
+		if file.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func TestAuthAndLeaseAuthorization(t *testing.T) {

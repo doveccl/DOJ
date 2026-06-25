@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	slashpath "path"
 	"path/filepath"
 	"strings"
@@ -159,9 +158,6 @@ func compileCustomJudge(ctx context.Context, dir string, command string, limits 
 }
 
 func compileDockerfileJudge(ctx context.Context, dir string, output string, limits Limits) (CompileResult, error) {
-	if _, err := exec.LookPath("docker"); err != nil {
-		return CompileResult{OK: false, Message: "docker CLI is required to build custom judge Dockerfile"}, nil
-	}
 	timeout := minCustomJudgeCompileTimeout
 	if limits.TimeMS > int(minCustomJudgeCompileTimeout/time.Millisecond) {
 		timeout = time.Duration(limits.TimeMS) * time.Millisecond
@@ -174,57 +170,26 @@ func compileDockerfileJudge(ctx context.Context, dir string, output string, limi
 		outputLimit = int64(limits.OutputKB) * 1024
 	}
 	startedAt := time.Now()
-	iidFile := filepath.Join(dir, ".doj-judge-image-iid")
-	_ = os.Remove(iidFile)
-	defer os.Remove(iidFile)
 
-	if out, err := runDockerStep(runCtx, dir, outputLimit, "build", "--network", "none", "--iidfile", iidFile, "-f", "Dockerfile", "."); err != nil {
+	imageID, out, err := dockerBuildImage(runCtx, dir, "Dockerfile", outputLimit)
+	if err != nil {
 		return dockerBuildResult(out, err, startedAt), nil
 	}
-	imageRaw, err := os.ReadFile(iidFile)
-	if err != nil {
-		return CompileResult{OK: false, Message: "docker build did not produce an image id", TimeMS: int(time.Since(startedAt).Milliseconds())}, nil
-	}
-	imageID := strings.TrimSpace(string(imageRaw))
-	if imageID == "" {
-		return CompileResult{OK: false, Message: "docker build produced an empty image id", TimeMS: int(time.Since(startedAt).Milliseconds())}, nil
-	}
-	defer dockerCleanup("rmi", imageID)
+	defer dockerRemoveImage(context.Background(), imageID)
 
-	containerRaw, err := runDockerStep(runCtx, dir, outputLimit, "create", imageID)
+	containerID, err := dockerCreateContainer(runCtx, dockerCreateRequest{Image: imageID})
 	if err != nil {
-		return dockerBuildResult(containerRaw, err, startedAt), nil
+		return dockerBuildResult("", err, startedAt), nil
 	}
-	containerID := firstNonEmptyLine(containerRaw)
-	if containerID == "" {
-		return CompileResult{OK: false, Message: "docker create produced an empty container id", TimeMS: int(time.Since(startedAt).Milliseconds())}, nil
-	}
-	defer dockerCleanup("rm", "-f", containerID)
+	defer dockerRemoveContainer(context.Background(), containerID)
 
-	if out, err := runDockerStep(runCtx, dir, outputLimit, "cp", containerID+":/out/judge", output); err != nil {
-		return dockerBuildResult(out, err, startedAt), nil
+	if err := dockerCopyFile(runCtx, containerID, "/out/judge", output); err != nil {
+		return dockerBuildResult("", err, startedAt), nil
 	}
 	if err := validateCustomJudgeBinary(output); err != nil {
 		return CompileResult{OK: false, Message: err.Error(), TimeMS: int(time.Since(startedAt).Milliseconds())}, nil
 	}
 	return CompileResult{OK: true, TimeMS: int(time.Since(startedAt).Milliseconds())}, nil
-}
-
-func runDockerStep(ctx context.Context, dir string, outputLimit int64, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, "docker", args...)
-	cmd.Dir = dir
-	configureProcess(cmd)
-	output := &limitBuffer{limit: outputLimit + 1}
-	cmd.Stdout = output
-	cmd.Stderr = output
-	err := cmd.Run()
-	if ctx.Err() != nil {
-		return output.String(), ctx.Err()
-	}
-	if output.overflow || int64(output.Len()) > outputLimit {
-		return output.String(), fmt.Errorf("custom judge Dockerfile build output limit exceeded")
-	}
-	return output.String(), err
 }
 
 func dockerBuildResult(out string, err error, startedAt time.Time) CompileResult {
@@ -253,22 +218,6 @@ func validateCustomJudgeBinary(path string) error {
 		return err
 	}
 	return nil
-}
-
-func firstNonEmptyLine(value string) string {
-	for _, line := range strings.Split(value, "\n") {
-		line = strings.TrimSpace(line)
-		if line != "" {
-			return line
-		}
-	}
-	return ""
-}
-
-func dockerCleanup(args ...string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	_ = exec.CommandContext(ctx, "docker", args...).Run()
 }
 
 func shellQuote(value string) string {
