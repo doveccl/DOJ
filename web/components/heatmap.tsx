@@ -99,21 +99,20 @@ function formatDay(value: Date) {
 }
 
 function monthLabels(weeks: HeatDay[][], months: string[]) {
-  let lastLabelWeek = -5
-  return weeks.map((week, index) => {
+  const labels = weeks.map((week) => {
     const firstDay = week.find((day) => day.active && parseDay(day.date).getDate() === 1)
-    if (!firstDay && index !== 0) {
-      return ''
-    }
-
-    if (index - lastLabelWeek < 4) {
-      return ''
-    }
-
-    lastLabelWeek = index
-    const labelDay = firstDay ?? week.find((day) => day.active) ?? week[0]
-    return months[parseDay(labelDay.date).getMonth()]
+    return firstDay ? months[parseDay(firstDay.date).getMonth()] : ''
   })
+  if (labels[0]) {
+    return labels
+  }
+
+  const firstActive = weeks[0]?.find((day) => day.active)
+  const nextMonth = labels.findIndex((label, index) => index > 0 && label !== '')
+  if (firstActive && (nextMonth === -1 || nextMonth >= 4)) {
+    labels[0] = months[parseDay(firstActive.date).getMonth()]
+  }
+  return labels
 }
 
 function heatLevel(count: number) {
