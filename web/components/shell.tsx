@@ -152,11 +152,13 @@ export function Shell() {
                 }}
               >
                 <Button type="text" className="profileButton" aria-label={`${text.prefs.profile}: ${session.name}`}>
-                  <Avatar size={28} src={session.avatar || undefined} icon={<UserOutlined />}>
-                    {session.name.slice(0, 1).toUpperCase()}
-                  </Avatar>
-                  <Typography.Text strong>{session.name}</Typography.Text>
-                  <DownOutlined className="profileArrow" />
+                  <Flex align="center" gap={8} className="profileButtonInner">
+                    <Avatar size={28} src={session.avatar || undefined} icon={<UserOutlined />}>
+                      {session.name.slice(0, 1).toUpperCase()}
+                    </Avatar>
+                    <span className="profileName">{session.name}</span>
+                    <DownOutlined className="profileArrow" />
+                  </Flex>
                 </Button>
               </Dropdown>
             ) : (

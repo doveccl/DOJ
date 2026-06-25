@@ -1093,15 +1093,66 @@ func TestProblemAssetDownloadsSupportNestedPathsAndExistingProblems(t *testing.T
 	if err := os.WriteFile(nestedPath, []byte("nested input"), 0o644); err != nil {
 		t.Fatalf("write nested data file: %v", err)
 	}
+	for key, body := range map[string]string{
+		filepath.Join(utils.UploadRoot(), "problems", "1000", "statement.md"):           "# Visible\n\n![img](/api/problems/1000/assets/note.png)",
+		filepath.Join(utils.UploadRoot(), "problems", "1000", "data", "cases", "1.out"): "nested output",
+		filepath.Join(utils.UploadRoot(), "problems", "1000", "judge", "main.cc"):       "int main(){}",
+		filepath.Join(utils.UploadRoot(), "problems", "1000", "assets", "note.txt"):     "asset note",
+	} {
+		if err := os.MkdirAll(filepath.Dir(key), 0o755); err != nil {
+			t.Fatalf("create asset dir: %v", err)
+		}
+		if err := os.WriteFile(key, []byte(body), 0o644); err != nil {
+			t.Fatalf("write asset file: %v", err)
+		}
+	}
 
 	res := requestWithCookies(e, http.MethodGet, "/api/problems/1000/data/cases/1.in", adminCookies, nil)
 	if res.Code != http.StatusOK || res.Body.String() != "nested input" {
 		t.Fatalf("nested asset download got %d body=%q", res.Code, res.Body.String())
 	}
+	res = requestWithCookies(e, http.MethodGet, "/api/problems/1000.zip", adminCookies, nil)
+	if res.Code != http.StatusOK {
+		t.Fatalf("problem zip got %d body=%s", res.Code, res.Body.String())
+	}
+	if disposition := res.Header().Get(echo.HeaderContentDisposition); !strings.Contains(disposition, `filename="P1000.zip"`) {
+		t.Fatalf("problem zip content disposition = %q", disposition)
+	}
+	reader, err := zip.NewReader(bytes.NewReader(res.Body.Bytes()), int64(res.Body.Len()))
+	if err != nil {
+		t.Fatalf("read problem zip: %v", err)
+	}
+	names := map[string]bool{}
+	content := map[string]string{}
+	for _, file := range reader.File {
+		names[file.Name] = true
+		body, err := readZipFile(file)
+		if err != nil {
+			t.Fatalf("read zip file %s: %v", file.Name, err)
+		}
+		content[file.Name] = string(body)
+	}
+	for _, name := range []string{"statement.md", "data/cases/1.in", "data/cases/1.out", "judge/main.cc", "assets/note.txt"} {
+		if !names[name] {
+			t.Fatalf("problem zip missing %s, got %+v", name, names)
+		}
+	}
+	if content["statement.md"] != "# Visible\n\n![img](./assets/note.png)" {
+		t.Fatalf("problem zip statement = %q", content["statement.md"])
+	}
 	res = requestWithCookies(e, http.MethodGet, "/api/problems/404.zip", adminCookies, nil)
 	if res.Code != http.StatusNotFound {
 		t.Fatalf("missing problem zip got %d body=%s", res.Code, res.Body.String())
 	}
+}
+
+func readZipFile(file *zip.File) ([]byte, error) {
+	reader, err := file.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+	return io.ReadAll(reader)
 }
 
 func TestSafeAssetZipNameRejectsUnsafeNames(t *testing.T) {

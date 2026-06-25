@@ -84,15 +84,38 @@ body {
 
 .userArea {
   margin-left: auto;
+  line-height: 1;
   white-space: nowrap;
 }
 
-.profileButton {
-  display: inline-flex;
+.userArea .ant-space-item {
+  display: flex;
   align-items: center;
-  gap: 8px;
+  line-height: 1;
+}
+
+.profileButton {
   height: 40px;
-  padding-inline: 6px 8px;
+  padding-inline: 8px;
+}
+
+.profileButtonInner {
+  height: 100%;
+}
+
+.profileButton .ant-avatar {
+  flex: 0 0 auto;
+}
+
+.profileName {
+  display: inline-block;
+  max-width: 140px;
+  overflow: hidden;
+  color: var(--ant-color-text);
+  font-weight: 600;
+  line-height: 1;
+  text-overflow: ellipsis;
+  vertical-align: middle;
 }
 
 .profileArrow {
@@ -560,7 +583,7 @@ body {
     padding-inline: 0;
   }
 
-  .profileButton .ant-typography,
+  .profileName,
   .profileArrow {
     display: none;
   }

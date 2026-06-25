@@ -2,12 +2,37 @@ import DOMPurify from 'dompurify'
 
 export type MarkdownTrust = 'trusted' | 'ugc'
 
+type MarkdownToken = {
+  attrs?: [string, string][] | null
+  attrGet?: (name: string) => string | null
+  attrSet?: (name: string, value: string) => void
+}
+
+type MarkdownRendererSelf = {
+  renderToken: (tokens: MarkdownToken[], idx: number, options: unknown) => string
+}
+
+type MarkdownRendererRule = (
+  tokens: MarkdownToken[],
+  idx: number,
+  options: unknown,
+  env: unknown,
+  self: MarkdownRendererSelf
+) => string
+
+type MarkdownItLike = {
+  renderer: {
+    rules: Record<string, unknown>
+  }
+}
+
+const markdownAssetBases = new Map<string, string | undefined>()
+
 const passthroughMarkdown = (html: string) => html
 
-export function sanitizerForTrust(trust: MarkdownTrust, options: { assetBase?: string } = {}) {
+export function sanitizerForTrust(trust: MarkdownTrust) {
   return (html: string) => {
-    const next = trust === 'trusted' ? passthroughMarkdown(html) : sanitizeMarkdown(html)
-    return rewriteAssetHTML(next, options.assetBase)
+    return trust === 'trusted' ? passthroughMarkdown(html) : sanitizeMarkdown(html)
   }
 }
 
@@ -32,17 +57,63 @@ export function rewriteAssetURL(value: string, assetBase?: string) {
   return `${base}${match[1]}`
 }
 
-function rewriteAssetHTML(html: string, assetBase?: string) {
-  if (!assetBase || !globalThis.DOMParser) {
-    return html
+export function relativeProblemAssetURL(value: string, problemID: number) {
+  const prefix = `/api/problems/${problemID}/assets/`
+  if (!value.startsWith(prefix)) {
+    return value
   }
-  const document = new DOMParser().parseFromString(html, 'text/html')
-  document.querySelectorAll('img[src], a[href]').forEach((node) => {
-    const attr = node instanceof HTMLImageElement ? 'src' : 'href'
-    const value = node.getAttribute(attr)
-    if (value) {
-      node.setAttribute(attr, rewriteAssetURL(value, assetBase))
-    }
-  })
-  return document.body.innerHTML
+  return `./assets/${value.slice(prefix.length)}`
+}
+
+export function setMarkdownAssetBase(editorID: string, assetBase?: string) {
+  markdownAssetBases.set(editorID, assetBase)
+}
+
+export function clearMarkdownAssetBase(editorID: string) {
+  markdownAssetBases.delete(editorID)
+}
+
+export function configureMarkdownAssetRenderer(md: MarkdownItLike, editorID: string) {
+  const renderToken = (tokens: MarkdownToken[], idx: number, options: unknown, self: MarkdownRendererSelf) =>
+    self.renderToken(tokens, idx, options)
+  const imageRule = md.renderer.rules.image as MarkdownRendererRule | undefined
+  const linkOpenRule = md.renderer.rules.link_open as MarkdownRendererRule | undefined
+
+  const imageRenderer: MarkdownRendererRule = (tokens, idx, options, env, self) => {
+    rewriteTokenURL(tokens[idx], 'src', markdownAssetBases.get(editorID))
+    return imageRule ? imageRule(tokens, idx, options, env, self) : renderToken(tokens, idx, options, self)
+  }
+  const linkOpenRenderer: MarkdownRendererRule = (tokens, idx, options, env, self) => {
+    rewriteTokenURL(tokens[idx], 'href', markdownAssetBases.get(editorID))
+    return linkOpenRule ? linkOpenRule(tokens, idx, options, env, self) : renderToken(tokens, idx, options, self)
+  }
+  md.renderer.rules.image = imageRenderer
+  md.renderer.rules.link_open = linkOpenRenderer
+}
+
+function rewriteTokenURL(token: MarkdownToken | undefined, attr: string, assetBase?: string) {
+  if (!token) {
+    return
+  }
+  const value = token.attrGet?.(attr) ?? token.attrs?.find(([name]) => name === attr)?.[1]
+  if (!value) {
+    return
+  }
+  const next = rewriteAssetURL(value, assetBase)
+  if (next === value) {
+    return
+  }
+  if (token.attrSet) {
+    token.attrSet(attr, next)
+    return
+  }
+  if (!token.attrs) {
+    token.attrs = []
+  }
+  const existing = token.attrs.find((item) => item[0] === attr)
+  if (existing) {
+    existing[1] = next
+  } else {
+    token.attrs.push([attr, next])
+  }
 }

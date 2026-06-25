@@ -1414,14 +1414,18 @@ func (api *API) downloadProblemAssets(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid problem id")
 	}
 	id := uint(parsed)
-	var count int64
-	if err := api.db.Model(&models.Problem{}).Where("id = ?", id).Count(&count).Error; err != nil {
+	var problem models.Problem
+	if err := api.db.First(&problem, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return echo.NewHTTPError(http.StatusNotFound, "problem not found")
+		}
 		return err
 	}
-	if count == 0 {
-		return echo.NewHTTPError(http.StatusNotFound, "problem not found")
-	}
 	store, err := utils.NewObjectStoreFromEnv()
+	if err != nil {
+		return err
+	}
+	statement, err := api.problemStatement(c.Request().Context(), id, problem.Title)
 	if err != nil {
 		return err
 	}
@@ -1429,12 +1433,15 @@ func (api *API) downloadProblemAssets(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	filename := fmt.Sprintf("P%d-assets.zip", id)
+	filename := fmt.Sprintf("P%d.zip", id)
 	c.Response().Header().Set(echo.HeaderContentType, "application/zip")
 	c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="`+filename+`"`)
 	c.Response().WriteHeader(http.StatusOK)
 	writer := zip.NewWriter(c.Response().Writer)
 	defer writer.Close()
+	if err := writeProblemStatementZipFile(writer, statement); err != nil {
+		return err
+	}
 	if err := writeAssetZipFiles(c.Request().Context(), writer, store, "data", assets.Data); err != nil {
 		return err
 	}
@@ -3003,7 +3010,7 @@ func (api *API) problemStatement(ctx context.Context, id uint, title string) (st
 	if strings.TrimSpace(string(data)) == "" {
 		return "# " + title, nil
 	}
-	return string(data), nil
+	return normalizeProblemStatementAssets(id, string(data)), nil
 }
 
 func (api *API) writeProblemStatement(ctx context.Context, id uint, statement string) error {
@@ -3015,11 +3022,16 @@ func (api *API) writeProblemStatement(ctx context.Context, id uint, statement st
 	if body == "" {
 		body = "# P" + strconv.Itoa(int(id))
 	}
+	body = normalizeProblemStatementAssets(id, body)
 	return store.Put(ctx, problemStatementKey(id), strings.NewReader(body), int64(len(body)), "text/markdown; charset=utf-8")
 }
 
 func problemStatementKey(id uint) string {
 	return fmt.Sprintf("problems/%d/statement.md", id)
+}
+
+func normalizeProblemStatementAssets(id uint, statement string) string {
+	return strings.ReplaceAll(statement, fmt.Sprintf("/api/problems/%d/assets/", id), "./assets/")
 }
 
 func (api *API) decorateProblemDiscussions(ctx context.Context, items []ProblemDTO) error {
@@ -3319,6 +3331,15 @@ func problemAssetsFromStore(ctx context.Context, id uint, store utils.ObjectStor
 	}
 	cases, dataBytes := dataStats(data)
 	return ProblemAssets{Data: data, Judge: judge, Assets: assets, Cases: cases, DataBytes: dataBytes}, nil
+}
+
+func writeProblemStatementZipFile(writer *zip.Writer, statement string) error {
+	file, err := writer.CreateHeader(&zip.FileHeader{Name: "statement.md", Method: zip.Deflate})
+	if err != nil {
+		return err
+	}
+	_, err = io.WriteString(file, statement)
+	return err
 }
 
 func writeAssetZipFiles(ctx context.Context, writer *zip.Writer, store utils.ObjectStore, section string, files []AssetFile) error {

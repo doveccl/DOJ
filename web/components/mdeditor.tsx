@@ -1,11 +1,11 @@
-import { MdEditor, MdPreview } from 'md-editor-rt'
+import { config, MdEditor, MdPreview } from 'md-editor-rt'
 import 'md-editor-rt/lib/style.css'
-import { useId } from 'react'
+import { useEffect, useId } from 'react'
 
 import { uploadImage } from '../client'
 import { useColor } from '../color'
 import { useLocale } from '../locale'
-import { sanitizerForTrust } from '../utils/markdown'
+import { clearMarkdownAssetBase, configureMarkdownAssetRenderer, rewriteAssetURL, sanitizerForTrust, setMarkdownAssetBase } from '../utils/markdown'
 import type { MarkdownTrust } from '../utils/markdown'
 
 type MarkdownEditorProps = {
@@ -42,6 +42,20 @@ const toolbars = [
   'fullscreen'
 ] as const
 
+let markdownAssetRendererConfigured = false
+
+function ensureMarkdownAssetRenderer() {
+  if (markdownAssetRendererConfigured) {
+    return
+  }
+  config({
+    markdownItConfig: (md, options) => {
+      configureMarkdownAssetRenderer(md, options.editorId)
+    }
+  })
+  markdownAssetRendererConfigured = true
+}
+
 export function MarkdownEditor({
   value = '',
   minHeight = 260,
@@ -55,6 +69,9 @@ export function MarkdownEditor({
   const { color } = useColor()
   const { lang } = useLocale()
   const editorID = `md-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
+  ensureMarkdownAssetRenderer()
+  setMarkdownAssetBase(editorID, assetBase)
+  useEffect(() => () => clearMarkdownAssetBase(editorID), [editorID])
   const language = lang === 'zh' ? 'zh-CN' : 'en-US'
   const theme = color === 'dark' ? 'dark' : 'light'
   const common = {
@@ -64,7 +81,8 @@ export function MarkdownEditor({
     language,
     previewTheme: 'github',
     codeTheme: 'github',
-    sanitize: sanitizerForTrust(trust, { assetBase }),
+    sanitize: sanitizerForTrust(trust),
+    transformImgUrl: (url: string) => rewriteAssetURL(url, assetBase),
     noMermaid: true,
     noEcharts: true,
     noImgZoomIn: true
