@@ -83,7 +83,6 @@ function ActivityCard({ submissions }: { submissions: Submission[] }) {
       ) : (
         <Timeline
           items={submissions.slice(0, 12).map((row) => ({
-            color: row.status === 'AC' ? 'green' : row.status === 'queued' || row.status === 'judging' ? 'blue' : 'red',
             icon: row.status === 'AC' ? <CheckCircleOutlined /> : <CodeOutlined />,
             content: (
               <Flex vertical gap={4} className="profileActivityItem">

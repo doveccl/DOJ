@@ -25,21 +25,27 @@ export function SubmissionStatus({ status }: { status: string }) {
 export function submissionStatusColor(status: string) {
   switch (status) {
     case 'AC':
-      return 'success'
+      return 'green'
     case 'queued':
+      return 'blue'
     case 'judging':
-      return 'processing'
+      return 'geekblue'
     case 'CE':
-      return undefined
+      return 'purple'
     case 'TLE':
+      return 'orange'
     case 'MLE':
+      return 'volcano'
     case 'OLE':
-      return 'warning'
+      return 'lime'
     case 'WA':
+      return 'red'
     case 'PE':
+      return 'gold'
     case 'RE':
+      return 'magenta'
     case 'SE':
-      return 'error'
+      return 'cyan'
     default:
       return undefined
   }
