@@ -3,10 +3,12 @@ package utils
 import (
 	"testing"
 	"time"
+
+	"github.com/alicebob/miniredis/v2"
 )
 
-func TestMemoryCacheGetSetDelete(t *testing.T) {
-	t.Setenv("REDIS", "")
+func TestRedisCacheGetSetDelete(t *testing.T) {
+	startRedis(t)
 	ResetCacheForTest()
 	t.Cleanup(ResetCacheForTest)
 
@@ -30,15 +32,15 @@ func TestMemoryCacheGetSetDelete(t *testing.T) {
 	}
 }
 
-func TestMemoryCacheTTL(t *testing.T) {
-	t.Setenv("REDIS", "")
+func TestRedisCacheTTL(t *testing.T) {
+	redis := startRedis(t)
 	ResetCacheForTest()
 	t.Cleanup(ResetCacheForTest)
 
-	if err := CacheSet(t.Context(), "test:ttl", "value", time.Nanosecond); err != nil {
+	if err := CacheSet(t.Context(), "test:ttl", "value", time.Millisecond); err != nil {
 		t.Fatalf("set cache: %v", err)
 	}
-	time.Sleep(time.Millisecond)
+	redis.FastForward(time.Second)
 	var got string
 	found, err := CacheGet(t.Context(), "test:ttl", &got)
 	if err != nil || found {
@@ -46,8 +48,8 @@ func TestMemoryCacheTTL(t *testing.T) {
 	}
 }
 
-func TestMemoryCacheAllow(t *testing.T) {
-	t.Setenv("REDIS", "")
+func TestRedisCacheAllow(t *testing.T) {
+	startRedis(t)
 	ResetCacheForTest()
 	t.Cleanup(ResetCacheForTest)
 
@@ -61,4 +63,11 @@ func TestMemoryCacheAllow(t *testing.T) {
 	if err != nil || allowed {
 		t.Fatalf("rate should block third request allowed=%v err=%v", allowed, err)
 	}
+}
+
+func startRedis(t *testing.T) *miniredis.Miniredis {
+	t.Helper()
+	server := miniredis.RunT(t)
+	t.Setenv("REDIS", "redis://"+server.Addr()+"/0")
+	return server
 }

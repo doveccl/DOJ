@@ -11,52 +11,35 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type memoryCacheItem struct {
-	Raw       []byte
-	ExpiresAt time.Time
-}
-
-type memoryRateItem struct {
-	Count     int
-	ExpiresAt time.Time
-}
+const defaultRedis = "redis://localhost:6379/0"
 
 var (
 	cacheMu     sync.Mutex
-	cacheItems  = map[string]memoryCacheItem{}
-	rateItems   = map[string]memoryRateItem{}
 	redisClient *redis.Client
 )
 
-func CacheUsesRedis() bool {
-	return strings.TrimSpace(os.Getenv("REDIS")) != ""
+func CachePing(ctx context.Context) error {
+	client, err := redisCache(ctx)
+	if err != nil {
+		return err
+	}
+	pingCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
+	defer cancel()
+	return client.Ping(pingCtx).Err()
 }
 
 func CacheGet(ctx context.Context, key string, value any) (bool, error) {
-	if CacheUsesRedis() {
-		client, err := redisCache(ctx)
-		if err != nil {
-			return false, err
-		}
-		raw, err := client.Get(ctx, key).Bytes()
-		if err == redis.Nil {
-			return false, nil
-		}
-		if err != nil {
-			return false, err
-		}
-		return true, json.Unmarshal(raw, value)
+	client, err := redisCache(ctx)
+	if err != nil {
+		return false, err
 	}
-
-	cacheMu.Lock()
-	item, ok := cacheItems[key]
-	if !ok || cacheExpired(item, time.Now()) {
-		delete(cacheItems, key)
-		cacheMu.Unlock()
+	raw, err := client.Get(ctx, key).Bytes()
+	if err == redis.Nil {
 		return false, nil
 	}
-	raw := append([]byte(nil), item.Raw...)
-	cacheMu.Unlock()
+	if err != nil {
+		return false, err
+	}
 	return true, json.Unmarshal(raw, value)
 }
 
@@ -65,71 +48,39 @@ func CacheSet(ctx context.Context, key string, value any, ttl time.Duration) err
 	if err != nil {
 		return err
 	}
-	if CacheUsesRedis() {
-		client, err := redisCache(ctx)
-		if err != nil {
-			return err
-		}
-		return client.Set(ctx, key, raw, ttl).Err()
+	client, err := redisCache(ctx)
+	if err != nil {
+		return err
 	}
-
-	item := memoryCacheItem{Raw: raw}
-	if ttl > 0 {
-		item.ExpiresAt = time.Now().Add(ttl)
-	}
-	cacheMu.Lock()
-	cacheItems[key] = item
-	cacheMu.Unlock()
-	return nil
+	return client.Set(ctx, key, raw, ttl).Err()
 }
 
 func CacheDelete(ctx context.Context, key string) error {
-	if CacheUsesRedis() {
-		client, err := redisCache(ctx)
-		if err != nil {
-			return err
-		}
-		return client.Del(ctx, key).Err()
+	client, err := redisCache(ctx)
+	if err != nil {
+		return err
 	}
-
-	cacheMu.Lock()
-	delete(cacheItems, key)
-	cacheMu.Unlock()
-	return nil
+	return client.Del(ctx, key).Err()
 }
 
 func CacheAllow(ctx context.Context, key string, limit int, window time.Duration) (bool, error) {
 	if limit <= 0 || window <= 0 {
 		return true, nil
 	}
-	if CacheUsesRedis() {
-		client, err := redisCache(ctx)
-		if err != nil {
+	client, err := redisCache(ctx)
+	if err != nil {
+		return false, err
+	}
+	count, err := client.Incr(ctx, key).Result()
+	if err != nil {
+		return false, err
+	}
+	if count == 1 {
+		if err := client.Expire(ctx, key, window).Err(); err != nil {
 			return false, err
 		}
-		count, err := client.Incr(ctx, key).Result()
-		if err != nil {
-			return false, err
-		}
-		if count == 1 {
-			if err := client.Expire(ctx, key, window).Err(); err != nil {
-				return false, err
-			}
-		}
-		return count <= int64(limit), nil
 	}
-
-	now := time.Now()
-	cacheMu.Lock()
-	item := rateItems[key]
-	if item.ExpiresAt.IsZero() || !item.ExpiresAt.After(now) {
-		item = memoryRateItem{ExpiresAt: now.Add(window)}
-	}
-	item.Count++
-	rateItems[key] = item
-	allowed := item.Count <= limit
-	cacheMu.Unlock()
-	return allowed, nil
+	return count <= int64(limit), nil
 }
 
 func redisCache(ctx context.Context) (*redis.Client, error) {
@@ -138,7 +89,7 @@ func redisCache(ctx context.Context) (*redis.Client, error) {
 	if redisClient != nil {
 		return redisClient, nil
 	}
-	options, err := redis.ParseURL(strings.TrimSpace(os.Getenv("REDIS")))
+	options, err := redis.ParseURL(redisURL())
 	if err != nil {
 		return nil, err
 	}
@@ -153,8 +104,11 @@ func redisCache(ctx context.Context) (*redis.Client, error) {
 	return redisClient, nil
 }
 
-func cacheExpired(item memoryCacheItem, now time.Time) bool {
-	return !item.ExpiresAt.IsZero() && !item.ExpiresAt.After(now)
+func redisURL() string {
+	if value := strings.TrimSpace(os.Getenv("REDIS")); value != "" {
+		return value
+	}
+	return defaultRedis
 }
 
 func ResetCacheForTest() {
@@ -163,7 +117,5 @@ func ResetCacheForTest() {
 		_ = redisClient.Close()
 		redisClient = nil
 	}
-	cacheItems = map[string]memoryCacheItem{}
-	rateItems = map[string]memoryRateItem{}
 	cacheMu.Unlock()
 }

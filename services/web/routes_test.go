@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/doveccl/doj/models"
 	adminsvc "github.com/doveccl/doj/services/admin"
 	"github.com/doveccl/doj/utils"
@@ -1457,7 +1458,9 @@ func findCookie(cookies []*http.Cookie, name string) *http.Cookie {
 
 func testWebDB(t *testing.T) *gorm.DB {
 	t.Helper()
+	startRedis(t)
 	utils.ResetCacheForTest()
+	t.Cleanup(utils.ResetCacheForTest)
 	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "web.db")), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite db: %v", err)
@@ -1469,6 +1472,12 @@ func testWebDB(t *testing.T) *gorm.DB {
 		t.Fatalf("seed language: %v", err)
 	}
 	return db
+}
+
+func startRedis(t *testing.T) {
+	t.Helper()
+	server := miniredis.RunT(t)
+	t.Setenv("REDIS", "redis://"+server.Addr()+"/0")
 }
 
 func databaseSession(t *testing.T, db *gorm.DB, userID uint) []*http.Cookie {

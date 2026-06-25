@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/doveccl/doj/models"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
@@ -343,6 +344,9 @@ func TestSafeTaskAssetZipNameRejectsUnsafeNames(t *testing.T) {
 
 func newJudgerTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
+	startRedis(t)
+	utils.ResetCacheForTest()
+	t.Cleanup(utils.ResetCacheForTest)
 	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "judger.db")), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite db: %v", err)
@@ -351,6 +355,12 @@ func newJudgerTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("migrate sqlite db: %v", err)
 	}
 	return db
+}
+
+func startRedis(t *testing.T) {
+	t.Helper()
+	server := miniredis.RunT(t)
+	t.Setenv("REDIS", "redis://"+server.Addr()+"/0")
 }
 
 func remoteJudgerContext(t *testing.T, api *API, token string) echo.Context {

@@ -79,7 +79,7 @@ During early development, GORM keeps the development schema aligned on startup. 
 
 The browser uses SSE at `/api/events` for lightweight live updates. Submission creation, judger lease, and judger result callbacks publish a generic submission-change event, and the frontend invalidates relevant TanStack Query data instead of keeping a second client-side cache.
 
-Judgers receive work through `/api/judger/lease` long polling. If no task is ready, the server holds the request briefly and returns `task: null`; when a submission changes, waiting leases wake and try to reserve work immediately. Task ownership and renewal live on the submission row (`judger_id`, `lease_until`, `attempt`). Session/cache state is source-exclusive: empty `REDIS` uses in-process memory, non-empty `REDIS` uses Redis.
+Judgers receive work through `/api/judger/lease` long polling. If no task is ready, the server holds the request briefly and returns `task: null`; when a submission changes, waiting leases wake and try to reserve work immediately. Task ownership and renewal live on the submission row (`judger_id`, `lease_until`, `attempt`). Session/cache state always uses Redis/Valkey; empty `REDIS` connects to the local default Redis endpoint.
 
 ## API Contract
 
@@ -252,7 +252,7 @@ pnpm dev --host 0.0.0.0 --port 28080
 
 浏览器通过 `/api/events` 的 SSE 获取轻量实时更新。创建提交、judger 领取任务、judger 回传结果时会广播通用的提交变化事件，前端只失效相关 TanStack Query 数据，不再维护第二套客户端缓存。
 
-评测机通过 `/api/judger/lease` 长轮询领取任务。没有任务时 server 会短暂挂起请求并返回 `task: null`；提交状态变化时，等待中的 lease 会被唤醒并立即尝试领取任务。任务归属和续租保存在提交记录的 `judger_id`、`lease_until`、`attempt`。session/cache 状态只认一个来源：`REDIS` 为空时使用进程内存，非空时使用 Redis。
+评测机通过 `/api/judger/lease` 长轮询领取任务。没有任务时 server 会短暂挂起请求并返回 `task: null`；提交状态变化时，等待中的 lease 会被唤醒并立即尝试领取任务。任务归属和续租保存在提交记录的 `judger_id`、`lease_until`、`attempt`。session/cache 状态统一使用 Redis/Valkey；`REDIS` 为空时连接本地默认 Redis。
 
 ## API 契约
 

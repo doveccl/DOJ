@@ -19,6 +19,7 @@ import (
 	adminsvc "github.com/doveccl/doj/services/admin"
 	judgersvc "github.com/doveccl/doj/services/judger"
 	websvc "github.com/doveccl/doj/services/web"
+	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"gorm.io/gorm"
@@ -38,6 +39,10 @@ func main() {
 	e.Use(middleware.Logger())
 	e.Use(securityHeaders())
 	e.Use(dojmw.CSRF())
+
+	if err := utils.CachePing(context.Background()); err != nil {
+		e.Logger.Fatal(err)
+	}
 
 	db, err := openDB()
 	if err != nil {
