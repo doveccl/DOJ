@@ -1030,6 +1030,31 @@ paths:
                 $ref: "#/components/schemas/SubmissionDetail"
         "404":
           description: Submission not found
+    patch:
+      operationId: updateSubmission
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmissionUpdate"
+      responses:
+        "200":
+          description: Submission updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Submission"
+        "403":
+          description: Owner or admin required
+        "404":
+          description: Submission not found
   /api/rank:
     get:
       operationId: getRank
@@ -1867,6 +1892,12 @@ components:
           type: string
         code:
           type: string
+        public:
+          type: boolean
+    SubmissionUpdate:
+      type: object
+      required: [public]
+      properties:
         public:
           type: boolean
     Case:

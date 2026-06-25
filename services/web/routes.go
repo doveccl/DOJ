@@ -208,6 +208,10 @@ type SubmitRequest struct {
 	Public    bool   `json:"public"`
 }
 
+type SubmissionUpdate struct {
+	Public bool `json:"public"`
+}
+
 type CaseDTO struct {
 	No       int    `json:"no"`
 	Status   string `json:"status"`
@@ -415,6 +419,7 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.GET("/submissions", api.submissions)
 	group.POST("/submissions", api.submit, api.rateLimit("submit", 30, time.Minute), echomw.BodyLimit(sourceBodyLimit))
 	group.GET("/submissions/:id", api.submission)
+	group.PATCH("/submissions/:id", api.updateSubmission)
 	group.GET("/rank", api.rank)
 	group.GET("/users/:name", api.user)
 	group.GET("/discussion", api.discussions)
@@ -2453,6 +2458,40 @@ func (api *API) submission(c echo.Context) error {
 		items = append(items, CaseDTO{No: item.No, Status: item.Status, TimeMS: item.TimeMS, MemoryKB: item.MemoryKB, Message: item.Message})
 	}
 	return c.JSON(http.StatusOK, SubmissionDetail{Submission: api.submissionDTO(row), Code: row.Code, Cases: items})
+}
+
+func (api *API) updateSubmission(c echo.Context) error {
+	if err := api.requireSignedIn(c); err != nil {
+		return err
+	}
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid submission id")
+	}
+	var req SubmissionUpdate
+	if err := c.Bind(&req); err != nil {
+		return err
+	}
+	var row models.Submission
+	if err := api.db.First(&row, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return echo.NewHTTPError(http.StatusNotFound, "submission not found")
+		}
+		return err
+	}
+	user, err := api.currentUser(c)
+	if err != nil {
+		return err
+	}
+	if !user.Admin && user.ID != row.UserID {
+		return echo.NewHTTPError(http.StatusForbidden, "submission can only be updated by owner or admin")
+	}
+	row.Public = req.Public
+	if err := api.db.Model(&row).Update("public", row.Public).Error; err != nil {
+		return err
+	}
+	events.SubmissionChanged()
+	return c.JSON(http.StatusOK, api.submissionDTO(row))
 }
 
 func (api *API) submissionSourceLocked(row models.Submission) (bool, error) {

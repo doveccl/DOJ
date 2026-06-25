@@ -1,19 +1,23 @@
-import { Card, Col, Flex, Row, Space, Table, Tag, Typography } from 'antd'
+import { App as AntApp, Card, Col, Flex, Row, Space, Switch, Table, Typography } from 'antd'
 import type { TableProps } from 'antd'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
-import { getLangs, getSubmission } from '../client'
-import type { Case } from '../client'
+import { getLangs, getSubmission, updateSubmission } from '../client'
+import type { Case, SubmissionDetail } from '../client'
 import { MarkdownPreview } from '../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { SubmissionStatus } from '../components/status'
 import { useLocale } from '../locale'
+import { useSession } from '../session'
 import { formatTime, memoryText, problemCode } from '../utils/format'
 
 export function SubmissionDetailPage() {
+  const { message } = AntApp.useApp()
   const { lang, text } = useLocale()
+  const session = useSession()
+  const client = useQueryClient()
   const params = useParams()
   const id = Number(params.id)
   const query = useQuery({
@@ -22,6 +26,14 @@ export function SubmissionDetailPage() {
     enabled: Number.isFinite(id)
   })
   const languages = useQuery({ queryKey: ['languages'], queryFn: getLangs })
+  const updatePublic = useMutation({
+    mutationFn: (value: boolean) => updateSubmission(id, { public: value }),
+    onSuccess: (next) => {
+      client.setQueryData<SubmissionDetail>(['submission', id], (current) => (current ? { ...current, submission: next } : current))
+      client.invalidateQueries({ queryKey: ['submissions'] })
+    },
+    onError: (error) => message.error(error.message)
+  })
 
   if (query.isLoading) {
     return <LoadingBlock />
@@ -35,6 +47,7 @@ export function SubmissionDetailPage() {
 
   const { submission, code, cases } = query.data
   const languageName = (languages.data ?? []).find((item) => item.id === submission.language)?.name ?? submission.language
+  const canUpdatePublic = session.admin || session.name === submission.user
 
   return (
     <Flex vertical gap={20}>
@@ -45,7 +58,6 @@ export function SubmissionDetailPage() {
               <Space size={10}>
                 <Typography.Text strong>#{submission.id}</Typography.Text>
                 <SubmissionStatus status={submission.status} />
-                {submission.public ? <Tag>{text.submissions.public}</Tag> : null}
               </Space>
             }
             extra={
@@ -72,6 +84,17 @@ export function SubmissionDetailPage() {
               </Meta>
               <Meta label={text.submissions.language}>{languageName}</Meta>
               <Meta label={text.submissions.created}>{formatTime(submission.createdAt, lang)}</Meta>
+              {canUpdatePublic ? (
+                <Flex justify="space-between" align="center" gap={12}>
+                  <Typography.Text type="secondary">{text.problem.publicSource}</Typography.Text>
+                  <Switch
+                    checked={submission.public}
+                    loading={updatePublic.isPending}
+                    disabled={updatePublic.isPending}
+                    onChange={(checked) => updatePublic.mutate(checked)}
+                  />
+                </Flex>
+              ) : null}
             </Flex>
           </Card>
         </Col>

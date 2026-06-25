@@ -122,6 +122,72 @@ func TestPrivateSubmissionSourceVisibilityWithDatabase(t *testing.T) {
 	}
 }
 
+func TestSubmissionPublicCanBeUpdatedByOwnerOrAdmin(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	owner := models.User{Name: "owner", Mail: "owner@example.com", Auth: "hash"}
+	other := models.User{Name: "other", Mail: "other@example.com", Auth: "hash"}
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	for _, user := range []*models.User{&owner, &other, &admin} {
+		if err := db.Create(user).Error; err != nil {
+			t.Fatalf("create user %s: %v", user.Name, err)
+		}
+	}
+	problem := models.Problem{
+		ID:       1000,
+		Title:    "Visible",
+		Tags:     datatypes.JSON([]byte(`[]`)),
+		Visible:  true,
+		Mode:     "default",
+		TimeMS:   1000,
+		MemoryMB: 256,
+	}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	submission := models.Submission{UserID: owner.ID, ProblemID: problem.ID, Language: "cpp", Code: "code", Status: "AC", Score: 100, Public: false}
+	if err := db.Create(&submission).Error; err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+	target := "/api/submissions/" + strconv.FormatUint(uint64(submission.ID), 10)
+	if res := requestJSONWithCookies(e, http.MethodPatch, target, nil, `{"public":true}`); res.Code != http.StatusUnauthorized {
+		t.Fatalf("guest should not update submission public flag, got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSONWithCookies(e, http.MethodPatch, target, databaseSession(t, db, other.ID), `{"public":true}`); res.Code != http.StatusForbidden {
+		t.Fatalf("other user should not update submission public flag, got %d body=%s", res.Code, res.Body.String())
+	}
+	ownerRes := requestJSONWithCookies(e, http.MethodPatch, target, databaseSession(t, db, owner.ID), `{"public":true}`)
+	if ownerRes.Code != http.StatusOK {
+		t.Fatalf("owner should update submission public flag, got %d body=%s", ownerRes.Code, ownerRes.Body.String())
+	}
+	if got := decodeJSON[SubmissionDTO](t, ownerRes); !got.Public {
+		t.Fatalf("owner update should return public submission: %+v", got)
+	}
+	var got models.Submission
+	if err := db.First(&got, submission.ID).Error; err != nil {
+		t.Fatalf("reload submission: %v", err)
+	}
+	if !got.Public {
+		t.Fatalf("owner update should persist public=true")
+	}
+	adminRes := requestJSONWithCookies(e, http.MethodPatch, target, databaseSession(t, db, admin.ID), `{"public":false}`)
+	if adminRes.Code != http.StatusOK {
+		t.Fatalf("admin should update submission public flag, got %d body=%s", adminRes.Code, adminRes.Body.String())
+	}
+	if got := decodeJSON[SubmissionDTO](t, adminRes); got.Public {
+		t.Fatalf("admin update should return private submission: %+v", got)
+	}
+	if err := db.First(&got, submission.ID).Error; err != nil {
+		t.Fatalf("reload submission: %v", err)
+	}
+	if got.Public {
+		t.Fatalf("admin update should persist public=false")
+	}
+}
+
 func TestContextSubmissionSourceLockedUntilContextEnds(t *testing.T) {
 	db := testWebDB(t)
 	owner := models.User{Name: "owner", Mail: "owner@example.com", Auth: "hash"}

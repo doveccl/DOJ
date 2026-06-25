@@ -29,6 +29,7 @@ export type ContestDetail = components['schemas']['ContestDetail']
 export type Submission = components['schemas']['Submission']
 export type SubmissionDetail = components['schemas']['SubmissionDetail']
 export type SubmitRequest = components['schemas']['SubmitRequest']
+export type SubmissionUpdate = components['schemas']['SubmissionUpdate']
 export type Case = components['schemas']['Case']
 export type RankUser = components['schemas']['RankUser']
 export type UserProfile = components['schemas']['UserProfile']
@@ -537,6 +538,14 @@ export async function getSubmission(id: number) {
 
 export async function submitCode(body: SubmitRequest) {
   const { data, error } = await client.POST('/api/submissions', { body })
+  return assertData(data, error)
+}
+
+export async function updateSubmission(id: number, body: SubmissionUpdate) {
+  const { data, error } = await client.PATCH('/api/submissions/{id}', {
+    params: { path: { id } },
+    body
+  })
   return assertData(data, error)
 }
 

@@ -689,7 +689,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["updateSubmission"];
         trace?: never;
     };
     "/api/rank": {
@@ -1090,6 +1090,9 @@ export interface components {
             problemId: number;
             language: string;
             code: string;
+            public: boolean;
+        };
+        SubmissionUpdate: {
             public: boolean;
         };
         Case: {
@@ -2604,6 +2607,46 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SubmissionDetail"];
                 };
+            };
+            /** @description Submission not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateSubmission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmissionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Submission updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Submission"];
+                };
+            };
+            /** @description Owner or admin required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Submission not found */
             404: {
