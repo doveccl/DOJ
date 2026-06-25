@@ -27,8 +27,8 @@ The server intentionally keeps runtime configuration small:
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `DATABASE` | `postgres://postgres@localhost` | PostgreSQL connection URL. |
-| `REDIS` | empty | Redis/Valkey URL. Empty uses in-process session/cache state. |
-| `STORAGE` | `/var/lib/doj` | Local storage path, or an S3-compatible `http(s)` URL. |
+| `REDIS` | `redis://localhost:6379/0` | Redis/Valkey URL. |
+| `STORAGE` | current user home | Local storage path, or an S3-compatible `http(s)` URL. |
 
 `STORAGE` examples:
 
@@ -39,6 +39,8 @@ STORAGE=https://access:secret@s3.example.com/doj?region=auto
 ```
 
 When `STORAGE` is local, objects are written under that directory. When it starts with `http://` or `https://`, the URL user info supplies S3 credentials, the host is the endpoint, and the single path segment is the bucket name.
+
+When `STORAGE` is empty, the server uses `os.UserHomeDir()`. For Linux service deployments, make the service user's home `/var/lib/doj` or set `STORAGE=/var/lib/doj` explicitly.
 
 The server listens on `:7974`, serves built web files from `dist` when present, and falls back to `index.html` for H5 history routes. If no administrator exists, startup creates `admin` / `admin` with `admin@localhost`.
 
@@ -200,8 +202,8 @@ server 只读取少量运行配置：
 | 变量 | 默认值 | 含义 |
 | --- | --- | --- |
 | `DATABASE` | `postgres://postgres@localhost` | PostgreSQL 连接 URL。 |
-| `REDIS` | 空 | Redis/Valkey URL；为空时使用进程内 session/cache。 |
-| `STORAGE` | `/var/lib/doj` | 本地存储目录，或 S3 兼容 `http(s)` URL。 |
+| `REDIS` | `redis://localhost:6379/0` | Redis/Valkey URL。 |
+| `STORAGE` | 当前用户 home | 本地存储目录，或 S3 兼容 `http(s)` URL。 |
 
 `STORAGE` 示例：
 
@@ -212,6 +214,8 @@ STORAGE=https://access:secret@s3.example.com/doj?region=auto
 ```
 
 `STORAGE` 为本地路径时对象写入该目录。以 `http://` 或 `https://` 开头时，URL 用户信息是 S3 账号密码，host 是 endpoint，唯一 path 段是 bucket。
+
+`STORAGE` 为空时 server 使用 `os.UserHomeDir()`。Linux 服务部署时，可以把服务用户 home 设为 `/var/lib/doj`，或显式设置 `STORAGE=/var/lib/doj`。
 
 server 固定监听 `:7974`。存在 `dist` 时会提供构建后的前端静态文件，并对 H5 history 路由 fallback 到 `index.html`。如果数据库里还没有管理员，启动时会创建 `admin` / `admin`，邮箱为 `admin@localhost`。
 

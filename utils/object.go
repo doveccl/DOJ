@@ -29,7 +29,7 @@ type ObjectInfo struct {
 	Size int64
 }
 
-const defaultStorageRoot = "/var/lib/doj"
+const fallbackStorageRoot = "/var/lib/doj"
 
 func NewObjectStoreFromEnv() (ObjectStore, error) {
 	storage := storageURL()
@@ -59,7 +59,15 @@ func storageURL() string {
 	if value := strings.TrimSpace(os.Getenv("STORAGE")); value != "" {
 		return value
 	}
-	return defaultStorageRoot
+	return defaultStorageRoot()
+}
+
+func defaultStorageRoot() string {
+	home, err := os.UserHomeDir()
+	if err == nil && strings.TrimSpace(home) != "" {
+		return home
+	}
+	return fallbackStorageRoot
 }
 
 type s3StorageConfig struct {

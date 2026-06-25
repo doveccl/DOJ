@@ -22,9 +22,12 @@ func TestCleanObjectKey(t *testing.T) {
 }
 
 func TestUploadRootUsesStorage(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("STORAGE", "")
-	if got := UploadRoot(); got != defaultStorageRoot {
-		t.Fatalf("default upload root = %q, want %q", got, defaultStorageRoot)
+	if got := UploadRoot(); got != home {
+		t.Fatalf("default upload root = %q, want home %q", got, home)
 	}
 	t.Setenv("STORAGE", t.TempDir())
 	if got := UploadRoot(); got != os.Getenv("STORAGE") {
