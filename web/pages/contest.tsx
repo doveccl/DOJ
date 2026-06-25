@@ -106,7 +106,6 @@ export function ContestDetailPage() {
               kind="contest"
               status={contest.status}
               target={contestTarget(contest.status, contest.startAt, contest.endAt)}
-              lang={lang}
               range={`${formatTime(contest.startAt, lang)} - ${formatTime(contest.endAt, lang)}`}
               strong
               align="flex-end"

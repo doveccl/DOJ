@@ -1,5 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import dayjs from 'dayjs'
+import 'dayjs/locale/en'
+import 'dayjs/locale/zh-cn'
 
 export type Lang = 'zh' | 'en'
 
@@ -50,6 +53,13 @@ const zh = {
     submitCode: '提交代码',
     send: '发送',
     saved: '已保存'
+  },
+  time: {
+    dayTimer: 'D[天] HH:mm:ss',
+    shortTimer: 'HH:mm:ss',
+    startsIn: { prefix: '', suffix: ' 后开始' },
+    dueIn: { prefix: '', suffix: ' 后截止' },
+    endsIn: { prefix: '', suffix: ' 后结束' }
   },
   home: {
     notice: '公告',
@@ -374,6 +384,13 @@ const en: typeof zh = {
     send: 'Send',
     saved: 'Saved'
   },
+  time: {
+    dayTimer: 'D[d] HH:mm:ss',
+    shortTimer: 'HH:mm:ss',
+    startsIn: { prefix: 'Starts in ', suffix: '' },
+    dueIn: { prefix: 'Due in ', suffix: '' },
+    endsIn: { prefix: 'Ends in ', suffix: '' }
+  },
   home: {
     notice: 'Notice',
     heatmap: 'Submissions',
@@ -650,6 +667,8 @@ const en: typeof zh = {
 }
 
 const dicts = { zh, en }
+const htmlLangs: Record<Lang, string> = { zh: 'zh-CN', en: 'en' }
+const dayjsLangs: Record<Lang, string> = { zh: 'zh-cn', en: 'en' }
 
 type LocaleState = {
   lang: Lang
@@ -675,7 +694,8 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   const [lang, setValue] = useState<Lang>(readLang)
 
   useEffect(() => {
-    document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en'
+    document.documentElement.lang = htmlLangs[lang]
+    dayjs.locale(dayjsLangs[lang])
   }, [lang])
 
   const setLang = useCallback((next: Lang) => {

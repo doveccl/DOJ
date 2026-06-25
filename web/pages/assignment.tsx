@@ -101,7 +101,7 @@ export function AssignmentDetailPage() {
               ) : null}
             </Flex>
             <Flex align="center" justify="flex-end" gap={16} style={{ minWidth: 'min(420px, 100%)' }}>
-              <DeadlineTimer kind="assignment" status={assignment.status} target={assignment.endAt} lang={lang} strong align="flex-end" onFinish={() => void query.refetch()} />
+              <DeadlineTimer kind="assignment" status={assignment.status} target={assignment.endAt} strong align="flex-end" onFinish={() => void query.refetch()} />
               <Flex align="center" gap={10} style={{ width: 180 }}>
                 <Progress percent={progress(assignment)} size="small" showInfo={false} />
                 <Typography.Text className="nowrap">{text.assignments.done(assignment.done, assignment.total)}</Typography.Text>

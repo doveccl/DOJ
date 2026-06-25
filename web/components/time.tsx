@@ -1,17 +1,29 @@
-import { Flex, Statistic, Typography } from 'antd'
+import { Flex, Statistic, Tag, Tooltip, Typography } from 'antd'
 
+import { useLocale } from '../locale'
 import { formatTime } from '../utils/format'
 
 type DeadlineKind = 'assignment' | 'contest'
+type TimerCopy = {
+  prefix: string
+  suffix: string
+}
 
 type DeadlineTimerProps = {
   kind: DeadlineKind
   status: string
   target: string
-  lang: string
   range?: string
   strong?: boolean
   align?: 'flex-start' | 'flex-end'
+  onFinish?: () => void
+}
+
+type ScheduleTagProps = {
+  kind: DeadlineKind
+  status: string
+  target: string
+  range?: string
   onFinish?: () => void
 }
 
@@ -19,12 +31,12 @@ export function DeadlineTimer({
   kind,
   status,
   target,
-  lang,
   range,
   strong = false,
   align = 'flex-start',
   onFinish
 }: DeadlineTimerProps) {
+  const { lang, text } = useLocale()
   const targetMs = new Date(target).getTime()
   if (!Number.isFinite(targetMs)) {
     return <Typography.Text>-</Typography.Text>
@@ -35,21 +47,7 @@ export function DeadlineTimer({
       {status === 'ended' ? (
         <Typography.Text className="nowrap">{formatTime(target, lang)}</Typography.Text>
       ) : (
-        <Statistic.Timer
-          type="countdown"
-          value={targetMs}
-          format={timerFormat(targetMs, lang)}
-          suffix={timerSuffix(status, kind, lang)}
-          onFinish={onFinish}
-          styles={{
-            content: {
-              fontSize: strong ? 20 : 14,
-              fontWeight: strong ? 600 : 500,
-              lineHeight: strong ? '28px' : '22px',
-              fontVariantNumeric: 'tabular-nums'
-            }
-          }}
-        />
+        <TimerText copy={timerCopy(status, kind, text)} targetMs={targetMs} strong={strong} onFinish={onFinish} />
       )}
       {range ? (
         <Typography.Text type="secondary" className="nowrap">
@@ -60,24 +58,79 @@ export function DeadlineTimer({
   )
 }
 
+export function ScheduleTag({ kind, status, target, range, onFinish }: ScheduleTagProps) {
+  const { lang, text } = useLocale()
+  const targetMs = new Date(target).getTime()
+  const tooltip = range ?? formatTime(target, lang)
+  if (!Number.isFinite(targetMs)) {
+    return <Tag>-</Tag>
+  }
+  if (status === 'ended') {
+    return (
+      <Tooltip title={tooltip}>
+        <Tag>{kind === 'assignment' ? text.assignments.ended : text.contests.ended}</Tag>
+      </Tooltip>
+    )
+  }
+  return (
+    <Tooltip title={tooltip}>
+      <Tag color={status === 'pending' ? 'blue' : 'green'} style={{ display: 'inline-flex', alignItems: 'center' }}>
+        <TimerText copy={timerCopy(status, kind, text)} targetMs={targetMs} compact onFinish={onFinish} />
+      </Tag>
+    </Tooltip>
+  )
+}
+
 export function contestTarget(status: string, startAt: string, endAt: string) {
   return status === 'pending' ? startAt : endAt
 }
 
-function timerFormat(targetMs: number, lang: string) {
-  const seconds = Math.max(0, Math.ceil((targetMs - Date.now()) / 1000))
-  if (seconds >= 24 * 60 * 60) {
-    return lang === 'zh' ? 'D[天] HH:mm:ss' : 'D[d] HH:mm:ss'
-  }
-  return 'HH:mm:ss'
+function TimerText({
+  copy,
+  targetMs,
+  compact = false,
+  strong = false,
+  onFinish
+}: {
+  copy: TimerCopy
+  targetMs: number
+  compact?: boolean
+  strong?: boolean
+  onFinish?: () => void
+}) {
+  const { text } = useLocale()
+  return (
+    <Statistic.Timer
+      type="countdown"
+      value={targetMs}
+      format={timerFormat(targetMs, text)}
+      prefix={copy.prefix}
+      suffix={copy.suffix}
+      onFinish={onFinish}
+      styles={{
+        content: {
+          color: 'inherit',
+          fontSize: compact ? 12 : strong ? 20 : 14,
+          fontWeight: strong ? 600 : 500,
+          lineHeight: compact ? '20px' : strong ? '28px' : '22px',
+          fontVariantNumeric: 'tabular-nums'
+        }
+      }}
+    />
+  )
 }
 
-function timerSuffix(status: string, kind: DeadlineKind, lang: string) {
+function timerFormat(targetMs: number, text: ReturnType<typeof useLocale>['text']) {
+  const seconds = Math.max(0, Math.ceil((targetMs - Date.now()) / 1000))
+  return seconds >= 24 * 60 * 60 ? text.time.dayTimer : text.time.shortTimer
+}
+
+function timerCopy(status: string, kind: DeadlineKind, text: ReturnType<typeof useLocale>['text']): TimerCopy {
   if (status === 'pending') {
-    return lang === 'zh' ? ' 后开始' : ' to start'
+    return text.time.startsIn
   }
   if (kind === 'assignment') {
-    return lang === 'zh' ? ' 后截止' : ' until due'
+    return text.time.dueIn
   }
-  return lang === 'zh' ? ' 后结束' : ' left'
+  return text.time.endsIn
 }

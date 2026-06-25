@@ -27,8 +27,7 @@ import { createAssignment, deleteAssignment, getAdmin, getAssignment, getAssignm
 import type { Assignment, ProblemRef } from '../client'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../components/state'
-import { AssignmentStatus } from '../components/status'
-import { DeadlineTimer } from '../components/time'
+import { ScheduleTag } from '../components/time'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
 import { problemCode, progress } from '../utils/format'
@@ -42,7 +41,7 @@ type AssignmentForm = {
 }
 
 export function AssignmentsPage() {
-  const { lang, text } = useLocale()
+  const { text } = useLocale()
   const session = useSession()
   const { message } = AntApp.useApp()
   const client = useQueryClient()
@@ -158,7 +157,6 @@ export function AssignmentsPage() {
           rowKey="id"
           columns={assignmentColumns(
             text,
-            lang,
             {
               edit: openEdit,
               remove: (id) => remove.mutate(id),
@@ -279,7 +277,6 @@ function AssignmentModal({
 
 function assignmentColumns(
   text: ReturnType<typeof useLocale>['text'],
-  lang: string,
   actions: {
     edit: (item: Assignment) => void
     remove: (id: number) => void
@@ -301,9 +298,8 @@ function assignmentColumns(
     },
     {
       title: text.assignments.status,
-      dataIndex: 'status',
-      width: 110,
-      render: (status: string) => <AssignmentStatus status={status} />
+      width: 150,
+      render: (_, row) => <ScheduleTag kind="assignment" status={row.status} target={row.endAt} onFinish={actions.refresh} />
     },
     {
       title: text.assignments.progress,
@@ -314,11 +310,6 @@ function assignmentColumns(
           <Typography.Text className="nowrap">{text.assignments.done(row.done, row.total)}</Typography.Text>
         </Flex>
       )
-    },
-    {
-      title: text.assignments.deadline,
-      width: 220,
-      render: (_, row) => <DeadlineTimer kind="assignment" status={row.status} target={row.endAt} lang={lang} onFinish={actions.refresh} />
     }
   ]
   if (admin) {
