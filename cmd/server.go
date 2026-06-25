@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	serverAddr         = ":7974"
+	defaultListen      = ":7974"
 	defaultDatabaseURL = "postgres://postgres@localhost"
 	defaultWebDir      = "dist"
 	shutdownGrace      = 15 * time.Second
@@ -61,7 +61,7 @@ func main() {
 func startServer(e *echo.Echo) error {
 	serverErr := make(chan error, 1)
 	go func() {
-		err := e.Start(serverAddr)
+		err := e.Start(listenAddr())
 		if err != nil && err != http.ErrServerClosed {
 			serverErr <- err
 			return
@@ -115,6 +115,10 @@ func openDB() (*gorm.DB, error) {
 
 func databaseDSN() string {
 	return getenv("DATABASE", defaultDatabaseURL)
+}
+
+func listenAddr() string {
+	return getenv("LISTEN", defaultListen)
 }
 
 func getenv(key string, defaultValue string) string {
@@ -171,6 +175,8 @@ func webAppHandler(root string, index string) echo.HandlerFunc {
 		}
 		if cache {
 			c.Response().Header().Set(echo.HeaderCacheControl, "public, max-age=31536000, immutable")
+		} else if file == index {
+			c.Response().Header().Set(echo.HeaderCacheControl, "no-store")
 		}
 		return c.File(file)
 	}

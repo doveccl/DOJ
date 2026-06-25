@@ -21,6 +21,17 @@ func TestDatabaseDSNDefaultAndOverride(t *testing.T) {
 	}
 }
 
+func TestListenAddrDefaultAndOverride(t *testing.T) {
+	t.Setenv("LISTEN", "")
+	if got := listenAddr(); got != defaultListen {
+		t.Fatalf("listenAddr default = %q, want %q", got, defaultListen)
+	}
+	t.Setenv("LISTEN", "127.0.0.1:7975")
+	if got := listenAddr(); got != "127.0.0.1:7975" {
+		t.Fatalf("listenAddr override = %q", got)
+	}
+}
+
 func TestRegisterWebAppSkipsMissingDist(t *testing.T) {
 	e := echo.New()
 	if err := registerWebApp(e, filepath.Join(t.TempDir(), "missing")); err != nil {
@@ -45,10 +56,11 @@ func TestRegisterWebAppFallback(t *testing.T) {
 		path   string
 		status int
 		body   string
+		cache  string
 	}{
-		{path: "/", status: http.StatusOK, body: "<html>app</html>"},
-		{path: "/problems/1000", status: http.StatusOK, body: "<html>app</html>"},
-		{path: "/assets/app.js", status: http.StatusOK, body: "console.log('app')"},
+		{path: "/", status: http.StatusOK, body: "<html>app</html>", cache: "no-store"},
+		{path: "/problems/1000", status: http.StatusOK, body: "<html>app</html>", cache: "no-store"},
+		{path: "/assets/app.js", status: http.StatusOK, body: "console.log('app')", cache: "public, max-age=31536000, immutable"},
 		{path: "/assets/missing.js", status: http.StatusNotFound},
 		{path: "/api/health", status: http.StatusOK, body: "api"},
 		{path: "/api/missing", status: http.StatusNotFound},
@@ -62,6 +74,9 @@ func TestRegisterWebAppFallback(t *testing.T) {
 			}
 			if tc.body != "" && res.Body.String() != tc.body {
 				t.Fatalf("%s body = %q, want %q", tc.path, res.Body.String(), tc.body)
+			}
+			if got := res.Header().Get(echo.HeaderCacheControl); got != tc.cache {
+				t.Fatalf("%s cache control = %q, want %q", tc.path, got, tc.cache)
 			}
 		})
 	}

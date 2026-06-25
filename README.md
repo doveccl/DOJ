@@ -36,6 +36,7 @@ The server reads three environment variables:
 | `DATABASE` | `postgres://postgres@localhost` | PostgreSQL connection string. |
 | `REDIS` | `redis://localhost:6379/0` | Redis or Valkey connection string. |
 | `STORAGE` | current user home | Local storage path, or an S3-compatible `http(s)` URL. |
+| `LISTEN` | `:7974` | Server listen address. |
 
 Storage examples:
 
@@ -48,7 +49,7 @@ STORAGE=https://access:secret@s3.example.com/bucket?region=auto&lookup=dns&ensur
 
 `lookup=dns` forces virtual-host style bucket URLs. `ensure=false` skips bucket creation checks for existing cloud buckets with scoped credentials.
 
-The server listens on `:7974`. When `dist/` exists, it serves the web app and supports history fallback for frontend routes.
+When `dist/` exists, the server serves the web app and supports history fallback for frontend routes.
 
 ## Judger
 
@@ -147,6 +148,7 @@ server 读取三个环境变量：
 | `DATABASE` | `postgres://postgres@localhost` | PostgreSQL 连接串。 |
 | `REDIS` | `redis://localhost:6379/0` | Redis 或 Valkey 连接串。 |
 | `STORAGE` | 当前用户 home | 本地存储路径，或 S3 兼容 `http(s)` URL。 |
+| `LISTEN` | `:7974` | server 监听地址。 |
 
 存储配置示例：
 
@@ -159,7 +161,7 @@ STORAGE=https://access:secret@s3.example.com/bucket?region=auto&lookup=dns&ensur
 
 `lookup=dns` 强制使用 bucket 子域名风格；`ensure=false` 会跳过建桶探测，适合已创建好的云存储桶和最小权限密钥。
 
-server 固定监听 `:7974`。存在 `dist/` 时，server 会提供前端静态文件，并支持前端路由的 history fallback。
+存在 `dist/` 时，server 会提供前端静态文件，并支持前端路由的 history fallback。
 
 ## 评测机
 
