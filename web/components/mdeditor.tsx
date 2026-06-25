@@ -1,4 +1,9 @@
+import highlightScript from '@highlightjs/cdn-assets/highlight.min.js?url'
+import githubDarkStyle from '@highlightjs/cdn-assets/styles/github-dark.min.css?url'
+import githubStyle from '@highlightjs/cdn-assets/styles/github.min.css?url'
+import katex from 'katex'
 import { config, MdEditor, MdPreview } from 'md-editor-rt'
+import 'katex/dist/katex.min.css'
 import 'md-editor-rt/lib/style.css'
 import { useEffect, useId } from 'react'
 
@@ -49,6 +54,20 @@ function ensureMarkdownAssetRenderer() {
     return
   }
   config({
+    editorExtensions: {
+      highlight: {
+        js: highlightScript,
+        css: {
+          github: {
+            light: githubStyle,
+            dark: githubDarkStyle
+          }
+        }
+      },
+      katex: {
+        instance: katex
+      }
+    },
     markdownItConfig: (md, options) => {
       configureMarkdownAssetRenderer(md, options.editorId)
     }
