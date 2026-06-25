@@ -43,7 +43,10 @@ Storage examples:
 STORAGE=/var/lib/doj
 STORAGE=http://access:secret@localhost:9000/doj
 STORAGE=https://access:secret@s3.example.com/doj?region=auto
+STORAGE=https://access:secret@s3.example.com/bucket?region=auto&lookup=dns&ensure=false
 ```
+
+`lookup=dns` forces virtual-host style bucket URLs. `ensure=false` skips bucket creation checks for existing cloud buckets with scoped credentials.
 
 The server listens on `:7974`. When `dist/` exists, it serves the web app and supports history fallback for frontend routes.
 
@@ -151,7 +154,10 @@ server 读取三个环境变量：
 STORAGE=/var/lib/doj
 STORAGE=http://access:secret@localhost:9000/doj
 STORAGE=https://access:secret@s3.example.com/doj?region=auto
+STORAGE=https://access:secret@s3.example.com/bucket?region=auto&lookup=dns&ensure=false
 ```
+
+`lookup=dns` 强制使用 bucket 子域名风格；`ensure=false` 会跳过建桶探测，适合已创建好的云存储桶和最小权限密钥。
 
 server 固定监听 `:7974`。存在 `dist/` 时，server 会提供前端静态文件，并支持前端路由的 history fallback。
 
