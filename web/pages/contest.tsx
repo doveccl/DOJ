@@ -12,9 +12,10 @@ import type { Problem, ProblemRef, RankUser, Submission } from '../client'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { ContestStatus, SubmissionStatus } from '../components/status'
+import { contestTarget, DeadlineTimer } from '../components/time'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { formatTime, problemCode, relativeDeadline } from '../utils/format'
+import { formatTime, problemCode } from '../utils/format'
 
 type ContestForm = {
   title: string
@@ -101,10 +102,16 @@ export function ContestDetailPage() {
             </Flex>
           </Flex>
           <Flex vertical align="flex-end" gap={8}>
-            <Typography.Text strong>{relativeDeadline(contest.status === 'pending' ? contest.startAt : contest.endAt, contest.status, lang, 'contest')}</Typography.Text>
-            <Typography.Text className="nowrap">
-              {formatTime(contest.startAt, lang)} - {formatTime(contest.endAt, lang)}
-            </Typography.Text>
+            <DeadlineTimer
+              kind="contest"
+              status={contest.status}
+              target={contestTarget(contest.status, contest.startAt, contest.endAt)}
+              lang={lang}
+              range={`${formatTime(contest.startAt, lang)} - ${formatTime(contest.endAt, lang)}`}
+              strong
+              align="flex-end"
+              onFinish={() => void query.refetch()}
+            />
             <Typography.Text type="secondary">{text.contests.total(contest.total)}</Typography.Text>
           </Flex>
         </Flex>

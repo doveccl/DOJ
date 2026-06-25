@@ -28,9 +28,10 @@ import type { Assignment, ProblemRef } from '../client'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { AssignmentStatus } from '../components/status'
+import { DeadlineTimer } from '../components/time'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { problemCode, progress, relativeDeadline } from '../utils/format'
+import { problemCode, progress } from '../utils/format'
 
 type AssignmentForm = {
   title: string
@@ -155,10 +156,16 @@ export function AssignmentsPage() {
       ) : (
         <Table<Assignment>
           rowKey="id"
-          columns={assignmentColumns(text, lang, {
-            edit: openEdit,
-            remove: (id) => remove.mutate(id)
-          }, session.admin)}
+          columns={assignmentColumns(
+            text,
+            lang,
+            {
+              edit: openEdit,
+              remove: (id) => remove.mutate(id),
+              refresh: () => void query.refetch()
+            },
+            session.admin
+          )}
           dataSource={query.data}
           pagination={{ pageSize: 20, showSizeChanger: true }}
         />
@@ -276,6 +283,7 @@ function assignmentColumns(
   actions: {
     edit: (item: Assignment) => void
     remove: (id: number) => void
+    refresh: () => void
   },
   admin: boolean
 ): TableProps<Assignment>['columns'] {
@@ -310,7 +318,7 @@ function assignmentColumns(
     {
       title: text.assignments.deadline,
       width: 220,
-      render: (_, row) => <Typography.Text>{relativeDeadline(row.endAt, row.status, lang, 'assignment')}</Typography.Text>
+      render: (_, row) => <DeadlineTimer kind="assignment" status={row.status} target={row.endAt} lang={lang} onFinish={actions.refresh} />
     }
   ]
   if (admin) {

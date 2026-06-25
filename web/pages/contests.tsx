@@ -28,9 +28,10 @@ import type { Contest, ProblemRef } from '../client'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { ContestStatus } from '../components/status'
+import { contestTarget, DeadlineTimer } from '../components/time'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { formatTime, problemCode, relativeDeadline } from '../utils/format'
+import { formatTime, problemCode } from '../utils/format'
 
 type ContestForm = {
   title: string
@@ -142,10 +143,16 @@ export function ContestsPage() {
       ) : (
         <Table<Contest>
           rowKey="id"
-          columns={contestColumns(text, lang, {
-            edit: openEdit,
-            remove: (id) => remove.mutate(id)
-          }, session.admin)}
+          columns={contestColumns(
+            text,
+            lang,
+            {
+              edit: openEdit,
+              remove: (id) => remove.mutate(id),
+              refresh: () => void query.refetch()
+            },
+            session.admin
+          )}
           dataSource={query.data}
           pagination={{ pageSize: 20, showSizeChanger: true }}
         />
@@ -268,6 +275,7 @@ function contestColumns(
   actions: {
     edit: (item: Contest) => void
     remove: (id: number) => void
+    refresh: () => void
   },
   admin: boolean
 ): TableProps<Contest>['columns'] {
@@ -305,12 +313,14 @@ function contestColumns(
       title: text.contests.time,
       width: 300,
       render: (_, row) => (
-        <Flex vertical gap={0}>
-          <Typography.Text className="nowrap">{relativeDeadline(row.status === 'pending' ? row.startAt : row.endAt, row.status, lang, 'contest')}</Typography.Text>
-          <Typography.Text type="secondary" className="nowrap">
-            {formatTime(row.startAt, lang)} - {formatTime(row.endAt, lang)}
-          </Typography.Text>
-        </Flex>
+        <DeadlineTimer
+          kind="contest"
+          status={row.status}
+          target={contestTarget(row.status, row.startAt, row.endAt)}
+          lang={lang}
+          range={`${formatTime(row.startAt, lang)} - ${formatTime(row.endAt, lang)}`}
+          onFinish={actions.refresh}
+        />
       )
     }
   ]

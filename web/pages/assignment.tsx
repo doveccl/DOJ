@@ -12,9 +12,10 @@ import type { Problem, ProblemRef, Submission } from '../client'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { AssignmentStatus, SubmissionStatus } from '../components/status'
+import { DeadlineTimer } from '../components/time'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { formatTime, problemCode, progress, relativeDeadline } from '../utils/format'
+import { formatTime, problemCode, progress } from '../utils/format'
 
 type AssignmentForm = {
   title: string
@@ -100,7 +101,7 @@ export function AssignmentDetailPage() {
               ) : null}
             </Flex>
             <Flex align="center" justify="flex-end" gap={16} style={{ minWidth: 'min(420px, 100%)' }}>
-              <Typography.Text>{relativeDeadline(assignment.endAt, assignment.status, lang, 'assignment')}</Typography.Text>
+              <DeadlineTimer kind="assignment" status={assignment.status} target={assignment.endAt} lang={lang} strong align="flex-end" onFinish={() => void query.refetch()} />
               <Flex align="center" gap={10} style={{ width: 180 }}>
                 <Progress percent={progress(assignment)} size="small" showInfo={false} />
                 <Typography.Text className="nowrap">{text.assignments.done(assignment.done, assignment.total)}</Typography.Text>

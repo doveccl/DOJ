@@ -56,18 +56,3 @@ export function formatDuration(seconds: number, lang: string) {
   const days = Math.floor(hours / 24)
   return lang === 'zh' ? `${days} 天` : `${days}d`
 }
-
-export function relativeDeadline(value: string, status: string, lang: string, kind: 'assignment' | 'contest') {
-  if (status === 'ended') {
-    return formatTime(value, lang)
-  }
-  const seconds = Math.max(0, Math.ceil((new Date(value).getTime() - Date.now()) / 1000))
-  const duration = formatDuration(seconds, lang)
-  if (status === 'pending') {
-    return lang === 'zh' ? `${duration} 后开始` : `starts in ${duration}`
-  }
-  if (kind === 'assignment') {
-    return lang === 'zh' ? `${duration} 后截止` : `due in ${duration}`
-  }
-  return lang === 'zh' ? `${duration} 后结束` : `ends in ${duration}`
-}
