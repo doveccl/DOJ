@@ -18,9 +18,9 @@
   --header-border: var(--ant-color-border-secondary, #303030);
   --line: var(--ant-color-border-secondary, #303030);
   --muted: var(--ant-color-text-secondary, rgb(255 255 255 / 45%));
-  --heat-0: #1f2937;
-  --heat-1: #111d2c;
-  --heat-2: #15325b;
+  --heat-0: #111d2c;
+  --heat-1: #15325b;
+  --heat-2: #15417e;
   --heat-3: #1668dc;
   --heat-4: #69b1ff;
 }
