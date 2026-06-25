@@ -623,7 +623,7 @@ function CaseModal({
     >
       <Form form={form} preserve={false} layout="vertical" initialValues={{ name: '', input: '', output: '' }} onFinish={onSave}>
         <Form.Item name="name" label={text.problem.caseName}>
-          <Input placeholder="1" />
+          <Input placeholder={text.problem.caseNamePlaceholder} />
         </Form.Item>
         <Form.Item name="input" label={`${text.problem.caseName}.in`}>
           <Input.TextArea rows={5} />
