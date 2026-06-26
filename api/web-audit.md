@@ -12,6 +12,12 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 - Admin utility endpoints should match the local UI need. For example, assignment member selectors use `GET /api/admin/members`, not the full admin overview.
 - Mutation responses should match the UI scope that triggered them: list actions return list/detail rows only when the caller needs them; configuration patches return the updated configuration object.
 
+## V3 Reference Notes
+
+- V3 keeps list/detail boundaries simple: problem and submission lists omit large fields such as statement content, data, source code, and cases; detail endpoints own those expansions.
+- V3 exposes management resources as separate user/problem/file/config routes instead of one all-purpose admin payload. V4 follows that direction but keeps the stronger OpenAPI contract and explicit admin backup/judger resources.
+- V3 also has rough edges that should not be copied directly, such as broad update bodies and some list-side per-row enrichment. V4 keeps the useful boundary shape, not the implementation style.
+
 ## Fixes From This Pass
 
 - `PATCH /api/me` now accepts partial `mail`, `bio`, or `avatar` updates. Avatar upload no longer resends mail/bio.
@@ -20,6 +26,8 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 - `GET /api/assignments` now returns `AssignmentListItem` without `users/groups`, and the backend skips assignment member queries for the list/home path.
 - Added `GET /api/admin/members` for user/group selectors so assignment editing does not fetch settings, languages, judgers, or queue data.
 - Added tests for partial profile/problem/discussion updates, assignment list member omission, and the admin members endpoint.
+- Removed the full `GET /api/admin` overview. Admin users/groups now use `AdminMembers`; languages use `GET /api/admin/languages` and `AdminLang[]`; judgers use `GET /api/admin/judgers` and `AdminJudgers`.
+- Admin user/group/language/judger mutations now return only the resource view owned by the active tab, instead of settings, languages, judgers, queue, and members together.
 
 ## Endpoint Matrix
 
@@ -37,23 +45,24 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 | `POST /api/auth/logout` | Auth mutation | Clears session. | OK. |
 | `GET /api/languages` | Option list | Submit language id/name/source. | OK for submit form; image/compile/run stay admin-only. |
 | `POST /api/uploads/images` | Asset write | User image upload result only. | OK. Storage-owning endpoint. |
-| `GET /api/admin` | Admin overview | Users, groups, languages, judgers, queue. | Accepted as tab-scoped management overview; frontend avoids loading it on settings/backup/default pages. |
 | `GET /api/admin/settings` | Admin config read | Site settings only. | OK. Used by settings tab. |
 | `PATCH /api/admin/settings` | Partial config mutation | Optional setting keys only. | OK. Empty patch rejected; unrelated settings preserved. |
-| `GET /api/admin/members` | Admin option list | Users and groups only. | Added. Used by assignment member selectors instead of full overview. |
-| `POST /api/admin/users` | Admin mutation | User create request, refreshed admin overview. | Accepted for current users/groups management tab; revisit if tables exceed current 200-row admin bound. |
-| `PATCH /api/admin/users/{name}` | Admin mutation | Role/groups only. | OK request boundary. Response is overview for current tab refresh. |
-| `DELETE /api/admin/users/{name}` | Admin mutation | Path id only. | OK request boundary. Response is overview for current tab refresh. |
+| `GET /api/admin/members` | Admin member read/search | Users and groups only. | OK. Used by users/groups tabs and assignment member selectors; no settings/languages/judgers/queue coupling. |
+| `POST /api/admin/users` | Admin mutation | User create request, refreshed `AdminMembers`. | Fixed. Response matches users/groups tab only. |
+| `PATCH /api/admin/users/{name}` | Admin mutation | Role/groups only, refreshed `AdminMembers`. | Fixed. |
+| `DELETE /api/admin/users/{name}` | Admin mutation | Path id only, refreshed `AdminMembers`. | Fixed. |
 | `POST /api/admin/users/{name}/password` | Admin mutation | Password reset result only. | OK. Does not reload overview. |
-| `POST /api/admin/groups` | Admin mutation | Group fields only. | OK request boundary. Response is overview for current tab refresh. |
-| `PATCH /api/admin/groups/{id}` | Admin mutation | Group name/users only. | OK request boundary. |
-| `DELETE /api/admin/groups/{id}` | Admin mutation | Path id only. | OK request boundary. |
-| `POST /api/admin/languages` | Admin mutation | Language definition only. | OK request boundary. Response is overview for current tab refresh. |
-| `PATCH /api/admin/languages/{id}` | Admin mutation | Language definition only. | OK request boundary. |
-| `DELETE /api/admin/languages/{id}` | Admin mutation | Path id only. | OK request boundary. |
-| `POST /api/admin/judgers` | Admin mutation | Judger name only. | OK. Creation returns token in overview row because it is displayed once. |
-| `PATCH /api/admin/judgers/{id}` | Admin mutation | Judger name/auth only. | OK request boundary. |
-| `DELETE /api/admin/judgers/{id}` | Admin mutation | Path id only. | OK request boundary. |
+| `POST /api/admin/groups` | Admin mutation | Group fields only, refreshed `AdminMembers`. | Fixed. |
+| `PATCH /api/admin/groups/{id}` | Admin mutation | Group name/users only, refreshed `AdminMembers`. | Fixed. |
+| `DELETE /api/admin/groups/{id}` | Admin mutation | Path id only, refreshed `AdminMembers`. | Fixed. |
+| `GET /api/admin/languages` | Admin language read | Language definitions only. | Fixed. Loaded only on languages tab. |
+| `POST /api/admin/languages` | Admin mutation | Language definition only, refreshed `AdminLang[]`. | Fixed. |
+| `PATCH /api/admin/languages/{id}` | Admin mutation | Language definition only, refreshed `AdminLang[]`. | Fixed. |
+| `DELETE /api/admin/languages/{id}` | Admin mutation | Path id only, refreshed `AdminLang[]`. | Fixed. |
+| `GET /api/admin/judgers` | Admin judger read | Judgers and queue only. | Fixed. Loaded only on judgers tab. |
+| `POST /api/admin/judgers` | Admin mutation | Judger name only, refreshed `AdminJudgers`. | Fixed. Creation returns token only in the created judger row. |
+| `PATCH /api/admin/judgers/{id}` | Admin mutation | Judger name/auth only, refreshed `AdminJudgers`. | Fixed. |
+| `DELETE /api/admin/judgers/{id}` | Admin mutation | Path id only, refreshed `AdminJudgers`. | Fixed. |
 | `GET /api/admin/backups/settings` | Backup config read | Backup settings only. | OK. Loaded only on backup tab. |
 | `PATCH /api/admin/backups/settings` | Backup config mutation | Backup settings form fields. | OK. All fields are visible in that form. |
 | `GET /api/admin/backups` | Backup list | Storage-derived backup list. | OK. Backup page owns it. |
@@ -107,6 +116,6 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 ## Accepted Bounds
 
 - Public list endpoints are currently capped at 50 rows, rank at 100 users, and admin management tables at 200 rows.
-- Admin CRUD responses still refresh the management overview for the active management tabs. This is acceptable while admin tables are capped and loaded only in those tabs; if the product grows beyond those bounds, split responses by tab (`AdminMembers`, language list, judger panel) rather than raising limits.
+- Admin management reads are split by tab (`AdminMembers`, language list, judger panel). Current admin table reads remain capped at 200 rows; if that becomes a product limit, add pagination or remote search rather than raising limits.
 - Assignment/contest edit requests remain full-form mutations because their current modals expose all submitted fields together. If inline single-field controls are added later, add partial endpoints or partial patch semantics before wiring the UI.
 - If current caps become product limits rather than practical admin bounds, the next step is cursor pagination or remote search, not raising limits.

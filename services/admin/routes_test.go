@@ -32,16 +32,16 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	Register(e, db)
 	adminCookies := databaseSession(t, admin.ID)
 
-	res := requestWithCookies(e, http.MethodGet, "/api/admin", adminCookies)
+	res := requestWithCookies(e, http.MethodGet, "/api/admin/settings", adminCookies)
 	if res.Code != http.StatusOK {
-		t.Fatalf("overview got %d body=%s", res.Code, res.Body.String())
+		t.Fatalf("settings got %d body=%s", res.Code, res.Body.String())
 	}
-	overview := decodeOverview(t, res)
-	if overview.Settings.AllowRegistration || overview.Settings.AllowGuestAccess || overview.Settings.DefaultSubmissionPublic {
-		t.Fatalf("site switches should default off: %+v", overview.Settings)
+	var gotSettings AdminSettings
+	if err := json.Unmarshal(res.Body.Bytes(), &gotSettings); err != nil {
+		t.Fatalf("decode settings: %v body=%s", err, res.Body.String())
 	}
-	if user, ok := findUser(overview, "student"); !ok || user.Groups == nil {
-		t.Fatalf("user groups should be an empty array, got %+v", user)
+	if gotSettings.AllowRegistration || gotSettings.AllowGuestAccess || gotSettings.DefaultSubmissionPublic {
+		t.Fatalf("site switches should default off: %+v", gotSettings)
 	}
 	res = requestWithCookies(e, http.MethodGet, "/api/admin/members", adminCookies)
 	if res.Code != http.StatusOK {
@@ -50,6 +50,9 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	var members Members
 	if err := json.Unmarshal(res.Body.Bytes(), &members); err != nil {
 		t.Fatalf("decode members: %v body=%s", err, res.Body.String())
+	}
+	if user, ok := findUser(members, "student"); !ok || user.Groups == nil {
+		t.Fatalf("user groups should be an empty array, got %+v", user)
 	}
 	if len(members.Users) != 3 || len(members.Groups) != 0 {
 		t.Fatalf("members should return only user/group option data: %+v", members)
@@ -114,7 +117,6 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	if res.Code != http.StatusOK {
 		t.Fatalf("get settings got %d body=%s", res.Code, res.Body.String())
 	}
-	var gotSettings AdminSettings
 	if err := json.Unmarshal(res.Body.Bytes(), &gotSettings); err != nil {
 		t.Fatalf("decode get settings: %v body=%s", err, res.Body.String())
 	}
@@ -147,18 +149,18 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	if res.Code != http.StatusCreated {
 		t.Fatalf("create group got %d body=%s", res.Code, res.Body.String())
 	}
-	overview = decodeOverview(t, res)
-	group, ok := findGroup(overview, "team-a")
+	members = decodeMembers(t, res)
+	group, ok := findGroup(members, "team-a")
 	if !ok {
-		t.Fatalf("created group missing: %+v", overview.Groups)
+		t.Fatalf("created group missing: %+v", members.Groups)
 	}
 	res = requestJSONWithCookies(e, http.MethodPatch, "/api/admin/users/student", adminCookies, `{"role":"user","groups":[`+itoa(group.ID)+`]}`)
 	if res.Code != http.StatusOK {
 		t.Fatalf("assign user group got %d body=%s", res.Code, res.Body.String())
 	}
-	overview = decodeOverview(t, res)
-	if user, ok := findUser(overview, "student"); !ok || len(user.Groups) != 1 || user.Groups[0] != group.ID {
-		t.Fatalf("updated user groups missing: %+v", overview.Users)
+	members = decodeMembers(t, res)
+	if user, ok := findUser(members, "student"); !ok || len(user.Groups) != 1 || user.Groups[0] != group.ID {
+		t.Fatalf("updated user groups missing: %+v", members.Users)
 	}
 	res = requestWithCookies(e, http.MethodGet, "/api/admin/members?q=stud&groups="+itoa(group.ID), adminCookies)
 	if res.Code != http.StatusOK {
@@ -181,10 +183,10 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	if res.Code != http.StatusCreated {
 		t.Fatalf("create user got %d body=%s", res.Code, res.Body.String())
 	}
-	overview = decodeOverview(t, res)
-	created, ok := findUser(overview, "New_User")
+	members = decodeMembers(t, res)
+	created, ok := findUser(members, "New_User")
 	if !ok || created.Mail != "new_user@example.com" || len(created.Groups) != 1 || created.Groups[0] != group.ID {
-		t.Fatalf("created user missing or malformed: %+v", overview.Users)
+		t.Fatalf("created user missing or malformed: %+v", members.Users)
 	}
 	var createdRow models.User
 	if err := db.First(&createdRow, "name = ?", "New_User").Error; err != nil {
@@ -209,16 +211,16 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	if res.Code != http.StatusOK {
 		t.Fatalf("update group users got %d body=%s", res.Code, res.Body.String())
 	}
-	overview = decodeOverview(t, res)
-	group, ok = findGroup(overview, "team-c")
+	members = decodeMembers(t, res)
+	group, ok = findGroup(members, "team-c")
 	if !ok || len(group.Users) != 2 || group.Users[0] != student.ID || group.Users[1] != created.ID {
-		t.Fatalf("group side users not saved: %+v", overview.Groups)
+		t.Fatalf("group side users not saved: %+v", members.Groups)
 	}
-	if user, ok := findUser(overview, "student"); !ok || len(user.Groups) != 1 || user.Groups[0] != group.ID {
-		t.Fatalf("student group not reflected after group edit: %+v", overview.Users)
+	if user, ok := findUser(members, "student"); !ok || len(user.Groups) != 1 || user.Groups[0] != group.ID {
+		t.Fatalf("student group not reflected after group edit: %+v", members.Users)
 	}
-	if user, ok := findUser(overview, "New_User"); !ok || len(user.Groups) != 1 || user.Groups[0] != group.ID {
-		t.Fatalf("new user group not reflected after group edit: %+v", overview.Users)
+	if user, ok := findUser(members, "New_User"); !ok || len(user.Groups) != 1 || user.Groups[0] != group.ID {
+		t.Fatalf("new user group not reflected after group edit: %+v", members.Users)
 	}
 	assignment := models.Assignment{Title: "Homework", EndAt: time.Now().Add(time.Hour)}
 	if err := db.Create(&assignment).Error; err != nil {
@@ -231,24 +233,24 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	if res.Code != http.StatusOK {
 		t.Fatalf("delete user got %d body=%s", res.Code, res.Body.String())
 	}
-	overview = decodeOverview(t, res)
-	if _, ok := findUser(overview, "New_User"); ok {
-		t.Fatalf("deleted user should be hidden from admin overview: %+v", overview.Users)
+	members = decodeMembers(t, res)
+	if _, ok := findUser(members, "New_User"); ok {
+		t.Fatalf("deleted user should be hidden from members: %+v", members.Users)
 	}
-	group, ok = findGroup(overview, "team-c")
+	group, ok = findGroup(members, "team-c")
 	if !ok || len(group.Users) != 1 || group.Users[0] != student.ID {
-		t.Fatalf("deleted user should be hidden from group users: %+v", overview.Groups)
+		t.Fatalf("deleted user should be hidden from group users: %+v", members.Groups)
 	}
 	res = requestJSONWithCookies(e, http.MethodDelete, "/api/admin/groups/"+itoa(group.ID), adminCookies, `{}`)
 	if res.Code != http.StatusOK {
 		t.Fatalf("delete group got %d body=%s", res.Code, res.Body.String())
 	}
-	overview = decodeOverview(t, res)
-	if _, ok := findGroup(overview, "team-c"); ok {
-		t.Fatalf("deleted group should be hidden from admin overview: %+v", overview.Groups)
+	members = decodeMembers(t, res)
+	if _, ok := findGroup(members, "team-c"); ok {
+		t.Fatalf("deleted group should be hidden from members: %+v", members.Groups)
 	}
-	if user, ok := findUser(overview, "student"); !ok || len(user.Groups) != 0 {
-		t.Fatalf("deleted group should not stay in user groups: %+v", overview.Users)
+	if user, ok := findUser(members, "student"); !ok || len(user.Groups) != 0 {
+		t.Fatalf("deleted group should not stay in user groups: %+v", members.Users)
 	}
 	var groupRows int64
 	if err := db.Model(&models.Group{}).Where("id = ?", group.ID).Count(&groupRows).Error; err != nil {
@@ -281,19 +283,19 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	if res.Code != http.StatusOK {
 		t.Fatalf("update language got %d body=%s", res.Code, res.Body.String())
 	}
-	overview = decodeOverview(t, res)
-	if _, ok := findLanguage(overview, "python"); !ok {
-		t.Fatalf("updated language missing: %+v", overview.Languages)
+	languages := decodeLanguages(t, res)
+	if _, ok := findLanguage(languages, "python"); !ok {
+		t.Fatalf("updated language missing: %+v", languages)
 	}
 
 	res = requestJSONWithCookies(e, http.MethodPost, "/api/admin/judgers", adminCookies, `{"name":"linux-a","auth":"token-a"}`)
 	if res.Code != http.StatusCreated {
 		t.Fatalf("create judger got %d body=%s", res.Code, res.Body.String())
 	}
-	overview = decodeOverview(t, res)
-	judger, ok := findJudger(overview, "linux-a")
+	judgers := decodeJudgers(t, res)
+	judger, ok := findJudger(judgers, "linux-a")
 	if !ok {
-		t.Fatalf("created judger missing: %+v", overview.Judgers)
+		t.Fatalf("created judger missing: %+v", judgers.Judgers)
 	}
 	res = requestJSONWithCookies(e, http.MethodPatch, "/api/admin/judgers/"+itoa(judger.ID), adminCookies, `{"name":"linux-b"}`)
 	if res.Code != http.StatusOK {
@@ -338,17 +340,35 @@ func requestWithCookies(e *echo.Echo, method string, target string, cookies []*h
 	return res
 }
 
-func decodeOverview(t *testing.T, res *httptest.ResponseRecorder) Overview {
+func decodeMembers(t *testing.T, res *httptest.ResponseRecorder) Members {
 	t.Helper()
-	var overview Overview
-	if err := json.Unmarshal(res.Body.Bytes(), &overview); err != nil {
-		t.Fatalf("decode overview failed: %v body=%s", err, res.Body.String())
+	var members Members
+	if err := json.Unmarshal(res.Body.Bytes(), &members); err != nil {
+		t.Fatalf("decode members failed: %v body=%s", err, res.Body.String())
 	}
-	return overview
+	return members
 }
 
-func findGroup(overview Overview, name string) (Group, bool) {
-	for _, item := range overview.Groups {
+func decodeLanguages(t *testing.T, res *httptest.ResponseRecorder) []Language {
+	t.Helper()
+	var languages []Language
+	if err := json.Unmarshal(res.Body.Bytes(), &languages); err != nil {
+		t.Fatalf("decode languages failed: %v body=%s", err, res.Body.String())
+	}
+	return languages
+}
+
+func decodeJudgers(t *testing.T, res *httptest.ResponseRecorder) Judgers {
+	t.Helper()
+	var judgers Judgers
+	if err := json.Unmarshal(res.Body.Bytes(), &judgers); err != nil {
+		t.Fatalf("decode judgers failed: %v body=%s", err, res.Body.String())
+	}
+	return judgers
+}
+
+func findGroup(members Members, name string) (Group, bool) {
+	for _, item := range members.Groups {
 		if item.Name == name {
 			return item, true
 		}
@@ -356,8 +376,8 @@ func findGroup(overview Overview, name string) (Group, bool) {
 	return Group{}, false
 }
 
-func findUser(overview Overview, name string) (User, bool) {
-	for _, item := range overview.Users {
+func findUser(members Members, name string) (User, bool) {
+	for _, item := range members.Users {
 		if item.Name == name {
 			return item, true
 		}
@@ -365,8 +385,8 @@ func findUser(overview Overview, name string) (User, bool) {
 	return User{}, false
 }
 
-func findLanguage(overview Overview, id string) (Language, bool) {
-	for _, item := range overview.Languages {
+func findLanguage(languages []Language, id string) (Language, bool) {
+	for _, item := range languages {
 		if item.ID == id {
 			return item, true
 		}
@@ -374,8 +394,8 @@ func findLanguage(overview Overview, id string) (Language, bool) {
 	return Language{}, false
 }
 
-func findJudger(overview Overview, name string) (Judger, bool) {
-	for _, item := range overview.Judgers {
+func findJudger(judgers Judgers, name string) (Judger, bool) {
+	for _, item := range judgers.Judgers {
 		if item.Name == name {
 			return item, true
 		}

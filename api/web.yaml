@@ -157,16 +157,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UploadResult"
-  /api/admin:
-    get:
-      operationId: getAdmin
-      responses:
-        "200":
-          description: Admin overview
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AdminOverview"
   /api/admin/settings:
     get:
       operationId: getAdminSettings
@@ -230,7 +220,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminOverview"
+                $ref: "#/components/schemas/AdminMembers"
   /api/admin/users/{name}:
     patch:
       operationId: updateAdminUser
@@ -252,7 +242,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminOverview"
+                $ref: "#/components/schemas/AdminMembers"
     delete:
       operationId: deleteAdminUser
       parameters:
@@ -267,7 +257,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminOverview"
+                $ref: "#/components/schemas/AdminMembers"
   /api/admin/users/{name}/password:
     post:
       operationId: resetAdminUserPassword
@@ -299,7 +289,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminOverview"
+                $ref: "#/components/schemas/AdminMembers"
   /api/admin/groups/{id}:
     patch:
       operationId: updateAdminGroup
@@ -321,7 +311,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminOverview"
+                $ref: "#/components/schemas/AdminMembers"
     delete:
       operationId: deleteAdminGroup
       parameters:
@@ -336,7 +326,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminOverview"
+                $ref: "#/components/schemas/AdminMembers"
   /api/admin/languages/{id}:
     patch:
       operationId: updateAdminLang
@@ -358,7 +348,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminOverview"
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminLang"
     delete:
       operationId: deleteAdminLang
       parameters:
@@ -373,8 +365,21 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminOverview"
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminLang"
   /api/admin/languages:
+    get:
+      operationId: getAdminLangs
+      responses:
+        "200":
+          description: Admin languages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminLang"
     post:
       operationId: createAdminLang
       requestBody:
@@ -389,7 +394,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminOverview"
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminLang"
   /api/admin/judgers/{id}:
     patch:
       operationId: updateAdminJudger
@@ -411,7 +418,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminOverview"
+                $ref: "#/components/schemas/AdminJudgers"
     delete:
       operationId: deleteAdminJudger
       parameters:
@@ -426,8 +433,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminOverview"
+                $ref: "#/components/schemas/AdminJudgers"
   /api/admin/judgers:
+    get:
+      operationId: getAdminJudgers
+      responses:
+        "200":
+          description: Admin judgers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminJudgers"
     post:
       operationId: createAdminJudger
       requestBody:
@@ -442,7 +458,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminOverview"
+                $ref: "#/components/schemas/AdminJudgers"
   /api/admin/backups/settings:
     get:
       operationId: getBackupSettings
@@ -1526,30 +1542,6 @@ components:
           type: string
         newPassword:
           type: string
-    AdminOverview:
-      type: object
-      required: [settings, users, groups, languages, judgers, queue]
-      properties:
-        settings:
-          $ref: "#/components/schemas/AdminSettings"
-        users:
-          type: array
-          items:
-            $ref: "#/components/schemas/AdminUser"
-        groups:
-          type: array
-          items:
-            $ref: "#/components/schemas/AdminGroup"
-        languages:
-          type: array
-          items:
-            $ref: "#/components/schemas/AdminLang"
-        judgers:
-          type: array
-          items:
-            $ref: "#/components/schemas/AdminJudger"
-        queue:
-          $ref: "#/components/schemas/AdminJudgeQueue"
     AdminMembers:
       type: object
       required: [users, groups]
@@ -1798,6 +1790,16 @@ components:
           type: integer
         done:
           type: integer
+    AdminJudgers:
+      type: object
+      required: [judgers, queue]
+      properties:
+        judgers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminJudger"
+        queue:
+          $ref: "#/components/schemas/AdminJudgeQueue"
     AdminJudgerUpdate:
       type: object
       required: [name]

@@ -28,18 +28,14 @@ type API struct {
 	db *gorm.DB
 }
 
-type Overview struct {
-	Settings  AdminSettings `json:"settings"`
-	Users     []User        `json:"users"`
-	Groups    []Group       `json:"groups"`
-	Languages []Language    `json:"languages"`
-	Judgers   []Judger      `json:"judgers"`
-	Queue     JudgeQueue    `json:"queue"`
-}
-
 type Members struct {
 	Users  []User  `json:"users"`
 	Groups []Group `json:"groups"`
+}
+
+type Judgers struct {
+	Judgers []Judger   `json:"judgers"`
+	Queue   JudgeQueue `json:"queue"`
 }
 
 type AdminSettings struct {
@@ -157,7 +153,6 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	}
 	api := &API{db: db}
 	group := e.Group("/api/admin", api.requireAdmin)
-	group.GET("", api.overview)
 	group.GET("/settings", api.getSettings)
 	group.PATCH("/settings", api.updateSettings, echomw.BodyLimit(utils.BodyLimitSettings))
 	group.GET("/members", api.members)
@@ -168,9 +163,11 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.POST("/groups", api.createGroup)
 	group.PATCH("/groups/:id", api.updateGroup)
 	group.DELETE("/groups/:id", api.deleteGroup)
+	group.GET("/languages", api.getLanguages)
 	group.POST("/languages", api.createLanguage, echomw.BodyLimit(utils.BodyLimitLanguage))
 	group.PATCH("/languages/:id", api.updateLanguage, echomw.BodyLimit(utils.BodyLimitLanguage))
 	group.DELETE("/languages/:id", api.deleteLanguage)
+	group.GET("/judgers", api.getJudgers)
 	group.POST("/judgers", api.createJudger)
 	group.PATCH("/judgers/:id", api.updateJudger)
 	group.DELETE("/judgers/:id", api.deleteJudger)
@@ -197,15 +194,6 @@ func (api *API) isAdmin(c echo.Context) bool {
 	return err == nil && user.Admin
 }
 
-func (api *API) overview(c echo.Context) error {
-
-	overview, err := api.readOverview(c.Request().Context())
-	if err != nil {
-		return err
-	}
-	return c.JSON(http.StatusOK, overview)
-}
-
 func (api *API) getSettings(c echo.Context) error {
 	settings, err := api.settings()
 	if err != nil {
@@ -228,6 +216,26 @@ func (api *API) members(c echo.Context) error {
 		return err
 	}
 	return c.JSON(http.StatusOK, members)
+}
+
+func (api *API) getLanguages(c echo.Context) error {
+	languages, err := api.languages()
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, languages)
+}
+
+func (api *API) getJudgers(c echo.Context) error {
+	judgers, err := api.judgers(c.Request().Context())
+	if err != nil {
+		return err
+	}
+	queue, err := api.queue()
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, Judgers{Judgers: judgers, Queue: queue})
 }
 
 func (api *API) backupSettings(c echo.Context) error {
@@ -295,34 +303,6 @@ func (api *API) deleteBackup(c echo.Context) error {
 		return err
 	}
 	return c.NoContent(http.StatusNoContent)
-}
-
-func (api *API) readOverview(ctx context.Context) (Overview, error) {
-	settings, err := api.settings()
-	if err != nil {
-		return Overview{}, err
-	}
-	users, err := api.users()
-	if err != nil {
-		return Overview{}, err
-	}
-	groups, err := api.groups()
-	if err != nil {
-		return Overview{}, err
-	}
-	languages, err := api.languages()
-	if err != nil {
-		return Overview{}, err
-	}
-	judgers, err := api.judgers(ctx)
-	if err != nil {
-		return Overview{}, err
-	}
-	queue, err := api.queue()
-	if err != nil {
-		return Overview{}, err
-	}
-	return Overview{Settings: settings, Users: users, Groups: groups, Languages: languages, Judgers: judgers, Queue: queue}, nil
 }
 
 func (api *API) readMembers() (Members, error) {
@@ -430,11 +410,11 @@ func (api *API) createUser(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	overview, err := api.readOverview(c.Request().Context())
+	members, err := api.readMembers()
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusCreated, overview)
+	return c.JSON(http.StatusCreated, members)
 }
 
 func (api *API) updateUser(c echo.Context) error {
@@ -480,7 +460,11 @@ func (api *API) updateUser(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return api.overview(c)
+	members, err := api.readMembers()
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, members)
 }
 
 func (api *API) deleteUser(c echo.Context) error {
@@ -497,7 +481,11 @@ func (api *API) deleteUser(c echo.Context) error {
 	if err := api.db.Delete(&row).Error; err != nil {
 		return err
 	}
-	return api.overview(c)
+	members, err := api.readMembers()
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, members)
 }
 
 func (api *API) resetUserPassword(c echo.Context) error {
@@ -547,11 +535,11 @@ func (api *API) createGroup(c echo.Context) error {
 	}); err != nil {
 		return err
 	}
-	overview, err := api.readOverview(c.Request().Context())
+	members, err := api.readMembers()
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusCreated, overview)
+	return c.JSON(http.StatusCreated, members)
 }
 
 func (api *API) updateGroup(c echo.Context) error {
@@ -588,7 +576,11 @@ func (api *API) updateGroup(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return api.overview(c)
+	members, err := api.readMembers()
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, members)
 }
 
 func (api *API) deleteGroup(c echo.Context) error {
@@ -616,7 +608,11 @@ func (api *API) deleteGroup(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return api.overview(c)
+	members, err := api.readMembers()
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, members)
 }
 
 func (api *API) updateLanguage(c echo.Context) error {
@@ -649,7 +645,11 @@ func (api *API) updateLanguage(c echo.Context) error {
 	if err := api.db.Model(&models.Language{}).Where("id = ?", row.ID).Updates(updates).Error; err != nil {
 		return err
 	}
-	return api.overview(c)
+	languages, err := api.languages()
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, languages)
 }
 
 func (api *API) createLanguage(c echo.Context) error {
@@ -665,11 +665,11 @@ func (api *API) createLanguage(c echo.Context) error {
 	if err := api.db.Create(&row).Error; err != nil {
 		return err
 	}
-	overview, err := api.readOverview(c.Request().Context())
+	languages, err := api.languages()
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusCreated, overview)
+	return c.JSON(http.StatusCreated, languages)
 }
 
 func (api *API) deleteLanguage(c echo.Context) error {
@@ -681,7 +681,11 @@ func (api *API) deleteLanguage(c echo.Context) error {
 	if deleted.RowsAffected == 0 {
 		return echo.NewHTTPError(http.StatusNotFound, "language not found")
 	}
-	return api.overview(c)
+	languages, err := api.languages()
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, languages)
 }
 
 func (api *API) updateJudger(c echo.Context) error {
@@ -709,7 +713,7 @@ func (api *API) updateJudger(c echo.Context) error {
 	if updated.RowsAffected == 0 {
 		return echo.NewHTTPError(http.StatusNotFound, "judger not found")
 	}
-	return api.overview(c)
+	return api.getJudgers(c)
 }
 
 func (api *API) createJudger(c echo.Context) error {
@@ -730,17 +734,21 @@ func (api *API) createJudger(c echo.Context) error {
 	if err := api.db.Create(&row).Error; err != nil {
 		return err
 	}
-	overview, err := api.readOverview(c.Request().Context())
+	judgers, err := api.judgers(c.Request().Context())
 	if err != nil {
 		return err
 	}
-	for index := range overview.Judgers {
-		if overview.Judgers[index].ID == row.ID {
-			overview.Judgers[index].Token = token
+	for index := range judgers {
+		if judgers[index].ID == row.ID {
+			judgers[index].Token = token
 			break
 		}
 	}
-	return c.JSON(http.StatusCreated, overview)
+	queue, err := api.queue()
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusCreated, Judgers{Judgers: judgers, Queue: queue})
 }
 
 func (api *API) deleteJudger(c echo.Context) error {
@@ -756,7 +764,7 @@ func (api *API) deleteJudger(c echo.Context) error {
 	if deleted.RowsAffected == 0 {
 		return echo.NewHTTPError(http.StatusNotFound, "judger not found")
 	}
-	return api.overview(c)
+	return api.getJudgers(c)
 }
 
 func (api *API) ensureOtherAdmin(userID uint) error {

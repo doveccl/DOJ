@@ -15,7 +15,9 @@ import {
   deleteAdminLang,
   deleteAdminUser,
   downloadBackup,
-  getAdmin,
+  getAdminJudgers,
+  getAdminLangs,
+  getAdminMembers,
   getAdminSettings,
   getBackups,
   getBackupSettings,
@@ -27,7 +29,7 @@ import {
   updateAdminUser,
   updateAdminSettings
 } from '../client'
-import type { AdminGroupUpdate, AdminLangCreate, AdminOverview, AdminSettings, AdminUserCreate, BackupItem, BackupSettings } from '../client'
+import type { AdminGroupUpdate, AdminJudgers, AdminLang, AdminLangCreate, AdminMembers, AdminSettings, AdminUserCreate, BackupItem, BackupSettings } from '../client'
 import { UserLink } from '../components/entity'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { IdSelect } from '../components/id-select'
@@ -36,10 +38,10 @@ import { useSession } from '../session'
 import { formatBytes, formatDuration } from '../utils/format'
 import { limits } from '../utils/limits'
 
-type UserRow = AdminOverview['users'][number]
-type GroupRow = AdminOverview['groups'][number]
-type LanguageRow = AdminOverview['languages'][number]
-type JudgerRow = AdminOverview['judgers'][number]
+type UserRow = AdminMembers['users'][number]
+type GroupRow = AdminMembers['groups'][number]
+type LanguageRow = AdminLang
+type JudgerRow = AdminJudgers['judgers'][number]
 type JudgerForm = { name: string; auth?: string }
 type UserForm = AdminUserCreate
 type UserEditForm = Pick<AdminUserCreate, 'role' | 'groups'>
@@ -73,23 +75,34 @@ export function AdminPage() {
   const [groupSearch, setGroupSearch] = useState('')
   const [activeTab, setActiveTab] = useState('settings')
   const [settingsForm] = Form.useForm<SettingsForm>()
-  const overviewEnabled = session.admin && activeTab !== 'settings' && activeTab !== 'backups'
+  const membersEnabled = session.admin && (activeTab === 'users' || activeTab === 'groups')
+  const languagesEnabled = session.admin && activeTab === 'languages'
+  const judgersEnabled = session.admin && activeTab === 'judgers'
   const backupEnabled = session.admin && activeTab === 'backups'
-  const query = useQuery({ queryKey: ['admin'], queryFn: getAdmin, enabled: overviewEnabled })
+  const membersQuery = useQuery({ queryKey: ['admin-members'], queryFn: () => getAdminMembers(), enabled: membersEnabled })
+  const languagesQuery = useQuery({ queryKey: ['admin-languages'], queryFn: getAdminLangs, enabled: languagesEnabled })
+  const judgersQuery = useQuery({ queryKey: ['admin-judgers'], queryFn: getAdminJudgers, enabled: judgersEnabled })
   const settingsQuery = useQuery({ queryKey: ['admin-settings'], queryFn: getAdminSettings, enabled: session.admin })
   const backupSettings = useQuery({ queryKey: ['backup-settings'], queryFn: getBackupSettings, enabled: backupEnabled })
   const backups = useQuery({ queryKey: ['backups'], queryFn: getBackups, enabled: backupEnabled, refetchInterval: (query) => (query.state.data?.running ? 5000 : false) })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
-  const saveOverview = (data: AdminOverview) => {
-    client.setQueryData<AdminOverview>(['admin'], data)
+  const saveMembers = (data: AdminMembers) => {
+    client.setQueryData<AdminMembers>(['admin-members'], data)
+    message.success(text.common.saved)
+  }
+  const saveLanguages = (data: AdminLang[]) => {
+    client.setQueryData<AdminLang[]>(['admin-languages'], data)
+    message.success(text.common.saved)
+  }
+  const saveJudgers = (data: AdminJudgers) => {
+    client.setQueryData<AdminJudgers>(['admin-judgers'], data)
     message.success(text.common.saved)
   }
   const settings = useMutation({
     mutationFn: updateAdminSettings,
     onSuccess: (data) => {
-      client.setQueryData<AdminOverview>(['admin'], (old) => (old ? { ...old, settings: data } : old))
       client.setQueryData(['admin-settings'], data)
       client.setQueryData(['site'], data)
       message.success(text.common.saved)
@@ -99,7 +112,7 @@ export function AdminPage() {
   const userSave = useMutation({
     mutationFn: ({ name, role, groups }: { name: string; role: string; groups: number[] }) => updateAdminUser(name, { role, groups }),
     onSuccess: (data) => {
-      saveOverview(data)
+      saveMembers(data)
       setEditingUser(null)
     },
     onError: showError
@@ -107,14 +120,14 @@ export function AdminPage() {
   const userCreate = useMutation({
     mutationFn: createAdminUser,
     onSuccess: (data) => {
-      saveOverview(data)
+      saveMembers(data)
       setUserOpen(false)
     },
     onError: showError
   })
   const userDelete = useMutation({
     mutationFn: deleteAdminUser,
-    onSuccess: saveOverview,
+    onSuccess: saveMembers,
     onError: showError
   })
   const userPassword = useMutation({
@@ -130,27 +143,27 @@ export function AdminPage() {
   const groupSave = useMutation({
     mutationFn: (values: AdminGroupUpdate) => (editingGroup ? updateAdminGroup(editingGroup.id, values) : createAdminGroup(values)),
     onSuccess: (data) => {
-      saveOverview(data)
+      saveMembers(data)
       closeGroup()
     },
     onError: showError
   })
   const groupDelete = useMutation({
     mutationFn: deleteAdminGroup,
-    onSuccess: saveOverview,
+    onSuccess: saveMembers,
     onError: showError
   })
   const langSave = useMutation({
     mutationFn: (values: AdminLangCreate) => (editingLang ? updateAdminLang(editingLang.id, values) : createAdminLang(values)),
     onSuccess: (data) => {
-      saveOverview(data)
+      saveLanguages(data)
       closeLang()
     },
     onError: showError
   })
   const langDelete = useMutation({
     mutationFn: deleteAdminLang,
-    onSuccess: saveOverview,
+    onSuccess: saveLanguages,
     onError: showError
   })
   const judgerSave = useMutation({
@@ -158,7 +171,7 @@ export function AdminPage() {
       editingJudger ? updateAdminJudger(editingJudger.id, { name: values.name, auth: values.auth || undefined }) : createAdminJudger({ name: values.name }),
     onSuccess: (data) => {
       const created = data.judgers.find((row) => row.token)
-      saveOverview(data)
+      saveJudgers(data)
       closeJudger()
       if (created?.token) {
         const command = `SERVER=http://server:7974 TOKEN=${created.token} doj-judger`
@@ -182,7 +195,7 @@ export function AdminPage() {
   })
   const judgerDelete = useMutation({
     mutationFn: deleteAdminJudger,
-    onSuccess: saveOverview,
+    onSuccess: saveJudgers,
     onError: showError
   })
   const backupSettingsSave = useMutation({
@@ -218,20 +231,22 @@ export function AdminPage() {
     return <ErrorBlock error={text.common.forbidden} />
   }
 
-  const data = query.data
+  const membersData = membersQuery.data
+  const languagesData = languagesQuery.data
+  const judgersData = judgersQuery.data
   const settingsData = settingsQuery.data
   const roleText: Record<string, string> = text.admin.roles
   const roleOptions = [
     { value: 'user', label: roleText.user },
     { value: 'admin', label: roleText.admin }
   ]
-  const groupOptions = (data?.groups ?? []).map((group) => ({ value: group.id, label: group.name }))
-  const userOptions = (data?.users ?? []).map((user) => ({ value: user.id, label: user.name }))
+  const groupOptions = (membersData?.groups ?? []).map((group) => ({ value: group.id, label: group.name }))
+  const userOptions = (membersData?.users ?? []).map((user) => ({ value: user.id, label: user.name }))
   const userGroupIds = (row: UserRow) => row.groups ?? []
-  const groupUserIds = (row: GroupRow) => (data?.users ?? []).filter((user) => userGroupIds(user).includes(row.id)).map((user) => user.id)
+  const groupUserIds = (row: GroupRow) => (membersData?.users ?? []).filter((user) => userGroupIds(user).includes(row.id)).map((user) => user.id)
   const userQuery = userSearch.trim().toLowerCase()
   const groupQuery = groupSearch.trim().toLowerCase()
-  const groupName = (id: number) => data?.groups.find((group) => group.id === id)?.name ?? ''
+  const groupName = (id: number) => membersData?.groups.find((group) => group.id === id)?.name ?? ''
   const backupFrequencyOptions = [
     { value: 'hourly', label: text.admin.backupFrequencies.hourly },
     { value: 'daily', label: text.admin.backupFrequencies.daily },
@@ -244,7 +259,7 @@ export function AdminPage() {
     settings.mutate(patch)
   }
   const saveSiteName = (value: string) => {
-    const current = client.getQueryData<AdminOverview>(['admin'])?.settings ?? settingsData
+    const current = settingsData
     if (!current) {
       return
     }
@@ -260,22 +275,36 @@ export function AdminPage() {
     saveSettingsPatch({ siteName })
   }
   const filteredUsers = userQuery
-    ? (data?.users ?? []).filter((user) =>
+    ? (membersData?.users ?? []).filter((user) =>
         [user.name, user.mail, roleText[user.role] ?? user.role, ...userGroupIds(user).map(groupName)].some((value) => value.toLowerCase().includes(userQuery))
       )
-    : (data?.users ?? [])
+    : (membersData?.users ?? [])
   const filteredGroups = groupQuery
-    ? (data?.groups ?? []).filter((group) =>
-        [group.name, ...groupUserIds(group).map((id) => data?.users.find((user) => user.id === id)?.name ?? '')].some((value) =>
+    ? (membersData?.groups ?? []).filter((group) =>
+        [group.name, ...groupUserIds(group).map((id) => membersData?.users.find((user) => user.id === id)?.name ?? '')].some((value) =>
           value.toLowerCase().includes(groupQuery)
         )
       )
-    : (data?.groups ?? [])
-  const overviewBlock = query.isLoading ? (
+    : (membersData?.groups ?? [])
+  const membersBlock = membersQuery.isLoading ? (
     <LoadingBlock />
-  ) : query.isError ? (
-    <ErrorBlock error={query.error} />
-  ) : !data ? (
+  ) : membersQuery.isError ? (
+    <ErrorBlock error={membersQuery.error} />
+  ) : membersEnabled && !membersData ? (
+    <LoadingBlock />
+  ) : null
+  const languagesBlock = languagesQuery.isLoading ? (
+    <LoadingBlock />
+  ) : languagesQuery.isError ? (
+    <ErrorBlock error={languagesQuery.error} />
+  ) : languagesEnabled && !languagesData ? (
+    <LoadingBlock />
+  ) : null
+  const judgersBlock = judgersQuery.isLoading ? (
+    <LoadingBlock />
+  ) : judgersQuery.isError ? (
+    <ErrorBlock error={judgersQuery.error} />
+  ) : judgersEnabled && !judgersData ? (
     <LoadingBlock />
   ) : null
   const settingsBlock = settingsQuery.isLoading ? (
@@ -359,7 +388,7 @@ export function AdminPage() {
             {
               key: 'users',
               label: text.admin.users,
-              children: overviewBlock ?? (
+              children: membersBlock ?? (
                 <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                   <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
                     <Input allowClear prefix={<SearchOutlined />} placeholder={text.admin.searchUsers} value={userSearch} onChange={(event) => setUserSearch(event.target.value)} />
@@ -418,7 +447,7 @@ export function AdminPage() {
             {
               key: 'groups',
               label: text.admin.groups,
-              children: overviewBlock ?? (
+              children: membersBlock ?? (
                 <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                   <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
                     <Input allowClear prefix={<SearchOutlined />} placeholder={text.admin.searchGroups} value={groupSearch} onChange={(event) => setGroupSearch(event.target.value)} />
@@ -462,7 +491,7 @@ export function AdminPage() {
             {
               key: 'languages',
               label: text.admin.languages,
-              children: overviewBlock ?? (
+              children: languagesBlock ?? (
                 <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                   <Button type="primary" icon={<PlusOutlined />} onClick={() => openLang()}>
                     {text.admin.addLang}
@@ -470,7 +499,7 @@ export function AdminPage() {
                   <Table<LanguageRow>
                     rowKey="id"
                     pagination={false}
-                    dataSource={data?.languages ?? []}
+                    dataSource={languagesData ?? []}
                     columns={[
                       { title: text.admin.name, dataIndex: 'name' },
                       { title: text.admin.source, dataIndex: 'source' },
@@ -515,12 +544,12 @@ export function AdminPage() {
             {
               key: 'judgers',
               label: text.admin.judgers,
-              children: overviewBlock ?? (
+              children: judgersBlock ?? (
                 <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                   <Space size={24} wrap>
-                    <Statistic title={text.admin.queued} value={data?.queue.queued ?? 0} />
-                    <Statistic title={text.admin.running} value={data?.queue.running ?? 0} />
-                    <Statistic title={text.admin.done} value={data?.queue.done ?? 0} />
+                    <Statistic title={text.admin.queued} value={judgersData?.queue.queued ?? 0} />
+                    <Statistic title={text.admin.running} value={judgersData?.queue.running ?? 0} />
+                    <Statistic title={text.admin.done} value={judgersData?.queue.done ?? 0} />
                   </Space>
                   <Button type="primary" icon={<PlusOutlined />} onClick={() => openJudger()}>
                     {text.admin.addJudger}
@@ -528,7 +557,7 @@ export function AdminPage() {
                   <Table<JudgerRow>
                     rowKey="id"
                     pagination={false}
-                    dataSource={data?.judgers ?? []}
+                    dataSource={judgersData?.judgers ?? []}
                     columns={[
                       { title: text.admin.name, dataIndex: 'name' },
                       {

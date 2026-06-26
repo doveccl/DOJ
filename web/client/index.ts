@@ -52,7 +52,6 @@ export type MeUpdate = components['schemas']['MeUpdate']
 export type PasswordUpdate = components['schemas']['PasswordUpdate']
 export type LoginRequest = components['schemas']['LoginRequest']
 export type RegisterRequest = components['schemas']['RegisterRequest']
-export type AdminOverview = components['schemas']['AdminOverview']
 export type AdminMembers = components['schemas']['AdminMembers']
 export type AdminSettings = components['schemas']['AdminSettings']
 export type AdminSettingsPatch = components['schemas']['AdminSettingsPatch']
@@ -61,8 +60,10 @@ export type AdminUserUpdate = components['schemas']['AdminUserUpdate']
 export type PasswordReset = components['schemas']['PasswordReset']
 export type AdminGroup = components['schemas']['AdminGroup']
 export type AdminGroupUpdate = components['schemas']['AdminGroupUpdate']
+export type AdminLang = components['schemas']['AdminLang']
 export type AdminLangUpdate = components['schemas']['AdminLangUpdate']
 export type AdminLangCreate = components['schemas']['AdminLangCreate']
+export type AdminJudgers = components['schemas']['AdminJudgers']
 export type AdminJudgerUpdate = components['schemas']['AdminJudgerUpdate']
 export type AdminJudgerCreate = components['schemas']['AdminJudgerCreate']
 export type BackupSettings = components['schemas']['BackupSettings']
@@ -257,11 +258,6 @@ export async function uploadProblemImage(id: number, file: File) {
   return data.url
 }
 
-export async function getAdmin() {
-  const { data, error } = await client.GET('/api/admin')
-  return assertData(data, error)
-}
-
 export async function getAdminSettings() {
   const { data, error } = await client.GET('/api/admin/settings')
   return assertData(data, error)
@@ -343,6 +339,16 @@ export async function deleteAdminLang(id: string) {
 
 export async function createAdminLang(body: AdminLangCreate) {
   const { data, error } = await client.POST('/api/admin/languages', { body })
+  return assertData(data, error)
+}
+
+export async function getAdminLangs() {
+  const { data, error } = await client.GET('/api/admin/languages')
+  return assertData(data, error)
+}
+
+export async function getAdminJudgers() {
+  const { data, error } = await client.GET('/api/admin/judgers')
   return assertData(data, error)
 }
 

@@ -180,22 +180,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getAdmin"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/admin/settings": {
         parameters: {
             query?: never;
@@ -331,7 +315,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["getAdminLangs"];
         put?: never;
         post: operations["createAdminLang"];
         delete?: never;
@@ -363,7 +347,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["getAdminJudgers"];
         put?: never;
         post: operations["createAdminJudger"];
         delete?: never;
@@ -974,14 +958,6 @@ export interface components {
             oldPassword: string;
             newPassword: string;
         };
-        AdminOverview: {
-            settings: components["schemas"]["AdminSettings"];
-            users: components["schemas"]["AdminUser"][];
-            groups: components["schemas"]["AdminGroup"][];
-            languages: components["schemas"]["AdminLang"][];
-            judgers: components["schemas"]["AdminJudger"][];
-            queue: components["schemas"]["AdminJudgeQueue"];
-        };
         AdminMembers: {
             users: components["schemas"]["AdminUser"][];
             groups: components["schemas"]["AdminGroup"][];
@@ -1090,6 +1066,10 @@ export interface components {
             queued: number;
             running: number;
             done: number;
+        };
+        AdminJudgers: {
+            judgers: components["schemas"]["AdminJudger"][];
+            queue: components["schemas"]["AdminJudgeQueue"];
         };
         AdminJudgerUpdate: {
             name: string;
@@ -1695,26 +1675,6 @@ export interface operations {
             };
         };
     };
-    getAdmin: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Admin overview */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminOverview"];
-                };
-            };
-        };
-    };
     getAdminSettings: {
         parameters: {
             query?: never;
@@ -1802,7 +1762,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminOverview"];
+                    "application/json": components["schemas"]["AdminMembers"];
                 };
             };
         };
@@ -1824,7 +1784,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminOverview"];
+                    "application/json": components["schemas"]["AdminMembers"];
                 };
             };
         };
@@ -1850,7 +1810,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminOverview"];
+                    "application/json": components["schemas"]["AdminMembers"];
                 };
             };
         };
@@ -1896,7 +1856,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminOverview"];
+                    "application/json": components["schemas"]["AdminMembers"];
                 };
             };
         };
@@ -1918,7 +1878,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminOverview"];
+                    "application/json": components["schemas"]["AdminMembers"];
                 };
             };
         };
@@ -1944,7 +1904,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminOverview"];
+                    "application/json": components["schemas"]["AdminMembers"];
                 };
             };
         };
@@ -1966,7 +1926,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminOverview"];
+                    "application/json": components["schemas"]["AdminLang"][];
                 };
             };
         };
@@ -1992,7 +1952,27 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminOverview"];
+                    "application/json": components["schemas"]["AdminLang"][];
+                };
+            };
+        };
+    };
+    getAdminLangs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Admin languages */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminLang"][];
                 };
             };
         };
@@ -2016,7 +1996,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminOverview"];
+                    "application/json": components["schemas"]["AdminLang"][];
                 };
             };
         };
@@ -2038,7 +2018,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminOverview"];
+                    "application/json": components["schemas"]["AdminJudgers"];
                 };
             };
         };
@@ -2064,7 +2044,27 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminOverview"];
+                    "application/json": components["schemas"]["AdminJudgers"];
+                };
+            };
+        };
+    };
+    getAdminJudgers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Admin judgers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminJudgers"];
                 };
             };
         };
@@ -2088,7 +2088,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminOverview"];
+                    "application/json": components["schemas"]["AdminJudgers"];
                 };
             };
         };
