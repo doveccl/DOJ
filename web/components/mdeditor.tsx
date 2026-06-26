@@ -68,6 +68,7 @@ export function MarkdownEditor({
     language,
     previewTheme: 'github',
     codeTheme: 'github',
+    showCodeRowNumber: false,
     sanitize: sanitizerForTrust(trust),
     transformImgUrl: (url: string) => rewriteAssetURL(url, assetBase),
     noMermaid: true,
