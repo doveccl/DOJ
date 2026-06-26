@@ -416,22 +416,20 @@ func printPlan(plan migrationPlan) {
 }
 
 func migrateOne(ctx context.Context, sshHost string, store utils.ObjectStore, row oldProblem) error {
-	data, err := streamOldZip(ctx, sshHost, row.Data)
+	zipPath, cleanup, err := streamOldZipFile(ctx, sshHost, row.Data, row.ID)
 	if err != nil {
 		return err
 	}
-	files, cases, err := zipDataFiles(data)
+	defer cleanup()
+	cases, err := countZipCases(zipPath)
 	if err != nil {
 		return err
 	}
 	if cases == 0 {
 		return errNoCases
 	}
-	for name, body := range files {
-		key := path.Join("problems", strconv.Itoa(int(row.ID)), "data", name)
-		if err := store.Put(ctx, key, bytes.NewReader(body), int64(len(body)), "application/octet-stream"); err != nil {
-			return err
-		}
+	if err := uploadZipDataFiles(ctx, store, row.ID, zipPath); err != nil {
+		return err
 	}
 	statement := strings.TrimSpace(row.Content)
 	if statement == "" {
@@ -443,11 +441,29 @@ func migrateOne(ctx context.Context, sshHost string, store utils.ObjectStore, ro
 	return upsertProblem(ctx, sshHost, row)
 }
 
-func streamOldZip(ctx context.Context, sshHost string, dataID string) ([]byte, error) {
+func streamOldZipFile(ctx context.Context, sshHost string, dataID string, problemID uint) (string, func(), error) {
 	script := fmt.Sprintf(`const chunks = db.fs.chunks.find({ files_id: ObjectId(%q) }).sort({ n: 1 }).toArray();
-const buf = Buffer.concat(chunks.map((c) => Buffer.from(c.data.buffer)));
-process.stdout.write(buf);`, dataID)
-	return runSSHBytes(ctx, sshHost, "docker", "exec", "-i", "mongo", "mongosh", "--quiet", "doj", "--file", "/dev/stdin", stdin(script))
+for (const chunk of chunks) {
+  process.stdout.write(Buffer.from(chunk.data.buffer));
+}`, dataID)
+	file, err := os.CreateTemp("", fmt.Sprintf("doj-old-p%d-*.zip", problemID))
+	if err != nil {
+		return "", nil, err
+	}
+	cleanup := func() {
+		_ = os.Remove(file.Name())
+	}
+	err = runSSHToFile(ctx, sshHost, file, "docker", "exec", "-i", "mongo", "mongosh", "--quiet", "doj", "--file", "/dev/stdin", stdin(script))
+	closeErr := file.Close()
+	if err != nil {
+		cleanup()
+		return "", nil, err
+	}
+	if closeErr != nil {
+		cleanup()
+		return "", nil, closeErr
+	}
+	return file.Name(), cleanup, nil
 }
 
 func zipDataFiles(data []byte) (map[string][]byte, int, error) {
@@ -491,6 +507,82 @@ func zipDataFiles(data []byte) (map[string][]byte, int, error) {
 		}
 	}
 	return files, cases, nil
+}
+
+func countZipCases(file string) (int, error) {
+	reader, err := zip.OpenReader(file)
+	if err != nil {
+		return 0, err
+	}
+	defer reader.Close()
+	inputs := map[string]bool{}
+	outputs := map[string]bool{}
+	for _, file := range reader.File {
+		if file.FileInfo().IsDir() {
+			continue
+		}
+		name := cleanZipName(file.Name)
+		if name == "" {
+			continue
+		}
+		stem, kind := utils.DataCaseStem(name)
+		if kind == "in" {
+			inputs[stem] = true
+		}
+		if kind == "out" {
+			outputs[stem] = true
+		}
+	}
+	cases := 0
+	for stem := range inputs {
+		if outputs[stem] {
+			cases++
+		}
+	}
+	return cases, nil
+}
+
+func uploadZipDataFiles(ctx context.Context, store utils.ObjectStore, problemID uint, file string) error {
+	reader, err := zip.OpenReader(file)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	for _, item := range reader.File {
+		if item.FileInfo().IsDir() {
+			continue
+		}
+		name := cleanZipName(item.Name)
+		if name == "" {
+			continue
+		}
+		stem, kind := utils.DataCaseStem(name)
+		if stem == "" || kind == "" {
+			continue
+		}
+		rc, err := item.Open()
+		if err != nil {
+			return err
+		}
+		key := path.Join("problems", strconv.Itoa(int(problemID)), "data", name)
+		err = store.Put(ctx, key, rc, int64(item.UncompressedSize64), "application/octet-stream")
+		closeErr := rc.Close()
+		if err != nil {
+			return err
+		}
+		if closeErr != nil {
+			return closeErr
+		}
+	}
+	return nil
+}
+
+func cleanZipName(raw string) string {
+	name := strings.TrimLeft(path.Clean(strings.ReplaceAll(raw, "\\", "/")), "/")
+	if name == "." || strings.HasPrefix(name, "../") {
+		return ""
+	}
+	return name
 }
 
 func upsertProblem(ctx context.Context, sshHost string, row oldProblem) error {
@@ -601,6 +693,35 @@ func runSSHBytes(ctx context.Context, host string, args ...any) ([]byte, error) 
 		return nil, fmt.Errorf("ssh %s failed: %w: %s output_sha1=%s", host, err, strings.TrimSpace(stderr.String()), hex.EncodeToString(sum[:]))
 	}
 	return out, nil
+}
+
+func runSSHToFile(ctx context.Context, host string, output *os.File, args ...any) error {
+	var stdinReader io.Reader
+	var command []string
+	for _, arg := range args {
+		switch value := arg.(type) {
+		case stdin:
+			stdinReader = strings.NewReader(string(value))
+		case string:
+			command = append(command, value)
+		default:
+			return fmt.Errorf("unsupported ssh arg %T", arg)
+		}
+	}
+	if len(command) == 0 {
+		return errors.New("ssh command is required")
+	}
+	cmd := exec.CommandContext(ctx, "ssh", host, shellCommand(command))
+	if stdinReader != nil {
+		cmd.Stdin = stdinReader
+	}
+	cmd.Stdout = output
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("ssh %s failed: %w: %s", host, err, strings.TrimSpace(stderr.String()))
+	}
+	return nil
 }
 
 func shellCommand(args []string) string {
