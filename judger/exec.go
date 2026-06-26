@@ -82,6 +82,17 @@ func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 			_ = cgroup.Cleanup()
 		}
 	}()
+	applyStats := func(result CaseResult) CaseResult {
+		if cgroup == nil {
+			return result
+		}
+		stats, err := cgroup.Stats()
+		if err != nil {
+			return result
+		}
+		applyCgroupStatsSnapshot(&result, stats)
+		return result
+	}
 
 	judge := judgeCommand(ctx, req, resultPath, outputLimit)
 	user := shellCommand(ctx, userCommand)
@@ -187,9 +198,9 @@ func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 			killProcessGroup(user)
 			judgeWait, userWait = collectWaitResults(waitCh, judgeWait, userWait)
 			if report, err := readReport(resultPath); err == nil && report.Verdict != VerdictAccepted {
-				return caseResultFromReport(req, report, startedAt), nil
+				return applyStats(caseResultFromReport(req, report, startedAt)), nil
 			}
-			return CaseResult{CaseID: req.Case.ID, Verdict: VerdictTimeLimit, Message: ctx.Err().Error()}, nil
+			return applyStats(CaseResult{CaseID: req.Case.ID, Verdict: VerdictTimeLimit, Message: ctx.Err().Error()}), nil
 		case got := <-waitCh:
 			if got.name == "judge" {
 				judgeWait = got.err
@@ -202,17 +213,17 @@ func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 	report, err := readReport(resultPath)
 	if err != nil {
 		if userWait != nil {
-			return CaseResult{
+			return applyStats(CaseResult{
 				CaseID:  req.Case.ID,
 				Verdict: VerdictRuntimeError,
 				Message: compactErrors("user program failed", userWait, nil, "", userErr.String()),
-			}, nil
+			}), nil
 		}
-		return CaseResult{
+		return applyStats(CaseResult{
 			CaseID:  req.Case.ID,
 			Verdict: VerdictSystemError,
 			Message: compactErrors("missing judge report", judgeWait, userWait, judgeErr.String(), userErr.String()),
-		}, nil
+		}), nil
 	}
 	result := caseResultFromReport(req, report, startedAt)
 	if result.Score == 100 && req.Case.Score > 0 {
@@ -228,25 +239,7 @@ func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 		result.Score = 0
 		result.Message = compactErrors("judge program failed", judgeWait, nil, judgeErr.String(), "")
 	}
-	if cgroup != nil {
-		stats, err := cgroup.Stats()
-		if err == nil {
-			if stats.MemoryPeak > 0 {
-				result.MemoryKB = int((stats.MemoryPeak + 1023) / 1024)
-			}
-			if stats.MemoryOOM && result.Verdict == VerdictAccepted {
-				result.Verdict = VerdictMemoryLimit
-				result.Score = 0
-				result.Message = "memory limit exceeded"
-			}
-			if stats.PidsMaxed && result.Verdict == VerdictAccepted {
-				result.Verdict = VerdictRuntimeError
-				result.Score = 0
-				result.Message = "process limit exceeded"
-			}
-		}
-	}
-	return result, nil
+	return applyStats(result), nil
 }
 
 func collectWaitResults(waitCh <-chan waitResult, judgeWait error, userWait error) (error, error) {

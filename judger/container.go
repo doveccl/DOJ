@@ -290,13 +290,18 @@ func applyCgroupStats(result *CaseResult, cgroup *CgroupCase) {
 	if err != nil {
 		return
 	}
+	applyCgroupStatsSnapshot(result, stats)
+}
+
+func applyCgroupStatsSnapshot(result *CaseResult, stats CgroupStats) {
 	if stats.MemoryPeak > 0 {
 		result.MemoryKB = int((stats.MemoryPeak + 1023) / 1024)
 	}
-	if stats.MemoryOOM && result.Verdict == VerdictAccepted {
+	if stats.MemoryOOM {
 		result.Verdict = VerdictMemoryLimit
 		result.Score = 0
 		result.Message = "memory limit exceeded"
+		return
 	}
 	if stats.PidsMaxed && result.Verdict == VerdictAccepted {
 		result.Verdict = VerdictRuntimeError

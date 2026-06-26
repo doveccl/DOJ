@@ -132,6 +132,30 @@ func TestRunLocalCasePartialInputReaderIsWrongAnswer(t *testing.T) {
 	}
 }
 
+func TestApplyCgroupStatsReportsMemoryLimit(t *testing.T) {
+	result := CaseResult{CaseID: "1", Verdict: VerdictRuntimeError, Score: 100, Message: "user program failed"}
+	applyCgroupStatsSnapshot(&result, CgroupStats{MemoryPeak: 130*1024*1024 + 1, MemoryOOM: true})
+	if result.Verdict != VerdictMemoryLimit || result.Score != 0 || result.Message != "memory limit exceeded" {
+		t.Fatalf("result = %#v", result)
+	}
+	if result.MemoryKB != 130*1024+1 {
+		t.Fatalf("memory KB = %d", result.MemoryKB)
+	}
+}
+
+func TestApplyCgroupStatsReportsProcessLimitOnlyForAccepted(t *testing.T) {
+	ac := CaseResult{Verdict: VerdictAccepted, Score: 100}
+	applyCgroupStatsSnapshot(&ac, CgroupStats{PidsMaxed: true})
+	if ac.Verdict != VerdictRuntimeError || ac.Score != 0 || ac.Message != "process limit exceeded" {
+		t.Fatalf("accepted result = %#v", ac)
+	}
+	wa := CaseResult{Verdict: VerdictWrongAnswer, Score: 0, Message: "output differs"}
+	applyCgroupStatsSnapshot(&wa, CgroupStats{PidsMaxed: true})
+	if wa.Verdict != VerdictWrongAnswer || wa.Message != "output differs" {
+		t.Fatalf("wrong answer result = %#v", wa)
+	}
+}
+
 func buildRunner(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "doj-runner")
