@@ -79,12 +79,13 @@ func planCommand(args []string) error {
 	sshHost := fs.String("ssh", "51cspnoip.cn", "SSH host that can access old Mongo and test Postgres")
 	limit := fs.Int("limit", 100, "number of real data problems to select")
 	scan := fs.Int("scan", 320, "number of old numeric P problems to scan")
+	timeout := fs.Duration("timeout", 20*time.Second, "timeout for each SSH-backed metadata query")
 	manifestPath := fs.String("manifest", "", "optional local manifest JSONL")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 	oldRows, err := loadOldProblems(ctx, *sshHost, *manifestPath, *scan)
 	if err != nil {
@@ -120,12 +121,14 @@ func migrateCommand(args []string) error {
 	limit := fs.Int("limit", 5, "maximum problems to migrate in this batch")
 	scan := fs.Int("scan", 320, "number of old numeric P problems to scan")
 	sleep := fs.Duration("sleep", 2*time.Second, "pause between migrated problems")
+	timeout := fs.Duration("timeout", 30*time.Second, "timeout for each SSH-backed operation")
 	apply := fs.Bool("apply", false, "perform writes; default is dry-run")
 	manifestPath := fs.String("manifest", "", "optional local manifest JSONL")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+	defer cancel()
 	oldRows, err := loadOldProblems(ctx, *sshHost, *manifestPath, *scan)
 	if err != nil {
 		return err
@@ -154,7 +157,10 @@ func migrateCommand(args []string) error {
 		}
 		fmt.Printf("migrate P%d %s\n", item.ID, cleanTitle(item))
 		if *apply {
-			if err := migrateOne(ctx, *sshHost, store, item); err != nil {
+			itemCtx, cancel := context.WithTimeout(context.Background(), *timeout)
+			err := migrateOne(itemCtx, *sshHost, store, item)
+			cancel()
+			if err != nil {
 				if errors.Is(err, errNoCases) {
 					fmt.Printf("skip P%d: %v\n", item.ID, err)
 					continue
@@ -176,10 +182,12 @@ func cleanupCommand(args []string) error {
 	sshHost := fs.String("ssh", "51cspnoip.cn", "SSH host that can access test Postgres")
 	apply := fs.Bool("apply", false, "perform soft deletes; default is dry-run")
 	maxID := fs.Uint("max-id", 7999, "only consider local problem IDs up to this value")
+	timeout := fs.Duration("timeout", 20*time.Second, "timeout for each SSH-backed query")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+	defer cancel()
 	targetRows, err := loadTargetProblems(ctx, *sshHost)
 	if err != nil {
 		return err

@@ -16,9 +16,9 @@ Example:
 
 ```sh
 export STORAGE='https://...'
-go run ./tools/oldoj_migrate plan -limit 100
-go run ./tools/oldoj_migrate migrate -limit 5 -sleep 5s --apply
-go run ./tools/oldoj_migrate cleanup --apply
+go run ./tools/oldoj_migrate plan -limit 100 -timeout 20s
+go run ./tools/oldoj_migrate migrate -limit 5 -sleep 5s -timeout 30s --apply
+go run ./tools/oldoj_migrate cleanup -timeout 20s --apply
 ```
 
 Do not run a large `-limit` while the test site is being manually checked.
