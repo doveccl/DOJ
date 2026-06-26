@@ -76,3 +76,11 @@ func TestNormalizeTitleIgnoresOldProblemPrefix(t *testing.T) {
 		t.Fatal("problem prefix should not affect title matching")
 	}
 }
+
+func TestShellCommandQuotesArguments(t *testing.T) {
+	got := shellCommand([]string{"psql", "-c", "select 'a b';"})
+	want := "'psql' '-c' 'select '\"'\"'a b'\"'\"';'"
+	if got != want {
+		t.Fatalf("shell command = %q, want %q", got, want)
+	}
+}

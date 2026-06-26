@@ -437,6 +437,7 @@ on conflict (id) do update set title=excluded.title, tags=excluded.tags, visible
 		int(math.Ceil(row.TimeLimit*1000)),
 		memoryMB(row.MemoryLimit),
 	)
+	sql += "\nselect setval(pg_get_serial_sequence('problems','id'), greatest((select max(id) from problems), 1000), true);"
 	_, err := runSSH(ctx, sshHost, "docker", "exec", "-i", "doj-test-postgres-1", "psql", "-h", "127.0.0.1", "-U", "doj", "-d", "doj", "-v", "ON_ERROR_STOP=1", "-c", sql)
 	return err
 }
@@ -507,18 +508,21 @@ func runSSH(ctx context.Context, host string, args ...any) (string, error) {
 
 func runSSHBytes(ctx context.Context, host string, args ...any) ([]byte, error) {
 	var stdinReader io.Reader
-	parts := []string{host}
+	var command []string
 	for _, arg := range args {
 		switch value := arg.(type) {
 		case stdin:
 			stdinReader = strings.NewReader(string(value))
 		case string:
-			parts = append(parts, value)
+			command = append(command, value)
 		default:
 			return nil, fmt.Errorf("unsupported ssh arg %T", arg)
 		}
 	}
-	cmd := exec.CommandContext(ctx, "ssh", parts...)
+	if len(command) == 0 {
+		return nil, errors.New("ssh command is required")
+	}
+	cmd := exec.CommandContext(ctx, "ssh", host, shellCommand(command))
 	if stdinReader != nil {
 		cmd.Stdin = stdinReader
 	}
@@ -530,4 +534,19 @@ func runSSHBytes(ctx context.Context, host string, args ...any) ([]byte, error) 
 		return nil, fmt.Errorf("ssh %s failed: %w: %s output_sha1=%s", host, err, strings.TrimSpace(stderr.String()), hex.EncodeToString(sum[:]))
 	}
 	return out, nil
+}
+
+func shellCommand(args []string) string {
+	quoted := make([]string, 0, len(args))
+	for _, arg := range args {
+		quoted = append(quoted, shellQuote(arg))
+	}
+	return strings.Join(quoted, " ")
+}
+
+func shellQuote(value string) string {
+	if value == "" {
+		return "''"
+	}
+	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
