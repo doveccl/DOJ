@@ -12,5 +12,6 @@ coverage/
 tmp/
 data/
 .data/
+.local/
 *.local
 *.override.*
