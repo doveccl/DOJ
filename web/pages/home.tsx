@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { getHome, updateNotice } from '../client'
-import type { Item, Problem } from '../client'
+import type { Item, ProblemListItem } from '../client'
 import { ProblemLink } from '../components/entity'
 import { YearHeatmap } from '../components/heatmap'
 import { MarkdownEditor, MarkdownPreview } from '../components/markdown'
@@ -114,7 +114,7 @@ export function HomePage() {
   )
 }
 
-function ProblemList({ title, items }: { title: string; items: Problem[] }) {
+function ProblemList({ title, items }: { title: string; items: ProblemListItem[] }) {
   return (
     <Card title={title}>
       {items.length === 0 ? (

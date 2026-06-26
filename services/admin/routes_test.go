@@ -70,6 +70,31 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	if keys["site"] {
 		t.Fatalf("stored settings should not be packed into one site row: %+v", settingRows)
 	}
+	res = requestJSONWithCookies(e, http.MethodPatch, "/api/admin/settings", adminCookies, `{"allowGuestAccess":false}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("patch one setting got %d body=%s", res.Code, res.Body.String())
+	}
+	if err := json.Unmarshal(res.Body.Bytes(), &saved); err != nil {
+		t.Fatalf("decode patched settings: %v body=%s", err, res.Body.String())
+	}
+	if saved.SiteName != "DOJ" || !saved.AllowRegistration || saved.AllowGuestAccess || !saved.DefaultSubmissionPublic {
+		t.Fatalf("partial settings patch should update one field and preserve the rest: %+v", saved)
+	}
+	res = requestWithCookies(e, http.MethodGet, "/api/admin/settings", adminCookies)
+	if res.Code != http.StatusOK {
+		t.Fatalf("get settings got %d body=%s", res.Code, res.Body.String())
+	}
+	var gotSettings AdminSettings
+	if err := json.Unmarshal(res.Body.Bytes(), &gotSettings); err != nil {
+		t.Fatalf("decode get settings: %v body=%s", err, res.Body.String())
+	}
+	if gotSettings != saved {
+		t.Fatalf("get settings should return current settings: got %+v want %+v", gotSettings, saved)
+	}
+	res = requestJSONWithCookies(e, http.MethodPatch, "/api/admin/settings", adminCookies, `{}`)
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("empty settings patch got %d body=%s", res.Code, res.Body.String())
+	}
 
 	res = requestJSONWithCookies(e, http.MethodPatch, "/api/admin/users/other", adminCookies, `{"role":"user","groups":[]}`)
 	if res.Code != http.StatusOK {

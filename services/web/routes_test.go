@@ -1140,6 +1140,31 @@ func TestProblemCreateDefaultsVisibleAndListSortsByID(t *testing.T) {
 	}
 }
 
+func TestProblemListDoesNotTouchAssetStorage(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	problem := models.Problem{ID: 1000, Title: "Visible", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	blockedStorage := filepath.Join(t.TempDir(), "storage-file")
+	if err := os.WriteFile(blockedStorage, []byte("not a directory"), 0o644); err != nil {
+		t.Fatalf("create blocked storage marker: %v", err)
+	}
+	t.Setenv("STORAGE", blockedStorage)
+
+	e := echo.New()
+	Register(e, db)
+	res := requestOK(t, e, http.MethodGet, "/api/problems", "")
+	items := decodeJSON[[]ProblemDTO](t, res)
+	if len(items) != 1 || items[0].ID != problem.ID {
+		t.Fatalf("problem list got %+v, want P%d", items, problem.ID)
+	}
+	if items[0].Cases != nil || items[0].DataBytes != nil {
+		t.Fatalf("problem list should not compute storage-derived stats: %+v", items[0])
+	}
+}
+
 func TestProblemListSearchesByCode(t *testing.T) {
 	db := testWebDB(t)
 	allowGuest(t, db)
@@ -1254,8 +1279,8 @@ func TestDatabaseDiscussionAuthorsUseNames(t *testing.T) {
 	Register(e, db)
 
 	list := decodeJSON[[]DiscussionDTO](t, requestOK(t, e, http.MethodGet, "/api/discussion", ""))
-	if len(list) != 1 || list[0].Author != "admin" {
-		t.Fatalf("discussion list author should be username: %+v", list)
+	if len(list) != 1 || list[0].Author != "admin" || list[0].Replies != 1 {
+		t.Fatalf("discussion list should include author and reply count: %+v", list)
 	}
 
 	target := "/api/discussion/" + strconv.FormatUint(uint64(discussion.ID), 10)

@@ -16,6 +16,7 @@ import {
   deleteAdminUser,
   downloadBackup,
   getAdmin,
+  getAdminSettings,
   getBackups,
   getBackupSettings,
   resetAdminUserPassword,
@@ -68,10 +69,14 @@ export function AdminPage() {
   const [editingJudger, setEditingJudger] = useState<JudgerRow | null>(null)
   const [userSearch, setUserSearch] = useState('')
   const [groupSearch, setGroupSearch] = useState('')
+  const [activeTab, setActiveTab] = useState('settings')
   const [settingsForm] = Form.useForm<SettingsForm>()
-  const query = useQuery({ queryKey: ['admin'], queryFn: getAdmin })
-  const backupSettings = useQuery({ queryKey: ['backup-settings'], queryFn: getBackupSettings, enabled: session.admin })
-  const backups = useQuery({ queryKey: ['backups'], queryFn: getBackups, enabled: session.admin, refetchInterval: (query) => (query.state.data?.running ? 5000 : false) })
+  const overviewEnabled = session.admin && activeTab !== 'settings' && activeTab !== 'backups'
+  const backupEnabled = session.admin && activeTab === 'backups'
+  const query = useQuery({ queryKey: ['admin'], queryFn: getAdmin, enabled: overviewEnabled })
+  const settingsQuery = useQuery({ queryKey: ['admin-settings'], queryFn: getAdminSettings, enabled: session.admin })
+  const backupSettings = useQuery({ queryKey: ['backup-settings'], queryFn: getBackupSettings, enabled: backupEnabled })
+  const backups = useQuery({ queryKey: ['backups'], queryFn: getBackups, enabled: backupEnabled, refetchInterval: (query) => (query.state.data?.running ? 5000 : false) })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
@@ -80,12 +85,10 @@ export function AdminPage() {
     message.success(text.common.saved)
   }
   const settings = useMutation({
-    mutationFn: (values: SettingsForm) => {
-      const current = client.getQueryData<AdminOverview>(['admin'])?.settings
-      return updateAdminSettings({ notice: current?.notice ?? '', ...values })
-    },
+    mutationFn: updateAdminSettings,
     onSuccess: (data) => {
       client.setQueryData<AdminOverview>(['admin'], (old) => (old ? { ...old, settings: data } : old))
+      client.setQueryData(['admin-settings'], data)
       client.setQueryData(['site'], data)
       message.success(text.common.saved)
     },
@@ -212,29 +215,21 @@ export function AdminPage() {
   if (!session.admin) {
     return <ErrorBlock error={text.common.forbidden} />
   }
-  if (query.isLoading) {
-    return <LoadingBlock />
-  }
-  if (query.isError) {
-    return <ErrorBlock error={query.error} />
-  }
-  if (!query.data) {
-    return <ErrorBlock error={text.common.emptyResponse} />
-  }
 
   const data = query.data
+  const settingsData = settingsQuery.data
   const roleText: Record<string, string> = text.admin.roles
   const roleOptions = [
     { value: 'user', label: roleText.user },
     { value: 'admin', label: roleText.admin }
   ]
-  const groupOptions = data.groups.map((group) => ({ value: group.id, label: group.name }))
-  const userOptions = data.users.map((user) => ({ value: user.id, label: user.name }))
+  const groupOptions = (data?.groups ?? []).map((group) => ({ value: group.id, label: group.name }))
+  const userOptions = (data?.users ?? []).map((user) => ({ value: user.id, label: user.name }))
   const userGroupIds = (row: UserRow) => row.groups ?? []
-  const groupUserIds = (row: GroupRow) => data.users.filter((user) => userGroupIds(user).includes(row.id)).map((user) => user.id)
+  const groupUserIds = (row: GroupRow) => (data?.users ?? []).filter((user) => userGroupIds(user).includes(row.id)).map((user) => user.id)
   const userQuery = userSearch.trim().toLowerCase()
   const groupQuery = groupSearch.trim().toLowerCase()
-  const groupName = (id: number) => data.groups.find((group) => group.id === id)?.name ?? ''
+  const groupName = (id: number) => data?.groups.find((group) => group.id === id)?.name ?? ''
   const backupFrequencyOptions = [
     { value: 'hourly', label: text.admin.backupFrequencies.hourly },
     { value: 'daily', label: text.admin.backupFrequencies.daily },
@@ -243,19 +238,14 @@ export function AdminPage() {
   const backupFrequencyText = backupSettings.data
     ? (backupFrequencyOptions.find((option) => option.value === backupSettings.data.frequency)?.label ?? backupSettings.data.frequency)
     : ''
-  const currentAdminSettings = () => client.getQueryData<AdminOverview>(['admin'])?.settings ?? data.settings
   const saveSettingsPatch = (patch: Partial<SettingsForm>) => {
-    const current = currentAdminSettings()
-    settings.mutate({
-      siteName: current.siteName,
-      allowRegistration: current.allowRegistration,
-      allowGuestAccess: current.allowGuestAccess,
-      defaultSubmissionPublic: current.defaultSubmissionPublic,
-      ...patch
-    })
+    settings.mutate(patch)
   }
   const saveSiteName = (value: string) => {
-    const current = currentAdminSettings()
+    const current = client.getQueryData<AdminOverview>(['admin'])?.settings ?? settingsData
+    if (!current) {
+      return
+    }
     const siteName = value.trim()
     if (!siteName) {
       settingsForm.setFieldValue('siteName', current.siteName)
@@ -268,17 +258,31 @@ export function AdminPage() {
     saveSettingsPatch({ siteName })
   }
   const filteredUsers = userQuery
-    ? data.users.filter((user) =>
+    ? (data?.users ?? []).filter((user) =>
         [user.name, user.mail, roleText[user.role] ?? user.role, ...userGroupIds(user).map(groupName)].some((value) => value.toLowerCase().includes(userQuery))
       )
-    : data.users
+    : (data?.users ?? [])
   const filteredGroups = groupQuery
-    ? data.groups.filter((group) =>
-        [group.name, ...groupUserIds(group).map((id) => data.users.find((user) => user.id === id)?.name ?? '')].some((value) =>
+    ? (data?.groups ?? []).filter((group) =>
+        [group.name, ...groupUserIds(group).map((id) => data?.users.find((user) => user.id === id)?.name ?? '')].some((value) =>
           value.toLowerCase().includes(groupQuery)
         )
       )
-    : data.groups
+    : (data?.groups ?? [])
+  const overviewBlock = query.isLoading ? (
+    <LoadingBlock />
+  ) : query.isError ? (
+    <ErrorBlock error={query.error} />
+  ) : !data ? (
+    <LoadingBlock />
+  ) : null
+  const settingsBlock = settingsQuery.isLoading ? (
+    <LoadingBlock />
+  ) : settingsQuery.isError ? (
+    <ErrorBlock error={settingsQuery.error} />
+  ) : !settingsData ? (
+    <ErrorBlock error={text.common.emptyResponse} />
+  ) : null
 
   function openGroup(row?: GroupRow) {
     setEditingGroup(row ?? null)
@@ -314,18 +318,20 @@ export function AdminPage() {
     <>
       <Card>
         <Tabs
+          activeKey={activeTab}
           destroyOnHidden
+          onChange={setActiveTab}
           items={[
             {
               key: 'settings',
               label: text.admin.settings,
-              children: (
+              children: settingsBlock ?? (
                 <Form<SettingsForm>
                   form={settingsForm}
                   layout="vertical"
                   style={{ maxWidth: 680 }}
-                  initialValues={data.settings}
-                  key={`${data.settings.siteName}:${data.settings.allowRegistration}:${data.settings.allowGuestAccess}:${data.settings.defaultSubmissionPublic}`}
+                  initialValues={settingsData}
+                  key={`${settingsData?.siteName}:${settingsData?.allowRegistration}:${settingsData?.allowGuestAccess}:${settingsData?.defaultSubmissionPublic}`}
                 >
                   <Form.Item name="siteName" label={text.admin.siteName} rules={[{ required: true }]}>
                     <Input
@@ -351,7 +357,7 @@ export function AdminPage() {
             {
               key: 'users',
               label: text.admin.users,
-              children: (
+              children: overviewBlock ?? (
                 <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                   <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
                     <Input allowClear prefix={<SearchOutlined />} placeholder={text.admin.searchUsers} value={userSearch} onChange={(event) => setUserSearch(event.target.value)} />
@@ -410,7 +416,7 @@ export function AdminPage() {
             {
               key: 'groups',
               label: text.admin.groups,
-              children: (
+              children: overviewBlock ?? (
                 <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                   <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
                     <Input allowClear prefix={<SearchOutlined />} placeholder={text.admin.searchGroups} value={groupSearch} onChange={(event) => setGroupSearch(event.target.value)} />
@@ -454,7 +460,7 @@ export function AdminPage() {
             {
               key: 'languages',
               label: text.admin.languages,
-              children: (
+              children: overviewBlock ?? (
                 <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                   <Button type="primary" icon={<PlusOutlined />} onClick={() => openLang()}>
                     {text.admin.addLang}
@@ -462,7 +468,7 @@ export function AdminPage() {
                   <Table<LanguageRow>
                     rowKey="id"
                     pagination={false}
-                    dataSource={data.languages}
+                    dataSource={data?.languages ?? []}
                     columns={[
                       { title: text.admin.name, dataIndex: 'name' },
                       { title: text.admin.source, dataIndex: 'source' },
@@ -498,12 +504,12 @@ export function AdminPage() {
             {
               key: 'judgers',
               label: text.admin.judgers,
-              children: (
+              children: overviewBlock ?? (
                 <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                   <Space size={24} wrap>
-                    <Statistic title={text.admin.queued} value={data.queue.queued} />
-                    <Statistic title={text.admin.running} value={data.queue.running} />
-                    <Statistic title={text.admin.done} value={data.queue.done} />
+                    <Statistic title={text.admin.queued} value={data?.queue.queued ?? 0} />
+                    <Statistic title={text.admin.running} value={data?.queue.running ?? 0} />
+                    <Statistic title={text.admin.done} value={data?.queue.done ?? 0} />
                   </Space>
                   <Button type="primary" icon={<PlusOutlined />} onClick={() => openJudger()}>
                     {text.admin.addJudger}
@@ -511,7 +517,7 @@ export function AdminPage() {
                   <Table<JudgerRow>
                     rowKey="id"
                     pagination={false}
-                    dataSource={data.judgers}
+                    dataSource={data?.judgers ?? []}
                     columns={[
                       { title: text.admin.name, dataIndex: 'name' },
                       {

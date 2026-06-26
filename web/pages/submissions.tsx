@@ -2,6 +2,7 @@ import { SearchOutlined } from '@ant-design/icons'
 import { Button, Card, Flex, Form, Select, Table, Tag, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { getAssignments, getContests, getLangs, getProblems, getRank, getSubmissions } from '../client'
@@ -10,7 +11,7 @@ import { ProblemLink, UserLink } from '../components/entity'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { SubmissionStatus } from '../components/status'
 import { useLocale } from '../locale'
-import { formatTime, problemLabel, submissionCode } from '../utils/format'
+import { formatTime, problemCode, problemLabel, submissionCode } from '../utils/format'
 
 type SubmissionFilters = {
   problem?: string
@@ -27,20 +28,33 @@ export function SubmissionsPage() {
   const user = params.get('user') ?? ''
   const assignment = params.get('assignment') ?? ''
   const contest = params.get('contest') ?? ''
+  const [problemOpen, setProblemOpen] = useState(false)
+  const [userOpen, setUserOpen] = useState(false)
+  const [assignmentOpen, setAssignmentOpen] = useState(false)
+  const [contestOpen, setContestOpen] = useState(false)
+  const [problemSearch, setProblemSearch] = useState('')
+  const problemSearchText = problemSearch.trim()
   const query = useQuery({
     queryKey: ['submissions', problem, user, assignment, contest],
     queryFn: () => getSubmissions(cleanFilters({ problem, user, assignment, contest }))
   })
   const languages = useQuery({ queryKey: ['languages'], queryFn: getLangs })
-  const problems = useQuery({ queryKey: ['problems', '', ''], queryFn: () => getProblems() })
-  const users = useQuery({ queryKey: ['rank'], queryFn: getRank })
-  const assignments = useQuery({ queryKey: ['assignments'], queryFn: getAssignments })
-  const contests = useQuery({ queryKey: ['contests'], queryFn: getContests })
+  const problems = useQuery({
+    queryKey: ['problems', 'submission-filter', problemSearchText],
+    queryFn: () => getProblems({ q: problemSearchText }),
+    enabled: problemOpen && problemSearchText.length > 0
+  })
+  const users = useQuery({ queryKey: ['rank', 'submission-filter'], queryFn: getRank, enabled: userOpen })
+  const assignments = useQuery({ queryKey: ['assignments', 'submission-filter'], queryFn: getAssignments, enabled: assignmentOpen })
+  const contests = useQuery({ queryKey: ['contests', 'submission-filter'], queryFn: getContests, enabled: contestOpen })
   const languageNames = new Map((languages.data ?? []).map((item) => [item.id, item.name]))
-  const problemOptions = (problems.data ?? []).map((item) => ({ value: String(item.id), label: problemLabel(item.id, item.title) }))
-  const userOptions = (users.data ?? []).map((item) => ({ value: item.user, label: item.user }))
-  const assignmentOptions = (assignments.data ?? []).map((item) => ({ value: String(item.id), label: item.title }))
-  const contestOptions = (contests.data ?? []).map((item) => ({ value: String(item.id), label: item.title }))
+  const problemOptions = mergeProblemOptions(
+    problem ? [{ value: problem, label: numericProblem(problem) ? problemCode(Number(problem)) : problem }] : [],
+    (problems.data ?? []).map((item) => ({ value: String(item.id), label: problemLabel(item.id, item.title) }))
+  )
+  const userOptions = mergeProblemOptions(user ? [{ value: user, label: user }] : [], (users.data ?? []).map((item) => ({ value: item.user, label: item.user })))
+  const assignmentOptions = mergeProblemOptions(assignment ? [{ value: assignment, label: `#${assignment}` }] : [], (assignments.data ?? []).map((item) => ({ value: String(item.id), label: item.title })))
+  const contestOptions = mergeProblemOptions(contest ? [{ value: contest, label: `#${contest}` }] : [], (contests.data ?? []).map((item) => ({ value: String(item.id), label: item.title })))
 
   function submit(values: SubmissionFilters) {
     const next = new URLSearchParams()
@@ -71,8 +85,10 @@ export function SubmissionsPage() {
             <Select
               showSearch
               allowClear
-              loading={problems.isLoading}
-              optionFilterProp="label"
+              filterOption={false}
+              loading={problems.isFetching}
+              onDropdownVisibleChange={setProblemOpen}
+              onSearch={setProblemSearch}
               placeholder={text.submissions.problem}
               options={problemOptions}
               style={{ width: 240 }}
@@ -82,7 +98,8 @@ export function SubmissionsPage() {
             <Select
               showSearch
               allowClear
-              loading={users.isLoading}
+              loading={users.isFetching}
+              onDropdownVisibleChange={setUserOpen}
               optionFilterProp="label"
               placeholder={text.submissions.user}
               options={userOptions}
@@ -93,7 +110,8 @@ export function SubmissionsPage() {
             <Select
               showSearch
               allowClear
-              loading={assignments.isLoading}
+              loading={assignments.isFetching}
+              onDropdownVisibleChange={setAssignmentOpen}
               optionFilterProp="label"
               placeholder={text.assignments.title}
               options={assignmentOptions}
@@ -104,7 +122,8 @@ export function SubmissionsPage() {
             <Select
               showSearch
               allowClear
-              loading={contests.isLoading}
+              loading={contests.isFetching}
+              onDropdownVisibleChange={setContestOpen}
               optionFilterProp="label"
               placeholder={text.contests.title}
               options={contestOptions}
@@ -153,6 +172,22 @@ function cleanFilters(filters: SubmissionFilters) {
 
 function normalizeProblemValue(value: string) {
   return value.trim().replace(/^p/i, '')
+}
+
+function numericProblem(value: string) {
+  return /^\d+$/.test(value)
+}
+
+function mergeProblemOptions(...lists: { value: string; label: string }[][]) {
+  const merged = new Map<string, string>()
+  for (const list of lists) {
+    for (const item of list) {
+      if (!merged.has(item.value)) {
+        merged.set(item.value, item.label)
+      }
+    }
+  }
+  return Array.from(merged, ([value, label]) => ({ value, label }))
 }
 
 function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: string, languageNames: Map<string, string>): TableProps<Submission>['columns'] {

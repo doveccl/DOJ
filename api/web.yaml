@@ -168,6 +168,15 @@ paths:
               schema:
                 $ref: "#/components/schemas/AdminOverview"
   /api/admin/settings:
+    get:
+      operationId: getAdminSettings
+      responses:
+        "200":
+          description: Admin settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSettings"
     patch:
       operationId: updateAdminSettings
       requestBody:
@@ -175,7 +184,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AdminSettings"
+              $ref: "#/components/schemas/AdminSettingsPatch"
       responses:
         "200":
           description: Updated admin settings
@@ -567,7 +576,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Problem"
+                  $ref: "#/components/schemas/ProblemListItem"
     post:
       operationId: createProblem
       requestBody:
@@ -582,7 +591,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Problem"
+                $ref: "#/components/schemas/ProblemListItem"
   /api/problems/{id}:
     get:
       operationId: getProblem
@@ -656,7 +665,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Problem"
+                $ref: "#/components/schemas/ProblemListItem"
         "404":
           description: Problem not found
   /api/problems/{id}/assets:
@@ -1464,6 +1473,21 @@ components:
           type: boolean
         notice:
           type: string
+    AdminSettingsPatch:
+      type: object
+      minProperties: 1
+      properties:
+        siteName:
+          type: string
+          maxLength: 64
+        allowRegistration:
+          type: boolean
+        allowGuestAccess:
+          type: boolean
+        defaultSubmissionPublic:
+          type: boolean
+        notice:
+          type: string
     BackupSettings:
       type: object
       required: [enabled, frequency, keep, time]
@@ -1676,6 +1700,53 @@ components:
         name:
           type: string
           maxLength: 64
+    ProblemListItem:
+      type: object
+      required:
+        - id
+        - title
+        - tags
+        - visible
+        - mode
+        - timeMs
+        - memoryMb
+        - ac
+        - submit
+        - discussions
+        - mine
+      properties:
+        id:
+          type: integer
+        sort:
+          type: string
+          maxLength: 16
+        title:
+          type: string
+          maxLength: 256
+        tags:
+          type: array
+          items:
+            type: string
+        visible:
+          type: boolean
+        mode:
+          type: string
+          maxLength: 16
+        timeMs:
+          type: integer
+        memoryMb:
+          type: integer
+        ac:
+          type: integer
+        submit:
+          type: integer
+        discussions:
+          type: integer
+        mine:
+          type: string
+          enum: [none, tried, ac]
+        latest:
+          $ref: "#/components/schemas/ProblemRecord"
     Problem:
       type: object
       required:
@@ -1869,7 +1940,7 @@ components:
         problems:
           type: array
           items:
-            $ref: "#/components/schemas/Problem"
+            $ref: "#/components/schemas/ProblemListItem"
         assignments:
           type: array
           items:
@@ -1919,7 +1990,7 @@ components:
         problems:
           type: array
           items:
-            $ref: "#/components/schemas/Problem"
+            $ref: "#/components/schemas/ProblemListItem"
         submissions:
           type: array
           items:
@@ -2031,7 +2102,7 @@ components:
         problems:
           type: array
           items:
-            $ref: "#/components/schemas/Problem"
+            $ref: "#/components/schemas/ProblemListItem"
         rank:
           type: array
           items:
@@ -2226,7 +2297,7 @@ components:
         solved:
           type: array
           items:
-            $ref: "#/components/schemas/Problem"
+            $ref: "#/components/schemas/ProblemListItem"
         activities:
           type: array
           items:

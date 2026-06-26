@@ -21,7 +21,7 @@ import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { createProblem, deleteProblem, getProblems, updateProblemVisibility } from '../client'
-import type { Problem } from '../client'
+import type { ProblemListItem } from '../client'
 import { ProblemLink } from '../components/entity'
 import { JudgeModeSelect } from '../components/judge'
 import { LimitInput } from '../components/limit'
@@ -82,7 +82,7 @@ export function ProblemsPage() {
     onError: showError
   })
   const visibility = useMutation({
-    mutationFn: (item: Problem) =>
+    mutationFn: (item: ProblemListItem) =>
       updateProblemVisibility(item.id, {
         visible: !item.visible
       }),
@@ -163,7 +163,7 @@ export function ProblemsPage() {
         ) : query.isLoading ? (
           <LoadingBlock />
         ) : (
-          <Table<Problem>
+          <Table<ProblemListItem>
             rowKey="id"
             columns={columns}
             dataSource={query.data}
@@ -229,12 +229,12 @@ function problemColumns(
   text: ReturnType<typeof useLocale>['text'],
   actions: {
     remove: (id: number) => void
-    toggle: (item: Problem) => void
-    toggling: (item: Problem) => boolean
+    toggle: (item: ProblemListItem) => void
+    toggling: (item: ProblemListItem) => boolean
   },
   admin: boolean
-): TableProps<Problem>['columns'] {
-  const columns: TableProps<Problem>['columns'] = [
+): TableProps<ProblemListItem>['columns'] {
+  const columns: TableProps<ProblemListItem>['columns'] = [
     {
       title: text.submissions.problem,
       dataIndex: 'title',
@@ -306,8 +306,8 @@ function ProblemRecordTag({ mine }: { mine?: string }) {
   return null
 }
 
-function replaceProblemInCaches(client: ReturnType<typeof useQueryClient>, item: Problem) {
-  client.setQueriesData<Problem[]>({ queryKey: ['problems'] }, (old) => {
+function replaceProblemInCaches(client: ReturnType<typeof useQueryClient>, item: ProblemListItem) {
+  client.setQueriesData<ProblemListItem[]>({ queryKey: ['problems'] }, (old) => {
     if (!old) {
       return old
     }

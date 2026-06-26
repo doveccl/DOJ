@@ -8,7 +8,7 @@ import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import { getContest, updateContest } from '../client'
-import type { Problem, ProblemRef, RankUser } from '../client'
+import type { ProblemListItem, ProblemRef, RankUser } from '../client'
 import { ProblemLink, UserLink } from '../components/entity'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../components/state'
@@ -113,7 +113,7 @@ export function ContestDetailPage() {
             {
               key: 'problems',
               label: text.contests.problems,
-              children: <Table<Problem> rowKey="id" columns={problemColumns(text)} dataSource={problems} pagination={false} />
+              children: <Table<ProblemListItem> rowKey="id" columns={problemColumns(text)} dataSource={problems} pagination={false} />
             },
             {
               key: 'rank',
@@ -151,7 +151,7 @@ function ContestEditModal({
   onSave
 }: {
   contest: { title: string; kind: string; startAt: string; endAt: string; freezeAt: string | null }
-  problems: Problem[]
+  problems: ProblemListItem[]
   problemOptions: { value: number; label: string }[]
   loading: boolean
   onCancel: () => void
@@ -210,7 +210,7 @@ function ContestEditModal({
   )
 }
 
-function rankColumns(text: ReturnType<typeof useLocale>['text'], kind: string, problems: Problem[]): TableProps<RankUser>['columns'] {
+function rankColumns(text: ReturnType<typeof useLocale>['text'], kind: string, problems: ProblemListItem[]): TableProps<RankUser>['columns'] {
   const columns: NonNullable<TableProps<RankUser>['columns']> = [
     {
       title: text.rank.rank,
@@ -247,7 +247,7 @@ function rankColumns(text: ReturnType<typeof useLocale>['text'], kind: string, p
   return [...columns, ...rankProblemColumns(kind, problems)]
 }
 
-function rankProblemColumns(kind: string, problems: Problem[]): NonNullable<TableProps<RankUser>['columns']> {
+function rankProblemColumns(kind: string, problems: ProblemListItem[]): NonNullable<TableProps<RankUser>['columns']> {
   return problems.map((problem) => ({
     key: `problem-${problem.id}`,
     align: 'center',
@@ -282,7 +282,7 @@ function RankProblemCell({ kind, item }: { kind: string; item?: RankUser['proble
   return <Tag color={item.score > 0 ? 'warning' : 'error'}>{item.score}</Tag>
 }
 
-function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Problem>['columns'] {
+function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<ProblemListItem>['columns'] {
   return [
     {
       title: text.common.sort,

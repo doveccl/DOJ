@@ -8,7 +8,7 @@ import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import { getAdmin, getAssignment, updateAssignment } from '../client'
-import type { AssignmentProgress, Problem, ProblemRef } from '../client'
+import type { AssignmentProgress, ProblemListItem, ProblemRef } from '../client'
 import { ProblemLink, UserLink } from '../components/entity'
 import { IdSelect } from '../components/id-select'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
@@ -108,7 +108,7 @@ export function AssignmentDetailPage() {
             {
               key: 'problems',
               label: text.assignments.problems,
-              children: <Table<Problem> rowKey="id" columns={problemColumns(text)} dataSource={problems} pagination={false} />
+              children: <Table<ProblemListItem> rowKey="id" columns={problemColumns(text)} dataSource={problems} pagination={false} />
             },
             {
               key: 'progress',
@@ -147,7 +147,7 @@ function AssignmentEditModal({
   onSave
 }: {
   assignment: { title: string; endAt: string; users: number[]; groups: number[] }
-  problems: Problem[]
+  problems: ProblemListItem[]
   problemOptions: { value: number; label: string }[]
   userOptions: { value: number; label: string }[]
   groupOptions: { value: number; label: string }[]
@@ -199,7 +199,7 @@ function AssignmentEditModal({
   )
 }
 
-function progressColumns(text: ReturnType<typeof useLocale>['text'], problems: Problem[]): TableProps<AssignmentProgress>['columns'] {
+function progressColumns(text: ReturnType<typeof useLocale>['text'], problems: ProblemListItem[]): TableProps<AssignmentProgress>['columns'] {
   return [
     {
       title: text.rank.user,
@@ -225,7 +225,7 @@ function progressColumns(text: ReturnType<typeof useLocale>['text'], problems: P
   ]
 }
 
-function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Problem>['columns'] {
+function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<ProblemListItem>['columns'] {
   return [
     {
       title: text.common.sort,

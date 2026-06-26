@@ -44,6 +44,14 @@ type AdminSettings struct {
 	Notice                  string `json:"notice"`
 }
 
+type AdminSettingsPatch struct {
+	SiteName                *string `json:"siteName,omitempty"`
+	AllowRegistration       *bool   `json:"allowRegistration,omitempty"`
+	AllowGuestAccess        *bool   `json:"allowGuestAccess,omitempty"`
+	DefaultSubmissionPublic *bool   `json:"defaultSubmissionPublic,omitempty"`
+	Notice                  *string `json:"notice,omitempty"`
+}
+
 type User struct {
 	ID     uint   `json:"id"`
 	Name   string `json:"name"`
@@ -140,6 +148,7 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	api := &API{db: db}
 	group := e.Group("/api/admin", api.requireAdmin)
 	group.GET("", api.overview)
+	group.GET("/settings", api.getSettings)
 	group.PATCH("/settings", api.updateSettings, echomw.BodyLimit(utils.BodyLimitSettings))
 	group.POST("/users", api.createUser)
 	group.PATCH("/users/:name", api.updateUser)
@@ -184,6 +193,14 @@ func (api *API) overview(c echo.Context) error {
 		return err
 	}
 	return c.JSON(http.StatusOK, overview)
+}
+
+func (api *API) getSettings(c echo.Context) error {
+	settings, err := api.settings()
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, settings)
 }
 
 func (api *API) backupSettings(c echo.Context) error {
@@ -282,22 +299,58 @@ func (api *API) readOverview(ctx context.Context) (Overview, error) {
 }
 
 func (api *API) updateSettings(c echo.Context) error {
-	var req AdminSettings
+	var req AdminSettingsPatch
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
-	req.SiteName = strings.TrimSpace(req.SiteName)
-	if req.SiteName == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "site name is required")
-	}
-	if len([]rune(req.SiteName)) > maxNameRunes {
-		return echo.NewHTTPError(http.StatusBadRequest, "site name is too long")
-	}
 
-	if err := SaveSettings(api.db, req); err != nil {
+	current, err := api.settings()
+	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, req)
+	changed := map[string]any{}
+	if req.SiteName != nil {
+		siteName := strings.TrimSpace(*req.SiteName)
+		if siteName == "" {
+			return echo.NewHTTPError(http.StatusBadRequest, "site name is required")
+		}
+		if len([]rune(siteName)) > maxNameRunes {
+			return echo.NewHTTPError(http.StatusBadRequest, "site name is too long")
+		}
+		current.SiteName = siteName
+		changed[settingSiteName] = siteName
+	}
+	if req.AllowRegistration != nil {
+		current.AllowRegistration = *req.AllowRegistration
+		changed[settingAllowRegistration] = *req.AllowRegistration
+	}
+	if req.AllowGuestAccess != nil {
+		current.AllowGuestAccess = *req.AllowGuestAccess
+		changed[settingAllowGuestAccess] = *req.AllowGuestAccess
+	}
+	if req.DefaultSubmissionPublic != nil {
+		current.DefaultSubmissionPublic = *req.DefaultSubmissionPublic
+		changed[settingDefaultSubmissionPublic] = *req.DefaultSubmissionPublic
+	}
+	if req.Notice != nil {
+		current.Notice = *req.Notice
+		changed[settingHomeNotice] = *req.Notice
+	}
+	if len(changed) == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "settings patch is empty")
+	}
+
+	if err := api.db.Transaction(func(tx *gorm.DB) error {
+		for key, value := range changed {
+			if err := saveSetting(tx, key, value); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, current)
 }
 
 func (api *API) createUser(c echo.Context) error {

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { getProblems } from '../client'
-import type { Problem, ProblemRef } from '../client'
+import type { ProblemListItem, ProblemRef } from '../client'
 import { useLocale } from '../locale'
 import { problemCode, problemLabel } from '../utils/format'
 import { limits } from '../utils/limits'
@@ -30,7 +30,7 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading }:
   const remote = useQuery({
     queryKey: ['problems', 'select', searchText],
     queryFn: () => getProblems({ q: searchText }),
-    enabled: open
+    enabled: open && searchText.length > 0
   })
   const remoteOptions = useMemo(() => (remote.data ?? []).map(problemOption), [remote.data])
   const [knownOptions, setKnownOptions] = useState<Option[]>([])
@@ -97,7 +97,7 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading }:
   )
 }
 
-function problemOption(item: Problem): Option {
+function problemOption(item: ProblemListItem): Option {
   return { value: item.id, label: problemLabel(item.id, item.title) }
 }
 

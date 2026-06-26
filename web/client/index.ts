@@ -7,6 +7,7 @@ export type Site = components['schemas']['Site']
 export type NoticeUpdate = components['schemas']['NoticeUpdate']
 export type Language = components['schemas']['Lang']
 export type UploadResult = components['schemas']['UploadResult']
+export type ProblemListItem = components['schemas']['ProblemListItem']
 export type Problem = components['schemas']['Problem']
 export type ProblemCreate = components['schemas']['ProblemCreate']
 export type ProblemUpdate = components['schemas']['ProblemUpdate']
@@ -51,6 +52,7 @@ export type LoginRequest = components['schemas']['LoginRequest']
 export type RegisterRequest = components['schemas']['RegisterRequest']
 export type AdminOverview = components['schemas']['AdminOverview']
 export type AdminSettings = components['schemas']['AdminSettings']
+export type AdminSettingsPatch = components['schemas']['AdminSettingsPatch']
 export type AdminUserCreate = components['schemas']['AdminUserCreate']
 export type AdminUserUpdate = components['schemas']['AdminUserUpdate']
 export type PasswordReset = components['schemas']['PasswordReset']
@@ -257,7 +259,12 @@ export async function getAdmin() {
   return assertData(data, error)
 }
 
-export async function updateAdminSettings(body: AdminSettings) {
+export async function getAdminSettings() {
+  const { data, error } = await client.GET('/api/admin/settings')
+  return assertData(data, error)
+}
+
+export async function updateAdminSettings(body: AdminSettingsPatch) {
   const { data, error } = await client.PATCH('/api/admin/settings', { body })
   return assertData(data, error)
 }

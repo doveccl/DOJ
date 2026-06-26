@@ -325,8 +325,8 @@ type ProblemDTO struct {
 	Mode        string     `json:"mode"`
 	TimeMS      int        `json:"timeMs"`
 	MemoryMB    int        `json:"memoryMb"`
-	Cases       int        `json:"cases"`
-	DataBytes   int64      `json:"dataBytes"`
+	Cases       *int       `json:"cases,omitempty"`
+	DataBytes   *int64     `json:"dataBytes,omitempty"`
 	AC          int        `json:"ac"`
 	Submit      int        `json:"submit"`
 	Discussions int        `json:"discussions"`
@@ -944,27 +944,13 @@ func (api *API) homeAssignments(c echo.Context) ([]Item, error) {
 	if err := api.db.Order("end_at desc").Limit(5).Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	items := make([]Item, 0, len(rows))
-	for _, row := range rows {
-		allowed, err := api.assignmentVisible(c, row.ID)
-		if err != nil {
-			return nil, err
-		}
-		if !allowed {
-			continue
-		}
-		total, err := api.assignmentProblemCount(row.ID)
-		if err != nil {
-			return nil, err
-		}
-		if total == 0 {
-			continue
-		}
-		done, err := api.assignmentDoneCount(c, row.ID)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, Item{ID: row.ID, Title: row.Title, Meta: strconv.Itoa(done) + "/" + strconv.Itoa(total)})
+	assignments, err := api.assignmentDTOs(c, rows)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]Item, 0, len(assignments))
+	for _, row := range assignments {
+		items = append(items, Item{ID: row.ID, Title: row.Title, Meta: strconv.Itoa(row.Done) + "/" + strconv.Itoa(row.Total)})
 	}
 	return items, nil
 }
@@ -975,13 +961,13 @@ func (api *API) homeContests(c echo.Context) ([]Item, error) {
 	if err := api.db.Order("start_at desc").Limit(5).Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	items := make([]Item, 0, len(rows))
-	for _, row := range rows {
-		total, err := api.contestProblemCount(row, api.isAdmin(c))
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, Item{ID: row.ID, Title: row.Title, Meta: row.Kind + " · " + strconv.Itoa(total)})
+	contests, err := api.contestDTOs(rows, api.isAdmin(c))
+	if err != nil {
+		return nil, err
+	}
+	items := make([]Item, 0, len(contests))
+	for _, row := range contests {
+		items = append(items, Item{ID: row.ID, Title: row.Title, Meta: row.Kind + " · " + strconv.Itoa(row.Total)})
 	}
 	return items, nil
 }
@@ -1156,7 +1142,17 @@ func (api *API) updateProblem(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, item)
+	items := []ProblemDTO{item}
+	if err := api.decorateProblemStats(c.Request().Context(), items); err != nil {
+		return err
+	}
+	if err := api.decorateProblemMines(c, items); err != nil {
+		return err
+	}
+	if err := api.decorateProblemDiscussions(c.Request().Context(), items); err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, items[0])
 }
 
 func (api *API) updateProblemVisibility(c echo.Context) error {
@@ -1536,31 +1532,9 @@ func (api *API) assignments(c echo.Context) error {
 	if err := api.db.Order("end_at desc").Limit(50).Find(&rows).Error; err != nil {
 		return err
 	}
-	items := make([]AssignmentDTO, 0, len(rows))
-	for _, row := range rows {
-		allowed, err := api.assignmentVisible(c, row.ID)
-		if err != nil {
-			return err
-		}
-		if !allowed {
-			continue
-		}
-		total, err := api.assignmentProblemCount(row.ID)
-		if err != nil {
-			return err
-		}
-		if total == 0 {
-			continue
-		}
-		done, err := api.assignmentDoneCount(c, row.ID)
-		if err != nil {
-			return err
-		}
-		dto, err := api.assignmentDTO(c, row, total, done)
-		if err != nil {
-			return err
-		}
-		items = append(items, dto)
+	items, err := api.assignmentDTOs(c, rows)
+	if err != nil {
+		return err
 	}
 	return c.JSON(http.StatusOK, items)
 }
@@ -1733,17 +1707,9 @@ func (api *API) assignment(c echo.Context) error {
 	if err := api.db.Where("assignment_id = ?", row.ID).Order("sort asc").Find(&links).Error; err != nil {
 		return err
 	}
-	problems := make([]ProblemDTO, 0, len(links))
-	for _, link := range links {
-		var problem models.Problem
-		if err := api.db.First(&problem, link.ProblemID).Error; err == nil {
-			if !api.isAdmin(c) && !api.problemVisibleInList(problem) {
-				continue
-			}
-			item := problemDTO(problem)
-			item.Sort = link.Sort
-			problems = append(problems, item)
-		}
+	problems, err := api.assignmentProblems(c, links)
+	if err != nil {
+		return err
 	}
 	if err := api.decorateProblemMines(c, problems); err != nil {
 		return err
@@ -1777,13 +1743,9 @@ func (api *API) contests(c echo.Context) error {
 	if err := api.db.Order("start_at desc").Limit(50).Find(&rows).Error; err != nil {
 		return err
 	}
-	items := make([]ContestDTO, 0, len(rows))
-	for _, row := range rows {
-		total, err := api.contestProblemCount(row, api.isAdmin(c))
-		if err != nil {
-			return err
-		}
-		items = append(items, contestDTO(row, total))
+	items, err := api.contestDTOs(rows, api.isAdmin(c))
+	if err != nil {
+		return err
 	}
 	return c.JSON(http.StatusOK, items)
 }
@@ -1966,17 +1928,9 @@ func (api *API) contest(c echo.Context) error {
 	if err := api.db.Where("contest_id = ?", row.ID).Order("sort asc").Find(&links).Error; err != nil {
 		return err
 	}
-	problems := make([]ProblemDTO, 0, len(links))
-	for _, link := range links {
-		var problem models.Problem
-		if err := api.db.First(&problem, link.ProblemID).Error; err == nil {
-			if !api.contestProblemVisible(row, problem, api.isAdmin(c)) {
-				continue
-			}
-			item := problemDTO(problem)
-			item.Sort = link.Sort
-			problems = append(problems, item)
-		}
+	problems, err := api.contestProblems(c, row, links)
+	if err != nil {
+		return err
 	}
 	if err := api.decorateProblemMinesInContest(c, problems, row.ID); err != nil {
 		return err
@@ -2039,9 +1993,9 @@ func (api *API) submissions(c echo.Context) error {
 	if err := query.Find(&rows).Error; err != nil {
 		return err
 	}
-	items := make([]SubmissionDTO, 0, len(rows))
-	for _, row := range rows {
-		items = append(items, api.submissionDTO(row))
+	items, err := api.submissionDTOs(rows)
+	if err != nil {
+		return err
 	}
 	return c.JSON(http.StatusOK, items)
 }
@@ -2234,11 +2188,7 @@ func (api *API) contextSubmissions(c echo.Context, context string, id uint, unti
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	items := make([]SubmissionDTO, 0, len(rows))
-	for _, row := range rows {
-		items = append(items, api.submissionDTO(row))
-	}
-	return items, nil
+	return api.submissionDTOs(rows)
 }
 
 func (api *API) contestRank(contest models.Contest, problems []ProblemDTO, includeHidden bool, until *time.Time) ([]RankUserDTO, error) {
@@ -2467,56 +2417,6 @@ func penalizable(status string) bool {
 	}
 }
 
-func (api *API) contextRank(context string, id uint, includeHidden bool, until *time.Time) ([]RankUserDTO, error) {
-	var users []models.User
-	query := api.db.Model(&models.User{}).
-		Joins("JOIN submissions ON submissions.user_id = users.id").
-		Distinct("users.id", "users.name", "users.bio", "users.avatar").
-		Order("users.id asc")
-	switch context {
-	case "assignment":
-		query = query.Where("submissions.assignment_id = ?", id)
-	case "contest":
-		query = query.Where("submissions.contest_id = ?", id)
-	default:
-		query = query.Where("1 = 0")
-	}
-	if until != nil {
-		query = query.Where("submissions.created_at < ?", *until)
-	}
-	if !includeHidden {
-		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
-		query = api.applyProblemListVisibility(query)
-	}
-	if err := query.Find(&users).Error; err != nil {
-		return nil, err
-	}
-	items := make([]RankUserDTO, 0, len(users))
-	for _, user := range users {
-		ac, submit, err := api.contextUserStats(user.ID, context, id, includeHidden, until)
-		if err != nil {
-			return nil, err
-		}
-		if submit == 0 {
-			continue
-		}
-		items = append(items, RankUserDTO{User: user.Name, Bio: user.Bio, Avatar: user.Avatar, AC: ac, Submit: submit})
-	}
-	sort.Slice(items, func(i, j int) bool {
-		if items[i].AC != items[j].AC {
-			return items[i].AC > items[j].AC
-		}
-		if items[i].Submit != items[j].Submit {
-			return items[i].Submit < items[j].Submit
-		}
-		return items[i].User < items[j].User
-	})
-	for index := range items {
-		items[index].Rank = index + 1
-	}
-	return items, nil
-}
-
 func (api *API) assignmentProgress(id uint, problems []ProblemDTO) ([]AssignmentProgressDTO, error) {
 	userIDs, err := api.assignmentProgressUserIDs(id)
 	if err != nil {
@@ -2639,54 +2539,6 @@ func (api *API) assignmentProgressUserIDs(id uint) ([]uint, error) {
 	return userIDs, nil
 }
 
-func (api *API) contextUserStats(userID uint, context string, id uint, includeHidden bool, until *time.Time) (int, int, error) {
-	submitQuery := api.db.Model(&models.Submission{}).
-		Where("submissions.user_id = ?", userID)
-	switch context {
-	case "assignment":
-		submitQuery = submitQuery.Where("submissions.assignment_id = ?", id)
-	case "contest":
-		submitQuery = submitQuery.Where("submissions.contest_id = ?", id)
-	default:
-		submitQuery = submitQuery.Where("1 = 0")
-	}
-	if until != nil {
-		submitQuery = submitQuery.Where("submissions.created_at < ?", *until)
-	}
-	if !includeHidden {
-		submitQuery = submitQuery.Joins("JOIN problems ON problems.id = submissions.problem_id")
-		submitQuery = api.applyProblemListVisibility(submitQuery)
-	}
-	var submit int64
-	if err := submitQuery.Count(&submit).Error; err != nil {
-		return 0, 0, err
-	}
-
-	acQuery := api.db.Model(&models.Submission{}).
-		Where("submissions.user_id = ? AND submissions.status = ?", userID, "AC").
-		Distinct("submissions.problem_id")
-	switch context {
-	case "assignment":
-		acQuery = acQuery.Where("submissions.assignment_id = ?", id)
-	case "contest":
-		acQuery = acQuery.Where("submissions.contest_id = ?", id)
-	default:
-		acQuery = acQuery.Where("1 = 0")
-	}
-	if until != nil {
-		acQuery = acQuery.Where("submissions.created_at < ?", *until)
-	}
-	if !includeHidden {
-		acQuery = acQuery.Joins("JOIN problems ON problems.id = submissions.problem_id")
-		acQuery = api.applyProblemListVisibility(acQuery)
-	}
-	var ac int64
-	if err := acQuery.Count(&ac).Error; err != nil {
-		return 0, 0, err
-	}
-	return int(ac), int(submit), nil
-}
-
 func (api *API) submission(c echo.Context) error {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -2804,12 +2656,19 @@ func (api *API) rank(c echo.Context) error {
 	if err := api.db.Order("id asc").Limit(100).Find(&users).Error; err != nil {
 		return err
 	}
+	userIDs := make([]uint, 0, len(users))
+	for _, user := range users {
+		userIDs = append(userIDs, user.ID)
+	}
+	stats, err := api.userStatsMap(userIDs)
+	if err != nil {
+		return err
+	}
 	items := make([]RankUserDTO, 0, len(users))
 	for _, user := range users {
-		ac, submit, err := api.userStats(c.Request().Context(), user.ID)
-		if err != nil {
-			return err
-		}
+		got := stats[user.ID]
+		ac := got.AC
+		submit := got.Submit
 		items = append(items, RankUserDTO{User: user.Name, Bio: user.Bio, Avatar: user.Avatar, AC: ac, Submit: submit})
 	}
 	sort.Slice(items, func(i, j int) bool {
@@ -2897,6 +2756,47 @@ func (api *API) userStats(ctx context.Context, userID uint) (int, int, error) {
 	return stats.AC, stats.Submit, nil
 }
 
+func (api *API) userStatsMap(userIDs []uint) (map[uint]userStatsCache, error) {
+	userIDs = uniqueUint(userIDs)
+	stats := map[uint]userStatsCache{}
+	if len(userIDs) == 0 {
+		return stats, nil
+	}
+	var submits []struct {
+		UserID uint
+		Count  int64
+	}
+	if err := api.db.Model(&models.Submission{}).
+		Select("user_id, count(*) as count").
+		Where("user_id IN ?", userIDs).
+		Group("user_id").
+		Find(&submits).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range submits {
+		item := stats[row.UserID]
+		item.Submit = int(row.Count)
+		stats[row.UserID] = item
+	}
+	var acs []struct {
+		UserID uint
+		Count  int64
+	}
+	if err := api.db.Model(&models.Submission{}).
+		Select("user_id, count(DISTINCT problem_id) as count").
+		Where("user_id IN ? AND status = ?", userIDs, "AC").
+		Group("user_id").
+		Find(&acs).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range acs {
+		item := stats[row.UserID]
+		item.AC = int(row.Count)
+		stats[row.UserID] = item
+	}
+	return stats, nil
+}
+
 func userStatsCacheKey(userID uint) string {
 	return "doj:user:" + strconv.FormatUint(uint64(userID), 10) + ":stats"
 }
@@ -2920,8 +2820,11 @@ func (api *API) userActivities(userID uint, includeHidden bool) ([]UserActivityD
 		return nil, err
 	}
 	items := make([]UserActivityDTO, 0, len(submissions)+20)
-	for _, row := range submissions {
-		submission := api.submissionDTO(row)
+	submissionItems, err := api.submissionDTOs(submissions)
+	if err != nil {
+		return nil, err
+	}
+	for _, submission := range submissionItems {
 		items = append(items, UserActivityDTO{
 			Type:         "submission",
 			ID:           submission.ID,
@@ -2965,19 +2868,33 @@ func (api *API) solvedProblems(userID uint, includeHidden bool) ([]ProblemDTO, e
 		return nil, err
 	}
 	seen := map[uint]bool{}
-	items := make([]ProblemDTO, 0, len(rows))
+	problemIDs := make([]uint, 0, len(rows))
 	for _, row := range rows {
 		if seen[row.ProblemID] {
 			continue
 		}
 		seen[row.ProblemID] = true
-		var problem models.Problem
-		if err := api.db.First(&problem, row.ProblemID).Error; err == nil {
-			if !includeHidden && !api.problemVisibleInList(problem) {
-				continue
-			}
-			items = append(items, problemDTO(problem))
+		problemIDs = append(problemIDs, row.ProblemID)
+	}
+	if len(problemIDs) == 0 {
+		return []ProblemDTO{}, nil
+	}
+	problemQuery := api.db.Model(&models.Problem{}).Where("id IN ?", problemIDs)
+	if !includeHidden {
+		problemQuery = api.applyProblemListVisibility(problemQuery)
+	}
+	var problems []models.Problem
+	if err := problemQuery.Find(&problems).Error; err != nil {
+		return nil, err
+	}
+	byID := problemRowsByID(problems)
+	items := make([]ProblemDTO, 0, len(problemIDs))
+	for _, id := range problemIDs {
+		problem, ok := byID[id]
+		if !ok {
+			continue
 		}
+		items = append(items, problemDTO(problem))
 	}
 	return items, nil
 }
@@ -3011,18 +2928,23 @@ func (api *API) discussions(c echo.Context) error {
 	if err := query.Find(&rows).Error; err != nil {
 		return err
 	}
+	authorIDs := make([]uint, 0, len(rows))
+	discussionIDs := make([]uint, 0, len(rows))
+	for _, row := range rows {
+		authorIDs = append(authorIDs, row.UserID)
+		discussionIDs = append(discussionIDs, row.ID)
+	}
+	authors, err := api.userNameMap(authorIDs)
+	if err != nil {
+		return err
+	}
+	replies, err := api.discussionReplyCounts(discussionIDs)
+	if err != nil {
+		return err
+	}
 	items := make([]DiscussionDTO, 0, len(rows))
 	for _, row := range rows {
-		item := DiscussionDTO{
-			ID:        row.ID,
-			Title:     row.Title,
-			Author:    api.userName(row.UserID),
-			Tags:      readTags([]byte(row.Tags)),
-			Pinned:    row.Pinned,
-			Locked:    row.Locked,
-			CreatedAt: row.CreatedAt,
-		}
-		items = append(items, item)
+		items = append(items, discussionDTOFromRefs(row, authors, replies))
 	}
 	return c.JSON(http.StatusOK, items)
 }
@@ -3090,11 +3012,19 @@ func (api *API) discussion(c echo.Context) error {
 	if err := api.db.Where("discussion_id = ?", row.ID).Order("created_at asc").Find(&comments).Error; err != nil {
 		return err
 	}
+	authorIDs := []uint{row.UserID}
+	for _, item := range comments {
+		authorIDs = append(authorIDs, item.UserID)
+	}
+	authors, err := api.userNameMap(authorIDs)
+	if err != nil {
+		return err
+	}
 	items := make([]CommentDTO, 0, len(comments))
 	for _, item := range comments {
 		items = append(items, CommentDTO{
 			ID:        item.ID,
-			Author:    api.userName(item.UserID),
+			Author:    authorName(item.UserID, authors),
 			Content:   item.Content,
 			CreatedAt: item.CreatedAt,
 		})
@@ -3102,7 +3032,7 @@ func (api *API) discussion(c echo.Context) error {
 	dto := DiscussionDTO{
 		ID:        row.ID,
 		Title:     row.Title,
-		Author:    api.userName(row.UserID),
+		Author:    authorName(row.UserID, authors),
 		Tags:      readTags([]byte(row.Tags)),
 		Pinned:    row.Pinned,
 		Locked:    row.Locked,
@@ -3224,6 +3154,42 @@ func (api *API) createComment(c echo.Context) error {
 	return c.JSON(http.StatusCreated, CommentDTO{ID: row.ID, Author: user.Name, Content: row.Content, CreatedAt: row.CreatedAt})
 }
 
+func discussionDTOFromRefs(row models.Discussion, authors map[uint]string, replies map[uint]int) DiscussionDTO {
+	return DiscussionDTO{
+		ID:        row.ID,
+		Title:     row.Title,
+		Author:    authorName(row.UserID, authors),
+		Tags:      readTags([]byte(row.Tags)),
+		Pinned:    row.Pinned,
+		Locked:    row.Locked,
+		Replies:   replies[row.ID],
+		CreatedAt: row.CreatedAt,
+	}
+}
+
+func (api *API) discussionReplyCounts(ids []uint) (map[uint]int, error) {
+	ids = uniqueUint(ids)
+	counts := map[uint]int{}
+	if len(ids) == 0 {
+		return counts, nil
+	}
+	var rows []struct {
+		DiscussionID uint
+		Count        int64
+	}
+	if err := api.db.Model(&models.Comment{}).
+		Select("discussion_id, count(*) as count").
+		Where("discussion_id IN ?", ids).
+		Group("discussion_id").
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		counts[row.DiscussionID] = int(row.Count)
+	}
+	return counts, nil
+}
+
 func parseID(c echo.Context, name string, message string) (uint, error) {
 	id, err := strconv.ParseUint(c.Param(name), 10, 64)
 	if err != nil {
@@ -3335,7 +3301,7 @@ func (api *API) findProblems(c echo.Context, q string, tag string, limit int, or
 	for _, row := range rows {
 		items = append(items, problemDTO(row))
 	}
-	if err := api.decorateProblemStats(c.Request().Context(), items); err != nil {
+	if err := api.decorateProblemSubmissionStats(items); err != nil {
 		return nil, err
 	}
 	if err := api.decorateProblemMines(c, items); err != nil {
@@ -3457,6 +3423,16 @@ func (api *API) decorateProblemStats(ctx context.Context, items []ProblemDTO) er
 	if len(items) == 0 {
 		return nil
 	}
+	if err := api.decorateProblemSubmissionStats(items); err != nil {
+		return err
+	}
+	return api.decorateProblemAssetStats(ctx, items)
+}
+
+func (api *API) decorateProblemSubmissionStats(items []ProblemDTO) error {
+	if len(items) == 0 {
+		return nil
+	}
 	ids := make([]uint, 0, len(items))
 	for _, item := range items {
 		ids = append(ids, item.ID)
@@ -3491,20 +3467,32 @@ func (api *API) decorateProblemStats(ctx context.Context, items []ProblemDTO) er
 	for _, item := range acs {
 		acByProblem[item.ProblemID] = int(item.Count)
 	}
+	for index := range items {
+		id := items[index].ID
+		items[index].Submit = submitByProblem[id]
+		items[index].AC = acByProblem[id]
+	}
+	return nil
+}
+
+func (api *API) decorateProblemAssetStats(ctx context.Context, items []ProblemDTO) error {
+	if len(items) == 0 {
+		return nil
+	}
 	store, err := utils.NewObjectStoreFromEnv()
 	if err != nil {
 		return err
 	}
 	for index := range items {
 		id := items[index].ID
-		items[index].Submit = submitByProblem[id]
-		items[index].AC = acByProblem[id]
 		assets, err := api.problemAssetsCached(ctx, id, store)
 		if err != nil {
 			return err
 		}
-		items[index].Cases = assets.Cases
-		items[index].DataBytes = assets.DataBytes
+		cases := assets.Cases
+		dataBytes := assets.DataBytes
+		items[index].Cases = &cases
+		items[index].DataBytes = &dataBytes
 	}
 	return nil
 }
@@ -3997,30 +3985,135 @@ int main() {
 }
 
 func (api *API) assignmentDTO(c echo.Context, row models.Assignment, total int, done int) (AssignmentDTO, error) {
-	now := time.Now()
-	status := "running"
-	if row.EndAt.Before(now) {
-		status = "ended"
+	members := assignmentMembersDTO{}
+	admin := api.isAdmin(c)
+	if admin {
+		users, groups, err := api.assignmentMembers(row.ID)
+		if err != nil {
+			return AssignmentDTO{}, err
+		}
+		members = assignmentMembersDTO{Users: users, Groups: groups}
 	}
+	return assignmentDTOFromParts(row, total, done, members, admin), nil
+}
+
+type assignmentMembersDTO struct {
+	Users  []uint
+	Groups []uint
+}
+
+func (api *API) assignmentDTOs(c echo.Context, rows []models.Assignment) ([]AssignmentDTO, error) {
+	if len(rows) == 0 {
+		return []AssignmentDTO{}, nil
+	}
+	ids := assignmentIDs(rows)
+	visible, err := api.assignmentVisibleMap(c, ids)
+	if err != nil {
+		return nil, err
+	}
+	totals, err := api.assignmentTotalMap(ids)
+	if err != nil {
+		return nil, err
+	}
+	done, err := api.assignmentDoneMap(c, ids)
+	if err != nil {
+		return nil, err
+	}
+	admin := api.isAdmin(c)
+	members := map[uint]assignmentMembersDTO{}
+	if admin {
+		members, err = api.assignmentMembersMap(ids)
+		if err != nil {
+			return nil, err
+		}
+	}
+	items := make([]AssignmentDTO, 0, len(rows))
+	for _, row := range rows {
+		if !visible[row.ID] {
+			continue
+		}
+		total := totals[row.ID]
+		if total == 0 {
+			continue
+		}
+		items = append(items, assignmentDTOFromParts(row, total, done[row.ID], members[row.ID], admin))
+	}
+	return items, nil
+}
+
+func assignmentDTOFromParts(row models.Assignment, total int, done int, members assignmentMembersDTO, includeMembers bool) AssignmentDTO {
 	dto := AssignmentDTO{
 		ID:     row.ID,
 		Title:  row.Title,
 		EndAt:  row.EndAt,
-		Status: status,
+		Status: assignmentStatus(row),
 		Total:  total,
 		Done:   done,
 		Users:  []uint{},
 		Groups: []uint{},
 	}
-	if api.isAdmin(c) {
-		users, groups, err := api.assignmentMembers(row.ID)
-		if err != nil {
-			return AssignmentDTO{}, err
-		}
-		dto.Users = users
-		dto.Groups = groups
+	if includeMembers {
+		dto.Users = members.Users
+		dto.Groups = members.Groups
 	}
-	return dto, nil
+	return dto
+}
+
+func assignmentStatus(row models.Assignment) string {
+	if row.EndAt.Before(time.Now()) {
+		return "ended"
+	}
+	return "running"
+}
+
+func assignmentIDs(rows []models.Assignment) []uint {
+	ids := make([]uint, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.ID)
+	}
+	return ids
+}
+
+func (api *API) assignmentVisibleMap(c echo.Context, ids []uint) (map[uint]bool, error) {
+	ids = uniqueUint(ids)
+	visible := map[uint]bool{}
+	if len(ids) == 0 {
+		return visible, nil
+	}
+	if api.isAdmin(c) {
+		for _, id := range ids {
+			visible[id] = true
+		}
+		return visible, nil
+	}
+	if api.role(c) == "guest" {
+		return visible, nil
+	}
+	user, err := api.currentUser(c)
+	if err != nil {
+		return nil, err
+	}
+	var direct []models.AssignmentUser
+	if err := api.db.Where("assignment_id IN ? AND user_id = ?", ids, user.ID).Find(&direct).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range direct {
+		visible[row.AssignmentID] = true
+	}
+	var grouped []struct {
+		AssignmentID uint
+	}
+	if err := api.db.Model(&models.AssignmentGroup{}).
+		Select("assignment_groups.assignment_id").
+		Joins("JOIN group_users ON group_users.group_id = assignment_groups.group_id").
+		Where("assignment_groups.assignment_id IN ? AND group_users.user_id = ?", ids, user.ID).
+		Find(&grouped).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range grouped {
+		visible[row.AssignmentID] = true
+	}
+	return visible, nil
 }
 
 func (api *API) assignmentMembers(id uint) ([]uint, []uint, error) {
@@ -4043,6 +4136,33 @@ func (api *API) assignmentMembers(id uint) ([]uint, []uint, error) {
 	return userIDs, groupIDs, nil
 }
 
+func (api *API) assignmentMembersMap(ids []uint) (map[uint]assignmentMembersDTO, error) {
+	ids = uniqueUint(ids)
+	members := map[uint]assignmentMembersDTO{}
+	if len(ids) == 0 {
+		return members, nil
+	}
+	var users []models.AssignmentUser
+	if err := api.db.Where("assignment_id IN ?", ids).Order("user_id asc").Find(&users).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range users {
+		item := members[row.AssignmentID]
+		item.Users = append(item.Users, row.UserID)
+		members[row.AssignmentID] = item
+	}
+	var groups []models.AssignmentGroup
+	if err := api.db.Where("assignment_id IN ?", ids).Order("group_id asc").Find(&groups).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range groups {
+		item := members[row.AssignmentID]
+		item.Groups = append(item.Groups, row.GroupID)
+		members[row.AssignmentID] = item
+	}
+	return members, nil
+}
+
 func (api *API) assignmentProblemCount(id uint) (int, error) {
 	var count int64
 	query := api.db.Model(&models.AssignmentProblem{}).Where("assignment_id = ?", id)
@@ -4050,6 +4170,29 @@ func (api *API) assignmentProblemCount(id uint) (int, error) {
 		return 0, err
 	}
 	return int(count), nil
+}
+
+func (api *API) assignmentTotalMap(ids []uint) (map[uint]int, error) {
+	ids = uniqueUint(ids)
+	totals := map[uint]int{}
+	if len(ids) == 0 {
+		return totals, nil
+	}
+	var rows []struct {
+		AssignmentID uint
+		Count        int64
+	}
+	if err := api.db.Model(&models.AssignmentProblem{}).
+		Select("assignment_id, count(*) as count").
+		Where("assignment_id IN ?", ids).
+		Group("assignment_id").
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		totals[row.AssignmentID] = int(row.Count)
+	}
+	return totals, nil
 }
 
 func (api *API) assignmentDoneCount(c echo.Context, id uint) (int, error) {
@@ -4073,6 +4216,64 @@ func (api *API) assignmentDoneCount(c echo.Context, id uint) (int, error) {
 	return len(rows), nil
 }
 
+func (api *API) assignmentDoneMap(c echo.Context, ids []uint) (map[uint]int, error) {
+	ids = uniqueUint(ids)
+	done := map[uint]int{}
+	if len(ids) == 0 || api.role(c) == "guest" {
+		return done, nil
+	}
+	user, err := api.currentUser(c)
+	if err != nil {
+		return nil, err
+	}
+	var rows []struct {
+		AssignmentID uint
+		Count        int64
+	}
+	if err := api.db.Model(&models.Submission{}).
+		Select("submissions.assignment_id, count(DISTINCT submissions.problem_id) as count").
+		Joins("JOIN assignment_problems ON assignment_problems.assignment_id = submissions.assignment_id AND assignment_problems.problem_id = submissions.problem_id").
+		Where("submissions.assignment_id IN ? AND submissions.user_id = ? AND submissions.status = ?", ids, user.ID, "AC").
+		Group("submissions.assignment_id").
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		done[row.AssignmentID] = int(row.Count)
+	}
+	return done, nil
+}
+
+func (api *API) assignmentProblems(c echo.Context, links []models.AssignmentProblem) ([]ProblemDTO, error) {
+	if len(links) == 0 {
+		return []ProblemDTO{}, nil
+	}
+	ids := make([]uint, 0, len(links))
+	for _, link := range links {
+		ids = append(ids, link.ProblemID)
+	}
+	query := api.db.Model(&models.Problem{}).Where("id IN ?", uniqueUint(ids))
+	if !api.isAdmin(c) {
+		query = api.applyProblemListVisibility(query)
+	}
+	var rows []models.Problem
+	if err := query.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	byID := problemRowsByID(rows)
+	items := make([]ProblemDTO, 0, len(links))
+	for _, link := range links {
+		problem, ok := byID[link.ProblemID]
+		if !ok {
+			continue
+		}
+		item := problemDTO(problem)
+		item.Sort = link.Sort
+		items = append(items, item)
+	}
+	return items, nil
+}
+
 func contestDTO(row models.Contest, total int) ContestDTO {
 	freezeAt := row.FreezeAt
 	if row.Kind == "OI" {
@@ -4090,28 +4291,97 @@ func contestDTO(row models.Contest, total int) ContestDTO {
 	}
 }
 
-func (api *API) contestProblemCount(row models.Contest, admin bool) (int, error) {
-	var links []models.ContestProblem
-	if err := api.db.Where("contest_id = ?", row.ID).Find(&links).Error; err != nil {
-		return 0, err
+func (api *API) contestDTOs(rows []models.Contest, admin bool) ([]ContestDTO, error) {
+	if len(rows) == 0 {
+		return []ContestDTO{}, nil
 	}
-	if admin || !contestEnded(row) {
-		return len(links), nil
+	totals, err := api.contestTotalMap(contestIDs(rows), admin)
+	if err != nil {
+		return nil, err
 	}
-	total := 0
+	items := make([]ContestDTO, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, contestDTO(row, totals[row.ID]))
+	}
+	return items, nil
+}
+
+func contestIDs(rows []models.Contest) []uint {
+	ids := make([]uint, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.ID)
+	}
+	return ids
+}
+
+func (api *API) contestTotalMap(ids []uint, admin bool) (map[uint]int, error) {
+	ids = uniqueUint(ids)
+	totals := map[uint]int{}
+	if len(ids) == 0 {
+		return totals, nil
+	}
+	var rows []struct {
+		ContestID uint
+		Count     int64
+	}
+	query := api.db.Model(&models.ContestProblem{}).
+		Select("contest_problems.contest_id, count(*) as count").
+		Where("contest_problems.contest_id IN ?", ids)
+	if !admin {
+		query = query.
+			Joins("JOIN contests ON contests.id = contest_problems.contest_id").
+			Joins("JOIN problems ON problems.id = contest_problems.problem_id AND problems.deleted_at IS NULL").
+			Where("contests.end_at > ? OR problems.visible = ?", time.Now(), true)
+	}
+	if err := query.Group("contest_problems.contest_id").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		totals[row.ContestID] = int(row.Count)
+	}
+	return totals, nil
+}
+
+func (api *API) contestProblems(c echo.Context, contest models.Contest, links []models.ContestProblem) ([]ProblemDTO, error) {
+	if len(links) == 0 {
+		return []ProblemDTO{}, nil
+	}
+	admin := api.isAdmin(c)
+	if !admin && !contestRunning(contest) && !contestEnded(contest) {
+		return []ProblemDTO{}, nil
+	}
+	ids := make([]uint, 0, len(links))
 	for _, link := range links {
-		var problem models.Problem
-		if err := api.db.First(&problem, link.ProblemID).Error; err != nil {
-			if err == gorm.ErrRecordNotFound {
-				continue
-			}
-			return 0, err
-		}
-		if api.contestProblemVisible(row, problem, admin) {
-			total++
-		}
+		ids = append(ids, link.ProblemID)
 	}
-	return total, nil
+	query := api.db.Model(&models.Problem{}).Where("id IN ?", uniqueUint(ids))
+	if !admin && contestEnded(contest) {
+		query = query.Where("visible = ?", true)
+	}
+	var rows []models.Problem
+	if err := query.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	byID := problemRowsByID(rows)
+	items := make([]ProblemDTO, 0, len(links))
+	for _, link := range links {
+		problem, ok := byID[link.ProblemID]
+		if !ok {
+			continue
+		}
+		item := problemDTO(problem)
+		item.Sort = link.Sort
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+func problemRowsByID(rows []models.Problem) map[uint]models.Problem {
+	byID := make(map[uint]models.Problem, len(rows))
+	for _, row := range rows {
+		byID[row.ID] = row
+	}
+	return byID
 }
 
 func contestStatus(row models.Contest) string {
@@ -4153,32 +4423,42 @@ func contestEnded(row models.Contest) bool {
 	return !time.Now().Before(row.EndAt)
 }
 
-func (api *API) contestProblemVisible(row models.Contest, problem models.Problem, admin bool) bool {
-	if admin {
-		return true
+func (api *API) submissionDTO(row models.Submission) SubmissionDTO {
+	items, err := api.submissionDTOs([]models.Submission{row})
+	if err == nil && len(items) > 0 {
+		return items[0]
 	}
-	if contestRunning(row) {
-		return true
-	}
-	if contestEnded(row) {
-		return problem.Visible
-	}
-	return false
+	return submissionDTOFromRefs(row, nil, nil)
 }
 
-func (api *API) submissionDTO(row models.Submission) SubmissionDTO {
-	title := ""
-	userName := ""
-
-	var problem models.Problem
-	if err := api.db.First(&problem, row.ProblemID).Error; err == nil {
-		title = problem.Title
+func (api *API) submissionDTOs(rows []models.Submission) ([]SubmissionDTO, error) {
+	if len(rows) == 0 {
+		return []SubmissionDTO{}, nil
 	}
-	var user models.User
-	if err := api.db.First(&user, row.UserID).Error; err == nil {
-		userName = user.Name
+	problemIDs := make([]uint, 0, len(rows))
+	userIDs := make([]uint, 0, len(rows))
+	for _, row := range rows {
+		problemIDs = append(problemIDs, row.ProblemID)
+		userIDs = append(userIDs, row.UserID)
 	}
+	titles, err := api.problemTitleMap(problemIDs)
+	if err != nil {
+		return nil, err
+	}
+	users, err := api.userNameMap(userIDs)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]SubmissionDTO, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, submissionDTOFromRefs(row, titles, users))
+	}
+	return items, nil
+}
 
+func submissionDTOFromRefs(row models.Submission, titles map[uint]string, users map[uint]string) SubmissionDTO {
+	title := titles[row.ProblemID]
+	userName := users[row.UserID]
 	if title == "" {
 		title = "P" + strconv.Itoa(int(row.ProblemID))
 	}
@@ -4198,6 +4478,38 @@ func (api *API) submissionDTO(row models.Submission) SubmissionDTO {
 		Public:       row.Public,
 		CreatedAt:    row.CreatedAt,
 	}
+}
+
+func (api *API) problemTitleMap(ids []uint) (map[uint]string, error) {
+	ids = uniqueUint(ids)
+	titles := map[uint]string{}
+	if len(ids) == 0 {
+		return titles, nil
+	}
+	var rows []models.Problem
+	if err := api.db.Select("id", "title").Where("id IN ?", ids).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		titles[row.ID] = row.Title
+	}
+	return titles, nil
+}
+
+func (api *API) userNameMap(ids []uint) (map[uint]string, error) {
+	ids = uniqueUint(ids)
+	names := map[uint]string{}
+	if len(ids) == 0 {
+		return names, nil
+	}
+	var rows []models.User
+	if err := api.db.Select("id", "name").Where("id IN ?", ids).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		names[row.ID] = row.Name
+	}
+	return names, nil
 }
 
 func (api *API) notice() string {
@@ -4430,6 +4742,22 @@ func cleanUintList(values []uint) []uint {
 	return items
 }
 
+func uniqueUint(values []uint) []uint {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[uint]bool, len(values))
+	items := make([]uint, 0, len(values))
+	for _, value := range values {
+		if value == 0 || seen[value] {
+			continue
+		}
+		seen[value] = true
+		items = append(items, value)
+	}
+	return items
+}
+
 func validateRegister(req RegisterRequest) error {
 	if len(req.Name) < models.UserNameMin || len(req.Name) > models.UserNameMax || !validName(req.Name) {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid username")
@@ -4531,6 +4859,13 @@ func (api *API) userName(id uint) string {
 		return user.Name
 	}
 
+	return strconv.Itoa(int(id))
+}
+
+func authorName(id uint, names map[uint]string) string {
+	if name := names[id]; name != "" {
+		return name
+	}
 	return strconv.Itoa(int(id))
 }
 

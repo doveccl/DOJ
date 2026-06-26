@@ -203,7 +203,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["getAdminSettings"];
         put?: never;
         post?: never;
         delete?: never;
@@ -925,6 +925,13 @@ export interface components {
             defaultSubmissionPublic: boolean;
             notice: string;
         };
+        AdminSettingsPatch: {
+            siteName?: string;
+            allowRegistration?: boolean;
+            allowGuestAccess?: boolean;
+            defaultSubmissionPublic?: boolean;
+            notice?: string;
+        };
         BackupSettings: {
             enabled: boolean;
             /** @enum {string} */
@@ -1019,6 +1026,22 @@ export interface components {
         AdminJudgerCreate: {
             name: string;
         };
+        ProblemListItem: {
+            id: number;
+            sort?: string;
+            title: string;
+            tags: string[];
+            visible: boolean;
+            mode: string;
+            timeMs: number;
+            memoryMb: number;
+            ac: number;
+            submit: number;
+            discussions: number;
+            /** @enum {string} */
+            mine: "none" | "tried" | "ac";
+            latest?: components["schemas"]["ProblemRecord"];
+        };
         Problem: {
             id: number;
             sort?: string;
@@ -1098,7 +1121,7 @@ export interface components {
         Home: {
             notice: string;
             heatmap: components["schemas"]["HeatCell"][];
-            problems: components["schemas"]["Problem"][];
+            problems: components["schemas"]["ProblemListItem"][];
             assignments: components["schemas"]["Item"][];
             contests: components["schemas"]["Item"][];
         };
@@ -1118,7 +1141,7 @@ export interface components {
         };
         AssignmentDetail: {
             assignment: components["schemas"]["Assignment"];
-            problems: components["schemas"]["Problem"][];
+            problems: components["schemas"]["ProblemListItem"][];
             submissions: components["schemas"]["Submission"][];
             progress: components["schemas"]["AssignmentProgress"][];
         };
@@ -1164,7 +1187,7 @@ export interface components {
         };
         ContestDetail: {
             contest: components["schemas"]["Contest"];
-            problems: components["schemas"]["Problem"][];
+            problems: components["schemas"]["ProblemListItem"][];
             rank: components["schemas"]["RankUser"][];
             submissions: components["schemas"]["Submission"][];
         };
@@ -1249,7 +1272,7 @@ export interface components {
         UserProfile: {
             user: components["schemas"]["PublicUser"];
             heatmap: components["schemas"]["HeatCell"][];
-            solved: components["schemas"]["Problem"][];
+            solved: components["schemas"]["ProblemListItem"][];
             activities: components["schemas"]["UserActivity"][];
         };
         UserActivity: {
@@ -1606,6 +1629,26 @@ export interface operations {
             };
         };
     };
+    getAdminSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Admin settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSettings"];
+                };
+            };
+        };
+    };
     updateAdminSettings: {
         parameters: {
             query?: never;
@@ -1615,7 +1658,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AdminSettings"];
+                "application/json": components["schemas"]["AdminSettingsPatch"];
             };
         };
         responses: {
@@ -2154,7 +2197,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Problem"][];
+                    "application/json": components["schemas"]["ProblemListItem"][];
                 };
             };
         };
@@ -2178,7 +2221,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ProblemListItem"];
                 };
             };
         };
@@ -2286,7 +2329,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["ProblemListItem"];
                 };
             };
             /** @description Problem not found */

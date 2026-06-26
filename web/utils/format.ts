@@ -1,4 +1,14 @@
-import type { Assignment, Problem } from '../client'
+import type { Assignment } from '../client'
+
+type ProblemLimit = {
+  timeMs: number
+  memoryMb: number
+}
+
+type ProblemPass = {
+  ac: number
+  submit: number
+}
 
 export function problemCode(id: number) {
   return `P${id}`
@@ -16,11 +26,11 @@ export function caseCode(no: number) {
   return String(no)
 }
 
-export function formatLimit(problem: Pick<Problem, 'timeMs' | 'memoryMb'>) {
+export function formatLimit(problem: ProblemLimit) {
   return `${problem.timeMs}ms / ${problem.memoryMb}MB`
 }
 
-export function formatPass(problem: Pick<Problem, 'ac' | 'submit'>) {
+export function formatPass(problem: ProblemPass) {
   const percent = problem.submit > 0 ? Math.round((problem.ac / problem.submit) * 100) : 0
   return `${problem.ac}/${problem.submit} (${percent}%)`
 }
