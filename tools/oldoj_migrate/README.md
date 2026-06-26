@@ -11,6 +11,8 @@ The tool is intentionally batch-oriented:
   upserts one Postgres problem row.
 - `cleanup` soft-deletes test problems that have no data cases. It is dry-run
   by default.
+- `verify` checks the active problem count with data cases and reports any
+  active problems without cases.
 
 Example:
 
@@ -19,6 +21,7 @@ export STORAGE='https://...'
 go run ./tools/oldoj_migrate plan -limit 100 -timeout 20s
 go run ./tools/oldoj_migrate migrate -limit 5 -sleep 5s -timeout 30s --apply
 go run ./tools/oldoj_migrate cleanup -timeout 20s --apply
+go run ./tools/oldoj_migrate verify -min-data 100 -max-empty 0 -timeout 20s
 ```
 
 Do not run a large `-limit` while the test site is being manually checked.

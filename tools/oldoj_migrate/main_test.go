@@ -3,7 +3,14 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"context"
+	"fmt"
+	"io"
+	"sort"
+	"strings"
 	"testing"
+
+	"github.com/doveccl/doj/utils"
 )
 
 func TestBuildPlanSkipsExistingDataAndMarksEmptyTargetsForCleanup(t *testing.T) {
@@ -83,4 +90,52 @@ func TestShellCommandQuotesArguments(t *testing.T) {
 	if got != want {
 		t.Fatalf("shell command = %q, want %q", got, want)
 	}
+}
+
+func TestVerifyTargetProblemsCountsDataAndEmptyProblems(t *testing.T) {
+	store := memoryStore{objects: map[string]string{
+		"problems/1000/data/0.in":       "1 2\n",
+		"problems/1000/data/0.out":      "3\n",
+		"problems/1001/data/readme.txt": "ignored",
+	}}
+	got, err := verifyTargetProblems(context.Background(), store, map[uint]targetProblem{
+		1000: {ID: 1000, Title: "A+B"},
+		1001: {ID: 1001, Title: "Reading"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Active != 2 || got.WithData != 1 || got.WithoutData != 1 {
+		t.Fatalf("report = %+v", got)
+	}
+	if len(got.Empty) != 1 || got.Empty[0].ID != 1001 {
+		t.Fatalf("empty = %+v", got.Empty)
+	}
+}
+
+type memoryStore struct {
+	objects map[string]string
+}
+
+func (store memoryStore) Put(context.Context, string, io.Reader, int64, string) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (store memoryStore) Open(context.Context, string) (io.ReadCloser, string, error) {
+	return nil, "", fmt.Errorf("not implemented")
+}
+
+func (store memoryStore) List(_ context.Context, prefix string) ([]utils.ObjectInfo, error) {
+	var items []utils.ObjectInfo
+	for key, body := range store.objects {
+		if strings.HasPrefix(key, prefix) {
+			items = append(items, utils.ObjectInfo{Key: key, Size: int64(len(body))})
+		}
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].Key < items[j].Key })
+	return items, nil
+}
+
+func (store memoryStore) Delete(context.Context, string) error {
+	return fmt.Errorf("not implemented")
 }

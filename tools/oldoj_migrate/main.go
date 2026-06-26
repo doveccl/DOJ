@@ -69,6 +69,8 @@ func run() error {
 		return migrateCommand(os.Args[2:])
 	case "cleanup":
 		return cleanupCommand(os.Args[2:])
+	case "verify":
+		return verifyCommand(os.Args[2:])
 	default:
 		return fmt.Errorf("unknown command %q", os.Args[1])
 	}
@@ -224,6 +226,71 @@ func cleanupCommand(args []string) error {
 		}
 	}
 	return nil
+}
+
+func verifyCommand(args []string) error {
+	fs := flag.NewFlagSet("verify", flag.ExitOnError)
+	sshHost := fs.String("ssh", "51cspnoip.cn", "SSH host that can access test Postgres")
+	minData := fs.Int("min-data", 100, "minimum active problems with real data cases")
+	maxEmpty := fs.Int("max-empty", 0, "maximum active problems without data cases")
+	timeout := fs.Duration("timeout", 20*time.Second, "timeout for SSH-backed queries")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+	defer cancel()
+	targetRows, err := loadTargetProblems(ctx, *sshHost)
+	if err != nil {
+		return err
+	}
+	store, err := utils.NewObjectStoreFromEnv()
+	if err != nil {
+		return err
+	}
+	report, err := verifyTargetProblems(ctx, store, targetRows)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("active=%d with_data=%d without_data=%d\n", report.Active, report.WithData, report.WithoutData)
+	if len(report.Empty) > 0 {
+		fmt.Println("empty active problems:")
+		for _, row := range report.Empty {
+			fmt.Printf("P%d %s\n", row.ID, row.Title)
+		}
+	}
+	if report.WithData < *minData {
+		return fmt.Errorf("with_data=%d, want at least %d", report.WithData, *minData)
+	}
+	if report.WithoutData > *maxEmpty {
+		return fmt.Errorf("without_data=%d, want at most %d", report.WithoutData, *maxEmpty)
+	}
+	return nil
+}
+
+type verifyReport struct {
+	Active      int
+	WithData    int
+	WithoutData int
+	Empty       []targetProblem
+}
+
+func verifyTargetProblems(ctx context.Context, store utils.ObjectStore, targetRows map[uint]targetProblem) (verifyReport, error) {
+	report := verifyReport{Active: len(targetRows)}
+	for id, row := range targetRows {
+		cases, err := countStoredCases(ctx, store, id)
+		if err != nil {
+			return verifyReport{}, err
+		}
+		row.Cases = cases
+		if cases > 0 {
+			report.WithData++
+			continue
+		}
+		report.WithoutData++
+		report.Empty = append(report.Empty, row)
+	}
+	sort.Slice(report.Empty, func(i, j int) bool { return report.Empty[i].ID < report.Empty[j].ID })
+	return report, nil
 }
 
 func loadOldProblems(ctx context.Context, sshHost string, manifestPath string, scan int) ([]oldProblem, error) {
