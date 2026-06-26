@@ -160,6 +160,19 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	if user, ok := findUser(overview, "student"); !ok || len(user.Groups) != 1 || user.Groups[0] != group.ID {
 		t.Fatalf("updated user groups missing: %+v", overview.Users)
 	}
+	res = requestWithCookies(e, http.MethodGet, "/api/admin/members?q=stud&groups="+itoa(group.ID), adminCookies)
+	if res.Code != http.StatusOK {
+		t.Fatalf("search members got %d body=%s", res.Code, res.Body.String())
+	}
+	if err := json.Unmarshal(res.Body.Bytes(), &members); err != nil {
+		t.Fatalf("decode searched members: %v body=%s", err, res.Body.String())
+	}
+	if len(members.Users) != 1 || members.Users[0].Name != "student" {
+		t.Fatalf("member search should find student: %+v", members.Users)
+	}
+	if len(members.Groups) != 1 || members.Groups[0].ID != group.ID {
+		t.Fatalf("member search should include selected group ids: %+v", members.Groups)
+	}
 	res = requestJSONWithCookies(e, http.MethodPatch, "/api/admin/groups/"+itoa(group.ID), adminCookies, `{"name":"team-b"}`)
 	if res.Code != http.StatusOK {
 		t.Fatalf("update group got %d body=%s", res.Code, res.Body.String())

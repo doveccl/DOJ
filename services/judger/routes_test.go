@@ -302,6 +302,9 @@ func TestTryLeaseStoresDatabaseLease(t *testing.T) {
 	if payload == nil || payload.SubmissionID != submission.ID || payload.Attempt != 1 {
 		t.Fatalf("payload = %+v", payload)
 	}
+	if payload.Problem.PackageVersion == "" {
+		t.Fatalf("lease payload should include problem package version: %+v", payload.Problem)
+	}
 	var got models.Submission
 	if err := db.First(&got, submission.ID).Error; err != nil {
 		t.Fatalf("read submission: %v", err)

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/mail"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -210,7 +211,15 @@ func (api *API) getSettings(c echo.Context) error {
 }
 
 func (api *API) members(c echo.Context) error {
-	members, err := api.readMembers()
+	userIDs, err := parseUintCSV(c.QueryParam("users"))
+	if err != nil {
+		return err
+	}
+	groupIDs, err := parseUintCSV(c.QueryParam("groups"))
+	if err != nil {
+		return err
+	}
+	members, err := api.searchMembers(c.QueryParam("q"), userIDs, groupIDs)
 	if err != nil {
 		return err
 	}
@@ -313,15 +322,7 @@ func (api *API) readOverview(ctx context.Context) (Overview, error) {
 }
 
 func (api *API) readMembers() (Members, error) {
-	users, err := api.users()
-	if err != nil {
-		return Members{}, err
-	}
-	groups, err := api.groups()
-	if err != nil {
-		return Members{}, err
-	}
-	return Members{Users: users, Groups: groups}, nil
+	return api.searchMembers("", nil, nil)
 }
 
 func (api *API) updateSettings(c echo.Context) error {
@@ -854,8 +855,21 @@ func applySetting(settings *AdminSettings, row models.Setting) error {
 }
 
 func (api *API) users() ([]User, error) {
+	return api.searchUsers("", nil, 200)
+}
+
+func (api *API) searchUsers(q string, includeIDs []uint, limit int) ([]User, error) {
 	var rows []models.User
-	if err := api.db.Order("id asc").Limit(200).Find(&rows).Error; err != nil {
+	query := api.db.Order("id asc").Limit(limit)
+	q = strings.TrimSpace(q)
+	includeIDs = cleanUintList(includeIDs)
+	if q != "" {
+		like := "%" + q + "%"
+		query = query.Where("LOWER(name) LIKE LOWER(?) OR LOWER(mail) LIKE LOWER(?) OR id IN ?", like, like, includeIDsOrZero(includeIDs))
+	} else if len(includeIDs) > 0 {
+		query = query.Where("id IN ?", includeIDs)
+	}
+	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	userIDs := make([]uint, 0, len(rows))
@@ -889,8 +903,20 @@ func (api *API) users() ([]User, error) {
 }
 
 func (api *API) groups() ([]Group, error) {
+	return api.searchGroups("", nil, 200)
+}
+
+func (api *API) searchGroups(q string, includeIDs []uint, limit int) ([]Group, error) {
 	var rows []models.Group
-	if err := api.db.Order("id asc").Limit(200).Find(&rows).Error; err != nil {
+	query := api.db.Order("id asc").Limit(limit)
+	q = strings.TrimSpace(q)
+	includeIDs = cleanUintList(includeIDs)
+	if q != "" {
+		query = query.Where("LOWER(name) LIKE LOWER(?) OR id IN ?", "%"+q+"%", includeIDsOrZero(includeIDs))
+	} else if len(includeIDs) > 0 {
+		query = query.Where("id IN ?", includeIDs)
+	}
+	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	groupIDs := make([]uint, 0, len(rows))
@@ -917,6 +943,32 @@ func (api *API) groups() ([]Group, error) {
 		items = append(items, Group{ID: row.ID, Name: row.Name, Users: cleanUintList(userMap[row.ID])})
 	}
 	return items, nil
+}
+
+func (api *API) searchMembers(q string, userIDs []uint, groupIDs []uint) (Members, error) {
+	q = strings.TrimSpace(q)
+	userLimit := 50 + len(userIDs)
+	groupLimit := 50 + len(groupIDs)
+	if q == "" && len(userIDs) == 0 && len(groupIDs) == 0 {
+		userLimit = 200
+		groupLimit = 200
+	}
+	users, err := api.searchUsers(q, userIDs, userLimit)
+	if err != nil {
+		return Members{}, err
+	}
+	groups, err := api.searchGroups(q, groupIDs, groupLimit)
+	if err != nil {
+		return Members{}, err
+	}
+	return Members{Users: users, Groups: groups}, nil
+}
+
+func includeIDsOrZero(ids []uint) []uint {
+	if len(ids) > 0 {
+		return ids
+	}
+	return []uint{0}
 }
 
 func (api *API) languages() ([]Language, error) {
@@ -1024,6 +1076,26 @@ func cleanUintList(values []uint) []uint {
 		return []uint{}
 	}
 	return items
+}
+
+func parseUintCSV(raw string) ([]uint, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	items := []uint{}
+	for _, part := range strings.Split(raw, ",") {
+		value := strings.TrimSpace(part)
+		if value == "" {
+			continue
+		}
+		id, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid id list")
+		}
+		items = append(items, uint(id))
+	}
+	return cleanUintList(items), nil
 }
 
 func cleanUserCreate(req *UserCreate) {

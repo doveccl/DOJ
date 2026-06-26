@@ -29,7 +29,7 @@ func (err languageBuildError) Error() string {
 	return err.Message
 }
 
-func prepareLanguageImage(ctx context.Context, work string, lang Lang, source string, limits Limits) (preparedLang, error) {
+func prepareLanguageImage(ctx context.Context, work string, lang Lang, source string, limits Limits, submissionID uint, attempt int, logf func(format string, args ...any)) (preparedLang, error) {
 	if strings.TrimSpace(lang.Dockerfile) == "" {
 		return preparedLang{}, fmt.Errorf("language Dockerfile is required")
 	}
@@ -40,6 +40,7 @@ func prepareLanguageImage(ctx context.Context, work string, lang Lang, source st
 	if err != nil {
 		return preparedLang{}, err
 	}
+	contextStartedAt := time.Now()
 	dir, err := os.MkdirTemp(work, "lang-build-")
 	if err != nil {
 		return preparedLang{}, err
@@ -49,13 +50,18 @@ func prepareLanguageImage(ctx context.Context, work string, lang Lang, source st
 		cleanup()
 		return preparedLang{}, err
 	}
+	logStep(logf, submissionID, attempt, "language_build_context", contextStartedAt)
 	buildCtx, cancel := context.WithTimeout(ctx, defaultLanguageBuildTimeout)
 	defer cancel()
 	outputLimit := int64(defaultCompileOutputLimit)
 	if limits.OutputKB > 0 {
 		outputLimit = int64(limits.OutputKB) * 1024
 	}
-	image, out, err := dockerBuildImage(buildCtx, dir, "Dockerfile", outputLimit)
+	image, out, err := dockerBuildImageTimed(buildCtx, dir, "Dockerfile", outputLimit, dockerBuildTiming{
+		Logf:         logf,
+		SubmissionID: submissionID,
+		Attempt:      attempt,
+	})
 	if err != nil {
 		cleanup()
 		message := cleanBuildMessage(out)
@@ -69,7 +75,9 @@ func prepareLanguageImage(ctx context.Context, work string, lang Lang, source st
 		Image:   image,
 		Command: command,
 		Cleanup: func() {
+			removeStartedAt := time.Now()
 			dockerRemoveImage(context.Background(), image)
+			logStep(logf, submissionID, attempt, "remove_language_image", removeStartedAt)
 			cleanup()
 		},
 	}, nil

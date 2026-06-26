@@ -500,6 +500,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listTags"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/problems/{id}": {
         parameters: {
             query?: never;
@@ -796,6 +812,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getRank"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["searchUsers"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1324,6 +1356,10 @@ export interface components {
             ac: number;
             submit: number;
         };
+        UserOption: {
+            id: number;
+            name: string;
+        };
         Discussion: {
             id: number;
             title: string;
@@ -1705,7 +1741,11 @@ export interface operations {
     };
     getAdminMembers: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: string;
+                users?: string;
+                groups?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2276,6 +2316,29 @@ export interface operations {
             };
         };
     };
+    listTags: {
+        parameters: {
+            query?: {
+                kind?: "problem" | "discussion";
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tag suggestions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
     getProblem: {
         parameters: {
             query?: never;
@@ -2688,7 +2751,9 @@ export interface operations {
     };
     listAssignments: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2814,7 +2879,9 @@ export interface operations {
     };
     listContests: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3072,6 +3139,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RankUser"][];
+                };
+            };
+        };
+    };
+    searchUsers: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User suggestions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOption"][];
                 };
             };
         };

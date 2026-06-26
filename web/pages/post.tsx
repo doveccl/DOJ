@@ -1,5 +1,5 @@
 import { DeleteOutlined, EditOutlined, LockOutlined, PushpinOutlined, UnlockOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, Divider, Flex, Form, Input, Modal, Pagination, Popconfirm, Select, Space, Tag, Tooltip, Typography } from 'antd'
+import { App as AntApp, Button, Card, Divider, Flex, Form, Input, Modal, Pagination, Popconfirm, Space, Tag, Tooltip, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -9,6 +9,7 @@ import type { CommentCreate, DiscussionDetail } from '../client'
 import { UserLink } from '../components/entity'
 import { MarkdownEditor, MarkdownPreview } from '../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../components/state'
+import { TagSelect } from '../components/tag-select'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
 import { formatTime } from '../utils/format'
@@ -239,7 +240,7 @@ function PostEditModal({
           <Input maxLength={limits.title} showCount />
         </Form.Item>
         <Form.Item name="tags" label={text.discussion.tags}>
-          <Select mode="tags" tokenSeparators={[',', '，', ' ']} />
+          <TagSelect kind="discussion" mode="tags" />
         </Form.Item>
         <Form.Item name="content" label={text.discussion.content} rules={[{ required: true, whitespace: true }]}>
           <MarkdownEditor minHeight={300} />

@@ -9,6 +9,7 @@ import type { ProblemListItem, ProblemRef } from '../client'
 import { useLocale } from '../locale'
 import { problemCode, problemLabel } from '../utils/format'
 import { limits } from '../utils/limits'
+import { useDebouncedValue } from './use-debounced-value'
 
 type Option = {
   value: number
@@ -26,7 +27,7 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading }:
   const { text } = useLocale()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
-  const searchText = search.trim()
+  const searchText = useDebouncedValue(search.trim())
   const remote = useQuery({
     queryKey: ['problems', 'select', searchText],
     queryFn: () => getProblems({ q: searchText }),
@@ -84,7 +85,7 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading }:
         maxTagCount="responsive"
         mode="multiple"
         onChange={setIDs}
-        onDropdownVisibleChange={setOpen}
+        onOpenChange={setOpen}
         onSearch={setSearch}
         options={selectOptions}
         placeholder={text.submissions.searchProblem}

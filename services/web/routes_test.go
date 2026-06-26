@@ -1507,6 +1507,63 @@ func TestDiscussionListSearchesTitleContentAndTags(t *testing.T) {
 	}
 }
 
+func TestDynamicSelectSuggestionEndpoints(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	users := []models.User{
+		{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true},
+		{Name: "alice", Mail: "alice@example.com", Auth: "hash"},
+	}
+	if err := db.Create(&users).Error; err != nil {
+		t.Fatalf("create users: %v", err)
+	}
+	admin := users[0]
+	problem := models.Problem{ID: 1000, Title: "A+B", Tags: datatypes.JSON([]byte(`["math","beginner"]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	otherProblem := models.Problem{ID: 1001, Title: "DP", Tags: datatypes.JSON([]byte(`["dp"]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&[]models.Problem{problem, otherProblem}).Error; err != nil {
+		t.Fatalf("create problems: %v", err)
+	}
+	if err := db.Create(&models.Discussion{Title: "General", Content: "body", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["general","P1000"]`))}).Error; err != nil {
+		t.Fatalf("create discussion: %v", err)
+	}
+	assignment := models.Assignment{Title: "Summer Homework", EndAt: time.Now().Add(time.Hour)}
+	if err := db.Create(&assignment).Error; err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+	if err := db.Create(&models.AssignmentProblem{AssignmentID: assignment.ID, ProblemID: problem.ID, Sort: "A"}).Error; err != nil {
+		t.Fatalf("create assignment problem: %v", err)
+	}
+	contest := models.Contest{Title: "Winter Cup", Kind: "OI", StartAt: time.Now().Add(-time.Hour), EndAt: time.Now().Add(time.Hour)}
+	if err := db.Create(&contest).Error; err != nil {
+		t.Fatalf("create contest: %v", err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+	cookies := databaseSession(t, db, admin.ID)
+
+	problemTags := decodeJSON[[]string](t, requestOK(t, e, http.MethodGet, "/api/tags?kind=problem&q=ma", ""))
+	if len(problemTags) != 1 || problemTags[0] != "math" {
+		t.Fatalf("problem tag suggestions = %+v", problemTags)
+	}
+	discussionTags := decodeJSON[[]string](t, requestOK(t, e, http.MethodGet, "/api/tags?kind=discussion&q=gen", ""))
+	if len(discussionTags) != 1 || discussionTags[0] != "general" {
+		t.Fatalf("discussion tag suggestions = %+v", discussionTags)
+	}
+	userOptions := decodeJSON[[]UserOptionDTO](t, requestOK(t, e, http.MethodGet, "/api/users?q=ali", ""))
+	if len(userOptions) != 1 || userOptions[0].Name != "alice" {
+		t.Fatalf("user suggestions = %+v", userOptions)
+	}
+	assignments := decodeJSON[[]AssignmentDTO](t, requestWithCookies(e, http.MethodGet, "/api/assignments?q=Summer", cookies, nil))
+	if len(assignments) != 1 || assignments[0].Title != "Summer Homework" {
+		t.Fatalf("assignment suggestions = %+v", assignments)
+	}
+	contests := decodeJSON[[]ContestDTO](t, requestWithCookies(e, http.MethodGet, "/api/contests?q=Winter", cookies, nil))
+	if len(contests) != 1 || contests[0].Title != "Winter Cup" {
+		t.Fatalf("contest suggestions = %+v", contests)
+	}
+}
+
 func TestImageUploadUsesRelativeMediaPathsAndHeaders(t *testing.T) {
 	t.Setenv("STORAGE", t.TempDir())
 	db := testWebDB(t)

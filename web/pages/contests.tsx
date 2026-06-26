@@ -50,7 +50,7 @@ export function ContestsPage() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
-  const query = useQuery({ queryKey: ['contests'], queryFn: getContests })
+  const query = useQuery({ queryKey: ['contests'], queryFn: () => getContests() })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }

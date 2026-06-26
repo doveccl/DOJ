@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -35,7 +36,7 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 				Lang:         testShellLang(),
 				Mode:         ModeDefault,
 				Limits:       Limits{TimeMS: 1000, OutputKB: 64},
-				Problem:      taskProblem{ID: 1000},
+				Problem:      taskProblem{ID: 1000, PackageVersion: "fixture-v1"},
 				Cases: []casePayload{{
 					ID:     "1",
 					Input:  "data/1.in",
@@ -110,7 +111,7 @@ func TestRunOneDownloadsAssetsForRelativeCases(t *testing.T) {
 				Lang:         testShellLang(),
 				Mode:         ModeDefault,
 				Limits:       Limits{TimeMS: 1000, OutputKB: 64},
-				Problem:      taskProblem{ID: 1000},
+				Problem:      taskProblem{ID: 1000, PackageVersion: "fixture-v1"},
 				Cases: []casePayload{{
 					ID:     "1",
 					Input:  "data/1.in",
@@ -180,6 +181,53 @@ func TestExtractTaskAssetsRejectsZipSlip(t *testing.T) {
 				t.Fatal("expected zip-slip asset to be rejected")
 			}
 		})
+	}
+}
+
+func TestDownloadTaskAssetsUsesLeasePackageVersionCache(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/judger/P1000.zip" {
+			http.NotFound(w, r)
+			return
+		}
+		requests++
+		switch requests {
+		case 1:
+			w.Header().Set("Content-Type", "application/zip")
+			_, _ = w.Write(testAssetZip(t))
+		default:
+			t.Errorf("unexpected package request %d", requests)
+			http.Error(w, "too many requests", http.StatusInternalServerError)
+		}
+	}))
+	defer server.Close()
+
+	root := t.TempDir()
+	cfg := WorkerConfig{Server: server.URL, Work: filepath.Join(root, "jobs")}
+	work1 := filepath.Join(root, "one")
+	if err := os.MkdirAll(work1, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := downloadTaskAssets(t.Context(), server.Client(), cfg, 1000, "v1", work1, 11, 1); err != nil {
+		t.Fatalf("first download: %v", err)
+	}
+	if got, err := os.ReadFile(filepath.Join(work1, "data", "1.in")); err != nil || string(got) != "42\n" {
+		t.Fatalf("first work asset = %q, %v", got, err)
+	}
+
+	work2 := filepath.Join(root, "two")
+	if err := os.MkdirAll(work2, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := downloadTaskAssets(t.Context(), server.Client(), cfg, 1000, "v1", work2, 12, 1); err != nil {
+		t.Fatalf("cached download: %v", err)
+	}
+	if got, err := os.ReadFile(filepath.Join(work2, "data", "1.out")); err != nil || string(got) != "42\n" {
+		t.Fatalf("cached work asset = %q, %v", got, err)
+	}
+	if requests != 1 {
+		t.Fatalf("package requests = %d", requests)
 	}
 }
 

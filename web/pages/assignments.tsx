@@ -22,7 +22,7 @@ import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
-import { createAssignment, deleteAssignment, getAdminMembers, getAssignment, getAssignments, updateAssignment } from '../client'
+import { createAssignment, deleteAssignment, getAssignment, getAssignments, updateAssignment } from '../client'
 import type { AssignmentListItem, ProblemRef } from '../client'
 import { IdSelect } from '../components/id-select'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
@@ -49,8 +49,7 @@ export function AssignmentsPage() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
-  const query = useQuery({ queryKey: ['assignments'], queryFn: getAssignments })
-  const members = useQuery({ queryKey: ['admin-members'], queryFn: getAdminMembers, enabled: session.admin && open })
+  const query = useQuery({ queryKey: ['assignments'], queryFn: () => getAssignments() })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
@@ -103,15 +102,6 @@ export function AssignmentsPage() {
     },
     onError: showError
   })
-  const userOptions = (members.data?.users ?? []).map((item) => ({
-    value: item.id,
-    label: item.name
-  }))
-  const groupOptions = (members.data?.groups ?? []).map((item) => ({
-    value: item.id,
-    label: item.name
-  }))
-
   function openCreate() {
     setEditingId(null)
     setOpen(true)
@@ -166,12 +156,9 @@ export function AssignmentsPage() {
       )}
       {session.admin && open ? (
         <AssignmentModal
-          editingId={editingId}
-          loading={create.isPending || update.isPending}
-          userOptions={userOptions}
-          groupOptions={groupOptions}
-          memberLoading={members.isLoading}
-          onCancel={closeModal}
+	          editingId={editingId}
+	          loading={create.isPending || update.isPending}
+	          onCancel={closeModal}
           onSave={save}
         />
       ) : null}
@@ -182,17 +169,11 @@ export function AssignmentsPage() {
 function AssignmentModal({
   editingId,
   loading,
-  userOptions,
-  groupOptions,
-  memberLoading,
   onCancel,
   onSave
 }: {
   editingId: number | null
   loading: boolean
-  userOptions: { value: number; label: string }[]
-  groupOptions: { value: number; label: string }[]
-  memberLoading: boolean
   onCancel: () => void
   onSave: (values: AssignmentForm) => void
 }) {
@@ -243,12 +224,12 @@ function AssignmentModal({
         <Form.Item name="problems" label={text.assignments.problems}>
           <ProblemRefInput options={problemOptions} loading={detail.isLoading} />
         </Form.Item>
-        <Form.Item name="users" label={text.assignments.users}>
-          <IdSelect disabled={memberLoading} loading={memberLoading} options={userOptions} />
-        </Form.Item>
-        <Form.Item name="groups" label={text.assignments.groups}>
-          <IdSelect disabled={memberLoading} loading={memberLoading} options={groupOptions} />
-        </Form.Item>
+	        <Form.Item name="users" label={text.assignments.users}>
+	          <IdSelect kind="users" />
+	        </Form.Item>
+	        <Form.Item name="groups" label={text.assignments.groups}>
+	          <IdSelect kind="groups" />
+	        </Form.Item>
       </Form>
     )
 

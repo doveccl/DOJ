@@ -257,6 +257,11 @@ type PublicUserDTO struct {
 	Submit int    `json:"submit"`
 }
 
+type UserOptionDTO struct {
+	ID   uint   `json:"id"`
+	Name string `json:"name"`
+}
+
 type UserProfile struct {
 	User       PublicUserDTO     `json:"user"`
 	Heatmap    []HeatCell        `json:"heatmap"`
@@ -424,6 +429,7 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.GET("/users/:id/:year/:month/:day/*", api.userMedia)
 	group.GET("/problems", api.problems)
 	group.POST("/problems", api.createProblem)
+	group.GET("/tags", api.tags)
 	group.GET("/problems/:id", api.problem)
 	group.PATCH("/problems/:id", api.updateProblem, echomw.BodyLimit(utils.BodyLimitMarkdown))
 	group.PATCH("/problems/:id/visibility", api.updateProblemVisibility, echomw.BodyLimit(utils.BodyLimitShortText))
@@ -454,6 +460,7 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.GET("/submissions/:id", api.submission)
 	group.PATCH("/submissions/:id", api.updateSubmission)
 	group.GET("/rank", api.rank)
+	group.GET("/users", api.users)
 	group.GET("/users/:name", api.user)
 	group.GET("/discussion", api.discussions)
 	group.POST("/discussion", api.createDiscussion, api.rateLimit("discussion", 30, time.Minute), echomw.BodyLimit(utils.BodyLimitMarkdown))
@@ -1005,6 +1012,14 @@ func (api *API) problems(c echo.Context) error {
 	return c.JSON(http.StatusOK, problems)
 }
 
+func (api *API) tags(c echo.Context) error {
+	items, err := api.searchTags(c, c.QueryParam("kind"), c.QueryParam("q"), 50)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, items)
+}
+
 func (api *API) problem(c echo.Context) error {
 	if strings.HasSuffix(c.Param("id"), ".zip") {
 		return api.downloadProblemAssets(c)
@@ -1366,6 +1381,7 @@ func (api *API) uploadProblemAsset(c echo.Context) error {
 	if err := store.Put(c.Request().Context(), key, reader, file.Size, contentType); err != nil {
 		return err
 	}
+	clearProblemPackageCacheIfNeeded(c.Request().Context(), id, key)
 	assets, err := api.syncProblemAssets(c, id)
 	if err != nil {
 		return err
@@ -1389,6 +1405,7 @@ func (api *API) deleteProblemAsset(c echo.Context) error {
 	if err := store.Delete(c.Request().Context(), key); err != nil {
 		return err
 	}
+	clearProblemPackageCacheIfNeeded(c.Request().Context(), id, key)
 	assets, err := api.syncProblemAssets(c, id)
 	if err != nil {
 		return err
@@ -1447,6 +1464,7 @@ func (api *API) updateProblemAssetContent(c echo.Context) error {
 	if err := store.Put(c.Request().Context(), key, strings.NewReader(req.Content), int64(len(req.Content)), "text/plain; charset=utf-8"); err != nil {
 		return err
 	}
+	clearProblemPackageCacheIfNeeded(c.Request().Context(), id, key)
 	assets, err := api.syncProblemAssets(c, id)
 	if err != nil {
 		return err
@@ -1483,6 +1501,7 @@ func (api *API) createProblemCase(c echo.Context) error {
 	if err := store.Put(c.Request().Context(), outputKey, strings.NewReader(req.Output), int64(len(req.Output)), "text/plain; charset=utf-8"); err != nil {
 		return err
 	}
+	clearProblemPackageCache(c.Request().Context(), id)
 	assets, err = api.syncProblemAssets(c, id)
 	if err != nil {
 		return err
@@ -1505,6 +1524,7 @@ func (api *API) fillJudgeTemplate(c echo.Context) error {
 			return err
 		}
 	}
+	clearProblemPackageCache(c.Request().Context(), id)
 	assets, err := api.syncProblemAssets(c, id)
 	if err != nil {
 		return err
@@ -1565,7 +1585,16 @@ func (api *API) downloadProblemAssets(c echo.Context) error {
 func (api *API) assignments(c echo.Context) error {
 
 	var rows []models.Assignment
-	if err := api.db.Order("end_at desc").Limit(50).Find(&rows).Error; err != nil {
+	query := api.db.Order("end_at desc").Limit(50)
+	if q := strings.TrimSpace(c.QueryParam("q")); q != "" {
+		like := "%" + q + "%"
+		if id, err := parseQueryID(q, "invalid assignment id"); err == nil {
+			query = query.Where("id = ? OR LOWER(title) LIKE LOWER(?)", id, like)
+		} else {
+			query = query.Where("LOWER(title) LIKE LOWER(?)", like)
+		}
+	}
+	if err := query.Find(&rows).Error; err != nil {
 		return err
 	}
 	items, err := api.assignmentDTOs(c, rows, false)
@@ -1776,7 +1805,16 @@ func (api *API) assignment(c echo.Context) error {
 func (api *API) contests(c echo.Context) error {
 
 	var rows []models.Contest
-	if err := api.db.Order("start_at desc").Limit(50).Find(&rows).Error; err != nil {
+	query := api.db.Order("start_at desc").Limit(50)
+	if q := strings.TrimSpace(c.QueryParam("q")); q != "" {
+		like := "%" + q + "%"
+		if id, err := parseQueryID(q, "invalid contest id"); err == nil {
+			query = query.Where("id = ? OR LOWER(title) LIKE LOWER(?)", id, like)
+		} else {
+			query = query.Where("LOWER(title) LIKE LOWER(?)", like)
+		}
+	}
+	if err := query.Find(&rows).Error; err != nil {
 		return err
 	}
 	items, err := api.contestDTOs(rows, api.isAdmin(c))
@@ -2722,6 +2760,24 @@ func (api *API) rank(c echo.Context) error {
 	return c.JSON(http.StatusOK, items)
 }
 
+func (api *API) users(c echo.Context) error {
+	q := strings.TrimSpace(c.QueryParam("q"))
+	var rows []models.User
+	query := api.db.Select("id", "name").Order("id asc").Limit(50)
+	if q != "" {
+		like := "%" + q + "%"
+		query = query.Where("LOWER(name) LIKE LOWER(?)", like)
+	}
+	if err := query.Find(&rows).Error; err != nil {
+		return err
+	}
+	items := make([]UserOptionDTO, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, UserOptionDTO{ID: row.ID, Name: row.Name})
+	}
+	return c.JSON(http.StatusOK, items)
+}
+
 func (api *API) user(c echo.Context) error {
 	nameKey := userNameKey(c.Param("name"))
 	if nameKey == "" {
@@ -3327,6 +3383,90 @@ func (api *API) searchProblems(c echo.Context, q string, tag string, limit int) 
 	return api.findProblems(c, q, tag, limit, "id asc")
 }
 
+func (api *API) searchTags(c echo.Context, kind string, q string, limit int) ([]string, error) {
+	kind = strings.TrimSpace(kind)
+	q = strings.TrimSpace(q)
+	if limit <= 0 {
+		limit = 50
+	}
+	switch kind {
+	case "problem":
+		return api.searchJSONTags(c, "problems", q, limit)
+	case "discussion":
+		return api.searchJSONTags(c, "discussions", q, limit)
+	default:
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid tag kind")
+	}
+}
+
+func (api *API) searchJSONTags(c echo.Context, table string, q string, limit int) ([]string, error) {
+	if api.db.Dialector.Name() == "postgres" {
+		sql := fmt.Sprintf("SELECT DISTINCT tag.value AS tag FROM %s CROSS JOIN LATERAL jsonb_array_elements_text(tags) AS tag(value) WHERE %s.deleted_at IS NULL", table, table)
+		args := []any{}
+		if q != "" {
+			sql += " AND LOWER(tag.value) LIKE LOWER(?)"
+			args = append(args, "%"+q+"%")
+		}
+		sql += " ORDER BY tag ASC LIMIT ?"
+		args = append(args, limit)
+		var rows []struct {
+			Tag string
+		}
+		if err := api.db.WithContext(c.Request().Context()).Raw(sql, args...).Scan(&rows).Error; err != nil {
+			return nil, err
+		}
+		items := make([]string, 0, len(rows))
+		for _, row := range rows {
+			items = append(items, row.Tag)
+		}
+		return items, nil
+	}
+
+	seen := map[string]bool{}
+	items := []string{}
+	match := strings.ToLower(q)
+	switch table {
+	case "problems":
+		var rows []models.Problem
+		if err := api.db.Select("tags").Order("id asc").Limit(500).Find(&rows).Error; err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			items = appendMatchingTags(items, seen, readTags([]byte(row.Tags)), match, limit)
+			if len(items) >= limit {
+				return items, nil
+			}
+		}
+	case "discussions":
+		var rows []models.Discussion
+		if err := api.db.Select("tags").Order("id asc").Limit(500).Find(&rows).Error; err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			items = appendMatchingTags(items, seen, readTags([]byte(row.Tags)), match, limit)
+			if len(items) >= limit {
+				return items, nil
+			}
+		}
+	}
+	sort.Strings(items)
+	return items, nil
+}
+
+func appendMatchingTags(items []string, seen map[string]bool, tags []string, match string, limit int) []string {
+	for _, tag := range tags {
+		if len(items) >= limit {
+			return items
+		}
+		if seen[tag] || (match != "" && !strings.Contains(strings.ToLower(tag), match)) {
+			continue
+		}
+		seen[tag] = true
+		items = append(items, tag)
+	}
+	return items
+}
+
 func (api *API) findProblems(c echo.Context, q string, tag string, limit int, order string) ([]ProblemDTO, error) {
 	var rows []models.Problem
 	query := api.db.Order(order).Limit(limit)
@@ -3780,6 +3920,18 @@ func (api *API) cacheProblemAssets(ctx context.Context, id uint, assets ProblemA
 
 func problemAssetsCacheKey(id uint) string {
 	return "doj:problem:" + strconv.FormatUint(uint64(id), 10) + ":assets"
+}
+
+func clearProblemPackageCacheIfNeeded(ctx context.Context, id uint, key string) {
+	data := problemAssetPrefix(id, "data") + "/"
+	judge := problemAssetPrefix(id, "judge") + "/"
+	if strings.HasPrefix(key, data) || strings.HasPrefix(key, judge) {
+		clearProblemPackageCache(ctx, id)
+	}
+}
+
+func clearProblemPackageCache(ctx context.Context, id uint) {
+	_ = utils.CacheDelete(ctx, utils.ProblemPackageCacheKey(id))
 }
 
 func cleanEditableAssetKey(id uint, raw string) (string, error) {

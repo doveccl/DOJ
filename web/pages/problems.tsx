@@ -8,7 +8,6 @@ import {
   Input,
   Modal,
   Popconfirm,
-  Select,
   Space,
   Table,
   Tag,
@@ -26,6 +25,7 @@ import { ProblemLink } from '../components/entity'
 import { JudgeModeSelect } from '../components/judge'
 import { LimitInput } from '../components/limit'
 import { ErrorBlock, LoadingBlock } from '../components/state'
+import { TagSelect } from '../components/tag-select'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
 import { formatLimit, formatPass, problemCode } from '../utils/format'
@@ -100,11 +100,6 @@ export function ProblemsPage() {
     toggling: (item) => visibility.isPending && visibility.variables?.id === item.id
   }, session.admin)
 
-  const allTags = Array.from(new Set((query.data ?? []).flatMap((item) => item.tags))).map((item) => ({
-    label: item,
-    value: item
-  }))
-
   function submit(values: { q?: string; tag?: string }) {
     const next = new URLSearchParams()
     if (values.q) {
@@ -140,7 +135,7 @@ export function ProblemsPage() {
             <Input placeholder={text.problems.q} allowClear style={{ width: 280 }} />
           </Form.Item>
           <Form.Item name="tag">
-            <Select showSearch optionFilterProp="label" placeholder={text.problems.tag} allowClear options={allTags} style={{ width: 220 }} />
+            <TagSelect kind="problem" placeholder={text.problems.tag} allowClear style={{ width: 220 }} />
           </Form.Item>
           <Form.Item>
             <Button onClick={clear}>{text.common.clear}</Button>
@@ -207,7 +202,7 @@ function ProblemModal({
           <Input maxLength={limits.title} showCount />
         </Form.Item>
         <Form.Item name="tags" label={text.problems.tag}>
-          <Select mode="tags" tokenSeparators={[',', '，', ' ']} />
+          <TagSelect kind="problem" mode="tags" />
         </Form.Item>
         <Form.Item name="mode" label={text.problem.mode}>
           <JudgeModeSelect />

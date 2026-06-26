@@ -3,6 +3,7 @@ package judger
 import (
 	"archive/zip"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -65,11 +66,12 @@ type LangPayload struct {
 }
 
 type ProblemPayload struct {
-	ID       uint     `json:"id"`
-	Mode     string   `json:"mode"`
-	TimeMS   int      `json:"timeMs"`
-	MemoryMB int      `json:"memoryMb"`
-	Tags     []string `json:"tags"`
+	ID             uint     `json:"id"`
+	Mode           string   `json:"mode"`
+	TimeMS         int      `json:"timeMs"`
+	MemoryMB       int      `json:"memoryMb"`
+	Tags           []string `json:"tags"`
+	PackageVersion string   `json:"packageVersion"`
 }
 
 type LimitsPayload struct {
@@ -258,6 +260,7 @@ func (api *API) problemPackage(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	c.Response().Header().Set(echo.HeaderCacheControl, "private, max-age=0")
 	c.Response().Header().Set(echo.HeaderContentType, "application/zip")
 	c.Response().Header().Set(echo.HeaderContentDisposition, fmt.Sprintf(`attachment; filename="P%d.zip"`, problem.ID))
 	c.Response().WriteHeader(http.StatusOK)
@@ -577,11 +580,11 @@ func buildPayload(ctx context.Context, tx *gorm.DB, submission models.Submission
 	if err != nil {
 		return nil, err
 	}
-	dataFiles, err := store.List(ctx, problemAssetPrefix(problem.ID, "data"))
+	files, err := listProblemObjectsCached(ctx, store, problem.ID)
 	if err != nil {
 		return nil, err
 	}
-	cases := casePayloadsFromObjects(problem.ID, dataFiles)
+	cases := casePayloadsFromObjects(problem.ID, files)
 	return &TaskPayload{
 		ID:           submission.ID,
 		SubmissionID: submission.ID,
@@ -602,11 +605,12 @@ func buildPayload(ctx context.Context, tx *gorm.DB, submission models.Submission
 		},
 		Cases: cases,
 		Problem: ProblemPayload{
-			ID:       problem.ID,
-			Mode:     problem.Mode,
-			TimeMS:   problem.TimeMS,
-			MemoryMB: problem.MemoryMB,
-			Tags:     readTags(problem.Tags),
+			ID:             problem.ID,
+			Mode:           problem.Mode,
+			TimeMS:         problem.TimeMS,
+			MemoryMB:       problem.MemoryMB,
+			Tags:           readTags(problem.Tags),
+			PackageVersion: problemPackageVersion(problem.ID, files),
 		},
 	}, nil
 }
@@ -625,7 +629,7 @@ func listProblemObjects(ctx context.Context, store utils.ObjectStore, problemID 
 
 func listProblemObjectsCached(ctx context.Context, store utils.ObjectStore, problemID uint) ([]utils.ObjectInfo, error) {
 	var cached []utils.ObjectInfo
-	found, err := utils.CacheGet(ctx, problemPackageCacheKey(problemID), &cached)
+	found, err := utils.CacheGet(ctx, utils.ProblemPackageCacheKey(problemID), &cached)
 	if err == nil && found {
 		return cached, nil
 	}
@@ -633,12 +637,22 @@ func listProblemObjectsCached(ctx context.Context, store utils.ObjectStore, prob
 	if err != nil {
 		return nil, err
 	}
-	_ = utils.CacheSet(ctx, problemPackageCacheKey(problemID), files, time.Minute)
+	_ = utils.CacheSet(ctx, utils.ProblemPackageCacheKey(problemID), files, time.Minute)
 	return files, nil
 }
 
-func problemPackageCacheKey(problemID uint) string {
-	return "doj:problem:" + strconv.FormatUint(uint64(problemID), 10) + ":package"
+func problemPackageVersion(problemID uint, files []utils.ObjectInfo) string {
+	ordered := append([]utils.ObjectInfo(nil), files...)
+	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Key < ordered[j].Key })
+	hash := sha256.New()
+	_, _ = fmt.Fprintf(hash, "P%d\n", problemID)
+	for _, object := range ordered {
+		if _, _, ok := taskAssetZipName(problemID, object.Key); !ok {
+			continue
+		}
+		_, _ = fmt.Fprintf(hash, "%s\x00%d\x00%s\x00%d\n", object.Key, object.Size, object.ETag, object.UpdatedAt.UnixNano())
+	}
+	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
 func writeTaskAssetZip(ctx context.Context, writer *zip.Writer, store utils.ObjectStore, problemID uint, files []utils.ObjectInfo) error {

@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -25,8 +26,10 @@ type ObjectStore interface {
 }
 
 type ObjectInfo struct {
-	Key  string
-	Size int64
+	Key       string
+	Size      int64
+	ETag      string
+	UpdatedAt time.Time
 }
 
 const fallbackStorageRoot = "/var/lib/doj"
@@ -233,7 +236,7 @@ func (store localStore) List(_ context.Context, prefix string) ([]ObjectInfo, er
 		if err != nil {
 			return err
 		}
-		items = append(items, ObjectInfo{Key: filepath.ToSlash(relative), Size: info.Size()})
+		items = append(items, ObjectInfo{Key: filepath.ToSlash(relative), Size: info.Size(), UpdatedAt: info.ModTime()})
 		return nil
 	})
 	if err != nil {
@@ -323,7 +326,7 @@ func (store s3Store) List(ctx context.Context, prefix string) ([]ObjectInfo, err
 			}
 			return nil, object.Err
 		}
-		items = append(items, ObjectInfo{Key: object.Key, Size: object.Size})
+		items = append(items, ObjectInfo{Key: object.Key, Size: object.Size, ETag: object.ETag, UpdatedAt: object.LastModified})
 	}
 	return items, nil
 }

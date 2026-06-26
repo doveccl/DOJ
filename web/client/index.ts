@@ -40,6 +40,7 @@ export type RankProblem = components['schemas']['RankProblem']
 export type UserProfile = components['schemas']['UserProfile']
 export type UserActivity = components['schemas']['UserActivity']
 export type PublicUser = components['schemas']['PublicUser']
+export type UserOption = components['schemas']['UserOption']
 export type Discussion = components['schemas']['Discussion']
 export type DiscussionDetail = components['schemas']['DiscussionDetail']
 export type DiscussionCreate = components['schemas']['DiscussionCreate']
@@ -266,8 +267,10 @@ export async function getAdminSettings() {
   return assertData(data, error)
 }
 
-export async function getAdminMembers() {
-  const { data, error } = await client.GET('/api/admin/members')
+export async function getAdminMembers(params: { q?: string; users?: string; groups?: string } = {}) {
+  const { data, error } = await client.GET('/api/admin/members', {
+    params: { query: params }
+  })
   return assertData(data, error)
 }
 
@@ -407,6 +410,13 @@ export async function getProblems(params: { q?: string; tag?: string } = {}) {
   return assertData(data, error)
 }
 
+export async function getTags(kind: 'problem' | 'discussion', q = '') {
+  const { data, error } = await client.GET('/api/tags', {
+    params: { query: { kind, q } }
+  })
+  return assertData(data, error)
+}
+
 export async function getProblem(id: number) {
   const { data, error } = await client.GET('/api/problems/{id}', {
     params: { path: { id } }
@@ -520,8 +530,10 @@ export async function downloadProblemFile(id: number, section: 'data' | 'judge',
   return response.blob()
 }
 
-export async function getAssignments() {
-  const { data, error } = await client.GET('/api/assignments')
+export async function getAssignments(params: { q?: string } = {}) {
+  const { data, error } = await client.GET('/api/assignments', {
+    params: { query: params }
+  })
   return assertData(data, error)
 }
 
@@ -554,8 +566,10 @@ export async function getAssignment(id: number) {
   return assertData(data, error)
 }
 
-export async function getContests() {
-  const { data, error } = await client.GET('/api/contests')
+export async function getContests(params: { q?: string } = {}) {
+  const { data, error } = await client.GET('/api/contests', {
+    params: { query: params }
+  })
   return assertData(data, error)
 }
 
@@ -617,6 +631,13 @@ export async function updateSubmission(id: number, body: SubmissionUpdate) {
 
 export async function getRank() {
   const { data, error } = await client.GET('/api/rank')
+  return assertData(data, error)
+}
+
+export async function searchUsers(params: { q?: string } = {}) {
+  const { data, error } = await client.GET('/api/users', {
+    params: { query: params }
+  })
   return assertData(data, error)
 }
 

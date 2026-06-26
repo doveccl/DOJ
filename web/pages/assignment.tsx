@@ -7,7 +7,7 @@ import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 
-import { getAdminMembers, getAssignment, updateAssignment } from '../client'
+import { getAssignment, updateAssignment } from '../client'
 import type { AssignmentProgress, ProblemListItem, ProblemRef } from '../client'
 import { ProblemLink, UserLink } from '../components/entity'
 import { IdSelect } from '../components/id-select'
@@ -40,7 +40,6 @@ export function AssignmentDetailPage() {
     queryFn: () => getAssignment(id),
     enabled: Number.isFinite(id)
   })
-  const membersQuery = useQuery({ queryKey: ['admin-members'], queryFn: getAdminMembers, enabled: session.admin && editOpen })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
@@ -78,9 +77,6 @@ export function AssignmentDetailPage() {
     value: item.id,
     label: problemLabel(item.id, item.title)
   }))
-  const userOptions = (membersQuery.data?.users ?? []).map((item) => ({ value: item.id, label: item.name }))
-  const groupOptions = (membersQuery.data?.groups ?? []).map((item) => ({ value: item.id, label: item.name }))
-
   function openEdit() {
     setEditOpen(true)
   }
@@ -120,13 +116,10 @@ export function AssignmentDetailPage() {
       </Card>
       {editOpen ? (
         <AssignmentEditModal
-          assignment={assignment}
-          problems={problems}
-          problemOptions={problemOptions}
-          userOptions={userOptions}
-          groupOptions={groupOptions}
-          memberLoading={membersQuery.isLoading}
-          loading={update.isPending}
+	          assignment={assignment}
+	          problems={problems}
+	          problemOptions={problemOptions}
+	          loading={update.isPending}
           onCancel={() => setEditOpen(false)}
           onSave={(values) => update.mutate(values)}
         />
@@ -139,9 +132,6 @@ function AssignmentEditModal({
   assignment,
   problems,
   problemOptions,
-  userOptions,
-  groupOptions,
-  memberLoading,
   loading,
   onCancel,
   onSave
@@ -149,9 +139,6 @@ function AssignmentEditModal({
   assignment: { title: string; endAt: string; users: number[]; groups: number[] }
   problems: ProblemListItem[]
   problemOptions: { value: number; label: string }[]
-  userOptions: { value: number; label: string }[]
-  groupOptions: { value: number; label: string }[]
-  memberLoading: boolean
   loading: boolean
   onCancel: () => void
   onSave: (values: AssignmentForm) => void
@@ -188,12 +175,12 @@ function AssignmentEditModal({
         <Form.Item name="problems" label={text.assignments.problems}>
           <ProblemRefInput options={problemOptions} />
         </Form.Item>
-        <Form.Item name="users" label={text.assignments.users}>
-          <IdSelect disabled={memberLoading} loading={memberLoading} options={userOptions} />
-        </Form.Item>
-        <Form.Item name="groups" label={text.assignments.groups}>
-          <IdSelect disabled={memberLoading} loading={memberLoading} options={groupOptions} />
-        </Form.Item>
+	        <Form.Item name="users" label={text.assignments.users}>
+	          <IdSelect kind="users" />
+	        </Form.Item>
+	        <Form.Item name="groups" label={text.assignments.groups}>
+	          <IdSelect kind="groups" />
+	        </Form.Item>
       </Form>
     </Modal>
   )

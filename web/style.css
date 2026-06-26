@@ -299,10 +299,16 @@ body {
   width: 100%;
 }
 
-.problemTitleLine,
-.problemMetaLine {
+.problemHeadTitle {
   min-width: 0;
   width: 100%;
+}
+
+.problemCodeText,
+.problemHeadActions,
+.problemHeadTitle .ant-tag,
+.problemHeadTitle .ant-btn {
+  flex: none;
 }
 
 .problemTitleText {
@@ -317,7 +323,6 @@ body {
 }
 
 .problemHeadTitle .ant-tag {
-  flex: none;
   margin-inline-end: 0;
 }
 

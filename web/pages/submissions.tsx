@@ -5,11 +5,12 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
-import { getAssignments, getContests, getLangs, getProblems, getRank, getSubmissions } from '../client'
+import { getAssignments, getContests, getLangs, getProblems, getSubmissions, searchUsers } from '../client'
 import type { Submission } from '../client'
 import { ProblemLink, UserLink } from '../components/entity'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { SubmissionStatus } from '../components/status'
+import { useDebouncedValue } from '../components/use-debounced-value'
 import { useLocale } from '../locale'
 import { formatTime, problemCode, problemLabel, submissionCode } from '../utils/format'
 
@@ -33,7 +34,13 @@ export function SubmissionsPage() {
   const [assignmentOpen, setAssignmentOpen] = useState(false)
   const [contestOpen, setContestOpen] = useState(false)
   const [problemSearch, setProblemSearch] = useState('')
-  const problemSearchText = problemSearch.trim()
+  const [userSearch, setUserSearch] = useState('')
+  const [assignmentSearch, setAssignmentSearch] = useState('')
+  const [contestSearch, setContestSearch] = useState('')
+  const problemSearchText = useDebouncedValue(problemSearch.trim())
+  const userSearchText = useDebouncedValue(userSearch.trim())
+  const assignmentSearchText = useDebouncedValue(assignmentSearch.trim())
+  const contestSearchText = useDebouncedValue(contestSearch.trim())
   const query = useQuery({
     queryKey: ['submissions', problem, user, assignment, contest],
     queryFn: () => getSubmissions(cleanFilters({ problem, user, assignment, contest }))
@@ -44,15 +51,27 @@ export function SubmissionsPage() {
     queryFn: () => getProblems({ q: problemSearchText }),
     enabled: problemOpen && problemSearchText.length > 0
   })
-  const users = useQuery({ queryKey: ['rank', 'submission-filter'], queryFn: getRank, enabled: userOpen })
-  const assignments = useQuery({ queryKey: ['assignments', 'submission-filter'], queryFn: getAssignments, enabled: assignmentOpen })
-  const contests = useQuery({ queryKey: ['contests', 'submission-filter'], queryFn: getContests, enabled: contestOpen })
+  const users = useQuery({
+    queryKey: ['users', 'submission-filter', userSearchText],
+    queryFn: () => searchUsers({ q: userSearchText }),
+    enabled: userOpen && userSearchText.length > 0
+  })
+  const assignments = useQuery({
+    queryKey: ['assignments', 'submission-filter', assignmentSearchText],
+    queryFn: () => getAssignments({ q: assignmentSearchText }),
+    enabled: assignmentOpen && assignmentSearchText.length > 0
+  })
+  const contests = useQuery({
+    queryKey: ['contests', 'submission-filter', contestSearchText],
+    queryFn: () => getContests({ q: contestSearchText }),
+    enabled: contestOpen && contestSearchText.length > 0
+  })
   const languageNames = new Map((languages.data ?? []).map((item) => [item.id, item.name]))
   const problemOptions = mergeProblemOptions(
     problem ? [{ value: problem, label: numericProblem(problem) ? problemCode(Number(problem)) : problem }] : [],
     (problems.data ?? []).map((item) => ({ value: String(item.id), label: problemLabel(item.id, item.title) }))
   )
-  const userOptions = mergeProblemOptions(user ? [{ value: user, label: user }] : [], (users.data ?? []).map((item) => ({ value: item.user, label: item.user })))
+  const userOptions = mergeProblemOptions(user ? [{ value: user, label: user }] : [], (users.data ?? []).map((item) => ({ value: item.name, label: item.name })))
   const assignmentOptions = mergeProblemOptions(assignment ? [{ value: assignment, label: `#${assignment}` }] : [], (assignments.data ?? []).map((item) => ({ value: String(item.id), label: item.title })))
   const contestOptions = mergeProblemOptions(contest ? [{ value: contest, label: `#${contest}` }] : [], (contests.data ?? []).map((item) => ({ value: String(item.id), label: item.title })))
 
@@ -87,7 +106,7 @@ export function SubmissionsPage() {
               allowClear
               filterOption={false}
               loading={problems.isFetching}
-              onDropdownVisibleChange={setProblemOpen}
+              onOpenChange={setProblemOpen}
               onSearch={setProblemSearch}
               placeholder={text.submissions.problem}
               options={problemOptions}
@@ -98,9 +117,10 @@ export function SubmissionsPage() {
             <Select
               showSearch
               allowClear
+              filterOption={false}
               loading={users.isFetching}
-              onDropdownVisibleChange={setUserOpen}
-              optionFilterProp="label"
+              onOpenChange={setUserOpen}
+              onSearch={setUserSearch}
               placeholder={text.submissions.user}
               options={userOptions}
               style={{ width: 160 }}
@@ -110,9 +130,10 @@ export function SubmissionsPage() {
             <Select
               showSearch
               allowClear
+              filterOption={false}
               loading={assignments.isFetching}
-              onDropdownVisibleChange={setAssignmentOpen}
-              optionFilterProp="label"
+              onOpenChange={setAssignmentOpen}
+              onSearch={setAssignmentSearch}
               placeholder={text.assignments.title}
               options={assignmentOptions}
               style={{ width: 180 }}
@@ -122,9 +143,10 @@ export function SubmissionsPage() {
             <Select
               showSearch
               allowClear
+              filterOption={false}
               loading={contests.isFetching}
-              onDropdownVisibleChange={setContestOpen}
-              optionFilterProp="label"
+              onOpenChange={setContestOpen}
+              onSearch={setContestSearch}
               placeholder={text.contests.title}
               options={contestOptions}
               style={{ width: 180 }}

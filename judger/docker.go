@@ -38,17 +38,32 @@ type dockerCreateRequest struct {
 }
 
 func dockerBuildImage(ctx context.Context, dir string, dockerfile string, outputLimit int64) (string, string, error) {
+	return dockerBuildImageTimed(ctx, dir, dockerfile, outputLimit, dockerBuildTiming{})
+}
+
+type dockerBuildTiming struct {
+	Logf         func(format string, args ...any)
+	SubmissionID uint
+	Attempt      int
+}
+
+func dockerBuildImageTimed(ctx context.Context, dir string, dockerfile string, outputLimit int64, timing dockerBuildTiming) (string, string, error) {
+	clientStartedAt := time.Now()
 	cli, err := newDockerClient()
+	logStep(timing.Logf, timing.SubmissionID, timing.Attempt, "docker_build_client", clientStartedAt)
 	if err != nil {
 		return "", "", err
 	}
 	defer cli.Close()
 
+	tarStartedAt := time.Now()
 	body, err := tarDirectory(dir)
+	logTask(timing.Logf, timing.SubmissionID, timing.Attempt, "docker_build_context_tar=%s bytes=%d", formatDuration(time.Since(tarStartedAt)), len(body))
 	if err != nil {
 		return "", "", err
 	}
 	tag := tempDockerTag()
+	requestStartedAt := time.Now()
 	resp, err := cli.ImageBuild(ctx, bytes.NewReader(body), dockerbuild.ImageBuildOptions{
 		Tags:        []string{tag},
 		Dockerfile:  dockerfile,
@@ -56,12 +71,15 @@ func dockerBuildImage(ctx context.Context, dir string, dockerfile string, output
 		Remove:      true,
 		ForceRemove: true,
 	})
+	logStep(timing.Logf, timing.SubmissionID, timing.Attempt, "docker_build_request", requestStartedAt)
 	if err != nil {
 		return "", "", err
 	}
 	defer resp.Body.Close()
 
+	streamStartedAt := time.Now()
 	output, err := readBuildStream(resp.Body, outputLimit)
+	logTask(timing.Logf, timing.SubmissionID, timing.Attempt, "docker_build_stream=%s output_bytes=%d", formatDuration(time.Since(streamStartedAt)), len(output))
 	if err != nil {
 		return "", output, err
 	}

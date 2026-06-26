@@ -60,6 +60,7 @@ import { LimitInput } from '../components/limit'
 import { MarkdownEditor, MarkdownPreview } from '../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { SubmissionStatus } from '../components/status'
+import { TagSelect } from '../components/tag-select'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
 import { formatBytes, formatLimit, problemCode } from '../utils/format'
@@ -317,54 +318,52 @@ export function ProblemDetailPage() {
       <Flex vertical gap={20} className="pageStack">
         <Row gutter={[20, 20]} align="top">
           <Col xs={24} lg={16}>
-            <Card
-              className="statementCard"
-              title={
-                <Flex vertical gap={8} className="problemHeadTitle">
-                  <Flex align="center" gap={10} wrap={false} className="problemTitleLine">
-                    {session.admin ? (
-                      <Tooltip title={problem.visible ? text.problems.currentVisible : text.problems.currentHidden}>
-                        <Button
-                          aria-label={`${problem.visible ? text.problems.hide : text.problems.show} ${problemCode(problem.id)}`}
-                          type="text"
-                          size="small"
-                          icon={problem.visible ? <EyeOutlined className="okIcon" /> : <EyeInvisibleOutlined className="mutedIcon" />}
-                          loading={visibility.isPending}
-                          disabled={visibility.isPending}
-                          onClick={() => visibility.mutate(problem)}
-                        />
-                      </Tooltip>
-                    ) : null}
-                    <Typography.Text strong>{problemCode(problem.id)}</Typography.Text>
-                    <Typography.Text strong ellipsis className="problemTitleText">
-                      {problem.title}
-                    </Typography.Text>
-                  </Flex>
-                  <Flex align="center" gap={8} wrap className="problemMetaLine">
-                    <Tag color="blue">{formatLimit(problem)}</Tag>
-                    {problem.tags.map((tag) => (
-                      <Tag key={tag}>{tag}</Tag>
-                    ))}
-                    {session.admin ? (
-                      problemEditing ? (
-                        <Space size={8}>
-                          <Button size="small" onClick={() => setProblemEditing(false)}>
-                            {text.common.cancel}
-                          </Button>
-                          <Button size="small" type="primary" htmlType="submit" form="problem-edit-form" loading={edit.isPending}>
-                            {text.common.save}
-                          </Button>
-                        </Space>
-                      ) : (
-                        <Button aria-label={text.common.edit} size="small" icon={<EditOutlined />} onClick={openEdit}>
-                          {text.common.edit}
-                        </Button>
-                      )
-                    ) : null}
-                  </Flex>
-                </Flex>
-              }
-            >
+	            <Card
+	              className="statementCard"
+	              title={
+	                <Flex align="center" gap={10} wrap={false} className="problemHeadTitle">
+	                  {session.admin ? (
+	                    <Tooltip title={problem.visible ? text.problems.currentVisible : text.problems.currentHidden}>
+	                      <Button
+	                        aria-label={`${problem.visible ? text.problems.hide : text.problems.show} ${problemCode(problem.id)}`}
+	                        type="text"
+	                        size="small"
+	                        icon={problem.visible ? <EyeOutlined className="okIcon" /> : <EyeInvisibleOutlined className="mutedIcon" />}
+	                        loading={visibility.isPending}
+	                        disabled={visibility.isPending}
+	                        onClick={() => visibility.mutate(problem)}
+	                      />
+	                    </Tooltip>
+	                  ) : null}
+	                  <Typography.Text strong className="problemCodeText">
+	                    {problemCode(problem.id)}
+	                  </Typography.Text>
+	                  <Typography.Text strong ellipsis className="problemTitleText">
+	                    {problem.title}
+	                  </Typography.Text>
+	                  <Tag color="blue">{formatLimit(problem)}</Tag>
+	                  {problem.tags.map((tag) => (
+	                    <Tag key={tag}>{tag}</Tag>
+	                  ))}
+	                  {session.admin ? (
+	                    problemEditing ? (
+	                      <Space size={8} className="problemHeadActions">
+	                        <Button size="small" onClick={() => setProblemEditing(false)}>
+	                          {text.common.cancel}
+	                        </Button>
+	                        <Button size="small" type="primary" htmlType="submit" form="problem-edit-form" loading={edit.isPending}>
+	                          {text.common.save}
+	                        </Button>
+	                      </Space>
+	                    ) : (
+	                      <Button aria-label={text.common.edit} size="small" icon={<EditOutlined />} onClick={openEdit}>
+	                        {text.common.edit}
+	                      </Button>
+	                    )
+	                  ) : null}
+	                </Flex>
+	              }
+	            >
               {problemEditing ? (
                 <Form<ProblemEditForm>
                   id="problem-edit-form"
@@ -376,10 +375,10 @@ export function ProblemDetailPage() {
                 >
                   <Form.Item name="title" label={text.problems.title} rules={[{ required: true, whitespace: true }]}>
                     <Input maxLength={limits.title} showCount />
-                  </Form.Item>
-                  <Form.Item name="tags" label={text.problems.tag}>
-                    <Select mode="tags" tokenSeparators={[',', '，', ' ']} />
-                  </Form.Item>
+	                  </Form.Item>
+	                  <Form.Item name="tags" label={text.problems.tag}>
+	                    <TagSelect kind="problem" mode="tags" />
+	                  </Form.Item>
                   <Row gutter={12}>
                     <Col xs={24} md={12}>
                       <Form.Item name="timeMs" label={text.problems.time} rules={[{ required: true }]}>

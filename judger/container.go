@@ -41,7 +41,7 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error
 
 	task := req.Task
 	langStartedAt := time.Now()
-	lang, err := prepareLanguageImage(ctx, work, task.Lang, task.Source, task.Limits)
+	lang, err := prepareLanguageImage(ctx, work, task.Lang, task.Source, task.Limits, task.SubmissionID, task.Attempt, req.Logf)
 	logStep(req.Logf, task.SubmissionID, task.Attempt, "prepare_language_image", langStartedAt)
 	if err != nil {
 		if result, ok := taskResultForLanguageBuildError(task, err); ok {

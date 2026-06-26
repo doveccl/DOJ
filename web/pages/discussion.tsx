@@ -1,5 +1,5 @@
 import { DeleteOutlined, EditOutlined, LockOutlined, PlusOutlined, PushpinOutlined, SearchOutlined, UnlockOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, Flex, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, Tooltip, Typography } from 'antd'
+import { App as AntApp, Button, Card, Flex, Form, Input, Modal, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -10,6 +10,7 @@ import type { Discussion, DiscussionCreate } from '../client'
 import { UserLink } from '../components/entity'
 import { MarkdownEditor } from '../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../components/state'
+import { TagSelect } from '../components/tag-select'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
 import { formatTime } from '../utils/format'
@@ -146,7 +147,7 @@ export function DiscussionPage() {
             <Input placeholder={text.discussion.search} allowClear style={{ width: 280 }} />
           </Form.Item>
           <Form.Item name="tags">
-            <Input placeholder={text.discussion.tags} allowClear style={{ width: 180 }} />
+            <TagSelect kind="discussion" placeholder={text.discussion.tags} allowClear style={{ width: 180 }} />
           </Form.Item>
           <Form.Item>
             <Button onClick={clearSearch}>{text.common.clear}</Button>
@@ -225,7 +226,7 @@ function DiscussionModal({
           <Input maxLength={limits.title} showCount />
         </Form.Item>
         <Form.Item name="tags" label={text.discussion.tags}>
-          <Select mode="tags" tokenSeparators={[',', '，', ' ']} />
+          <TagSelect kind="discussion" mode="tags" />
         </Form.Item>
         <Form.Item name="content" label={text.discussion.content} rules={[{ required: true, whitespace: true }]}>
           <MarkdownEditor minHeight={300} />

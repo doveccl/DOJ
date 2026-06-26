@@ -1,4 +1,4 @@
-import { App as AntApp, Card, Col, Flex, Row, Space, Switch, Table, Typography } from 'antd'
+import { App as AntApp, Card, Col, Flex, Row, Space, Switch, Table, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
@@ -162,8 +162,8 @@ function caseColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Cas
     {
       title: text.submissions.message,
       dataIndex: 'message',
-      ellipsis: true,
-      render: (value: string) => value || '-'
+      ellipsis: { showTitle: false },
+      render: (value: string) => (value ? <Tooltip title={value}>{value}</Tooltip> : '-')
     }
   ]
 }

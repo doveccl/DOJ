@@ -768,10 +768,10 @@ function UserModal({
         </Form.Item>
         <Form.Item name="role" label={text.admin.role} rules={[{ required: true }]}>
           <Select options={roleOptions} />
-        </Form.Item>
-        <Form.Item name="groups" label={text.admin.userGroups}>
-          <IdSelect options={groupOptions} />
-        </Form.Item>
+	        </Form.Item>
+	        <Form.Item name="groups" label={text.admin.userGroups}>
+	          <IdSelect kind="groups" options={groupOptions} />
+	        </Form.Item>
       </Form>
     </Modal>
   )
@@ -809,10 +809,10 @@ function UserEditModal({
       <Form<UserEditForm> form={form} layout="vertical" initialValues={{ role: user.role, groups: user.groups ?? [] }} onFinish={onSave}>
         <Form.Item name="role" label={text.admin.role} rules={[{ required: true }]}>
           <Select options={roleOptions} />
-        </Form.Item>
-        <Form.Item name="groups" label={text.admin.userGroups}>
-          <IdSelect options={groupOptions} />
-        </Form.Item>
+	        </Form.Item>
+	        <Form.Item name="groups" label={text.admin.userGroups}>
+	          <IdSelect kind="groups" options={groupOptions} />
+	        </Form.Item>
       </Form>
     </Modal>
   )
@@ -849,10 +849,10 @@ function GroupModal({
       <Form<GroupForm> form={form} layout="vertical" initialValues={initialValues} onFinish={onSave}>
         <Form.Item name="name" label={text.admin.name} rules={[{ required: true, whitespace: true }]}>
           <Input maxLength={limits.name} showCount />
-        </Form.Item>
-        <Form.Item name="users" label={text.admin.users}>
-          <IdSelect options={userOptions} />
-        </Form.Item>
+	        </Form.Item>
+	        <Form.Item name="users" label={text.admin.users}>
+	          <IdSelect kind="users" options={userOptions} />
+	        </Form.Item>
       </Form>
     </Modal>
   )
