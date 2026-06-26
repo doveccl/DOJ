@@ -130,29 +130,29 @@ export function ProblemsPage() {
   return (
     <Card>
       <Flex vertical gap={16}>
-        <Form layout="inline" initialValues={{ q: q || undefined, tag: tag || undefined }} onFinish={submit} key={`${q}:${tag}`}>
-          <Form.Item name="q">
-            <Input placeholder={text.problems.q} allowClear style={{ width: 280 }} />
-          </Form.Item>
-          <Form.Item name="tag">
-            <TagSelect kind="problem" placeholder={text.problems.tag} allowClear style={{ width: 220 }} />
-          </Form.Item>
-          <Form.Item>
-            <Button onClick={clear}>{text.common.clear}</Button>
-          </Form.Item>
-          <Form.Item>
-            <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>
-              {text.common.search}
-            </Button>
-          </Form.Item>
-          {session.admin ? (
+        <Flex justify="space-between" align="center" gap={12} wrap>
+          <Form layout="inline" initialValues={{ q: q || undefined, tag: tag || undefined }} onFinish={submit} key={`${q}:${tag}`}>
+            <Form.Item name="q">
+              <Input placeholder={text.problems.q} allowClear style={{ width: 280 }} />
+            </Form.Item>
+            <Form.Item name="tag">
+              <TagSelect kind="problem" placeholder={text.problems.tag} allowClear style={{ width: 220 }} />
+            </Form.Item>
             <Form.Item>
-              <Button icon={<PlusOutlined />} onClick={openCreate}>
-                {text.common.createProblem}
+              <Button onClick={clear}>{text.common.clear}</Button>
+            </Form.Item>
+            <Form.Item>
+              <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>
+                {text.common.search}
               </Button>
             </Form.Item>
+          </Form>
+          {session.admin ? (
+            <Button icon={<PlusOutlined />} onClick={openCreate}>
+              {text.common.createProblem}
+            </Button>
           ) : null}
-        </Form>
+        </Flex>
         {query.isError ? (
           <ErrorBlock error={query.error} />
         ) : query.isLoading ? (
