@@ -158,6 +158,14 @@ func TestMePatchOnlyUpdatesProvidedFields(t *testing.T) {
 	if mail.Mail != "next@example.com" || mail.Bio != "old bio" || mail.Avatar != "/new.png" {
 		t.Fatalf("mail patch should preserve bio and avatar: %+v", mail)
 	}
+	clearRes := requestJSONWithCookies(e, http.MethodPatch, "/api/me", cookies, `{"bio":"","avatar":""}`)
+	if clearRes.Code != http.StatusOK {
+		t.Fatalf("clear profile fields got %d body=%s", clearRes.Code, clearRes.Body.String())
+	}
+	cleared := decodeJSON[MeDTO](t, clearRes)
+	if cleared.Mail != "next@example.com" || cleared.Bio != "" || cleared.Avatar != "" {
+		t.Fatalf("empty string patch should clear provided profile fields only: %+v", cleared)
+	}
 	emptyRes := requestJSONWithCookies(e, http.MethodPatch, "/api/me", cookies, `{}`)
 	if emptyRes.Code != http.StatusBadRequest {
 		t.Fatalf("empty profile patch got %d body=%s", emptyRes.Code, emptyRes.Body.String())
@@ -1162,7 +1170,7 @@ func TestProblemPatchOnlyUpdatesProvidedFields(t *testing.T) {
 	if err := db.Create(&admin).Error; err != nil {
 		t.Fatalf("create admin: %v", err)
 	}
-	problem := models.Problem{ID: 1000, Title: "Original", Tags: datatypes.JSON([]byte(`["old"]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	problem := models.Problem{ID: 1000, Title: "Original", Tags: datatypes.JSON([]byte(`["old"]`)), Visible: true, Mode: "default", TimeMS: 2000, MemoryMB: 512}
 	if err := db.Create(&problem).Error; err != nil {
 		t.Fatalf("create problem: %v", err)
 	}
@@ -1181,8 +1189,32 @@ func TestProblemPatchOnlyUpdatesProvidedFields(t *testing.T) {
 		t.Fatalf("mode patch got %d body=%s", res.Code, res.Body.String())
 	}
 	updated := decodeJSON[ProblemDTO](t, res)
-	if updated.Mode != "strict" || updated.Title != "Original" || updated.Statement != statement || !updated.Visible || updated.TimeMS != 1000 || updated.MemoryMB != 256 {
+	if updated.Mode != "strict" || updated.Title != "Original" || updated.Statement != statement || !updated.Visible || updated.TimeMS != 2000 || updated.MemoryMB != 512 {
 		t.Fatalf("mode patch should preserve unrelated problem fields: %+v", updated)
+	}
+	res = requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000", cookies, `{"visible":false}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("visible false patch got %d body=%s", res.Code, res.Body.String())
+	}
+	updated = decodeJSON[ProblemDTO](t, res)
+	if updated.Visible || updated.Mode != "strict" || updated.Title != "Original" || updated.Statement != statement {
+		t.Fatalf("visible false patch should apply false and preserve unrelated fields: %+v", updated)
+	}
+	res = requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000", cookies, `{"tags":[]}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("empty tags patch got %d body=%s", res.Code, res.Body.String())
+	}
+	updated = decodeJSON[ProblemDTO](t, res)
+	if len(updated.Tags) != 0 || updated.Visible || updated.Mode != "strict" || updated.Statement != statement {
+		t.Fatalf("empty tags patch should clear tags and preserve unrelated fields: %+v", updated)
+	}
+	res = requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000", cookies, `{"timeMs":0,"memoryMb":0}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("zero limit patch got %d body=%s", res.Code, res.Body.String())
+	}
+	updated = decodeJSON[ProblemDTO](t, res)
+	if updated.TimeMS != 1000 || updated.MemoryMB != 256 || updated.Mode != "strict" || updated.Statement != statement {
+		t.Fatalf("zero limit patch should use defaults and preserve unrelated fields: %+v", updated)
 	}
 }
 
@@ -1379,6 +1411,26 @@ func TestDatabaseDiscussionAuthorsUseNames(t *testing.T) {
 	detail = decodeJSON[DiscussionDetail](t, requestOK(t, e, http.MethodGet, target, ""))
 	if detail.Content != "body" || len(detail.Discussion.Tags) != 1 || detail.Discussion.Tags[0] != "general" {
 		t.Fatalf("partial discussion update should preserve content and tags: %+v", detail)
+	}
+	updated = requestJSONWithCookies(e, http.MethodPatch, target, databaseSession(t, db, admin.ID), `{"pinned":false,"locked":true}`)
+	if updated.Code != http.StatusOK {
+		t.Fatalf("false/true discussion patch got %d body=%s", updated.Code, updated.Body.String())
+	}
+	dto = decodeJSON[DiscussionDTO](t, updated)
+	if dto.Pinned || !dto.Locked || dto.Title != "Named discussion" || dto.Replies != 1 {
+		t.Fatalf("discussion patch should apply false/true flags and preserve unrelated fields: %+v", dto)
+	}
+	updated = requestJSONWithCookies(e, http.MethodPatch, target, databaseSession(t, db, admin.ID), `{"locked":false,"tags":[]}`)
+	if updated.Code != http.StatusOK {
+		t.Fatalf("false/empty tags discussion patch got %d body=%s", updated.Code, updated.Body.String())
+	}
+	dto = decodeJSON[DiscussionDTO](t, updated)
+	if dto.Locked || len(dto.Tags) != 0 || dto.Title != "Named discussion" || dto.Replies != 1 {
+		t.Fatalf("discussion patch should apply false flag and empty tags: %+v", dto)
+	}
+	detail = decodeJSON[DiscussionDetail](t, requestOK(t, e, http.MethodGet, target, ""))
+	if detail.Content != "body" {
+		t.Fatalf("discussion false/empty tags patch should preserve content: %+v", detail)
 	}
 	empty := requestJSONWithCookies(e, http.MethodPatch, target, databaseSession(t, db, admin.ID), `{}`)
 	if empty.Code != http.StatusBadRequest {

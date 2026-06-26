@@ -100,6 +100,16 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	if saved.SiteName != "DOJ" || !saved.AllowRegistration || saved.AllowGuestAccess || !saved.DefaultSubmissionPublic {
 		t.Fatalf("partial settings patch should update one field and preserve the rest: %+v", saved)
 	}
+	res = requestJSONWithCookies(e, http.MethodPatch, "/api/admin/settings", adminCookies, `{"allowRegistration":false,"defaultSubmissionPublic":false}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("patch false settings got %d body=%s", res.Code, res.Body.String())
+	}
+	if err := json.Unmarshal(res.Body.Bytes(), &saved); err != nil {
+		t.Fatalf("decode false patched settings: %v body=%s", err, res.Body.String())
+	}
+	if saved.SiteName != "DOJ" || saved.AllowRegistration || saved.AllowGuestAccess || saved.DefaultSubmissionPublic {
+		t.Fatalf("false settings patch should apply false values and preserve unrelated fields: %+v", saved)
+	}
 	res = requestWithCookies(e, http.MethodGet, "/api/admin/settings", adminCookies)
 	if res.Code != http.StatusOK {
 		t.Fatalf("get settings got %d body=%s", res.Code, res.Body.String())
