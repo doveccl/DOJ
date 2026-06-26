@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -17,6 +18,16 @@ type preparedLang struct {
 }
 
 const defaultLanguageBuildTimeout = 2 * time.Minute
+
+var ansiEscapePattern = regexp.MustCompile(`\x1b\[[0-?]*[ -/]*[@-~]`)
+
+type languageBuildError struct {
+	Message string
+}
+
+func (err languageBuildError) Error() string {
+	return err.Message
+}
 
 func prepareLanguageImage(ctx context.Context, work string, lang Lang, source string, limits Limits) (preparedLang, error) {
 	if strings.TrimSpace(lang.Dockerfile) == "" {
@@ -47,11 +58,12 @@ func prepareLanguageImage(ctx context.Context, work string, lang Lang, source st
 	image, out, err := dockerBuildImage(buildCtx, dir, "Dockerfile", outputLimit)
 	if err != nil {
 		cleanup()
-		message := strings.TrimSpace(out)
+		message := cleanBuildMessage(out)
 		if message == "" {
 			message = err.Error()
+			return preparedLang{}, fmt.Errorf("build language image: %s", message)
 		}
-		return preparedLang{}, fmt.Errorf("build language image: %s", message)
+		return preparedLang{}, languageBuildError{Message: "build language image: " + message}
 	}
 	return preparedLang{
 		Image:   image,
@@ -88,6 +100,10 @@ func writeLanguageBuildContext(dir string, lang Lang, source string) error {
 		}
 	}
 	return nil
+}
+
+func cleanBuildMessage(message string) string {
+	return strings.TrimSpace(ansiEscapePattern.ReplaceAllString(message, ""))
 }
 
 func dockerfileCommand(dockerfile string) (string, error) {

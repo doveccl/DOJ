@@ -69,6 +69,11 @@ export function SubmissionDetailPage() {
               </Space>
             }
           >
+            {submission.message ? (
+              <Typography.Paragraph code copyable={{ text: submission.message }} style={{ whiteSpace: 'pre-wrap' }}>
+                {submission.message}
+              </Typography.Paragraph>
+            ) : null}
             <Table<Case> rowKey="no" columns={caseColumns(text)} dataSource={cases} pagination={false} size="small" />
           </Card>
         </Col>

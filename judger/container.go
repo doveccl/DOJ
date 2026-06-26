@@ -41,6 +41,9 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error
 	task := req.Task
 	lang, err := prepareLanguageImage(ctx, work, task.Lang, task.Source, task.Limits)
 	if err != nil {
+		if result, ok := taskResultForLanguageBuildError(task, err); ok {
+			return result, nil
+		}
 		return TaskResult{}, err
 	}
 	defer lang.Cleanup()
@@ -76,6 +79,19 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error
 		work:       work,
 	}
 	return client.runTask(ctx, task, lang.Command)
+}
+
+func taskResultForLanguageBuildError(task Task, err error) (TaskResult, bool) {
+	var buildErr languageBuildError
+	if !errors.As(err, &buildErr) {
+		return TaskResult{}, false
+	}
+	return TaskResult{
+		SubmissionID: task.SubmissionID,
+		Attempt:      task.Attempt,
+		Verdict:      VerdictCompileError,
+		Message:      buildErr.Message,
+	}, true
 }
 
 type runnerClient struct {

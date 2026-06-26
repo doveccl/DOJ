@@ -1252,6 +1252,7 @@ export interface components {
             language: string;
             status: string;
             score: number;
+            message: string;
             timeMs?: number;
             memoryKb?: number;
             public: boolean;

@@ -196,6 +196,7 @@ type SubmissionDTO struct {
 	Language     string    `json:"language"`
 	Status       string    `json:"status"`
 	Score        int       `json:"score"`
+	Message      string    `json:"message"`
 	TimeMS       *int      `json:"timeMs,omitempty"`
 	MemoryKB     *int      `json:"memoryKb,omitempty"`
 	Public       bool      `json:"public"`
@@ -4528,6 +4529,7 @@ func submissionDTOFromRefs(row models.Submission, titles map[uint]string, users 
 		Language:     row.Language,
 		Status:       row.Status,
 		Score:        row.Score,
+		Message:      row.Message,
 		TimeMS:       row.TimeMS,
 		MemoryKB:     row.MemoryKB,
 		Public:       row.Public,

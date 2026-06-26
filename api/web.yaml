@@ -2206,7 +2206,7 @@ components:
           maxLength: 16
     Submission:
       type: object
-      required: [id, problemId, problemTitle, user, language, status, score, public, createdAt]
+      required: [id, problemId, problemTitle, user, language, status, score, message, public, createdAt]
       properties:
         id:
           type: integer
@@ -2226,6 +2226,9 @@ components:
           maxLength: 32
         score:
           type: integer
+        message:
+          type: string
+          maxLength: 4096
         timeMs:
           type: integer
         memoryKb:

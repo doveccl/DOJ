@@ -223,6 +223,40 @@ func TestPrivateSubmissionSourceVisibilityWithDatabase(t *testing.T) {
 	}
 }
 
+func TestSubmissionDetailIncludesTopLevelMessage(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	owner := models.User{Name: "owner", Mail: "owner@example.com", Auth: "hash"}
+	if err := db.Create(&owner).Error; err != nil {
+		t.Fatalf("create owner: %v", err)
+	}
+	problem := models.Problem{ID: 1000, Title: "Visible", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	submission := models.Submission{
+		UserID:    owner.ID,
+		ProblemID: problem.ID,
+		Language:  "cpp",
+		Code:      "int main(){",
+		Status:    "CE",
+		Message:   "compile failed\nmain.cpp:1: error: expected '}'",
+		Public:    true,
+	}
+	if err := db.Create(&submission).Error; err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+
+	target := "/api/submissions/" + strconv.FormatUint(uint64(submission.ID), 10)
+	got := decodeJSON[SubmissionDetail](t, requestOK(t, e, http.MethodGet, target, ""))
+	if got.Submission.Message != submission.Message {
+		t.Fatalf("submission detail should expose top-level judge message: %+v", got.Submission)
+	}
+}
+
 func TestSubmissionPublicCanBeUpdatedByOwnerOrAdmin(t *testing.T) {
 	db := testWebDB(t)
 	allowGuest(t, db)
