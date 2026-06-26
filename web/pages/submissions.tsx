@@ -12,7 +12,7 @@ import { ErrorBlock, LoadingBlock } from '../components/state'
 import { SubmissionStatus } from '../components/status'
 import { useDebouncedValue } from '../components/use-debounced-value'
 import { useLocale } from '../locale'
-import { formatTime, problemCode, problemLabel, submissionCode } from '../utils/format'
+import { formatTime, memoryText, problemCode, problemLabel, submissionCode } from '../utils/format'
 
 type SubmissionFilters = {
   problem?: string
@@ -238,8 +238,14 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: str
       render: (status: string) => <SubmissionStatus status={status} />
     },
     {
-      title: text.submissions.score,
-      dataIndex: 'score',
+      title: text.submissions.time,
+      dataIndex: 'timeMs',
+      render: (value?: number) => (value === undefined ? '-' : `${value}ms`)
+    },
+    {
+      title: text.submissions.memory,
+      dataIndex: 'memoryKb',
+      render: (value?: number) => memoryText(value)
     },
     {
       title: text.submissions.language,

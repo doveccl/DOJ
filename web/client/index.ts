@@ -629,6 +629,13 @@ export async function updateSubmission(id: number, body: SubmissionUpdate) {
   return assertData(data, error)
 }
 
+export async function rejudgeSubmission(id: number) {
+  const { data, error } = await client.POST('/api/submissions/{id}/rejudge', {
+    params: { path: { id } }
+  })
+  return assertData(data, error)
+}
+
 export async function getRank() {
   const { data, error } = await client.GET('/api/rank')
   return assertData(data, error)

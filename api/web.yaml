@@ -1224,6 +1224,26 @@ paths:
           description: Owner or admin required
         "404":
           description: Submission not found
+  /api/submissions/{id}/rejudge:
+    post:
+      operationId: rejudgeSubmission
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Submission requeued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Submission"
+        "403":
+          description: Admin required
+        "404":
+          description: Submission not found
   /api/rank:
     get:
       operationId: getRank

@@ -185,6 +185,8 @@ const zh = {
     cases: '测试点',
     message: '消息',
     public: '公开',
+    rejudge: '重测',
+    rejudged: '已重新进入队列',
     searchProblem: '题目编号',
     allStatus: '全部状态',
     statuses: {
@@ -556,6 +558,8 @@ const en: typeof zh = {
     cases: 'Cases',
     message: 'Message',
     public: 'Public',
+    rejudge: 'Rejudge',
+    rejudged: 'Requeued',
     searchProblem: 'Problem ID',
     allStatus: 'All statuses',
     statuses: {

@@ -459,6 +459,7 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.POST("/submissions", api.submit, api.rateLimit("submit", 30, time.Minute), echomw.BodyLimit(utils.BodyLimitSource))
 	group.GET("/submissions/:id", api.submission)
 	group.PATCH("/submissions/:id", api.updateSubmission)
+	group.POST("/submissions/:id/rejudge", api.rejudgeSubmission)
 	group.GET("/rank", api.rank)
 	group.GET("/users", api.users)
 	group.GET("/users/:name", api.user)
@@ -2686,6 +2687,47 @@ func (api *API) updateSubmission(c echo.Context) error {
 	}
 	row.Public = req.Public
 	if err := api.db.Model(&row).Update("public", row.Public).Error; err != nil {
+		return err
+	}
+	events.SubmissionChanged()
+	return c.JSON(http.StatusOK, api.submissionDTO(row))
+}
+
+func (api *API) rejudgeSubmission(c echo.Context) error {
+	if err := api.requireAdmin(c); err != nil {
+		return err
+	}
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid submission id")
+	}
+	var row models.Submission
+	err = api.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.First(&row, id).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("submission_id = ?", row.ID).Delete(&models.Case{}).Error; err != nil {
+			return err
+		}
+		updates := map[string]any{
+			"status":      "queued",
+			"score":       0,
+			"message":     "",
+			"attempt":     gorm.Expr("attempt + 1"),
+			"judger_id":   nil,
+			"lease_until": nil,
+			"time_ms":     nil,
+			"memory_kb":   nil,
+		}
+		if err := tx.Model(&row).Updates(updates).Error; err != nil {
+			return err
+		}
+		return tx.First(&row, row.ID).Error
+	})
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return echo.NewHTTPError(http.StatusNotFound, "submission not found")
+		}
 		return err
 	}
 	events.SubmissionChanged()

@@ -1,10 +1,11 @@
-import { App as AntApp, Card, Col, Flex, Row, Space, Switch, Table, Tooltip, Typography } from 'antd'
+import { ReloadOutlined } from '@ant-design/icons'
+import { App as AntApp, Button, Card, Col, Flex, Row, Space, Switch, Table, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 
-import { getLangs, getSubmission, updateSubmission } from '../client'
+import { getLangs, getSubmission, rejudgeSubmission, updateSubmission } from '../client'
 import type { Case, SubmissionDetail } from '../client'
 import { ProblemLink, UserLink } from '../components/entity'
 import { MarkdownPreview } from '../components/markdown'
@@ -32,6 +33,15 @@ export function SubmissionDetailPage() {
     onSuccess: (next) => {
       client.setQueryData<SubmissionDetail>(['submission', id], (current) => (current ? { ...current, submission: next } : current))
       client.invalidateQueries({ queryKey: ['submissions'] })
+    },
+    onError: (error) => message.error(error.message)
+  })
+  const rejudge = useMutation({
+    mutationFn: () => rejudgeSubmission(id),
+    onSuccess: (next) => {
+      client.setQueryData<SubmissionDetail>(['submission', id], (current) => (current ? { ...current, submission: next, cases: [] } : current))
+      void client.invalidateQueries({ queryKey: ['submissions'] })
+      message.success(text.submissions.rejudged)
     },
     onError: (error) => message.error(error.message)
   })
@@ -66,6 +76,7 @@ export function SubmissionDetailPage() {
                 <MetaInline label={text.submissions.score}>{submission.score}</MetaInline>
                 <MetaInline label={text.submissions.time}>{submission.timeMs === undefined ? '-' : `${submission.timeMs}ms`}</MetaInline>
                 <MetaInline label={text.submissions.memory}>{memoryText(submission.memoryKb)}</MetaInline>
+                {session.admin ? <Button size="small" icon={<ReloadOutlined />} loading={rejudge.isPending} onClick={() => rejudge.mutate()}>{text.submissions.rejudge}</Button> : null}
               </Space>
             }
           >
