@@ -92,7 +92,6 @@ type caseResult struct {
 }
 
 func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
-	totalStartedAt := time.Now()
 	client := workerClient(cfg)
 	leaseStartedAt := time.Now()
 	task, err := lease(ctx, client, cfg)
@@ -103,6 +102,7 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 	if task == nil {
 		return false, nil
 	}
+	totalStartedAt := time.Now()
 	logTask(cfg.Logf, task.SubmissionID, task.Attempt, "start problem=P%d cases=%d lang=%s", task.Problem.ID, len(task.Cases), task.Lang.ID)
 	defer func() {
 		logTask(cfg.Logf, task.SubmissionID, task.Attempt, "total=%s", formatDuration(time.Since(totalStartedAt)))
