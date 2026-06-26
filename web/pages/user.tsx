@@ -6,14 +6,14 @@ import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import { getMe, getUser, updateMe, updatePassword, uploadImage } from '../client'
-import type { MeUpdate, PasswordUpdate } from '../client'
+import type { Me, PasswordUpdate } from '../client'
 import { ProfileOverview } from '../components/profile'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
 import { limits } from '../utils/limits'
 
-type AccountForm = Pick<MeUpdate, 'mail' | 'bio'>
+type AccountForm = Pick<Me, 'mail' | 'bio'>
 
 export function UserPage() {
   const { text } = useLocale()
@@ -70,7 +70,7 @@ export function UserPage() {
     }
     void uploadImage(file)
       .then((src) => {
-        account.mutate({ mail: me.mail, bio: me.bio, avatar: src })
+        account.mutate({ avatar: src })
       })
       .catch((error: unknown) => {
         message.error(error instanceof Error ? error.message : text.common.loadingFailed)
@@ -110,7 +110,7 @@ export function UserPage() {
           onCancel={() => setSettingsOpen(false)}
           me={me}
           saving={account.isPending}
-          onSave={(values) => account.mutate({ ...values, avatar: me.avatar }, { onSuccess: () => setSettingsOpen(false) })}
+          onSave={(values) => account.mutate(values, { onSuccess: () => setSettingsOpen(false) })}
         />
       ) : null}
     </Flex>
@@ -126,7 +126,7 @@ function SettingsModal({
 }: {
   open: boolean
   onCancel: () => void
-  me: MeUpdate
+  me: Me
   saving: boolean
   onSave: (values: AccountForm) => void
 }) {
@@ -153,7 +153,7 @@ function SettingsModal({
   )
 }
 
-function AccountPane({ me, saving, onSave }: { me: MeUpdate; saving: boolean; onSave: (values: AccountForm) => void }) {
+function AccountPane({ me, saving, onSave }: { me: Me; saving: boolean; onSave: (values: AccountForm) => void }) {
   const { text } = useLocale()
 
   return (

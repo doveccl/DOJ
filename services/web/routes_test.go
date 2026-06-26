@@ -131,6 +131,39 @@ func TestUsernamePreservesCaseAndMatchesCaseInsensitively(t *testing.T) {
 	}
 }
 
+func TestMePatchOnlyUpdatesProvidedFields(t *testing.T) {
+	db := testWebDB(t)
+	user := models.User{Name: "student", Mail: "student@example.com", Bio: "old bio", Avatar: "/old.png", Auth: "hash"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	e := echo.New()
+	Register(e, db)
+	cookies := databaseSession(t, db, user.ID)
+
+	avatarRes := requestJSONWithCookies(e, http.MethodPatch, "/api/me", cookies, `{"avatar":"/new.png"}`)
+	if avatarRes.Code != http.StatusOK {
+		t.Fatalf("avatar patch got %d body=%s", avatarRes.Code, avatarRes.Body.String())
+	}
+	avatar := decodeJSON[MeDTO](t, avatarRes)
+	if avatar.Mail != "student@example.com" || avatar.Bio != "old bio" || avatar.Avatar != "/new.png" {
+		t.Fatalf("avatar patch should preserve mail and bio: %+v", avatar)
+	}
+
+	mailRes := requestJSONWithCookies(e, http.MethodPatch, "/api/me", cookies, `{"mail":"Next@Example.com"}`)
+	if mailRes.Code != http.StatusOK {
+		t.Fatalf("mail patch got %d body=%s", mailRes.Code, mailRes.Body.String())
+	}
+	mail := decodeJSON[MeDTO](t, mailRes)
+	if mail.Mail != "next@example.com" || mail.Bio != "old bio" || mail.Avatar != "/new.png" {
+		t.Fatalf("mail patch should preserve bio and avatar: %+v", mail)
+	}
+	emptyRes := requestJSONWithCookies(e, http.MethodPatch, "/api/me", cookies, `{}`)
+	if emptyRes.Code != http.StatusBadRequest {
+		t.Fatalf("empty profile patch got %d body=%s", emptyRes.Code, emptyRes.Body.String())
+	}
+}
+
 func TestPrivateSubmissionSourceVisibilityWithDatabase(t *testing.T) {
 	db := testWebDB(t)
 	allowGuest(t, db)
@@ -978,6 +1011,16 @@ func TestAssignmentMembershipCreateUpdateAndVisibility(t *testing.T) {
 	if len(created.Groups) != 1 || created.Groups[0] != group.ID || len(created.Users) != 0 {
 		t.Fatalf("created assignment members not returned: %+v", created)
 	}
+	adminList := decodeJSON[[]map[string]any](t, requestWithCookies(e, http.MethodGet, "/api/assignments", adminCookies, nil))
+	if len(adminList) != 1 {
+		t.Fatalf("admin assignment list got %+v", adminList)
+	}
+	if _, ok := adminList[0]["users"]; ok {
+		t.Fatalf("assignment list should not include user members: %+v", adminList[0])
+	}
+	if _, ok := adminList[0]["groups"]; ok {
+		t.Fatalf("assignment list should not include group members: %+v", adminList[0])
+	}
 
 	aliceDetail := requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(created.ID), 10), databaseSession(t, db, alice.ID), nil)
 	if aliceDetail.Code != http.StatusOK {
@@ -1041,7 +1084,13 @@ func TestDatabaseAdminInputValidation(t *testing.T) {
 			name:   "update problem invalid mode",
 			method: http.MethodPatch,
 			path:   "/api/problems/1000",
-			body:   `{"title":"Visible","statement":"# Visible","tags":[],"visible":true,"mode":"bad","timeMs":1000,"memoryMb":256}`,
+			body:   `{"mode":"bad"}`,
+		},
+		{
+			name:   "update problem empty patch",
+			method: http.MethodPatch,
+			path:   "/api/problems/1000",
+			body:   `{}`,
 		},
 		{
 			name:   "create assignment duplicate problem",
@@ -1104,6 +1153,36 @@ func TestProblemVisibilityUpdateDoesNotTouchStatementStorage(t *testing.T) {
 	updated := decodeJSON[ProblemDTO](t, res)
 	if updated.Visible {
 		t.Fatalf("problem should be hidden after visibility update: %+v", updated)
+	}
+}
+
+func TestProblemPatchOnlyUpdatesProvidedFields(t *testing.T) {
+	db := testWebDB(t)
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	problem := models.Problem{ID: 1000, Title: "Original", Tags: datatypes.JSON([]byte(`["old"]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	t.Setenv("STORAGE", t.TempDir())
+
+	e := echo.New()
+	Register(e, db)
+	cookies := databaseSession(t, db, admin.ID)
+	statement := "# Original\n\nBody"
+	statementBody := `{"statement":` + strconv.Quote(statement) + `}`
+	if res := requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000", cookies, statementBody); res.Code != http.StatusOK {
+		t.Fatalf("statement patch got %d body=%s", res.Code, res.Body.String())
+	}
+	res := requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000", cookies, `{"mode":"strict"}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("mode patch got %d body=%s", res.Code, res.Body.String())
+	}
+	updated := decodeJSON[ProblemDTO](t, res)
+	if updated.Mode != "strict" || updated.Title != "Original" || updated.Statement != statement || !updated.Visible || updated.TimeMS != 1000 || updated.MemoryMB != 256 {
+		t.Fatalf("mode patch should preserve unrelated problem fields: %+v", updated)
 	}
 }
 
@@ -1289,13 +1368,21 @@ func TestDatabaseDiscussionAuthorsUseNames(t *testing.T) {
 		t.Fatalf("discussion detail authors should be usernames: %+v", detail)
 	}
 
-	updated := requestJSONWithCookies(e, http.MethodPatch, target, databaseSession(t, db, admin.ID), `{"title":"Named discussion","content":"body","tags":["general"],"pinned":true,"locked":false}`)
+	updated := requestJSONWithCookies(e, http.MethodPatch, target, databaseSession(t, db, admin.ID), `{"pinned":true}`)
 	if updated.Code != http.StatusOK {
 		t.Fatalf("update discussion got %d body=%s", updated.Code, updated.Body.String())
 	}
 	dto := decodeJSON[DiscussionDTO](t, updated)
-	if dto.Author != "admin" {
-		t.Fatalf("updated discussion author should be username: %+v", dto)
+	if dto.Author != "admin" || !dto.Pinned || dto.Locked || dto.Title != "Named discussion" || dto.Replies != 1 {
+		t.Fatalf("partial discussion update should preserve unrelated fields and reply count: %+v", dto)
+	}
+	detail = decodeJSON[DiscussionDetail](t, requestOK(t, e, http.MethodGet, target, ""))
+	if detail.Content != "body" || len(detail.Discussion.Tags) != 1 || detail.Discussion.Tags[0] != "general" {
+		t.Fatalf("partial discussion update should preserve content and tags: %+v", detail)
+	}
+	empty := requestJSONWithCookies(e, http.MethodPatch, target, databaseSession(t, db, admin.ID), `{}`)
+	if empty.Code != http.StatusBadRequest {
+		t.Fatalf("empty discussion patch got %d body=%s", empty.Code, empty.Body.String())
 	}
 }
 

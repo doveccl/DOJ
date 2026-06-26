@@ -169,8 +169,6 @@ export function ProblemDetailPage() {
         title: values.title,
         statement: values.statement,
         tags: values.tags ?? [],
-        visible: query.data.visible,
-        mode: query.data.mode,
         timeMs: values.timeMs,
         memoryMb: values.memoryMb
       })
@@ -202,15 +200,7 @@ export function ProblemDetailPage() {
       if (!query.data) {
         throw new Error(text.common.emptyResponse)
       }
-      return updateProblem(id, {
-        title: query.data.title,
-        statement: query.data.statement || `# ${query.data.title}`,
-        tags: query.data.tags,
-        visible: query.data.visible,
-        mode,
-        timeMs: query.data.timeMs,
-        memoryMb: query.data.memoryMb
-      })
+      return updateProblem(id, { mode })
     },
     onSuccess: (next) => {
       client.setQueryData(['problem', id], next)

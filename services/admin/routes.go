@@ -36,6 +36,11 @@ type Overview struct {
 	Queue     JudgeQueue    `json:"queue"`
 }
 
+type Members struct {
+	Users  []User  `json:"users"`
+	Groups []Group `json:"groups"`
+}
+
 type AdminSettings struct {
 	SiteName                string `json:"siteName"`
 	AllowRegistration       bool   `json:"allowRegistration"`
@@ -150,6 +155,7 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.GET("", api.overview)
 	group.GET("/settings", api.getSettings)
 	group.PATCH("/settings", api.updateSettings, echomw.BodyLimit(utils.BodyLimitSettings))
+	group.GET("/members", api.members)
 	group.POST("/users", api.createUser)
 	group.PATCH("/users/:name", api.updateUser)
 	group.DELETE("/users/:name", api.deleteUser)
@@ -201,6 +207,14 @@ func (api *API) getSettings(c echo.Context) error {
 		return err
 	}
 	return c.JSON(http.StatusOK, settings)
+}
+
+func (api *API) members(c echo.Context) error {
+	members, err := api.readMembers()
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, members)
 }
 
 func (api *API) backupSettings(c echo.Context) error {
@@ -296,6 +310,18 @@ func (api *API) readOverview(ctx context.Context) (Overview, error) {
 		return Overview{}, err
 	}
 	return Overview{Settings: settings, Users: users, Groups: groups, Languages: languages, Judgers: judgers, Queue: queue}, nil
+}
+
+func (api *API) readMembers() (Members, error) {
+	users, err := api.users()
+	if err != nil {
+		return Members{}, err
+	}
+	groups, err := api.groups()
+	if err != nil {
+		return Members{}, err
+	}
+	return Members{Users: users, Groups: groups}, nil
 }
 
 func (api *API) updateSettings(c echo.Context) error {

@@ -212,6 +212,22 @@ export interface paths {
         patch: operations["updateAdminSettings"];
         trace?: never;
     };
+    "/api/admin/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users": {
         parameters: {
             query?: never;
@@ -884,9 +900,9 @@ export interface components {
             admin: boolean;
         };
         MeUpdate: {
-            mail: string;
-            bio: string;
-            avatar: string;
+            mail?: string;
+            bio?: string;
+            avatar?: string;
         };
         LoginRequest: {
             name: string;
@@ -917,6 +933,10 @@ export interface components {
             languages: components["schemas"]["AdminLang"][];
             judgers: components["schemas"]["AdminJudger"][];
             queue: components["schemas"]["AdminJudgeQueue"];
+        };
+        AdminMembers: {
+            users: components["schemas"]["AdminUser"][];
+            groups: components["schemas"]["AdminGroup"][];
         };
         AdminSettings: {
             siteName: string;
@@ -1078,13 +1098,13 @@ export interface components {
             memoryMb: number;
         };
         ProblemUpdate: {
-            title: string;
-            statement: string;
-            tags: string[];
-            visible: boolean;
-            mode: string;
-            timeMs: number;
-            memoryMb: number;
+            title?: string;
+            statement?: string;
+            tags?: string[];
+            visible?: boolean;
+            mode?: string;
+            timeMs?: number;
+            memoryMb?: number;
         };
         ProblemVisibilityUpdate: {
             visible: boolean;
@@ -1138,6 +1158,15 @@ export interface components {
             done: number;
             users: number[];
             groups: number[];
+        };
+        AssignmentListItem: {
+            id: number;
+            title: string;
+            /** Format: date-time */
+            endAt: string;
+            status: string;
+            total: number;
+            done: number;
         };
         AssignmentDetail: {
             assignment: components["schemas"]["Assignment"];
@@ -1311,11 +1340,11 @@ export interface components {
             tags: string[];
         };
         DiscussionUpdate: {
-            title: string;
-            content: string;
-            tags: string[];
-            pinned: boolean;
-            locked: boolean;
+            title?: string;
+            content?: string;
+            tags?: string[];
+            pinned?: boolean;
+            locked?: boolean;
         };
         DiscussionDetail: {
             discussion: components["schemas"]["Discussion"];
@@ -1669,6 +1698,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminSettings"];
+                };
+            };
+        };
+    };
+    getAdminMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Admin member options */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMembers"];
                 };
             };
         };
@@ -2651,7 +2700,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Assignment"][];
+                    "application/json": components["schemas"]["AssignmentListItem"][];
                 };
             };
         };

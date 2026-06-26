@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { createComment, deleteDiscussion, getDiscussion, updateDiscussion } from '../client'
-import type { CommentCreate, DiscussionDetail, DiscussionUpdate } from '../client'
+import type { CommentCreate, DiscussionDetail } from '../client'
 import { UserLink } from '../components/entity'
 import { MarkdownEditor, MarkdownPreview } from '../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../components/state'
@@ -15,6 +15,12 @@ import { formatTime } from '../utils/format'
 import { limits } from '../utils/limits'
 
 const commentPageSize = 20
+
+type DiscussionForm = {
+  title: string
+  content: string
+  tags: string[]
+}
 
 export function PostPage() {
   const { lang, text } = useLocale()
@@ -55,7 +61,7 @@ export function PostPage() {
     onError: showError
   })
   const edit = useMutation({
-    mutationFn: (values: DiscussionUpdate) => updateDiscussion(id, values),
+    mutationFn: (values: DiscussionForm) => updateDiscussion(id, values),
     onSuccess: (item) => {
       void client.invalidateQueries({ queryKey: ['discussion'] })
       void client.invalidateQueries({ queryKey: ['discussion', id] })
@@ -69,18 +75,7 @@ export function PostPage() {
     onError: showError
   })
   const toggleState = useMutation({
-    mutationFn: (values: { pinned?: boolean; locked?: boolean }) => {
-      if (!query.data) {
-        throw new Error(text.common.emptyResponse)
-      }
-      return updateDiscussion(id, {
-        title: query.data.discussion.title,
-        content: query.data.content,
-        tags: query.data.discussion.tags,
-        pinned: values.pinned ?? query.data.discussion.pinned,
-        locked: values.locked ?? query.data.discussion.locked
-      })
-    },
+    mutationFn: (values: { pinned?: boolean; locked?: boolean }) => updateDiscussion(id, values),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['discussion'] })
       void client.invalidateQueries({ queryKey: ['discussion', id] })
@@ -204,10 +199,10 @@ export function PostPage() {
       </Card>
       {editOpen ? (
         <PostEditModal
-          initial={{ title: discussion.title, content, tags: discussion.tags, pinned: discussion.pinned, locked: discussion.locked }}
+          initial={{ title: discussion.title, content, tags: discussion.tags }}
           loading={edit.isPending}
           onCancel={() => setEditOpen(false)}
-          onSave={(values) => edit.mutate({ ...values, pinned: discussion.pinned, locked: discussion.locked })}
+          onSave={(values) => edit.mutate(values)}
         />
       ) : null}
     </Flex>
@@ -220,13 +215,13 @@ function PostEditModal({
   onCancel,
   onSave
 }: {
-  initial: DiscussionUpdate
+  initial: DiscussionForm
   loading: boolean
   onCancel: () => void
-  onSave: (values: DiscussionUpdate) => void
+  onSave: (values: DiscussionForm) => void
 }) {
   const { text } = useLocale()
-  const [form] = Form.useForm<DiscussionUpdate>()
+  const [form] = Form.useForm<DiscussionForm>()
 
   return (
     <Modal
@@ -239,7 +234,7 @@ function PostEditModal({
       onCancel={onCancel}
       onOk={() => form.submit()}
     >
-      <Form<DiscussionUpdate> form={form} layout="vertical" initialValues={initial} onFinish={onSave}>
+      <Form<DiscussionForm> form={form} layout="vertical" initialValues={initial} onFinish={onSave}>
         <Form.Item name="title" label={text.discussion.title} rules={[{ required: true, whitespace: true }]}>
           <Input maxLength={limits.title} showCount />
         </Form.Item>

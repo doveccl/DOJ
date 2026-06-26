@@ -80,9 +80,9 @@ type LanguageDTO struct {
 }
 
 type MeUpdate struct {
-	Mail   string `json:"mail"`
-	Bio    string `json:"bio"`
-	Avatar string `json:"avatar"`
+	Mail   *string `json:"mail,omitempty"`
+	Bio    *string `json:"bio,omitempty"`
+	Avatar *string `json:"avatar,omitempty"`
 }
 
 type PasswordUpdate struct {
@@ -108,8 +108,8 @@ type AssignmentDTO struct {
 	Status string    `json:"status"`
 	Total  int       `json:"total"`
 	Done   int       `json:"done"`
-	Users  []uint    `json:"users"`
-	Groups []uint    `json:"groups"`
+	Users  []uint    `json:"users,omitempty"`
+	Groups []uint    `json:"groups,omitempty"`
 }
 
 type AssignmentCreate struct {
@@ -291,11 +291,11 @@ type DiscussionCreate struct {
 }
 
 type DiscussionUpdate struct {
-	Title   string   `json:"title"`
-	Content string   `json:"content"`
-	Tags    []string `json:"tags"`
-	Pinned  bool     `json:"pinned"`
-	Locked  bool     `json:"locked"`
+	Title   *string   `json:"title,omitempty"`
+	Content *string   `json:"content,omitempty"`
+	Tags    *[]string `json:"tags,omitempty"`
+	Pinned  *bool     `json:"pinned,omitempty"`
+	Locked  *bool     `json:"locked,omitempty"`
 }
 
 type DiscussionDetail struct {
@@ -351,13 +351,13 @@ type ProblemCreate struct {
 }
 
 type ProblemUpdate struct {
-	Title     string   `json:"title"`
-	Statement string   `json:"statement"`
-	Tags      []string `json:"tags"`
-	Visible   bool     `json:"visible"`
-	Mode      string   `json:"mode"`
-	TimeMS    int      `json:"timeMs"`
-	MemoryMB  int      `json:"memoryMb"`
+	Title     *string   `json:"title,omitempty"`
+	Statement *string   `json:"statement,omitempty"`
+	Tags      *[]string `json:"tags,omitempty"`
+	Visible   *bool     `json:"visible,omitempty"`
+	Mode      *string   `json:"mode,omitempty"`
+	TimeMS    *int      `json:"timeMs,omitempty"`
+	MemoryMB  *int      `json:"memoryMb,omitempty"`
 }
 
 type ProblemVisibilityUpdate struct {
@@ -702,44 +702,42 @@ func (api *API) updateMe(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
-	normalizeMeUpdate(&req)
-	if err := validateMeUpdate(req); err != nil {
-		return err
+	if req.Mail == nil && req.Bio == nil && req.Avatar == nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "no fields to update")
 	}
 
 	user, err := api.currentUser(c)
 	if err != nil {
 		return err
 	}
-	if err := api.ensureMailAvailable(req.Mail, user.ID); err != nil {
-		return err
+	if req.Mail != nil {
+		mail := strings.ToLower(strings.TrimSpace(*req.Mail))
+		if err := validateMail(mail); err != nil {
+			return err
+		}
+		if err := api.ensureMailAvailable(mail, user.ID); err != nil {
+			return err
+		}
+		user.Mail = mail
 	}
-	user.Mail = req.Mail
-	user.Bio = req.Bio
-	user.Avatar = req.Avatar
+	if req.Bio != nil {
+		bio := strings.TrimSpace(*req.Bio)
+		if len([]rune(bio)) > models.BioMax {
+			return echo.NewHTTPError(http.StatusBadRequest, "bio is too long")
+		}
+		user.Bio = bio
+	}
+	if req.Avatar != nil {
+		avatar := strings.TrimSpace(*req.Avatar)
+		if len(avatar) > models.AvatarMax {
+			return echo.NewHTTPError(http.StatusBadRequest, "avatar url is too long")
+		}
+		user.Avatar = avatar
+	}
 	if err := api.db.Save(&user).Error; err != nil {
 		return err
 	}
 	return c.JSON(http.StatusOK, meDTO(user))
-}
-
-func normalizeMeUpdate(req *MeUpdate) {
-	req.Mail = strings.ToLower(strings.TrimSpace(req.Mail))
-	req.Bio = strings.TrimSpace(req.Bio)
-	req.Avatar = strings.TrimSpace(req.Avatar)
-}
-
-func validateMeUpdate(req MeUpdate) error {
-	if err := validateMail(req.Mail); err != nil {
-		return err
-	}
-	if len([]rune(req.Bio)) > models.BioMax {
-		return echo.NewHTTPError(http.StatusBadRequest, "bio is too long")
-	}
-	if len(req.Avatar) > models.AvatarMax {
-		return echo.NewHTTPError(http.StatusBadRequest, "avatar url is too long")
-	}
-	return nil
 }
 
 func (api *API) ensureMailAvailable(mail string, currentUserID uint) error {
@@ -944,7 +942,7 @@ func (api *API) homeAssignments(c echo.Context) ([]Item, error) {
 	if err := api.db.Order("end_at desc").Limit(5).Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	assignments, err := api.assignmentDTOs(c, rows)
+	assignments, err := api.assignmentDTOs(c, rows, false)
 	if err != nil {
 		return nil, err
 	}
@@ -1104,18 +1102,8 @@ func (api *API) updateProblem(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
-	normalizeProblemUpdate(&req)
-	if req.Title == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "title is required")
-	}
-	if err := validateTitle(req.Title); err != nil {
-		return err
-	}
-	if err := validateTextBytes(req.Statement, utils.MaxMarkdownBytes, "statement is too large"); err != nil {
-		return err
-	}
-	if !validProblemMode(req.Mode) {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid judge mode")
+	if req.Title == nil && req.Statement == nil && req.Tags == nil && req.Visible == nil && req.Mode == nil && req.TimeMS == nil && req.MemoryMB == nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "no fields to update")
 	}
 
 	var row models.Problem
@@ -1125,18 +1113,65 @@ func (api *API) updateProblem(c echo.Context) error {
 		}
 		return err
 	}
-	tags, _ := json.Marshal(req.Tags)
-	row.Title = req.Title
-	row.Tags = tags
-	row.Visible = req.Visible
-	row.Mode = req.Mode
-	row.TimeMS = req.TimeMS
-	row.MemoryMB = req.MemoryMB
+	if req.Title != nil {
+		title := strings.TrimSpace(*req.Title)
+		if title == "" {
+			return echo.NewHTTPError(http.StatusBadRequest, "title is required")
+		}
+		if err := validateTitle(title); err != nil {
+			return err
+		}
+		row.Title = title
+	}
+	if req.Tags != nil {
+		tags, _ := json.Marshal(normalizeTags(*req.Tags))
+		row.Tags = tags
+	}
+	if req.Visible != nil {
+		row.Visible = *req.Visible
+	}
+	if req.Mode != nil {
+		mode := strings.TrimSpace(*req.Mode)
+		if mode == "" {
+			mode = "default"
+		}
+		if !validProblemMode(mode) {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid judge mode")
+		}
+		row.Mode = mode
+	}
+	if req.TimeMS != nil {
+		timeMS := *req.TimeMS
+		if timeMS <= 0 {
+			timeMS = 1000
+		}
+		row.TimeMS = timeMS
+	}
+	if req.MemoryMB != nil {
+		memoryMB := *req.MemoryMB
+		if memoryMB <= 0 {
+			memoryMB = 256
+		}
+		row.MemoryMB = memoryMB
+	}
+	var statement *string
+	if req.Statement != nil {
+		value := strings.TrimSpace(*req.Statement)
+		if value == "" && row.Title != "" {
+			value = "# " + row.Title
+		}
+		if err := validateTextBytes(value, utils.MaxMarkdownBytes, "statement is too large"); err != nil {
+			return err
+		}
+		statement = &value
+	}
 	if err := api.db.Save(&row).Error; err != nil {
 		return err
 	}
-	if err := api.writeProblemStatement(c.Request().Context(), row.ID, req.Statement); err != nil {
-		return err
+	if statement != nil {
+		if err := api.writeProblemStatement(c.Request().Context(), row.ID, *statement); err != nil {
+			return err
+		}
 	}
 	item, err := api.problemDTOWithStatement(c.Request().Context(), row)
 	if err != nil {
@@ -1532,7 +1567,7 @@ func (api *API) assignments(c echo.Context) error {
 	if err := api.db.Order("end_at desc").Limit(50).Find(&rows).Error; err != nil {
 		return err
 	}
-	items, err := api.assignmentDTOs(c, rows)
+	items, err := api.assignmentDTOs(c, rows, false)
 	if err != nil {
 		return err
 	}
@@ -3058,17 +3093,8 @@ func (api *API) updateDiscussion(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
-	req.Title = strings.TrimSpace(req.Title)
-	req.Content = strings.TrimSpace(req.Content)
-	req.Tags = normalizeTags(req.Tags)
-	if req.Title == "" || req.Content == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "title and content are required")
-	}
-	if err := validateTitle(req.Title); err != nil {
-		return err
-	}
-	if err := validateTextBytes(req.Content, utils.MaxMarkdownBytes, "discussion content is too large"); err != nil {
-		return err
+	if req.Title == nil && req.Content == nil && req.Tags == nil && req.Pinned == nil && req.Locked == nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "no fields to update")
 	}
 
 	var row models.Discussion
@@ -3078,24 +3104,48 @@ func (api *API) updateDiscussion(c echo.Context) error {
 		}
 		return err
 	}
-	rawTags, _ := json.Marshal(req.Tags)
-	row.Title = req.Title
-	row.Content = req.Content
-	row.Tags = rawTags
-	row.Pinned = req.Pinned
-	row.Locked = req.Locked
+	if req.Title != nil {
+		title := strings.TrimSpace(*req.Title)
+		if title == "" {
+			return echo.NewHTTPError(http.StatusBadRequest, "title is required")
+		}
+		if err := validateTitle(title); err != nil {
+			return err
+		}
+		row.Title = title
+	}
+	if req.Content != nil {
+		content := strings.TrimSpace(*req.Content)
+		if content == "" {
+			return echo.NewHTTPError(http.StatusBadRequest, "content is required")
+		}
+		if err := validateTextBytes(content, utils.MaxMarkdownBytes, "discussion content is too large"); err != nil {
+			return err
+		}
+		row.Content = content
+	}
+	if req.Tags != nil {
+		rawTags, _ := json.Marshal(normalizeTags(*req.Tags))
+		row.Tags = rawTags
+	}
+	if req.Pinned != nil {
+		row.Pinned = *req.Pinned
+	}
+	if req.Locked != nil {
+		row.Locked = *req.Locked
+	}
 	if err := api.db.Save(&row).Error; err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, DiscussionDTO{
-		ID:        row.ID,
-		Title:     row.Title,
-		Author:    api.userName(row.UserID),
-		Tags:      req.Tags,
-		Pinned:    row.Pinned,
-		Locked:    row.Locked,
-		CreatedAt: row.CreatedAt,
-	})
+	authors, err := api.userNameMap([]uint{row.UserID})
+	if err != nil {
+		return err
+	}
+	replies, err := api.discussionReplyCounts([]uint{row.ID})
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, discussionDTOFromRefs(row, authors, replies))
 }
 
 func (api *API) deleteDiscussion(c echo.Context) error {
@@ -4002,7 +4052,7 @@ type assignmentMembersDTO struct {
 	Groups []uint
 }
 
-func (api *API) assignmentDTOs(c echo.Context, rows []models.Assignment) ([]AssignmentDTO, error) {
+func (api *API) assignmentDTOs(c echo.Context, rows []models.Assignment, includeMembers bool) ([]AssignmentDTO, error) {
 	if len(rows) == 0 {
 		return []AssignmentDTO{}, nil
 	}
@@ -4020,8 +4070,9 @@ func (api *API) assignmentDTOs(c echo.Context, rows []models.Assignment) ([]Assi
 		return nil, err
 	}
 	admin := api.isAdmin(c)
+	includeMemberFields := includeMembers && admin
 	members := map[uint]assignmentMembersDTO{}
-	if admin {
+	if includeMemberFields {
 		members, err = api.assignmentMembersMap(ids)
 		if err != nil {
 			return nil, err
@@ -4036,7 +4087,7 @@ func (api *API) assignmentDTOs(c echo.Context, rows []models.Assignment) ([]Assi
 		if total == 0 {
 			continue
 		}
-		items = append(items, assignmentDTOFromParts(row, total, done[row.ID], members[row.ID], admin))
+		items = append(items, assignmentDTOFromParts(row, total, done[row.ID], members[row.ID], includeMemberFields))
 	}
 	return items, nil
 }
@@ -4049,12 +4100,16 @@ func assignmentDTOFromParts(row models.Assignment, total int, done int, members 
 		Status: assignmentStatus(row),
 		Total:  total,
 		Done:   done,
-		Users:  []uint{},
-		Groups: []uint{},
 	}
 	if includeMembers {
-		dto.Users = members.Users
-		dto.Groups = members.Groups
+		dto.Users = cleanUintList(members.Users)
+		if dto.Users == nil {
+			dto.Users = []uint{}
+		}
+		dto.Groups = cleanUintList(members.Groups)
+		if dto.Groups == nil {
+			dto.Groups = []uint{}
+		}
 	}
 	return dto
 }
@@ -4590,25 +4645,6 @@ func normalizeTags(tags []string) []string {
 	return clean
 }
 
-func normalizeProblemUpdate(req *ProblemUpdate) {
-	req.Title = strings.TrimSpace(req.Title)
-	req.Statement = strings.TrimSpace(req.Statement)
-	req.Mode = strings.TrimSpace(req.Mode)
-	req.Tags = normalizeTags(req.Tags)
-	if req.Statement == "" && req.Title != "" {
-		req.Statement = "# " + req.Title
-	}
-	if req.Mode == "" {
-		req.Mode = "default"
-	}
-	if req.TimeMS <= 0 {
-		req.TimeMS = 1000
-	}
-	if req.MemoryMB <= 0 {
-		req.MemoryMB = 256
-	}
-}
-
 func validProblemMode(mode string) bool {
 	return mode == "default" || mode == "strict" || mode == "custom"
 }
@@ -4911,11 +4947,21 @@ func baseDiscussionDetails(now time.Time) []DiscussionDetail {
 }
 
 func updatedDiscussion(item DiscussionDetail, req DiscussionUpdate) DiscussionDetail {
-	item.Discussion.Title = req.Title
-	item.Discussion.Tags = req.Tags
-	item.Discussion.Pinned = req.Pinned
-	item.Discussion.Locked = req.Locked
-	item.Content = req.Content
+	if req.Title != nil {
+		item.Discussion.Title = *req.Title
+	}
+	if req.Tags != nil {
+		item.Discussion.Tags = *req.Tags
+	}
+	if req.Pinned != nil {
+		item.Discussion.Pinned = *req.Pinned
+	}
+	if req.Locked != nil {
+		item.Discussion.Locked = *req.Locked
+	}
+	if req.Content != nil {
+		item.Content = *req.Content
+	}
 	return item
 }
 

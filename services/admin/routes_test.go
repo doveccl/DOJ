@@ -43,6 +43,26 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	if user, ok := findUser(overview, "student"); !ok || user.Groups == nil {
 		t.Fatalf("user groups should be an empty array, got %+v", user)
 	}
+	res = requestWithCookies(e, http.MethodGet, "/api/admin/members", adminCookies)
+	if res.Code != http.StatusOK {
+		t.Fatalf("members got %d body=%s", res.Code, res.Body.String())
+	}
+	var members Members
+	if err := json.Unmarshal(res.Body.Bytes(), &members); err != nil {
+		t.Fatalf("decode members: %v body=%s", err, res.Body.String())
+	}
+	if len(members.Users) != 3 || len(members.Groups) != 0 {
+		t.Fatalf("members should return only user/group option data: %+v", members)
+	}
+	var membersRaw map[string]json.RawMessage
+	if err := json.Unmarshal(res.Body.Bytes(), &membersRaw); err != nil {
+		t.Fatalf("decode raw members: %v", err)
+	}
+	for _, key := range []string{"settings", "languages", "judgers", "queue"} {
+		if _, ok := membersRaw[key]; ok {
+			t.Fatalf("members endpoint should not include %s: %s", key, res.Body.String())
+		}
+	}
 	res = requestJSONWithCookies(e, http.MethodPatch, "/api/admin/settings", adminCookies, `{"siteName":"DOJ","allowRegistration":true,"allowGuestAccess":true,"defaultSubmissionPublic":true,"notice":""}`)
 	if res.Code != http.StatusOK {
 		t.Fatalf("update settings got %d body=%s", res.Code, res.Body.String())

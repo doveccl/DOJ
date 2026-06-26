@@ -20,6 +20,7 @@ export type AssetContentUpdate = components['schemas']['AssetContentUpdate']
 export type Item = components['schemas']['Item']
 export type HeatCell = components['schemas']['HeatCell']
 export type Assignment = components['schemas']['Assignment']
+export type AssignmentListItem = components['schemas']['AssignmentListItem']
 export type ProblemRef = components['schemas']['ProblemRef']
 export type AssignmentCreate = components['schemas']['AssignmentCreate']
 export type AssignmentUpdate = components['schemas']['AssignmentUpdate']
@@ -51,6 +52,7 @@ export type PasswordUpdate = components['schemas']['PasswordUpdate']
 export type LoginRequest = components['schemas']['LoginRequest']
 export type RegisterRequest = components['schemas']['RegisterRequest']
 export type AdminOverview = components['schemas']['AdminOverview']
+export type AdminMembers = components['schemas']['AdminMembers']
 export type AdminSettings = components['schemas']['AdminSettings']
 export type AdminSettingsPatch = components['schemas']['AdminSettingsPatch']
 export type AdminUserCreate = components['schemas']['AdminUserCreate']
@@ -261,6 +263,11 @@ export async function getAdmin() {
 
 export async function getAdminSettings() {
   const { data, error } = await client.GET('/api/admin/settings')
+  return assertData(data, error)
+}
+
+export async function getAdminMembers() {
+  const { data, error } = await client.GET('/api/admin/members')
   return assertData(data, error)
 }
 

@@ -1,5 +1,3 @@
-import type { Assignment } from '../client'
-
 type ProblemLimit = {
   timeMs: number
   memoryMb: number
@@ -8,6 +6,11 @@ type ProblemLimit = {
 type ProblemPass = {
   ac: number
   submit: number
+}
+
+type AssignmentProgressLike = {
+  done: number
+  total: number
 }
 
 export function problemCode(id: number) {
@@ -49,7 +52,7 @@ export function memoryText(kb?: number) {
   return kb === undefined ? '-' : formatBytes(kb * 1024)
 }
 
-export function progress(row: Pick<Assignment, 'done' | 'total'>) {
+export function progress(row: AssignmentProgressLike) {
   return row.total > 0 ? Math.round((row.done / row.total) * 100) : 0
 }
 

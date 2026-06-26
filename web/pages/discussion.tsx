@@ -6,7 +6,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useState } from 'react'
 
 import { createDiscussion, deleteDiscussion, getDiscussion, getDiscussions, updateDiscussion } from '../client'
-import type { Discussion, DiscussionCreate, DiscussionUpdate } from '../client'
+import type { Discussion, DiscussionCreate } from '../client'
 import { UserLink } from '../components/entity'
 import { MarkdownEditor } from '../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../components/state'
@@ -15,13 +15,19 @@ import { useSession } from '../session'
 import { formatTime } from '../utils/format'
 import { limits } from '../utils/limits'
 
+type DiscussionForm = {
+  title: string
+  content: string
+  tags: string[]
+}
+
 export function DiscussionPage() {
   const { lang, text } = useLocale()
   const session = useSession()
   const [params, setParams] = useSearchParams()
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Discussion | null>(null)
-  const [draft, setDraft] = useState<DiscussionUpdate | null>(null)
+  const [draft, setDraft] = useState<DiscussionForm | null>(null)
   const { message } = AntApp.useApp()
   const client = useQueryClient()
   const navigate = useNavigate()
@@ -43,7 +49,7 @@ export function DiscussionPage() {
     onError: showError
   })
   const update = useMutation({
-    mutationFn: (values: DiscussionUpdate) => {
+    mutationFn: (values: DiscussionForm) => {
       if (!editing) {
         throw new Error(text.common.emptyResponse)
       }
@@ -58,16 +64,7 @@ export function DiscussionPage() {
     onError: showError
   })
   const toggleState = useMutation({
-    mutationFn: async ({ item, pinned, locked }: { item: Discussion; pinned?: boolean; locked?: boolean }) => {
-      const detail = await client.fetchQuery({ queryKey: ['discussion', item.id], queryFn: () => getDiscussion(item.id) })
-      return updateDiscussion(item.id, {
-        title: detail.discussion.title,
-        content: detail.content,
-        tags: detail.discussion.tags,
-        pinned: pinned ?? detail.discussion.pinned,
-        locked: locked ?? detail.discussion.locked
-      })
-    },
+    mutationFn: ({ item, pinned, locked }: { item: Discussion; pinned?: boolean; locked?: boolean }) => updateDiscussion(item.id, { pinned, locked }),
     onSuccess: (item) => {
       void client.invalidateQueries({ queryKey: ['discussion'] })
       void client.invalidateQueries({ queryKey: ['discussion', item.id] })
@@ -92,7 +89,7 @@ export function DiscussionPage() {
 
   function openCreate() {
     setEditing(null)
-    setDraft({ title: '', content: '', tags: tags ? [tags] : [], pinned: false, locked: false })
+    setDraft({ title: '', content: '', tags: tags ? [tags] : [] })
     setOpen(true)
   }
 
@@ -104,9 +101,7 @@ export function DiscussionPage() {
       setDraft({
         title: detail.discussion.title,
         content: detail.content,
-        tags: detail.discussion.tags,
-        pinned: detail.discussion.pinned,
-        locked: detail.discussion.locked
+        tags: detail.discussion.tags
       })
       setOpen(true)
     } catch (error) {
@@ -115,13 +110,9 @@ export function DiscussionPage() {
     }
   }
 
-  function save(values: DiscussionUpdate) {
+  function save(values: DiscussionForm) {
     if (editing) {
-      update.mutate({
-        ...values,
-        pinned: editing.pinned,
-        locked: editing.locked
-      })
+      update.mutate(values)
       return
     }
     const body: DiscussionCreate = {
@@ -210,13 +201,13 @@ function DiscussionModal({
   onSave
 }: {
   editing: boolean
-  initial: DiscussionUpdate
+  initial: DiscussionForm
   loading: boolean
   onCancel: () => void
-  onSave: (values: DiscussionUpdate) => void
+  onSave: (values: DiscussionForm) => void
 }) {
   const { text } = useLocale()
-  const [form] = Form.useForm<DiscussionUpdate>()
+  const [form] = Form.useForm<DiscussionForm>()
 
   return (
     <Modal
@@ -229,7 +220,7 @@ function DiscussionModal({
       onCancel={onCancel}
       onOk={() => form.submit()}
     >
-      <Form<DiscussionUpdate> form={form} layout="vertical" initialValues={initial} onFinish={onSave}>
+      <Form<DiscussionForm> form={form} layout="vertical" initialValues={initial} onFinish={onSave}>
         <Form.Item name="title" label={text.discussion.title} rules={[{ required: true, whitespace: true }]}>
           <Input maxLength={limits.title} showCount />
         </Form.Item>

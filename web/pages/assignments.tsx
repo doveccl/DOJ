@@ -22,8 +22,8 @@ import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
-import { createAssignment, deleteAssignment, getAdmin, getAssignment, getAssignments, updateAssignment } from '../client'
-import type { Assignment, ProblemRef } from '../client'
+import { createAssignment, deleteAssignment, getAdminMembers, getAssignment, getAssignments, updateAssignment } from '../client'
+import type { AssignmentListItem, ProblemRef } from '../client'
 import { IdSelect } from '../components/id-select'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../components/state'
@@ -50,7 +50,7 @@ export function AssignmentsPage() {
   const [open, setOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const query = useQuery({ queryKey: ['assignments'], queryFn: getAssignments })
-  const admin = useQuery({ queryKey: ['admin'], queryFn: getAdmin, enabled: session.admin && open })
+  const members = useQuery({ queryKey: ['admin-members'], queryFn: getAdminMembers, enabled: session.admin && open })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
@@ -103,11 +103,11 @@ export function AssignmentsPage() {
     },
     onError: showError
   })
-  const userOptions = (admin.data?.users ?? []).map((item) => ({
+  const userOptions = (members.data?.users ?? []).map((item) => ({
     value: item.id,
     label: item.name
   }))
-  const groupOptions = (admin.data?.groups ?? []).map((item) => ({
+  const groupOptions = (members.data?.groups ?? []).map((item) => ({
     value: item.id,
     label: item.name
   }))
@@ -117,7 +117,7 @@ export function AssignmentsPage() {
     setOpen(true)
   }
 
-  function openEdit(item: Assignment) {
+  function openEdit(item: AssignmentListItem) {
     setEditingId(item.id)
     setOpen(true)
   }
@@ -149,7 +149,7 @@ export function AssignmentsPage() {
       ) : query.isLoading ? (
         <LoadingBlock />
       ) : (
-        <Table<Assignment>
+        <Table<AssignmentListItem>
           rowKey="id"
           columns={assignmentColumns(
             text,
@@ -170,7 +170,7 @@ export function AssignmentsPage() {
           loading={create.isPending || update.isPending}
           userOptions={userOptions}
           groupOptions={groupOptions}
-          memberLoading={admin.isLoading}
+          memberLoading={members.isLoading}
           onCancel={closeModal}
           onSave={save}
         />
@@ -273,13 +273,13 @@ function AssignmentModal({
 function assignmentColumns(
   text: ReturnType<typeof useLocale>['text'],
   actions: {
-    edit: (item: Assignment) => void
+    edit: (item: AssignmentListItem) => void
     remove: (id: number) => void
     refresh: () => void
   },
   admin: boolean
-): TableProps<Assignment>['columns'] {
-  const columns: TableProps<Assignment>['columns'] = [
+): TableProps<AssignmentListItem>['columns'] {
+  const columns: TableProps<AssignmentListItem>['columns'] = [
     {
       title: text.assignments.name,
       dataIndex: 'title',

@@ -7,7 +7,7 @@ import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 
-import { getAdmin, getAssignment, updateAssignment } from '../client'
+import { getAdminMembers, getAssignment, updateAssignment } from '../client'
 import type { AssignmentProgress, ProblemListItem, ProblemRef } from '../client'
 import { ProblemLink, UserLink } from '../components/entity'
 import { IdSelect } from '../components/id-select'
@@ -40,7 +40,7 @@ export function AssignmentDetailPage() {
     queryFn: () => getAssignment(id),
     enabled: Number.isFinite(id)
   })
-  const adminQuery = useQuery({ queryKey: ['admin'], queryFn: getAdmin, enabled: session.admin && editOpen })
+  const membersQuery = useQuery({ queryKey: ['admin-members'], queryFn: getAdminMembers, enabled: session.admin && editOpen })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
@@ -78,8 +78,8 @@ export function AssignmentDetailPage() {
     value: item.id,
     label: problemLabel(item.id, item.title)
   }))
-  const userOptions = (adminQuery.data?.users ?? []).map((item) => ({ value: item.id, label: item.name }))
-  const groupOptions = (adminQuery.data?.groups ?? []).map((item) => ({ value: item.id, label: item.name }))
+  const userOptions = (membersQuery.data?.users ?? []).map((item) => ({ value: item.id, label: item.name }))
+  const groupOptions = (membersQuery.data?.groups ?? []).map((item) => ({ value: item.id, label: item.name }))
 
   function openEdit() {
     setEditOpen(true)
@@ -125,7 +125,7 @@ export function AssignmentDetailPage() {
           problemOptions={problemOptions}
           userOptions={userOptions}
           groupOptions={groupOptions}
-          memberLoading={adminQuery.isLoading}
+          memberLoading={membersQuery.isLoading}
           loading={update.isPending}
           onCancel={() => setEditOpen(false)}
           onSave={(values) => update.mutate(values)}

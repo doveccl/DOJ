@@ -192,6 +192,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminSettings"
+  /api/admin/members:
+    get:
+      operationId: getAdminMembers
+      responses:
+        "200":
+          description: Admin member options
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMembers"
   /api/admin/users:
     post:
       operationId: createAdminUser
@@ -935,7 +945,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Assignment"
+                  $ref: "#/components/schemas/AssignmentListItem"
     post:
       operationId: createAssignment
       requestBody:
@@ -1372,7 +1382,7 @@ components:
           type: boolean
     MeUpdate:
       type: object
-      required: [mail, bio, avatar]
+      minProperties: 1
       properties:
         mail:
           type: string
@@ -1458,6 +1468,18 @@ components:
             $ref: "#/components/schemas/AdminJudger"
         queue:
           $ref: "#/components/schemas/AdminJudgeQueue"
+    AdminMembers:
+      type: object
+      required: [users, groups]
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUser"
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminGroup"
     AdminSettings:
       type: object
       required: [siteName, allowRegistration, allowGuestAccess, defaultSubmissionPublic, notice]
@@ -1839,7 +1861,7 @@ components:
           type: integer
     ProblemUpdate:
       type: object
-      required: [title, statement, tags, visible, mode, timeMs, memoryMb]
+      minProperties: 1
       properties:
         title:
           type: string
@@ -1981,6 +2003,24 @@ components:
           type: array
           items:
             type: integer
+    AssignmentListItem:
+      type: object
+      required: [id, title, endAt, status, total, done]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+          maxLength: 256
+        endAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+        total:
+          type: integer
+        done:
+          type: integer
     AssignmentDetail:
       type: object
       required: [assignment, problems, submissions, progress]
@@ -2384,7 +2424,7 @@ components:
             type: string
     DiscussionUpdate:
       type: object
-      required: [title, content, tags, pinned, locked]
+      minProperties: 1
       properties:
         title:
           type: string
