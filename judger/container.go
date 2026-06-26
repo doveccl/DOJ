@@ -318,7 +318,7 @@ func applyCgroupStatsSnapshot(result *CaseResult, stats CgroupStats) {
 	if stats.MemoryPeak > 0 {
 		result.MemoryKB = int((stats.MemoryPeak + 1023) / 1024)
 	}
-	if stats.MemoryOOM {
+	if stats.MemoryOOM || stats.MemoryMaxed {
 		result.Verdict = VerdictMemoryLimit
 		result.Score = 0
 		result.Message = "memory limit exceeded"

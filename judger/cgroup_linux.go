@@ -84,7 +84,13 @@ func (cg *CgroupCase) Stats() (CgroupStats, error) {
 	if err == nil {
 		for _, line := range strings.Split(string(events), "\n") {
 			fields := strings.Fields(line)
-			if len(fields) == 2 && fields[0] == "oom_kill" && fields[1] != "0" {
+			if len(fields) != 2 || fields[1] == "0" {
+				continue
+			}
+			switch fields[0] {
+			case "max":
+				stats.MemoryMaxed = true
+			case "oom", "oom_kill", "oom_group_kill":
 				stats.MemoryOOM = true
 			}
 		}

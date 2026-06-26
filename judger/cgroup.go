@@ -15,6 +15,7 @@ type CgroupConfig struct {
 type CgroupStats struct {
 	MemoryPeak   int64
 	MemoryOOM    bool
+	MemoryMaxed  bool
 	CPUUsageUSec int64
 	PidsCurrent  int64
 	PidsMaxed    bool
