@@ -214,9 +214,12 @@ func (client runnerClient) runCase(ctx context.Context, req RunCaseRequest) (Cas
 			if cgroup == nil && client.cgroupRoot != "" {
 				cg, err := client.prepareUserCgroup(msg.UserPID)
 				if err != nil {
-					return CaseResult{}, err
+					if !errors.Is(err, os.ErrNotExist) {
+						return CaseResult{}, err
+					}
+				} else {
+					cgroup = cg
 				}
-				cgroup = cg
 			}
 			if err := client.codec.Send(Message{Kind: MsgReleaseUser, ReleaseUser: &ReleaseUser{
 				TaskID: msg.UserPID.TaskID,
@@ -304,8 +307,6 @@ func startRunnerContainer(ctx context.Context, image string, runner string, work
 			},
 			NetworkMode: "none",
 			SecurityOpt: []string{"no-new-privileges"},
-			CapDrop:     []string{"ALL"},
-			CapAdd:      []string{"CHOWN", "SETUID", "SETGID"},
 		},
 	})
 	if err != nil {

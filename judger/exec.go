@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"syscall"
 	"time"
 )
 
@@ -216,7 +218,7 @@ func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 	if result.Score == 100 && req.Case.Score > 0 {
 		result.Score = req.Case.Score
 	}
-	if userWait != nil && result.Verdict != VerdictOutputLimit {
+	if userWait != nil && result.Verdict != VerdictOutputLimit && !isBrokenPipeExit(userWait) {
 		result.Verdict = VerdictRuntimeError
 		result.Score = 0
 		result.Message = compactErrors("user program failed", userWait, nil, "", userErr.String())
@@ -261,6 +263,15 @@ func collectWaitResults(waitCh <-chan waitResult, judgeWait error, userWait erro
 		}
 	}
 	return judgeWait, userWait
+}
+
+func isBrokenPipeExit(err error) bool {
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		return errors.Is(err, syscall.EPIPE)
+	}
+	status, ok := exitErr.Sys().(syscall.WaitStatus)
+	return ok && status.Signaled() && status.Signal() == syscall.SIGPIPE
 }
 
 func caseResultFromReport(req LocalRun, report JudgeReport, startedAt time.Time) CaseResult {

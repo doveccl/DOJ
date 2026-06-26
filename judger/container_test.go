@@ -5,7 +5,6 @@ package judger
 import (
 	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -49,6 +48,44 @@ func TestRunContainerTaskNormalMultiCase(t *testing.T) {
 	}
 	if len(matches) != 0 {
 		t.Fatalf("language build context was not cleaned: %v", matches)
+	}
+}
+
+func TestRunContainerTaskCppPartialInputReaderIsWrongAnswer(t *testing.T) {
+	requireDocker(t)
+	runner := buildRunner(t)
+	work := t.TempDir()
+	writeCase(t, work, "1", "1 2\n"+strings.Repeat("3\n", 1<<15), "not 3\n")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	result, err := RunContainerTask(ctx, ContainerTask{
+		Runner: runner,
+		Work:   work,
+		Task: Task{
+			SubmissionID: 85,
+			Attempt:      1,
+			Source:       "#include <bits/stdc++.h>\nusing namespace std;\nint main(){ long long a,b; cin>>a>>b; cout<<a+b<<'\\n'; }\n",
+			Lang: Lang{
+				ID:     "cpp",
+				Source: "main.cc",
+				Dockerfile: `FROM gcc:14
+WORKDIR /src
+COPY main.cc main.cc
+RUN g++ -std=c++20 -O2 -pipe -static -s main.cc -o /main
+CMD ["/main"]
+`,
+			},
+			Mode:   ModeDefault,
+			Limits: Limits{TimeMS: 1000, MemoryKB: 256 * 1024, OutputKB: 64, Pids: 64},
+			Cases:  []Case{{ID: "1", Input: "1.in", Answer: "1.out", Score: 100}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Verdict != VerdictWrongAnswer || len(result.Cases) != 1 || result.Cases[0].Verdict != VerdictWrongAnswer {
+		t.Fatalf("result = %#v", result)
 	}
 }
 
@@ -274,6 +311,7 @@ func testShellLang() Lang {
 		Dockerfile: `FROM alpine:3.20
 WORKDIR /src
 COPY main.sh main.sh
+RUN chmod 0755 main.sh
 CMD ["sh", "/src/main.sh"]
 `,
 	}

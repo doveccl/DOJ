@@ -44,7 +44,7 @@ func ServeRunner(ctx context.Context, req RunnerServe) error {
 	if err != nil {
 		return err
 	}
-	if err := os.Chmod(req.Socket, 0o600); err != nil {
+	if err := os.Chmod(req.Socket, 0o666); err != nil {
 		_ = listener.Close()
 		return err
 	}

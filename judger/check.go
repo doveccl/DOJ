@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 )
 
 const defaultOutputLimit = 64 << 20
@@ -35,6 +37,7 @@ func BuiltinJudgeMain(args []string) int {
 		fmt.Fprintln(os.Stderr, "judge requires --input, --answer, and --result")
 		return 2
 	}
+	signal.Ignore(syscall.SIGPIPE)
 
 	inputBytes, err := os.ReadFile(*input)
 	if err != nil {
@@ -46,16 +49,26 @@ func BuiltinJudgeMain(args []string) int {
 		writeReport(*result, JudgeReport{Verdict: VerdictSystemError, Message: err.Error()})
 		return 2
 	}
-	if _, err := os.Stdout.Write(inputBytes); err != nil {
-		writeReport(*result, JudgeReport{Verdict: VerdictSystemError, Message: err.Error()})
-		return 2
-	}
-	_ = os.Stdout.Close()
+	inputErr := make(chan error, 1)
+	go func() {
+		_, err := os.Stdout.Write(inputBytes)
+		if errors.Is(err, syscall.EPIPE) {
+			err = nil
+		}
+		if closeErr := os.Stdout.Close(); err == nil && closeErr != nil && !errors.Is(closeErr, syscall.EPIPE) {
+			err = closeErr
+		}
+		inputErr <- err
+	}()
 
 	output, err := readLimited(os.Stdin, *outputLimit)
 	if err != nil {
 		writeReport(*result, JudgeReport{Verdict: VerdictOutputLimit, Message: err.Error()})
 		return 0
+	}
+	if err := <-inputErr; err != nil {
+		writeReport(*result, JudgeReport{Verdict: VerdictSystemError, Message: err.Error()})
+		return 2
 	}
 	verdict, message := Compare(JudgeMode(*mode), answerBytes, output)
 	score := 0
