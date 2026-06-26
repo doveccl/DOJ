@@ -69,8 +69,10 @@ export function SubmissionDetailPage() {
               </Space>
             }
           >
-            {submission.message ? <MarkdownPreview value={codeMarkdown(submission.message, 'text')} /> : null}
-            <Table<Case> rowKey="no" columns={caseColumns(text)} dataSource={cases} pagination={false} size="small" />
+            <Flex vertical gap={16}>
+              {submission.message ? <MarkdownPreview value={codeMarkdown(submission.message, 'text')} /> : null}
+              <Table<Case> rowKey="no" columns={caseColumns(text)} dataSource={cases} pagination={false} size="small" />
+            </Flex>
           </Card>
         </Col>
         <Col xs={24} lg={8}>

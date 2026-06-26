@@ -296,11 +296,17 @@ body {
 
 .problemHeadTitle {
   min-width: 0;
+  width: 100%;
+}
+
+.problemTitleLine,
+.problemMetaLine {
+  min-width: 0;
+  width: 100%;
 }
 
 .problemTitleText {
-  flex: 1 1 180px;
-  max-width: 520px;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -311,6 +317,7 @@ body {
 }
 
 .problemHeadTitle .ant-tag {
+  flex: none;
   margin-inline-end: 0;
 }
 
