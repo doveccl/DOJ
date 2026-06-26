@@ -154,6 +154,18 @@ func TestApplyCgroupStatsReportsMemoryMax(t *testing.T) {
 	}
 }
 
+func TestCgroupMemoryLimitReached(t *testing.T) {
+	if !cgroupMemoryLimitReached(CgroupStats{MemoryMaxed: true}) {
+		t.Fatal("memory.max event was not treated as memory limit")
+	}
+	if !cgroupMemoryLimitReached(CgroupStats{MemoryOOM: true}) {
+		t.Fatal("memory oom event was not treated as memory limit")
+	}
+	if cgroupMemoryLimitReached(CgroupStats{PidsMaxed: true}) {
+		t.Fatal("pids max should not be treated as memory limit")
+	}
+}
+
 func TestApplyCgroupStatsReportsProcessLimitOnlyForAccepted(t *testing.T) {
 	ac := CaseResult{Verdict: VerdictAccepted, Score: 100}
 	applyCgroupStatsSnapshot(&ac, CgroupStats{PidsMaxed: true})

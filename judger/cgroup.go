@@ -24,3 +24,7 @@ type CgroupStats struct {
 type CgroupCase struct {
 	Path string
 }
+
+func cgroupMemoryLimitReached(stats CgroupStats) bool {
+	return stats.MemoryOOM || stats.MemoryMaxed
+}

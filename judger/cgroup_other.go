@@ -21,3 +21,7 @@ func (cg *CgroupCase) Stats() (CgroupStats, error) {
 func (cg *CgroupCase) Cleanup() error {
 	return nil
 }
+
+func (cg *CgroupCase) killAll() error {
+	return nil
+}
