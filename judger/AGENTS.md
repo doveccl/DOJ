@@ -6,12 +6,12 @@
 
 - Judger talks only to the server API.
 - PostgreSQL, Redis/Valkey, and object storage are server-only dependencies.
-- Language config comes from the server as a source file name and Dockerfile. The Dockerfile prepares the user program; runner executes the command from `CMD`.
+- Language config comes from the server as a source file name, fixed image, compile command, and run command. User source is written into an isolated source dir; host-side judger compiles in a short-lived container that sees only source and an empty output dir, then runner runs cases in the fixed language container.
 - Server sends resource limits to judger in KB. Judger reports memory in KB.
 
 ## Execution Model
 
-- A submission runs in one language container.
+- A submission may compile once in a short-lived language container, then runs cases in one reused language container.
 - Multiple cases reuse the container.
 - Each case starts fresh JudgeProgram and UserProgram processes.
 - Builtin judge, custom checker, and interactive judge all use the same pipe model:

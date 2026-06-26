@@ -66,7 +66,7 @@ To run the compose judger profile, create a judger in the admin UI, copy the tok
 TOKEN=replace-with-generated-token docker compose -f compose.example.yml --profile judger up --build
 ```
 
-The judger profile uses the same DOJ image with a different command. It is privileged, uses the host Docker socket, and mounts `/var/lib/doj:/var/lib/doj`.
+The judger profile uses the same DOJ image with a different command. It is privileged, uses the host PID and cgroup namespaces, uses the host Docker socket, and mounts `/var/lib/doj:/var/lib/doj`.
 
 ## Development
 
@@ -178,7 +178,7 @@ STORAGE=https://access:secret@s3.example.com/bucket?region=auto&lookup=dns&ensur
 TOKEN=replace-with-generated-token docker compose -f compose.example.yml --profile judger up --build
 ```
 
-评测机 profile 使用同一个 DOJ 镜像，但用不同 command 启动。它使用 privileged 模式，挂载宿主机 Docker socket，并挂载 `/var/lib/doj:/var/lib/doj`。
+评测机 profile 使用同一个 DOJ 镜像，但用不同 command 启动。它使用 privileged 模式和宿主机 PID/cgroup namespace，挂载宿主机 Docker socket，并挂载 `/var/lib/doj:/var/lib/doj`。
 
 ## 本地开发
 

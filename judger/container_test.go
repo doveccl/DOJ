@@ -67,14 +67,11 @@ func TestRunContainerTaskCppPartialInputReaderIsWrongAnswer(t *testing.T) {
 			Attempt:      1,
 			Source:       "#include <bits/stdc++.h>\nusing namespace std;\nint main(){ long long a,b; cin>>a>>b; cout<<a+b<<'\\n'; }\n",
 			Lang: Lang{
-				ID:     "cpp",
-				Source: "main.cc",
-				Dockerfile: `FROM gcc:14
-WORKDIR /src
-COPY main.cc main.cc
-RUN g++ -std=c++20 -O2 -pipe -static -s main.cc -o /main
-CMD ["/main"]
-`,
+				ID:      "cpp",
+				Source:  "main.cc",
+				Image:   "gcc:14",
+				Compile: "g++ -std=c++20 -O2 -pipe -static -s main.cc -o /work/main",
+				Run:     "./main",
 			},
 			Mode:   ModeDefault,
 			Limits: Limits{TimeMS: 1000, MemoryKB: 256 * 1024, OutputKB: 64, Pids: 64},
@@ -287,6 +284,47 @@ fi
 	}
 }
 
+func TestRunContainerTaskCompileCannotReadAnswers(t *testing.T) {
+	requireDocker(t)
+	runner := buildRunner(t)
+	work := t.TempDir()
+	writeCase(t, work, "secret", "probe\n", "safe\n")
+	source := `#include "/work/secret.out"
+int main(){ return 0; }
+`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	result, err := RunContainerTask(ctx, ContainerTask{
+		Runner: runner,
+		Work:   work,
+		Task: Task{
+			SubmissionID: 86,
+			Attempt:      1,
+			Source:       source,
+			Lang: Lang{
+				ID:      "cpp",
+				Source:  "main.cc",
+				Image:   "gcc:14",
+				Compile: "g++ -std=c++20 -O2 -pipe -static -s main.cc -o /work/main",
+				Run:     "./main",
+			},
+			Mode:   ModeDefault,
+			Limits: Limits{TimeMS: 1000, MemoryKB: 256 * 1024, OutputKB: 64, Pids: 64},
+			Cases:  []Case{{ID: "secret", Input: "secret.in", Answer: "secret.out", Score: 100}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Verdict != VerdictCompileError {
+		t.Fatalf("result = %#v", result)
+	}
+	if !strings.Contains(result.Message, "/work/secret.out") {
+		t.Fatalf("compile error did not mention missing answer include: %q", result.Message)
+	}
+}
+
 func requireDocker(t *testing.T) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -306,13 +344,10 @@ func containerEntryNames(entries []os.DirEntry) string {
 
 func testShellLang() Lang {
 	return Lang{
-		ID:     "sh",
-		Source: "main.sh",
-		Dockerfile: `FROM alpine:3.20
-WORKDIR /src
-COPY main.sh main.sh
-RUN chmod 0755 main.sh
-CMD ["sh", "/src/main.sh"]
-`,
+		ID:      "sh",
+		Source:  "main.sh",
+		Image:   "alpine:3.20",
+		Compile: "cp main.sh /work/main.sh && chmod 0755 /work/main.sh",
+		Run:     "./main.sh",
 	}
 }

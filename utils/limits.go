@@ -4,7 +4,7 @@ const (
 	BodyLimitShortText    = "256K"
 	BodyLimitMarkdown     = "2M"
 	BodyLimitSource       = "1M"
-	BodyLimitDockerfile   = "128K"
+	BodyLimitLanguage     = "128K"
 	BodyLimitSettings     = "2M"
 	BodyLimitImage        = "6M"
 	BodyLimitAsset        = "130M"
@@ -13,9 +13,9 @@ const (
 )
 
 const (
-	MaxMarkdownBytes      = 2 << 20
-	MaxSourceBytes        = 1 << 20
-	MaxShortTextBytes     = 256 << 10
-	MaxDockerfileBytes    = 128 << 10
-	MaxJudgerMessageBytes = 256 << 10
+	MaxMarkdownBytes        = 2 << 20
+	MaxSourceBytes          = 1 << 20
+	MaxShortTextBytes       = 256 << 10
+	MaxLanguageCommandBytes = 128 << 10
+	MaxJudgerMessageBytes   = 256 << 10
 )

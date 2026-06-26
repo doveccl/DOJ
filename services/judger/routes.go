@@ -60,9 +60,11 @@ type TaskPayload struct {
 }
 
 type LangPayload struct {
-	ID         string `json:"id"`
-	Source     string `json:"source"`
-	Dockerfile string `json:"dockerfile"`
+	ID      string `json:"id"`
+	Source  string `json:"source"`
+	Image   string `json:"image"`
+	Compile string `json:"compile"`
+	Run     string `json:"run"`
 }
 
 type ProblemPayload struct {
@@ -591,9 +593,11 @@ func buildPayload(ctx context.Context, tx *gorm.DB, submission models.Submission
 		Attempt:      submission.Attempt,
 		Source:       submission.Code,
 		Lang: LangPayload{
-			ID:         lang.ID,
-			Source:     lang.Source,
-			Dockerfile: lang.Dockerfile,
+			ID:      lang.ID,
+			Source:  lang.Source,
+			Image:   lang.Image,
+			Compile: lang.Compile,
+			Run:     lang.Run,
 		},
 		Mode: problem.Mode,
 		Limits: LimitsPayload{

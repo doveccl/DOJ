@@ -73,10 +73,12 @@ type Group struct {
 }
 
 type Language struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	Source     string `json:"source"`
-	Dockerfile string `json:"dockerfile"`
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Source  string `json:"source"`
+	Image   string `json:"image"`
+	Compile string `json:"compile"`
+	Run     string `json:"run"`
 }
 
 type Judger struct {
@@ -118,10 +120,12 @@ type GroupUpdate struct {
 }
 
 type LanguageUpdate struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	Source     string `json:"source"`
-	Dockerfile string `json:"dockerfile"`
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Source  string `json:"source"`
+	Image   string `json:"image"`
+	Compile string `json:"compile"`
+	Run     string `json:"run"`
 }
 
 type LanguageCreate struct {
@@ -164,8 +168,8 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.POST("/groups", api.createGroup)
 	group.PATCH("/groups/:id", api.updateGroup)
 	group.DELETE("/groups/:id", api.deleteGroup)
-	group.POST("/languages", api.createLanguage, echomw.BodyLimit(utils.BodyLimitDockerfile))
-	group.PATCH("/languages/:id", api.updateLanguage, echomw.BodyLimit(utils.BodyLimitDockerfile))
+	group.POST("/languages", api.createLanguage, echomw.BodyLimit(utils.BodyLimitLanguage))
+	group.PATCH("/languages/:id", api.updateLanguage, echomw.BodyLimit(utils.BodyLimitLanguage))
 	group.DELETE("/languages/:id", api.deleteLanguage)
 	group.POST("/judgers", api.createJudger)
 	group.PATCH("/judgers/:id", api.updateJudger)
@@ -641,7 +645,7 @@ func (api *API) updateLanguage(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusConflict, "language already exists")
 		}
 	}
-	updates := map[string]any{"id": req.ID, "name": req.Name, "source": req.Source, "dockerfile": req.Dockerfile}
+	updates := map[string]any{"id": req.ID, "name": req.Name, "source": req.Source, "image": req.Image, "compile": req.Compile, "run": req.Run}
 	if err := api.db.Model(&models.Language{}).Where("id = ?", row.ID).Updates(updates).Error; err != nil {
 		return err
 	}
@@ -657,7 +661,7 @@ func (api *API) createLanguage(c echo.Context) error {
 	if err := validateLanguage(req.LanguageUpdate); err != nil {
 		return err
 	}
-	row := models.Language{ID: req.ID, Name: req.Name, Source: req.Source, Dockerfile: req.Dockerfile}
+	row := models.Language{ID: req.ID, Name: req.Name, Source: req.Source, Image: req.Image, Compile: req.Compile, Run: req.Run}
 	if err := api.db.Create(&row).Error; err != nil {
 		return err
 	}
@@ -978,7 +982,7 @@ func (api *API) languages() ([]Language, error) {
 	}
 	items := make([]Language, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, Language{ID: row.ID, Name: row.Name, Source: row.Source, Dockerfile: row.Dockerfile})
+		items = append(items, Language{ID: row.ID, Name: row.Name, Source: row.Source, Image: row.Image, Compile: row.Compile, Run: row.Run})
 	}
 	return items, nil
 }
@@ -1152,7 +1156,9 @@ func cleanLanguageUpdate(req *LanguageUpdate) {
 	req.ID = strings.TrimSpace(req.ID)
 	req.Name = strings.TrimSpace(req.Name)
 	req.Source = strings.TrimSpace(req.Source)
-	req.Dockerfile = strings.TrimSpace(req.Dockerfile)
+	req.Image = strings.TrimSpace(req.Image)
+	req.Compile = strings.TrimSpace(req.Compile)
+	req.Run = strings.TrimSpace(req.Run)
 }
 
 func validateLanguage(req LanguageUpdate) error {
@@ -1174,11 +1180,17 @@ func validateLanguage(req LanguageUpdate) error {
 	if len([]rune(req.Source)) > models.SourceMax {
 		return echo.NewHTTPError(http.StatusBadRequest, "language source is too long")
 	}
-	if req.Dockerfile == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "language dockerfile is required")
+	if req.Image == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "language image is required")
 	}
-	if len([]byte(req.Dockerfile)) > utils.MaxDockerfileBytes {
-		return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "language dockerfile is too large")
+	if len([]rune(req.Image)) > 256 {
+		return echo.NewHTTPError(http.StatusBadRequest, "language image is too long")
+	}
+	if req.Run == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "language run command is required")
+	}
+	if len([]byte(req.Compile)) > utils.MaxLanguageCommandBytes || len([]byte(req.Run)) > utils.MaxLanguageCommandBytes {
+		return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "language command is too large")
 	}
 	return nil
 }

@@ -112,6 +112,10 @@ func handleRunnerConn(ctx context.Context, conn net.Conn, req RunnerServe) {
 				_ = codec.Send(Message{Kind: MsgError, Error: "user command is required"})
 				continue
 			}
+			if msg.Compile.CompileCommand != "" {
+				_ = codec.Send(Message{Kind: MsgError, Error: "compile command must run in judger host compile container"})
+				continue
+			}
 			commands[msg.Compile.TaskID] = msg.Compile.UserCommand
 			_ = codec.Send(Message{Kind: MsgCompileResult, CompileResult: &CompileResult{OK: true}})
 		case MsgRunCase:

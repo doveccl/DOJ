@@ -38,20 +38,19 @@ func EnsureAdmin(db *gorm.DB, name string, mail string, password string) error {
 
 func DefaultLanguage() Language {
 	return Language{
-		ID:     "cpp",
-		Name:   "C/C++",
-		Source: "main.cc",
-		Dockerfile: strings.TrimSpace(`
-FROM gcc:14
-WORKDIR /src
-COPY main.cc main.cc
-RUN g++ -std=c++20 -O2 -pipe -static -s main.cc -o /main
-CMD ["/main"]
-`),
+		ID:      "cpp",
+		Name:    "C/C++",
+		Source:  "main.cc",
+		Image:   "gcc:14",
+		Compile: "g++ -std=c++20 -O2 -pipe -static -s main.cc -o /work/main",
+		Run:     "./main",
 	}
 }
 
 func EnsureDefaultLanguage(db *gorm.DB) error {
+	if err := EnsureDefaultLanguageRuntime(db); err != nil {
+		return err
+	}
 	var count int64
 	if err := db.Model(&Language{}).Count(&count).Error; err != nil {
 		return err
@@ -61,6 +60,13 @@ func EnsureDefaultLanguage(db *gorm.DB) error {
 	}
 	lang := DefaultLanguage()
 	return db.Create(&lang).Error
+}
+
+func EnsureDefaultLanguageRuntime(db *gorm.DB) error {
+	lang := DefaultLanguage()
+	return db.Model(&Language{}).
+		Where("id = ? AND (image = '' OR compile = '' OR run = '')", lang.ID).
+		Updates(map[string]any{"image": lang.Image, "compile": lang.Compile, "run": lang.Run}).Error
 }
 
 const ProblemIDBase uint = 1000

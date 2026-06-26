@@ -1046,13 +1046,17 @@ export interface components {
             id: string;
             name: string;
             source: string;
-            dockerfile: string;
+            image: string;
+            compile: string;
+            run: string;
         };
         AdminLangUpdate: {
             id: string;
             name: string;
             source: string;
-            dockerfile: string;
+            image: string;
+            compile: string;
+            run: string;
         };
         AdminLangCreate: components["schemas"]["AdminLangUpdate"];
         AdminJudger: {

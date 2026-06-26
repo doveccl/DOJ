@@ -39,9 +39,10 @@ type Hello struct {
 }
 
 type CompileRequest struct {
-	TaskID      string
-	UserCommand string
-	Limits      Limits
+	TaskID         string
+	CompileCommand string
+	UserCommand    string
+	Limits         Limits
 }
 
 type RunCaseRequest struct {

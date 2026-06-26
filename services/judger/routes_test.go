@@ -369,7 +369,7 @@ func seedTaskData(t *testing.T, db *gorm.DB) {
 			t.Fatalf("put %s: %v", key, err)
 		}
 	}
-	if err := db.Create(&models.Language{ID: "cpp", Name: "C++", Source: "main.cc", Dockerfile: "FROM gcc"}).Error; err != nil {
+	if err := db.Create(&models.Language{ID: "cpp", Name: "C++", Source: "main.cc", Image: "gcc:14", Compile: "g++ main.cc -o main", Run: "./main"}).Error; err != nil {
 		t.Fatalf("create language: %v", err)
 	}
 	if err := db.Create(&models.Problem{ID: 1000, Title: "A+B", Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}).Error; err != nil {

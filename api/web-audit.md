@@ -35,7 +35,7 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 | `POST /api/auth/login` | Auth mutation | Login credentials in, `Me` out. | OK. |
 | `POST /api/auth/register` | Auth mutation | Registration fields in, `Me` out. | OK. |
 | `POST /api/auth/logout` | Auth mutation | Clears session. | OK. |
-| `GET /api/languages` | Option list | Submit language id/name/source. | OK for submit form; Dockerfile stays admin-only. |
+| `GET /api/languages` | Option list | Submit language id/name/source. | OK for submit form; image/compile/run stay admin-only. |
 | `POST /api/uploads/images` | Asset write | User image upload result only. | OK. Storage-owning endpoint. |
 | `GET /api/admin` | Admin overview | Users, groups, languages, judgers, queue. | Accepted as tab-scoped management overview; frontend avoids loading it on settings/backup/default pages. |
 | `GET /api/admin/settings` | Admin config read | Site settings only. | OK. Used by settings tab. |

@@ -46,12 +46,14 @@ type Problem struct {
 }
 
 type Language struct {
-	ID         string    `gorm:"size:32;primaryKey" json:"id"`
-	Name       string    `gorm:"size:64;not null" json:"name"`
-	Source     string    `gorm:"size:128;not null" json:"source"`
-	Dockerfile string    `gorm:"type:text;not null" json:"dockerfile"`
-	CreatedAt  time.Time `json:"createdAt"`
-	UpdatedAt  time.Time `json:"updatedAt"`
+	ID        string    `gorm:"size:32;primaryKey" json:"id"`
+	Name      string    `gorm:"size:64;not null" json:"name"`
+	Source    string    `gorm:"size:128;not null" json:"source"`
+	Image     string    `gorm:"size:256;not null;default:''" json:"image"`
+	Compile   string    `gorm:"type:text;not null;default:''" json:"compile"`
+	Run       string    `gorm:"type:text;not null;default:''" json:"run"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 type Submission struct {

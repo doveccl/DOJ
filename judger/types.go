@@ -23,9 +23,11 @@ const (
 )
 
 type Lang struct {
-	ID         string `json:"id"`
-	Source     string `json:"source"`
-	Dockerfile string `json:"dockerfile"`
+	ID      string `json:"id"`
+	Source  string `json:"source"`
+	Image   string `json:"image"`
+	Compile string `json:"compile"`
+	Run     string `json:"run"`
 }
 
 type Limits struct {

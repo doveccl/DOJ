@@ -47,12 +47,14 @@ type GroupForm = AdminGroupUpdate
 type SettingsForm = Pick<AdminSettings, 'siteName' | 'allowRegistration' | 'allowGuestAccess' | 'defaultSubmissionPublic'>
 type BackupSettingsForm = BackupSettings
 
-const defaultDockerfile = `FROM gcc:14
-WORKDIR /src
-COPY main.cc main.cc
-RUN g++ -std=c++20 -O2 -pipe -static -s main.cc -o /main
-CMD ["/main"]
-`
+const defaultLanguage = {
+  id: '',
+  name: '',
+  source: 'main.cc',
+  image: 'gcc:14',
+  compile: 'g++ -std=c++20 -O2 -pipe -static -s main.cc -o /work/main',
+  run: './main'
+}
 
 export function AdminPage() {
   const { lang, text } = useLocale()
@@ -472,9 +474,10 @@ export function AdminPage() {
                     columns={[
                       { title: text.admin.name, dataIndex: 'name' },
                       { title: text.admin.source, dataIndex: 'source' },
+                      { title: text.admin.image, dataIndex: 'image', ellipsis: true },
                       {
-                        title: text.admin.dockerfile,
-                        dataIndex: 'dockerfile',
+                        title: text.admin.run,
+                        dataIndex: 'run',
                         width: 280,
                         ellipsis: true,
                         render: (value: string) => {
@@ -871,7 +874,7 @@ function LangModal({
 }) {
   const { text } = useLocale()
   const [form] = Form.useForm<AdminLangCreate>()
-  const initialValues = editingLang ?? { id: '', name: '', source: 'main.cc', dockerfile: defaultDockerfile }
+  const initialValues = editingLang ?? defaultLanguage
   return (
     <Modal open destroyOnHidden title={editingLang ? text.admin.editLang : text.admin.addLang} okText={text.common.save} cancelText={text.common.cancel} confirmLoading={loading} onCancel={onCancel} onOk={() => form.submit()} width={720}>
       <Form<AdminLangCreate> form={form} layout="vertical" initialValues={initialValues} onFinish={onSave}>
@@ -884,8 +887,14 @@ function LangModal({
         <Form.Item name="source" label={text.admin.source} rules={[{ required: true, whitespace: true }]}>
           <Input placeholder="main.cc" maxLength={limits.source} />
         </Form.Item>
-        <Form.Item name="dockerfile" label={text.admin.dockerfile} rules={[{ required: true, whitespace: true }]}>
-          <Input.TextArea rows={8} />
+        <Form.Item name="image" label={text.admin.image} rules={[{ required: true, whitespace: true }]}>
+          <Input placeholder="gcc:14" maxLength={256} />
+        </Form.Item>
+        <Form.Item name="compile" label={text.admin.compile}>
+          <Input.TextArea rows={3} />
+        </Form.Item>
+        <Form.Item name="run" label={text.admin.run} rules={[{ required: true, whitespace: true }]}>
+          <Input.TextArea rows={2} />
         </Form.Item>
       </Form>
     </Modal>

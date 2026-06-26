@@ -41,15 +41,26 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error
 
 	task := req.Task
 	langStartedAt := time.Now()
-	lang, err := prepareLanguageImage(ctx, work, task.Lang, task.Source, task.Limits, task.SubmissionID, task.Attempt, req.Logf)
-	logStep(req.Logf, task.SubmissionID, task.Attempt, "prepare_language_image", langStartedAt)
+	lang, err := prepareLanguageRuntime(work, task.Lang, task.Source)
+	logStep(req.Logf, task.SubmissionID, task.Attempt, "prepare_language_runtime", langStartedAt)
 	if err != nil {
-		if result, ok := taskResultForLanguageBuildError(task, err); ok {
-			return result, nil
-		}
 		return TaskResult{}, err
 	}
-	defer lang.Cleanup()
+	compileStartedAt := time.Now()
+	compile, err := compileLanguageRuntime(ctx, lang, work, task.Limits, task.SubmissionID, task.Attempt, req.Logf)
+	logTask(req.Logf, task.SubmissionID, task.Attempt, "compile_language=%s ok=%t reported=%dms", formatDuration(time.Since(compileStartedAt)), compile.OK, compile.TimeMS)
+	if err != nil {
+		return TaskResult{}, err
+	}
+	if !compile.OK {
+		return TaskResult{
+			SubmissionID: task.SubmissionID,
+			Attempt:      task.Attempt,
+			Verdict:      VerdictCompileError,
+			Message:      compile.Message,
+			TimeMS:       compile.TimeMS,
+		}, nil
+	}
 
 	socket := filepath.Join(work, "runner.sock")
 	_ = os.Remove(socket)
@@ -91,20 +102,7 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error
 		work:       work,
 		logf:       req.Logf,
 	}
-	return client.runTask(ctx, task, lang.Command)
-}
-
-func taskResultForLanguageBuildError(task Task, err error) (TaskResult, bool) {
-	var buildErr languageBuildError
-	if !errors.As(err, &buildErr) {
-		return TaskResult{}, false
-	}
-	return TaskResult{
-		SubmissionID: task.SubmissionID,
-		Attempt:      task.Attempt,
-		Verdict:      VerdictCompileError,
-		Message:      buildErr.Message,
-	}, true
+	return client.runTask(ctx, task, "", lang.RunCommand)
 }
 
 type runnerClient struct {
@@ -118,7 +116,7 @@ type runnerClient struct {
 	logf       func(format string, args ...any)
 }
 
-func (client runnerClient) runTask(ctx context.Context, task Task, userCommand string) (TaskResult, error) {
+func (client runnerClient) runTask(ctx context.Context, task Task, compileCommand string, userCommand string) (TaskResult, error) {
 	result := TaskResult{SubmissionID: task.SubmissionID, Attempt: task.Attempt}
 	if len(task.Cases) == 0 {
 		result.Verdict = VerdictSystemError
@@ -131,7 +129,7 @@ func (client runnerClient) runTask(ctx context.Context, task Task, userCommand s
 	}
 	logStep(client.logf, task.SubmissionID, task.Attempt, "runner_hello", helloStartedAt)
 	compileStartedAt := time.Now()
-	compile, err := client.compile(task, userCommand)
+	compile, err := client.compile(task, compileCommand, userCommand)
 	logTask(client.logf, task.SubmissionID, task.Attempt, "compile=%s ok=%t reported=%dms", formatDuration(time.Since(compileStartedAt)), compile.OK, compile.TimeMS)
 	if err != nil {
 		return TaskResult{}, err
@@ -208,11 +206,12 @@ func (client runnerClient) hello() error {
 	return nil
 }
 
-func (client runnerClient) compile(task Task, userCommand string) (CompileResult, error) {
+func (client runnerClient) compile(task Task, compileCommand string, userCommand string) (CompileResult, error) {
 	if err := client.codec.Send(Message{Kind: MsgCompile, Compile: &CompileRequest{
-		TaskID:      client.taskID,
-		UserCommand: userCommand,
-		Limits:      task.Limits,
+		TaskID:         client.taskID,
+		CompileCommand: compileCommand,
+		UserCommand:    userCommand,
+		Limits:         task.Limits,
 	}}); err != nil {
 		return CompileResult{}, err
 	}

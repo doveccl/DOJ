@@ -1705,7 +1705,7 @@ components:
             type: integer
     AdminLang:
       type: object
-      required: [id, name, source, dockerfile]
+      required: [id, name, source, image, compile, run]
       properties:
         id:
           type: string
@@ -1716,11 +1716,16 @@ components:
         source:
           type: string
           maxLength: 128
-        dockerfile:
+        image:
+          type: string
+          maxLength: 256
+        compile:
+          type: string
+        run:
           type: string
     AdminLangUpdate:
       type: object
-      required: [id, name, source, dockerfile]
+      required: [id, name, source, image, compile, run]
       properties:
         id:
           type: string
@@ -1731,7 +1736,12 @@ components:
         source:
           type: string
           maxLength: 128
-        dockerfile:
+        image:
+          type: string
+          maxLength: 256
+        compile:
+          type: string
+        run:
           type: string
     AdminLangCreate:
       $ref: "#/components/schemas/AdminLangUpdate"
