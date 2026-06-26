@@ -82,6 +82,7 @@ func planCommand(args []string) error {
 	limit := fs.Int("limit", 100, "number of real data problems to select")
 	scan := fs.Int("scan", 320, "number of old numeric P problems to scan")
 	timeout := fs.Duration("timeout", 20*time.Second, "timeout for each SSH-backed metadata query")
+	storageTimeout := fs.Duration("storage-timeout", 60*time.Second, "timeout for object storage listing")
 	manifestPath := fs.String("manifest", "", "optional local manifest JSONL")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -101,16 +102,17 @@ func planCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	targetCases := map[uint]int{}
-	for id := range targetRows {
-		cases, err := countStoredCases(ctx, store, id)
-		if err != nil {
-			return err
+	storageCtx, storageCancel := context.WithTimeout(context.Background(), *storageTimeout)
+	defer storageCancel()
+	targetCases, err := storedCasesByProblem(storageCtx, store)
+	if err != nil {
+		return err
+	}
+	for id, cases := range targetCases {
+		if row, ok := targetRows[id]; ok {
+			row.Cases = cases
+			targetRows[id] = row
 		}
-		row := targetRows[id]
-		row.Cases = cases
-		targetRows[id] = row
-		targetCases[id] = cases
 	}
 	plan := buildPlan(oldRows, targetRows, targetCases, *limit)
 	printPlan(plan)
@@ -124,6 +126,7 @@ func migrateCommand(args []string) error {
 	scan := fs.Int("scan", 320, "number of old numeric P problems to scan")
 	sleep := fs.Duration("sleep", 2*time.Second, "pause between migrated problems")
 	timeout := fs.Duration("timeout", 30*time.Second, "timeout for each SSH-backed operation")
+	storageTimeout := fs.Duration("storage-timeout", 60*time.Second, "timeout for object storage listing")
 	apply := fs.Bool("apply", false, "perform writes; default is dry-run")
 	manifestPath := fs.String("manifest", "", "optional local manifest JSONL")
 	if err := fs.Parse(args); err != nil {
@@ -143,13 +146,11 @@ func migrateCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	targetCases := map[uint]int{}
-	for id := range targetRows {
-		cases, err := countStoredCases(ctx, store, id)
-		if err != nil {
-			return err
-		}
-		targetCases[id] = cases
+	storageCtx, storageCancel := context.WithTimeout(context.Background(), *storageTimeout)
+	defer storageCancel()
+	targetCases, err := storedCasesByProblem(storageCtx, store)
+	if err != nil {
+		return err
 	}
 	plan := buildPlan(oldRows, targetRows, targetCases, math.MaxInt)
 	count := 0
@@ -185,6 +186,7 @@ func cleanupCommand(args []string) error {
 	apply := fs.Bool("apply", false, "perform soft deletes; default is dry-run")
 	maxID := fs.Uint("max-id", 7999, "only consider local problem IDs up to this value")
 	timeout := fs.Duration("timeout", 20*time.Second, "timeout for each SSH-backed query")
+	storageTimeout := fs.Duration("storage-timeout", 60*time.Second, "timeout for object storage listing")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -198,15 +200,18 @@ func cleanupCommand(args []string) error {
 	if err != nil {
 		return err
 	}
+	storageCtx, storageCancel := context.WithTimeout(context.Background(), *storageTimeout)
+	defer storageCancel()
+	targetCases, err := storedCasesByProblem(storageCtx, store)
+	if err != nil {
+		return err
+	}
 	var cleanup []targetProblem
 	for id, row := range targetRows {
 		if id > uint(*maxID) {
 			continue
 		}
-		cases, err := countStoredCases(ctx, store, id)
-		if err != nil {
-			return err
-		}
+		cases := targetCases[id]
 		if cases == 0 {
 			row.Cases = cases
 			cleanup = append(cleanup, row)
@@ -234,6 +239,7 @@ func verifyCommand(args []string) error {
 	minData := fs.Int("min-data", 100, "minimum active problems with real data cases")
 	maxEmpty := fs.Int("max-empty", 0, "maximum active problems without data cases")
 	timeout := fs.Duration("timeout", 20*time.Second, "timeout for SSH-backed queries")
+	storageTimeout := fs.Duration("storage-timeout", 60*time.Second, "timeout for object storage listing")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -247,10 +253,13 @@ func verifyCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	report, err := verifyTargetProblems(ctx, store, targetRows)
+	storageCtx, storageCancel := context.WithTimeout(context.Background(), *storageTimeout)
+	defer storageCancel()
+	targetCases, err := storedCasesByProblem(storageCtx, store)
 	if err != nil {
 		return err
 	}
+	report := verifyTargetProblems(targetRows, targetCases)
 	fmt.Printf("active=%d with_data=%d without_data=%d\n", report.Active, report.WithData, report.WithoutData)
 	if len(report.Empty) > 0 {
 		fmt.Println("empty active problems:")
@@ -274,13 +283,10 @@ type verifyReport struct {
 	Empty       []targetProblem
 }
 
-func verifyTargetProblems(ctx context.Context, store utils.ObjectStore, targetRows map[uint]targetProblem) (verifyReport, error) {
+func verifyTargetProblems(targetRows map[uint]targetProblem, targetCases map[uint]int) verifyReport {
 	report := verifyReport{Active: len(targetRows)}
 	for id, row := range targetRows {
-		cases, err := countStoredCases(ctx, store, id)
-		if err != nil {
-			return verifyReport{}, err
-		}
+		cases := targetCases[id]
 		row.Cases = cases
 		if cases > 0 {
 			report.WithData++
@@ -290,7 +296,7 @@ func verifyTargetProblems(ctx context.Context, store utils.ObjectStore, targetRo
 		report.Empty = append(report.Empty, row)
 	}
 	sort.Slice(report.Empty, func(i, j int) bool { return report.Empty[i].ID < report.Empty[j].ID })
-	return report, nil
+	return report
 }
 
 func loadOldProblems(ctx context.Context, sshHost string, manifestPath string, scan int) ([]oldProblem, error) {
@@ -632,6 +638,54 @@ func countStoredCases(ctx context.Context, store utils.ObjectStore, id uint) (in
 		}
 	}
 	return cases, nil
+}
+
+func storedCasesByProblem(ctx context.Context, store utils.ObjectStore) (map[uint]int, error) {
+	objects, err := store.List(ctx, "problems")
+	if err != nil {
+		return nil, err
+	}
+	type pairs struct {
+		inputs  map[string]bool
+		outputs map[string]bool
+	}
+	byID := map[uint]*pairs{}
+	for _, object := range objects {
+		parts := strings.Split(object.Key, "/")
+		if len(parts) < 4 || parts[0] != "problems" || parts[2] != "data" {
+			continue
+		}
+		id64, err := strconv.ParseUint(parts[1], 10, 64)
+		if err != nil {
+			continue
+		}
+		name := strings.Join(parts[3:], "/")
+		stem, kind := utils.DataCaseStem(name)
+		if stem == "" || kind == "" {
+			continue
+		}
+		id := uint(id64)
+		got := byID[id]
+		if got == nil {
+			got = &pairs{inputs: map[string]bool{}, outputs: map[string]bool{}}
+			byID[id] = got
+		}
+		if kind == "in" {
+			got.inputs[stem] = true
+		}
+		if kind == "out" {
+			got.outputs[stem] = true
+		}
+	}
+	counts := map[uint]int{}
+	for id, got := range byID {
+		for stem := range got.inputs {
+			if got.outputs[stem] {
+				counts[id]++
+			}
+		}
+	}
+	return counts, nil
 }
 
 func cleanTitle(row oldProblem) string {

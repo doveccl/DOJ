@@ -98,13 +98,14 @@ func TestVerifyTargetProblemsCountsDataAndEmptyProblems(t *testing.T) {
 		"problems/1000/data/0.out":      "3\n",
 		"problems/1001/data/readme.txt": "ignored",
 	}}
-	got, err := verifyTargetProblems(context.Background(), store, map[uint]targetProblem{
-		1000: {ID: 1000, Title: "A+B"},
-		1001: {ID: 1001, Title: "Reading"},
-	})
+	targetCases, err := storedCasesByProblem(context.Background(), store)
 	if err != nil {
 		t.Fatal(err)
 	}
+	got := verifyTargetProblems(map[uint]targetProblem{
+		1000: {ID: 1000, Title: "A+B"},
+		1001: {ID: 1001, Title: "Reading"},
+	}, targetCases)
 	if got.Active != 2 || got.WithData != 1 || got.WithoutData != 1 {
 		t.Fatalf("report = %+v", got)
 	}
