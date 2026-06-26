@@ -44,6 +44,25 @@ func TestBuildPlanSkipsExistingDataAndMarksEmptyTargetsForCleanup(t *testing.T) 
 	}
 }
 
+func TestBuildPlanSkipsDuplicateCandidateTitles(t *testing.T) {
+	oldRows := []oldProblem{
+		{ID: 2067, Title: "P2067 - 清北学堂2017省选2", Data: "data-a"},
+		{ID: 2066, Title: "P2066 - 清北学堂2017省选2", Data: "data-b"},
+		{ID: 2061, Title: "P2061 - 大数", Data: "data-c"},
+	}
+
+	plan := buildPlan(oldRows, map[uint]targetProblem{}, map[uint]int{}, 100)
+	if len(plan.Candidates) != 2 {
+		t.Fatalf("candidates = %+v", plan.Candidates)
+	}
+	if plan.Candidates[0].ID != 2067 || plan.Candidates[1].ID != 2061 {
+		t.Fatalf("candidate order = %+v", plan.Candidates)
+	}
+	if len(plan.Skip) != 1 || plan.Skip[0].ID != 2066 {
+		t.Fatalf("skip = %+v", plan.Skip)
+	}
+}
+
 func TestZipDataFilesCountsCasePairs(t *testing.T) {
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)

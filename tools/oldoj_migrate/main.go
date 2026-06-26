@@ -398,6 +398,7 @@ func buildPlan(oldRows []oldProblem, targetRows map[uint]targetProblem, targetCa
 			continue
 		}
 		plan.Candidates = append(plan.Candidates, row)
+		seenTitle[title] = true
 	}
 	for _, row := range targetRows {
 		if targetCases[row.ID] == 0 && row.ID < 8000 {
