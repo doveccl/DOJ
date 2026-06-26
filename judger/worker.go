@@ -24,6 +24,7 @@ type WorkerConfig struct {
 	CgroupRoot string
 	ProcRoot   string
 	HTTPClient *http.Client
+	Logf       func(format string, args ...any)
 }
 
 type LoopConfig struct {
@@ -91,19 +92,27 @@ type caseResult struct {
 }
 
 func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
+	totalStartedAt := time.Now()
 	client := workerClient(cfg)
+	leaseStartedAt := time.Now()
 	task, err := lease(ctx, client, cfg)
+	logStep(cfg.Logf, 0, 0, "lease", leaseStartedAt)
 	if err != nil {
 		return false, err
 	}
 	if task == nil {
 		return false, nil
 	}
+	logTask(cfg.Logf, task.SubmissionID, task.Attempt, "start problem=P%d cases=%d lang=%s", task.Problem.ID, len(task.Cases), task.Lang.ID)
+	defer func() {
+		logTask(cfg.Logf, task.SubmissionID, task.Attempt, "total=%s", formatDuration(time.Since(totalStartedAt)))
+	}()
 
 	heartbeatCtx, stopHeartbeat := context.WithCancel(ctx)
 	defer stopHeartbeat()
 	go heartbeatLoop(heartbeatCtx, client, cfg, task.ID, task.SubmissionID, task.Attempt)
 
+	workStartedAt := time.Now()
 	work := filepath.Join(cfg.Work, strconv.FormatUint(uint64(task.SubmissionID), 10), strconv.Itoa(task.Attempt))
 	if err := os.RemoveAll(work); err != nil {
 		return true, err
@@ -111,8 +120,11 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 	if err := os.MkdirAll(work, 0o755); err != nil {
 		return true, err
 	}
+	logStep(cfg.Logf, task.SubmissionID, task.Attempt, "prepare_work", workStartedAt)
 	if task.needsAssets() {
+		assetsStartedAt := time.Now()
 		if err := downloadTaskAssets(ctx, client, cfg, task.Problem.ID, work); err != nil {
+			logStep(cfg.Logf, task.SubmissionID, task.Attempt, "download_assets_error", assetsStartedAt)
 			result := TaskResult{
 				SubmissionID: task.SubmissionID,
 				Attempt:      task.Attempt,
@@ -124,14 +136,18 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 			}
 			return true, nil
 		}
+		logStep(cfg.Logf, task.SubmissionID, task.Attempt, "download_assets", assetsStartedAt)
 	}
+	runStartedAt := time.Now()
 	result, err := RunContainerTask(ctx, ContainerTask{
 		Runner:     cfg.Runner,
 		Work:       work,
 		CgroupRoot: cfg.CgroupRoot,
 		ProcRoot:   cfg.ProcRoot,
 		Task:       task.toTask(),
+		Logf:       cfg.Logf,
 	})
+	logStep(cfg.Logf, task.SubmissionID, task.Attempt, "run_container", runStartedAt)
 	if err != nil {
 		result = TaskResult{
 			SubmissionID: task.SubmissionID,
@@ -140,9 +156,11 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 			Message:      err.Error(),
 		}
 	}
+	postStartedAt := time.Now()
 	if err := postResult(ctx, client, cfg, task.ID, result); err != nil {
 		return true, err
 	}
+	logTask(cfg.Logf, task.SubmissionID, task.Attempt, "post_result=%s verdict=%s score=%d", formatDuration(time.Since(postStartedAt)), result.Verdict, result.Score)
 	return true, nil
 }
 
@@ -169,6 +187,9 @@ func heartbeatLoop(ctx context.Context, client *http.Client, cfg WorkerConfig, t
 }
 
 func RunLoop(ctx context.Context, cfg LoopConfig) error {
+	if cfg.Worker.Logf == nil {
+		cfg.Worker.Logf = cfg.Logf
+	}
 	workers := cfg.Concurrency
 	if workers <= 1 {
 		return runLoopWorker(ctx, cfg)
@@ -212,6 +233,22 @@ func sleepContext(ctx context.Context, d time.Duration) error {
 	case <-timer.C:
 		return nil
 	}
+}
+
+func logStep(logf func(format string, args ...any), submissionID uint, attempt int, step string, startedAt time.Time) {
+	logTask(logf, submissionID, attempt, "%s=%s", step, formatDuration(time.Since(startedAt)))
+}
+
+func logTask(logf func(format string, args ...any), submissionID uint, attempt int, format string, args ...any) {
+	if logf == nil {
+		return
+	}
+	prefix := fmt.Sprintf("judger timing submission=%d attempt=%d ", submissionID, attempt)
+	logf(prefix+format, args...)
+}
+
+func formatDuration(d time.Duration) string {
+	return d.Round(time.Millisecond).String()
 }
 
 func (task leaseTask) toTask() Task {

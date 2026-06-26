@@ -18,6 +18,7 @@ type ContainerTask struct {
 	CgroupRoot string
 	ProcRoot   string
 	Task       Task
+	Logf       func(format string, args ...any)
 }
 
 func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error) {
@@ -39,7 +40,9 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error
 	}
 
 	task := req.Task
+	langStartedAt := time.Now()
 	lang, err := prepareLanguageImage(ctx, work, task.Lang, task.Source, task.Limits)
+	logStep(req.Logf, task.SubmissionID, task.Attempt, "prepare_language_image", langStartedAt)
 	if err != nil {
 		if result, ok := taskResultForLanguageBuildError(task, err); ok {
 			return result, nil
@@ -50,20 +53,29 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error
 
 	socket := filepath.Join(work, "runner.sock")
 	_ = os.Remove(socket)
+	startContainerStartedAt := time.Now()
 	containerID, err := startRunnerContainer(ctx, lang.Image, req.Runner, work, socket)
+	logStep(req.Logf, task.SubmissionID, task.Attempt, "start_runner_container", startContainerStartedAt)
 	if err != nil {
 		return TaskResult{}, err
 	}
 	defer dockerRemoveContainer(context.Background(), containerID)
 
+	pidStartedAt := time.Now()
 	initPID, err := dockerContainerPID(ctx, containerID)
+	logStep(req.Logf, task.SubmissionID, task.Attempt, "inspect_runner_pid", pidStartedAt)
 	if err != nil {
 		return TaskResult{}, containerError(ctx, containerID, err)
 	}
+	socketStartedAt := time.Now()
 	if err := waitUnixSocket(ctx, socket); err != nil {
+		logStep(req.Logf, task.SubmissionID, task.Attempt, "wait_runner_socket_error", socketStartedAt)
 		return TaskResult{}, containerError(ctx, containerID, fmt.Errorf("wait runner socket: %w", err))
 	}
+	logStep(req.Logf, task.SubmissionID, task.Attempt, "wait_runner_socket", socketStartedAt)
+	connectStartedAt := time.Now()
 	conn, err := (&net.Dialer{}).DialContext(ctx, "unix", socket)
+	logStep(req.Logf, task.SubmissionID, task.Attempt, "connect_runner_socket", connectStartedAt)
 	if err != nil {
 		return TaskResult{}, err
 	}
@@ -77,6 +89,7 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error
 		taskID:     safeCaseID(fmt.Sprintf("%d-%d", req.Task.SubmissionID, req.Task.Attempt)),
 		limits:     req.Task.Limits,
 		work:       work,
+		logf:       req.Logf,
 	}
 	return client.runTask(ctx, task, lang.Command)
 }
@@ -102,6 +115,7 @@ type runnerClient struct {
 	taskID     string
 	limits     Limits
 	work       string
+	logf       func(format string, args ...any)
 }
 
 func (client runnerClient) runTask(ctx context.Context, task Task, userCommand string) (TaskResult, error) {
@@ -111,10 +125,14 @@ func (client runnerClient) runTask(ctx context.Context, task Task, userCommand s
 		result.Message = "task has no cases"
 		return result, nil
 	}
+	helloStartedAt := time.Now()
 	if err := client.hello(); err != nil {
 		return TaskResult{}, err
 	}
+	logStep(client.logf, task.SubmissionID, task.Attempt, "runner_hello", helloStartedAt)
+	compileStartedAt := time.Now()
 	compile, err := client.compile(task, userCommand)
+	logTask(client.logf, task.SubmissionID, task.Attempt, "compile=%s ok=%t reported=%dms", formatDuration(time.Since(compileStartedAt)), compile.OK, compile.TimeMS)
 	if err != nil {
 		return TaskResult{}, err
 	}
@@ -127,7 +145,9 @@ func (client runnerClient) runTask(ctx context.Context, task Task, userCommand s
 	judgeCommand := ""
 	if task.Mode == ModeCustom {
 		var judgeBuild CompileResult
+		customStartedAt := time.Now()
 		judgeCommand, judgeBuild, err = prepareContainerCustomJudge(ctx, client.work, task.Limits)
+		logTask(client.logf, task.SubmissionID, task.Attempt, "custom_judge_build=%s ok=%t reported=%dms", formatDuration(time.Since(customStartedAt)), judgeBuild.OK, judgeBuild.TimeMS)
 		if err != nil {
 			return TaskResult{}, err
 		}
@@ -144,7 +164,8 @@ func (client runnerClient) runTask(ctx context.Context, task Task, userCommand s
 	verdict := VerdictAccepted
 	maxMemory := 0
 	caseResults := make([]CaseResult, 0, len(task.Cases))
-	for _, item := range task.Cases {
+	for index, item := range task.Cases {
+		caseStartedAt := time.Now()
 		got, err := client.runCase(ctx, RunCaseRequest{
 			TaskID:       client.taskID,
 			JudgeCommand: judgeCommand,
@@ -152,6 +173,7 @@ func (client runnerClient) runTask(ctx context.Context, task Task, userCommand s
 			Mode:         task.Mode,
 			Limits:       task.Limits,
 		})
+		logTask(client.logf, task.SubmissionID, task.Attempt, "case=%d id=%s elapsed=%s verdict=%s reported=%dms", index+1, item.ID, formatDuration(time.Since(caseStartedAt)), got.Verdict, got.TimeMS)
 		if err != nil {
 			return TaskResult{}, err
 		}
