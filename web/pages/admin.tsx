@@ -475,8 +475,16 @@ export function AdminPage() {
                       {
                         title: text.admin.dockerfile,
                         dataIndex: 'dockerfile',
+                        width: 280,
                         ellipsis: true,
-                        render: (value: string) => <Typography.Text code>{value.split('\n')[0]}</Typography.Text>
+                        render: (value: string) => {
+                          const firstLine = value.split('\n')[0]
+                          return (
+                            <Typography.Text ellipsis={{ tooltip: firstLine }} className="lineText">
+                              {firstLine}
+                            </Typography.Text>
+                          )
+                        }
                       },
                       {
                         title: text.common.actions,
