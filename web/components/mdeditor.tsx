@@ -1,17 +1,12 @@
-import highlightScript from '@highlightjs/cdn-assets/highlight.min.js?url'
-import githubDarkStyle from '@highlightjs/cdn-assets/styles/github-dark.min.css?url'
-import githubStyle from '@highlightjs/cdn-assets/styles/github.min.css?url'
-import katex from 'katex'
-import { config, MdEditor, MdPreview } from 'md-editor-rt'
-import 'katex/dist/katex.min.css'
-import 'md-editor-rt/lib/style.css'
+import { MdEditor, MdPreview } from 'md-editor-rt'
 import { useEffect, useId } from 'react'
 
 import { uploadImage } from '../client'
 import { useColor } from '../color'
 import { useLocale } from '../locale'
-import { clearMarkdownAssetBase, configureMarkdownAssetRenderer, rewriteAssetURL, sanitizerForTrust, setMarkdownAssetBase } from '../utils/markdown'
+import { clearMarkdownAssetBase, rewriteAssetURL, sanitizerForTrust, setMarkdownAssetBase } from '../utils/markdown'
 import type { MarkdownTrust } from '../utils/markdown'
+import { configureMarkdownRuntime } from './markdown-runtime'
 
 type MarkdownEditorProps = {
   value?: string
@@ -47,33 +42,7 @@ const toolbars = [
   'fullscreen'
 ] as const
 
-let markdownAssetRendererConfigured = false
-
-function ensureMarkdownAssetRenderer() {
-  if (markdownAssetRendererConfigured) {
-    return
-  }
-  config({
-    editorExtensions: {
-      highlight: {
-        js: highlightScript,
-        css: {
-          github: {
-            light: githubStyle,
-            dark: githubDarkStyle
-          }
-        }
-      },
-      katex: {
-        instance: katex
-      }
-    },
-    markdownItConfig: (md, options) => {
-      configureMarkdownAssetRenderer(md, options.editorId)
-    }
-  })
-  markdownAssetRendererConfigured = true
-}
+configureMarkdownRuntime()
 
 export function MarkdownEditor({
   value = '',
@@ -88,7 +57,6 @@ export function MarkdownEditor({
   const { color } = useColor()
   const { lang } = useLocale()
   const editorID = `md-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
-  ensureMarkdownAssetRenderer()
   setMarkdownAssetBase(editorID, assetBase)
   useEffect(() => () => clearMarkdownAssetBase(editorID), [editorID])
   const language = lang === 'zh' ? 'zh-CN' : 'en-US'

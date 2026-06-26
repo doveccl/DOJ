@@ -37,12 +37,95 @@ export function sanitizerForTrust(trust: MarkdownTrust) {
 }
 
 export function sanitizeMarkdown(html: string) {
-  return DOMPurify.sanitize(html, {
-    USE_PROFILES: { html: true, mathMl: true },
-    FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form'],
-    FORBID_ATTR: ['style'],
-    RETURN_TRUSTED_TYPE: false
-  })
+  DOMPurify.addHook('uponSanitizeAttribute', allowKaTeXLayoutStyle)
+  try {
+    return DOMPurify.sanitize(html, {
+      USE_PROFILES: { html: true, mathMl: true },
+      ADD_ATTR: ['style'],
+      FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form'],
+      RETURN_TRUSTED_TYPE: false
+    })
+  } finally {
+    DOMPurify.removeHook('uponSanitizeAttribute')
+  }
+}
+
+const katexLayoutStyleProps = new Set([
+  'border-bottom-width',
+  'height',
+  'margin-left',
+  'margin-right',
+  'min-width',
+  'padding-left',
+  'top',
+  'vertical-align',
+  'width'
+])
+
+const katexNonNegativeStyleProps = new Set(['border-bottom-width', 'height', 'min-width', 'padding-left', 'width'])
+
+function allowKaTeXLayoutStyle(node: Element, data: { attrName: string; attrValue: string; keepAttr: boolean }) {
+  if (data.attrName !== 'style') {
+    return
+  }
+  const style = isKaTeXNode(node) ? sanitizeKaTeXStyle(data.attrValue) : ''
+  if (!style) {
+    data.keepAttr = false
+    return
+  }
+  data.attrValue = style
+}
+
+function isKaTeXNode(node: Element) {
+  for (let current: Element | null = node; current; current = current.parentElement) {
+    if (current.classList.contains('katex') || current.classList.contains('katex-display')) {
+      return true
+    }
+  }
+  return false
+}
+
+export function sanitizeKaTeXStyle(value: string) {
+  const declarations = value
+    .split(';')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const separator = part.indexOf(':')
+      if (separator < 1) {
+        return null
+      }
+      const prop = part.slice(0, separator).trim().toLowerCase()
+      const next = part.slice(separator + 1).trim().toLowerCase()
+      if (!katexLayoutStyleProps.has(prop) || !safeKaTeXStyleValue(prop, next)) {
+        return null
+      }
+      return `${prop}: ${next}`
+    })
+    .filter((part): part is string => Boolean(part))
+  return declarations.join('; ')
+}
+
+function safeKaTeXStyleValue(prop: string, value: string) {
+  const match = value.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))(em|px|%)?$/)
+  if (!match) {
+    return false
+  }
+  const amount = Number(match[1])
+  if (!Number.isFinite(amount)) {
+    return false
+  }
+  if (katexNonNegativeStyleProps.has(prop) && amount < 0) {
+    return false
+  }
+  const unit = match[2] ?? ''
+  if (unit === '%' && Math.abs(amount) > 100) {
+    return false
+  }
+  if (unit === 'px' && Math.abs(amount) > 10000) {
+    return false
+  }
+  return unit === 'px' || Math.abs(amount) <= 100
 }
 
 export function rewriteAssetURL(value: string, assetBase?: string) {

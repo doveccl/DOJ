@@ -44,6 +44,7 @@ const zh = {
     create: '创建',
     cancel: '取消',
     delete: '删除',
+    download: '下载',
     save: '保存',
     confirmDelete: '确认删除？',
     forbidden: '无权访问',
@@ -217,6 +218,7 @@ const zh = {
     noBio: '暂无简介'
   },
   discussion: {
+    search: '搜索帖子',
     title: '标题',
     author: '作者',
     tags: '标签',
@@ -253,6 +255,7 @@ const zh = {
     groups: '用户组',
     languages: '语言',
     judgers: '评测机',
+    backups: '备份',
     siteName: '站点名称',
     allowRegistration: '允许注册',
     allowGuestAccess: '允许游客访问',
@@ -288,6 +291,27 @@ const zh = {
     editJudger: '编辑评测机',
     judgerTokenCreated: '评测机令牌',
     judgerTokenHelp: '令牌只在创建时展示一次，请复制到评测机运行环境。',
+    backupEnabled: '自动备份',
+    backupFrequency: '备份频率',
+    backupKeep: '最多保留',
+    backupTime: '备份时间',
+    backupSchedule: '备份策略',
+    backupFiles: '备份文件',
+    backupDisabled: '已关闭',
+    backupReady: '空闲',
+    backupCount: (count: number) => `共 ${count} 个备份`,
+    backupNow: '立即备份',
+    backupFile: '备份文件',
+    backupDatabase: '数据库',
+    backupSize: '大小',
+    backupManualDone: '备份已创建',
+    backupRunning: '备份运行中',
+    backupStale: '上次备份可能已中断',
+    backupFrequencies: {
+      hourly: '每小时',
+      daily: '每天',
+      weekly: '每周'
+    },
     roles: {
       admin: '管理员',
       user: '用户'
@@ -389,6 +413,7 @@ const en: typeof zh = {
     create: 'Create',
     cancel: 'Cancel',
     delete: 'Delete',
+    download: 'Download',
     save: 'Save',
     confirmDelete: 'Delete this item?',
     forbidden: 'Forbidden',
@@ -562,6 +587,7 @@ const en: typeof zh = {
     noBio: 'No bio'
   },
   discussion: {
+    search: 'Search posts',
     title: 'Title',
     author: 'Author',
     tags: 'Tags',
@@ -598,6 +624,7 @@ const en: typeof zh = {
     groups: 'Groups',
     languages: 'Languages',
     judgers: 'Judgers',
+    backups: 'Backups',
     siteName: 'Site name',
     allowRegistration: 'Allow registration',
     allowGuestAccess: 'Allow guest access',
@@ -633,6 +660,27 @@ const en: typeof zh = {
     editJudger: 'Edit judger',
     judgerTokenCreated: 'Judger token',
     judgerTokenHelp: 'The token is shown only once. Copy it into the judger runtime environment.',
+    backupEnabled: 'Automatic backup',
+    backupFrequency: 'Frequency',
+    backupKeep: 'Keep latest',
+    backupTime: 'Backup time',
+    backupSchedule: 'Backup policy',
+    backupFiles: 'Backup files',
+    backupDisabled: 'Disabled',
+    backupReady: 'Idle',
+    backupCount: (count: number) => `${count} backups`,
+    backupNow: 'Back up now',
+    backupFile: 'Backup file',
+    backupDatabase: 'Database',
+    backupSize: 'Size',
+    backupManualDone: 'Backup created',
+    backupRunning: 'Backup running',
+    backupStale: 'Previous backup may have stopped',
+    backupFrequencies: {
+      hourly: 'Hourly',
+      daily: 'Daily',
+      weekly: 'Weekly'
+    },
     roles: {
       admin: 'Admin',
       user: 'User'

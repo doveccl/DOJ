@@ -15,6 +15,7 @@ import (
 	dojmw "github.com/doveccl/doj/middleware"
 	"github.com/doveccl/doj/models"
 	adminsvc "github.com/doveccl/doj/services/admin"
+	backupsvc "github.com/doveccl/doj/services/backup"
 	judgersvc "github.com/doveccl/doj/services/judger"
 	websvc "github.com/doveccl/doj/services/web"
 	"github.com/doveccl/doj/utils"
@@ -31,6 +32,9 @@ const (
 )
 
 func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	e := echo.New()
 	e.HideBanner = true
 	e.Use(middleware.Recover())
@@ -49,6 +53,7 @@ func main() {
 	websvc.Register(e, db)
 	adminsvc.Register(e, db)
 	judgersvc.Register(e, db)
+	backupsvc.StartScheduler(ctx, db)
 	if err := registerWebApp(e, defaultWebDir); err != nil {
 		e.Logger.Fatal(err)
 	}
@@ -157,7 +162,7 @@ func securityHeaders() echo.MiddlewareFunc {
 			h.Set(echo.HeaderXContentTypeOptions, "nosniff")
 			h.Set(echo.HeaderXFrameOptions, "DENY")
 			h.Set("Referrer-Policy", "same-origin")
-			h.Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'")
+			h.Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src 'self'")
 			return next(c)
 		}
 	}

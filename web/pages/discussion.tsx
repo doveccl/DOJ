@@ -1,4 +1,4 @@
-import { DeleteOutlined, EditOutlined, LockOutlined, PlusOutlined, PushpinOutlined, UnlockOutlined } from '@ant-design/icons'
+import { DeleteOutlined, EditOutlined, LockOutlined, PlusOutlined, PushpinOutlined, SearchOutlined, UnlockOutlined } from '@ant-design/icons'
 import { App as AntApp, Button, Card, Flex, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -18,30 +18,23 @@ import { limits } from '../utils/limits'
 export function DiscussionPage() {
   const { lang, text } = useLocale()
   const session = useSession()
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Discussion | null>(null)
   const [draft, setDraft] = useState<DiscussionUpdate | null>(null)
   const { message } = AntApp.useApp()
   const client = useQueryClient()
   const navigate = useNavigate()
+  const q = params.get('q') ?? ''
   const tags = params.get('tags') ?? ''
-  const query = useQuery({ queryKey: ['discussion', tags], queryFn: () => getDiscussions({ tags }) })
+  const query = useQuery({ queryKey: ['discussion', q, tags], queryFn: () => getDiscussions({ q, tags }) })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
   const create = useMutation({
     mutationFn: createDiscussion,
     onSuccess: (item) => {
-      client.setQueryData<Discussion[]>(['discussion', tags], (old) => {
-        if (!old) {
-          return [item]
-        }
-        if (tags && !item.tags.includes(tags)) {
-          return old
-        }
-        return [item, ...old]
-      })
+      void client.invalidateQueries({ queryKey: ['discussion'] })
       message.success(text.discussion.createdTip)
       setOpen(false)
       setDraft(null)
@@ -139,9 +132,40 @@ export function DiscussionPage() {
     create.mutate(body)
   }
 
+  function submitSearch(values: { q?: string; tags?: string }) {
+    const next = new URLSearchParams()
+    if (values.q) {
+      next.set('q', values.q)
+    }
+    if (values.tags) {
+      next.set('tags', values.tags)
+    }
+    setParams(next)
+  }
+
+  function clearSearch() {
+    setParams(new URLSearchParams())
+  }
+
   return (
     <Card>
-      <Flex justify="flex-end" style={{ marginBottom: 18 }}>
+      <Flex justify="space-between" align="center" gap={12} wrap style={{ marginBottom: 18 }}>
+        <Form layout="inline" initialValues={{ q: q || undefined, tags: tags || undefined }} onFinish={submitSearch} key={`${q}:${tags}`}>
+          <Form.Item name="q">
+            <Input placeholder={text.discussion.search} allowClear style={{ width: 280 }} />
+          </Form.Item>
+          <Form.Item name="tags">
+            <Input placeholder={text.discussion.tags} allowClear style={{ width: 180 }} />
+          </Form.Item>
+          <Form.Item>
+            <Button onClick={clearSearch}>{text.common.clear}</Button>
+          </Form.Item>
+          <Form.Item>
+            <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>
+              {text.common.search}
+            </Button>
+          </Form.Item>
+        </Form>
         {session.signedIn ? (
           <Button icon={<PlusOutlined />} onClick={openCreate}>
             {text.discussion.create}

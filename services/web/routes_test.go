@@ -1140,6 +1140,30 @@ func TestProblemCreateDefaultsVisibleAndListSortsByID(t *testing.T) {
 	}
 }
 
+func TestProblemListSearchesByCode(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	rows := []models.Problem{
+		{ID: 1288, Title: "Window Median", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256},
+		{ID: 1289, Title: "Deer Tower", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256},
+	}
+	for _, row := range rows {
+		if err := db.Create(&row).Error; err != nil {
+			t.Fatalf("create problem %d: %v", row.ID, err)
+		}
+	}
+
+	e := echo.New()
+	Register(e, db)
+
+	for _, q := range []string{"1289", "P1289"} {
+		got := decodeJSON[[]ProblemDTO](t, requestOK(t, e, http.MethodGet, "/api/problems?q="+url.QueryEscape(q), ""))
+		if len(got) != 1 || got[0].ID != 1289 {
+			t.Fatalf("problem search %q got %+v, want P1289", q, got)
+		}
+	}
+}
+
 func TestDiscussionProblemTagsAreSoftAssociations(t *testing.T) {
 	db := testWebDB(t)
 	student := models.User{Name: "student", Mail: "student@example.com", Auth: "hash"}
@@ -1247,6 +1271,41 @@ func TestDatabaseDiscussionAuthorsUseNames(t *testing.T) {
 	dto := decodeJSON[DiscussionDTO](t, updated)
 	if dto.Author != "admin" {
 		t.Fatalf("updated discussion author should be username: %+v", dto)
+	}
+}
+
+func TestDiscussionListSearchesTitleContentAndTags(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	rows := []models.Discussion{
+		{Title: "Segment tree notes", Content: "body", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["general"]`))},
+		{Title: "Other topic", Content: "Fenwick tree detail", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["general"]`))},
+		{Title: "Tagged topic", Content: "body", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["P1289"]`))},
+		{Title: "Unrelated", Content: "body", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["misc"]`))},
+	}
+	if err := db.Create(&rows).Error; err != nil {
+		t.Fatalf("create discussions: %v", err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+
+	for _, item := range []struct {
+		q    string
+		want string
+	}{
+		{q: "segment", want: "Segment tree notes"},
+		{q: "fenwick", want: "Other topic"},
+		{q: "p1289", want: "Tagged topic"},
+	} {
+		got := decodeJSON[[]DiscussionDTO](t, requestOK(t, e, http.MethodGet, "/api/discussion?q="+url.QueryEscape(item.q), ""))
+		if len(got) != 1 || got[0].Title != item.want {
+			t.Fatalf("search %q got %+v, want %q", item.q, got, item.want)
+		}
 	}
 }
 

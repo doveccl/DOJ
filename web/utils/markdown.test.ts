@@ -5,6 +5,7 @@ import {
   configureMarkdownAssetRenderer,
   problemAssetUploadMarkdownURL,
   rewriteAssetURL,
+  sanitizeKaTeXStyle,
   setMarkdownAssetBase
 } from './markdown'
 
@@ -21,6 +22,11 @@ describe('markdown assets', () => {
     expect(problemAssetUploadMarkdownURL('/api/problems/1000/assets/a.png', 1000)).toBe('./assets/a.png')
     expect(problemAssetUploadMarkdownURL('/api/problems/1000/assets/nested/a.png', 1000)).toBe('./assets/nested/a.png')
     expect(problemAssetUploadMarkdownURL('/api/problems/1001/assets/a.png', 1000)).toBe('/api/problems/1001/assets/a.png')
+  })
+
+  it('keeps only safe KaTeX layout styles', () => {
+    expect(sanitizeKaTeXStyle('height:0.6833em;vertical-align:-0.25em;top:-2.314em')).toBe('height: 0.6833em; vertical-align: -0.25em; top: -2.314em')
+    expect(sanitizeKaTeXStyle('position:fixed;left:0;background:url(https://example.com/a.png);height:999em')).toBe('')
   })
 
   it('rewrites image and link tokens during markdown rendering', () => {

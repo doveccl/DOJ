@@ -3,6 +3,9 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    assetsInlineLimit: 0
+  },
   server: {
     port: 28080,
     proxy: {

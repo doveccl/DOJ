@@ -55,6 +55,18 @@ func CacheSet(ctx context.Context, key string, value any, ttl time.Duration) err
 	return client.Set(ctx, key, raw, ttl).Err()
 }
 
+func CacheSetNX(ctx context.Context, key string, value any, ttl time.Duration) (bool, error) {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return false, err
+	}
+	client, err := redisCache(ctx)
+	if err != nil {
+		return false, err
+	}
+	return client.SetNX(ctx, key, raw, ttl).Result()
+}
+
 func CacheDelete(ctx context.Context, key string) error {
 	client, err := redisCache(ctx)
 	if err != nil {

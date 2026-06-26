@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/mail"
 	"sort"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/doveccl/doj/models"
+	backupsvc "github.com/doveccl/doj/services/backup"
 	judgersvc "github.com/doveccl/doj/services/judger"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
@@ -152,6 +154,12 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.POST("/judgers", api.createJudger)
 	group.PATCH("/judgers/:id", api.updateJudger)
 	group.DELETE("/judgers/:id", api.deleteJudger)
+	group.GET("/backups/settings", api.backupSettings)
+	group.PATCH("/backups/settings", api.updateBackupSettings, echomw.BodyLimit(utils.BodyLimitSettings))
+	group.GET("/backups", api.backups)
+	group.POST("/backups", api.createBackup)
+	group.GET("/backups/:name/download", api.downloadBackup)
+	group.DELETE("/backups/:name", api.deleteBackup)
 }
 
 func (api *API) requireAdmin(next echo.HandlerFunc) echo.HandlerFunc {
@@ -176,6 +184,73 @@ func (api *API) overview(c echo.Context) error {
 		return err
 	}
 	return c.JSON(http.StatusOK, overview)
+}
+
+func (api *API) backupSettings(c echo.Context) error {
+	settings, err := backupsvc.ReadSettings(api.db)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, settings)
+}
+
+func (api *API) updateBackupSettings(c echo.Context) error {
+	var req backupsvc.Settings
+	if err := c.Bind(&req); err != nil {
+		return err
+	}
+	settings, err := backupsvc.CleanSettings(req)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if err := backupsvc.SaveSettings(api.db, settings); err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, settings)
+}
+
+func (api *API) backups(c echo.Context) error {
+	manager := backupsvc.Manager{DB: api.db}
+	list, err := manager.List(c.Request().Context())
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, list)
+}
+
+func (api *API) createBackup(c echo.Context) error {
+	manager := backupsvc.Manager{DB: api.db}
+	item, err := manager.BackupNow(c.Request().Context())
+	if err != nil {
+		if errors.Is(err, backupsvc.ErrRunning) {
+			return echo.NewHTTPError(http.StatusConflict, "backup already running")
+		}
+		return err
+	}
+	return c.JSON(http.StatusCreated, item)
+}
+
+func (api *API) downloadBackup(c echo.Context) error {
+	name := c.Param("name")
+	manager := backupsvc.Manager{DB: api.db}
+	reader, contentType, err := manager.Open(c.Request().Context(), name)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	if contentType == "" {
+		contentType = "application/gzip"
+	}
+	c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="`+name+`"`)
+	return c.Stream(http.StatusOK, contentType, reader)
+}
+
+func (api *API) deleteBackup(c echo.Context) error {
+	manager := backupsvc.Manager{DB: api.db}
+	if err := manager.Delete(c.Request().Context(), c.Param("name")); err != nil {
+		return err
+	}
+	return c.NoContent(http.StatusNoContent)
 }
 
 func (api *API) readOverview(ctx context.Context) (Overview, error) {

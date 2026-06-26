@@ -1,10 +1,13 @@
 import { Input, Select, Table, Typography } from 'antd'
 import type { TableProps } from 'antd'
+import { useQuery } from '@tanstack/react-query'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import type { ProblemRef } from '../client'
+import { getProblems } from '../client'
+import type { Problem, ProblemRef } from '../client'
 import { useLocale } from '../locale'
-import { problemCode } from '../utils/format'
+import { problemCode, problemLabel } from '../utils/format'
 import { limits } from '../utils/limits'
 
 type Option = {
@@ -15,13 +18,33 @@ type Option = {
 type ProblemRefInputProps = {
   value?: ProblemRef[]
   onChange?: (value: ProblemRef[]) => void
-  options: Option[]
+  options?: Option[]
   loading?: boolean
 }
 
-export function ProblemRefInput({ value = [], onChange, options, loading }: ProblemRefInputProps) {
+export function ProblemRefInput({ value = [], onChange, options = [], loading }: ProblemRefInputProps) {
   const { text } = useLocale()
-  const optionMap = new Map(options.map((item) => [item.value, item.label]))
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const searchText = search.trim()
+  const remote = useQuery({
+    queryKey: ['problems', 'select', searchText],
+    queryFn: () => getProblems({ q: searchText }),
+    enabled: open
+  })
+  const remoteOptions = useMemo(() => (remote.data ?? []).map(problemOption), [remote.data])
+  const [knownOptions, setKnownOptions] = useState<Option[]>([])
+
+  useEffect(() => {
+    setKnownOptions((current) => {
+      const next = mergeOptions(current, options, remoteOptions)
+      return sameOptions(current, next) ? current : next
+    })
+  }, [options, remoteOptions])
+
+  const selectedOptions = value.map((item) => ({ value: item.id, label: optionLabel(item.id, knownOptions, options, remoteOptions) }))
+  const selectOptions = mergeOptions(selectedOptions, knownOptions, options, remoteOptions)
+  const optionMap = new Map(selectOptions.map((item) => [item.value, item.label]))
 
   function setIDs(ids: number[]) {
     const current = new Map(value.map((item) => [item.id, item.sort]))
@@ -54,10 +77,57 @@ export function ProblemRefInput({ value = [], onChange, options, loading }: Prob
 
   return (
     <>
-      <Select mode="multiple" value={value.map((item) => item.id)} options={options} loading={loading} onChange={setIDs} />
+      <Select
+        allowClear
+        filterOption={false}
+        loading={loading || remote.isFetching}
+        maxTagCount="responsive"
+        mode="multiple"
+        onChange={setIDs}
+        onDropdownVisibleChange={setOpen}
+        onSearch={setSearch}
+        options={selectOptions}
+        placeholder={text.submissions.searchProblem}
+        showSearch
+        style={{ width: '100%' }}
+        value={value.map((item) => item.id)}
+      />
       {value.length > 0 ? <Table<ProblemRef> rowKey="id" size="small" pagination={false} columns={columns} dataSource={value} /> : null}
     </>
   )
+}
+
+function problemOption(item: Problem): Option {
+  return { value: item.id, label: problemLabel(item.id, item.title) }
+}
+
+function optionLabel(id: number, ...lists: Option[][]): string {
+  for (const list of lists) {
+    const found = list.find((item) => item.value === id)
+    if (found) {
+      return found.label
+    }
+  }
+  return problemCode(id)
+}
+
+function mergeOptions(...lists: Option[][]): Option[] {
+  const merged = new Map<number, string>()
+  for (const list of lists) {
+    for (const item of list) {
+      if (!merged.has(item.value)) {
+        merged.set(item.value, item.label)
+      }
+    }
+  }
+  return Array.from(merged, ([value, label]) => ({ value, label }))
+}
+
+function sameOptions(left: Option[], right: Option[]) {
+  if (left.length !== right.length) {
+    return false
+  }
+  return left.every((item, index) => item.value === right[index].value && item.label === right[index].label)
 }
 
 export function defaultProblemSort(index: number) {

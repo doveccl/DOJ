@@ -345,6 +345,9 @@ export function ProblemDetailPage() {
                     </Tooltip>
                   ) : null}
                   <Typography.Text strong>{problemCode(problem.id)}</Typography.Text>
+                  <Typography.Text strong ellipsis className="problemTitleText">
+                    {problem.title}
+                  </Typography.Text>
                   <Tag color="blue">{formatLimit(problem)}</Tag>
                   {problem.tags.map((tag) => (
                     <Tag key={tag}>{tag}</Tag>

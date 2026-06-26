@@ -24,7 +24,7 @@ RUN CGO_ENABLED=0 go build -tags runner -o /out/doj-runner ./cmd/runner.go
 
 FROM alpine:3.23
 
-RUN apk add --no-cache ca-certificates \
+RUN apk add --no-cache ca-certificates postgresql-client \
   && adduser -D -h /var/lib/doj doj \
   && mkdir -p /app /var/lib/doj \
   && chown -R doj:doj /app /var/lib/doj

@@ -38,6 +38,9 @@ importers:
       antd:
         specifier: ^6.4.4
         version: 6.4.4(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      cropperjs:
+        specifier: 1.6.2
+        version: 1.6.2
       dayjs:
         specifier: ^1.11.21
         version: 1.11.21
@@ -62,6 +65,9 @@ importers:
       react-router-dom:
         specifier: ^7.18.0
         version: 7.18.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      screenfull:
+        specifier: 6.0.2
+        version: 6.0.2
     devDependencies:
       '@types/react':
         specifier: ^19.2.17
@@ -846,6 +852,9 @@ packages:
   crelt@1.0.6:
     resolution: {integrity: sha512-VQ2MBenTq1fWZUH9DJNGti7kKv6EeAuYr3cLwxUWhIu1baTaXh4Ib5W2CqHVqib4/MqbYGJqiL3Zb8GJZr3l4g==}
 
+  cropperjs@1.6.2:
+    resolution: {integrity: sha512-nhymn9GdnV3CqiEHJVai54TULFAE3VshJTXSqSJKa8yXAKyBKDWdhHarnlIPrshJ0WMFTGuFvG02YjLXfPiuOA==}
+
   cssfilter@0.0.10:
     resolution: {integrity: sha512-FAaLDaplstoRsDR8XGYH51znUN0UY7nMc6Z9/fvE8EXGwvJE9hu7W2vHwx1+bd6gCYnln9nLbzxFTrcO9YQDZw==}
 
@@ -1082,6 +1091,10 @@ packages:
 
   scheduler@0.27.0:
     resolution: {integrity: sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==}
+
+  screenfull@6.0.2:
+    resolution: {integrity: sha512-AQdy8s4WhNvUZ6P8F6PB21tSPIYKniic+Ogx0AacBMjKP1GUHN2E9URxQHtCusiwxudnCKkdy4GrHXPPJSkCCw==}
+    engines: {node: ^14.13.1 || >=16.0.0}
 
   scroll-into-view-if-needed@3.1.0:
     resolution: {integrity: sha512-49oNpRjWRvnU8NyGVmUaYG4jtTkNonFZI86MmGRDqBphEK2EXT9gdEUoQPZhuBM8yWHxCWbobltqYO5M4XrUvQ==}
@@ -2284,6 +2297,8 @@ snapshots:
 
   crelt@1.0.6: {}
 
+  cropperjs@1.6.2: {}
+
   cssfilter@0.0.10: {}
 
   csstype@3.2.3: {}
@@ -2499,6 +2514,8 @@ snapshots:
       '@rolldown/binding-win32-x64-msvc': 1.0.3
 
   scheduler@0.27.0: {}
+
+  screenfull@6.0.2: {}
 
   scroll-into-view-if-needed@3.1.0:
     dependencies:

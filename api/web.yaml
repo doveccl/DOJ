@@ -411,6 +411,79 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminOverview"
+  /api/admin/backups/settings:
+    get:
+      operationId: getBackupSettings
+      responses:
+        "200":
+          description: Backup settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupSettings"
+    patch:
+      operationId: updateBackupSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BackupSettings"
+      responses:
+        "200":
+          description: Updated backup settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupSettings"
+  /api/admin/backups:
+    get:
+      operationId: getBackups
+      responses:
+        "200":
+          description: Backup list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupList"
+    post:
+      operationId: createBackup
+      responses:
+        "201":
+          description: Created backup
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupItem"
+  /api/admin/backups/{name}/download:
+    get:
+      operationId: downloadBackup
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Backup file
+          content:
+            application/gzip:
+              schema:
+                type: string
+                format: binary
+  /api/admin/backups/{name}:
+    delete:
+      operationId: deleteBackup
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted backup
   /api/home:
     get:
       operationId: home
@@ -1121,6 +1194,10 @@ paths:
     get:
       operationId: listDiscussions
       parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
         - name: tags
           in: query
           schema:
@@ -1387,6 +1464,57 @@ components:
           type: boolean
         notice:
           type: string
+    BackupSettings:
+      type: object
+      required: [enabled, frequency, keep, time]
+      properties:
+        enabled:
+          type: boolean
+        frequency:
+          type: string
+          enum: [hourly, daily, weekly]
+        keep:
+          type: integer
+          minimum: 1
+          maximum: 100
+        time:
+          type: string
+          example: "03:00"
+    BackupList:
+      type: object
+      required: [items]
+      properties:
+        running:
+          $ref: "#/components/schemas/BackupRunning"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackupItem"
+    BackupRunning:
+      type: object
+      required: [name, startedAt, stale]
+      properties:
+        name:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        stale:
+          type: boolean
+    BackupItem:
+      type: object
+      required: [name, database, createdAt, size]
+      properties:
+        name:
+          type: string
+        database:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        size:
+          type: integer
+          format: int64
     AdminUser:
       type: object
       required: [id, name, mail, role, groups]

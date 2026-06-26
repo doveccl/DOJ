@@ -60,6 +60,9 @@ export type AdminLangUpdate = components['schemas']['AdminLangUpdate']
 export type AdminLangCreate = components['schemas']['AdminLangCreate']
 export type AdminJudgerUpdate = components['schemas']['AdminJudgerUpdate']
 export type AdminJudgerCreate = components['schemas']['AdminJudgerCreate']
+export type BackupSettings = components['schemas']['BackupSettings']
+export type BackupList = components['schemas']['BackupList']
+export type BackupItem = components['schemas']['BackupItem']
 
 function defaultBaseUrl() {
   return typeof window === 'undefined' ? 'http://localhost:7974' : window.location.origin
@@ -346,6 +349,43 @@ export async function createAdminJudger(body: AdminJudgerCreate) {
   return assertData(data, error)
 }
 
+export async function getBackupSettings() {
+  const { data, error } = await client.GET('/api/admin/backups/settings')
+  return assertData(data, error)
+}
+
+export async function updateBackupSettings(body: BackupSettings) {
+  const { data, error } = await client.PATCH('/api/admin/backups/settings', { body })
+  return assertData(data, error)
+}
+
+export async function getBackups() {
+  const { data, error } = await client.GET('/api/admin/backups')
+  return assertData(data, error)
+}
+
+export async function createBackup() {
+  const { data, error } = await client.POST('/api/admin/backups')
+  return assertData(data, error)
+}
+
+export async function deleteBackup(name: string) {
+  const { error } = await client.DELETE('/api/admin/backups/{name}', {
+    params: { path: { name } }
+  })
+  if (error) {
+    throw new Error(errorMessage(error))
+  }
+}
+
+export async function downloadBackup(name: string) {
+  const response = await apiFetch(`/api/admin/backups/${encodeURIComponent(name)}/download`)
+  if (!response.ok) {
+    throw new Error(await response.text())
+  }
+  return response.blob()
+}
+
 export async function getProblems(params: { q?: string; tag?: string } = {}) {
   const { data, error } = await client.GET('/api/problems', {
     params: { query: params }
@@ -573,7 +613,7 @@ export async function getUser(name: string) {
   return assertData(data, error)
 }
 
-export async function getDiscussions(params: { tags?: string } = {}) {
+export async function getDiscussions(params: { q?: string; tags?: string } = {}) {
   const { data, error } = await client.GET('/api/discussion', {
     params: { query: params }
   })

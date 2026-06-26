@@ -21,6 +21,7 @@
     "@uiw/react-codemirror": "^4.25.10",
     "@vavt/markdown-theme": "^5.0.2",
     "antd": "^6.4.4",
+    "cropperjs": "1.6.2",
     "dayjs": "^1.11.21",
     "dompurify": "^3.4.11",
     "katex": "^0.17.0",
@@ -28,7 +29,8 @@
     "openapi-fetch": "^0.17.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-router-dom": "^7.18.0"
+    "react-router-dom": "^7.18.0",
+    "screenfull": "6.0.2"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

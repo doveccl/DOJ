@@ -298,6 +298,12 @@ body {
   min-width: 0;
 }
 
+.problemTitleText {
+  flex: 1 1 180px;
+  max-width: 520px;
+  min-width: 0;
+}
+
 .problemHeadTitle .ant-tag,
 .problemHeadTitle .ant-btn {
   display: inline-flex;
@@ -306,6 +312,73 @@ body {
 
 .problemHeadTitle .ant-tag {
   margin-inline-end: 0;
+}
+
+.adminBackupPage {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.adminBackupToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--ant-color-fill-quaternary);
+}
+
+.adminBackupStatus {
+  min-width: 0;
+}
+
+.adminBackupStatus .ant-tag {
+  margin-inline-end: 0;
+}
+
+.adminBackupSettings {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.adminBackupFormGrid {
+  display: grid;
+  grid-template-columns: minmax(112px, 0.7fr) minmax(150px, 1fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.adminBackupFormGrid .ant-form-item {
+  margin-bottom: 0;
+}
+
+.adminBackupSubmit {
+  justify-self: end;
+}
+
+.adminBackupSubmit .ant-btn {
+  min-width: 88px;
+}
+
+.adminBackupTableHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.adminBackupTableHead .ant-typography {
+  margin: 0;
+}
+
+.backupFileName {
+  max-width: 100%;
 }
 
 .modeSelect {
@@ -599,4 +672,36 @@ body {
     font-size: 52px !important;
   }
 
+  .adminBackupToolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .adminBackupToolbar .ant-btn {
+    width: 100%;
+  }
+
+  .adminBackupFormGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .adminBackupSubmit {
+    justify-self: stretch;
+  }
+
+  .adminBackupSubmit .ant-btn {
+    width: 100%;
+  }
+
+}
+
+@media (max-width: 560px) {
+  .adminBackupFormGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .adminBackupTableHead {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }

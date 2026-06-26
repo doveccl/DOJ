@@ -1,32 +1,38 @@
-import { DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Statistic, Switch, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
+import { CloudUploadOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, KeyOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
+import { App as AntApp, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Statistic, Switch, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import {
   createAdminUser,
+  createBackup,
   createAdminGroup,
   createAdminJudger,
   createAdminLang,
+  deleteBackup,
   deleteAdminGroup,
   deleteAdminJudger,
   deleteAdminLang,
   deleteAdminUser,
+  downloadBackup,
   getAdmin,
+  getBackups,
+  getBackupSettings,
   resetAdminUserPassword,
+  updateBackupSettings,
   updateAdminGroup,
   updateAdminJudger,
   updateAdminLang,
   updateAdminUser,
   updateAdminSettings
 } from '../client'
-import type { AdminGroupUpdate, AdminLangCreate, AdminOverview, AdminSettings, AdminUserCreate } from '../client'
+import type { AdminGroupUpdate, AdminLangCreate, AdminOverview, AdminSettings, AdminUserCreate, BackupItem, BackupSettings } from '../client'
 import { UserLink } from '../components/entity'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { IdSelect } from '../components/id-select'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { formatDuration } from '../utils/format'
+import { formatBytes, formatDuration } from '../utils/format'
 import { limits } from '../utils/limits'
 
 type UserRow = AdminOverview['users'][number]
@@ -38,6 +44,7 @@ type UserForm = AdminUserCreate
 type UserEditForm = Pick<AdminUserCreate, 'role' | 'groups'>
 type GroupForm = AdminGroupUpdate
 type SettingsForm = Pick<AdminSettings, 'siteName' | 'allowRegistration' | 'allowGuestAccess' | 'defaultSubmissionPublic'>
+type BackupSettingsForm = BackupSettings
 
 const defaultDockerfile = `FROM gcc:14
 WORKDIR /src
@@ -61,7 +68,10 @@ export function AdminPage() {
   const [editingJudger, setEditingJudger] = useState<JudgerRow | null>(null)
   const [userSearch, setUserSearch] = useState('')
   const [groupSearch, setGroupSearch] = useState('')
+  const [settingsForm] = Form.useForm<SettingsForm>()
   const query = useQuery({ queryKey: ['admin'], queryFn: getAdmin })
+  const backupSettings = useQuery({ queryKey: ['backup-settings'], queryFn: getBackupSettings, enabled: session.admin })
+  const backups = useQuery({ queryKey: ['backups'], queryFn: getBackups, enabled: session.admin, refetchInterval: (query) => (query.state.data?.running ? 5000 : false) })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
@@ -170,6 +180,34 @@ export function AdminPage() {
     onSuccess: saveOverview,
     onError: showError
   })
+  const backupSettingsSave = useMutation({
+    mutationFn: updateBackupSettings,
+    onSuccess: (data) => {
+      client.setQueryData(['backup-settings'], data)
+      message.success(text.common.saved)
+    },
+    onError: showError
+  })
+  const backupCreate = useMutation({
+    mutationFn: createBackup,
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ['backups'] })
+      message.success(text.admin.backupManualDone)
+    },
+    onError: showError
+  })
+  const backupDelete = useMutation({
+    mutationFn: deleteBackup,
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ['backups'] })
+    },
+    onError: showError
+  })
+  const backupDownload = useMutation({
+    mutationFn: downloadBackup,
+    onSuccess: (blob, name) => saveBlob(blob, name),
+    onError: showError
+  })
 
   if (!session.admin) {
     return <ErrorBlock error={text.common.forbidden} />
@@ -197,6 +235,38 @@ export function AdminPage() {
   const userQuery = userSearch.trim().toLowerCase()
   const groupQuery = groupSearch.trim().toLowerCase()
   const groupName = (id: number) => data.groups.find((group) => group.id === id)?.name ?? ''
+  const backupFrequencyOptions = [
+    { value: 'hourly', label: text.admin.backupFrequencies.hourly },
+    { value: 'daily', label: text.admin.backupFrequencies.daily },
+    { value: 'weekly', label: text.admin.backupFrequencies.weekly }
+  ]
+  const backupFrequencyText = backupSettings.data
+    ? (backupFrequencyOptions.find((option) => option.value === backupSettings.data.frequency)?.label ?? backupSettings.data.frequency)
+    : ''
+  const currentAdminSettings = () => client.getQueryData<AdminOverview>(['admin'])?.settings ?? data.settings
+  const saveSettingsPatch = (patch: Partial<SettingsForm>) => {
+    const current = currentAdminSettings()
+    settings.mutate({
+      siteName: current.siteName,
+      allowRegistration: current.allowRegistration,
+      allowGuestAccess: current.allowGuestAccess,
+      defaultSubmissionPublic: current.defaultSubmissionPublic,
+      ...patch
+    })
+  }
+  const saveSiteName = (value: string) => {
+    const current = currentAdminSettings()
+    const siteName = value.trim()
+    if (!siteName) {
+      settingsForm.setFieldValue('siteName', current.siteName)
+      return
+    }
+    if (siteName === current.siteName) {
+      settingsForm.setFieldValue('siteName', current.siteName)
+      return
+    }
+    saveSettingsPatch({ siteName })
+  }
   const filteredUsers = userQuery
     ? data.users.filter((user) =>
         [user.name, user.mail, roleText[user.role] ?? user.role, ...userGroupIds(user).map(groupName)].some((value) => value.toLowerCase().includes(userQuery))
@@ -251,27 +321,30 @@ export function AdminPage() {
               label: text.admin.settings,
               children: (
                 <Form<SettingsForm>
+                  form={settingsForm}
                   layout="vertical"
                   style={{ maxWidth: 680 }}
                   initialValues={data.settings}
                   key={`${data.settings.siteName}:${data.settings.allowRegistration}:${data.settings.allowGuestAccess}:${data.settings.defaultSubmissionPublic}`}
-                  onFinish={(values) => settings.mutate(values)}
                 >
                   <Form.Item name="siteName" label={text.admin.siteName} rules={[{ required: true }]}>
-                    <Input maxLength={limits.name} showCount />
+                    <Input
+                      maxLength={limits.name}
+                      showCount
+                      disabled={settings.isPending}
+                      onBlur={(event) => saveSiteName(event.target.value)}
+                      onPressEnter={(event) => event.currentTarget.blur()}
+                    />
                   </Form.Item>
                   <Form.Item name="allowRegistration" label={text.admin.allowRegistration} valuePropName="checked">
-                    <Switch />
+                    <Switch loading={settings.isPending} onChange={(checked) => saveSettingsPatch({ allowRegistration: checked })} />
                   </Form.Item>
                   <Form.Item name="allowGuestAccess" label={text.admin.allowGuestAccess} valuePropName="checked">
-                    <Switch />
+                    <Switch loading={settings.isPending} onChange={(checked) => saveSettingsPatch({ allowGuestAccess: checked })} />
                   </Form.Item>
                   <Form.Item name="defaultSubmissionPublic" label={text.admin.defaultSubmissionPublic} valuePropName="checked">
-                    <Switch />
+                    <Switch loading={settings.isPending} onChange={(checked) => saveSettingsPatch({ defaultSubmissionPublic: checked })} />
                   </Form.Item>
-                  <Button type="primary" htmlType="submit" loading={settings.isPending}>
-                    {text.common.save}
-                  </Button>
                 </Form>
               )
             },
@@ -473,6 +546,121 @@ export function AdminPage() {
                   />
                 </Space>
               )
+            },
+            {
+              key: 'backups',
+              label: text.admin.backups,
+              children: (
+                <div className="adminBackupPage">
+                  <div className="adminBackupToolbar">
+                    <Space className="adminBackupStatus" wrap>
+                      <Typography.Text strong>{text.admin.backupSchedule}</Typography.Text>
+                      {backupSettings.data?.enabled ? <Tag color="success">{backupFrequencyText}</Tag> : <Tag>{text.admin.backupDisabled}</Tag>}
+                      {backupSettings.data?.enabled ? <Typography.Text type="secondary">{backupSettings.data.time}</Typography.Text> : null}
+                      {backups.data?.running ? (
+                        <Tag color={backups.data.running.stale ? 'warning' : 'processing'}>
+                          {backups.data.running.stale ? text.admin.backupStale : text.admin.backupRunning}
+                        </Tag>
+                      ) : (
+                        <Tag>{text.admin.backupReady}</Tag>
+                      )}
+                    </Space>
+                    <Button type="primary" icon={<CloudUploadOutlined />} loading={backupCreate.isPending || !!backups.data?.running} onClick={() => backupCreate.mutate()}>
+                      {text.admin.backupNow}
+                    </Button>
+                  </div>
+                  <div className="adminBackupSettings">
+                    {backupSettings.isLoading ? (
+                      <LoadingBlock />
+                    ) : backupSettings.isError ? (
+                      <ErrorBlock error={backupSettings.error} />
+                    ) : backupSettings.data ? (
+                      <Form<BackupSettingsForm>
+                        className="adminBackupForm"
+                        layout="vertical"
+                        initialValues={backupSettings.data}
+                        key={`${backupSettings.data.enabled}:${backupSettings.data.frequency}:${backupSettings.data.keep}:${backupSettings.data.time}`}
+                        onFinish={(values) => backupSettingsSave.mutate(values)}
+                      >
+                        <div className="adminBackupFormGrid">
+                          <Form.Item name="enabled" label={text.admin.backupEnabled} valuePropName="checked">
+                            <Switch />
+                          </Form.Item>
+                          <Form.Item name="frequency" label={text.admin.backupFrequency} rules={[{ required: true }]}>
+                            <Select options={backupFrequencyOptions} />
+                          </Form.Item>
+                          <Form.Item name="time" label={text.admin.backupTime} rules={[{ required: true }]}>
+                            <Input placeholder="03:00" maxLength={5} />
+                          </Form.Item>
+                          <Form.Item name="keep" label={text.admin.backupKeep} rules={[{ required: true }]}>
+                            <InputNumber min={1} max={100} style={{ width: '100%' }} />
+                          </Form.Item>
+                          <Form.Item className="adminBackupSubmit">
+                            <Button type="primary" htmlType="submit" loading={backupSettingsSave.isPending}>
+                              {text.common.save}
+                            </Button>
+                          </Form.Item>
+                        </div>
+                      </Form>
+                    ) : null}
+                  </div>
+                  <div className="adminBackupTableHead">
+                    <Typography.Title level={5}>{text.admin.backupFiles}</Typography.Title>
+                    <Typography.Text type="secondary">{text.admin.backupCount(backups.data?.items.length ?? 0)}</Typography.Text>
+                  </div>
+                  {backups.isLoading ? (
+                    <LoadingBlock />
+                  ) : backups.isError ? (
+                    <ErrorBlock error={backups.error} />
+                  ) : (
+                    <Table<BackupItem>
+                      rowKey="name"
+                      pagination={{ defaultPageSize: 10, hideOnSinglePage: true }}
+                      scroll={{ x: 760 }}
+                      dataSource={backups.data?.items ?? []}
+                      columns={[
+                        {
+                          title: text.admin.backupFile,
+                          dataIndex: 'name',
+                          width: 320,
+                          render: (name: string) => (
+                            <Typography.Text code ellipsis={{ tooltip: name }} className="backupFileName">
+                              {name}
+                            </Typography.Text>
+                          )
+                        },
+                        { title: text.admin.backupDatabase, dataIndex: 'database', width: 120 },
+                        { title: text.admin.createdAt, dataIndex: 'createdAt', width: 220, render: (value: string) => new Date(value).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US') },
+                        { title: text.admin.backupSize, dataIndex: 'size', width: 100, render: (value: number) => formatBytes(value) },
+                        {
+                          title: text.common.actions,
+                          width: 120,
+                          render: (_, row) => (
+                            <Space size={4}>
+                              <Tooltip title={text.common.download}>
+                                <Button
+                                  type="text"
+                                  icon={<DownloadOutlined />}
+                                  loading={backupDownload.isPending && backupDownload.variables === row.name}
+                                  onClick={() => backupDownload.mutate(row.name)}
+                                />
+                              </Tooltip>
+                              <Popconfirm
+                                title={text.common.confirmDelete}
+                                okText={text.common.delete}
+                                cancelText={text.common.cancel}
+                                onConfirm={() => backupDelete.mutate(row.name)}
+                              >
+                                <Button type="text" danger icon={<DeleteOutlined />} loading={backupDelete.isPending && backupDelete.variables === row.name} />
+                              </Popconfirm>
+                            </Space>
+                          )
+                        }
+                      ]}
+                    />
+                  )}
+                </div>
+              )
             }
           ]}
         />
@@ -516,6 +704,15 @@ export function AdminPage() {
       ) : null}
     </>
   )
+}
+
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
+  URL.revokeObjectURL(url)
 }
 
 function UserModal({

@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -36,6 +37,25 @@ func TestRegisterWebAppSkipsMissingDist(t *testing.T) {
 	e := echo.New()
 	if err := registerWebApp(e, filepath.Join(t.TempDir(), "missing")); err != nil {
 		t.Fatalf("missing web dir should be ignored: %v", err)
+	}
+}
+
+func TestSecurityHeadersAllowHTTPSImages(t *testing.T) {
+	e := echo.New()
+	e.Use(securityHeaders())
+	e.GET("/", func(c echo.Context) error {
+		return c.NoContent(http.StatusNoContent)
+	})
+
+	res := httptest.NewRecorder()
+	e.ServeHTTP(res, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	csp := res.Header().Get("Content-Security-Policy")
+	if !strings.Contains(csp, "img-src 'self' https: data: blob:") {
+		t.Fatalf("content security policy = %q, want https images allowed", csp)
+	}
+	if strings.Contains(csp, "script-src 'self' https:") {
+		t.Fatalf("content security policy = %q, should not allow external scripts", csp)
 	}
 }
 

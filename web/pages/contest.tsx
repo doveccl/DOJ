@@ -7,7 +7,7 @@ import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 
-import { getContest, getProblems, updateContest } from '../client'
+import { getContest, updateContest } from '../client'
 import type { Problem, ProblemRef, RankUser } from '../client'
 import { ProblemLink, UserLink } from '../components/entity'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
@@ -40,7 +40,6 @@ export function ContestDetailPage() {
     queryFn: () => getContest(id),
     enabled: Number.isFinite(id)
   })
-  const problemsQuery = useQuery({ queryKey: ['problems', '', ''], queryFn: () => getProblems(), enabled: editOpen })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
@@ -75,7 +74,7 @@ export function ContestDetailPage() {
   }
 
   const { contest, problems, rank } = query.data
-  const problemOptions = (problemsQuery.data ?? problems).map((item) => ({
+  const problemOptions = problems.map((item) => ({
     value: item.id,
     label: problemLabel(item.id, item.title)
   }))
@@ -134,7 +133,6 @@ export function ContestDetailPage() {
           contest={contest}
           problems={problems}
           problemOptions={problemOptions}
-          problemLoading={problemsQuery.isLoading}
           loading={update.isPending}
           onCancel={() => setEditOpen(false)}
           onSave={(values) => update.mutate(values)}
@@ -148,7 +146,6 @@ function ContestEditModal({
   contest,
   problems,
   problemOptions,
-  problemLoading,
   loading,
   onCancel,
   onSave
@@ -156,7 +153,6 @@ function ContestEditModal({
   contest: { title: string; kind: string; startAt: string; endAt: string; freezeAt: string | null }
   problems: Problem[]
   problemOptions: { value: number; label: string }[]
-  problemLoading: boolean
   loading: boolean
   onCancel: () => void
   onSave: (values: ContestForm) => void
@@ -207,7 +203,7 @@ function ContestEditModal({
           </Form.Item>
         </Space>
         <Form.Item name="problems" label={text.contests.problems}>
-          <ProblemRefInput options={problemOptions} loading={problemLoading} />
+          <ProblemRefInput options={problemOptions} />
         </Form.Item>
       </Form>
     </Modal>

@@ -22,7 +22,7 @@ import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
-import { createAssignment, deleteAssignment, getAdmin, getAssignment, getAssignments, getProblems, updateAssignment } from '../client'
+import { createAssignment, deleteAssignment, getAdmin, getAssignment, getAssignments, updateAssignment } from '../client'
 import type { Assignment, ProblemRef } from '../client'
 import { IdSelect } from '../components/id-select'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
@@ -50,7 +50,6 @@ export function AssignmentsPage() {
   const [open, setOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const query = useQuery({ queryKey: ['assignments'], queryFn: getAssignments })
-  const problems = useQuery({ queryKey: ['problems', '', ''], queryFn: () => getProblems() })
   const admin = useQuery({ queryKey: ['admin'], queryFn: getAdmin, enabled: session.admin && open })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
@@ -104,10 +103,6 @@ export function AssignmentsPage() {
     },
     onError: showError
   })
-  const problemOptions = (problems.data ?? []).map((item) => ({
-    value: item.id,
-    label: problemLabel(item.id, item.title)
-  }))
   const userOptions = (admin.data?.users ?? []).map((item) => ({
     value: item.id,
     label: item.name
@@ -173,8 +168,6 @@ export function AssignmentsPage() {
         <AssignmentModal
           editingId={editingId}
           loading={create.isPending || update.isPending}
-          problemOptions={problemOptions}
-          problemLoading={problems.isLoading}
           userOptions={userOptions}
           groupOptions={groupOptions}
           memberLoading={admin.isLoading}
@@ -189,8 +182,6 @@ export function AssignmentsPage() {
 function AssignmentModal({
   editingId,
   loading,
-  problemOptions,
-  problemLoading,
   userOptions,
   groupOptions,
   memberLoading,
@@ -199,8 +190,6 @@ function AssignmentModal({
 }: {
   editingId: number | null
   loading: boolean
-  problemOptions: { value: number; label: string }[]
-  problemLoading: boolean
   userOptions: { value: number; label: string }[]
   groupOptions: { value: number; label: string }[]
   memberLoading: boolean
@@ -226,6 +215,10 @@ function AssignmentModal({
           groups: detail.data.assignment.groups
         }
       : { title: '', problems: [], users: [], groups: [] }
+  const problemOptions = (detail.data?.problems ?? []).map((item) => ({
+    value: item.id,
+    label: problemLabel(item.id, item.title)
+  }))
 
   const body =
     isEdit && detail.isLoading ? (
@@ -248,7 +241,7 @@ function AssignmentModal({
           <DatePicker showTime style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item name="problems" label={text.assignments.problems}>
-          <ProblemRefInput options={problemOptions} loading={problemLoading || detail.isLoading} />
+          <ProblemRefInput options={problemOptions} loading={detail.isLoading} />
         </Form.Item>
         <Form.Item name="users" label={text.assignments.users}>
           <IdSelect disabled={memberLoading} loading={memberLoading} options={userOptions} />

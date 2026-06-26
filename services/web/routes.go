@@ -3000,6 +3000,10 @@ func (api *API) discussions(c echo.Context) error {
 
 	var rows []models.Discussion
 	query := api.db.Order("pinned desc, updated_at desc").Limit(50)
+	if q := strings.TrimSpace(c.QueryParam("q")); q != "" {
+		like := "%" + q + "%"
+		query = query.Where("LOWER(title) LIKE LOWER(?) OR LOWER(content) LIKE LOWER(?) OR LOWER(CAST(tags AS TEXT)) LIKE LOWER(?)", like, like, like)
+	}
 	if tag := c.QueryParam("tags"); tag != "" {
 		rawTag, _ := json.Marshal([]string{tag})
 		query = query.Where("tags @> ?::jsonb", string(rawTag))
@@ -3313,7 +3317,12 @@ func (api *API) findProblems(c echo.Context, q string, tag string, limit int, or
 		query = api.applyProblemListVisibility(query)
 	}
 	if q != "" {
-		query = query.Where("title ILIKE ?", "%"+q+"%")
+		like := "%" + q + "%"
+		if id, err := parseProblemQuery(q); err == nil {
+			query = query.Where("id = ? OR LOWER(title) LIKE LOWER(?)", id, like)
+		} else {
+			query = query.Where("LOWER(title) LIKE LOWER(?)", like)
+		}
 	}
 	if tag != "" {
 		rawTag, _ := json.Marshal([]string{tag})

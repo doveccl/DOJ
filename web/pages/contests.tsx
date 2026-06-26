@@ -23,7 +23,7 @@ import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
-import { createContest, deleteContest, getContest, getContests, getProblems, updateContest } from '../client'
+import { createContest, deleteContest, getContest, getContests, updateContest } from '../client'
 import type { Contest, ProblemRef } from '../client'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../components/state'
@@ -51,7 +51,6 @@ export function ContestsPage() {
   const [open, setOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const query = useQuery({ queryKey: ['contests'], queryFn: getContests })
-  const problems = useQuery({ queryKey: ['problems', '', ''], queryFn: () => getProblems() })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
@@ -99,11 +98,6 @@ export function ContestsPage() {
     },
     onError: showError
   })
-  const problemOptions = (problems.data ?? []).map((item) => ({
-    value: item.id,
-    label: problemLabel(item.id, item.title)
-  }))
-
   function openCreate() {
     setEditingId(null)
     setOpen(true)
@@ -161,8 +155,6 @@ export function ContestsPage() {
         <ContestModal
           editingId={editingId}
           loading={create.isPending || update.isPending}
-          problemOptions={problemOptions}
-          problemLoading={problems.isLoading}
           onCancel={closeModal}
           onSave={save}
         />
@@ -174,15 +166,11 @@ export function ContestsPage() {
 function ContestModal({
   editingId,
   loading,
-  problemOptions,
-  problemLoading,
   onCancel,
   onSave
 }: {
   editingId: number | null
   loading: boolean
-  problemOptions: { value: number; label: string }[]
-  problemLoading: boolean
   onCancel: () => void
   onSave: (values: ContestForm) => void
 }) {
@@ -206,6 +194,10 @@ function ContestModal({
           problems: detail.data.problems.map((problem, index) => ({ id: problem.id, sort: problem.sort || defaultProblemSort(index) }))
         }
       : { title: '', kind: 'OI', freezeAt: null, problems: [] }
+  const problemOptions = (detail.data?.problems ?? []).map((item) => ({
+    value: item.id,
+    label: problemLabel(item.id, item.title)
+  }))
   const kind = Form.useWatch('kind', form) ?? initialValues.kind ?? 'OI'
 
   const body =
@@ -247,7 +239,7 @@ function ContestModal({
           ) : null}
         </Space>
         <Form.Item name="problems" label={text.contests.problems}>
-          <ProblemRefInput options={problemOptions} loading={problemLoading || detail.isLoading} />
+          <ProblemRefInput options={problemOptions} loading={detail.isLoading} />
         </Form.Item>
       </Form>
     )

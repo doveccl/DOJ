@@ -7,7 +7,7 @@ import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 
-import { getAdmin, getAssignment, getProblems, updateAssignment } from '../client'
+import { getAdmin, getAssignment, updateAssignment } from '../client'
 import type { AssignmentProgress, Problem, ProblemRef } from '../client'
 import { ProblemLink, UserLink } from '../components/entity'
 import { IdSelect } from '../components/id-select'
@@ -40,7 +40,6 @@ export function AssignmentDetailPage() {
     queryFn: () => getAssignment(id),
     enabled: Number.isFinite(id)
   })
-  const problemsQuery = useQuery({ queryKey: ['problems', '', ''], queryFn: () => getProblems(), enabled: editOpen })
   const adminQuery = useQuery({ queryKey: ['admin'], queryFn: getAdmin, enabled: session.admin && editOpen })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
@@ -75,7 +74,7 @@ export function AssignmentDetailPage() {
   }
 
   const { assignment, problems, progress: assignmentProgress } = query.data
-  const problemOptions = (problemsQuery.data ?? problems).map((item) => ({
+  const problemOptions = problems.map((item) => ({
     value: item.id,
     label: problemLabel(item.id, item.title)
   }))
@@ -124,7 +123,6 @@ export function AssignmentDetailPage() {
           assignment={assignment}
           problems={problems}
           problemOptions={problemOptions}
-          problemLoading={problemsQuery.isLoading}
           userOptions={userOptions}
           groupOptions={groupOptions}
           memberLoading={adminQuery.isLoading}
@@ -141,7 +139,6 @@ function AssignmentEditModal({
   assignment,
   problems,
   problemOptions,
-  problemLoading,
   userOptions,
   groupOptions,
   memberLoading,
@@ -152,7 +149,6 @@ function AssignmentEditModal({
   assignment: { title: string; endAt: string; users: number[]; groups: number[] }
   problems: Problem[]
   problemOptions: { value: number; label: string }[]
-  problemLoading: boolean
   userOptions: { value: number; label: string }[]
   groupOptions: { value: number; label: string }[]
   memberLoading: boolean
@@ -190,7 +186,7 @@ function AssignmentEditModal({
           <DatePicker showTime style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item name="problems" label={text.assignments.problems}>
-          <ProblemRefInput options={problemOptions} loading={problemLoading} />
+          <ProblemRefInput options={problemOptions} />
         </Form.Item>
         <Form.Item name="users" label={text.assignments.users}>
           <IdSelect disabled={memberLoading} loading={memberLoading} options={userOptions} />
