@@ -157,9 +157,9 @@ func (client runnerClient) runTask(ctx context.Context, task Task, compileComman
 		}
 	}
 
-	startedAt := time.Now()
 	totalScore := 0
 	verdict := VerdictAccepted
+	maxTime := 0
 	maxMemory := 0
 	caseResults := make([]CaseResult, 0, len(task.Cases))
 	for index, item := range task.Cases {
@@ -177,6 +177,9 @@ func (client runnerClient) runTask(ctx context.Context, task Task, compileComman
 		}
 		caseResults = append(caseResults, got)
 		totalScore += got.Score
+		if got.TimeMS > maxTime {
+			maxTime = got.TimeMS
+		}
 		if got.MemoryKB > maxMemory {
 			maxMemory = got.MemoryKB
 		}
@@ -186,7 +189,7 @@ func (client runnerClient) runTask(ctx context.Context, task Task, compileComman
 	}
 	result.Verdict = verdict
 	result.Score = totalScore
-	result.TimeMS = int(time.Since(startedAt).Milliseconds())
+	result.TimeMS = maxTime
 	result.MemoryKB = maxMemory
 	result.Cases = caseResults
 	return result, nil
@@ -229,6 +232,7 @@ func (client runnerClient) compile(task Task, compileCommand string, userCommand
 }
 
 func (client runnerClient) runCase(ctx context.Context, req RunCaseRequest) (CaseResult, error) {
+	startedAt := time.Now()
 	if err := client.codec.Send(Message{Kind: MsgRunCase, RunCase: &req}); err != nil {
 		return CaseResult{}, err
 	}
@@ -272,12 +276,15 @@ func (client runnerClient) runCase(ctx context.Context, req RunCaseRequest) (Cas
 			if cgroup != nil {
 				applyCgroupStats(&result, cgroup)
 			}
+			if result.TimeMS == 0 && (result.Verdict == VerdictTimeLimit || result.Verdict == VerdictMemoryLimit) {
+				result.TimeMS = elapsedMS(startedAt)
+			}
 			return result, nil
 		case MsgError:
 			return CaseResult{}, errors.New(msg.Error)
 		default:
 			if err := ctx.Err(); err != nil {
-				return CaseResult{CaseID: req.Case.ID, Verdict: VerdictTimeLimit, Message: err.Error()}, nil
+				return CaseResult{CaseID: req.Case.ID, Verdict: VerdictTimeLimit, TimeMS: elapsedMS(startedAt), Message: err.Error()}, nil
 			}
 			return CaseResult{}, fmt.Errorf("runner run_case got %s", msg.Kind)
 		}

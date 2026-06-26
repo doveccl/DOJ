@@ -145,7 +145,7 @@ func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 			_ = judge.Wait()
 			_ = user.Wait()
 			if ctx.Err() != nil {
-				return CaseResult{CaseID: req.Case.ID, Verdict: VerdictTimeLimit, Message: ctx.Err().Error()}, nil
+				return CaseResult{CaseID: req.Case.ID, Verdict: VerdictTimeLimit, TimeMS: elapsedMS(startedAt), Message: ctx.Err().Error()}, nil
 			}
 			return CaseResult{CaseID: req.Case.ID, Verdict: VerdictSystemError, Message: err.Error()}, nil
 		}
@@ -200,7 +200,7 @@ func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 			if report, err := readReport(resultPath); err == nil && report.Verdict != VerdictAccepted {
 				return applyStats(caseResultFromReport(req, report, startedAt)), nil
 			}
-			return applyStats(CaseResult{CaseID: req.Case.ID, Verdict: VerdictTimeLimit, Message: ctx.Err().Error()}), nil
+			return applyStats(CaseResult{CaseID: req.Case.ID, Verdict: VerdictTimeLimit, TimeMS: elapsedMS(startedAt), Message: ctx.Err().Error()}), nil
 		case got := <-waitCh:
 			if got.name == "judge" {
 				judgeWait = got.err
@@ -272,13 +272,21 @@ func caseResultFromReport(req LocalRun, report JudgeReport, startedAt time.Time)
 		CaseID:  req.Case.ID,
 		Verdict: report.Verdict,
 		Score:   report.Score,
-		TimeMS:  int(time.Since(startedAt).Milliseconds()),
+		TimeMS:  elapsedMS(startedAt),
 		Message: report.Message,
 	}
 	if result.Score == 100 && req.Case.Score > 0 {
 		result.Score = req.Case.Score
 	}
 	return result
+}
+
+func elapsedMS(startedAt time.Time) int {
+	elapsed := int(time.Since(startedAt).Milliseconds())
+	if elapsed <= 0 {
+		return 1
+	}
+	return elapsed
 }
 
 func prepareUserWorkIdentity(root string, identity ProcessIdentity) error {

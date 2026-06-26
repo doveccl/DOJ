@@ -144,10 +144,13 @@ func TestApplyCgroupStatsReportsMemoryLimit(t *testing.T) {
 }
 
 func TestApplyCgroupStatsReportsMemoryMax(t *testing.T) {
-	result := CaseResult{CaseID: "1", Verdict: VerdictTimeLimit, Score: 0, Message: "context deadline exceeded"}
+	result := CaseResult{CaseID: "1", Verdict: VerdictTimeLimit, Score: 0, TimeMS: 1001, Message: "context deadline exceeded"}
 	applyCgroupStatsSnapshot(&result, CgroupStats{MemoryPeak: 64 * 1024 * 1024, MemoryMaxed: true})
 	if result.Verdict != VerdictMemoryLimit || result.Score != 0 || result.Message != "memory limit exceeded" {
 		t.Fatalf("result = %#v", result)
+	}
+	if result.TimeMS != 1001 {
+		t.Fatalf("time ms = %d", result.TimeMS)
 	}
 }
 

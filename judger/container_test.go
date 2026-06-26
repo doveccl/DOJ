@@ -42,6 +42,15 @@ func TestRunContainerTaskNormalMultiCase(t *testing.T) {
 	if result.Verdict != VerdictAccepted || result.Score != 100 || len(result.Cases) != 2 {
 		t.Fatalf("result = %#v", result)
 	}
+	maxCaseTime := 0
+	for _, item := range result.Cases {
+		if item.TimeMS > maxCaseTime {
+			maxCaseTime = item.TimeMS
+		}
+	}
+	if result.TimeMS != maxCaseTime {
+		t.Fatalf("submission time = %d, want max case time %d: %#v", result.TimeMS, maxCaseTime, result.Cases)
+	}
 	matches, err := filepath.Glob(filepath.Join(work, "lang-build-*"))
 	if err != nil {
 		t.Fatal(err)
