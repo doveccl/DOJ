@@ -19,27 +19,26 @@ import (
 
 	"github.com/doveccl/doj/models"
 	"github.com/doveccl/doj/utils"
+	"github.com/robfig/cron/v3"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
 const (
-	Prefix           = "backups"
-	settingEnabled   = "backup_enabled"
-	settingFrequency = "backup_frequency"
-	settingKeep      = "backup_keep"
-	settingTime      = "backup_time"
-	lockKey          = "backup:running"
-	staleAfter       = 6 * time.Hour
-	lockTTL          = 24 * time.Hour
-	contentType      = "application/gzip"
+	Prefix         = "backups"
+	settingEnabled = "backup_enabled"
+	settingKeep    = "backup_keep"
+	settingCron    = "backup_cron"
+	lockKey        = "backup:running"
+	staleAfter     = 6 * time.Hour
+	lockTTL        = 24 * time.Hour
+	contentType    = "application/gzip"
 )
 
 type Settings struct {
-	Enabled   bool   `json:"enabled"`
-	Frequency string `json:"frequency"`
-	Keep      int    `json:"keep"`
-	Time      string `json:"time"`
+	Enabled bool   `json:"enabled"`
+	Cron    string `json:"cron"`
+	Keep    int    `json:"keep"`
 }
 
 type Item struct {
@@ -77,14 +76,10 @@ type lockValue struct {
 	StartedAt time.Time `json:"startedAt"`
 }
 
-var (
-	frequencies  = map[string]bool{"hourly": true, "daily": true, "weekly": true}
-	namePattern  = regexp.MustCompile(`^(.+)_([0-9]{4}-[0-9]{2}-[0-9]{2})_([0-9]{2}-[0-9]{2}-[0-9]{2})\.sql\.gz$`)
-	clockPattern = regexp.MustCompile(`^[0-9]{2}:[0-9]{2}$`)
-)
+var namePattern = regexp.MustCompile(`^(.+)_([0-9]{4}-[0-9]{2}-[0-9]{2})_([0-9]{2}-[0-9]{2}-[0-9]{2})\.sql\.gz$`)
 
 func DefaultSettings() Settings {
-	return Settings{Enabled: false, Frequency: "daily", Keep: 7, Time: "03:00"}
+	return Settings{Enabled: false, Cron: "0 3 * * *", Keep: 7}
 }
 
 func ReadSettings(db *gorm.DB) (Settings, error) {
@@ -99,16 +94,12 @@ func ReadSettings(db *gorm.DB) (Settings, error) {
 			if err := unmarshalSetting(row.Value, &settings.Enabled); err != nil {
 				return settings, err
 			}
-		case settingFrequency:
-			if err := unmarshalSetting(row.Value, &settings.Frequency); err != nil {
-				return settings, err
-			}
 		case settingKeep:
 			if err := unmarshalSetting(row.Value, &settings.Keep); err != nil {
 				return settings, err
 			}
-		case settingTime:
-			if err := unmarshalSetting(row.Value, &settings.Time); err != nil {
+		case settingCron:
+			if err := unmarshalSetting(row.Value, &settings.Cron); err != nil {
 				return settings, err
 			}
 		}
@@ -123,10 +114,9 @@ func SaveSettings(db *gorm.DB, settings Settings) error {
 	}
 	return db.Transaction(func(tx *gorm.DB) error {
 		values := map[string]any{
-			settingEnabled:   clean.Enabled,
-			settingFrequency: clean.Frequency,
-			settingKeep:      clean.Keep,
-			settingTime:      clean.Time,
+			settingEnabled: clean.Enabled,
+			settingKeep:    clean.Keep,
+			settingCron:    clean.Cron,
 		}
 		for _, key := range settingKeys() {
 			if err := saveSetting(tx, key, values[key]); err != nil {
@@ -138,21 +128,14 @@ func SaveSettings(db *gorm.DB, settings Settings) error {
 }
 
 func CleanSettings(settings Settings) (Settings, error) {
-	settings.Frequency = strings.ToLower(strings.TrimSpace(settings.Frequency))
-	if settings.Frequency == "" {
-		settings.Frequency = "daily"
-	}
-	if !frequencies[settings.Frequency] {
-		return settings, fmt.Errorf("invalid backup frequency")
-	}
 	if settings.Keep < 1 || settings.Keep > 100 {
 		return settings, fmt.Errorf("backup keep must be between 1 and 100")
 	}
-	settings.Time = strings.TrimSpace(settings.Time)
-	if settings.Time == "" {
-		settings.Time = "03:00"
+	settings.Cron = strings.Join(strings.Fields(settings.Cron), " ")
+	if settings.Cron == "" {
+		settings.Cron = "0 3 * * *"
 	}
-	if _, err := parseClock(settings.Time); err != nil {
+	if _, err := cron.ParseStandard(settings.Cron); err != nil {
 		return settings, err
 	}
 	return settings, nil
@@ -287,27 +270,18 @@ func (manager Manager) Due(ctx context.Context, settings Settings, now time.Time
 	if list.Running != nil && !list.Running.Stale {
 		return false, nil
 	}
-	if !pastClock(now, settings.Time) {
+	schedule, err := cron.ParseStandard(settings.Cron)
+	if err != nil {
+		return false, err
+	}
+	if !schedule.Next(now.Add(-time.Minute)).Equal(now.Truncate(time.Minute)) {
 		return false, nil
 	}
 	if len(list.Items) == 0 {
 		return true, nil
 	}
 	latest := list.Items[0].CreatedAt
-	switch settings.Frequency {
-	case "hourly":
-		return now.Sub(latest) >= time.Hour, nil
-	case "daily":
-		y1, m1, d1 := now.Date()
-		y2, m2, d2 := latest.In(now.Location()).Date()
-		return y1 != y2 || m1 != m2 || d1 != d2, nil
-	case "weekly":
-		y1, w1 := now.ISOWeek()
-		y2, w2 := latest.In(now.Location()).ISOWeek()
-		return y1 != y2 || w1 != w2, nil
-	default:
-		return false, nil
-	}
+	return now.Sub(latest.In(now.Location())) >= time.Minute, nil
 }
 
 func (manager Manager) store() (utils.ObjectStore, error) {
@@ -421,7 +395,7 @@ func runningLock(ctx context.Context, now time.Time) (*Running, error) {
 }
 
 func settingKeys() []string {
-	return []string{settingEnabled, settingFrequency, settingKeep, settingTime}
+	return []string{settingEnabled, settingKeep, settingCron}
 }
 
 func saveSetting(db *gorm.DB, key string, value any) error {
@@ -436,39 +410,19 @@ func unmarshalSetting(data datatypes.JSON, value any) error {
 	return json.Unmarshal(data, value)
 }
 
-func parseClock(value string) (time.Duration, error) {
-	if !clockPattern.MatchString(value) {
-		return 0, fmt.Errorf("backup time must be HH:MM")
-	}
-	hour, minute := 0, 0
-	if _, err := fmt.Sscanf(value, "%02d:%02d", &hour, &minute); err != nil {
-		return 0, fmt.Errorf("backup time must be HH:MM")
-	}
-	if hour < 0 || hour > 23 || minute < 0 || minute > 59 {
-		return 0, fmt.Errorf("backup time must be HH:MM")
-	}
-	return time.Duration(hour)*time.Hour + time.Duration(minute)*time.Minute, nil
-}
-
-func pastClock(now time.Time, clock string) bool {
-	target, err := parseClock(clock)
-	if err != nil {
-		return false
-	}
-	current := time.Duration(now.Hour())*time.Hour + time.Duration(now.Minute())*time.Minute
-	return current >= target
-}
-
-var ErrRunning = errors.New("backup already running")
+var (
+	ErrRunning     = errors.New("backup already running")
+	ErrUnavailable = errors.New("backup unavailable")
+)
 
 type PgDumpRunner struct{}
 
 func (PgDumpRunner) Dump(ctx context.Context, dsn string) (string, error) {
 	if strings.TrimSpace(dsn) == "" {
-		return "", fmt.Errorf("DATABASE is required")
+		return "", fmt.Errorf("%w: DATABASE is required", ErrUnavailable)
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
-		return "", fmt.Errorf("pg_dump is required for database backups; install PostgreSQL client tools or use the DOJ container image: %w", err)
+		return "", fmt.Errorf("%w: pg_dump is required for database backups; install PostgreSQL client tools or use the DOJ container image: %v", ErrUnavailable, err)
 	}
 	file, err := os.CreateTemp("", "doj-backup-*.sql.gz")
 	if err != nil {

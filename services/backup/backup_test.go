@@ -127,8 +127,25 @@ func TestPruneKeepsNewestBackups(t *testing.T) {
 func TestPgDumpRunnerReportsMissingTool(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	_, err := PgDumpRunner{}.Dump(t.Context(), "postgres://postgres@localhost/doj")
-	if err == nil || !strings.Contains(err.Error(), "pg_dump is required") {
+	if !errors.Is(err, ErrUnavailable) || !strings.Contains(err.Error(), "pg_dump is required") {
 		t.Fatalf("missing pg_dump should produce clear error, got %v", err)
+	}
+}
+
+func TestBackupCronSettings(t *testing.T) {
+	settings, err := CleanSettings(Settings{Enabled: true, Cron: "*/15 1-5 * * mon-fri", Keep: 7})
+	if err != nil || settings.Cron != "*/15 1-5 * * mon-fri" {
+		t.Fatalf("valid cron rejected settings=%+v err=%v", settings, err)
+	}
+	if _, err := CleanSettings(Settings{Enabled: true, Cron: "not cron", Keep: 7}); err == nil {
+		t.Fatalf("invalid cron accepted")
+	}
+	db := testDB(t)
+	t.Setenv("STORAGE", t.TempDir())
+	manager := Manager{DB: db}
+	due, err := manager.Due(t.Context(), Settings{Enabled: true, Cron: "30 3 * * *", Keep: 7}, time.Date(2026, 6, 26, 3, 30, 0, 0, time.Local))
+	if err != nil || !due {
+		t.Fatalf("cron should be due, due=%v err=%v", due, err)
 	}
 }
 

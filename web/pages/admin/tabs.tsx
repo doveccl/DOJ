@@ -1,5 +1,5 @@
 import { CloudUploadOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, KeyOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
-import { Button, Form, Input, InputNumber, Popconfirm, Select, Space, Statistic, Switch, Table, Tag, Tooltip, Typography } from 'antd'
+import { AutoComplete, Button, Form, Input, InputNumber, Popconfirm, Space, Statistic, Switch, Table, Tag, Tooltip, Typography } from 'antd'
 import type { FormInstance } from 'antd'
 import type { ReactNode } from 'react'
 
@@ -321,8 +321,7 @@ export function JudgersTab({
 export function BackupsTab({
   settings,
   backups,
-  frequencyOptions,
-  frequencyText,
+  cronOptions,
   createLoading,
   settingsSaveLoading,
   downloadName,
@@ -335,8 +334,7 @@ export function BackupsTab({
 }: {
   settings: { isLoading: boolean; isError: boolean; error: unknown; data?: BackupSettings }
   backups: { isLoading: boolean; isError: boolean; error: unknown; data?: BackupList }
-  frequencyOptions: Option<string>[]
-  frequencyText: string
+  cronOptions: Option<string>[]
   createLoading: boolean
   settingsSaveLoading: boolean
   downloadName?: string
@@ -348,51 +346,38 @@ export function BackupsTab({
   lang: string
 }) {
   const text = useAdminText()
+  const [form] = Form.useForm<BackupSettingsForm>()
+  const saveSettings = (patch?: Partial<BackupSettingsForm>) => {
+    if (!settings.data) {
+      return
+    }
+    onSaveSettings({ ...settings.data, ...form.getFieldsValue(true), ...patch })
+  }
   return (
     <div className="adminBackupPage">
-      <div className="adminBackupToolbar">
-        <Space className="adminBackupStatus" wrap>
-          <Typography.Text strong>{text.admin.backupSchedule}</Typography.Text>
-          {settings.data?.enabled ? <Tag color="success">{frequencyText}</Tag> : <Tag>{text.admin.backupDisabled}</Tag>}
-          {settings.data?.enabled ? <Typography.Text type="secondary">{settings.data.time}</Typography.Text> : null}
-          {backups.data?.running ? <Tag color={backups.data.running.stale ? 'warning' : 'processing'}>{backups.data.running.stale ? text.admin.backupStale : text.admin.backupRunning}</Tag> : <Tag>{text.admin.backupReady}</Tag>}
-        </Space>
+      <div className="adminBackupTop">
+        {settings.isLoading ? <LoadingBlock /> : settings.isError ? <ErrorBlock error={settings.error} /> : settings.data ? (
+          <Form<BackupSettingsForm>
+            form={form}
+            className="adminBackupForm"
+            layout="inline"
+            initialValues={settings.data}
+            key={`${settings.data.enabled}:${settings.data.cron}:${settings.data.keep}`}
+          >
+            <Form.Item name="enabled" label={text.admin.backupEnabled} valuePropName="checked">
+              <Switch loading={settingsSaveLoading} onChange={(enabled) => saveSettings({ enabled })} />
+            </Form.Item>
+            <Form.Item name="cron">
+              <AutoComplete options={cronOptions} placeholder={text.admin.backupCron} disabled={settingsSaveLoading} style={{ width: 220 }} onBlur={() => saveSettings()} />
+            </Form.Item>
+            <Form.Item name="keep">
+              <InputNumber min={1} max={100} prefix={text.admin.backupKeep} disabled={settingsSaveLoading} style={{ width: 180 }} onBlur={() => saveSettings()} />
+            </Form.Item>
+          </Form>
+        ) : null}
         <Button type="primary" icon={<CloudUploadOutlined />} loading={createLoading || !!backups.data?.running} onClick={onCreate}>
           {text.admin.backupNow}
         </Button>
-      </div>
-      <div className="adminBackupSettings">
-        {settings.isLoading ? <LoadingBlock /> : settings.isError ? <ErrorBlock error={settings.error} /> : settings.data ? (
-          <Form<BackupSettingsForm>
-            className="adminBackupForm"
-            layout="vertical"
-            initialValues={settings.data}
-            key={`${settings.data.enabled}:${settings.data.frequency}:${settings.data.keep}:${settings.data.time}`}
-            onFinish={onSaveSettings}
-          >
-            <div className="adminBackupFormGrid">
-              <Form.Item name="enabled" label={text.admin.backupEnabled} valuePropName="checked">
-                <Switch />
-              </Form.Item>
-              <Form.Item name="frequency" label={text.admin.backupFrequency} rules={[{ required: true }]}>
-                <Select options={frequencyOptions} />
-              </Form.Item>
-              <Form.Item name="time" label={text.admin.backupTime} rules={[{ required: true }]}>
-                <Input placeholder="03:00" maxLength={5} />
-              </Form.Item>
-              <Form.Item name="keep" label={text.admin.backupKeep} rules={[{ required: true }]}>
-                <InputNumber min={1} max={100} style={{ width: '100%' }} />
-              </Form.Item>
-              <Form.Item className="adminBackupSubmit">
-                <Button type="primary" htmlType="submit" loading={settingsSaveLoading}>{text.common.save}</Button>
-              </Form.Item>
-            </div>
-          </Form>
-        ) : null}
-      </div>
-      <div className="adminBackupTableHead">
-        <Typography.Title level={5}>{text.admin.backupFiles}</Typography.Title>
-        <Typography.Text type="secondary">{text.admin.backupCount(backups.data?.items.length ?? 0)}</Typography.Text>
       </div>
       {backups.isLoading ? <LoadingBlock /> : backups.isError ? <ErrorBlock error={backups.error} /> : (
         <Table<BackupItem>

@@ -309,6 +309,9 @@ func (api *API) createBackup(c echo.Context) error {
 		if errors.Is(err, backupsvc.ErrRunning) {
 			return echo.NewHTTPError(http.StatusConflict, "backup already running")
 		}
+		if errors.Is(err, backupsvc.ErrUnavailable) {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, err.Error())
+		}
 		return err
 	}
 	return c.JSON(http.StatusCreated, item)

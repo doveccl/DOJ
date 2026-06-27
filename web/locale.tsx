@@ -296,25 +296,17 @@ const zh = {
     judgerTokenCreated: '评测机令牌',
     judgerTokenHelp: '令牌只在创建时展示一次，请复制到评测机运行环境。',
     backupEnabled: '自动备份',
-    backupFrequency: '备份频率',
+    backupCron: 'Cron',
     backupKeep: '最多保留',
-    backupTime: '备份时间',
-    backupSchedule: '备份策略',
     backupFiles: '备份文件',
-    backupDisabled: '已关闭',
-    backupReady: '空闲',
-    backupCount: (count: number) => `共 ${count} 个备份`,
     backupNow: '立即备份',
     backupFile: '备份文件',
     backupDatabase: '数据库',
     backupSize: '大小',
     backupManualDone: '备份已创建',
-    backupRunning: '备份运行中',
-    backupStale: '上次备份可能已中断',
-    backupFrequencies: {
-      hourly: '每小时',
-      daily: '每天',
-      weekly: '每周'
+    backupCronPresets: {
+      daily: '每天 03:00',
+      weekly: '每周一 03:00'
     },
     roles: {
       admin: '管理员',
@@ -669,25 +661,17 @@ const en: typeof zh = {
     judgerTokenCreated: 'Judger token',
     judgerTokenHelp: 'The token is shown only once. Copy it into the judger runtime environment.',
     backupEnabled: 'Automatic backup',
-    backupFrequency: 'Frequency',
+    backupCron: 'Cron',
     backupKeep: 'Keep latest',
-    backupTime: 'Backup time',
-    backupSchedule: 'Backup policy',
     backupFiles: 'Backup files',
-    backupDisabled: 'Disabled',
-    backupReady: 'Idle',
-    backupCount: (count: number) => `${count} backups`,
     backupNow: 'Back up now',
     backupFile: 'Backup file',
     backupDatabase: 'Database',
     backupSize: 'Size',
     backupManualDone: 'Backup created',
-    backupRunning: 'Backup running',
-    backupStale: 'Previous backup may have stopped',
-    backupFrequencies: {
-      hourly: 'Hourly',
-      daily: 'Daily',
-      weekly: 'Weekly'
+    backupCronPresets: {
+      daily: 'Daily at 03:00',
+      weekly: 'Monday at 03:00'
     },
     roles: {
       admin: 'Admin',

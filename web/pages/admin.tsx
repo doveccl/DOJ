@@ -234,14 +234,10 @@ export function AdminPage() {
   ]
   const groupOptions = (membersData?.groups ?? []).map((group) => ({ value: group.id, label: group.name }))
   const userOptions = (membersData?.users ?? []).map((user) => ({ value: user.id, label: user.name }))
-  const backupFrequencyOptions = [
-    { value: 'hourly', label: text.admin.backupFrequencies.hourly },
-    { value: 'daily', label: text.admin.backupFrequencies.daily },
-    { value: 'weekly', label: text.admin.backupFrequencies.weekly }
+  const backupCronOptions = [
+    { value: '0 3 * * *', label: text.admin.backupCronPresets.daily },
+    { value: '0 3 * * 1', label: text.admin.backupCronPresets.weekly }
   ]
-  const backupFrequencyText = backupSettings.data
-    ? (backupFrequencyOptions.find((option) => option.value === backupSettings.data.frequency)?.label ?? backupSettings.data.frequency)
-    : ''
   const saveSettingsPatch = (patch: Partial<SettingsForm>) => {
     settings.mutate(patch)
   }
@@ -363,7 +359,7 @@ export function AdminPage() {
             {
               key: 'backups',
               label: text.admin.backups,
-              children: <BackupsTab settings={backupSettings} backups={backups} frequencyOptions={backupFrequencyOptions} frequencyText={backupFrequencyText} createLoading={backupCreate.isPending} settingsSaveLoading={backupSettingsSave.isPending} downloadName={backupDownload.isPending ? backupDownload.variables : undefined} deleteName={backupDelete.isPending ? backupDelete.variables : undefined} onSaveSettings={(values) => backupSettingsSave.mutate(values)} onCreate={() => backupCreate.mutate()} onDownload={(name) => backupDownload.mutate(name)} onDelete={(name) => backupDelete.mutate(name)} lang={lang} />
+              children: <BackupsTab settings={backupSettings} backups={backups} cronOptions={backupCronOptions} createLoading={backupCreate.isPending} settingsSaveLoading={backupSettingsSave.isPending} downloadName={backupDownload.isPending ? backupDownload.variables : undefined} deleteName={backupDelete.isPending ? backupDelete.variables : undefined} onSaveSettings={(values) => backupSettingsSave.mutate(values)} onCreate={() => backupCreate.mutate()} onDownload={(name) => backupDownload.mutate(name)} onDelete={(name) => backupDelete.mutate(name)} lang={lang} />
             }
           ]}
         />

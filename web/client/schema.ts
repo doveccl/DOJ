@@ -980,11 +980,9 @@ export interface components {
         };
         BackupSettings: {
             enabled: boolean;
-            /** @enum {string} */
-            frequency: "hourly" | "daily" | "weekly";
+            /** @example 0 3 * * * */
+            cron: string;
             keep: number;
-            /** @example 03:00 */
-            time: string;
         };
         BackupList: {
             running?: components["schemas"]["BackupRunning"];

@@ -1682,20 +1682,17 @@ components:
           type: string
     BackupSettings:
       type: object
-      required: [enabled, frequency, keep, time]
+      required: [enabled, cron, keep]
       properties:
         enabled:
           type: boolean
-        frequency:
+        cron:
           type: string
-          enum: [hourly, daily, weekly]
+          example: "0 3 * * *"
         keep:
           type: integer
           minimum: 1
           maximum: 100
-        time:
-          type: string
-          example: "03:00"
     BackupList:
       type: object
       required: [items]
