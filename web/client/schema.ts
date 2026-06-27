@@ -920,7 +920,6 @@ export interface components {
         Item: {
             id: number;
             title: string;
-            meta: string;
         };
         CreatedID: {
             id: number;
@@ -1205,8 +1204,6 @@ export interface components {
             id: number;
             title: string;
             tags: string[];
-            ac: number;
-            submit: number;
         };
         NoticeUpdate: {
             content: string;
@@ -1396,15 +1393,20 @@ export interface components {
         UserProfile: {
             user: components["schemas"]["PublicUser"];
             heatmap: components["schemas"]["HeatCell"][];
-            solved: components["schemas"]["SolvedProblem"][];
+            solved: components["schemas"]["SolvedProblemPage"];
             activities: components["schemas"]["UserActivity"][];
+        };
+        SolvedProblemPage: {
+            items: components["schemas"]["SolvedProblem"][];
+            page: number;
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
         };
         SolvedProblem: {
             id: number;
             title: string;
             tags: string[];
-            ac: number;
-            submit: number;
         };
         UserActivity: {
             /** @enum {string} */
@@ -3355,7 +3357,10 @@ export interface operations {
     };
     getUser: {
         parameters: {
-            query?: never;
+            query?: {
+                solvedPage?: number;
+                solvedPageSize?: number;
+            };
             header?: never;
             path: {
                 name: string;

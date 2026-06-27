@@ -47,6 +47,7 @@ export type RankProblem = components['schemas']['RankProblem']
 export type UserProfile = components['schemas']['UserProfile']
 export type UserActivity = components['schemas']['UserActivity']
 export type SolvedProblem = components['schemas']['SolvedProblem']
+export type SolvedProblemPage = components['schemas']['SolvedProblemPage']
 export type PublicUser = components['schemas']['PublicUser']
 export type UserOption = components['schemas']['UserOption']
 export type Discussion = components['schemas']['Discussion']
@@ -700,9 +701,9 @@ export async function searchUsers(params: { q?: string } = {}) {
   return assertData(data, error)
 }
 
-export async function getUser(name: string) {
+export async function getUser(name: string, params: { solvedPage?: number; solvedPageSize?: number } = {}) {
   const { data, error } = await client.GET('/api/users/{name}', {
-    params: { path: { name } }
+    params: { path: { name }, query: params }
   })
   return assertData(data, error)
 }

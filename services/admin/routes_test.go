@@ -183,6 +183,19 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	if len(members.Groups) != 1 || members.Groups[0].ID != group.ID {
 		t.Fatalf("member search should include selected group ids: %+v", members.Groups)
 	}
+	res = requestWithCookies(e, http.MethodGet, "/api/admin/members?users="+itoa(student.ID)+"&groups="+itoa(group.ID), adminCookies)
+	if res.Code != http.StatusOK {
+		t.Fatalf("default members with selected ids got %d body=%s", res.Code, res.Body.String())
+	}
+	if err := json.Unmarshal(res.Body.Bytes(), &members); err != nil {
+		t.Fatalf("decode default members: %v body=%s", err, res.Body.String())
+	}
+	if len(members.Users) <= 1 || len(members.Groups) != 1 {
+		t.Fatalf("member defaults should include suggestions plus selected ids: %+v", members)
+	}
+	if user, ok := findUser(members, "student"); !ok || user.ID != student.ID {
+		t.Fatalf("member defaults should keep selected user: %+v", members.Users)
+	}
 	res = requestJSONWithCookies(e, http.MethodPatch, "/api/admin/groups/"+itoa(group.ID), adminCookies, `{"name":"team-b"}`)
 	if res.Code != http.StatusOK {
 		t.Fatalf("update group got %d body=%s", res.Code, res.Body.String())

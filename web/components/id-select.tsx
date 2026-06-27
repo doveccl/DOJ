@@ -46,7 +46,9 @@ export function IdSelect({
     const rows = kind === 'users' ? (remote.data?.users ?? []) : (remote.data?.groups ?? [])
     return rows.map((item) => ({ value: item.id, label: item.name }))
   }, [kind, remote.data])
-  const mergedOptions = mergeOptions(options ?? [], remoteOptions, selectedOptions(value ?? [], options ?? [], remoteOptions))
+  const selectedItems = selectedOptions(value ?? [], options ?? [], remoteOptions)
+  const visibleOptions = kind ? (searchText ? remoteOptions : mergeOptions(options ?? [], remoteOptions)) : (options ?? [])
+  const mergedOptions = mergeOptions(selectedItems, visibleOptions)
 
   return (
     <Select

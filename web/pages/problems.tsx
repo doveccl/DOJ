@@ -249,7 +249,7 @@ function problemColumns(
       title: text.problems.tag,
       dataIndex: 'tags',
       render: (tags: string[]) => (
-        <Space size={[0, 4]} wrap>
+        <Space size={[4, 4]} wrap>
           {tags.map((tag) => (
             <Tag key={tag}>{tag}</Tag>
           ))}

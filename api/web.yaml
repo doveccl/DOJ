@@ -1376,6 +1376,14 @@ paths:
           required: true
           schema:
             type: string
+        - name: solvedPage
+          in: query
+          schema:
+            type: integer
+        - name: solvedPageSize
+          in: query
+          schema:
+            type: integer
       responses:
         "200":
           description: User profile
@@ -1532,15 +1540,13 @@ components:
           type: integer
     Item:
       type: object
-      required: [id, title, meta]
+      required: [id, title]
       properties:
         id:
           type: integer
         title:
           type: string
           maxLength: 256
-        meta:
-          type: string
     CreatedID:
       type: object
       required: [id]
@@ -2202,7 +2208,7 @@ components:
             $ref: "#/components/schemas/Item"
     HomeProblem:
       type: object
-      required: [id, title, tags, ac, submit]
+      required: [id, title, tags]
       properties:
         id:
           type: integer
@@ -2213,10 +2219,6 @@ components:
           type: array
           items:
             type: string
-        ac:
-          type: integer
-        submit:
-          type: integer
     NoticeUpdate:
       type: object
       required: [content]
@@ -2648,16 +2650,29 @@ components:
           items:
             $ref: "#/components/schemas/HeatCell"
         solved:
-          type: array
-          items:
-            $ref: "#/components/schemas/SolvedProblem"
+          $ref: "#/components/schemas/SolvedProblemPage"
         activities:
           type: array
           items:
             $ref: "#/components/schemas/UserActivity"
+    SolvedProblemPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SolvedProblem"
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+          format: int64
     SolvedProblem:
       type: object
-      required: [id, title, tags, ac, submit]
+      required: [id, title, tags]
       properties:
         id:
           type: integer
@@ -2668,10 +2683,6 @@ components:
           type: array
           items:
             type: string
-        ac:
-          type: integer
-        submit:
-          type: integer
     UserActivity:
       type: object
       required: [type, id, title, createdAt]

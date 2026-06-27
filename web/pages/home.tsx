@@ -1,5 +1,5 @@
 import { EditOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, Col, Divider, Flex, Form, Row, Space, Tag, Typography } from 'antd'
+import { App as AntApp, Button, Card, Col, Flex, Form, Row, Space, Table, Tag, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -12,7 +12,6 @@ import { MarkdownEditor, MarkdownPreview } from '../components/markdown'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../components/state'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { formatPass } from '../utils/format'
 
 type NoticeForm = {
   content: string
@@ -120,22 +119,27 @@ function ProblemList({ title, items }: { title: string; items: HomeProblem[] }) 
       {items.length === 0 ? (
         <EmptyBlock />
       ) : (
-        <Flex vertical>
-          {items.map((item, index) => (
-            <Flex vertical gap={8} key={item.id}>
-              {index > 0 ? <Divider style={{ margin: 0 }} /> : null}
-              <Flex vertical gap={8}>
+        <Table<HomeProblem>
+          size="small"
+          showHeader={false}
+          pagination={false}
+          rowKey="id"
+          dataSource={items}
+          columns={[
+            {
+              render: (_, item) => (
+              <Flex align="center" justify="space-between" gap={12} className="tableTitleLine">
                 <ProblemLink id={item.id} title={item.title} strong />
-                <Flex gap={8} wrap>
+                <Space size={[4, 4]} wrap>
                   {item.tags.slice(0, 2).map((tag) => (
                     <Tag key={tag}>{tag}</Tag>
                   ))}
-                  <Typography.Text type="secondary">{formatPass(item)}</Typography.Text>
-                </Flex>
+                </Space>
               </Flex>
-            </Flex>
-          ))}
-        </Flex>
+              )
+            }
+          ]}
+        />
       )}
     </Card>
   )
@@ -147,17 +151,22 @@ function ItemList({ title, items, hrefPrefix }: { title: string; items: Item[]; 
       {items.length === 0 ? (
         <EmptyBlock />
       ) : (
-        <Flex vertical>
-          {items.map((item, index) => (
-            <Flex vertical gap={8} key={item.id}>
-              {index > 0 ? <Divider style={{ margin: 0 }} /> : null}
+        <Table<Item>
+          size="small"
+          showHeader={false}
+          pagination={false}
+          rowKey="id"
+          dataSource={items}
+          columns={[
+            {
+              render: (_, item) => (
               <Typography.Text strong ellipsis className="lineText">
                 <Link to={`${hrefPrefix}/${item.id}`}>{item.title}</Link>
               </Typography.Text>
-              <Typography.Text type="secondary">{item.meta}</Typography.Text>
-            </Flex>
-          ))}
-        </Flex>
+              )
+            }
+          ]}
+        />
       )}
     </Card>
   )

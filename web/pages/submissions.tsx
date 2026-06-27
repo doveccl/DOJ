@@ -52,31 +52,31 @@ export function SubmissionsPage() {
   const problems = useQuery({
     queryKey: ['problems', 'submission-filter', problemSearchText],
     queryFn: () => getProblems({ q: problemSearchText }),
-    enabled: problemOpen && problemSearchText.length > 0
+    enabled: problemOpen || problemSearchText.length > 0 || problem.length > 0
   })
   const users = useQuery({
     queryKey: ['users', 'submission-filter', userSearchText],
     queryFn: () => searchUsers({ q: userSearchText }),
-    enabled: userOpen && userSearchText.length > 0
+    enabled: userOpen || userSearchText.length > 0 || user.length > 0
   })
   const assignments = useQuery({
     queryKey: ['assignments', 'submission-filter', assignmentSearchText],
     queryFn: () => getAssignments({ q: assignmentSearchText }),
-    enabled: assignmentOpen && assignmentSearchText.length > 0
+    enabled: assignmentOpen || assignmentSearchText.length > 0 || assignment.length > 0
   })
   const contests = useQuery({
     queryKey: ['contests', 'submission-filter', contestSearchText],
     queryFn: () => getContests({ q: contestSearchText }),
-    enabled: contestOpen && contestSearchText.length > 0
+    enabled: contestOpen || contestSearchText.length > 0 || contest.length > 0
   })
   const languageNames = new Map((languages.data ?? []).map((item) => [item.id, item.name]))
-  const problemOptions = mergeProblemOptions(
+  const problemOptions = selectFilterOptions(
     problem ? [{ value: problem, label: numericProblem(problem) ? problemCode(Number(problem)) : problem }] : [],
     (problems.data ?? []).map((item) => ({ value: String(item.id), label: problemLabel(item.id, item.title) }))
   )
-  const userOptions = mergeProblemOptions(user ? [{ value: user, label: user }] : [], (users.data ?? []).map((item) => ({ value: item.name, label: item.name })))
-  const assignmentOptions = mergeProblemOptions(assignment ? [{ value: assignment, label: `#${assignment}` }] : [], (assignments.data ?? []).map((item) => ({ value: String(item.id), label: item.title })))
-  const contestOptions = mergeProblemOptions(contest ? [{ value: contest, label: `#${contest}` }] : [], (contests.data ?? []).map((item) => ({ value: String(item.id), label: item.title })))
+  const userOptions = selectFilterOptions(user ? [{ value: user, label: user }] : [], (users.data ?? []).map((item) => ({ value: item.name, label: item.name })))
+  const assignmentOptions = selectFilterOptions(assignment ? [{ value: assignment, label: `#${assignment}` }] : [], (assignments.data ?? []).map((item) => ({ value: String(item.id), label: item.title })))
+  const contestOptions = selectFilterOptions(contest ? [{ value: contest, label: `#${contest}` }] : [], (contests.data ?? []).map((item) => ({ value: String(item.id), label: item.title })))
 
   function submit(values: SubmissionFilters) {
     const next = new URLSearchParams()
@@ -204,7 +204,7 @@ function numericProblem(value: string) {
   return /^\d+$/.test(value)
 }
 
-function mergeProblemOptions(...lists: { value: string; label: string }[][]) {
+function selectFilterOptions(...lists: { value: string; label: string }[][]) {
   const merged = new Map<string, string>()
   for (const list of lists) {
     for (const item of list) {

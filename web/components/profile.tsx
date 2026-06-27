@@ -1,11 +1,11 @@
 import { CheckCircleOutlined, CodeOutlined, MessageOutlined, UserOutlined } from '@ant-design/icons'
-import { Avatar, Card, Col, Empty, Flex, Row, Space, Statistic, Tag, Timeline, Typography } from 'antd'
+import { Avatar, Card, Col, Empty, Flex, Pagination, Row, Space, Statistic, Table, Tag, Typography } from 'antd'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
-import type { SolvedProblem, UserActivity, UserProfile } from '../client'
+import type { SolvedProblem, SolvedProblemPage, UserActivity, UserProfile } from '../client'
 import { useLocale } from '../locale'
-import { formatPass, formatTime } from '../utils/format'
+import { formatTime } from '../utils/format'
 import { ProblemLink } from './entity'
 import { YearHeatmap } from './heatmap'
 import { SubmissionStatus } from './status'
@@ -14,9 +14,10 @@ type ProfileOverviewProps = {
   profile: UserProfile
   renderAvatar?: (avatar: ReactNode) => ReactNode
   sidebarAction?: ReactNode
+  onSolvedPageChange?: (page: number, pageSize: number) => void
 }
 
-export function ProfileOverview({ profile, renderAvatar, sidebarAction }: ProfileOverviewProps) {
+export function ProfileOverview({ profile, renderAvatar, sidebarAction, onSolvedPageChange }: ProfileOverviewProps) {
   const { text } = useLocale()
   const user = profile.user
   const avatarText = user.name.slice(0, 1).toUpperCase()
@@ -64,7 +65,7 @@ export function ProfileOverview({ profile, renderAvatar, sidebarAction }: Profil
               <ActivityCard activities={profile.activities} />
             </Col>
             <Col xs={24} xl={10}>
-              <SolvedCard problems={profile.solved} />
+              <SolvedCard page={profile.solved} onPageChange={onSolvedPageChange} />
             </Col>
           </Row>
         </Flex>
@@ -77,15 +78,21 @@ function ActivityCard({ activities }: { activities: UserActivity[] }) {
   const { lang, text } = useLocale()
 
   return (
-    <Card title={text.user.recent} className="profileActivity">
+    <Card title={text.user.recent}>
       {activities.length === 0 ? (
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
       ) : (
-        <Timeline
-          items={activities.slice(0, 12).map((row) => ({
-            icon: activityIcon(row),
-            content: <ActivityItem activity={row} lang={lang} submitted={text.user.submitted} posted={text.user.posted} />
-          }))}
+        <Table<UserActivity>
+          size="small"
+          showHeader={false}
+          pagination={false}
+          rowKey={(row) => `${row.type}-${row.id}`}
+          dataSource={activities}
+          columns={[
+            {
+              render: (_, row) => <ActivityItem activity={row} lang={lang} submitted={text.user.submitted} posted={text.user.posted} />
+            }
+          ]}
         />
       )}
     </Card>
@@ -102,21 +109,25 @@ function activityIcon(row: UserActivity) {
 function ActivityItem({ activity, lang, submitted, posted }: { activity: UserActivity; lang: string; submitted: string; posted: string }) {
   if (activity.type === 'discussion') {
     return (
-      <Flex vertical gap={4} className="profileActivityItem">
-        <Flex align="center" gap={8} wrap>
+      <Flex align="center" justify="space-between" gap={12} className="tableTitleLine">
+        <Space size={8} className="tableTitleLine">
+          <MessageOutlined />
           <Typography.Text>{posted}</Typography.Text>
           <Typography.Text ellipsis className="lineText">
             <Link to={`/discussion/${activity.id}`}>{activity.title}</Link>
           </Typography.Text>
-        </Flex>
-        <Typography.Text type="secondary">{formatTime(activity.createdAt, lang)}</Typography.Text>
+        </Space>
+        <Typography.Text type="secondary" className="nowrap">
+          {formatTime(activity.createdAt, lang)}
+        </Typography.Text>
       </Flex>
     )
   }
 
   return (
-    <Flex vertical gap={4} className="profileActivityItem">
-      <Flex align="center" gap={8} wrap>
+    <Flex align="center" justify="space-between" gap={12} className="tableTitleLine">
+      <Space size={8} className="tableTitleLine">
+        {activityIcon(activity)}
         {activity.status ? (
           <Link to={`/submissions/${activity.id}`}>
             <SubmissionStatus status={activity.status} />
@@ -124,34 +135,50 @@ function ActivityItem({ activity, lang, submitted, posted }: { activity: UserAct
         ) : null}
         <Typography.Text>{submitted}</Typography.Text>
         {activity.problemId ? <ProblemLink id={activity.problemId} title={activity.problemTitle} /> : <Typography.Text ellipsis className="lineText">{activity.title}</Typography.Text>}
-      </Flex>
-      <Typography.Text type="secondary">{formatTime(activity.createdAt, lang)}</Typography.Text>
+      </Space>
+      <Typography.Text type="secondary" className="nowrap">
+        {formatTime(activity.createdAt, lang)}
+      </Typography.Text>
     </Flex>
   )
 }
 
-function SolvedCard({ problems }: { problems: SolvedProblem[] }) {
+function SolvedCard({ page, onPageChange }: { page: SolvedProblemPage; onPageChange?: (page: number, pageSize: number) => void }) {
   const { text } = useLocale()
+  const problems = page.items
 
   return (
     <Card title={text.user.solved}>
       {problems.length === 0 ? (
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
       ) : (
-        <Flex vertical className="profileProblemList">
-          {problems.slice(0, 12).map((row) => (
-            <Flex key={row.id} align="center" justify="space-between" gap={12} className="profileProblemRow">
-              <Flex align="center" gap={8} className="profileProblemTitle">
-                <ProblemLink id={row.id} title={row.title} />
-                {row.tags.slice(0, 2).map((tag) => (
-                  <Tag key={tag}>{tag}</Tag>
-                ))}
-              </Flex>
-              <Typography.Text type="secondary" className="nowrap">
-                {formatPass(row)}
-              </Typography.Text>
+        <Flex vertical gap={12}>
+          <Table<SolvedProblem>
+            size="small"
+            showHeader={false}
+            pagination={false}
+            rowKey="id"
+            dataSource={problems}
+            columns={[
+              {
+                render: (_, row) => (
+                <Space size={8} className="tableTitleLine">
+                  <ProblemLink id={row.id} title={row.title} />
+                  <Space size={[4, 4]} wrap>
+                    {row.tags.slice(0, 2).map((tag) => (
+                      <Tag key={tag}>{tag}</Tag>
+                    ))}
+                  </Space>
+                </Space>
+                )
+              }
+            ]}
+          />
+          {page.total > page.pageSize ? (
+            <Flex justify="end">
+              <Pagination size="small" current={page.page} pageSize={page.pageSize} total={page.total} showSizeChanger={false} onChange={onPageChange} />
             </Flex>
-          ))}
+          ) : null}
         </Flex>
       )}
     </Card>

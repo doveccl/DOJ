@@ -188,6 +188,42 @@ func TestAuthAndLeaseAuthorization(t *testing.T) {
 	}
 }
 
+func TestLocalLoopbackLeaseReusesJudgerWithoutToken(t *testing.T) {
+	db := newJudgerTestDB(t)
+	api := &API{db: db, leaseWait: time.Millisecond}
+	e := echo.New()
+	group := e.Group("/api/judger", api.auth)
+	group.POST("/lease", api.lease)
+
+	for index := 0; index < 3; index++ {
+		req := httptest.NewRequest(http.MethodPost, "/api/judger/lease", strings.NewReader(`{"host":"local-judger"}`))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.RemoteAddr = "127.0.0.1:1234"
+		res := httptest.NewRecorder()
+		e.ServeHTTP(res, req)
+		if res.Code != http.StatusOK {
+			t.Fatalf("local lease %d got %d body=%s", index, res.Code, res.Body.String())
+		}
+	}
+
+	var rows []models.Judger
+	if err := db.Find(&rows).Error; err != nil {
+		t.Fatalf("list judgers: %v", err)
+	}
+	if len(rows) != 1 || rows[0].Name != "local-judger" || rows[0].Auth != "" {
+		t.Fatalf("local leases should reuse one tokenless judger, rows=%+v", rows)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/judger/lease", strings.NewReader(`{"host":"remote"}`))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.RemoteAddr = "203.0.113.10:1234"
+	res := httptest.NewRecorder()
+	e.ServeHTTP(res, req)
+	if res.Code != http.StatusUnauthorized {
+		t.Fatalf("remote lease without token got %d body=%s", res.Code, res.Body.String())
+	}
+}
+
 func TestProxyLoopbackDoesNotBypassJudgerAuth(t *testing.T) {
 	db := newJudgerTestDB(t)
 	api := &API{db: db}

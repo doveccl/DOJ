@@ -31,7 +31,7 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading }:
   const remote = useQuery({
     queryKey: ['problems', 'select', searchText],
     queryFn: () => getProblems({ q: searchText }),
-    enabled: open && searchText.length > 0
+    enabled: open || searchText.length > 0 || value.length > 0
   })
   const remoteOptions = useMemo(() => (remote.data ?? []).map(problemOption), [remote.data])
   const [knownOptions, setKnownOptions] = useState<Option[]>([])
@@ -44,7 +44,7 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading }:
   }, [options, remoteOptions])
 
   const selectedOptions = value.map((item) => ({ value: item.id, label: optionLabel(item.id, knownOptions, options, remoteOptions) }))
-  const visibleOptions = searchText ? remoteOptions : options
+  const visibleOptions = searchText ? remoteOptions : mergeOptions(options, remoteOptions)
   const selectOptions = mergeOptions(selectedOptions, visibleOptions)
   const optionMap = new Map(selectOptions.map((item) => [item.value, item.label]))
 

@@ -39,6 +39,9 @@ const (
 	maxAssetBytes         = 128 << 20
 	maxEditableAssetBytes = 1 << 20
 	maxTitleRunes         = models.TitleMax
+	homeListLimit         = 5
+	userActivityLimit     = 12
+	userSolvedPageSize    = 12
 )
 
 type Home struct {
@@ -65,15 +68,12 @@ type HeatCell struct {
 type Item struct {
 	ID    uint   `json:"id"`
 	Title string `json:"title"`
-	Meta  string `json:"meta"`
 }
 
 type HomeProblem struct {
-	ID     uint     `json:"id"`
-	Title  string   `json:"title"`
-	Tags   []string `json:"tags"`
-	AC     int      `json:"ac"`
-	Submit int      `json:"submit"`
+	ID    uint     `json:"id"`
+	Title string   `json:"title"`
+	Tags  []string `json:"tags"`
 }
 
 type PageResult[T any] struct {
@@ -292,18 +292,16 @@ type UserOptionDTO struct {
 }
 
 type UserProfile struct {
-	User       PublicUserDTO     `json:"user"`
-	Heatmap    []HeatCell        `json:"heatmap"`
-	Solved     []SolvedProblem   `json:"solved"`
-	Activities []UserActivityDTO `json:"activities"`
+	User       PublicUserDTO             `json:"user"`
+	Heatmap    []HeatCell                `json:"heatmap"`
+	Solved     PageResult[SolvedProblem] `json:"solved"`
+	Activities []UserActivityDTO         `json:"activities"`
 }
 
 type SolvedProblem struct {
-	ID     uint     `json:"id"`
-	Title  string   `json:"title"`
-	Tags   []string `json:"tags"`
-	AC     int      `json:"ac"`
-	Submit int      `json:"submit"`
+	ID    uint     `json:"id"`
+	Title string   `json:"title"`
+	Tags  []string `json:"tags"`
 }
 
 type UserActivityDTO struct {
@@ -972,7 +970,7 @@ func (api *API) home(c echo.Context) error {
 
 func (api *API) homeProblems(c echo.Context) ([]HomeProblem, error) {
 	var rows []models.Problem
-	query := api.db.Select("id", "title", "tags").Order("id desc").Limit(5)
+	query := api.db.Select("id", "title", "tags").Order("id desc").Limit(homeListLimit)
 	if !api.isAdmin(c) {
 		query = api.applyProblemListVisibility(query)
 	}
@@ -987,50 +985,7 @@ func (api *API) homeProblems(c echo.Context) ([]HomeProblem, error) {
 			Tags:  readTags([]byte(row.Tags)),
 		})
 	}
-	if err := api.decorateHomeProblemStats(items); err != nil {
-		return nil, err
-	}
 	return items, nil
-}
-
-func (api *API) decorateHomeProblemStats(items []HomeProblem) error {
-	if len(items) == 0 {
-		return nil
-	}
-	ids := make([]uint, 0, len(items))
-	for _, item := range items {
-		ids = append(ids, item.ID)
-	}
-	submitByProblem, acByProblem, err := api.problemSubmissionStats(ids)
-	if err != nil {
-		return err
-	}
-	for index := range items {
-		id := items[index].ID
-		items[index].Submit = submitByProblem[id]
-		items[index].AC = acByProblem[id]
-	}
-	return nil
-}
-
-func (api *API) decorateSolvedProblemStats(items []SolvedProblem) error {
-	if len(items) == 0 {
-		return nil
-	}
-	ids := make([]uint, 0, len(items))
-	for _, item := range items {
-		ids = append(ids, item.ID)
-	}
-	submitByProblem, acByProblem, err := api.problemSubmissionStats(ids)
-	if err != nil {
-		return err
-	}
-	for index := range items {
-		id := items[index].ID
-		items[index].Submit = submitByProblem[id]
-		items[index].AC = acByProblem[id]
-	}
-	return nil
 }
 
 func (api *API) homeHeatmap(c echo.Context) ([]HeatCell, error) {
@@ -1046,35 +1001,64 @@ func (api *API) homeHeatmap(c echo.Context) ([]HeatCell, error) {
 }
 
 func (api *API) homeAssignments(c echo.Context) ([]Item, error) {
-
+	query := api.db.Model(&models.Assignment{}).
+		Select("assignments.id", "assignments.title").
+		Where(`EXISTS (
+			SELECT 1 FROM assignment_problems
+			WHERE assignment_problems.assignment_id = assignments.id
+		)`)
+	if !api.isAdmin(c) {
+		user, err := api.currentUser(c)
+		if err != nil {
+			return []Item{}, nil
+		}
+		query = query.Where(`(
+			EXISTS (
+				SELECT 1 FROM assignment_users
+				WHERE assignment_users.assignment_id = assignments.id
+				AND assignment_users.user_id = ?
+			)
+			OR EXISTS (
+				SELECT 1 FROM assignment_groups
+				JOIN group_users ON group_users.group_id = assignment_groups.group_id
+				WHERE assignment_groups.assignment_id = assignments.id
+				AND group_users.user_id = ?
+			)
+		)`, user.ID, user.ID)
+	}
 	var rows []models.Assignment
-	if err := api.db.Order("end_at desc").Limit(5).Find(&rows).Error; err != nil {
+	if err := query.Order("end_at desc").Limit(homeListLimit).Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	assignments, err := api.assignmentDTOs(c, rows, false)
-	if err != nil {
-		return nil, err
-	}
-	items := make([]Item, 0, len(assignments))
-	for _, row := range assignments {
-		items = append(items, Item{ID: row.ID, Title: row.Title, Meta: strconv.Itoa(row.Done) + "/" + strconv.Itoa(row.Total)})
+	items := make([]Item, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, Item{ID: row.ID, Title: row.Title})
 	}
 	return items, nil
 }
 
 func (api *API) homeContests(c echo.Context) ([]Item, error) {
-
 	var rows []models.Contest
-	if err := api.db.Order("start_at desc").Limit(5).Find(&rows).Error; err != nil {
+	query := api.db.Model(&models.Contest{}).
+		Select("contests.id", "contests.title").
+		Where(`EXISTS (
+			SELECT 1 FROM contest_problems
+			WHERE contest_problems.contest_id = contests.id
+		)`)
+	if !api.isAdmin(c) {
+		query = query.Where(`EXISTS (
+			SELECT 1 FROM contest_problems
+			JOIN problems ON problems.id = contest_problems.problem_id
+			WHERE contest_problems.contest_id = contests.id
+			AND problems.visible = ?
+		)`, true)
+	}
+	if err := query.Order("start_at desc").Limit(homeListLimit).Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	contests, err := api.contestDTOs(rows, api.isAdmin(c))
-	if err != nil {
-		return nil, err
-	}
-	items := make([]Item, 0, len(contests))
-	for _, row := range contests {
-		items = append(items, Item{ID: row.ID, Title: row.Title, Meta: row.Kind + " · " + strconv.Itoa(row.Total)})
+	items := make([]Item, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, Item{ID: row.ID, Title: row.Title})
 	}
 	return items, nil
 }
@@ -2927,6 +2911,10 @@ func (api *API) user(c echo.Context) error {
 	if nameKey == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "user name is required")
 	}
+	solvedPage, solvedPageSize, solvedOffset, err := parseNamedPage(c, "solved", userSolvedPageSize)
+	if err != nil {
+		return err
+	}
 
 	var row models.User
 	if err := api.db.Where("LOWER(name) = ?", nameKey).First(&row).Error; err != nil {
@@ -2937,7 +2925,7 @@ func (api *API) user(c echo.Context) error {
 	}
 
 	includeHidden := api.isAdmin(c)
-	solved, err := api.solvedProblems(row.ID, includeHidden)
+	solved, err := api.solvedProblems(row.ID, includeHidden, solvedPage, solvedPageSize, solvedOffset)
 	if err != nil {
 		return err
 	}
@@ -3043,7 +3031,7 @@ func (api *API) userSubmissions(userID uint, includeHidden bool) ([]models.Submi
 		Select("submissions.id", "submissions.problem_id", "submissions.status", "submissions.created_at").
 		Where("submissions.user_id = ?", userID).
 		Order("submissions.created_at desc").
-		Limit(20)
+		Limit(userActivityLimit)
 	if !includeHidden {
 		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
 		query = api.applyProblemListVisibility(query)
@@ -3059,7 +3047,7 @@ func (api *API) userActivities(userID uint, includeHidden bool) ([]UserActivityD
 	if err != nil {
 		return nil, err
 	}
-	items := make([]UserActivityDTO, 0, len(submissions)+20)
+	items := make([]UserActivityDTO, 0, len(submissions)+userActivityLimit)
 	problemIDs := make([]uint, 0, len(submissions))
 	for _, submission := range submissions {
 		problemIDs = append(problemIDs, submission.ProblemID)
@@ -3085,7 +3073,7 @@ func (api *API) userActivities(userID uint, includeHidden bool) ([]UserActivityD
 	}
 
 	var discussions []models.Discussion
-	if err := api.db.Select("id", "title", "created_at").Where("user_id = ?", userID).Order("created_at desc").Limit(20).Find(&discussions).Error; err != nil {
+	if err := api.db.Select("id", "title", "created_at").Where("user_id = ?", userID).Order("created_at desc").Limit(userActivityLimit).Find(&discussions).Error; err != nil {
 		return nil, err
 	}
 	for _, row := range discussions {
@@ -3099,37 +3087,51 @@ func (api *API) userActivities(userID uint, includeHidden bool) ([]UserActivityD
 	sort.Slice(items, func(i, j int) bool {
 		return items[i].CreatedAt.After(items[j].CreatedAt)
 	})
-	if len(items) > 20 {
-		items = items[:20]
+	if len(items) > userActivityLimit {
+		items = items[:userActivityLimit]
 	}
 	return items, nil
 }
 
-func (api *API) solvedProblems(userID uint, includeHidden bool) ([]SolvedProblem, error) {
-	var rows []models.Submission
-	query := api.db.
-		Select("submissions.problem_id", "submissions.created_at").
+func (api *API) solvedProblems(userID uint, includeHidden bool, page int, pageSize int, offset int) (PageResult[SolvedProblem], error) {
+	base := api.db.Model(&models.Submission{}).
 		Where("submissions.user_id = ? AND submissions.status = ?", userID, "AC").
-		Order("submissions.created_at desc").
-		Limit(50)
+		Distinct("submissions.problem_id")
+	if !includeHidden {
+		base = base.Joins("JOIN problems ON problems.id = submissions.problem_id")
+		base = api.applyProblemListVisibility(base)
+	}
+	var total int64
+	if err := base.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+		return PageResult[SolvedProblem]{}, err
+	}
+	if total == 0 {
+		return PageResult[SolvedProblem]{Items: []SolvedProblem{}, Page: page, PageSize: pageSize, Total: 0}, nil
+	}
+
+	var rows []struct {
+		ProblemID uint
+	}
+	query := api.db.Model(&models.Submission{}).
+		Select("submissions.problem_id").
+		Where("submissions.user_id = ? AND submissions.status = ?", userID, "AC").
+		Group("submissions.problem_id").
+		Order("MAX(submissions.created_at) desc").
+		Limit(pageSize).
+		Offset(offset)
 	if !includeHidden {
 		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
 		query = api.applyProblemListVisibility(query)
 	}
 	if err := query.Find(&rows).Error; err != nil {
-		return nil, err
+		return PageResult[SolvedProblem]{}, err
 	}
-	seen := map[uint]bool{}
 	problemIDs := make([]uint, 0, len(rows))
 	for _, row := range rows {
-		if seen[row.ProblemID] {
-			continue
-		}
-		seen[row.ProblemID] = true
 		problemIDs = append(problemIDs, row.ProblemID)
 	}
 	if len(problemIDs) == 0 {
-		return []SolvedProblem{}, nil
+		return PageResult[SolvedProblem]{Items: []SolvedProblem{}, Page: page, PageSize: pageSize, Total: total}, nil
 	}
 	problemQuery := api.db.Model(&models.Problem{}).Select("id", "title", "tags").Where("id IN ?", problemIDs)
 	if !includeHidden {
@@ -3137,7 +3139,7 @@ func (api *API) solvedProblems(userID uint, includeHidden bool) ([]SolvedProblem
 	}
 	var problems []models.Problem
 	if err := problemQuery.Find(&problems).Error; err != nil {
-		return nil, err
+		return PageResult[SolvedProblem]{}, err
 	}
 	byID := problemRowsByID(problems)
 	items := make([]SolvedProblem, 0, len(problemIDs))
@@ -3152,10 +3154,7 @@ func (api *API) solvedProblems(userID uint, includeHidden bool) ([]SolvedProblem
 			Tags:  readTags([]byte(problem.Tags)),
 		})
 	}
-	if err := api.decorateSolvedProblemStats(items); err != nil {
-		return nil, err
-	}
-	return items, nil
+	return PageResult[SolvedProblem]{Items: items, Page: page, PageSize: pageSize, Total: total}, nil
 }
 
 func (api *API) userHeatmap(userID uint) ([]HeatCell, error) {
@@ -3498,6 +3497,34 @@ func parsePage(c echo.Context) (int, int, int, error) {
 		got, err := strconv.Atoi(value)
 		if err != nil || got <= 0 {
 			return 0, 0, 0, echo.NewHTTPError(http.StatusBadRequest, "invalid page size")
+		}
+		pageSize = got
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	return page, pageSize, (page - 1) * pageSize, nil
+}
+
+func parseNamedPage(c echo.Context, prefix string, defaultPageSize int) (int, int, int, error) {
+	pageParam := prefix + "Page"
+	pageSizeParam := prefix + "PageSize"
+	page := 1
+	if value := strings.TrimSpace(c.QueryParam(pageParam)); value != "" {
+		got, err := strconv.Atoi(value)
+		if err != nil || got <= 0 {
+			return 0, 0, 0, echo.NewHTTPError(http.StatusBadRequest, "invalid "+pageParam)
+		}
+		page = got
+	}
+	pageSize := defaultPageSize
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if value := strings.TrimSpace(c.QueryParam(pageSizeParam)); value != "" {
+		got, err := strconv.Atoi(value)
+		if err != nil || got <= 0 {
+			return 0, 0, 0, echo.NewHTTPError(http.StatusBadRequest, "invalid "+pageSizeParam)
 		}
 		pageSize = got
 	}

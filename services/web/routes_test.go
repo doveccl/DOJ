@@ -553,7 +553,7 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 
 	profileRes := requestOK(t, e, http.MethodGet, "/api/users/student", "")
 	profile := decodeJSON[UserProfile](t, profileRes)
-	if hasSolvedProblem(profile.Solved, hidden.ID) || hasActivityProblem(profile.Activities, hidden.ID) {
+	if hasSolvedProblem(profile.Solved.Items, hidden.ID) || hasActivityProblem(profile.Activities, hidden.ID) {
 		t.Fatalf("guest profile leaked hidden problem: %+v", profile)
 	}
 	if !hasActivity(profile.Activities, "discussion", "Student note") {
@@ -567,15 +567,17 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 		t.Fatalf("guest profile heatmap should include all submissions, got %d", got)
 	}
 	var rawProfile struct {
-		Solved []map[string]any `json:"solved"`
+		Solved struct {
+			Items []map[string]any `json:"items"`
+		} `json:"solved"`
 	}
 	if err := json.Unmarshal(profileRes.Body.Bytes(), &rawProfile); err != nil {
 		t.Fatalf("decode raw profile: %v", err)
 	}
-	if len(rawProfile.Solved) > 0 {
+	if len(rawProfile.Solved.Items) > 0 {
 		for _, key := range []string{"visible", "mode", "timeMs", "memoryMb", "discussions", "mine", "latest"} {
-			if _, ok := rawProfile.Solved[0][key]; ok {
-				t.Fatalf("profile solved problem should not include list-only field %q: %+v", key, rawProfile.Solved[0])
+			if _, ok := rawProfile.Solved.Items[0][key]; ok {
+				t.Fatalf("profile solved problem should not include list-only field %q: %+v", key, rawProfile.Solved.Items[0])
 			}
 		}
 	}
@@ -623,7 +625,7 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 		t.Fatalf("admin profile got %d body=%s", adminProfileRes.Code, adminProfileRes.Body.String())
 	}
 	adminProfile := decodeJSON[UserProfile](t, adminProfileRes)
-	if !hasSolvedProblem(adminProfile.Solved, hidden.ID) || !hasActivityProblem(adminProfile.Activities, hidden.ID) {
+	if !hasSolvedProblem(adminProfile.Solved.Items, hidden.ID) || !hasActivityProblem(adminProfile.Activities, hidden.ID) {
 		t.Fatalf("admin profile should include hidden problem: %+v", adminProfile)
 	}
 	if adminProfile.User.AC != 2 || adminProfile.User.Submit != 6 {
@@ -631,6 +633,48 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 	}
 	if got := countForDate(adminProfile.Heatmap, today); got != 6 {
 		t.Fatalf("admin profile heatmap should include hidden submissions, got %d", got)
+	}
+}
+
+func TestUserSolvedProblemsArePagedByLatestAC(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	user := models.User{Name: "alice", Mail: "alice@example.com", Auth: "hash"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	base := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	for index := 0; index < 15; index++ {
+		problem := models.Problem{ID: uint(1000 + index), Title: "Problem " + strconv.Itoa(index), Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+		if err := db.Create(&problem).Error; err != nil {
+			t.Fatalf("create problem %d: %v", problem.ID, err)
+		}
+		submission := models.Submission{
+			UserID:    user.ID,
+			ProblemID: problem.ID,
+			Language:  "cpp",
+			Code:      "int main(){}",
+			Status:    "AC",
+			Score:     100,
+			Public:    true,
+			CreatedAt: base.Add(time.Duration(index) * time.Minute),
+		}
+		if err := db.Create(&submission).Error; err != nil {
+			t.Fatalf("create submission %d: %v", problem.ID, err)
+		}
+	}
+
+	e := echo.New()
+	Register(e, db)
+	profile := decodeJSON[UserProfile](t, requestOK(t, e, http.MethodGet, "/api/users/alice?solvedPage=2&solvedPageSize=5", ""))
+	if profile.Solved.Page != 2 || profile.Solved.PageSize != 5 || profile.Solved.Total != 15 {
+		t.Fatalf("unexpected solved page metadata: %+v", profile.Solved)
+	}
+	if len(profile.Solved.Items) != 5 {
+		t.Fatalf("solved page item count = %d", len(profile.Solved.Items))
+	}
+	if profile.Solved.Items[0].ID != 1009 || profile.Solved.Items[4].ID != 1005 {
+		t.Fatalf("solved page order = %+v", profile.Solved.Items)
 	}
 }
 
@@ -1714,8 +1758,8 @@ func TestHomeProblemsUseCompactPayload(t *testing.T) {
 
 	res := requestOK(t, e, http.MethodGet, "/api/home", "")
 	home := decodeJSON[Home](t, res)
-	if len(home.Problems) != 1 || home.Problems[0].ID != problem.ID || home.Problems[0].AC != 1 || home.Problems[0].Submit != 1 {
-		t.Fatalf("home problems should include compact stats: %+v", home.Problems)
+	if len(home.Problems) != 1 || home.Problems[0].ID != problem.ID || home.Problems[0].Title != problem.Title || len(home.Problems[0].Tags) != 2 {
+		t.Fatalf("home problems should include compact identity fields: %+v", home.Problems)
 	}
 	var raw struct {
 		Problems []map[string]any `json:"problems"`
@@ -1723,7 +1767,7 @@ func TestHomeProblemsUseCompactPayload(t *testing.T) {
 	if err := json.Unmarshal(res.Body.Bytes(), &raw); err != nil {
 		t.Fatalf("decode raw home: %v", err)
 	}
-	for _, key := range []string{"visible", "mode", "timeMs", "memoryMb", "discussions", "mine", "latest"} {
+	for _, key := range []string{"visible", "mode", "timeMs", "memoryMb", "discussions", "mine", "latest", "ac", "submit"} {
 		if _, ok := raw.Problems[0][key]; ok {
 			t.Fatalf("home problem should not include list-only field %q: %+v", key, raw.Problems[0])
 		}

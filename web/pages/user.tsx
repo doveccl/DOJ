@@ -2,7 +2,7 @@ import { CameraOutlined, EditOutlined } from '@ant-design/icons'
 import { App as AntApp, Button, Flex, Form, Input, Modal, Tabs, Upload } from 'antd'
 import type { UploadProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import { getMe, getUser, updateMe, updatePassword, uploadImage } from '../client'
@@ -22,11 +22,16 @@ export function UserPage() {
   const client = useQueryClient()
   const params = useParams()
   const name = params.name ?? ''
+  const [solvedPage, setSolvedPage] = useState(1)
+  const [solvedPageSize, setSolvedPageSize] = useState(12)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const isOwn = session.signedIn && name.toLowerCase() === session.name.toLowerCase()
+  useEffect(() => {
+    setSolvedPage(1)
+  }, [name])
   const query = useQuery({
-    queryKey: ['user', name],
-    queryFn: () => getUser(name),
+    queryKey: ['user', name, solvedPage, solvedPageSize],
+    queryFn: () => getUser(name, { solvedPage, solvedPageSize }),
     enabled: name !== ''
   })
   const meQuery = useQuery({ queryKey: ['me'], queryFn: getMe, enabled: isOwn })
@@ -82,6 +87,10 @@ export function UserPage() {
     <Flex vertical className="pageStack">
       <ProfileOverview
         profile={query.data}
+        onSolvedPageChange={(page, pageSize) => {
+          setSolvedPage(page)
+          setSolvedPageSize(pageSize)
+        }}
         renderAvatar={
           me
             ? (avatar) => (

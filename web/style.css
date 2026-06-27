@@ -596,41 +596,6 @@ body {
   text-align: center;
 }
 
-.profileActivity .ant-timeline {
-  margin-top: 4px;
-}
-
-.profileActivityItem .ant-tag {
-  margin-inline-end: 0;
-}
-
-.profileProblemList {
-  gap: 0;
-}
-
-.profileProblemRow {
-  padding: 12px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.profileProblemRow:first-child {
-  padding-top: 0;
-}
-
-.profileProblemRow:last-child {
-  padding-bottom: 0;
-  border-bottom: 0;
-}
-
-.profileProblemTitle {
-  min-width: 0;
-}
-
-.profileProblemTitle .ant-tag {
-  flex: none;
-  margin-inline-end: 0;
-}
-
 @media (max-width: 991px) {
   .appContent > .ant-row,
   .pageStack > .ant-row {
