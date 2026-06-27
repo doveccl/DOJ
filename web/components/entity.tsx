@@ -13,7 +13,7 @@ export function ProblemLink({ id, title, strong }: { id: number; title?: string;
 
 export function UserLink({ name, strong }: { name: string; strong?: boolean }) {
   return (
-    <Typography.Text strong={strong}>
+    <Typography.Text strong={strong} className="nowrap">
       <Link to={`/users/${name}`}>{name}</Link>
     </Typography.Text>
   )

@@ -1,5 +1,5 @@
 import { EditOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, Col, Flex, Form, Row, Space, Tag, Typography } from 'antd'
+import { App as AntApp, Button, Card, Col, Flex, Form, List, Row, Space, Tag, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -119,20 +119,25 @@ function ProblemList({ title, items }: { title: string; items: HomeProblem[] }) 
       {items.length === 0 ? (
         <EmptyBlock />
       ) : (
-        <Flex vertical className="homeList">
-          {items.map((item) => (
-            <Flex key={item.id} align="center" justify="space-between" gap={12} className="homeListItem">
-              <span className="homeListTitle">
-                <ProblemLink id={item.id} title={item.title} strong />
-              </span>
-              <Space size={[4, 4]} wrap className="homeListTags">
-                {item.tags.slice(0, 2).map((tag) => (
-                  <Tag key={tag}>{tag}</Tag>
-                ))}
-              </Space>
-            </Flex>
-          ))}
-        </Flex>
+        <List<HomeProblem>
+          className="homeProblemList"
+          size="small"
+          dataSource={items}
+          renderItem={(item) => (
+            <List.Item
+              key={item.id}
+              extra={
+                <Space size={[4, 4]} wrap className="homeProblemTags">
+                  {item.tags.slice(0, 2).map((tag) => (
+                    <Tag key={tag}>{tag}</Tag>
+                  ))}
+                </Space>
+              }
+            >
+              <ProblemLink id={item.id} title={item.title} strong />
+            </List.Item>
+          )}
+        />
       )}
     </Card>
   )
@@ -144,15 +149,18 @@ function ItemList({ title, items, hrefPrefix }: { title: string; items: Item[]; 
       {items.length === 0 ? (
         <EmptyBlock />
       ) : (
-        <Flex vertical className="homeList">
-          {items.map((item) => (
-            <Flex key={item.id} align="center" className="homeListItem">
-              <Typography.Text strong ellipsis className="lineText homeListTitle">
+        <List<Item>
+          className="homeLinkList"
+          size="small"
+          dataSource={items}
+          renderItem={(item) => (
+            <List.Item key={item.id}>
+              <Typography.Text strong ellipsis className="lineText">
                 <Link to={`${hrefPrefix}/${item.id}`}>{item.title}</Link>
               </Typography.Text>
-            </Flex>
-          ))}
-        </Flex>
+            </List.Item>
+          )}
+        />
       )}
     </Card>
   )

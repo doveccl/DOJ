@@ -113,12 +113,14 @@ function ActivityItem({ activity, lang, submitted, posted }: { activity: UserAct
   if (activity.type === 'discussion') {
     return (
       <Flex vertical gap={4}>
-        <Space size={8} wrap>
+        <Flex align="center" gap={8} className="profileActivityLine">
           <Typography.Text>{posted}</Typography.Text>
-          <Typography.Text ellipsis className="lineText">
-            <Link to={`/discussion/${activity.id}`}>{activity.title}</Link>
-          </Typography.Text>
-        </Space>
+          <span className="profileActivityTitle">
+            <Typography.Text ellipsis className="lineText">
+              <Link to={`/discussion/${activity.id}`}>{activity.title}</Link>
+            </Typography.Text>
+          </span>
+        </Flex>
         <Typography.Text type="secondary" className="nowrap">
           {formatTime(activity.createdAt, lang)}
         </Typography.Text>
@@ -128,15 +130,17 @@ function ActivityItem({ activity, lang, submitted, posted }: { activity: UserAct
 
   return (
     <Flex vertical gap={4}>
-      <Space size={8} wrap>
+      <Flex align="center" gap={8} className="profileActivityLine">
         {activity.status ? (
           <Link to={`/submissions/${activity.id}`}>
             <SubmissionStatus status={activity.status} />
           </Link>
         ) : null}
-        <Typography.Text>{submitted}</Typography.Text>
-        {activity.problemId ? <ProblemLink id={activity.problemId} title={activity.problemTitle} /> : <Typography.Text ellipsis className="lineText">{activity.title}</Typography.Text>}
-      </Space>
+        <Typography.Text className="nowrap">{submitted}</Typography.Text>
+        <span className="profileActivityTitle">
+          {activity.problemId ? <ProblemLink id={activity.problemId} title={activity.problemTitle} /> : <Typography.Text ellipsis className="lineText">{activity.title}</Typography.Text>}
+        </span>
+      </Flex>
       <Typography.Text type="secondary" className="nowrap">
         {formatTime(activity.createdAt, lang)}
       </Typography.Text>
@@ -155,22 +159,26 @@ function SolvedCard({ page, onPageChange }: { page: SolvedProblemPage; onPageCha
       ) : (
         <Flex vertical gap={12}>
           <Table<SolvedProblem>
+            className="profileSolvedTable"
             size="small"
             showHeader={false}
+            tableLayout="fixed"
             pagination={false}
             rowKey="id"
             dataSource={problems}
             columns={[
               {
                 render: (_, row) => (
-                  <Space size={8} className="tableTitleLine">
-                    <ProblemLink id={row.id} title={row.title} />
-                    <Space size={[4, 4]} wrap>
+                  <Flex align="center" gap={8} className="profileSolvedLine">
+                    <span className="profileSolvedTitle">
+                      <ProblemLink id={row.id} title={row.title} />
+                    </span>
+                    <Space size={[4, 4]} wrap className="profileSolvedTags">
                       {row.tags.slice(0, 2).map((tag) => (
                         <Tag key={tag}>{tag}</Tag>
                       ))}
                     </Space>
-                  </Space>
+                  </Flex>
                 )
               }
             ]}
