@@ -29,6 +29,7 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 - Removed the full `GET /api/admin` overview. Admin users/groups now use `AdminMembers`; languages use `GET /api/admin/languages` and `AdminLang[]`; judgers use `GET /api/admin/judgers` and `AdminJudgers`.
 - Admin user/group/language/judger mutations now return only the resource view owned by the active tab, instead of settings, languages, judgers, queue, and members together.
 - `PATCH /api/problems/{id}/visibility` now returns a fully decorated `ProblemListItem` with current submit/AC/discussion/mine fields while still avoiding statement or asset storage reads.
+- Create endpoints that only need to redirect now return `CreatedID` (`{id}`): problems, assignments, contests, and discussions. Comment creation still returns the comment row because the detail page appends it immediately.
 
 ## Endpoint Matrix
 
@@ -74,7 +75,7 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 | `PATCH /api/home/notice` | Admin mutation | Notice content only. | OK. Separate from admin settings page. |
 | `GET /api/users/{id}/{year}/{month}/{day}/{name}` | Asset read | User uploaded media. | OK. Explicit media endpoint. |
 | `GET /api/problems` | List | `ProblemListItem` summary. | OK. No statement or asset storage access; stats/discussions/mine are batched. |
-| `POST /api/problems` | Admin mutation | Creation fields only, list item out. | OK. Statement is created by detail edit, not list create. |
+| `POST /api/problems` | Admin mutation | Creation fields only, `{id}` out. | Fixed. Caller only redirects to detail; statement is created by detail edit, not list create. |
 | `GET /api/problems/{id}` | Detail | Full `Problem`, statement, storage-derived cases/data size. | OK. Detail endpoint owns storage-derived data. |
 | `PATCH /api/problems/{id}` | Partial mutation | Optional title/statement/tags/visible/mode/time/memory. | Fixed. Small UI actions submit only their changed fields. |
 | `PATCH /api/problems/{id}/visibility` | List-row mutation | Visibility only, decorated list item out. | Fixed. Preserves list stats/mine/discussion fields and does not touch statement or asset storage. |
@@ -92,12 +93,12 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 | `POST /api/problems/{id}/assets/template` | Asset mutation | Fills judge template. | OK. |
 | `GET /api/problems/{id}.zip` | Asset download | Streams problem asset zip. | OK. Explicit download endpoint. |
 | `GET /api/assignments` | List | `AssignmentListItem` without members. | Fixed. Visibility/count/done are batched; no member query for list. |
-| `POST /api/assignments` | Admin mutation | Full assignment editor fields. | OK. All fields are visible in create modal. |
+| `POST /api/assignments` | Admin mutation | Full assignment editor fields, `{id}` out. | Fixed. Create modal redirects; detail endpoint owns member/progress expansion. |
 | `GET /api/assignments/{id}` | Detail | Assignment, linked problem summaries, submissions, progress, admin members. | OK. Detail owns progress/submission data. |
 | `PATCH /api/assignments/{id}` | Admin mutation | Full assignment editor fields. | OK for current edit modal because every submitted field is visible/editable together. |
 | `DELETE /api/assignments/{id}` | Admin mutation | Path id only. | OK. |
 | `GET /api/contests` | List | Contest summary rows with problem count. | OK. Counts are batched. |
-| `POST /api/contests` | Admin mutation | Full contest editor fields. | OK. All fields are visible in create modal. |
+| `POST /api/contests` | Admin mutation | Full contest editor fields, `{id}` out. | Fixed. Create modal redirects; detail endpoint owns rank/submission expansion. |
 | `GET /api/contests/{id}` | Detail | Contest, linked problem summaries, rank, context submissions. | OK. Detail owns rank/submission expansion. |
 | `PATCH /api/contests/{id}` | Admin mutation | Full contest editor fields. | OK for current edit modal because every submitted field is visible/editable together. |
 | `DELETE /api/contests/{id}` | Admin mutation | Path id only. | OK. |
@@ -108,7 +109,7 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 | `GET /api/rank` | List | Capped user rank rows. | OK. User stats are batched. |
 | `GET /api/users/{name}` | Detail aggregate | Profile, heatmap, solved problem summaries, recent activity. | OK. Solved problems use `ProblemListItem`; activity references are batched. |
 | `GET /api/discussion` | List | Discussion summary rows. | OK. Search supported; authors/reply counts are batched; content stays detail-only. |
-| `POST /api/discussion` | Mutation | Create title/content/tags. | OK. |
+| `POST /api/discussion` | Mutation | Create title/content/tags, `{id}` out. | Fixed. Caller redirects to detail; list/detail expansion stays on read endpoints. |
 | `GET /api/discussion/{id}` | Detail | Discussion summary, content, comments. | OK. Detail owns content/comments and batches authors. |
 | `PATCH /api/discussion/{id}` | Partial mutation | Optional title/content/tags/pinned/locked. | Fixed. Pin/lock submit only the changed flag. |
 | `DELETE /api/discussion/{id}` | Admin mutation | Path id only. | OK. |

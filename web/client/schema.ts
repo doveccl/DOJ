@@ -922,6 +922,9 @@ export interface components {
             title: string;
             meta: string;
         };
+        CreatedID: {
+            id: number;
+        };
         Me: {
             id: number;
             name: string;
@@ -2331,7 +2334,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProblemListItem"];
+                    "application/json": components["schemas"]["CreatedID"];
                 };
             };
         };
@@ -2810,7 +2813,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Assignment"];
+                    "application/json": components["schemas"]["CreatedID"];
                 };
             };
         };
@@ -2938,7 +2941,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Contest"];
+                    "application/json": components["schemas"]["CreatedID"];
                 };
             };
         };
@@ -3292,7 +3295,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Discussion"];
+                    "application/json": components["schemas"]["CreatedID"];
                 };
             };
         };

@@ -49,6 +49,10 @@ type Home struct {
 	Contests    []Item       `json:"contests"`
 }
 
+type CreatedID struct {
+	ID uint `json:"id"`
+}
+
 type NoticeUpdate struct {
 	Content string `json:"content"`
 }
@@ -1104,7 +1108,7 @@ func (api *API) createProblem(c echo.Context) error {
 	if err := api.db.Create(&row).Error; err != nil {
 		return err
 	}
-	return c.JSON(http.StatusCreated, problemDTO(row))
+	return c.JSON(http.StatusCreated, CreatedID{ID: row.ID})
 }
 
 func (api *API) updateProblem(c echo.Context) error {
@@ -1669,7 +1673,7 @@ func (api *API) createAssignment(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusCreated, dto)
+	return c.JSON(http.StatusCreated, CreatedID{ID: dto.ID})
 }
 
 func (api *API) updateAssignment(c echo.Context) error {
@@ -1896,7 +1900,7 @@ func (api *API) createContest(c echo.Context) error {
 	}); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusCreated, contestDTO(row, len(req.Problems)))
+	return c.JSON(http.StatusCreated, CreatedID{ID: row.ID})
 }
 
 func (api *API) updateContest(c echo.Context) error {
@@ -3127,16 +3131,7 @@ func (api *API) createDiscussion(c echo.Context) error {
 	if err := api.db.Create(&row).Error; err != nil {
 		return err
 	}
-	return c.JSON(http.StatusCreated, DiscussionDTO{
-		ID:        row.ID,
-		Title:     row.Title,
-		Author:    user.Name,
-		Tags:      req.Tags,
-		Pinned:    row.Pinned,
-		Locked:    row.Locked,
-		Replies:   0,
-		CreatedAt: row.CreatedAt,
-	})
+	return c.JSON(http.StatusCreated, CreatedID{ID: row.ID})
 }
 
 func (api *API) discussion(c echo.Context) error {

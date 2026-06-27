@@ -1122,9 +1122,10 @@ func TestAssignmentMembershipCreateUpdateAndVisibility(t *testing.T) {
 	if createRes.Code != http.StatusCreated {
 		t.Fatalf("create assignment got %d body=%s", createRes.Code, createRes.Body.String())
 	}
-	created := decodeJSON[AssignmentDTO](t, createRes)
-	if len(created.Groups) != 1 || created.Groups[0] != group.ID || len(created.Users) != 0 {
-		t.Fatalf("created assignment members not returned: %+v", created)
+	created := decodeJSON[CreatedID](t, createRes)
+	createdDetail := decodeJSON[AssignmentDetail](t, requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(created.ID), 10), adminCookies, nil))
+	if len(createdDetail.Assignment.Groups) != 1 || createdDetail.Assignment.Groups[0] != group.ID || len(createdDetail.Assignment.Users) != 0 {
+		t.Fatalf("created assignment members not persisted: %+v", createdDetail.Assignment)
 	}
 	adminList := decodeJSON[[]map[string]any](t, requestWithCookies(e, http.MethodGet, "/api/assignments", adminCookies, nil))
 	if len(adminList) != 1 {
@@ -1357,9 +1358,10 @@ func TestProblemCreateDefaultsVisibleAndListSortsByID(t *testing.T) {
 	e := echo.New()
 	Register(e, db)
 	cookies := databaseSession(t, db, admin.ID)
-	created := decodeJSON[ProblemDTO](t, requestJSONWithCookies(e, http.MethodPost, "/api/problems", cookies, `{"title":"Created","tags":[],"mode":"default","timeMs":1000,"memoryMb":256}`))
-	if !created.Visible {
-		t.Fatalf("created problem should default to visible: %+v", created)
+	created := decodeJSON[CreatedID](t, requestJSONWithCookies(e, http.MethodPost, "/api/problems", cookies, `{"title":"Created","tags":[],"mode":"default","timeMs":1000,"memoryMb":256}`))
+	createdDetail := decodeJSON[ProblemDTO](t, requestWithCookies(e, http.MethodGet, "/api/problems/"+strconv.FormatUint(uint64(created.ID), 10), cookies, nil))
+	if !createdDetail.Visible {
+		t.Fatalf("created problem should default to visible: %+v", createdDetail)
 	}
 	items := decodeJSON[[]ProblemDTO](t, requestWithCookies(e, http.MethodGet, "/api/problems", cookies, nil))
 	if len(items) < 3 {

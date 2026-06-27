@@ -5,6 +5,7 @@ import type { components, paths } from './schema'
 export type Home = components['schemas']['Home']
 export type Site = components['schemas']['Site']
 export type NoticeUpdate = components['schemas']['NoticeUpdate']
+export type CreatedID = components['schemas']['CreatedID']
 export type Language = components['schemas']['Lang']
 export type UploadResult = components['schemas']['UploadResult']
 export type ProblemListItem = components['schemas']['ProblemListItem']

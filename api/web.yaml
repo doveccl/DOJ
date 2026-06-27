@@ -630,7 +630,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ProblemListItem"
+                $ref: "#/components/schemas/CreatedID"
   /api/tags:
     get:
       operationId: listTags
@@ -1016,7 +1016,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Assignment"
+                $ref: "#/components/schemas/CreatedID"
   /api/assignments/{id}:
     get:
       operationId: getAssignment
@@ -1100,7 +1100,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Contest"
+                $ref: "#/components/schemas/CreatedID"
   /api/contests/{id}:
     get:
       operationId: getContest
@@ -1342,7 +1342,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Discussion"
+                $ref: "#/components/schemas/CreatedID"
   /api/discussion/{id}:
     get:
       operationId: getDiscussion
@@ -1457,6 +1457,12 @@ components:
           maxLength: 256
         meta:
           type: string
+    CreatedID:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: integer
     Me:
       type: object
       required: [id, name, mail, bio, avatar, admin]
