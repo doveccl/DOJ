@@ -70,6 +70,9 @@ func TestRunLocalCaseWrongAnswer(t *testing.T) {
 	if result.Verdict != VerdictWrongAnswer || result.Score != 0 {
 		t.Fatalf("result = %#v", result)
 	}
+	if result.Message != "" {
+		t.Fatalf("wrong answer message = %q", result.Message)
+	}
 }
 
 func TestRunLocalCaseUserMayExitBeforeReadingAllInput(t *testing.T) {
@@ -133,9 +136,9 @@ func TestRunLocalCasePartialInputReaderIsWrongAnswer(t *testing.T) {
 }
 
 func TestApplyCgroupStatsReportsMemoryLimit(t *testing.T) {
-	result := CaseResult{CaseID: "1", Verdict: VerdictRuntimeError, Score: 100, Message: "user program failed"}
+	result := CaseResult{CaseID: "1", Verdict: VerdictRuntimeError, Score: 100, Message: "boom"}
 	applyCgroupStatsSnapshot(&result, CgroupStats{MemoryPeak: 130*1024*1024 + 1, MemoryOOM: true})
-	if result.Verdict != VerdictMemoryLimit || result.Score != 0 || result.Message != "memory limit exceeded" {
+	if result.Verdict != VerdictMemoryLimit || result.Score != 0 || result.Message != "" {
 		t.Fatalf("result = %#v", result)
 	}
 	if result.MemoryKB != 130*1024+1 {
@@ -144,9 +147,9 @@ func TestApplyCgroupStatsReportsMemoryLimit(t *testing.T) {
 }
 
 func TestApplyCgroupStatsReportsMemoryMax(t *testing.T) {
-	result := CaseResult{CaseID: "1", Verdict: VerdictTimeLimit, Score: 0, TimeMS: 1001, Message: "context deadline exceeded"}
+	result := CaseResult{CaseID: "1", Verdict: VerdictTimeLimit, Score: 0, TimeMS: 1001}
 	applyCgroupStatsSnapshot(&result, CgroupStats{MemoryPeak: 64 * 1024 * 1024, MemoryMaxed: true})
-	if result.Verdict != VerdictMemoryLimit || result.Score != 0 || result.Message != "memory limit exceeded" {
+	if result.Verdict != VerdictMemoryLimit || result.Score != 0 || result.Message != "" {
 		t.Fatalf("result = %#v", result)
 	}
 	if result.TimeMS != 1001 {
@@ -172,10 +175,40 @@ func TestApplyCgroupStatsReportsProcessLimitOnlyForAccepted(t *testing.T) {
 	if ac.Verdict != VerdictRuntimeError || ac.Score != 0 || ac.Message != "process limit exceeded" {
 		t.Fatalf("accepted result = %#v", ac)
 	}
-	wa := CaseResult{Verdict: VerdictWrongAnswer, Score: 0, Message: "output differs"}
+	wa := CaseResult{Verdict: VerdictWrongAnswer, Score: 0}
 	applyCgroupStatsSnapshot(&wa, CgroupStats{PidsMaxed: true})
-	if wa.Verdict != VerdictWrongAnswer || wa.Message != "output differs" {
+	if wa.Verdict != VerdictWrongAnswer || wa.Message != "" {
 		t.Fatalf("wrong answer result = %#v", wa)
+	}
+}
+
+func TestRunLocalCaseRuntimeErrorKeepsOnlyUsefulMessage(t *testing.T) {
+	runner := buildRunner(t)
+	work := t.TempDir()
+	input := filepath.Join(work, "1.in")
+	answer := filepath.Join(work, "1.out")
+	if err := os.WriteFile(input, []byte("1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(answer, []byte("1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	result, err := RunLocalCase(ctx, LocalRun{
+		Runner:      runner,
+		Work:        work,
+		UserCommand: "echo boom >&2; exit 7",
+		Mode:        ModeDefault,
+		Case:        Case{ID: "1", Input: input, Answer: answer, Score: 100},
+		Limits:      Limits{OutputKB: 64},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Verdict != VerdictRuntimeError || result.Message != "boom" {
+		t.Fatalf("result = %#v", result)
 	}
 }
 

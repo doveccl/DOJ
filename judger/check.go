@@ -15,6 +15,8 @@ import (
 
 const defaultOutputLimit = 64 << 20
 
+var errOutputLimit = errors.New("output limit exceeded")
+
 type JudgeReport struct {
 	Verdict Verdict `json:"verdict"`
 	Score   int     `json:"score"`
@@ -88,15 +90,15 @@ func Compare(mode JudgeMode, answer []byte, output []byte) (Verdict, string) {
 		if equalDefault(answer, output) {
 			return VerdictAccepted, ""
 		}
-		return VerdictWrongAnswer, "output differs"
+		return VerdictWrongAnswer, ""
 	case ModeStrict:
 		if bytes.Equal(answer, output) {
 			return VerdictAccepted, ""
 		}
 		if equalDefault(answer, output) {
-			return VerdictPresentationError, "whitespace differs"
+			return VerdictPresentationError, ""
 		}
-		return VerdictWrongAnswer, "output differs"
+		return VerdictWrongAnswer, ""
 	default:
 		return VerdictSystemError, "unsupported builtin judge mode"
 	}
@@ -129,7 +131,7 @@ func readLimited(r io.Reader, limit int64) ([]byte, error) {
 		return nil, err
 	}
 	if n > limit {
-		return nil, fmt.Errorf("output exceeds %d bytes", limit)
+		return nil, errOutputLimit
 	}
 	return buf.Bytes(), nil
 }

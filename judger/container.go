@@ -357,7 +357,7 @@ func applyCgroupStatsSnapshot(result *CaseResult, stats CgroupStats) {
 	if cgroupMemoryLimitReached(stats) {
 		result.Verdict = VerdictMemoryLimit
 		result.Score = 0
-		result.Message = "memory limit exceeded"
+		result.Message = ""
 		return
 	}
 	if stats.PidsMaxed && result.Verdict == VerdictAccepted {

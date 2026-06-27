@@ -11,14 +11,14 @@ func TestCompareDefaultIgnoresTrailingSpaceAndBlankLines(t *testing.T) {
 
 func TestCompareStrictReportsPresentationError(t *testing.T) {
 	verdict, message := Compare(ModeStrict, []byte("1 2\n"), []byte("1 2  \n\n"))
-	if verdict != VerdictPresentationError {
+	if verdict != VerdictPresentationError || message != "" {
 		t.Fatalf("verdict = %s, message = %q", verdict, message)
 	}
 }
 
 func TestCompareWrongAnswer(t *testing.T) {
 	verdict, message := Compare(ModeDefault, []byte("42\n"), []byte("43\n"))
-	if verdict != VerdictWrongAnswer {
+	if verdict != VerdictWrongAnswer || message != "" {
 		t.Fatalf("verdict = %s, message = %q", verdict, message)
 	}
 }

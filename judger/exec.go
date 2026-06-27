@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -145,7 +146,7 @@ func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 			_ = judge.Wait()
 			_ = user.Wait()
 			if ctx.Err() != nil {
-				return CaseResult{CaseID: req.Case.ID, Verdict: VerdictTimeLimit, TimeMS: elapsedMS(startedAt), Message: ctx.Err().Error()}, nil
+				return CaseResult{CaseID: req.Case.ID, Verdict: VerdictTimeLimit, TimeMS: elapsedMS(startedAt)}, nil
 			}
 			return CaseResult{CaseID: req.Case.ID, Verdict: VerdictSystemError, Message: err.Error()}, nil
 		}
@@ -200,7 +201,7 @@ func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 			if report, err := readReport(resultPath); err == nil && report.Verdict != VerdictAccepted {
 				return applyStats(caseResultFromReport(req, report, startedAt)), nil
 			}
-			return applyStats(CaseResult{CaseID: req.Case.ID, Verdict: VerdictTimeLimit, TimeMS: elapsedMS(startedAt), Message: ctx.Err().Error()}), nil
+			return applyStats(CaseResult{CaseID: req.Case.ID, Verdict: VerdictTimeLimit, TimeMS: elapsedMS(startedAt)}), nil
 		case got := <-waitCh:
 			if got.name == "judge" {
 				judgeWait = got.err
@@ -216,7 +217,7 @@ func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 			return applyStats(CaseResult{
 				CaseID:  req.Case.ID,
 				Verdict: VerdictRuntimeError,
-				Message: compactErrors("user program failed", userWait, nil, "", userErr.String()),
+				Message: userFailureMessage(userWait, userErr.String()),
 			}), nil
 		}
 		return applyStats(CaseResult{
@@ -232,7 +233,7 @@ func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 	if userWait != nil && result.Verdict != VerdictOutputLimit && !isBrokenPipeExit(userWait) {
 		result.Verdict = VerdictRuntimeError
 		result.Score = 0
-		result.Message = compactErrors("user program failed", userWait, nil, "", userErr.String())
+		result.Message = userFailureMessage(userWait, userErr.String())
 	}
 	if judgeWait != nil && result.Verdict == VerdictAccepted {
 		result.Verdict = VerdictSystemError
@@ -396,6 +397,16 @@ func compactErrors(prefix string, errA error, errB error, stderrA string, stderr
 		parts = append(parts, stderrB)
 	}
 	return stringsJoin(parts, ": ")
+}
+
+func userFailureMessage(err error, stderr string) string {
+	if message := strings.TrimSpace(stderr); message != "" {
+		return message
+	}
+	if err != nil {
+		return err.Error()
+	}
+	return ""
 }
 
 func stringsJoin(parts []string, sep string) string {
