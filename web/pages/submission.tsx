@@ -1,5 +1,5 @@
 import { ReloadOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, Col, Flex, Row, Space, Switch, Table, Tooltip, Typography } from 'antd'
+import { App as AntApp, BorderBeam, Button, Card, Col, Flex, Row, Space, Switch, Table, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
@@ -74,32 +74,40 @@ export function SubmissionDetailPage() {
   const { submission, code, cases } = query.data
   const languageName = (languages.data ?? []).find((item) => item.id === submission.language)?.name ?? submission.language
   const canUpdatePublic = session.admin || session.name === submission.user
+  const judging = submission.status === 'queued' || submission.status === 'judging'
 
   return (
     <Flex vertical gap={20}>
       <Row gutter={[20, 20]} align="top">
         <Col xs={24} lg={16}>
-          <Card
-            title={
-              <Space size={10}>
-                <Typography.Text strong>{submissionCode(submission.id)}</Typography.Text>
-                <SubmissionStatus status={submission.status} />
-              </Space>
-            }
-            extra={
-              <Space size={12} wrap>
-                <MetaInline label={text.submissions.score}>{submission.score}</MetaInline>
-                <MetaInline label={text.submissions.time}>{submission.timeMs === undefined ? '-' : `${submission.timeMs}ms`}</MetaInline>
-                <MetaInline label={text.submissions.memory}>{memoryText(submission.memoryKb)}</MetaInline>
-                {session.admin ? <Button size="small" icon={<ReloadOutlined />} loading={rejudge.isPending} onClick={() => rejudge.mutate()}>{text.submissions.rejudge}</Button> : null}
-              </Space>
-            }
-          >
-            <Flex vertical gap={16}>
-              {submission.message ? <MarkdownPreview value={codeMarkdown(submission.message, 'text')} /> : null}
-              <Table<Case> rowKey="no" columns={caseColumns(text)} dataSource={cases} pagination={false} size="small" />
-            </Flex>
-          </Card>
+          <ResultCard judging={judging}>
+            <Card
+              style={{ position: 'relative' }}
+              title={
+                <Space size={10}>
+                  <Typography.Text strong>{submissionCode(submission.id)}</Typography.Text>
+                  <SubmissionStatus status={submission.status} />
+                </Space>
+              }
+              extra={
+                <Space size={12} wrap>
+                  <MetaInline label={text.submissions.score}>{submission.score}</MetaInline>
+                  <MetaInline label={text.submissions.time}>{submission.timeMs === undefined ? '-' : `${submission.timeMs}ms`}</MetaInline>
+                  <MetaInline label={text.submissions.memory}>{memoryText(submission.memoryKb)}</MetaInline>
+                  {session.admin ? <Button size="small" icon={<ReloadOutlined />} loading={rejudge.isPending} onClick={() => rejudge.mutate()}>{text.submissions.rejudge}</Button> : null}
+                </Space>
+              }
+            >
+              <Flex vertical gap={24}>
+                {submission.message ? (
+                  <div className="submissionMessagePreview">
+                    <MarkdownPreview value={codeMarkdown(submission.message, 'text')} />
+                  </div>
+                ) : null}
+                <Table<Case> rowKey="no" columns={caseColumns(text)} dataSource={cases} pagination={false} size="small" />
+              </Flex>
+            </Card>
+          </ResultCard>
         </Col>
         <Col xs={24} lg={8}>
           <Card>
@@ -138,6 +146,10 @@ export function SubmissionDetailPage() {
       ) : null}
     </Flex>
   )
+}
+
+function ResultCard({ judging, children }: { judging: boolean; children: ReactNode }) {
+  return judging ? <BorderBeam>{children}</BorderBeam> : children
 }
 
 function codeMarkdown(source: string, syntax: string) {

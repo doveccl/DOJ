@@ -297,11 +297,7 @@ body {
 .problemHeadTitle {
   min-width: 0;
   width: 100%;
-}
-
-.problemHeadTitle {
-  min-width: 0;
-  width: 100%;
+  overflow: hidden;
 }
 
 .problemCodeText,
@@ -312,7 +308,9 @@ body {
 }
 
 .problemTitleText {
-  flex: 1 1 auto;
+  display: inline-block;
+  flex: 0 1 auto;
+  max-width: clamp(220px, 34vw, 520px);
   min-width: 0;
 }
 
@@ -324,6 +322,10 @@ body {
 
 .problemHeadTitle .ant-tag {
   margin-inline-end: 0;
+}
+
+.submissionMessagePreview {
+  min-width: 0;
 }
 
 .adminBackupPage {
