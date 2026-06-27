@@ -23,7 +23,7 @@ import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
-import { createContest, deleteContest, getContest, getContestPage, updateContest } from '../client'
+import { api, apiData, apiEmpty } from '../client'
 import type { Contest, ProblemRef } from '../client'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../components/state'
@@ -54,7 +54,7 @@ export function ContestsPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const page = pageFromParams(params)
   const pageSize = pageSizeFromParams(params)
-  const query = useQuery({ queryKey: ['contests', page, pageSize], queryFn: () => getContestPage({ page, pageSize }) })
+  const query = useQuery({ queryKey: ['contests', page, pageSize], queryFn: () => apiData(api.GET('/api/contests', { params: { query: { page, pageSize } } })) })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
@@ -67,7 +67,7 @@ export function ContestsPage() {
     problems: values.problems ?? []
   })
   const create = useMutation({
-    mutationFn: (values: ContestForm) => createContest(payload(values)),
+    mutationFn: (values: ContestForm) => apiData(api.POST('/api/contests', { body: payload(values) })),
     onSuccess: (item) => {
       void client.invalidateQueries({ queryKey: ['contests'] })
       void client.invalidateQueries({ queryKey: ['home'] })
@@ -82,7 +82,7 @@ export function ContestsPage() {
       if (!editingId) {
         throw new Error(text.common.emptyResponse)
       }
-      return updateContest(editingId, payload(values))
+      return apiData(api.PATCH('/api/contests/{id}', { params: { path: { id: editingId } }, body: payload(values) }))
     },
     onSuccess: (item) => {
       void client.invalidateQueries({ queryKey: ['contests'] })
@@ -94,7 +94,7 @@ export function ContestsPage() {
     onError: showError
   })
   const remove = useMutation({
-    mutationFn: deleteContest,
+    mutationFn: (id: number) => apiEmpty(api.DELETE('/api/contests/{id}', { params: { path: { id } } })),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['contests'] })
       void client.invalidateQueries({ queryKey: ['home'] })
@@ -184,7 +184,7 @@ function ContestModal({
   const isEdit = editingId !== null
   const detail = useQuery({
     queryKey: ['contest', editingId],
-    queryFn: () => getContest(editingId ?? 0),
+    queryFn: () => apiData(api.GET('/api/contests/{id}', { params: { path: { id: editingId ?? 0 } } })),
     enabled: isEdit
   })
 

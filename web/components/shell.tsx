@@ -22,7 +22,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
-import { getSite } from '../client'
+import { api, apiData } from '../client'
 import { useColor } from '../color'
 import type { ColorMode } from '../color'
 import { useLocale } from '../locale'
@@ -63,7 +63,7 @@ export function Shell() {
   const queryClient = useQueryClient()
   const previousRole = useRef(session.role)
   const [loginOpen, setLoginOpen] = useState(false)
-  const site = useQuery({ queryKey: ['site'], queryFn: getSite })
+  const site = useQuery({ queryKey: ['site'], queryFn: () => apiData(api.GET('/api/site')) })
   const items = navItems(text, session.admin)
   const siteName = site.data?.siteName || 'DOJ'
   const registrationOpen = site.data?.allowRegistration ?? false

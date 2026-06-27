@@ -19,7 +19,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
-import { createProblem, deleteProblem, getProblemPage, updateProblemVisibility } from '../client'
+import { api, apiData, apiEmpty } from '../client'
 import type { ProblemListItem, ProblemListPage } from '../client'
 import { EntityTag, ProblemLink } from '../components/entity'
 import { JudgeModeSelect } from '../components/judge'
@@ -52,20 +52,20 @@ export function ProblemsPage() {
   const tag = params.get('tag') ?? ''
   const page = pageFromParams(params)
   const pageSize = pageSizeFromParams(params)
-  const query = useQuery({ queryKey: ['problems', q, tag, page, pageSize], queryFn: () => getProblemPage({ q, tag, page, pageSize }) })
+  const query = useQuery({ queryKey: ['problems', q, tag, page, pageSize], queryFn: () => apiData(api.GET('/api/problems', { params: { query: { q, tag, page, pageSize } } })) })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
   const create = useMutation({
     mutationFn: (values: ProblemForm) =>
-      createProblem({
+      apiData(api.POST('/api/problems', { body: {
         title: values.title,
         tags: values.tags ?? [],
         visible: true,
         mode: values.mode,
         timeMs: values.timeMs,
         memoryMb: values.memoryMb
-      }),
+      } })),
     onSuccess: (item) => {
       void client.invalidateQueries({ queryKey: ['problems'] })
       void client.invalidateQueries({ queryKey: ['home'] })
@@ -76,7 +76,7 @@ export function ProblemsPage() {
     onError: showError
   })
   const remove = useMutation({
-    mutationFn: deleteProblem,
+    mutationFn: (id: number) => apiEmpty(api.DELETE('/api/problems/{id}', { params: { path: { id } } })),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['problems'] })
       void client.invalidateQueries({ queryKey: ['home'] })
@@ -86,9 +86,7 @@ export function ProblemsPage() {
   })
   const visibility = useMutation({
     mutationFn: (item: ProblemListItem) =>
-      updateProblemVisibility(item.id, {
-        visible: !item.visible
-      }),
+      apiData(api.PATCH('/api/problems/{id}/visibility', { params: { path: { id: item.id } }, body: { visible: !item.visible } })),
     onSuccess: (item) => {
       replaceProblemInCaches(client, item)
       void client.invalidateQueries({ queryKey: ['problems'] })

@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import { getProblems } from '../client'
+import { api, apiData } from '../client'
 import type { ProblemListItem, ProblemRef } from '../client'
 import { useLocale } from '../locale'
 import { problemCode, problemLabel } from '../utils/format'
@@ -28,7 +28,7 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading }:
   const search = useRemoteSearch()
   const remote = useQuery({
     queryKey: ['problems', 'select', search.searchText],
-    queryFn: () => getProblems({ q: search.searchText }),
+    queryFn: () => apiData(api.GET('/api/problems', { params: { query: { q: search.searchText, page: 1, pageSize: 50 } } })).then((page) => page.items),
     enabled: search.active || value.length > 0
   })
   const remoteOptions = useMemo(() => (remote.data ?? []).map(problemOption), [remote.data])

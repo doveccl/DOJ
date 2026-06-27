@@ -14,35 +14,24 @@ export type UploadResult = components['schemas']['UploadResult']
 export type ProblemListItem = components['schemas']['ProblemListItem']
 export type ProblemListPage = components['schemas']['ProblemListPage']
 export type Problem = components['schemas']['Problem']
-export type ProblemCreate = components['schemas']['ProblemCreate']
-export type ProblemUpdate = components['schemas']['ProblemUpdate']
-export type ProblemVisibilityUpdate = components['schemas']['ProblemVisibilityUpdate']
 export type ProblemAssets = components['schemas']['ProblemAssets']
 export type AssetFile = components['schemas']['AssetFile']
-export type AssetCaseCreate = components['schemas']['AssetCaseCreate']
 export type AssetContent = components['schemas']['AssetContent']
-export type AssetContentUpdate = components['schemas']['AssetContentUpdate']
 export type Item = components['schemas']['Item']
 export type HeatCell = components['schemas']['HeatCell']
 export type Assignment = components['schemas']['Assignment']
 export type AssignmentListItem = components['schemas']['AssignmentListItem']
 export type AssignmentListPage = components['schemas']['AssignmentListPage']
 export type ProblemRef = components['schemas']['ProblemRef']
-export type AssignmentCreate = components['schemas']['AssignmentCreate']
-export type AssignmentUpdate = components['schemas']['AssignmentUpdate']
 export type AssignmentDetail = components['schemas']['AssignmentDetail']
 export type AssignmentProgress = components['schemas']['AssignmentProgress']
 export type Contest = components['schemas']['Contest']
 export type ContestListPage = components['schemas']['ContestListPage']
-export type ContestCreate = components['schemas']['ContestCreate']
-export type ContestUpdate = components['schemas']['ContestUpdate']
 export type ContestDetail = components['schemas']['ContestDetail']
 export type Submission = components['schemas']['Submission']
 export type SubmissionListItem = components['schemas']['SubmissionListItem']
 export type SubmissionListPage = components['schemas']['SubmissionListPage']
 export type SubmissionDetail = components['schemas']['SubmissionDetail']
-export type SubmitRequest = components['schemas']['SubmitRequest']
-export type SubmissionUpdate = components['schemas']['SubmissionUpdate']
 export type Case = components['schemas']['Case']
 export type RankUser = components['schemas']['RankUser']
 export type RankProblem = components['schemas']['RankProblem']
@@ -56,30 +45,19 @@ export type Discussion = components['schemas']['Discussion']
 export type DiscussionListPage = components['schemas']['DiscussionListPage']
 export type DiscussionDetail = components['schemas']['DiscussionDetail']
 export type DiscussionCreate = components['schemas']['DiscussionCreate']
-export type DiscussionUpdate = components['schemas']['DiscussionUpdate']
 export type Comment = components['schemas']['Comment']
 export type CommentCreate = components['schemas']['CommentCreate']
 export type Me = components['schemas']['Me']
-export type MeUpdate = components['schemas']['MeUpdate']
 export type PasswordUpdate = components['schemas']['PasswordUpdate']
-export type LoginRequest = components['schemas']['LoginRequest']
-export type RegisterRequest = components['schemas']['RegisterRequest']
 export type AdminMembers = components['schemas']['AdminMembers']
 export type AdminUserPage = components['schemas']['AdminUserPage']
 export type AdminSettings = components['schemas']['AdminSettings']
-export type AdminSettingsPatch = components['schemas']['AdminSettingsPatch']
 export type AdminUserCreate = components['schemas']['AdminUserCreate']
-export type AdminUserUpdate = components['schemas']['AdminUserUpdate']
-export type PasswordReset = components['schemas']['PasswordReset']
-export type AdminGroup = components['schemas']['AdminGroup']
 export type AdminGroupPage = components['schemas']['AdminGroupPage']
 export type AdminGroupUpdate = components['schemas']['AdminGroupUpdate']
 export type AdminLang = components['schemas']['AdminLang']
-export type AdminLangUpdate = components['schemas']['AdminLangUpdate']
 export type AdminLangCreate = components['schemas']['AdminLangCreate']
 export type AdminJudgers = components['schemas']['AdminJudgers']
-export type AdminJudgerUpdate = components['schemas']['AdminJudgerUpdate']
-export type AdminJudgerCreate = components['schemas']['AdminJudgerCreate']
 export type BackupSettings = components['schemas']['BackupSettings']
 export type BackupList = components['schemas']['BackupList']
 export type BackupItem = components['schemas']['BackupItem']
@@ -88,7 +66,7 @@ function defaultBaseUrl() {
   return typeof window === 'undefined' ? 'http://localhost:7974' : window.location.origin
 }
 
-const client = createClient<paths>({
+export const api = createClient<paths>({
   baseUrl: defaultBaseUrl(),
   fetch: (input: RequestInfo | URL, init?: RequestInit) => {
     const nextInit = init ?? {}
@@ -170,6 +148,18 @@ function readCookie(name: string) {
   return item ? decodeURIComponent(item.slice(prefix.length)) : ''
 }
 
+export async function apiData<T>(response: PromiseLike<{ data?: T; error?: unknown }>) {
+  const { data, error } = await response
+  return assertData(data, error)
+}
+
+export async function apiEmpty(response: PromiseLike<{ error?: unknown }>) {
+  const { error } = await response
+  if (error) {
+    throw new Error(errorMessage(error))
+  }
+}
+
 function assertData<T>(data: T | undefined, error: unknown): T {
   if (error) {
     throw new Error(errorMessage(error))
@@ -196,60 +186,6 @@ function errorMessage(error: unknown) {
   return JSON.stringify(error)
 }
 
-export async function getHome() {
-  const { data, error } = await client.GET('/api/home')
-  return assertData(data, error)
-}
-
-export async function getSite() {
-  const { data, error } = await client.GET('/api/site')
-  return assertData(data, error)
-}
-
-export async function updateNotice(body: NoticeUpdate) {
-  const { data, error } = await client.PATCH('/api/home/notice', { body })
-  return assertData(data, error)
-}
-
-export async function getMe() {
-  const { data, error } = await client.GET('/api/me')
-  return assertData(data, error)
-}
-
-export async function updateMe(body: MeUpdate) {
-  const { data, error } = await client.PATCH('/api/me', { body })
-  return assertData(data, error)
-}
-
-export async function updatePassword(body: PasswordUpdate) {
-  const { error } = await client.PATCH('/api/me/password', { body })
-  if (error) {
-    throw new Error(errorMessage(error))
-  }
-}
-
-export async function login(body: LoginRequest) {
-  const { data, error } = await client.POST('/api/auth/login', { body })
-  return assertData(data, error)
-}
-
-export async function register(body: RegisterRequest) {
-  const { data, error } = await client.POST('/api/auth/register', { body })
-  return assertData(data, error)
-}
-
-export async function logout() {
-  const { error } = await client.POST('/api/auth/logout')
-  if (error) {
-    throw new Error(errorMessage(error))
-  }
-}
-
-export async function getLangs() {
-  const { data, error } = await client.GET('/api/languages')
-  return assertData(data, error)
-}
-
 export async function uploadImage(file: File) {
   const body = new FormData()
   body.set('file', file)
@@ -272,236 +208,12 @@ export async function uploadProblemImage(id: number, file: File) {
   return data.url
 }
 
-export async function getAdminSettings() {
-  const { data, error } = await client.GET('/api/admin/settings')
-  return assertData(data, error)
-}
-
-export async function getAdminMembers(params: { q?: string; users?: string; groups?: string } = {}) {
-  const { data, error } = await client.GET('/api/admin/members', {
-    params: { query: params }
-  })
-  return assertData(data, error)
-}
-
-export async function getAdminUsers(params: { q?: string } & PageParams = {}) {
-  const { data, error } = await client.GET('/api/admin/users', {
-    params: { query: params }
-  })
-  return assertData(data, error)
-}
-
-export async function getAdminGroups(params: { q?: string } & PageParams = {}) {
-  const { data, error } = await client.GET('/api/admin/groups', {
-    params: { query: params }
-  })
-  return assertData(data, error)
-}
-
-export async function updateAdminSettings(body: AdminSettingsPatch) {
-  const { data, error } = await client.PATCH('/api/admin/settings', { body })
-  return assertData(data, error)
-}
-
-export async function createAdminUser(body: AdminUserCreate) {
-  const { data, error } = await client.POST('/api/admin/users', { body })
-  return assertData(data, error)
-}
-
-export async function updateAdminUser(name: string, body: AdminUserUpdate) {
-  const { data, error } = await client.PATCH('/api/admin/users/{name}', {
-    params: { path: { name } },
-    body
-  })
-  return assertData(data, error)
-}
-
-export async function deleteAdminUser(name: string) {
-  const { data, error } = await client.DELETE('/api/admin/users/{name}', {
-    params: { path: { name } }
-  })
-  return assertData(data, error)
-}
-
-export async function resetAdminUserPassword(name: string) {
-  const { data, error } = await client.POST('/api/admin/users/{name}/password', {
-    params: { path: { name } }
-  })
-  return assertData(data, error)
-}
-
-export async function createAdminGroup(body: AdminGroupUpdate) {
-  const { data, error } = await client.POST('/api/admin/groups', { body })
-  return assertData(data, error)
-}
-
-export async function updateAdminGroup(id: number, body: AdminGroupUpdate) {
-  const { data, error } = await client.PATCH('/api/admin/groups/{id}', {
-    params: { path: { id } },
-    body
-  })
-  return assertData(data, error)
-}
-
-export async function deleteAdminGroup(id: number) {
-  const { data, error } = await client.DELETE('/api/admin/groups/{id}', {
-    params: { path: { id } }
-  })
-  return assertData(data, error)
-}
-
-export async function updateAdminLang(id: string, body: AdminLangUpdate) {
-  const { data, error } = await client.PATCH('/api/admin/languages/{id}', {
-    params: { path: { id } },
-    body
-  })
-  return assertData(data, error)
-}
-
-export async function deleteAdminLang(id: string) {
-  const { data, error } = await client.DELETE('/api/admin/languages/{id}', {
-    params: { path: { id } }
-  })
-  return assertData(data, error)
-}
-
-export async function createAdminLang(body: AdminLangCreate) {
-  const { data, error } = await client.POST('/api/admin/languages', { body })
-  return assertData(data, error)
-}
-
-export async function getAdminLangs() {
-  const { data, error } = await client.GET('/api/admin/languages')
-  return assertData(data, error)
-}
-
-export async function getAdminJudgers() {
-  const { data, error } = await client.GET('/api/admin/judgers')
-  return assertData(data, error)
-}
-
-export async function updateAdminJudger(id: number, body: AdminJudgerUpdate) {
-  const { data, error } = await client.PATCH('/api/admin/judgers/{id}', {
-    params: { path: { id } },
-    body
-  })
-  return assertData(data, error)
-}
-
-export async function deleteAdminJudger(id: number) {
-  const { data, error } = await client.DELETE('/api/admin/judgers/{id}', {
-    params: { path: { id } }
-  })
-  return assertData(data, error)
-}
-
-export async function createAdminJudger(body: AdminJudgerCreate) {
-  const { data, error } = await client.POST('/api/admin/judgers', { body })
-  return assertData(data, error)
-}
-
-export async function getBackupSettings() {
-  const { data, error } = await client.GET('/api/admin/backups/settings')
-  return assertData(data, error)
-}
-
-export async function updateBackupSettings(body: BackupSettings) {
-  const { data, error } = await client.PATCH('/api/admin/backups/settings', { body })
-  return assertData(data, error)
-}
-
-export async function getBackups() {
-  const { data, error } = await client.GET('/api/admin/backups')
-  return assertData(data, error)
-}
-
-export async function createBackup() {
-  const { data, error } = await client.POST('/api/admin/backups')
-  return assertData(data, error)
-}
-
-export async function deleteBackup(name: string) {
-  const { error } = await client.DELETE('/api/admin/backups/{name}', {
-    params: { path: { name } }
-  })
-  if (error) {
-    throw new Error(errorMessage(error))
-  }
-}
-
 export async function downloadBackup(name: string) {
   const response = await apiFetch(`/api/admin/backups/${encodeURIComponent(name)}/download`)
   if (!response.ok) {
     throw new Error(await response.text())
   }
   return response.blob()
-}
-
-type PageParams = {
-  page?: number
-  pageSize?: number
-}
-
-export async function getProblemPage(params: { q?: string; tag?: string } & PageParams = {}) {
-  const { data, error } = await client.GET('/api/problems', {
-    params: { query: params }
-  })
-  return assertData(data, error)
-}
-
-export async function getProblems(params: { q?: string; tag?: string } = {}) {
-  return (await getProblemPage({ ...params, page: 1, pageSize: 50 })).items
-}
-
-export async function getTags(kind: 'problem' | 'discussion', q = '') {
-  const { data, error } = await client.GET('/api/tags', {
-    params: { query: { kind, q } }
-  })
-  return assertData(data, error)
-}
-
-export async function getProblem(id: number) {
-  const { data, error } = await client.GET('/api/problems/{id}', {
-    params: { path: { id } }
-  })
-  return assertData(data, error)
-}
-
-export async function createProblem(body: ProblemCreate) {
-  const { data, error } = await client.POST('/api/problems', { body })
-  return assertData(data, error)
-}
-
-export async function updateProblem(id: number, body: ProblemUpdate) {
-  const { data, error } = await client.PATCH('/api/problems/{id}', {
-    params: { path: { id } },
-    body
-  })
-  return assertData(data, error)
-}
-
-export async function updateProblemVisibility(id: number, body: ProblemVisibilityUpdate) {
-  const { data, error } = await client.PATCH('/api/problems/{id}/visibility', {
-    params: { path: { id } },
-    body
-  })
-  return assertData(data, error)
-}
-
-export async function deleteProblem(id: number) {
-  const { error } = await client.DELETE('/api/problems/{id}', {
-    params: { path: { id } }
-  })
-  if (error) {
-    throw new Error(errorMessage(error))
-  }
-}
-
-export async function getProblemAssets(id: number) {
-  const { data, error } = await client.GET('/api/problems/{id}/assets', {
-    params: { path: { id } }
-  })
-  return assertData(data, error)
 }
 
 export async function uploadProblemAsset(id: number, section: 'data' | 'judge' | 'assets', file: File) {
@@ -513,43 +225,6 @@ export async function uploadProblemAsset(id: number, section: 'data' | 'judge' |
     throw new Error(await response.text())
   }
   return (await response.json()) as ProblemAssets
-}
-
-export async function deleteProblemAsset(id: number, key: string) {
-  const { data, error } = await client.DELETE('/api/problems/{id}/assets/files', {
-    params: { path: { id }, query: { key } }
-  })
-  return assertData(data, error)
-}
-
-export async function getProblemAssetContent(id: number, key: string) {
-  const { data, error } = await client.GET('/api/problems/{id}/assets/files/content', {
-    params: { path: { id }, query: { key } }
-  })
-  return assertData(data, error)
-}
-
-export async function updateProblemAssetContent(id: number, body: AssetContentUpdate) {
-  const { data, error } = await client.PATCH('/api/problems/{id}/assets/files/content', {
-    params: { path: { id } },
-    body
-  })
-  return assertData(data, error)
-}
-
-export async function createProblemCase(id: number, body: AssetCaseCreate) {
-  const { data, error } = await client.POST('/api/problems/{id}/assets/cases', {
-    params: { path: { id } },
-    body
-  })
-  return assertData(data, error)
-}
-
-export async function fillJudgeTemplate(id: number) {
-  const { data, error } = await client.POST('/api/problems/{id}/assets/template', {
-    params: { path: { id } }
-  })
-  return assertData(data, error)
 }
 
 export async function downloadProblemAssets(id: number) {
@@ -571,181 +246,4 @@ export async function downloadProblemFile(id: number, section: 'data' | 'judge',
     throw new Error(await response.text())
   }
   return response.blob()
-}
-
-export async function getAssignmentPage(params: { q?: string } & PageParams = {}) {
-  const { data, error } = await client.GET('/api/assignments', {
-    params: { query: params }
-  })
-  return assertData(data, error)
-}
-
-export async function getAssignments(params: { q?: string } = {}) {
-  return (await getAssignmentPage({ ...params, page: 1, pageSize: 50 })).items
-}
-
-export async function createAssignment(body: AssignmentCreate) {
-  const { data, error } = await client.POST('/api/assignments', { body })
-  return assertData(data, error)
-}
-
-export async function updateAssignment(id: number, body: AssignmentUpdate) {
-  const { data, error } = await client.PATCH('/api/assignments/{id}', {
-    params: { path: { id } },
-    body
-  })
-  return assertData(data, error)
-}
-
-export async function deleteAssignment(id: number) {
-  const { error } = await client.DELETE('/api/assignments/{id}', {
-    params: { path: { id } }
-  })
-  if (error) {
-    throw new Error(errorMessage(error))
-  }
-}
-
-export async function getAssignment(id: number) {
-  const { data, error } = await client.GET('/api/assignments/{id}', {
-    params: { path: { id } }
-  })
-  return assertData(data, error)
-}
-
-export async function getContestPage(params: { q?: string } & PageParams = {}) {
-  const { data, error } = await client.GET('/api/contests', {
-    params: { query: params }
-  })
-  return assertData(data, error)
-}
-
-export async function getContests(params: { q?: string } = {}) {
-  return (await getContestPage({ ...params, page: 1, pageSize: 50 })).items
-}
-
-export async function createContest(body: ContestCreate) {
-  const { data, error } = await client.POST('/api/contests', { body })
-  return assertData(data, error)
-}
-
-export async function updateContest(id: number, body: ContestUpdate) {
-  const { data, error } = await client.PATCH('/api/contests/{id}', {
-    params: { path: { id } },
-    body
-  })
-  return assertData(data, error)
-}
-
-export async function deleteContest(id: number) {
-  const { error } = await client.DELETE('/api/contests/{id}', {
-    params: { path: { id } }
-  })
-  if (error) {
-    throw new Error(errorMessage(error))
-  }
-}
-
-export async function getContest(id: number) {
-  const { data, error } = await client.GET('/api/contests/{id}', {
-    params: { path: { id } }
-  })
-  return assertData(data, error)
-}
-
-export async function getSubmissionPage(params: { problem?: string; user?: string; assignment?: string; contest?: string } & PageParams = {}) {
-  const { data, error } = await client.GET('/api/submissions', {
-    params: { query: params }
-  })
-  return assertData(data, error)
-}
-
-export async function getSubmission(id: number) {
-  const { data, error } = await client.GET('/api/submissions/{id}', {
-    params: { path: { id } }
-  })
-  return assertData(data, error)
-}
-
-export async function submitCode(body: SubmitRequest) {
-  const { data, error } = await client.POST('/api/submissions', { body })
-  return assertData(data, error)
-}
-
-export async function updateSubmission(id: number, body: SubmissionUpdate) {
-  const { data, error } = await client.PATCH('/api/submissions/{id}', {
-    params: { path: { id } },
-    body
-  })
-  return assertData(data, error)
-}
-
-export async function rejudgeSubmission(id: number) {
-  const { data, error } = await client.POST('/api/submissions/{id}/rejudge', {
-    params: { path: { id } }
-  })
-  return assertData(data, error)
-}
-
-export async function getRank() {
-  const { data, error } = await client.GET('/api/rank')
-  return assertData(data, error)
-}
-
-export async function searchUsers(params: { q?: string } = {}) {
-  const { data, error } = await client.GET('/api/users', {
-    params: { query: params }
-  })
-  return assertData(data, error)
-}
-
-export async function getUser(name: string, params: { solvedPage?: number; solvedPageSize?: number } = {}) {
-  const { data, error } = await client.GET('/api/users/{name}', {
-    params: { path: { name }, query: params }
-  })
-  return assertData(data, error)
-}
-
-export async function getDiscussionPage(params: { q?: string; tags?: string } & PageParams = {}) {
-  const { data, error } = await client.GET('/api/discussion', {
-    params: { query: params }
-  })
-  return assertData(data, error)
-}
-
-export async function createDiscussion(body: DiscussionCreate) {
-  const { data, error } = await client.POST('/api/discussion', { body })
-  return assertData(data, error)
-}
-
-export async function getDiscussion(id: number) {
-  const { data, error } = await client.GET('/api/discussion/{id}', {
-    params: { path: { id } }
-  })
-  return assertData(data, error)
-}
-
-export async function updateDiscussion(id: number, body: DiscussionUpdate) {
-  const { data, error } = await client.PATCH('/api/discussion/{id}', {
-    params: { path: { id } },
-    body
-  })
-  return assertData(data, error)
-}
-
-export async function deleteDiscussion(id: number) {
-  const { error } = await client.DELETE('/api/discussion/{id}', {
-    params: { path: { id } }
-  })
-  if (error) {
-    throw new Error(errorMessage(error))
-  }
-}
-
-export async function createComment(id: number, body: CommentCreate) {
-  const { data, error } = await client.POST('/api/discussion/{id}/comments', {
-    params: { path: { id } },
-    body
-  })
-  return assertData(data, error)
 }

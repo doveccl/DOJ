@@ -4,7 +4,7 @@ import type { TableProps } from 'antd'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
-import { getAssignments, getContests, getLangs, getProblems, getSubmissionPage, searchUsers } from '../client'
+import { api, apiData } from '../client'
 import type { SubmissionListItem } from '../client'
 import { ProblemLink, UserLink } from '../components/entity'
 import { ErrorBlock, LoadingBlock } from '../components/state'
@@ -37,27 +37,27 @@ export function SubmissionsPage() {
   const contestSearch = useRemoteSearch()
   const query = useQuery({
     queryKey: ['submissions', problem, user, assignment, contest, page, pageSize],
-    queryFn: () => getSubmissionPage(cleanFilters({ problem, user, assignment, contest, page, pageSize }))
+    queryFn: () => apiData(api.GET('/api/submissions', { params: { query: cleanFilters({ problem, user, assignment, contest, page, pageSize }) } }))
   })
-  const languages = useQuery({ queryKey: ['languages'], queryFn: getLangs })
+  const languages = useQuery({ queryKey: ['languages'], queryFn: () => apiData(api.GET('/api/languages')) })
   const problems = useQuery({
     queryKey: ['problems', 'submission-filter', problemSearch.searchText],
-    queryFn: () => getProblems({ q: problemSearch.searchText }),
+    queryFn: () => apiData(api.GET('/api/problems', { params: { query: { q: problemSearch.searchText, page: 1, pageSize: 50 } } })).then((page) => page.items),
     enabled: problemSearch.active || problem.length > 0
   })
   const users = useQuery({
     queryKey: ['users', 'submission-filter', userSearch.searchText],
-    queryFn: () => searchUsers({ q: userSearch.searchText }),
+    queryFn: () => apiData(api.GET('/api/users', { params: { query: { q: userSearch.searchText } } })),
     enabled: userSearch.active || user.length > 0
   })
   const assignments = useQuery({
     queryKey: ['assignments', 'submission-filter', assignmentSearch.searchText],
-    queryFn: () => getAssignments({ q: assignmentSearch.searchText }),
+    queryFn: () => apiData(api.GET('/api/assignments', { params: { query: { q: assignmentSearch.searchText, page: 1, pageSize: 50 } } })).then((page) => page.items),
     enabled: assignmentSearch.active || assignment.length > 0
   })
   const contests = useQuery({
     queryKey: ['contests', 'submission-filter', contestSearch.searchText],
-    queryFn: () => getContests({ q: contestSearch.searchText }),
+    queryFn: () => apiData(api.GET('/api/contests', { params: { query: { q: contestSearch.searchText, page: 1, pageSize: 50 } } })).then((page) => page.items),
     enabled: contestSearch.active || contest.length > 0
   })
   const languageNames = new Map((languages.data ?? []).map((item) => [item.id, item.name]))

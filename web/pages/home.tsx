@@ -4,8 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import { getHome, updateNotice } from '../client'
-import type { HomeAssignment, HomeContest, HomeProblem } from '../client'
+import { api, apiData } from '../client'
+import type { HomeAssignment, HomeContest, HomeProblem, NoticeUpdate } from '../client'
 import { ProblemLink } from '../components/entity'
 import { YearHeatmap } from '../components/heatmap'
 import { MarkdownEditor, MarkdownPreview } from '../components/markdown'
@@ -24,12 +24,12 @@ export function HomePage() {
   const client = useQueryClient()
   const [noticeEditing, setNoticeEditing] = useState(false)
   const [noticeForm] = Form.useForm<NoticeForm>()
-  const query = useQuery({ queryKey: ['home'], queryFn: getHome })
+  const query = useQuery({ queryKey: ['home'], queryFn: () => apiData(api.GET('/api/home')) })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
   const notice = useMutation({
-    mutationFn: (values: NoticeForm) => updateNotice({ content: values.content }),
+    mutationFn: (values: NoticeForm) => apiData(api.PATCH('/api/home/notice', { body: { content: values.content } satisfies NoticeUpdate })),
     onSuccess: (home) => {
       client.setQueryData(['home'], home)
       message.success(text.common.saved)

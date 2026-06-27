@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { apiUrl, getSite } from '../client'
+import { api, apiData, apiUrl } from '../client'
 import { useSession } from '../session'
 
 const liveKeys = new Set([
@@ -22,7 +22,7 @@ const liveKeys = new Set([
 export function LiveEvents() {
   const client = useQueryClient()
   const session = useSession()
-  const site = useQuery({ queryKey: ['site'], queryFn: getSite })
+  const site = useQuery({ queryKey: ['site'], queryFn: () => apiData(api.GET('/api/site')) })
   const enabled = session.signedIn || site.data?.allowGuestAccess === true
 
   useEffect(() => {

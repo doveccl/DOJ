@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 
-import { getTags } from '../client'
+import { api, apiData } from '../client'
 import { useRemoteSearch } from './use-debounced-value'
 
 type TagSelectProps = {
@@ -20,7 +20,7 @@ export function TagSelect({ kind, value, onChange, mode, placeholder, allowClear
   const remote = useRemoteSearch()
   const query = useQuery({
     queryKey: ['tags', kind, remote.searchText],
-    queryFn: () => getTags(kind, remote.searchText),
+    queryFn: () => apiData(api.GET('/api/tags', { params: { query: { kind, q: remote.searchText } } })),
     enabled: remote.active
   })
   const options = useMemo(() => tagOptions(value, query.data ?? []), [query.data, value])

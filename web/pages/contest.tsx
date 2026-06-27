@@ -7,7 +7,7 @@ import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 
-import { getContest, updateContest } from '../client'
+import { api, apiData } from '../client'
 import type { ProblemListItem, ProblemRef, RankUser } from '../client'
 import { ProblemLink, UserLink } from '../components/entity'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
@@ -37,7 +37,7 @@ export function ContestDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const query = useQuery({
     queryKey: ['contest', id],
-    queryFn: () => getContest(id),
+    queryFn: () => apiData(api.GET('/api/contests/{id}', { params: { path: { id } } })),
     enabled: Number.isFinite(id)
   })
   const showError = (error: unknown) => {
@@ -45,14 +45,14 @@ export function ContestDetailPage() {
   }
   const update = useMutation({
     mutationFn: (values: ContestForm) =>
-      updateContest(id, {
+      apiData(api.PATCH('/api/contests/{id}', { params: { path: { id } }, body: {
         title: values.title,
         kind: values.kind,
         startAt: values.startAt.toISOString(),
         endAt: values.endAt.toISOString(),
         freezeAt: values.freezeAt?.toISOString() ?? '',
         problems: values.problems ?? []
-      }),
+      } })),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['contests'] })
       void client.invalidateQueries({ queryKey: ['contest', id] })

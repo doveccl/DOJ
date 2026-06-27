@@ -36,20 +36,10 @@ import type { ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import {
-  createProblemCase,
-  deleteProblemAsset,
+  api,
+  apiData,
   downloadProblemAssets,
   downloadProblemFile,
-  fillJudgeTemplate,
-  getLangs,
-  getProblem,
-  getProblemAssetContent,
-  getProblemAssets,
-  getSite,
-  submitCode,
-  updateProblem,
-  updateProblemAssetContent,
-  updateProblemVisibility,
   uploadProblemImage,
   uploadProblemAsset
 } from '../client'
@@ -114,14 +104,14 @@ export function ProblemDetailPage() {
   const statementAssetBase = Number.isFinite(id) ? `/api/problems/${id}/assets/` : undefined
   const query = useQuery({
     queryKey: ['problem', id],
-    queryFn: () => getProblem(id),
+    queryFn: () => apiData(api.GET('/api/problems/{id}', { params: { path: { id } } })),
     enabled: Number.isFinite(id)
   })
-  const site = useQuery({ queryKey: ['site'], queryFn: getSite })
-  const languages = useQuery({ queryKey: ['languages'], queryFn: getLangs })
+  const site = useQuery({ queryKey: ['site'], queryFn: () => apiData(api.GET('/api/site')) })
+  const languages = useQuery({ queryKey: ['languages'], queryFn: () => apiData(api.GET('/api/languages')) })
   const assets = useQuery({
     queryKey: ['problem-assets', id],
-    queryFn: () => getProblemAssets(id),
+    queryFn: () => apiData(api.GET('/api/problems/{id}/assets', { params: { path: { id } } })),
     enabled: Number.isFinite(id) && session.admin && assetsOpen
   })
   useEffect(() => {
@@ -154,7 +144,7 @@ export function ProblemDetailPage() {
       if (!query.data) {
         throw new Error(text.common.emptyResponse)
       }
-      return submitCode({ problemId: query.data.id, language: lang, code: source, public: publicSource })
+      return apiData(api.POST('/api/submissions', { body: { problemId: query.data.id, language: lang, code: source, public: publicSource } }))
     },
     onSuccess: (item) => {
       message.success(text.problem.queued)
@@ -167,13 +157,13 @@ export function ProblemDetailPage() {
       if (!query.data) {
         throw new Error(text.common.emptyResponse)
       }
-      return updateProblem(id, {
+      return apiData(api.PATCH('/api/problems/{id}', { params: { path: { id } }, body: {
         title: values.title,
         statement: values.statement,
         tags: values.tags ?? [],
         timeMs: values.timeMs,
         memoryMb: values.memoryMb
-      })
+      } }))
     },
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['problem', id] })
@@ -186,9 +176,7 @@ export function ProblemDetailPage() {
   })
   const visibility = useMutation({
     mutationFn: (target: Problem) =>
-      updateProblemVisibility(id, {
-        visible: !target.visible
-      }),
+      apiData(api.PATCH('/api/problems/{id}/visibility', { params: { path: { id } }, body: { visible: !target.visible } })),
     onSuccess: (next) => {
       client.setQueryData(['problem', id], (current: Problem | undefined) => ({ ...next, statement: current?.statement }))
       void client.invalidateQueries({ queryKey: ['problems'] })
@@ -202,7 +190,7 @@ export function ProblemDetailPage() {
       if (!query.data) {
         throw new Error(text.common.emptyResponse)
       }
-      return updateProblem(id, { mode })
+      return apiData(api.PATCH('/api/problems/{id}', { params: { path: { id } }, body: { mode } }))
     },
     onSuccess: (_next, mode) => {
       client.setQueryData<Problem>(['problem', id], (current) => (current ? { ...current, mode } : current))
@@ -223,7 +211,7 @@ export function ProblemDetailPage() {
     onError: showError
   })
   const removeAsset = useMutation({
-    mutationFn: (key: string) => deleteProblemAsset(id, key),
+    mutationFn: (key: string) => apiData(api.DELETE('/api/problems/{id}/assets/files', { params: { path: { id }, query: { key } } })),
     onSuccess: (next) => {
       client.setQueryData(['problem-assets', id], next)
       void client.invalidateQueries({ queryKey: ['problem', id] })
@@ -233,7 +221,7 @@ export function ProblemDetailPage() {
     onError: showError
   })
   const openAsset = useMutation({
-    mutationFn: (file: AssetFile) => getProblemAssetContent(id, file.key),
+    mutationFn: (file: AssetFile) => apiData(api.GET('/api/problems/{id}/assets/files/content', { params: { path: { id }, query: { key: file.key } } })),
     onSuccess: (content) => {
       setAssetEdit(content)
       setAssetDraft(content.content)
@@ -245,7 +233,7 @@ export function ProblemDetailPage() {
       if (!assetEdit) {
         throw new Error(text.common.emptyResponse)
       }
-      return updateProblemAssetContent(id, { key: assetEdit.key, content: assetDraft })
+      return apiData(api.PATCH('/api/problems/{id}/assets/files/content', { params: { path: { id } }, body: { key: assetEdit.key, content: assetDraft } }))
     },
     onSuccess: (next) => {
       client.setQueryData(['problem-assets', id], next)
@@ -258,7 +246,7 @@ export function ProblemDetailPage() {
     onError: showError
   })
   const addCase = useMutation({
-    mutationFn: (values: { name: string; input: string; output: string }) => createProblemCase(id, values),
+    mutationFn: (body: { name: string; input: string; output: string }) => apiData(api.POST('/api/problems/{id}/assets/cases', { params: { path: { id } }, body })),
     onSuccess: (next) => {
       client.setQueryData(['problem-assets', id], next)
       void client.invalidateQueries({ queryKey: ['problem', id] })
@@ -269,7 +257,7 @@ export function ProblemDetailPage() {
     onError: showError
   })
   const fillTemplate = useMutation({
-    mutationFn: () => fillJudgeTemplate(id),
+    mutationFn: () => apiData(api.POST('/api/problems/{id}/assets/template', { params: { path: { id } } })),
     onSuccess: (next) => {
       client.setQueryData(['problem-assets', id], next)
       message.success(text.common.saved)

@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useState } from 'react'
 
-import { createDiscussion, deleteDiscussion, getDiscussion, getDiscussionPage, updateDiscussion } from '../client'
+import { api, apiData, apiEmpty } from '../client'
 import type { Discussion, DiscussionCreate } from '../client'
 import { EntityTag, UserLink } from '../components/entity'
 import { MarkdownEditor } from '../components/markdown'
@@ -37,12 +37,12 @@ export function DiscussionPage() {
   const tags = params.get('tags') ?? ''
   const page = pageFromParams(params)
   const pageSize = pageSizeFromParams(params)
-  const query = useQuery({ queryKey: ['discussion', q, tags, page, pageSize], queryFn: () => getDiscussionPage({ q, tags, page, pageSize }) })
+  const query = useQuery({ queryKey: ['discussion', q, tags, page, pageSize], queryFn: () => apiData(api.GET('/api/discussion', { params: { query: { q, tags, page, pageSize } } })) })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
   const create = useMutation({
-    mutationFn: createDiscussion,
+    mutationFn: (body: DiscussionCreate) => apiData(api.POST('/api/discussion', { body })),
     onSuccess: (item) => {
       void client.invalidateQueries({ queryKey: ['discussion'] })
       message.success(text.discussion.createdTip)
@@ -57,7 +57,7 @@ export function DiscussionPage() {
       if (!editing) {
         throw new Error(text.common.emptyResponse)
       }
-      return updateDiscussion(editing.id, values)
+      return apiData(api.PATCH('/api/discussion/{id}', { params: { path: { id: editing.id } }, body: values }))
     },
     onSuccess: (item) => {
       void client.invalidateQueries({ queryKey: ['discussion'] })
@@ -68,7 +68,7 @@ export function DiscussionPage() {
     onError: showError
   })
   const toggleState = useMutation({
-    mutationFn: ({ item, pinned, locked }: { item: Discussion; pinned?: boolean; locked?: boolean }) => updateDiscussion(item.id, { pinned, locked }),
+    mutationFn: ({ item, pinned, locked }: { item: Discussion; pinned?: boolean; locked?: boolean }) => apiData(api.PATCH('/api/discussion/{id}', { params: { path: { id: item.id } }, body: { pinned, locked } })),
     onSuccess: (item) => {
       void client.invalidateQueries({ queryKey: ['discussion'] })
       void client.invalidateQueries({ queryKey: ['discussion', item.id] })
@@ -77,7 +77,7 @@ export function DiscussionPage() {
     onError: showError
   })
   const remove = useMutation({
-    mutationFn: deleteDiscussion,
+    mutationFn: (id: number) => apiEmpty(api.DELETE('/api/discussion/{id}', { params: { path: { id } } })),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['discussion'] })
       message.success(text.common.saved)
@@ -100,7 +100,7 @@ export function DiscussionPage() {
   async function openEdit(item: Discussion) {
     setEditing(item)
     try {
-      const detail = await client.fetchQuery({ queryKey: ['discussion', item.id], queryFn: () => getDiscussion(item.id) })
+      const detail = await client.fetchQuery({ queryKey: ['discussion', item.id], queryFn: () => apiData(api.GET('/api/discussion/{id}', { params: { path: { id: item.id } } })) })
       setEditing(detail.discussion)
       setDraft({
         title: detail.discussion.title,

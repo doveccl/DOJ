@@ -7,7 +7,7 @@ import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 
-import { getAssignment, updateAssignment } from '../client'
+import { api, apiData } from '../client'
 import type { AssignmentProgress, ProblemListItem, ProblemRef } from '../client'
 import { ProblemLink, UserLink } from '../components/entity'
 import { IdSelect } from '../components/id-select'
@@ -37,7 +37,7 @@ export function AssignmentDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const query = useQuery({
     queryKey: ['assignment', id],
-    queryFn: () => getAssignment(id),
+    queryFn: () => apiData(api.GET('/api/assignments/{id}', { params: { path: { id } } })),
     enabled: Number.isFinite(id)
   })
   const showError = (error: unknown) => {
@@ -45,13 +45,13 @@ export function AssignmentDetailPage() {
   }
   const update = useMutation({
     mutationFn: (values: AssignmentForm) =>
-      updateAssignment(id, {
+      apiData(api.PATCH('/api/assignments/{id}', { params: { path: { id } }, body: {
         title: values.title,
         endAt: values.endAt.toISOString(),
         problems: values.problems ?? [],
         users: values.users ?? [],
         groups: values.groups ?? []
-      }),
+      } })),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['assignments'] })
       void client.invalidateQueries({ queryKey: ['assignment', id] })

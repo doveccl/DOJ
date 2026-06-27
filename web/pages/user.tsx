@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
-import { getMe, getUser, updateMe, updatePassword, uploadImage } from '../client'
+import { api, apiData, apiEmpty, uploadImage } from '../client'
 import type { Me, PasswordUpdate } from '../client'
 import { ProfileOverview } from '../components/profile'
 import { ErrorBlock, LoadingBlock } from '../components/state'
@@ -14,6 +14,7 @@ import { useSession } from '../session'
 import { limits } from '../utils/limits'
 
 type AccountForm = Pick<Me, 'mail' | 'bio'>
+type AccountPatch = Partial<AccountForm> & { avatar?: string }
 
 export function UserPage() {
   const { text } = useLocale()
@@ -31,12 +32,12 @@ export function UserPage() {
   }, [name])
   const query = useQuery({
     queryKey: ['user', name, solvedPage, solvedPageSize],
-    queryFn: () => getUser(name, { solvedPage, solvedPageSize }),
+    queryFn: () => apiData(api.GET('/api/users/{name}', { params: { path: { name }, query: { solvedPage, solvedPageSize } } })),
     enabled: name !== ''
   })
-  const meQuery = useQuery({ queryKey: ['me'], queryFn: getMe, enabled: isOwn })
+  const meQuery = useQuery({ queryKey: ['me'], queryFn: () => apiData(api.GET('/api/me')), enabled: isOwn })
   const account = useMutation({
-    mutationFn: updateMe,
+    mutationFn: (body: AccountPatch) => apiData(api.PATCH('/api/me', { body })),
     onSuccess: (data) => {
       client.setQueryData(['me'], data)
       void client.invalidateQueries({ queryKey: ['user', name] })
@@ -190,7 +191,7 @@ function PasswordPane({ onSaved }: { onSaved: () => void }) {
   const { message } = AntApp.useApp()
   const [form] = Form.useForm<PasswordUpdate>()
   const password = useMutation({
-    mutationFn: updatePassword,
+    mutationFn: (body: PasswordUpdate) => apiEmpty(api.PATCH('/api/me/password', { body })),
     onSuccess: () => {
       form.resetFields()
       message.success(text.common.saved)

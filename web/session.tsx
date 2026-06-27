@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { getMe, login as loginRequest, logout as logoutRequest, register as registerRequest } from './client'
+import { api, apiData, apiEmpty } from './client'
 import type { Me } from './client'
 
 export type Role = 'guest' | 'user' | 'admin'
@@ -21,6 +21,10 @@ type SessionState = {
 }
 
 const SessionContext = createContext<SessionState | null>(null)
+
+function getMe() {
+  return apiData(api.GET('/api/me'))
+}
 
 const guest: Me = {
   id: 0,
@@ -46,17 +50,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [client])
 
   const loginMutation = useMutation({
-    mutationFn: loginRequest,
+    mutationFn: (body: { name: string; password: string }) => apiData(api.POST('/api/auth/login', { body })),
     onSuccess: (next) => client.setQueryData(['me'], next)
   })
 
   const registerMutation = useMutation({
-    mutationFn: registerRequest,
+    mutationFn: (body: { name: string; mail: string; password: string }) => apiData(api.POST('/api/auth/register', { body })),
     onSuccess: (next) => client.setQueryData(['me'], next)
   })
 
   const logoutMutation = useMutation({
-    mutationFn: logoutRequest,
+    mutationFn: () => apiEmpty(api.POST('/api/auth/logout')),
     onSettled: () => client.setQueryData(['me'], guest)
   })
 

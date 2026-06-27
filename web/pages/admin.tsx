@@ -3,32 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import {
-  createAdminUser,
-  createBackup,
-  createAdminGroup,
-  createAdminJudger,
-  createAdminLang,
-  deleteBackup,
-  deleteAdminGroup,
-  deleteAdminJudger,
-  deleteAdminLang,
-  deleteAdminUser,
-  downloadBackup,
-  getAdminGroups,
-  getAdminJudgers,
-  getAdminLangs,
-  getAdminMembers,
-  getAdminSettings,
-  getAdminUsers,
-  getBackups,
-  getBackupSettings,
-  resetAdminUserPassword,
-  updateBackupSettings,
-  updateAdminGroup,
-  updateAdminJudger,
-  updateAdminLang,
-  updateAdminUser,
-  updateAdminSettings
+  api,
+  apiData,
+  apiEmpty,
+  downloadBackup
 } from '../client'
 import type { AdminGroupUpdate, AdminJudgers, AdminLang, AdminLangCreate, AdminMembers } from '../client'
 import { ErrorBlock, LoadingBlock } from '../components/state'
@@ -37,7 +15,7 @@ import { useLocale } from '../locale'
 import { useSession } from '../session'
 import { GroupModal, JudgerModal, LangModal, UserEditModal, UserModal } from './admin/modals'
 import { BackupsTab, GroupsTab, JudgersTab, LanguagesTab, SettingsTab, UsersTab } from './admin/tabs'
-import type { GroupRow, JudgerForm, JudgerRow, LanguageRow, SettingsForm, UserRow } from './admin/types'
+import type { BackupSettingsForm, GroupRow, JudgerForm, JudgerRow, LanguageRow, SettingsForm, UserForm, UserRow } from './admin/types'
 
 export function AdminPage() {
   const { lang, text } = useLocale()
@@ -68,22 +46,22 @@ export function AdminPage() {
   const languagesEnabled = session.admin && activeTab === 'languages'
   const judgersEnabled = session.admin && activeTab === 'judgers'
   const backupEnabled = session.admin && activeTab === 'backups'
-  const membersQuery = useQuery({ queryKey: ['admin-members'], queryFn: () => getAdminMembers(), enabled: membersEnabled })
+  const membersQuery = useQuery({ queryKey: ['admin-members'], queryFn: () => apiData(api.GET('/api/admin/members')), enabled: membersEnabled })
   const usersQuery = useQuery({
     queryKey: ['admin-users', userQuery, userPage, userPageSize],
-    queryFn: () => getAdminUsers({ q: userQuery, page: userPage, pageSize: userPageSize }),
+    queryFn: () => apiData(api.GET('/api/admin/users', { params: { query: { q: userQuery, page: userPage, pageSize: userPageSize } } })),
     enabled: usersEnabled
   })
   const groupsQuery = useQuery({
     queryKey: ['admin-groups', groupQuery, groupPage, groupPageSize],
-    queryFn: () => getAdminGroups({ q: groupQuery, page: groupPage, pageSize: groupPageSize }),
+    queryFn: () => apiData(api.GET('/api/admin/groups', { params: { query: { q: groupQuery, page: groupPage, pageSize: groupPageSize } } })),
     enabled: groupsEnabled
   })
-  const languagesQuery = useQuery({ queryKey: ['admin-languages'], queryFn: getAdminLangs, enabled: languagesEnabled })
-  const judgersQuery = useQuery({ queryKey: ['admin-judgers'], queryFn: getAdminJudgers, enabled: judgersEnabled })
-  const settingsQuery = useQuery({ queryKey: ['admin-settings'], queryFn: getAdminSettings, enabled: session.admin })
-  const backupSettings = useQuery({ queryKey: ['backup-settings'], queryFn: getBackupSettings, enabled: backupEnabled })
-  const backups = useQuery({ queryKey: ['backups'], queryFn: getBackups, enabled: backupEnabled, refetchInterval: (query) => (query.state.data?.running ? 5000 : false) })
+  const languagesQuery = useQuery({ queryKey: ['admin-languages'], queryFn: () => apiData(api.GET('/api/admin/languages')), enabled: languagesEnabled })
+  const judgersQuery = useQuery({ queryKey: ['admin-judgers'], queryFn: () => apiData(api.GET('/api/admin/judgers')), enabled: judgersEnabled })
+  const settingsQuery = useQuery({ queryKey: ['admin-settings'], queryFn: () => apiData(api.GET('/api/admin/settings')), enabled: session.admin })
+  const backupSettings = useQuery({ queryKey: ['backup-settings'], queryFn: () => apiData(api.GET('/api/admin/backups/settings')), enabled: backupEnabled })
+  const backups = useQuery({ queryKey: ['backups'], queryFn: () => apiData(api.GET('/api/admin/backups')), enabled: backupEnabled, refetchInterval: (query) => (query.state.data?.running ? 5000 : false) })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
@@ -105,7 +83,7 @@ export function AdminPage() {
     message.success(text.common.saved)
   }
   const settings = useMutation({
-    mutationFn: updateAdminSettings,
+    mutationFn: (body: Partial<SettingsForm>) => apiData(api.PATCH('/api/admin/settings', { body })),
     onSuccess: (data) => {
       client.setQueryData(['admin-settings'], data)
       client.setQueryData(['site'], data)
@@ -114,7 +92,7 @@ export function AdminPage() {
     onError: showError
   })
   const userSave = useMutation({
-    mutationFn: ({ name, role, groups }: { name: string; role: string; groups: number[] }) => updateAdminUser(name, { role, groups }),
+    mutationFn: ({ name, role, groups }: { name: string; role: string; groups: number[] }) => apiData(api.PATCH('/api/admin/users/{name}', { params: { path: { name } }, body: { role, groups } })),
     onSuccess: (data) => {
       saveMembers(data)
       setEditingUser(null)
@@ -122,7 +100,7 @@ export function AdminPage() {
     onError: showError
   })
   const userCreate = useMutation({
-    mutationFn: createAdminUser,
+    mutationFn: (body: UserForm) => apiData(api.POST('/api/admin/users', { body })),
     onSuccess: (data) => {
       saveMembers(data)
       setUserOpen(false)
@@ -130,12 +108,12 @@ export function AdminPage() {
     onError: showError
   })
   const userDelete = useMutation({
-    mutationFn: deleteAdminUser,
+    mutationFn: (name: string) => apiData(api.DELETE('/api/admin/users/{name}', { params: { path: { name } } })),
     onSuccess: saveMembers,
     onError: showError
   })
   const userPassword = useMutation({
-    mutationFn: resetAdminUserPassword,
+    mutationFn: (name: string) => apiData(api.POST('/api/admin/users/{name}/password', { params: { path: { name } } })),
     onSuccess: (data) => {
       modal.info({
         title: text.admin.resetPassword,
@@ -145,7 +123,10 @@ export function AdminPage() {
     onError: showError
   })
   const groupSave = useMutation({
-    mutationFn: (values: AdminGroupUpdate) => (editingGroup ? updateAdminGroup(editingGroup.id, values) : createAdminGroup(values)),
+    mutationFn: (values: AdminGroupUpdate) =>
+      editingGroup
+        ? apiData(api.PATCH('/api/admin/groups/{id}', { params: { path: { id: editingGroup.id } }, body: values }))
+        : apiData(api.POST('/api/admin/groups', { body: values })),
     onSuccess: (data) => {
       saveMembers(data)
       closeGroup()
@@ -153,12 +134,15 @@ export function AdminPage() {
     onError: showError
   })
   const groupDelete = useMutation({
-    mutationFn: deleteAdminGroup,
+    mutationFn: (id: number) => apiData(api.DELETE('/api/admin/groups/{id}', { params: { path: { id } } })),
     onSuccess: saveMembers,
     onError: showError
   })
   const langSave = useMutation({
-    mutationFn: (values: AdminLangCreate) => (editingLang ? updateAdminLang(editingLang.id, values) : createAdminLang(values)),
+    mutationFn: (values: AdminLangCreate) =>
+      editingLang
+        ? apiData(api.PATCH('/api/admin/languages/{id}', { params: { path: { id: editingLang.id } }, body: values }))
+        : apiData(api.POST('/api/admin/languages', { body: values })),
     onSuccess: (data) => {
       saveLanguages(data)
       closeLang()
@@ -166,13 +150,15 @@ export function AdminPage() {
     onError: showError
   })
   const langDelete = useMutation({
-    mutationFn: deleteAdminLang,
+    mutationFn: (id: string) => apiData(api.DELETE('/api/admin/languages/{id}', { params: { path: { id } } })),
     onSuccess: saveLanguages,
     onError: showError
   })
   const judgerSave = useMutation({
     mutationFn: (values: JudgerForm) =>
-      editingJudger ? updateAdminJudger(editingJudger.id, { name: values.name, auth: values.auth || undefined }) : createAdminJudger({ name: values.name }),
+      editingJudger
+        ? apiData(api.PATCH('/api/admin/judgers/{id}', { params: { path: { id: editingJudger.id } }, body: { name: values.name, auth: values.auth || undefined } }))
+        : apiData(api.POST('/api/admin/judgers', { body: { name: values.name } })),
     onSuccess: (data) => {
       const created = data.judgers.find((row) => row.token)
       saveJudgers(data)
@@ -198,12 +184,12 @@ export function AdminPage() {
     onError: showError
   })
   const judgerDelete = useMutation({
-    mutationFn: deleteAdminJudger,
+    mutationFn: (id: number) => apiData(api.DELETE('/api/admin/judgers/{id}', { params: { path: { id } } })),
     onSuccess: saveJudgers,
     onError: showError
   })
   const backupSettingsSave = useMutation({
-    mutationFn: updateBackupSettings,
+    mutationFn: (body: BackupSettingsForm) => apiData(api.PATCH('/api/admin/backups/settings', { body })),
     onSuccess: (data) => {
       client.setQueryData(['backup-settings'], data)
       message.success(text.common.saved)
@@ -211,7 +197,7 @@ export function AdminPage() {
     onError: showError
   })
   const backupCreate = useMutation({
-    mutationFn: createBackup,
+    mutationFn: () => apiData(api.POST('/api/admin/backups')),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['backups'] })
       message.success(text.admin.backupManualDone)
@@ -219,7 +205,7 @@ export function AdminPage() {
     onError: showError
   })
   const backupDelete = useMutation({
-    mutationFn: deleteBackup,
+    mutationFn: (name: string) => apiEmpty(api.DELETE('/api/admin/backups/{name}', { params: { path: { name } } })),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['backups'] })
     },

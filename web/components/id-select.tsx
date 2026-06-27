@@ -2,7 +2,7 @@ import { Select } from 'antd'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 
-import { getAdminMembers } from '../client'
+import { api, apiData } from '../client'
 import { useRemoteSearch } from './use-debounced-value'
 
 type Option = {
@@ -30,11 +30,17 @@ export function IdSelect({
   const query = useQuery({
     queryKey: ['admin-members', kind, search.searchText, selected],
     queryFn: () =>
-      getAdminMembers({
-        q: search.searchText,
-        users: kind === 'users' ? selected : undefined,
-        groups: kind === 'groups' ? selected : undefined
-      }),
+      apiData(
+        api.GET('/api/admin/members', {
+          params: {
+            query: {
+              q: search.searchText,
+              users: kind === 'users' ? selected : undefined,
+              groups: kind === 'groups' ? selected : undefined
+            }
+          }
+        })
+      ),
     enabled: Boolean(kind) && (search.active || selected.length > 0)
   })
   const remoteOptions = useMemo(() => {

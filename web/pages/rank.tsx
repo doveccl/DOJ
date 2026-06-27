@@ -3,14 +3,14 @@ import type { TableProps } from 'antd'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 
-import { getRank } from '../client'
+import { api, apiData } from '../client'
 import type { RankUser } from '../client'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { useLocale } from '../locale'
 
 export function RankPage() {
   const { text } = useLocale()
-  const query = useQuery({ queryKey: ['rank'], queryFn: getRank })
+  const query = useQuery({ queryKey: ['rank'], queryFn: () => apiData(api.GET('/api/rank')) })
 
   return (
     <Card>

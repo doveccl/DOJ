@@ -22,7 +22,7 @@ import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
-import { createAssignment, deleteAssignment, getAssignment, getAssignmentPage, updateAssignment } from '../client'
+import { api, apiData, apiEmpty } from '../client'
 import type { AssignmentListItem, ProblemRef } from '../client'
 import { IdSelect } from '../components/id-select'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
@@ -53,19 +53,19 @@ export function AssignmentsPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const page = pageFromParams(params)
   const pageSize = pageSizeFromParams(params)
-  const query = useQuery({ queryKey: ['assignments', page, pageSize], queryFn: () => getAssignmentPage({ page, pageSize }) })
+  const query = useQuery({ queryKey: ['assignments', page, pageSize], queryFn: () => apiData(api.GET('/api/assignments', { params: { query: { page, pageSize } } })) })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
   const create = useMutation({
     mutationFn: (values: AssignmentForm) =>
-      createAssignment({
+      apiData(api.POST('/api/assignments', { body: {
         title: values.title,
         endAt: values.endAt.toISOString(),
         problems: values.problems ?? [],
         users: values.users ?? [],
         groups: values.groups ?? []
-      }),
+      } })),
     onSuccess: (item) => {
       void client.invalidateQueries({ queryKey: ['assignments'] })
       void client.invalidateQueries({ queryKey: ['home'] })
@@ -80,13 +80,13 @@ export function AssignmentsPage() {
       if (!editingId) {
         throw new Error(text.common.emptyResponse)
       }
-      return updateAssignment(editingId, {
+      return apiData(api.PATCH('/api/assignments/{id}', { params: { path: { id: editingId } }, body: {
         title: values.title,
         endAt: values.endAt.toISOString(),
         problems: values.problems ?? [],
         users: values.users ?? [],
         groups: values.groups ?? []
-      })
+      } }))
     },
     onSuccess: (item) => {
       void client.invalidateQueries({ queryKey: ['assignments'] })
@@ -98,7 +98,7 @@ export function AssignmentsPage() {
     onError: showError
   })
   const remove = useMutation({
-    mutationFn: deleteAssignment,
+    mutationFn: (id: number) => apiEmpty(api.DELETE('/api/assignments/{id}', { params: { path: { id } } })),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['assignments'] })
       void client.invalidateQueries({ queryKey: ['home'] })
@@ -187,7 +187,7 @@ function AssignmentModal({
   const isEdit = editingId !== null
   const detail = useQuery({
     queryKey: ['assignment', editingId],
-    queryFn: () => getAssignment(editingId ?? 0),
+    queryFn: () => apiData(api.GET('/api/assignments/{id}', { params: { path: { id: editingId ?? 0 } } })),
     enabled: isEdit
   })
 

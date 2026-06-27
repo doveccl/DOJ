@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 
-import { getLangs, getSubmission, rejudgeSubmission, updateSubmission } from '../client'
+import { api, apiData } from '../client'
 import type { Case, SubmissionDetail } from '../client'
 import { ProblemLink, UserLink } from '../components/entity'
 import { MarkdownPreview } from '../components/markdown'
@@ -24,12 +24,12 @@ export function SubmissionDetailPage() {
   const id = Number(params.id)
   const query = useQuery({
     queryKey: ['submission', id],
-    queryFn: () => getSubmission(id),
+    queryFn: () => apiData(api.GET('/api/submissions/{id}', { params: { path: { id } } })),
     enabled: Number.isFinite(id)
   })
-  const languages = useQuery({ queryKey: ['languages'], queryFn: getLangs })
+  const languages = useQuery({ queryKey: ['languages'], queryFn: () => apiData(api.GET('/api/languages')) })
   const updatePublic = useMutation({
-    mutationFn: (value: boolean) => updateSubmission(id, { public: value }),
+    mutationFn: (value: boolean) => apiData(api.PATCH('/api/submissions/{id}', { params: { path: { id } }, body: { public: value } })),
     onSuccess: (_next, value) => {
       client.setQueryData<SubmissionDetail>(['submission', id], (current) => (current ? { ...current, submission: { ...current.submission, public: value } } : current))
       client.invalidateQueries({ queryKey: ['submissions'] })
@@ -37,7 +37,7 @@ export function SubmissionDetailPage() {
     onError: (error) => message.error(error.message)
   })
   const rejudge = useMutation({
-    mutationFn: () => rejudgeSubmission(id),
+    mutationFn: () => apiData(api.POST('/api/submissions/{id}/rejudge', { params: { path: { id } } })),
     onSuccess: () => {
       client.setQueryData<SubmissionDetail>(['submission', id], (current) =>
         current
