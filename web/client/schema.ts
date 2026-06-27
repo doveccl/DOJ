@@ -1206,7 +1206,6 @@ export interface components {
         AssignmentDetail: {
             assignment: components["schemas"]["Assignment"];
             problems: components["schemas"]["ProblemListItem"][];
-            submissions: components["schemas"]["Submission"][];
             progress: components["schemas"]["AssignmentProgress"][];
         };
         AssignmentProgress: {
@@ -1253,7 +1252,6 @@ export interface components {
             contest: components["schemas"]["Contest"];
             problems: components["schemas"]["ProblemListItem"][];
             rank: components["schemas"]["RankUser"][];
-            submissions: components["schemas"]["Submission"][];
         };
         ContestCreate: {
             title: string;
@@ -1291,6 +1289,18 @@ export interface components {
             timeMs?: number;
             memoryKb?: number;
             public: boolean;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        SubmissionListItem: {
+            id: number;
+            problemId: number;
+            problemTitle: string;
+            user: string;
+            language: string;
+            status: string;
+            timeMs?: number;
+            memoryKb?: number;
             /** Format: date-time */
             createdAt: string;
         };
@@ -3048,7 +3058,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Submission"][];
+                    "application/json": components["schemas"]["SubmissionListItem"][];
                 };
             };
         };

@@ -138,10 +138,9 @@ type ProblemRef struct {
 }
 
 type AssignmentDetail struct {
-	Assignment  AssignmentDTO           `json:"assignment"`
-	Problems    []ProblemDTO            `json:"problems"`
-	Submissions []SubmissionDTO         `json:"submissions"`
-	Progress    []AssignmentProgressDTO `json:"progress"`
+	Assignment AssignmentDTO           `json:"assignment"`
+	Problems   []ProblemDTO            `json:"problems"`
+	Progress   []AssignmentProgressDTO `json:"progress"`
 }
 
 type AssignmentProgressDTO struct {
@@ -186,10 +185,21 @@ type ContestUpdate struct {
 }
 
 type ContestDetail struct {
-	Contest     ContestDTO      `json:"contest"`
-	Problems    []ProblemDTO    `json:"problems"`
-	Rank        []RankUserDTO   `json:"rank"`
-	Submissions []SubmissionDTO `json:"submissions"`
+	Contest  ContestDTO    `json:"contest"`
+	Problems []ProblemDTO  `json:"problems"`
+	Rank     []RankUserDTO `json:"rank"`
+}
+
+type SubmissionListItem struct {
+	ID           uint      `json:"id"`
+	ProblemID    uint      `json:"problemId"`
+	ProblemTitle string    `json:"problemTitle"`
+	User         string    `json:"user"`
+	Language     string    `json:"language"`
+	Status       string    `json:"status"`
+	TimeMS       *int      `json:"timeMs,omitempty"`
+	MemoryKB     *int      `json:"memoryKb,omitempty"`
+	CreatedAt    time.Time `json:"createdAt"`
 }
 
 type SubmissionDTO struct {
@@ -1794,10 +1804,6 @@ func (api *API) assignment(c echo.Context) error {
 	if err := api.decorateProblemMines(c, problems); err != nil {
 		return err
 	}
-	submissions, err := api.contextSubmissions(c, "assignment", row.ID, nil, api.isAdmin(c), 0)
-	if err != nil {
-		return err
-	}
 	progressRows, err := api.assignmentProgress(row.ID, problems)
 	if err != nil {
 		return err
@@ -1814,7 +1820,7 @@ func (api *API) assignment(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, AssignmentDetail{Assignment: dto, Problems: problems, Submissions: submissions, Progress: progressRows})
+	return c.JSON(http.StatusOK, AssignmentDetail{Assignment: dto, Problems: problems, Progress: progressRows})
 }
 
 func (api *API) contests(c echo.Context) error {
@@ -2025,31 +2031,25 @@ func (api *API) contest(c echo.Context) error {
 		return err
 	}
 	admin := api.isAdmin(c)
-	submissions := []SubmissionDTO{}
 	rank := []RankUserDTO{}
 	if row.Kind != "OI" || !contestRunning(row) || admin {
 		freezeAt := api.contestFreezeCutoff(c, row)
 		contestIncludeHidden := admin || contestRunning(row)
-		viewerID, err := api.viewerID(c)
-		if err != nil {
-			return err
-		}
-		submissions, err = api.contextSubmissions(c, "contest", row.ID, freezeAt, contestIncludeHidden, viewerID)
-		if err != nil {
-			return err
-		}
 		rank, err = api.contestRank(row, problems, contestIncludeHidden, freezeAt)
 		if err != nil {
 			return err
 		}
 	}
-	return c.JSON(http.StatusOK, ContestDetail{Contest: contestDTO(row, len(problems)), Problems: problems, Rank: rank, Submissions: submissions})
+	return c.JSON(http.StatusOK, ContestDetail{Contest: contestDTO(row, len(problems)), Problems: problems, Rank: rank})
 }
 
 func (api *API) submissions(c echo.Context) error {
 
 	var rows []models.Submission
-	query := api.db.Model(&models.Submission{}).Order("submissions.created_at desc").Limit(50)
+	query := api.db.Model(&models.Submission{}).
+		Select("submissions.id", "submissions.problem_id", "submissions.user_id", "submissions.language", "submissions.status", "submissions.time_ms", "submissions.memory_kb", "submissions.created_at").
+		Order("submissions.created_at desc").
+		Limit(50)
 	if !api.isAdmin(c) {
 		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
 		query = api.applyProblemListVisibility(query)
@@ -2082,7 +2082,7 @@ func (api *API) submissions(c echo.Context) error {
 	if err := query.Find(&rows).Error; err != nil {
 		return err
 	}
-	items, err := api.submissionDTOs(rows)
+	items, err := api.submissionListItems(rows)
 	if err != nil {
 		return err
 	}
@@ -2250,34 +2250,6 @@ func (api *API) activeContestFor(problemID uint, now time.Time) (*uint, error) {
 		return nil, err
 	}
 	return &row.ID, nil
-}
-
-func (api *API) contextSubmissions(c echo.Context, context string, id uint, until *time.Time, includeHidden bool, viewerID uint) ([]SubmissionDTO, error) {
-	var rows []models.Submission
-	query := api.db.Order("submissions.created_at desc").Limit(50)
-	switch context {
-	case "assignment":
-		query = query.Where("assignment_id = ?", id)
-	case "contest":
-		query = query.Where("contest_id = ?", id)
-	default:
-		query = query.Where("1 = 0")
-	}
-	if until != nil {
-		if viewerID > 0 {
-			query = query.Where("(submissions.created_at < ? OR submissions.user_id = ?)", *until, viewerID)
-		} else {
-			query = query.Where("submissions.created_at < ?", *until)
-		}
-	}
-	if !includeHidden {
-		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
-		query = api.applyProblemListVisibility(query)
-	}
-	if err := query.Find(&rows).Error; err != nil {
-		return nil, err
-	}
-	return api.submissionDTOs(rows)
 }
 
 func (api *API) contestRank(contest models.Contest, problems []ProblemDTO, includeHidden bool, until *time.Time) ([]RankUserDTO, error) {
@@ -4686,6 +4658,18 @@ func (api *API) submissionDTO(row models.Submission) SubmissionDTO {
 	return submissionDTOFromRefs(row, nil, nil)
 }
 
+func (api *API) submissionListItems(rows []models.Submission) ([]SubmissionListItem, error) {
+	items, err := api.submissionDTOs(rows)
+	if err != nil {
+		return nil, err
+	}
+	list := make([]SubmissionListItem, 0, len(items))
+	for _, item := range items {
+		list = append(list, submissionListItemFromDTO(item))
+	}
+	return list, nil
+}
+
 func (api *API) submissionDTOs(rows []models.Submission) ([]SubmissionDTO, error) {
 	if len(rows) == 0 {
 		return []SubmissionDTO{}, nil
@@ -4709,6 +4693,20 @@ func (api *API) submissionDTOs(rows []models.Submission) ([]SubmissionDTO, error
 		items = append(items, submissionDTOFromRefs(row, titles, users))
 	}
 	return items, nil
+}
+
+func submissionListItemFromDTO(row SubmissionDTO) SubmissionListItem {
+	return SubmissionListItem{
+		ID:           row.ID,
+		ProblemID:    row.ProblemID,
+		ProblemTitle: row.ProblemTitle,
+		User:         row.User,
+		Language:     row.Language,
+		Status:       row.Status,
+		TimeMS:       row.TimeMS,
+		MemoryKB:     row.MemoryKB,
+		CreatedAt:    row.CreatedAt,
+	}
 }
 
 func submissionDTOFromRefs(row models.Submission, titles map[uint]string, users map[uint]string) SubmissionDTO {

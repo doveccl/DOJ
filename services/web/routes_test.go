@@ -125,9 +125,19 @@ func TestUsernamePreservesCaseAndMatchesCaseInsensitively(t *testing.T) {
 	if err := db.Create(&models.Submission{UserID: user.ID, ProblemID: problem.ID, Language: "cpp", Code: "code", Status: "AC", Score: 100, Public: true}).Error; err != nil {
 		t.Fatalf("create submission: %v", err)
 	}
-	submissions := decodeJSON[[]SubmissionDTO](t, requestOK(t, e, http.MethodGet, "/api/submissions?user=ALICE_ONE", ""))
+	submissionRes := requestOK(t, e, http.MethodGet, "/api/submissions?user=ALICE_ONE", "")
+	submissions := decodeJSON[[]SubmissionListItem](t, submissionRes)
 	if len(submissions) != 1 || submissions[0].User != "Alice_One" {
 		t.Fatalf("submission user filter should be case-insensitive: %+v", submissions)
+	}
+	var rawSubmissions []map[string]any
+	if err := json.Unmarshal(submissionRes.Body.Bytes(), &rawSubmissions); err != nil {
+		t.Fatalf("decode raw submissions: %v", err)
+	}
+	for _, key := range []string{"score", "message", "public"} {
+		if _, ok := rawSubmissions[0][key]; ok {
+			t.Fatalf("submission list should not include detail field %q: %+v", key, rawSubmissions[0])
+		}
 	}
 }
 
@@ -573,7 +583,7 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 		t.Fatalf("unassigned assignment detail should be hidden, got %d body=%s", res.Code, res.Body.String())
 	}
 	studentAssignment := decodeJSON[AssignmentDetail](t, requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(assignment.ID), 10), databaseSession(t, db, student.ID), nil))
-	if hasProblem(studentAssignment.Problems, hidden.ID) || hasSubmissionProblem(studentAssignment.Submissions, hidden.ID) {
+	if hasProblem(studentAssignment.Problems, hidden.ID) {
 		t.Fatalf("student assignment leaked hidden problem: %+v", studentAssignment)
 	}
 	if len(studentAssignment.Problems) != 1 || studentAssignment.Problems[0].Sort != "A" {
@@ -590,7 +600,7 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 	}
 
 	contestDetail := decodeJSON[ContestDetail](t, requestOK(t, e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), ""))
-	if hasProblem(contestDetail.Problems, hidden.ID) || hasSubmissionProblem(contestDetail.Submissions, hidden.ID) {
+	if hasProblem(contestDetail.Problems, hidden.ID) {
 		t.Fatalf("guest contest leaked hidden problem: %+v", contestDetail)
 	}
 	if len(contestDetail.Problems) != 1 || contestDetail.Problems[0].Sort != "A" {
@@ -733,15 +743,15 @@ func TestDatabaseContestRankUsesContextSubmissions(t *testing.T) {
 	Register(e, db)
 
 	guest := decodeJSON[ContestDetail](t, requestOK(t, e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), ""))
-	if len(guest.Submissions) != 0 || len(guest.Rank) != 0 {
-		t.Fatalf("OI running contest should hide submissions and rank from non-admin users: %+v %+v", guest.Submissions, guest.Rank)
+	if len(guest.Rank) != 0 {
+		t.Fatalf("OI running contest should hide rank from non-admin users: %+v", guest.Rank)
 	}
 	if !hasProblem(guest.Problems, hidden.ID) {
 		t.Fatalf("OI running contest should still expose linked problems: %+v", guest.Problems)
 	}
 	aliceDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), databaseSession(t, db, alice.ID), nil))
-	if len(aliceDetail.Submissions) != 0 || len(aliceDetail.Rank) != 0 {
-		t.Fatalf("OI running contest should hide submissions and rank from signed-in users: %+v %+v", aliceDetail.Submissions, aliceDetail.Rank)
+	if len(aliceDetail.Rank) != 0 {
+		t.Fatalf("OI running contest should hide rank from signed-in users: %+v", aliceDetail.Rank)
 	}
 
 	adminDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), databaseSession(t, db, admin.ID), nil))
@@ -918,33 +928,21 @@ func TestContestFreezeHidesLateResultsFromNonAdmin(t *testing.T) {
 	if guest.Contest.Status != "frozen" {
 		t.Fatalf("contest status should be frozen: %+v", guest.Contest)
 	}
-	if len(guest.Submissions) != 1 || guest.Submissions[0].User != "alice" {
-		t.Fatalf("guest should only see pre-freeze submissions: %+v", guest.Submissions)
-	}
 	if len(guest.Rank) != 1 || guest.Rank[0].User != "alice" {
 		t.Fatalf("guest rank should only use pre-freeze submissions: %+v", guest.Rank)
 	}
 
 	aliceDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, alice.ID), nil))
-	if !hasSubmission(aliceDetail.Submissions, before.ID) || !hasSubmission(aliceDetail.Submissions, aliceAfter.ID) || hasSubmission(aliceDetail.Submissions, bobAfter.ID) {
-		t.Fatalf("alice should see pre-freeze submissions and her own post-freeze submissions only: %+v", aliceDetail.Submissions)
-	}
 	if len(aliceDetail.Rank) != 1 || aliceDetail.Rank[0].User != "alice" || aliceDetail.Rank[0].AC != 1 {
 		t.Fatalf("alice rank should still use only pre-freeze submissions: %+v", aliceDetail.Rank)
 	}
 
 	bobDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, bob.ID), nil))
-	if !hasSubmission(bobDetail.Submissions, before.ID) || hasSubmission(bobDetail.Submissions, aliceAfter.ID) || !hasSubmission(bobDetail.Submissions, bobAfter.ID) {
-		t.Fatalf("bob should see pre-freeze submissions and his own post-freeze submissions only: %+v", bobDetail.Submissions)
-	}
 	if len(bobDetail.Rank) != 1 || bobDetail.Rank[0].User != "alice" {
 		t.Fatalf("bob rank should not include his post-freeze accepted submission: %+v", bobDetail.Rank)
 	}
 
 	adminDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, admin.ID), nil))
-	if len(adminDetail.Submissions) != 3 {
-		t.Fatalf("admin should see all submissions: %+v", adminDetail.Submissions)
-	}
 	if _, ok := rankByUser(adminDetail.Rank, "bob"); !ok {
 		t.Fatalf("admin rank should include post-freeze submitter: %+v", adminDetail.Rank)
 	}
@@ -993,9 +991,6 @@ func TestContestOIIgnoresFreezeAndUsesLastScoreAfterEnd(t *testing.T) {
 	}
 	if guest.Contest.FreezeAt != nil {
 		t.Fatalf("OI detail should not expose freezeAt: %+v", guest.Contest)
-	}
-	if len(guest.Submissions) != 2 {
-		t.Fatalf("ended OI contest should expose submissions: %+v", guest.Submissions)
 	}
 	aliceRank, ok := rankByUser(guest.Rank, "alice")
 	if !ok || aliceRank.Score != 30 || aliceRank.AC != 0 {

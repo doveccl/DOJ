@@ -30,6 +30,8 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 - Admin user/group/language/judger mutations now return only the resource view owned by the active tab, instead of settings, languages, judgers, queue, and members together.
 - `PATCH /api/problems/{id}/visibility` now returns a fully decorated `ProblemListItem` with current submit/AC/discussion/mine fields while still avoiding statement or asset storage reads.
 - Create endpoints that only need to redirect now return `CreatedID` (`{id}`): problems, assignments, contests, and discussions. Comment creation still returns the comment row because the detail page appends it immediately.
+- `GET /api/assignments/{id}` and `GET /api/contests/{id}` no longer return unused submission lists. Assignment detail keeps progress; contest detail keeps rank. Submission browsing stays on `GET /api/submissions`.
+- `GET /api/submissions` now returns `SubmissionListItem`, omitting detail-only fields (`score`, `message`, `public`) that the list page does not render.
 
 ## Endpoint Matrix
 
@@ -94,15 +96,15 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 | `GET /api/problems/{id}.zip` | Asset download | Streams problem asset zip. | OK. Explicit download endpoint. |
 | `GET /api/assignments` | List | `AssignmentListItem` without members. | Fixed. Visibility/count/done are batched; no member query for list. |
 | `POST /api/assignments` | Admin mutation | Full assignment editor fields, `{id}` out. | Fixed. Create modal redirects; detail endpoint owns member/progress expansion. |
-| `GET /api/assignments/{id}` | Detail | Assignment, linked problem summaries, submissions, progress, admin members. | OK. Detail owns progress/submission data. |
+| `GET /api/assignments/{id}` | Detail | Assignment, linked problem summaries, progress, admin members. | Fixed. Removed unused submission list; progress remains the detail-owned aggregate. |
 | `PATCH /api/assignments/{id}` | Admin mutation | Full assignment editor fields. | OK for current edit modal because every submitted field is visible/editable together. |
 | `DELETE /api/assignments/{id}` | Admin mutation | Path id only. | OK. |
 | `GET /api/contests` | List | Contest summary rows with problem count. | OK. Counts are batched. |
 | `POST /api/contests` | Admin mutation | Full contest editor fields, `{id}` out. | Fixed. Create modal redirects; detail endpoint owns rank/submission expansion. |
-| `GET /api/contests/{id}` | Detail | Contest, linked problem summaries, rank, context submissions. | OK. Detail owns rank/submission expansion. |
+| `GET /api/contests/{id}` | Detail | Contest, linked problem summaries, rank. | Fixed. Removed unused context submissions; rank remains freeze-aware. |
 | `PATCH /api/contests/{id}` | Admin mutation | Full contest editor fields. | OK for current edit modal because every submitted field is visible/editable together. |
 | `DELETE /api/contests/{id}` | Admin mutation | Path id only. | OK. |
-| `GET /api/submissions` | List | Capped submission rows with problem/user names. | OK. Problem/user references are batched; source/cases are detail-only. |
+| `GET /api/submissions` | List | Capped `SubmissionListItem` rows with problem/user names. | Fixed. Problem/user references are batched; source/cases/message/public/score are detail-only. |
 | `POST /api/submissions` | Mutation | Submit code payload, submission row out. | OK. |
 | `GET /api/submissions/{id}` | Detail | Submission row, source code, case results. | OK. Detail owns source/cases and visibility checks. |
 | `PATCH /api/submissions/{id}` | Partial mutation | Public flag only. | OK. |

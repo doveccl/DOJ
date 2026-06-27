@@ -1181,7 +1181,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Submission"
+                  $ref: "#/components/schemas/SubmissionListItem"
     post:
       operationId: createSubmission
       requestBody:
@@ -2123,7 +2123,7 @@ components:
           type: integer
     AssignmentDetail:
       type: object
-      required: [assignment, problems, submissions, progress]
+      required: [assignment, problems, progress]
       properties:
         assignment:
           $ref: "#/components/schemas/Assignment"
@@ -2131,10 +2131,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ProblemListItem"
-        submissions:
-          type: array
-          items:
-            $ref: "#/components/schemas/Submission"
         progress:
           type: array
           items:
@@ -2235,7 +2231,7 @@ components:
           type: integer
     ContestDetail:
       type: object
-      required: [contest, problems, rank, submissions]
+      required: [contest, problems, rank]
       properties:
         contest:
           $ref: "#/components/schemas/Contest"
@@ -2247,10 +2243,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RankUser"
-        submissions:
-          type: array
-          items:
-            $ref: "#/components/schemas/Submission"
     ContestCreate:
       type: object
       required: [title, kind, startAt, endAt, freezeAt, problems]
@@ -2335,6 +2327,33 @@ components:
           type: integer
         public:
           type: boolean
+        createdAt:
+          type: string
+          format: date-time
+    SubmissionListItem:
+      type: object
+      required: [id, problemId, problemTitle, user, language, status, createdAt]
+      properties:
+        id:
+          type: integer
+        problemId:
+          type: integer
+        problemTitle:
+          type: string
+          maxLength: 256
+        user:
+          type: string
+          maxLength: 32
+        language:
+          type: string
+          maxLength: 32
+        status:
+          type: string
+          maxLength: 32
+        timeMs:
+          type: integer
+        memoryKb:
+          type: integer
         createdAt:
           type: string
           format: date-time

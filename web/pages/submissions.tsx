@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { getAssignments, getContests, getLangs, getProblems, getSubmissions, searchUsers } from '../client'
-import type { Submission } from '../client'
+import type { SubmissionListItem } from '../client'
 import { ProblemLink, UserLink } from '../components/entity'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { SubmissionStatus } from '../components/status'
@@ -166,7 +166,7 @@ export function SubmissionsPage() {
         ) : query.isLoading ? (
           <LoadingBlock />
         ) : (
-          <Table<Submission>
+          <Table<SubmissionListItem>
             rowKey="id"
             rowClassName="clickableRow"
             onRow={(row) => ({
@@ -212,7 +212,7 @@ function mergeProblemOptions(...lists: { value: string; label: string }[][]) {
   return Array.from(merged, ([value, label]) => ({ value, label }))
 }
 
-function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: string, languageNames: Map<string, string>): TableProps<Submission>['columns'] {
+function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: string, languageNames: Map<string, string>): TableProps<SubmissionListItem>['columns'] {
   return [
     {
       title: text.submissions.id,
