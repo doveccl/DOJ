@@ -19,8 +19,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
-import { createProblem, deleteProblem, getProblems, updateProblemVisibility } from '../client'
-import type { ProblemListItem } from '../client'
+import { createProblem, deleteProblem, getProblemPage, updateProblemVisibility } from '../client'
+import type { ProblemListItem, ProblemListPage } from '../client'
 import { ProblemLink } from '../components/entity'
 import { JudgeModeSelect } from '../components/judge'
 import { LimitInput } from '../components/limit'
@@ -30,6 +30,7 @@ import { useLocale } from '../locale'
 import { useSession } from '../session'
 import { formatLimit, formatPass, problemCode } from '../utils/format'
 import { limits } from '../utils/limits'
+import { pageFromParams, pageSizeFromParams, setPageParams } from '../utils/pagination'
 
 type ProblemForm = {
   title: string
@@ -49,7 +50,9 @@ export function ProblemsPage() {
   const [open, setOpen] = useState(false)
   const q = params.get('q') ?? ''
   const tag = params.get('tag') ?? ''
-  const query = useQuery({ queryKey: ['problems', q, tag], queryFn: () => getProblems({ q, tag }) })
+  const page = pageFromParams(params)
+  const pageSize = pageSizeFromParams(params)
+  const query = useQuery({ queryKey: ['problems', q, tag, page, pageSize], queryFn: () => getProblemPage({ q, tag, page, pageSize }) })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
@@ -161,8 +164,9 @@ export function ProblemsPage() {
           <Table<ProblemListItem>
             rowKey="id"
             columns={columns}
-            dataSource={query.data}
-            pagination={{ pageSize: 20, showSizeChanger: true }}
+            dataSource={query.data?.items ?? []}
+            pagination={{ current: query.data?.page ?? page, pageSize: query.data?.pageSize ?? pageSize, total: query.data?.total ?? 0, showSizeChanger: true }}
+            onChange={(pagination) => setParams(setPageParams(params, pagination.current ?? page, pagination.pageSize ?? pageSize))}
           />
         )}
       </Flex>
@@ -302,10 +306,10 @@ function ProblemRecordTag({ mine }: { mine?: string }) {
 }
 
 function replaceProblemInCaches(client: ReturnType<typeof useQueryClient>, item: ProblemListItem) {
-  client.setQueriesData<ProblemListItem[]>({ queryKey: ['problems'] }, (old) => {
+  client.setQueriesData<ProblemListPage>({ queryKey: ['problems'] }, (old) => {
     if (!old) {
       return old
     }
-    return old.map((row) => (row.id === item.id ? item : row))
+    return { ...old, items: old.items.map((row) => (row.id === item.id ? item : row)) }
   })
 }

@@ -126,14 +126,11 @@ func TestUsernamePreservesCaseAndMatchesCaseInsensitively(t *testing.T) {
 		t.Fatalf("create submission: %v", err)
 	}
 	submissionRes := requestOK(t, e, http.MethodGet, "/api/submissions?user=ALICE_ONE", "")
-	submissions := decodeJSON[[]SubmissionListItem](t, submissionRes)
+	submissions := decodePageItems[SubmissionListItem](t, submissionRes)
 	if len(submissions) != 1 || submissions[0].User != "Alice_One" {
 		t.Fatalf("submission user filter should be case-insensitive: %+v", submissions)
 	}
-	var rawSubmissions []map[string]any
-	if err := json.Unmarshal(submissionRes.Body.Bytes(), &rawSubmissions); err != nil {
-		t.Fatalf("decode raw submissions: %v", err)
-	}
+	rawSubmissions := decodeJSON[PageResult[map[string]any]](t, submissionRes).Items
 	for _, key := range []string{"score", "message", "public"} {
 		if _, ok := rawSubmissions[0][key]; ok {
 			t.Fatalf("submission list should not include detail field %q: %+v", key, rawSubmissions[0])
@@ -583,14 +580,14 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 		}
 	}
 
-	if res := requestOK(t, e, http.MethodGet, "/api/assignments", ""); res.Body.String() != "[]\n" {
+	if res := requestOK(t, e, http.MethodGet, "/api/assignments", ""); len(decodeJSON[PageResult[AssignmentDTO]](t, res).Items) != 0 {
 		t.Fatalf("guest assignment list should be empty, body=%s", res.Body.String())
 	}
 	if res := requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(assignment.ID), 10), nil, nil); res.Code != http.StatusNotFound {
 		t.Fatalf("guest assignment detail should be hidden, got %d body=%s", res.Code, res.Body.String())
 	}
 	outsiderCookies := databaseSession(t, db, outsider.ID)
-	if res := requestWithCookies(e, http.MethodGet, "/api/assignments", outsiderCookies, nil); res.Body.String() != "[]\n" {
+	if res := requestWithCookies(e, http.MethodGet, "/api/assignments", outsiderCookies, nil); len(decodeJSON[PageResult[AssignmentDTO]](t, res).Items) != 0 {
 		t.Fatalf("unassigned assignment list should be empty, body=%s", res.Body.String())
 	}
 	if res := requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(assignment.ID), 10), outsiderCookies, nil); res.Code != http.StatusNotFound {
@@ -859,7 +856,7 @@ func TestContestProblemVisibilityIsDerivedFromContestTime(t *testing.T) {
 	e := echo.New()
 	Register(e, db)
 
-	guestList := decodeJSON[[]ProblemDTO](t, requestOK(t, e, http.MethodGet, "/api/problems", ""))
+	guestList := decodePageItems[ProblemDTO](t, requestOK(t, e, http.MethodGet, "/api/problems", ""))
 	if hasProblem(guestList, problem.ID) {
 		t.Fatalf("upcoming contest problem leaked in problem list: %+v", guestList)
 	}
@@ -878,7 +875,7 @@ func TestContestProblemVisibilityIsDerivedFromContestTime(t *testing.T) {
 	if err := db.Model(&problem).Update("visible", false).Error; err != nil {
 		t.Fatalf("hide problem: %v", err)
 	}
-	guestList = decodeJSON[[]ProblemDTO](t, requestOK(t, e, http.MethodGet, "/api/problems", ""))
+	guestList = decodePageItems[ProblemDTO](t, requestOK(t, e, http.MethodGet, "/api/problems", ""))
 	if hasProblem(guestList, problem.ID) {
 		t.Fatalf("running contest problem leaked in problem list: %+v", guestList)
 	}
@@ -1145,7 +1142,7 @@ func TestAssignmentMembershipCreateUpdateAndVisibility(t *testing.T) {
 	if len(createdDetail.Assignment.Groups) != 1 || createdDetail.Assignment.Groups[0] != group.ID || len(createdDetail.Assignment.Users) != 0 {
 		t.Fatalf("created assignment members not persisted: %+v", createdDetail.Assignment)
 	}
-	adminList := decodeJSON[[]map[string]any](t, requestWithCookies(e, http.MethodGet, "/api/assignments", adminCookies, nil))
+	adminList := decodeJSON[PageResult[map[string]any]](t, requestWithCookies(e, http.MethodGet, "/api/assignments", adminCookies, nil)).Items
 	if len(adminList) != 1 {
 		t.Fatalf("admin assignment list got %+v", adminList)
 	}
@@ -1399,7 +1396,7 @@ func TestProblemCreateDefaultsVisibleAndListSortsByID(t *testing.T) {
 	if !createdDetail.Visible {
 		t.Fatalf("created problem should default to visible: %+v", createdDetail)
 	}
-	items := decodeJSON[[]ProblemDTO](t, requestWithCookies(e, http.MethodGet, "/api/problems", cookies, nil))
+	items := decodePageItems[ProblemDTO](t, requestWithCookies(e, http.MethodGet, "/api/problems", cookies, nil))
 	if len(items) < 3 {
 		t.Fatalf("problem list too short: %+v", items)
 	}
@@ -1425,7 +1422,7 @@ func TestProblemListDoesNotTouchAssetStorage(t *testing.T) {
 	e := echo.New()
 	Register(e, db)
 	res := requestOK(t, e, http.MethodGet, "/api/problems", "")
-	items := decodeJSON[[]ProblemDTO](t, res)
+	items := decodePageItems[ProblemDTO](t, res)
 	if len(items) != 1 || items[0].ID != problem.ID {
 		t.Fatalf("problem list got %+v, want P%d", items, problem.ID)
 	}
@@ -1451,7 +1448,7 @@ func TestProblemListSearchesByCode(t *testing.T) {
 	Register(e, db)
 
 	for _, q := range []string{"1289", "P1289"} {
-		got := decodeJSON[[]ProblemDTO](t, requestOK(t, e, http.MethodGet, "/api/problems?q="+url.QueryEscape(q), ""))
+		got := decodePageItems[ProblemDTO](t, requestOK(t, e, http.MethodGet, "/api/problems?q="+url.QueryEscape(q), ""))
 		if len(got) != 1 || got[0].ID != 1289 {
 			t.Fatalf("problem search %q got %+v, want P1289", q, got)
 		}
@@ -1547,15 +1544,12 @@ func TestDatabaseDiscussionAuthorsUseNames(t *testing.T) {
 	e := echo.New()
 	Register(e, db)
 
-	list := decodeJSON[[]DiscussionDTO](t, requestOK(t, e, http.MethodGet, "/api/discussion", ""))
+	list := decodePageItems[DiscussionDTO](t, requestOK(t, e, http.MethodGet, "/api/discussion", ""))
 	if len(list) != 1 || list[0].Author != "admin" || list[0].Replies != 1 {
 		t.Fatalf("discussion list should include author and reply count: %+v", list)
 	}
 	listRes := requestOK(t, e, http.MethodGet, "/api/discussion", "")
-	var rawList []map[string]any
-	if err := json.Unmarshal(listRes.Body.Bytes(), &rawList); err != nil {
-		t.Fatalf("decode raw discussion list: %v", err)
-	}
+	rawList := decodeJSON[PageResult[map[string]any]](t, listRes).Items
 	if _, ok := rawList[0]["content"]; ok {
 		t.Fatalf("discussion list should not include content: %+v", rawList[0])
 	}
@@ -1636,7 +1630,7 @@ func TestDiscussionListSearchesTitleContentAndTags(t *testing.T) {
 		{q: "fenwick", want: "Other topic"},
 		{q: "p1289", want: "Tagged topic"},
 	} {
-		got := decodeJSON[[]DiscussionDTO](t, requestOK(t, e, http.MethodGet, "/api/discussion?q="+url.QueryEscape(item.q), ""))
+		got := decodePageItems[DiscussionDTO](t, requestOK(t, e, http.MethodGet, "/api/discussion?q="+url.QueryEscape(item.q), ""))
 		if len(got) != 1 || got[0].Title != item.want {
 			t.Fatalf("search %q got %+v, want %q", item.q, got, item.want)
 		}
@@ -1690,11 +1684,11 @@ func TestDynamicSelectSuggestionEndpoints(t *testing.T) {
 	if len(userOptions) != 1 || userOptions[0].Name != "alice" {
 		t.Fatalf("user suggestions = %+v", userOptions)
 	}
-	assignments := decodeJSON[[]AssignmentDTO](t, requestWithCookies(e, http.MethodGet, "/api/assignments?q=Summer", cookies, nil))
+	assignments := decodePageItems[AssignmentDTO](t, requestWithCookies(e, http.MethodGet, "/api/assignments?q=Summer", cookies, nil))
 	if len(assignments) != 1 || assignments[0].Title != "Summer Homework" {
 		t.Fatalf("assignment suggestions = %+v", assignments)
 	}
-	contests := decodeJSON[[]ContestDTO](t, requestWithCookies(e, http.MethodGet, "/api/contests?q=Winter", cookies, nil))
+	contests := decodePageItems[ContestDTO](t, requestWithCookies(e, http.MethodGet, "/api/contests?q=Winter", cookies, nil))
 	if len(contests) != 1 || contests[0].Title != "Winter Cup" {
 		t.Fatalf("contest suggestions = %+v", contests)
 	}
@@ -2159,6 +2153,11 @@ func decodeJSON[T any](t *testing.T, res *httptest.ResponseRecorder) T {
 		t.Fatalf("decode response failed: %v body=%s", err, res.Body.String())
 	}
 	return value
+}
+
+func decodePageItems[T any](t *testing.T, res *httptest.ResponseRecorder) []T {
+	t.Helper()
+	return decodeJSON[PageResult[T]](t, res).Items
 }
 
 func hasProblem(items []ProblemDTO, id uint) bool {

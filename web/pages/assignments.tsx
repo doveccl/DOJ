@@ -20,9 +20,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
-import { createAssignment, deleteAssignment, getAssignment, getAssignments, updateAssignment } from '../client'
+import { createAssignment, deleteAssignment, getAssignment, getAssignmentPage, updateAssignment } from '../client'
 import type { AssignmentListItem, ProblemRef } from '../client'
 import { IdSelect } from '../components/id-select'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
@@ -32,6 +32,7 @@ import { useLocale } from '../locale'
 import { useSession } from '../session'
 import { problemLabel, progress } from '../utils/format'
 import { limits } from '../utils/limits'
+import { pageFromParams, pageSizeFromParams, setPageParams } from '../utils/pagination'
 
 type AssignmentForm = {
   title: string
@@ -47,9 +48,12 @@ export function AssignmentsPage() {
   const { message } = AntApp.useApp()
   const client = useQueryClient()
   const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
   const [open, setOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
-  const query = useQuery({ queryKey: ['assignments'], queryFn: () => getAssignments() })
+  const page = pageFromParams(params)
+  const pageSize = pageSizeFromParams(params)
+  const query = useQuery({ queryKey: ['assignments', page, pageSize], queryFn: () => getAssignmentPage({ page, pageSize }) })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
@@ -150,8 +154,9 @@ export function AssignmentsPage() {
             },
             session.admin
           )}
-          dataSource={query.data}
-          pagination={{ pageSize: 20, showSizeChanger: true }}
+          dataSource={query.data?.items ?? []}
+          pagination={{ current: query.data?.page ?? page, pageSize: query.data?.pageSize ?? pageSize, total: query.data?.total ?? 0, showSizeChanger: true }}
+          onChange={(pagination) => setParams(setPageParams(params, pagination.current ?? page, pagination.pageSize ?? pageSize))}
         />
       )}
       {session.admin && open ? (

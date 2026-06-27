@@ -219,7 +219,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["getAdminUsers"];
         put?: never;
         post: operations["createAdminUser"];
         delete?: never;
@@ -267,7 +267,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["getAdminGroups"];
         put?: never;
         post: operations["createAdminGroup"];
         delete?: never;
@@ -1013,6 +1013,13 @@ export interface components {
             role: string;
             groups: number[];
         };
+        AdminUserPage: {
+            items: components["schemas"]["AdminUser"][];
+            page: number;
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
+        };
         AdminUserUpdate: {
             role: string;
             groups: number[];
@@ -1032,6 +1039,13 @@ export interface components {
             id: number;
             name: string;
             users: number[];
+        };
+        AdminGroupPage: {
+            items: components["schemas"]["AdminGroup"][];
+            page: number;
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
         };
         AdminGroupUpdate: {
             name: string;
@@ -1096,6 +1110,13 @@ export interface components {
             /** @enum {string} */
             mine: "none" | "tried" | "ac";
             latest?: components["schemas"]["ProblemRecord"];
+        };
+        ProblemListPage: {
+            items: components["schemas"]["ProblemListItem"][];
+            page: number;
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
         };
         Problem: {
             id: number;
@@ -1210,6 +1231,13 @@ export interface components {
             total: number;
             done: number;
         };
+        AssignmentListPage: {
+            items: components["schemas"]["AssignmentListItem"][];
+            page: number;
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
+        };
         AssignmentDetail: {
             assignment: components["schemas"]["Assignment"];
             problems: components["schemas"]["ProblemListItem"][];
@@ -1253,6 +1281,13 @@ export interface components {
             /** Format: date-time */
             freezeAt: string | null;
             status: string;
+            total: number;
+        };
+        ContestListPage: {
+            items: components["schemas"]["Contest"][];
+            page: number;
+            pageSize: number;
+            /** Format: int64 */
             total: number;
         };
         ContestDetail: {
@@ -1310,6 +1345,13 @@ export interface components {
             memoryKb?: number;
             /** Format: date-time */
             createdAt: string;
+        };
+        SubmissionListPage: {
+            items: components["schemas"]["SubmissionListItem"][];
+            page: number;
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
         };
         SubmissionDetail: {
             submission: components["schemas"]["Submission"];
@@ -1397,6 +1439,13 @@ export interface components {
             replies: number;
             /** Format: date-time */
             createdAt: string;
+        };
+        DiscussionListPage: {
+            items: components["schemas"]["Discussion"][];
+            page: number;
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
         };
         DiscussionCreate: {
             title: string;
@@ -1770,6 +1819,30 @@ export interface operations {
             };
         };
     };
+    getAdminUsers: {
+        parameters: {
+            query?: {
+                q?: string;
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Admin users */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserPage"];
+                };
+            };
+        };
+    };
     createAdminUser: {
         parameters: {
             query?: never;
@@ -1860,6 +1933,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PasswordReset"];
+                };
+            };
+        };
+    };
+    getAdminGroups: {
+        parameters: {
+            query?: {
+                q?: string;
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Admin groups */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminGroupPage"];
                 };
             };
         };
@@ -2321,6 +2418,8 @@ export interface operations {
             query?: {
                 q?: string;
                 tag?: string;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path?: never;
@@ -2334,7 +2433,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProblemListItem"][];
+                    "application/json": components["schemas"]["ProblemListPage"];
                 };
             };
         };
@@ -2800,6 +2899,8 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path?: never;
@@ -2813,7 +2914,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AssignmentListItem"][];
+                    "application/json": components["schemas"]["AssignmentListPage"];
                 };
             };
         };
@@ -2928,6 +3029,8 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path?: never;
@@ -2941,7 +3044,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Contest"][];
+                    "application/json": components["schemas"]["ContestListPage"];
                 };
             };
         };
@@ -3059,6 +3162,8 @@ export interface operations {
                 user?: string;
                 assignment?: string;
                 contest?: string;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path?: never;
@@ -3072,7 +3177,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SubmissionListItem"][];
+                    "application/json": components["schemas"]["SubmissionListPage"];
                 };
             };
         };
@@ -3282,6 +3387,8 @@ export interface operations {
             query?: {
                 q?: string;
                 tags?: string;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path?: never;
@@ -3295,7 +3402,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Discussion"][];
+                    "application/json": components["schemas"]["DiscussionListPage"];
                 };
             };
         };

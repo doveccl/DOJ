@@ -15,10 +15,12 @@ import {
   deleteAdminLang,
   deleteAdminUser,
   downloadBackup,
+  getAdminGroups,
   getAdminJudgers,
   getAdminLangs,
   getAdminMembers,
   getAdminSettings,
+  getAdminUsers,
   getBackups,
   getBackupSettings,
   resetAdminUserPassword,
@@ -33,6 +35,7 @@ import type { AdminGroupUpdate, AdminJudgers, AdminLang, AdminLangCreate, AdminM
 import { UserLink } from '../components/entity'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { IdSelect } from '../components/id-select'
+import { useDebouncedValue } from '../components/use-debounced-value'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
 import { formatBytes, formatDuration } from '../utils/format'
@@ -73,13 +76,31 @@ export function AdminPage() {
   const [editingJudger, setEditingJudger] = useState<JudgerRow | null>(null)
   const [userSearch, setUserSearch] = useState('')
   const [groupSearch, setGroupSearch] = useState('')
+  const [userPage, setUserPage] = useState(1)
+  const [userPageSize, setUserPageSize] = useState(20)
+  const [groupPage, setGroupPage] = useState(1)
+  const [groupPageSize, setGroupPageSize] = useState(20)
   const [activeTab, setActiveTab] = useState('settings')
   const [settingsForm] = Form.useForm<SettingsForm>()
-  const membersEnabled = session.admin && (activeTab === 'users' || activeTab === 'groups')
+  const userQuery = useDebouncedValue(userSearch.trim())
+  const groupQuery = useDebouncedValue(groupSearch.trim())
+  const membersEnabled = session.admin && (userOpen || Boolean(editingUser) || groupOpen)
+  const usersEnabled = session.admin && activeTab === 'users'
+  const groupsEnabled = session.admin && activeTab === 'groups'
   const languagesEnabled = session.admin && activeTab === 'languages'
   const judgersEnabled = session.admin && activeTab === 'judgers'
   const backupEnabled = session.admin && activeTab === 'backups'
   const membersQuery = useQuery({ queryKey: ['admin-members'], queryFn: () => getAdminMembers(), enabled: membersEnabled })
+  const usersQuery = useQuery({
+    queryKey: ['admin-users', userQuery, userPage, userPageSize],
+    queryFn: () => getAdminUsers({ q: userQuery, page: userPage, pageSize: userPageSize }),
+    enabled: usersEnabled
+  })
+  const groupsQuery = useQuery({
+    queryKey: ['admin-groups', groupQuery, groupPage, groupPageSize],
+    queryFn: () => getAdminGroups({ q: groupQuery, page: groupPage, pageSize: groupPageSize }),
+    enabled: groupsEnabled
+  })
   const languagesQuery = useQuery({ queryKey: ['admin-languages'], queryFn: getAdminLangs, enabled: languagesEnabled })
   const judgersQuery = useQuery({ queryKey: ['admin-judgers'], queryFn: getAdminJudgers, enabled: judgersEnabled })
   const settingsQuery = useQuery({ queryKey: ['admin-settings'], queryFn: getAdminSettings, enabled: session.admin })
@@ -88,8 +109,13 @@ export function AdminPage() {
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
-  const saveMembers = (data: AdminMembers) => {
-    client.setQueryData<AdminMembers>(['admin-members'], data)
+  const saveMembers = (data?: AdminMembers) => {
+    if (data) {
+      client.setQueryData<AdminMembers>(['admin-members'], data)
+    }
+    void client.invalidateQueries({ queryKey: ['admin-members'] })
+    void client.invalidateQueries({ queryKey: ['admin-users'] })
+    void client.invalidateQueries({ queryKey: ['admin-groups'] })
     message.success(text.common.saved)
   }
   const saveLanguages = (data: AdminLang[]) => {
@@ -232,6 +258,8 @@ export function AdminPage() {
   }
 
   const membersData = membersQuery.data
+  const usersData = usersQuery.data
+  const groupsData = groupsQuery.data
   const languagesData = languagesQuery.data
   const judgersData = judgersQuery.data
   const settingsData = settingsQuery.data
@@ -243,10 +271,7 @@ export function AdminPage() {
   const groupOptions = (membersData?.groups ?? []).map((group) => ({ value: group.id, label: group.name }))
   const userOptions = (membersData?.users ?? []).map((user) => ({ value: user.id, label: user.name }))
   const userGroupIds = (row: UserRow) => row.groups ?? []
-  const groupUserIds = (row: GroupRow) => (membersData?.users ?? []).filter((user) => userGroupIds(user).includes(row.id)).map((user) => user.id)
-  const userQuery = userSearch.trim().toLowerCase()
-  const groupQuery = groupSearch.trim().toLowerCase()
-  const groupName = (id: number) => membersData?.groups.find((group) => group.id === id)?.name ?? ''
+  const groupUserIds = (row: GroupRow) => row.users ?? []
   const backupFrequencyOptions = [
     { value: 'hourly', label: text.admin.backupFrequencies.hourly },
     { value: 'daily', label: text.admin.backupFrequencies.daily },
@@ -274,23 +299,18 @@ export function AdminPage() {
     }
     saveSettingsPatch({ siteName })
   }
-  const filteredUsers = userQuery
-    ? (membersData?.users ?? []).filter((user) =>
-        [user.name, user.mail, roleText[user.role] ?? user.role, ...userGroupIds(user).map(groupName)].some((value) => value.toLowerCase().includes(userQuery))
-      )
-    : (membersData?.users ?? [])
-  const filteredGroups = groupQuery
-    ? (membersData?.groups ?? []).filter((group) =>
-        [group.name, ...groupUserIds(group).map((id) => membersData?.users.find((user) => user.id === id)?.name ?? '')].some((value) =>
-          value.toLowerCase().includes(groupQuery)
-        )
-      )
-    : (membersData?.groups ?? [])
-  const membersBlock = membersQuery.isLoading ? (
+  const usersBlock = usersQuery.isLoading ? (
     <LoadingBlock />
-  ) : membersQuery.isError ? (
-    <ErrorBlock error={membersQuery.error} />
-  ) : membersEnabled && !membersData ? (
+  ) : usersQuery.isError ? (
+    <ErrorBlock error={usersQuery.error} />
+  ) : usersEnabled && !usersData ? (
+    <LoadingBlock />
+  ) : null
+  const groupsBlock = groupsQuery.isLoading ? (
+    <LoadingBlock />
+  ) : groupsQuery.isError ? (
+    <ErrorBlock error={groupsQuery.error} />
+  ) : groupsEnabled && !groupsData ? (
     <LoadingBlock />
   ) : null
   const languagesBlock = languagesQuery.isLoading ? (
@@ -388,18 +408,31 @@ export function AdminPage() {
             {
               key: 'users',
               label: text.admin.users,
-              children: membersBlock ?? (
+              children: usersBlock ?? (
                 <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                   <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
-                    <Input allowClear prefix={<SearchOutlined />} placeholder={text.admin.searchUsers} value={userSearch} onChange={(event) => setUserSearch(event.target.value)} />
+                    <Input
+                      allowClear
+                      prefix={<SearchOutlined />}
+                      placeholder={text.admin.searchUsers}
+                      value={userSearch}
+                      onChange={(event) => {
+                        setUserSearch(event.target.value)
+                        setUserPage(1)
+                      }}
+                    />
                     <Button type="primary" icon={<PlusOutlined />} onClick={() => setUserOpen(true)}>
                       {text.admin.addUser}
                     </Button>
                   </Space>
                   <Table<UserRow>
                     rowKey="name"
-                    pagination={{ defaultPageSize: 10, hideOnSinglePage: true, showSizeChanger: true }}
-                    dataSource={filteredUsers}
+                    pagination={{ current: usersData?.page ?? userPage, pageSize: usersData?.pageSize ?? userPageSize, total: usersData?.total ?? 0, showSizeChanger: true }}
+                    dataSource={usersData?.items ?? []}
+                    onChange={(pagination) => {
+                      setUserPage(pagination.current ?? userPage)
+                      setUserPageSize(pagination.pageSize ?? userPageSize)
+                    }}
                     columns={[
                       { title: text.rank.user, dataIndex: 'name', render: (name: string) => <UserLink name={name} /> },
                       { title: text.profile.email, dataIndex: 'mail' },
@@ -447,18 +480,31 @@ export function AdminPage() {
             {
               key: 'groups',
               label: text.admin.groups,
-              children: membersBlock ?? (
+              children: groupsBlock ?? (
                 <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                   <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
-                    <Input allowClear prefix={<SearchOutlined />} placeholder={text.admin.searchGroups} value={groupSearch} onChange={(event) => setGroupSearch(event.target.value)} />
+                    <Input
+                      allowClear
+                      prefix={<SearchOutlined />}
+                      placeholder={text.admin.searchGroups}
+                      value={groupSearch}
+                      onChange={(event) => {
+                        setGroupSearch(event.target.value)
+                        setGroupPage(1)
+                      }}
+                    />
                     <Button type="primary" icon={<PlusOutlined />} onClick={() => openGroup()}>
                       {text.admin.addGroup}
                     </Button>
                   </Space>
                   <Table<GroupRow>
                     rowKey="id"
-                    pagination={{ defaultPageSize: 10, hideOnSinglePage: true, showSizeChanger: true }}
-                    dataSource={filteredGroups}
+                    pagination={{ current: groupsData?.page ?? groupPage, pageSize: groupsData?.pageSize ?? groupPageSize, total: groupsData?.total ?? 0, showSizeChanger: true }}
+                    dataSource={groupsData?.items ?? []}
+                    onChange={(pagination) => {
+                      setGroupPage(pagination.current ?? groupPage)
+                      setGroupPageSize(pagination.pageSize ?? groupPageSize)
+                    }}
                     columns={[
                       { title: text.admin.groups, dataIndex: 'name' },
                       {

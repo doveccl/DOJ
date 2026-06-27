@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
-import { getAssignments, getContests, getLangs, getProblems, getSubmissions, searchUsers } from '../client'
+import { getAssignments, getContests, getLangs, getProblems, getSubmissionPage, searchUsers } from '../client'
 import type { SubmissionListItem } from '../client'
 import { ProblemLink, UserLink } from '../components/entity'
 import { ErrorBlock, LoadingBlock } from '../components/state'
@@ -13,6 +13,7 @@ import { SubmissionStatus } from '../components/status'
 import { useDebouncedValue } from '../components/use-debounced-value'
 import { useLocale } from '../locale'
 import { formatTime, memoryText, problemCode, problemLabel, submissionCode } from '../utils/format'
+import { pageFromParams, pageSizeFromParams, setPageParams } from '../utils/pagination'
 
 type SubmissionFilters = {
   problem?: string
@@ -29,6 +30,8 @@ export function SubmissionsPage() {
   const user = params.get('user') ?? ''
   const assignment = params.get('assignment') ?? ''
   const contest = params.get('contest') ?? ''
+  const page = pageFromParams(params)
+  const pageSize = pageSizeFromParams(params)
   const [problemOpen, setProblemOpen] = useState(false)
   const [userOpen, setUserOpen] = useState(false)
   const [assignmentOpen, setAssignmentOpen] = useState(false)
@@ -42,8 +45,8 @@ export function SubmissionsPage() {
   const assignmentSearchText = useDebouncedValue(assignmentSearch.trim())
   const contestSearchText = useDebouncedValue(contestSearch.trim())
   const query = useQuery({
-    queryKey: ['submissions', problem, user, assignment, contest],
-    queryFn: () => getSubmissions(cleanFilters({ problem, user, assignment, contest }))
+    queryKey: ['submissions', problem, user, assignment, contest, page, pageSize],
+    queryFn: () => getSubmissionPage(cleanFilters({ problem, user, assignment, contest, page, pageSize }))
   })
   const languages = useQuery({ queryKey: ['languages'], queryFn: getLangs })
   const problems = useQuery({
@@ -179,8 +182,9 @@ export function SubmissionsPage() {
               }
             })}
             columns={submissionColumns(text, lang, languageNames)}
-            dataSource={query.data}
-            pagination={{ pageSize: 20, showSizeChanger: true }}
+            dataSource={query.data?.items ?? []}
+            pagination={{ current: query.data?.page ?? page, pageSize: query.data?.pageSize ?? pageSize, total: query.data?.total ?? 0, showSizeChanger: true }}
+            onChange={(pagination) => setParams(setPageParams(params, pagination.current ?? page, pagination.pageSize ?? pageSize))}
           />
         )}
       </Flex>
@@ -188,8 +192,8 @@ export function SubmissionsPage() {
   )
 }
 
-function cleanFilters(filters: SubmissionFilters) {
-  return Object.fromEntries(Object.entries(filters).filter(([, value]) => value)) as SubmissionFilters
+function cleanFilters<T extends Record<string, string | number | undefined>>(filters: T) {
+  return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== undefined && value !== '')) as T
 }
 
 function normalizeProblemValue(value: string) {

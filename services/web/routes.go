@@ -76,6 +76,13 @@ type HomeProblem struct {
 	Submit int      `json:"submit"`
 }
 
+type PageResult[T any] struct {
+	Items    []T   `json:"items"`
+	Page     int   `json:"page"`
+	PageSize int   `json:"pageSize"`
+	Total    int64 `json:"total"`
+}
+
 type MeDTO struct {
 	ID     uint   `json:"id"`
 	Name   string `json:"name"`
@@ -1099,11 +1106,15 @@ func (api *API) updateNotice(c echo.Context) error {
 }
 
 func (api *API) problems(c echo.Context) error {
-	problems, err := api.searchProblems(c, c.QueryParam("q"), c.QueryParam("tag"), 50)
+	page, pageSize, offset, err := parsePage(c)
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, problems)
+	problems, total, err := api.searchProblemPage(c, c.QueryParam("q"), c.QueryParam("tag"), pageSize, offset)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, PageResult[ProblemDTO]{Items: problems, Page: page, PageSize: pageSize, Total: total})
 }
 
 func (api *API) tags(c echo.Context) error {
@@ -1674,8 +1685,34 @@ func (api *API) downloadProblemAssets(c echo.Context) error {
 
 func (api *API) assignments(c echo.Context) error {
 
+	page, pageSize, offset, err := parsePage(c)
+	if err != nil {
+		return err
+	}
 	var rows []models.Assignment
-	query := api.db.Order("end_at desc").Limit(50)
+	query := api.db.Model(&models.Assignment{})
+	if !api.isAdmin(c) {
+		user, err := api.currentUser(c)
+		if err != nil {
+			return c.JSON(http.StatusOK, PageResult[AssignmentDTO]{Items: []AssignmentDTO{}, Page: page, PageSize: pageSize, Total: 0})
+		}
+		query = query.Where(`
+			EXISTS (
+				SELECT 1 FROM assignment_users
+				WHERE assignment_users.assignment_id = assignments.id
+				AND assignment_users.user_id = ?
+				AND assignment_users.deleted_at IS NULL
+			)
+			OR EXISTS (
+				SELECT 1 FROM assignment_groups
+				JOIN group_users ON group_users.group_id = assignment_groups.group_id
+				WHERE assignment_groups.assignment_id = assignments.id
+				AND group_users.user_id = ?
+				AND assignment_groups.deleted_at IS NULL
+				AND group_users.deleted_at IS NULL
+			)
+		`, user.ID, user.ID)
+	}
 	if q := strings.TrimSpace(c.QueryParam("q")); q != "" {
 		like := "%" + q + "%"
 		if id, err := parseQueryID(q, "invalid assignment id"); err == nil {
@@ -1684,14 +1721,18 @@ func (api *API) assignments(c echo.Context) error {
 			query = query.Where("LOWER(title) LIKE LOWER(?)", like)
 		}
 	}
-	if err := query.Find(&rows).Error; err != nil {
+	var total int64
+	if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+		return err
+	}
+	if err := query.Session(&gorm.Session{}).Order("end_at desc").Limit(pageSize).Offset(offset).Find(&rows).Error; err != nil {
 		return err
 	}
 	items, err := api.assignmentDTOs(c, rows, false)
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, items)
+	return c.JSON(http.StatusOK, PageResult[AssignmentDTO]{Items: items, Page: page, PageSize: pageSize, Total: total})
 }
 
 func (api *API) createAssignment(c echo.Context) error {
@@ -1882,8 +1923,12 @@ func (api *API) assignment(c echo.Context) error {
 
 func (api *API) contests(c echo.Context) error {
 
+	page, pageSize, offset, err := parsePage(c)
+	if err != nil {
+		return err
+	}
 	var rows []models.Contest
-	query := api.db.Order("start_at desc").Limit(50)
+	query := api.db.Model(&models.Contest{})
 	if q := strings.TrimSpace(c.QueryParam("q")); q != "" {
 		like := "%" + q + "%"
 		if id, err := parseQueryID(q, "invalid contest id"); err == nil {
@@ -1892,14 +1937,18 @@ func (api *API) contests(c echo.Context) error {
 			query = query.Where("LOWER(title) LIKE LOWER(?)", like)
 		}
 	}
-	if err := query.Find(&rows).Error; err != nil {
+	var total int64
+	if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+		return err
+	}
+	if err := query.Session(&gorm.Session{}).Order("start_at desc").Limit(pageSize).Offset(offset).Find(&rows).Error; err != nil {
 		return err
 	}
 	items, err := api.contestDTOs(rows, api.isAdmin(c))
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, items)
+	return c.JSON(http.StatusOK, PageResult[ContestDTO]{Items: items, Page: page, PageSize: pageSize, Total: total})
 }
 
 func (api *API) createContest(c echo.Context) error {
@@ -2102,11 +2151,12 @@ func (api *API) contest(c echo.Context) error {
 
 func (api *API) submissions(c echo.Context) error {
 
+	page, pageSize, offset, err := parsePage(c)
+	if err != nil {
+		return err
+	}
 	var rows []models.Submission
-	query := api.db.Model(&models.Submission{}).
-		Select("submissions.id", "submissions.problem_id", "submissions.user_id", "submissions.language", "submissions.status", "submissions.time_ms", "submissions.memory_kb", "submissions.created_at").
-		Order("submissions.created_at desc").
-		Limit(50)
+	query := api.db.Model(&models.Submission{})
 	if !api.isAdmin(c) {
 		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
 		query = api.applyProblemListVisibility(query)
@@ -2136,14 +2186,23 @@ func (api *API) submissions(c echo.Context) error {
 		}
 		query = query.Where("submissions.contest_id = ?", id)
 	}
-	if err := query.Find(&rows).Error; err != nil {
+	var total int64
+	if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+		return err
+	}
+	if err := query.Session(&gorm.Session{}).
+		Select("submissions.id", "submissions.problem_id", "submissions.user_id", "submissions.language", "submissions.status", "submissions.time_ms", "submissions.memory_kb", "submissions.created_at").
+		Order("submissions.created_at desc").
+		Limit(pageSize).
+		Offset(offset).
+		Find(&rows).Error; err != nil {
 		return err
 	}
 	items, err := api.submissionListItems(rows)
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, items)
+	return c.JSON(http.StatusOK, PageResult[SubmissionListItem]{Items: items, Page: page, PageSize: pageSize, Total: total})
 }
 
 func (api *API) submit(c echo.Context) error {
@@ -3115,10 +3174,12 @@ func (api *API) userHeatmap(userID uint) ([]HeatCell, error) {
 
 func (api *API) discussions(c echo.Context) error {
 
+	page, pageSize, offset, err := parsePage(c)
+	if err != nil {
+		return err
+	}
 	var rows []models.Discussion
-	query := api.db.Select("id", "title", "user_id", "tags", "pinned", "locked", "created_at").
-		Order("pinned desc, updated_at desc").
-		Limit(50)
+	query := api.db.Model(&models.Discussion{})
 	if q := strings.TrimSpace(c.QueryParam("q")); q != "" {
 		like := "%" + q + "%"
 		query = query.Where("LOWER(title) LIKE LOWER(?) OR LOWER(content) LIKE LOWER(?) OR LOWER(CAST(tags AS TEXT)) LIKE LOWER(?)", like, like, like)
@@ -3127,7 +3188,16 @@ func (api *API) discussions(c echo.Context) error {
 		rawTag, _ := json.Marshal([]string{tag})
 		query = query.Where("tags @> ?::jsonb", string(rawTag))
 	}
-	if err := query.Find(&rows).Error; err != nil {
+	var total int64
+	if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+		return err
+	}
+	if err := query.Session(&gorm.Session{}).
+		Select("id", "title", "user_id", "tags", "pinned", "locked", "created_at").
+		Order("pinned desc, updated_at desc").
+		Limit(pageSize).
+		Offset(offset).
+		Find(&rows).Error; err != nil {
 		return err
 	}
 	authorIDs := make([]uint, 0, len(rows))
@@ -3148,7 +3218,7 @@ func (api *API) discussions(c echo.Context) error {
 	for _, row := range rows {
 		items = append(items, discussionDTOFromRefs(row, authors, replies))
 	}
-	return c.JSON(http.StatusOK, items)
+	return c.JSON(http.StatusOK, PageResult[DiscussionDTO]{Items: items, Page: page, PageSize: pageSize, Total: total})
 }
 
 func (api *API) createDiscussion(c echo.Context) error {
@@ -3414,6 +3484,29 @@ func parseProblemQuery(value string) (uint, error) {
 	return parseQueryID(value, "invalid problem id")
 }
 
+func parsePage(c echo.Context) (int, int, int, error) {
+	page := 1
+	if value := strings.TrimSpace(c.QueryParam("page")); value != "" {
+		got, err := strconv.Atoi(value)
+		if err != nil || got <= 0 {
+			return 0, 0, 0, echo.NewHTTPError(http.StatusBadRequest, "invalid page")
+		}
+		page = got
+	}
+	pageSize := 20
+	if value := strings.TrimSpace(c.QueryParam("pageSize")); value != "" {
+		got, err := strconv.Atoi(value)
+		if err != nil || got <= 0 {
+			return 0, 0, 0, echo.NewHTTPError(http.StatusBadRequest, "invalid page size")
+		}
+		pageSize = got
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	return page, pageSize, (page - 1) * pageSize, nil
+}
+
 func (api *API) listProblems(c echo.Context, limit int) ([]ProblemDTO, error) {
 	return api.findProblems(c, "", "", limit, "id desc")
 }
@@ -3474,6 +3567,47 @@ func uploadExt(_ string, mime string) string {
 
 func (api *API) searchProblems(c echo.Context, q string, tag string, limit int) ([]ProblemDTO, error) {
 	return api.findProblems(c, q, tag, limit, "id asc")
+}
+
+func (api *API) searchProblemPage(c echo.Context, q string, tag string, limit int, offset int) ([]ProblemDTO, int64, error) {
+	var rows []models.Problem
+	query := api.db.Model(&models.Problem{})
+	if !api.isAdmin(c) {
+		query = api.applyProblemListVisibility(query)
+	}
+	if q != "" {
+		like := "%" + q + "%"
+		if id, err := parseProblemQuery(q); err == nil {
+			query = query.Where("id = ? OR LOWER(title) LIKE LOWER(?)", id, like)
+		} else {
+			query = query.Where("LOWER(title) LIKE LOWER(?)", like)
+		}
+	}
+	if tag != "" {
+		rawTag, _ := json.Marshal([]string{tag})
+		query = query.Where("tags @> ?::jsonb", string(rawTag))
+	}
+	var total int64
+	if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := query.Session(&gorm.Session{}).Order("id asc").Limit(limit).Offset(offset).Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	items := make([]ProblemDTO, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, problemDTO(row))
+	}
+	if err := api.decorateProblemSubmissionStats(items); err != nil {
+		return nil, 0, err
+	}
+	if err := api.decorateProblemMines(c, items); err != nil {
+		return nil, 0, err
+	}
+	if err := api.decorateProblemDiscussions(c.Request().Context(), items); err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
 }
 
 func (api *API) searchTags(c echo.Context, kind string, q string, limit int) ([]string, error) {

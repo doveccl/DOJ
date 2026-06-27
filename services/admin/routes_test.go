@@ -57,6 +57,10 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	if len(members.Users) != 3 || len(members.Groups) != 0 {
 		t.Fatalf("members should return only user/group option data: %+v", members)
 	}
+	userPage := decodePage[User](t, requestWithCookies(e, http.MethodGet, "/api/admin/users?page=1&pageSize=2", adminCookies))
+	if userPage.Total != 3 || len(userPage.Items) != 2 || userPage.Page != 1 || userPage.PageSize != 2 {
+		t.Fatalf("admin users should be remotely paged: %+v", userPage)
+	}
 	var membersRaw map[string]json.RawMessage
 	if err := json.Unmarshal(res.Body.Bytes(), &membersRaw); err != nil {
 		t.Fatalf("decode raw members: %v", err)
@@ -161,6 +165,10 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	members = decodeMembers(t, res)
 	if user, ok := findUser(members, "student"); !ok || len(user.Groups) != 1 || user.Groups[0] != group.ID {
 		t.Fatalf("updated user groups missing: %+v", members.Users)
+	}
+	groupPage := decodePage[Group](t, requestWithCookies(e, http.MethodGet, "/api/admin/groups?q=student&page=1&pageSize=10", adminCookies))
+	if groupPage.Total != 1 || len(groupPage.Items) != 1 || groupPage.Items[0].ID != group.ID {
+		t.Fatalf("admin group search should be remote and include user names: %+v", groupPage)
 	}
 	res = requestWithCookies(e, http.MethodGet, "/api/admin/members?q=stud&groups="+itoa(group.ID), adminCookies)
 	if res.Code != http.StatusOK {
@@ -347,6 +355,15 @@ func decodeMembers(t *testing.T, res *httptest.ResponseRecorder) Members {
 		t.Fatalf("decode members failed: %v body=%s", err, res.Body.String())
 	}
 	return members
+}
+
+func decodePage[T any](t *testing.T, res *httptest.ResponseRecorder) PageResult[T] {
+	t.Helper()
+	var page PageResult[T]
+	if err := json.Unmarshal(res.Body.Bytes(), &page); err != nil {
+		t.Fatalf("decode page failed: %v body=%s", err, res.Body.String())
+	}
+	return page
 }
 
 func decodeLanguages(t *testing.T, res *httptest.ResponseRecorder) []Language {

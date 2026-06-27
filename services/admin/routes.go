@@ -33,6 +33,13 @@ type Members struct {
 	Groups []Group `json:"groups"`
 }
 
+type PageResult[T any] struct {
+	Items    []T   `json:"items"`
+	Page     int   `json:"page"`
+	PageSize int   `json:"pageSize"`
+	Total    int64 `json:"total"`
+}
+
 type Judgers struct {
 	Judgers []Judger   `json:"judgers"`
 	Queue   JudgeQueue `json:"queue"`
@@ -156,10 +163,12 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.GET("/settings", api.getSettings)
 	group.PATCH("/settings", api.updateSettings, echomw.BodyLimit(utils.BodyLimitSettings))
 	group.GET("/members", api.members)
+	group.GET("/users", api.usersPage)
 	group.POST("/users", api.createUser)
 	group.PATCH("/users/:name", api.updateUser)
 	group.DELETE("/users/:name", api.deleteUser)
 	group.POST("/users/:name/password", api.resetUserPassword)
+	group.GET("/groups", api.groupsPage)
 	group.POST("/groups", api.createGroup)
 	group.PATCH("/groups/:id", api.updateGroup)
 	group.DELETE("/groups/:id", api.deleteGroup)
@@ -216,6 +225,30 @@ func (api *API) members(c echo.Context) error {
 		return err
 	}
 	return c.JSON(http.StatusOK, members)
+}
+
+func (api *API) usersPage(c echo.Context) error {
+	page, pageSize, err := parsePage(c)
+	if err != nil {
+		return err
+	}
+	items, total, err := api.searchUsersPage(c.QueryParam("q"), pageSize, (page-1)*pageSize)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, PageResult[User]{Items: items, Page: page, PageSize: pageSize, Total: total})
+}
+
+func (api *API) groupsPage(c echo.Context) error {
+	page, pageSize, err := parsePage(c)
+	if err != nil {
+		return err
+	}
+	items, total, err := api.searchGroupsPage(c.QueryParam("q"), pageSize, (page-1)*pageSize)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, PageResult[Group]{Items: items, Page: page, PageSize: pageSize, Total: total})
 }
 
 func (api *API) getLanguages(c echo.Context) error {
@@ -914,6 +947,68 @@ func (api *API) searchUsers(q string, includeIDs []uint, limit int) ([]User, err
 	return items, nil
 }
 
+func (api *API) searchUsersPage(q string, limit int, offset int) ([]User, int64, error) {
+	query := api.db.Model(&models.User{})
+	q = strings.TrimSpace(q)
+	if q != "" {
+		like := "%" + q + "%"
+		query = query.Where(`
+			LOWER(users.name) LIKE LOWER(?)
+			OR LOWER(users.mail) LIKE LOWER(?)
+			OR EXISTS (
+				SELECT 1 FROM group_users
+				JOIN groups ON groups.id = group_users.group_id
+				WHERE group_users.user_id = users.id
+				AND LOWER(groups.name) LIKE LOWER(?)
+			)
+		`, like, like, like)
+	}
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var rows []models.User
+	if err := query.Order("users.id asc").Limit(limit).Offset(offset).Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	items, err := api.userDTOs(rows)
+	if err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
+}
+
+func (api *API) userDTOs(rows []models.User) ([]User, error) {
+	userIDs := make([]uint, 0, len(rows))
+	for _, row := range rows {
+		userIDs = append(userIDs, row.ID)
+	}
+	groupMap := map[uint][]uint{}
+	if len(userIDs) > 0 {
+		var links []models.GroupUser
+		err := api.db.Table("group_users").
+			Select("group_users.group_id, group_users.user_id").
+			Joins("JOIN groups ON groups.id = group_users.group_id").
+			Where("group_users.user_id IN ?", userIDs).
+			Find(&links).Error
+		if err != nil {
+			return nil, err
+		}
+		for _, link := range links {
+			groupMap[link.UserID] = append(groupMap[link.UserID], link.GroupID)
+		}
+	}
+	items := make([]User, 0, len(rows))
+	for _, row := range rows {
+		role := "user"
+		if row.Admin {
+			role = "admin"
+		}
+		items = append(items, User{ID: row.ID, Name: row.Name, Mail: row.Mail, Role: role, Groups: cleanUintList(groupMap[row.ID])})
+	}
+	return items, nil
+}
+
 func (api *API) groups() ([]Group, error) {
 	return api.searchGroups("", nil, 200)
 }
@@ -931,6 +1026,63 @@ func (api *API) searchGroups(q string, includeIDs []uint, limit int) ([]Group, e
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
 	}
+	groupIDs := make([]uint, 0, len(rows))
+	for _, row := range rows {
+		groupIDs = append(groupIDs, row.ID)
+	}
+	userMap := map[uint][]uint{}
+	if len(groupIDs) > 0 {
+		var links []models.GroupUser
+		if err := api.db.Table("group_users").
+			Select("group_users.group_id, group_users.user_id").
+			Joins("JOIN users ON users.id = group_users.user_id AND users.deleted_at IS NULL").
+			Where("group_users.group_id IN ?", groupIDs).
+			Order("group_users.user_id asc").
+			Find(&links).Error; err != nil {
+			return nil, err
+		}
+		for _, link := range links {
+			userMap[link.GroupID] = append(userMap[link.GroupID], link.UserID)
+		}
+	}
+	items := make([]Group, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, Group{ID: row.ID, Name: row.Name, Users: cleanUintList(userMap[row.ID])})
+	}
+	return items, nil
+}
+
+func (api *API) searchGroupsPage(q string, limit int, offset int) ([]Group, int64, error) {
+	query := api.db.Model(&models.Group{})
+	q = strings.TrimSpace(q)
+	if q != "" {
+		like := "%" + q + "%"
+		query = query.Where(`
+			LOWER(groups.name) LIKE LOWER(?)
+			OR EXISTS (
+				SELECT 1 FROM group_users
+				JOIN users ON users.id = group_users.user_id AND users.deleted_at IS NULL
+				WHERE group_users.group_id = groups.id
+				AND LOWER(users.name) LIKE LOWER(?)
+			)
+		`, like, like)
+	}
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var rows []models.Group
+	if err := query.Order("groups.id asc").Limit(limit).Offset(offset).Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	items, err := api.groupDTOs(rows)
+	if err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
+}
+
+func (api *API) groupDTOs(rows []models.Group) ([]Group, error) {
 	groupIDs := make([]uint, 0, len(rows))
 	for _, row := range rows {
 		groupIDs = append(groupIDs, row.ID)
@@ -1108,6 +1260,33 @@ func parseUintCSV(raw string) ([]uint, error) {
 		items = append(items, uint(id))
 	}
 	return cleanUintList(items), nil
+}
+
+func parsePage(c echo.Context) (int, int, error) {
+	page, err := positiveIntQuery(c, "page", 1)
+	if err != nil {
+		return 0, 0, err
+	}
+	pageSize, err := positiveIntQuery(c, "pageSize", 20)
+	if err != nil {
+		return 0, 0, err
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	return page, pageSize, nil
+}
+
+func positiveIntQuery(c echo.Context, name string, fallback int) (int, error) {
+	raw := strings.TrimSpace(c.QueryParam(name))
+	if raw == "" {
+		return fallback, nil
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value < 1 {
+		return 0, echo.NewHTTPError(http.StatusBadRequest, "invalid "+name)
+	}
+	return value, nil
 }
 
 func cleanUserCreate(req *UserCreate) {

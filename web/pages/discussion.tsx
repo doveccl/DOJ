@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useState } from 'react'
 
-import { createDiscussion, deleteDiscussion, getDiscussion, getDiscussions, updateDiscussion } from '../client'
+import { createDiscussion, deleteDiscussion, getDiscussion, getDiscussionPage, updateDiscussion } from '../client'
 import type { Discussion, DiscussionCreate } from '../client'
 import { UserLink } from '../components/entity'
 import { MarkdownEditor } from '../components/markdown'
@@ -15,6 +15,7 @@ import { useLocale } from '../locale'
 import { useSession } from '../session'
 import { formatTime } from '../utils/format'
 import { limits } from '../utils/limits'
+import { pageFromParams, pageSizeFromParams, setPageParams } from '../utils/pagination'
 
 type DiscussionForm = {
   title: string
@@ -34,7 +35,9 @@ export function DiscussionPage() {
   const navigate = useNavigate()
   const q = params.get('q') ?? ''
   const tags = params.get('tags') ?? ''
-  const query = useQuery({ queryKey: ['discussion', q, tags], queryFn: () => getDiscussions({ q, tags }) })
+  const page = pageFromParams(params)
+  const pageSize = pageSizeFromParams(params)
+  const query = useQuery({ queryKey: ['discussion', q, tags, page, pageSize], queryFn: () => getDiscussionPage({ q, tags, page, pageSize }) })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
@@ -177,8 +180,9 @@ export function DiscussionPage() {
             toggleLock: (item) => toggleState.mutate({ item, locked: !item.locked }),
             remove: (id) => remove.mutate(id)
           }, session.admin)}
-          dataSource={query.data}
-          pagination={{ pageSize: 20, showSizeChanger: true }}
+          dataSource={query.data?.items ?? []}
+          pagination={{ current: query.data?.page ?? page, pageSize: query.data?.pageSize ?? pageSize, total: query.data?.total ?? 0, showSizeChanger: true }}
+          onChange={(pagination) => setParams(setPageParams(params, pagination.current ?? page, pagination.pageSize ?? pageSize))}
         />
       )}
       {open && draft ? (

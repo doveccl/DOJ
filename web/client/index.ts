@@ -10,6 +10,7 @@ export type CreatedID = components['schemas']['CreatedID']
 export type Language = components['schemas']['Lang']
 export type UploadResult = components['schemas']['UploadResult']
 export type ProblemListItem = components['schemas']['ProblemListItem']
+export type ProblemListPage = components['schemas']['ProblemListPage']
 export type Problem = components['schemas']['Problem']
 export type ProblemCreate = components['schemas']['ProblemCreate']
 export type ProblemUpdate = components['schemas']['ProblemUpdate']
@@ -23,17 +24,20 @@ export type Item = components['schemas']['Item']
 export type HeatCell = components['schemas']['HeatCell']
 export type Assignment = components['schemas']['Assignment']
 export type AssignmentListItem = components['schemas']['AssignmentListItem']
+export type AssignmentListPage = components['schemas']['AssignmentListPage']
 export type ProblemRef = components['schemas']['ProblemRef']
 export type AssignmentCreate = components['schemas']['AssignmentCreate']
 export type AssignmentUpdate = components['schemas']['AssignmentUpdate']
 export type AssignmentDetail = components['schemas']['AssignmentDetail']
 export type AssignmentProgress = components['schemas']['AssignmentProgress']
 export type Contest = components['schemas']['Contest']
+export type ContestListPage = components['schemas']['ContestListPage']
 export type ContestCreate = components['schemas']['ContestCreate']
 export type ContestUpdate = components['schemas']['ContestUpdate']
 export type ContestDetail = components['schemas']['ContestDetail']
 export type Submission = components['schemas']['Submission']
 export type SubmissionListItem = components['schemas']['SubmissionListItem']
+export type SubmissionListPage = components['schemas']['SubmissionListPage']
 export type SubmissionDetail = components['schemas']['SubmissionDetail']
 export type SubmitRequest = components['schemas']['SubmitRequest']
 export type SubmissionUpdate = components['schemas']['SubmissionUpdate']
@@ -46,6 +50,7 @@ export type SolvedProblem = components['schemas']['SolvedProblem']
 export type PublicUser = components['schemas']['PublicUser']
 export type UserOption = components['schemas']['UserOption']
 export type Discussion = components['schemas']['Discussion']
+export type DiscussionListPage = components['schemas']['DiscussionListPage']
 export type DiscussionDetail = components['schemas']['DiscussionDetail']
 export type DiscussionCreate = components['schemas']['DiscussionCreate']
 export type DiscussionUpdate = components['schemas']['DiscussionUpdate']
@@ -57,12 +62,14 @@ export type PasswordUpdate = components['schemas']['PasswordUpdate']
 export type LoginRequest = components['schemas']['LoginRequest']
 export type RegisterRequest = components['schemas']['RegisterRequest']
 export type AdminMembers = components['schemas']['AdminMembers']
+export type AdminUserPage = components['schemas']['AdminUserPage']
 export type AdminSettings = components['schemas']['AdminSettings']
 export type AdminSettingsPatch = components['schemas']['AdminSettingsPatch']
 export type AdminUserCreate = components['schemas']['AdminUserCreate']
 export type AdminUserUpdate = components['schemas']['AdminUserUpdate']
 export type PasswordReset = components['schemas']['PasswordReset']
 export type AdminGroup = components['schemas']['AdminGroup']
+export type AdminGroupPage = components['schemas']['AdminGroupPage']
 export type AdminGroupUpdate = components['schemas']['AdminGroupUpdate']
 export type AdminLang = components['schemas']['AdminLang']
 export type AdminLangUpdate = components['schemas']['AdminLangUpdate']
@@ -274,6 +281,20 @@ export async function getAdminMembers(params: { q?: string; users?: string; grou
   return assertData(data, error)
 }
 
+export async function getAdminUsers(params: { q?: string } & PageParams = {}) {
+  const { data, error } = await client.GET('/api/admin/users', {
+    params: { query: params }
+  })
+  return assertData(data, error)
+}
+
+export async function getAdminGroups(params: { q?: string } & PageParams = {}) {
+  const { data, error } = await client.GET('/api/admin/groups', {
+    params: { query: params }
+  })
+  return assertData(data, error)
+}
+
 export async function updateAdminSettings(body: AdminSettingsPatch) {
   const { data, error } = await client.PATCH('/api/admin/settings', { body })
   return assertData(data, error)
@@ -413,11 +434,20 @@ export async function downloadBackup(name: string) {
   return response.blob()
 }
 
-export async function getProblems(params: { q?: string; tag?: string } = {}) {
+type PageParams = {
+  page?: number
+  pageSize?: number
+}
+
+export async function getProblemPage(params: { q?: string; tag?: string } & PageParams = {}) {
   const { data, error } = await client.GET('/api/problems', {
     params: { query: params }
   })
   return assertData(data, error)
+}
+
+export async function getProblems(params: { q?: string; tag?: string } = {}) {
+  return (await getProblemPage({ ...params, page: 1, pageSize: 50 })).items
 }
 
 export async function getTags(kind: 'problem' | 'discussion', q = '') {
@@ -540,11 +570,15 @@ export async function downloadProblemFile(id: number, section: 'data' | 'judge',
   return response.blob()
 }
 
-export async function getAssignments(params: { q?: string } = {}) {
+export async function getAssignmentPage(params: { q?: string } & PageParams = {}) {
   const { data, error } = await client.GET('/api/assignments', {
     params: { query: params }
   })
   return assertData(data, error)
+}
+
+export async function getAssignments(params: { q?: string } = {}) {
+  return (await getAssignmentPage({ ...params, page: 1, pageSize: 50 })).items
 }
 
 export async function createAssignment(body: AssignmentCreate) {
@@ -576,11 +610,15 @@ export async function getAssignment(id: number) {
   return assertData(data, error)
 }
 
-export async function getContests(params: { q?: string } = {}) {
+export async function getContestPage(params: { q?: string } & PageParams = {}) {
   const { data, error } = await client.GET('/api/contests', {
     params: { query: params }
   })
   return assertData(data, error)
+}
+
+export async function getContests(params: { q?: string } = {}) {
+  return (await getContestPage({ ...params, page: 1, pageSize: 50 })).items
 }
 
 export async function createContest(body: ContestCreate) {
@@ -612,11 +650,15 @@ export async function getContest(id: number) {
   return assertData(data, error)
 }
 
-export async function getSubmissions(params: { problem?: string; user?: string; assignment?: string; contest?: string } = {}) {
+export async function getSubmissionPage(params: { problem?: string; user?: string; assignment?: string; contest?: string } & PageParams = {}) {
   const { data, error } = await client.GET('/api/submissions', {
     params: { query: params }
   })
   return assertData(data, error)
+}
+
+export async function getSubmissions(params: { problem?: string; user?: string; assignment?: string; contest?: string } = {}) {
+  return (await getSubmissionPage({ ...params, page: 1, pageSize: 50 })).items
 }
 
 export async function getSubmission(id: number) {
@@ -665,11 +707,15 @@ export async function getUser(name: string) {
   return assertData(data, error)
 }
 
-export async function getDiscussions(params: { q?: string; tags?: string } = {}) {
+export async function getDiscussionPage(params: { q?: string; tags?: string } & PageParams = {}) {
   const { data, error } = await client.GET('/api/discussion', {
     params: { query: params }
   })
   return assertData(data, error)
+}
+
+export async function getDiscussions(params: { q?: string; tags?: string } = {}) {
+  return (await getDiscussionPage({ ...params, page: 1, pageSize: 50 })).items
 }
 
 export async function createDiscussion(body: DiscussionCreate) {
