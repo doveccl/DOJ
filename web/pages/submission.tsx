@@ -30,16 +30,31 @@ export function SubmissionDetailPage() {
   const languages = useQuery({ queryKey: ['languages'], queryFn: getLangs })
   const updatePublic = useMutation({
     mutationFn: (value: boolean) => updateSubmission(id, { public: value }),
-    onSuccess: (next) => {
-      client.setQueryData<SubmissionDetail>(['submission', id], (current) => (current ? { ...current, submission: next } : current))
+    onSuccess: (_next, value) => {
+      client.setQueryData<SubmissionDetail>(['submission', id], (current) => (current ? { ...current, submission: { ...current.submission, public: value } } : current))
       client.invalidateQueries({ queryKey: ['submissions'] })
     },
     onError: (error) => message.error(error.message)
   })
   const rejudge = useMutation({
     mutationFn: () => rejudgeSubmission(id),
-    onSuccess: (next) => {
-      client.setQueryData<SubmissionDetail>(['submission', id], (current) => (current ? { ...current, submission: next, cases: [] } : current))
+    onSuccess: () => {
+      client.setQueryData<SubmissionDetail>(['submission', id], (current) =>
+        current
+          ? {
+              ...current,
+              submission: {
+                ...current.submission,
+                status: 'queued',
+                score: 0,
+                message: '',
+                timeMs: undefined,
+                memoryKb: undefined
+              },
+              cases: []
+            }
+          : current
+      )
       void client.invalidateQueries({ queryKey: ['submissions'] })
       message.success(text.submissions.rejudged)
     },

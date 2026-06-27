@@ -35,6 +35,7 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 - `GET /api/home` now returns compact `HomeProblem` rows for the latest-problem card and skips per-user mine/latest and discussion decoration.
 - `GET /api/users/{name}` now returns compact `SolvedProblem` rows and reads only the columns needed for solved problems, activity timeline, and heatmap.
 - `PATCH /api/discussion/{id}` now returns `{id}` and avoids author/reply recounts; discussion list queries select only summary columns while still allowing content search.
+- Submission create/update/rejudge mutations now return `{id}`; detail/list reads own source, cases, status presentation, and problem/user names.
 
 ## Endpoint Matrix
 
@@ -108,9 +109,10 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 | `PATCH /api/contests/{id}` | Admin mutation | Full contest editor fields. | OK for current edit modal because every submitted field is visible/editable together. |
 | `DELETE /api/contests/{id}` | Admin mutation | Path id only. | OK. |
 | `GET /api/submissions` | List | Capped `SubmissionListItem` rows with problem/user names. | Fixed. Problem/user references are batched; source/cases/message/public/score are detail-only. |
-| `POST /api/submissions` | Mutation | Submit code payload, submission row out. | OK. |
+| `POST /api/submissions` | Mutation | Submit code payload, `{id}` out. | Fixed. Caller only redirects to detail; no problem/user decoration on create response. |
 | `GET /api/submissions/{id}` | Detail | Submission row, source code, case results. | OK. Detail owns source/cases and visibility checks. |
-| `PATCH /api/submissions/{id}` | Partial mutation | Public flag only. | OK. |
+| `PATCH /api/submissions/{id}` | Partial mutation | Public flag only, `{id}` out. | Fixed. Detail page updates the local flag and list invalidates separately. |
+| `POST /api/submissions/{id}/rejudge` | Admin mutation | Requeue selected submission, `{id}` out. | Fixed. Detail/list refresh owns status display after requeue. |
 | `GET /api/rank` | List | Capped user rank rows. | OK. User stats are batched. |
 | `GET /api/users/{name}` | Detail aggregate | Profile, heatmap, compact solved problem summaries, recent activity. | Fixed. Solved problems use `SolvedProblem`; activity and heatmap queries select only displayed columns. |
 | `GET /api/discussion` | List | Discussion summary rows. | Fixed. Search can match content, but list queries select only summary columns; authors/reply counts are batched. |

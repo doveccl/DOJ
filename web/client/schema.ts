@@ -3096,7 +3096,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Submission"];
+                    "application/json": components["schemas"]["CreatedID"];
                 };
             };
         };
@@ -3151,7 +3151,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Submission"];
+                    "application/json": components["schemas"]["CreatedID"];
                 };
             };
             /** @description Owner or admin required */
@@ -3187,7 +3187,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Submission"];
+                    "application/json": components["schemas"]["CreatedID"];
                 };
             };
             /** @description Admin required */

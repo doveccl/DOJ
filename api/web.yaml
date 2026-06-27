@@ -1196,7 +1196,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Submission"
+                $ref: "#/components/schemas/CreatedID"
   /api/submissions/{id}:
     get:
       operationId: getSubmission
@@ -1235,7 +1235,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Submission"
+                $ref: "#/components/schemas/CreatedID"
         "403":
           description: Owner or admin required
         "404":
@@ -1255,7 +1255,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Submission"
+                $ref: "#/components/schemas/CreatedID"
         "403":
           description: Admin required
         "404":

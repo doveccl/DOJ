@@ -308,8 +308,8 @@ func TestSubmissionPublicCanBeUpdatedByOwnerOrAdmin(t *testing.T) {
 	if ownerRes.Code != http.StatusOK {
 		t.Fatalf("owner should update submission public flag, got %d body=%s", ownerRes.Code, ownerRes.Body.String())
 	}
-	if got := decodeJSON[SubmissionDTO](t, ownerRes); !got.Public {
-		t.Fatalf("owner update should return public submission: %+v", got)
+	if got := decodeJSON[CreatedID](t, ownerRes); got.ID != submission.ID {
+		t.Fatalf("owner update should return submission id: %+v", got)
 	}
 	var got models.Submission
 	if err := db.First(&got, submission.ID).Error; err != nil {
@@ -322,8 +322,8 @@ func TestSubmissionPublicCanBeUpdatedByOwnerOrAdmin(t *testing.T) {
 	if adminRes.Code != http.StatusOK {
 		t.Fatalf("admin should update submission public flag, got %d body=%s", adminRes.Code, adminRes.Body.String())
 	}
-	if got := decodeJSON[SubmissionDTO](t, adminRes); got.Public {
-		t.Fatalf("admin update should return private submission: %+v", got)
+	if got := decodeJSON[CreatedID](t, adminRes); got.ID != submission.ID {
+		t.Fatalf("admin update should return submission id: %+v", got)
 	}
 	if err := db.First(&got, submission.ID).Error; err != nil {
 		t.Fatalf("reload submission: %v", err)
@@ -386,9 +386,9 @@ func TestSubmissionCanBeRejudgedByAdmin(t *testing.T) {
 	if adminRes.Code != http.StatusOK {
 		t.Fatalf("admin should rejudge submission, got %d body=%s", adminRes.Code, adminRes.Body.String())
 	}
-	gotDTO := decodeJSON[SubmissionDTO](t, adminRes)
-	if gotDTO.Status != "queued" || gotDTO.Score != 0 || gotDTO.Message != "" || gotDTO.TimeMS != nil || gotDTO.MemoryKB != nil {
-		t.Fatalf("rejudge response = %+v", gotDTO)
+	gotID := decodeJSON[CreatedID](t, adminRes)
+	if gotID.ID != submission.ID {
+		t.Fatalf("rejudge should return submission id: %+v", gotID)
 	}
 	var got models.Submission
 	if err := db.First(&got, submission.ID).Error; err != nil {
@@ -814,9 +814,13 @@ func TestDatabaseSubmitStoresAndValidatesContext(t *testing.T) {
 	if res.Code != http.StatusCreated {
 		t.Fatalf("assignment submission got %d body=%s", res.Code, res.Body.String())
 	}
+	created := decodeJSON[CreatedID](t, res)
 	var row models.Submission
 	if err := db.First(&row, "problem_id = ?", included.ID).Error; err != nil {
 		t.Fatalf("read created submission: %v", err)
+	}
+	if created.ID != row.ID {
+		t.Fatalf("assignment submission should return created id: got %d row %d", created.ID, row.ID)
 	}
 	if row.AssignmentID == nil || *row.AssignmentID != assignment.ID {
 		t.Fatalf("assignment id not inferred: %+v", row)
@@ -826,6 +830,10 @@ func TestDatabaseSubmitStoresAndValidatesContext(t *testing.T) {
 	res = requestJSONWithCookies(e, http.MethodPost, "/api/submissions", cookies, normalBody)
 	if res.Code != http.StatusCreated {
 		t.Fatalf("normal submission got %d body=%s", res.Code, res.Body.String())
+	}
+	created = decodeJSON[CreatedID](t, res)
+	if created.ID == 0 {
+		t.Fatalf("normal submission should return created id: %+v", created)
 	}
 }
 

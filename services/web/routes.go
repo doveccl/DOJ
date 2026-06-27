@@ -2224,7 +2224,7 @@ func (api *API) submit(c echo.Context) error {
 		return err
 	}
 	events.SubmissionChanged()
-	return c.JSON(http.StatusCreated, api.submissionDTO(row))
+	return c.JSON(http.StatusCreated, CreatedID{ID: row.ID})
 }
 
 func (api *API) inferSubmitScopes(userID uint, problemID uint, now time.Time) (*uint, *uint, error) {
@@ -2755,7 +2755,7 @@ func (api *API) updateSubmission(c echo.Context) error {
 		return err
 	}
 	events.SubmissionChanged()
-	return c.JSON(http.StatusOK, api.submissionDTO(row))
+	return c.JSON(http.StatusOK, CreatedID{ID: row.ID})
 }
 
 func (api *API) rejudgeSubmission(c echo.Context) error {
@@ -2796,7 +2796,7 @@ func (api *API) rejudgeSubmission(c echo.Context) error {
 		return err
 	}
 	events.SubmissionChanged()
-	return c.JSON(http.StatusOK, api.submissionDTO(row))
+	return c.JSON(http.StatusOK, CreatedID{ID: row.ID})
 }
 
 func (api *API) submissionSourceLocked(row models.Submission) (bool, error) {
