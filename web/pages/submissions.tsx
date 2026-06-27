@@ -216,9 +216,9 @@ function selectFilterOptions(...lists: { value: string; label: string }[][]) {
 function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: string, languageNames: Map<string, string>): TableProps<SubmissionListItem>['columns'] {
   return [
     {
-      title: text.submissions.id,
+      title: <Typography.Text className="nowrap">{text.submissions.id}</Typography.Text>,
       dataIndex: 'id',
-      width: 56,
+      width: 80,
       render: (id: number) => <Link to={`/submissions/${id}`}>{submissionCode(id)}</Link>
     },
     {

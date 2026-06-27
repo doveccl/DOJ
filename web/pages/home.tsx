@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { getHome, updateNotice } from '../client'
-import type { HomeProblem, Item } from '../client'
+import type { HomeAssignment, HomeContest, HomeProblem } from '../client'
 import { ProblemLink } from '../components/entity'
 import { YearHeatmap } from '../components/heatmap'
 import { MarkdownEditor, MarkdownPreview } from '../components/markdown'
@@ -103,10 +103,10 @@ export function HomePage() {
           <ProblemList title={text.home.latestProblems} items={home.problems} />
         </Col>
         <Col xs={24} lg={8}>
-          <ItemList title={text.home.assignments} items={home.assignments} hrefPrefix="/assignments" />
+          <AssignmentList title={text.home.assignments} items={home.assignments} />
         </Col>
         <Col xs={24} lg={8}>
-          <ItemList title={text.home.contests} items={home.contests} hrefPrefix="/contests" />
+          <ContestList title={text.home.contests} items={home.contests} />
         </Col>
       </Row>
     </Flex>
@@ -124,16 +124,7 @@ function ProblemList({ title, items }: { title: string; items: HomeProblem[] }) 
           size="small"
           dataSource={items}
           renderItem={(item) => (
-            <List.Item
-              key={item.id}
-              extra={
-                <Space size={[4, 4]} wrap className="homeProblemTags">
-                  {item.tags.slice(0, 2).map((tag) => (
-                    <Tag key={tag}>{tag}</Tag>
-                  ))}
-                </Space>
-              }
-            >
+            <List.Item key={item.id}>
               <ProblemLink id={item.id} title={item.title} strong />
             </List.Item>
           )}
@@ -143,20 +134,21 @@ function ProblemList({ title, items }: { title: string; items: HomeProblem[] }) 
   )
 }
 
-function ItemList({ title, items, hrefPrefix }: { title: string; items: Item[]; hrefPrefix: string }) {
+function AssignmentList({ title, items }: { title: string; items: HomeAssignment[] }) {
+  const { text } = useLocale()
   return (
     <Card title={title}>
       {items.length === 0 ? (
         <EmptyBlock />
       ) : (
-        <List<Item>
+        <List<HomeAssignment>
           className="homeLinkList"
           size="small"
           dataSource={items}
           renderItem={(item) => (
-            <List.Item key={item.id}>
+            <List.Item key={item.id} extra={<Typography.Text type="secondary" className="nowrap">{text.assignments.done(item.done, item.total)}</Typography.Text>}>
               <Typography.Text strong ellipsis className="lineText">
-                <Link to={`${hrefPrefix}/${item.id}`}>{item.title}</Link>
+                <Link to={`/assignments/${item.id}`}>{item.title}</Link>
               </Typography.Text>
             </List.Item>
           )}
@@ -164,4 +156,56 @@ function ItemList({ title, items, hrefPrefix }: { title: string; items: Item[]; 
       )}
     </Card>
   )
+}
+
+function ContestList({ title, items }: { title: string; items: HomeContest[] }) {
+  const { text } = useLocale()
+  return (
+    <Card title={title}>
+      {items.length === 0 ? (
+        <EmptyBlock />
+      ) : (
+        <List<HomeContest>
+          className="homeLinkList"
+          size="small"
+          dataSource={items}
+          renderItem={(item) => (
+            <List.Item key={item.id} extra={<Tag color={contestStatusColor(item.status)}>{contestStatusText(item.status, text)}</Tag>}>
+              <Typography.Text strong ellipsis className="lineText">
+                <Link to={`/contests/${item.id}`}>{item.title}</Link>
+              </Typography.Text>
+            </List.Item>
+          )}
+        />
+      )}
+    </Card>
+  )
+}
+
+function contestStatusText(status: string, text: ReturnType<typeof useLocale>['text']) {
+  switch (status) {
+    case 'pending':
+      return text.contests.pending
+    case 'running':
+      return text.contests.running
+    case 'frozen':
+      return text.contests.frozen
+    case 'ended':
+      return text.contests.ended
+    default:
+      return status
+  }
+}
+
+function contestStatusColor(status: string) {
+  switch (status) {
+    case 'pending':
+      return 'blue'
+    case 'running':
+      return 'green'
+    case 'frozen':
+      return 'orange'
+    default:
+      return 'default'
+  }
 }

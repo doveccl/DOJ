@@ -2201,24 +2201,46 @@ components:
         assignments:
           type: array
           items:
-            $ref: "#/components/schemas/Item"
+            $ref: "#/components/schemas/HomeAssignment"
         contests:
           type: array
           items:
-            $ref: "#/components/schemas/Item"
+            $ref: "#/components/schemas/HomeContest"
     HomeProblem:
       type: object
-      required: [id, title, tags]
+      required: [id, title]
       properties:
         id:
           type: integer
         title:
           type: string
           maxLength: 256
-        tags:
-          type: array
-          items:
-            type: string
+    HomeAssignment:
+      type: object
+      required: [id, title, status, total, done]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+          maxLength: 256
+        status:
+          type: string
+        total:
+          type: integer
+        done:
+          type: integer
+    HomeContest:
+      type: object
+      required: [id, title, status]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+          maxLength: 256
+        status:
+          type: string
     NoticeUpdate:
       type: object
       required: [content]

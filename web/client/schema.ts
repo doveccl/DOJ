@@ -1197,13 +1197,24 @@ export interface components {
             notice: string;
             heatmap: components["schemas"]["HeatCell"][];
             problems: components["schemas"]["HomeProblem"][];
-            assignments: components["schemas"]["Item"][];
-            contests: components["schemas"]["Item"][];
+            assignments: components["schemas"]["HomeAssignment"][];
+            contests: components["schemas"]["HomeContest"][];
         };
         HomeProblem: {
             id: number;
             title: string;
-            tags: string[];
+        };
+        HomeAssignment: {
+            id: number;
+            title: string;
+            status: string;
+            total: number;
+            done: number;
+        };
+        HomeContest: {
+            id: number;
+            title: string;
+            status: string;
         };
         NoticeUpdate: {
             content: string;

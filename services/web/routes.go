@@ -45,11 +45,11 @@ const (
 )
 
 type Home struct {
-	Notice      string        `json:"notice"`
-	Heatmap     []HeatCell    `json:"heatmap"`
-	Problems    []HomeProblem `json:"problems"`
-	Assignments []Item        `json:"assignments"`
-	Contests    []Item        `json:"contests"`
+	Notice      string           `json:"notice"`
+	Heatmap     []HeatCell       `json:"heatmap"`
+	Problems    []HomeProblem    `json:"problems"`
+	Assignments []HomeAssignment `json:"assignments"`
+	Contests    []HomeContest    `json:"contests"`
 }
 
 type CreatedID struct {
@@ -71,9 +71,22 @@ type Item struct {
 }
 
 type HomeProblem struct {
-	ID    uint     `json:"id"`
-	Title string   `json:"title"`
-	Tags  []string `json:"tags"`
+	ID    uint   `json:"id"`
+	Title string `json:"title"`
+}
+
+type HomeAssignment struct {
+	ID     uint   `json:"id"`
+	Title  string `json:"title"`
+	Status string `json:"status"`
+	Total  int    `json:"total"`
+	Done   int    `json:"done"`
+}
+
+type HomeContest struct {
+	ID     uint   `json:"id"`
+	Title  string `json:"title"`
+	Status string `json:"status"`
 }
 
 type PageResult[T any] struct {
@@ -970,9 +983,21 @@ func (api *API) home(c echo.Context) error {
 
 func (api *API) homeProblems(c echo.Context) ([]HomeProblem, error) {
 	var rows []models.Problem
-	query := api.db.Select("id", "title", "tags").Order("id desc").Limit(homeListLimit)
+	query := api.db.Select("id", "title").Order("id desc").Limit(homeListLimit)
 	if !api.isAdmin(c) {
 		query = api.applyProblemListVisibility(query)
+	}
+	if api.role(c) != "guest" {
+		user, err := api.currentUser(c)
+		if err != nil {
+			return nil, err
+		}
+		query = query.Where(`NOT EXISTS (
+			SELECT 1 FROM submissions
+			WHERE submissions.problem_id = problems.id
+			AND submissions.user_id = ?
+			AND submissions.status = ?
+		)`, user.ID, "AC")
 	}
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
@@ -982,7 +1007,6 @@ func (api *API) homeProblems(c echo.Context) ([]HomeProblem, error) {
 		items = append(items, HomeProblem{
 			ID:    row.ID,
 			Title: row.Title,
-			Tags:  readTags([]byte(row.Tags)),
 		})
 	}
 	return items, nil
@@ -1000,19 +1024,21 @@ func (api *API) homeHeatmap(c echo.Context) ([]HeatCell, error) {
 	return api.userHeatmap(user.ID)
 }
 
-func (api *API) homeAssignments(c echo.Context) ([]Item, error) {
+func (api *API) homeAssignments(c echo.Context) ([]HomeAssignment, error) {
+	if api.role(c) == "guest" {
+		return []HomeAssignment{}, nil
+	}
+	user, err := api.currentUser(c)
+	if err != nil {
+		return nil, err
+	}
 	query := api.db.Model(&models.Assignment{}).
-		Select("assignments.id", "assignments.title").
+		Select("assignments.id", "assignments.title", "assignments.end_at").
 		Where(`EXISTS (
 			SELECT 1 FROM assignment_problems
 			WHERE assignment_problems.assignment_id = assignments.id
-		)`)
-	if !api.isAdmin(c) {
-		user, err := api.currentUser(c)
-		if err != nil {
-			return []Item{}, nil
-		}
-		query = query.Where(`(
+		)`).
+		Where(`(
 			EXISTS (
 				SELECT 1 FROM assignment_users
 				WHERE assignment_users.assignment_id = assignments.id
@@ -1025,26 +1051,45 @@ func (api *API) homeAssignments(c echo.Context) ([]Item, error) {
 				AND group_users.user_id = ?
 			)
 		)`, user.ID, user.ID)
-	}
 	var rows []models.Assignment
 	if err := query.Order("end_at desc").Limit(homeListLimit).Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	items := make([]Item, 0, len(rows))
+	ids := assignmentIDs(rows)
+	totals, err := api.assignmentTotalMap(ids)
+	if err != nil {
+		return nil, err
+	}
+	done, err := api.assignmentDoneMap(c, ids)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]HomeAssignment, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, Item{ID: row.ID, Title: row.Title})
+		total := totals[row.ID]
+		if total == 0 {
+			continue
+		}
+		items = append(items, HomeAssignment{
+			ID:     row.ID,
+			Title:  row.Title,
+			Status: assignmentStatus(row),
+			Total:  total,
+			Done:   done[row.ID],
+		})
 	}
 	return items, nil
 }
 
-func (api *API) homeContests(c echo.Context) ([]Item, error) {
+func (api *API) homeContests(c echo.Context) ([]HomeContest, error) {
 	var rows []models.Contest
 	query := api.db.Model(&models.Contest{}).
-		Select("contests.id", "contests.title").
+		Select("contests.id", "contests.title", "contests.kind", "contests.start_at", "contests.end_at", "contests.freeze_at").
 		Where(`EXISTS (
 			SELECT 1 FROM contest_problems
 			WHERE contest_problems.contest_id = contests.id
-		)`)
+		)`).
+		Where("contests.end_at > ?", time.Now())
 	if !api.isAdmin(c) {
 		query = query.Where(`EXISTS (
 			SELECT 1 FROM contest_problems
@@ -1056,9 +1101,9 @@ func (api *API) homeContests(c echo.Context) ([]Item, error) {
 	if err := query.Order("start_at desc").Limit(homeListLimit).Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	items := make([]Item, 0, len(rows))
+	items := make([]HomeContest, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, Item{ID: row.ID, Title: row.Title})
+		items = append(items, HomeContest{ID: row.ID, Title: row.Title, Status: contestStatus(row)})
 	}
 	return items, nil
 }

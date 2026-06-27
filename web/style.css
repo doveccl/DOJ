@@ -307,20 +307,6 @@ body {
   overflow: hidden;
 }
 
-.homeProblemList .ant-list-item-extra {
-  flex: none;
-  max-width: 42%;
-  margin-inline-start: 12px;
-}
-
-.homeProblemTags {
-  justify-content: flex-end;
-}
-
-.homeProblemTags .ant-tag {
-  margin-inline-end: 0;
-}
-
 .statementCard .ant-card-head-title {
   min-width: 0;
 }
@@ -627,8 +613,7 @@ body {
   text-align: center;
 }
 
-.profileActivityLine,
-.profileSolvedLine {
+.profileActivityLine {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
@@ -640,25 +625,14 @@ body {
   flex: none;
 }
 
-.profileActivityTitle,
-.profileSolvedTitle {
+.profileActivityTitle {
   flex: 1;
   min-width: 0;
   overflow: hidden;
 }
 
-.profileActivityTitle .lineText,
-.profileSolvedTitle .lineText {
+.profileActivityTitle .lineText {
   display: block;
-}
-
-.profileSolvedTags {
-  flex: none;
-  max-width: 44%;
-}
-
-.profileSolvedTags .ant-tag {
-  margin-inline-end: 0;
 }
 
 @media (max-width: 991px) {

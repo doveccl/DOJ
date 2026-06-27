@@ -159,7 +159,6 @@ function SolvedCard({ page, onPageChange }: { page: SolvedProblemPage; onPageCha
       ) : (
         <Flex vertical gap={12}>
           <Table<SolvedProblem>
-            className="profileSolvedTable"
             size="small"
             showHeader={false}
             tableLayout="fixed"
@@ -168,17 +167,17 @@ function SolvedCard({ page, onPageChange }: { page: SolvedProblemPage; onPageCha
             dataSource={problems}
             columns={[
               {
+                ellipsis: true,
+                render: (_, row) => <ProblemLink id={row.id} title={row.title} />
+              },
+              {
+                width: 132,
                 render: (_, row) => (
-                  <Flex align="center" gap={8} className="profileSolvedLine">
-                    <span className="profileSolvedTitle">
-                      <ProblemLink id={row.id} title={row.title} />
-                    </span>
-                    <Space size={[4, 4]} wrap className="profileSolvedTags">
-                      {row.tags.slice(0, 2).map((tag) => (
-                        <Tag key={tag}>{tag}</Tag>
-                      ))}
-                    </Space>
-                  </Flex>
+                  <Space size={[4, 4]} wrap>
+                    {row.tags.slice(0, 2).map((tag) => (
+                      <Tag key={tag}>{tag}</Tag>
+                    ))}
+                  </Space>
                 )
               }
             ]}
