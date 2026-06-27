@@ -37,6 +37,7 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 - `PATCH /api/discussion/{id}` now returns `{id}` and avoids author/reply recounts; discussion list queries select only summary columns while still allowing content search.
 - Submission create/update/rejudge mutations now return `{id}`; detail/list reads own source, cases, status presentation, and problem/user names.
 - Assignment and contest updates now return `{id}`; detail pages invalidate and reload their full aggregates via the detail endpoints.
+- `PATCH /api/problems/{id}` now returns `{id}` and no longer reloads statement, stats, mine, or discussion counts after saving.
 
 ## Endpoint Matrix
 
@@ -84,7 +85,7 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 | `GET /api/problems` | List | `ProblemListItem` summary. | OK. No statement or asset storage access; stats/discussions/mine are batched. |
 | `POST /api/problems` | Admin mutation | Creation fields only, `{id}` out. | Fixed. Caller only redirects to detail; statement is created by detail edit, not list create. |
 | `GET /api/problems/{id}` | Detail | Full `Problem`, statement, storage-derived cases/data size. | OK. Detail endpoint owns storage-derived data. |
-| `PATCH /api/problems/{id}` | Partial mutation | Optional title/statement/tags/visible/mode/time/memory. | Fixed. Small UI actions submit only their changed fields. |
+| `PATCH /api/problems/{id}` | Partial mutation | Optional title/statement/tags/visible/mode/time/memory, `{id}` out. | Fixed. Small UI actions submit only their changed fields; detail GET owns statement/stats expansion. |
 | `PATCH /api/problems/{id}/visibility` | List-row mutation | Visibility only, decorated list item out. | Fixed. Preserves list stats/mine/discussion fields and does not touch statement or asset storage. |
 | `DELETE /api/problems/{id}` | Admin mutation | Path id only. | OK. |
 | `GET /api/problems/{id}/assets` | Asset list | Problem asset inventory. | OK. Loaded only when admin asset modal opens. |

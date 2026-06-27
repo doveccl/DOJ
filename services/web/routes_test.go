@@ -1326,12 +1326,17 @@ func TestProblemPatchOnlyUpdatesProvidedFields(t *testing.T) {
 	statementBody := `{"statement":` + strconv.Quote(statement) + `}`
 	if res := requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000", cookies, statementBody); res.Code != http.StatusOK {
 		t.Fatalf("statement patch got %d body=%s", res.Code, res.Body.String())
+	} else if got := decodeJSON[CreatedID](t, res); got.ID != problem.ID {
+		t.Fatalf("statement patch should return problem id: %+v", got)
 	}
 	res := requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000", cookies, `{"mode":"strict"}`)
 	if res.Code != http.StatusOK {
 		t.Fatalf("mode patch got %d body=%s", res.Code, res.Body.String())
 	}
-	updated := decodeJSON[ProblemDTO](t, res)
+	if got := decodeJSON[CreatedID](t, res); got.ID != problem.ID {
+		t.Fatalf("mode patch should return problem id: %+v", got)
+	}
+	updated := decodeJSON[ProblemDTO](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil))
 	if updated.Mode != "strict" || updated.Title != "Original" || updated.Statement != statement || !updated.Visible || updated.TimeMS != 2000 || updated.MemoryMB != 512 {
 		t.Fatalf("mode patch should preserve unrelated problem fields: %+v", updated)
 	}
@@ -1339,7 +1344,10 @@ func TestProblemPatchOnlyUpdatesProvidedFields(t *testing.T) {
 	if res.Code != http.StatusOK {
 		t.Fatalf("visible false patch got %d body=%s", res.Code, res.Body.String())
 	}
-	updated = decodeJSON[ProblemDTO](t, res)
+	if got := decodeJSON[CreatedID](t, res); got.ID != problem.ID {
+		t.Fatalf("visible patch should return problem id: %+v", got)
+	}
+	updated = decodeJSON[ProblemDTO](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil))
 	if updated.Visible || updated.Mode != "strict" || updated.Title != "Original" || updated.Statement != statement {
 		t.Fatalf("visible false patch should apply false and preserve unrelated fields: %+v", updated)
 	}
@@ -1347,7 +1355,10 @@ func TestProblemPatchOnlyUpdatesProvidedFields(t *testing.T) {
 	if res.Code != http.StatusOK {
 		t.Fatalf("empty tags patch got %d body=%s", res.Code, res.Body.String())
 	}
-	updated = decodeJSON[ProblemDTO](t, res)
+	if got := decodeJSON[CreatedID](t, res); got.ID != problem.ID {
+		t.Fatalf("tags patch should return problem id: %+v", got)
+	}
+	updated = decodeJSON[ProblemDTO](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil))
 	if len(updated.Tags) != 0 || updated.Visible || updated.Mode != "strict" || updated.Statement != statement {
 		t.Fatalf("empty tags patch should clear tags and preserve unrelated fields: %+v", updated)
 	}
@@ -1355,7 +1366,10 @@ func TestProblemPatchOnlyUpdatesProvidedFields(t *testing.T) {
 	if res.Code != http.StatusOK {
 		t.Fatalf("zero limit patch got %d body=%s", res.Code, res.Body.String())
 	}
-	updated = decodeJSON[ProblemDTO](t, res)
+	if got := decodeJSON[CreatedID](t, res); got.ID != problem.ID {
+		t.Fatalf("limit patch should return problem id: %+v", got)
+	}
+	updated = decodeJSON[ProblemDTO](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil))
 	if updated.TimeMS != 1000 || updated.MemoryMB != 256 || updated.Mode != "strict" || updated.Statement != statement {
 		t.Fatalf("zero limit patch should use defaults and preserve unrelated fields: %+v", updated)
 	}

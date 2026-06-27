@@ -691,7 +691,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Problem"
+                $ref: "#/components/schemas/CreatedID"
         "404":
           description: Problem not found
     delete:

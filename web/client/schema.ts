@@ -2456,7 +2456,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["CreatedID"];
                 };
             };
             /** @description Problem not found */

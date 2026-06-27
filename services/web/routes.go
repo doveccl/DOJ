@@ -1283,21 +1283,7 @@ func (api *API) updateProblem(c echo.Context) error {
 			return err
 		}
 	}
-	item, err := api.problemDTOWithStatement(c.Request().Context(), row)
-	if err != nil {
-		return err
-	}
-	items := []ProblemDTO{item}
-	if err := api.decorateProblemStats(c.Request().Context(), items); err != nil {
-		return err
-	}
-	if err := api.decorateProblemMines(c, items); err != nil {
-		return err
-	}
-	if err := api.decorateProblemDiscussions(c.Request().Context(), items); err != nil {
-		return err
-	}
-	return c.JSON(http.StatusOK, items[0])
+	return c.JSON(http.StatusOK, CreatedID{ID: row.ID})
 }
 
 func (api *API) updateProblemVisibility(c echo.Context) error {

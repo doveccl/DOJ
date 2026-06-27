@@ -203,8 +203,8 @@ export function ProblemDetailPage() {
       }
       return updateProblem(id, { mode })
     },
-    onSuccess: (next) => {
-      client.setQueryData(['problem', id], next)
+    onSuccess: (_next, mode) => {
+      client.setQueryData<Problem>(['problem', id], (current) => (current ? { ...current, mode } : current))
       void client.invalidateQueries({ queryKey: ['problems'] })
       void client.invalidateQueries({ queryKey: ['home'] })
       message.success(text.common.saved)
