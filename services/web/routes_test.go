@@ -1252,6 +1252,13 @@ func TestProblemVisibilityUpdateDoesNotTouchStatementStorage(t *testing.T) {
 	if err := db.Create(&problem).Error; err != nil {
 		t.Fatalf("create problem: %v", err)
 	}
+	if err := db.Create(&models.Submission{ProblemID: problem.ID, UserID: admin.ID, Language: "cpp", Code: "int main(){}", Status: "AC", Score: 100, Public: true}).Error; err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+	discussionTags, _ := json.Marshal([]string{"P1000"})
+	if err := db.Create(&models.Discussion{Title: "Visible discussion", Content: "body", UserID: admin.ID, Tags: discussionTags}).Error; err != nil {
+		t.Fatalf("create discussion: %v", err)
+	}
 	blockedStorage := filepath.Join(t.TempDir(), "storage-file")
 	if err := os.WriteFile(blockedStorage, []byte("not a directory"), 0o644); err != nil {
 		t.Fatalf("create blocked storage marker: %v", err)
@@ -1268,6 +1275,12 @@ func TestProblemVisibilityUpdateDoesNotTouchStatementStorage(t *testing.T) {
 	updated := decodeJSON[ProblemDTO](t, res)
 	if updated.Visible {
 		t.Fatalf("problem should be hidden after visibility update: %+v", updated)
+	}
+	if updated.AC != 1 || updated.Submit != 1 || updated.Discussions != 1 || updated.Mine != "ac" {
+		t.Fatalf("visibility response should preserve list decorations: %+v", updated)
+	}
+	if updated.Cases != nil || updated.DataBytes != nil || updated.Statement != "" {
+		t.Fatalf("visibility response should stay a list item without storage/detail fields: %+v", updated)
 	}
 }
 

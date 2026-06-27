@@ -1231,7 +1231,17 @@ func (api *API) updateProblemVisibility(c echo.Context) error {
 	if err := api.db.Save(&row).Error; err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, problemDTO(row))
+	items := []ProblemDTO{problemDTO(row)}
+	if err := api.decorateProblemSubmissionStats(items); err != nil {
+		return err
+	}
+	if err := api.decorateProblemMines(c, items); err != nil {
+		return err
+	}
+	if err := api.decorateProblemDiscussions(c.Request().Context(), items); err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, items[0])
 }
 
 func (api *API) deleteProblem(c echo.Context) error {

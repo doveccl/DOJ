@@ -28,6 +28,7 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 - Added tests for partial profile/problem/discussion updates, assignment list member omission, and the admin members endpoint.
 - Removed the full `GET /api/admin` overview. Admin users/groups now use `AdminMembers`; languages use `GET /api/admin/languages` and `AdminLang[]`; judgers use `GET /api/admin/judgers` and `AdminJudgers`.
 - Admin user/group/language/judger mutations now return only the resource view owned by the active tab, instead of settings, languages, judgers, queue, and members together.
+- `PATCH /api/problems/{id}/visibility` now returns a fully decorated `ProblemListItem` with current submit/AC/discussion/mine fields while still avoiding statement or asset storage reads.
 
 ## Endpoint Matrix
 
@@ -76,7 +77,7 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 | `POST /api/problems` | Admin mutation | Creation fields only, list item out. | OK. Statement is created by detail edit, not list create. |
 | `GET /api/problems/{id}` | Detail | Full `Problem`, statement, storage-derived cases/data size. | OK. Detail endpoint owns storage-derived data. |
 | `PATCH /api/problems/{id}` | Partial mutation | Optional title/statement/tags/visible/mode/time/memory. | Fixed. Small UI actions submit only their changed fields. |
-| `PATCH /api/problems/{id}/visibility` | List-row mutation | Visibility only, list item out. | OK. Does not touch statement storage. |
+| `PATCH /api/problems/{id}/visibility` | List-row mutation | Visibility only, decorated list item out. | Fixed. Preserves list stats/mine/discussion fields and does not touch statement or asset storage. |
 | `DELETE /api/problems/{id}` | Admin mutation | Path id only. | OK. |
 | `GET /api/problems/{id}/assets` | Asset list | Problem asset inventory. | OK. Loaded only when admin asset modal opens. |
 | `POST /api/problems/{id}/assets/images` | Asset write | Problem statement image upload. | OK. |
