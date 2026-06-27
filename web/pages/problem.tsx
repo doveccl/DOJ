@@ -345,23 +345,25 @@ export function ProblemDetailPage() {
                   {problem.tags.map((tag) => (
                     <Tag key={tag}>{tag}</Tag>
                   ))}
-                  {session.admin ? (
-                    problemEditing ? (
-                      <Space size={8} className="problemHeadActions">
-                        <Button size="small" onClick={() => setProblemEditing(false)}>
-                          {text.common.cancel}
-                        </Button>
-                        <Button size="small" type="primary" htmlType="submit" form="problem-edit-form" loading={edit.isPending}>
-                          {text.common.save}
-                        </Button>
-                      </Space>
-                    ) : (
-                      <Button aria-label={text.common.edit} size="small" icon={<EditOutlined />} onClick={openEdit}>
-                        {text.common.edit}
-                      </Button>
-                    )
-                  ) : null}
                 </Flex>
+              }
+              extra={
+                session.admin ? (
+                  problemEditing ? (
+                    <Space size={8} className="problemHeadActions">
+                      <Button size="small" onClick={() => setProblemEditing(false)}>
+                        {text.common.cancel}
+                      </Button>
+                      <Button size="small" type="primary" htmlType="submit" form="problem-edit-form" loading={edit.isPending}>
+                        {text.common.save}
+                      </Button>
+                    </Space>
+                  ) : (
+                    <Button aria-label={text.common.edit} size="small" icon={<EditOutlined />} onClick={openEdit}>
+                      {text.common.edit}
+                    </Button>
+                  )
+                ) : null
               }
             >
               {problemEditing ? (

@@ -44,7 +44,8 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading }:
   }, [options, remoteOptions])
 
   const selectedOptions = value.map((item) => ({ value: item.id, label: optionLabel(item.id, knownOptions, options, remoteOptions) }))
-  const selectOptions = mergeOptions(selectedOptions, knownOptions, options, remoteOptions)
+  const visibleOptions = searchText ? remoteOptions : options
+  const selectOptions = mergeOptions(selectedOptions, visibleOptions)
   const optionMap = new Map(selectOptions.map((item) => [item.value, item.label]))
 
   function setIDs(ids: number[]) {
