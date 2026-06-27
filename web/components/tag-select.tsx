@@ -1,10 +1,10 @@
 import { Select } from 'antd'
 import type { CSSProperties } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 
 import { getTags } from '../client'
-import { useDebouncedValue } from './use-debounced-value'
+import { useRemoteSearch } from './use-debounced-value'
 
 type TagSelectProps = {
   kind: 'problem' | 'discussion'
@@ -17,13 +17,11 @@ type TagSelectProps = {
 }
 
 export function TagSelect({ kind, value, onChange, mode, placeholder, allowClear, style }: TagSelectProps) {
-  const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState('')
-  const searchText = useDebouncedValue(search.trim())
+  const remote = useRemoteSearch()
   const query = useQuery({
-    queryKey: ['tags', kind, searchText],
-    queryFn: () => getTags(kind, searchText),
-    enabled: open || searchText.length > 0
+    queryKey: ['tags', kind, remote.searchText],
+    queryFn: () => getTags(kind, remote.searchText),
+    enabled: remote.active
   })
   const options = useMemo(() => tagOptions(value, query.data ?? []), [query.data, value])
 
@@ -34,8 +32,8 @@ export function TagSelect({ kind, value, onChange, mode, placeholder, allowClear
       maxTagCount={mode ? 'responsive' : undefined}
       mode={mode}
       onChange={onChange}
-      onOpenChange={setOpen}
-      onSearch={setSearch}
+      onOpenChange={remote.setOpen}
+      onSearch={remote.setSearch}
       options={options}
       placeholder={placeholder}
       showSearch={{ filterOption: false }}

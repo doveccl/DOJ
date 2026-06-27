@@ -6,7 +6,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { createComment, deleteDiscussion, getDiscussion, updateDiscussion } from '../client'
 import type { CommentCreate, DiscussionDetail } from '../client'
-import { UserLink } from '../components/entity'
+import { EntityTag, UserLink } from '../components/entity'
 import { MarkdownEditor, MarkdownPreview } from '../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { TagSelect } from '../components/tag-select'
@@ -116,7 +116,7 @@ export function PostPage() {
           <Flex align="flex-start" justify="space-between" gap={16} wrap>
             <Flex align="center" gap={8} wrap>
               {discussion.pinned ? <Tag color="green">{text.discussion.pinned}</Tag> : null}
-              {discussion.locked ? <Tag>{text.discussion.locked}</Tag> : null}
+              {discussion.locked ? <Tag color="warning">{text.discussion.locked}</Tag> : null}
               <Typography.Title level={3} style={{ margin: 0 }}>
                 {discussion.title}
               </Typography.Title>
@@ -158,9 +158,9 @@ export function PostPage() {
             <UserLink name={discussion.author} />
             <Typography.Text type="secondary">{formatTime(discussion.createdAt, lang)}</Typography.Text>
             {discussion.tags.map((tag) => (
-              <Tag key={tag}>
+              <EntityTag key={tag} title={tag}>
                 <Link to={`/discussion?tags=${encodeURIComponent(tag)}`}>{tag}</Link>
-              </Tag>
+              </EntityTag>
             ))}
           </Space>
           <MarkdownPreview value={content} />

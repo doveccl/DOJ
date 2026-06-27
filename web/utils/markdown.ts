@@ -36,7 +36,7 @@ export function sanitizerForTrust(trust: MarkdownTrust) {
   }
 }
 
-export function sanitizeMarkdown(html: string) {
+function sanitizeMarkdown(html: string) {
   DOMPurify.addHook('uponSanitizeAttribute', allowKaTeXLayoutStyle)
   try {
     return DOMPurify.sanitize(html, {

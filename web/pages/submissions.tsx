@@ -2,7 +2,6 @@ import { SearchOutlined } from '@ant-design/icons'
 import { Button, Card, Flex, Form, Select, Table, Tag, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { getAssignments, getContests, getLangs, getProblems, getSubmissionPage, searchUsers } from '../client'
@@ -10,7 +9,7 @@ import type { SubmissionListItem } from '../client'
 import { ProblemLink, UserLink } from '../components/entity'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { SubmissionStatus } from '../components/status'
-import { useDebouncedValue } from '../components/use-debounced-value'
+import { useRemoteSearch } from '../components/use-debounced-value'
 import { useLocale } from '../locale'
 import { formatTime, memoryText, problemCode, problemLabel, submissionCode } from '../utils/format'
 import { pageFromParams, pageSizeFromParams, setPageParams } from '../utils/pagination'
@@ -32,42 +31,34 @@ export function SubmissionsPage() {
   const contest = params.get('contest') ?? ''
   const page = pageFromParams(params)
   const pageSize = pageSizeFromParams(params)
-  const [problemOpen, setProblemOpen] = useState(false)
-  const [userOpen, setUserOpen] = useState(false)
-  const [assignmentOpen, setAssignmentOpen] = useState(false)
-  const [contestOpen, setContestOpen] = useState(false)
-  const [problemSearch, setProblemSearch] = useState('')
-  const [userSearch, setUserSearch] = useState('')
-  const [assignmentSearch, setAssignmentSearch] = useState('')
-  const [contestSearch, setContestSearch] = useState('')
-  const problemSearchText = useDebouncedValue(problemSearch.trim())
-  const userSearchText = useDebouncedValue(userSearch.trim())
-  const assignmentSearchText = useDebouncedValue(assignmentSearch.trim())
-  const contestSearchText = useDebouncedValue(contestSearch.trim())
+  const problemSearch = useRemoteSearch()
+  const userSearch = useRemoteSearch()
+  const assignmentSearch = useRemoteSearch()
+  const contestSearch = useRemoteSearch()
   const query = useQuery({
     queryKey: ['submissions', problem, user, assignment, contest, page, pageSize],
     queryFn: () => getSubmissionPage(cleanFilters({ problem, user, assignment, contest, page, pageSize }))
   })
   const languages = useQuery({ queryKey: ['languages'], queryFn: getLangs })
   const problems = useQuery({
-    queryKey: ['problems', 'submission-filter', problemSearchText],
-    queryFn: () => getProblems({ q: problemSearchText }),
-    enabled: problemOpen || problemSearchText.length > 0 || problem.length > 0
+    queryKey: ['problems', 'submission-filter', problemSearch.searchText],
+    queryFn: () => getProblems({ q: problemSearch.searchText }),
+    enabled: problemSearch.active || problem.length > 0
   })
   const users = useQuery({
-    queryKey: ['users', 'submission-filter', userSearchText],
-    queryFn: () => searchUsers({ q: userSearchText }),
-    enabled: userOpen || userSearchText.length > 0 || user.length > 0
+    queryKey: ['users', 'submission-filter', userSearch.searchText],
+    queryFn: () => searchUsers({ q: userSearch.searchText }),
+    enabled: userSearch.active || user.length > 0
   })
   const assignments = useQuery({
-    queryKey: ['assignments', 'submission-filter', assignmentSearchText],
-    queryFn: () => getAssignments({ q: assignmentSearchText }),
-    enabled: assignmentOpen || assignmentSearchText.length > 0 || assignment.length > 0
+    queryKey: ['assignments', 'submission-filter', assignmentSearch.searchText],
+    queryFn: () => getAssignments({ q: assignmentSearch.searchText }),
+    enabled: assignmentSearch.active || assignment.length > 0
   })
   const contests = useQuery({
-    queryKey: ['contests', 'submission-filter', contestSearchText],
-    queryFn: () => getContests({ q: contestSearchText }),
-    enabled: contestOpen || contestSearchText.length > 0 || contest.length > 0
+    queryKey: ['contests', 'submission-filter', contestSearch.searchText],
+    queryFn: () => getContests({ q: contestSearch.searchText }),
+    enabled: contestSearch.active || contest.length > 0
   })
   const languageNames = new Map((languages.data ?? []).map((item) => [item.id, item.name]))
   const problemOptions = selectFilterOptions(
@@ -107,8 +98,8 @@ export function SubmissionsPage() {
             <Select
               allowClear
               loading={problems.isFetching}
-              onOpenChange={setProblemOpen}
-              onSearch={setProblemSearch}
+              onOpenChange={problemSearch.setOpen}
+              onSearch={problemSearch.setSearch}
               placeholder={text.submissions.problem}
               options={problemOptions}
               showSearch={{ filterOption: false }}
@@ -119,8 +110,8 @@ export function SubmissionsPage() {
             <Select
               allowClear
               loading={users.isFetching}
-              onOpenChange={setUserOpen}
-              onSearch={setUserSearch}
+              onOpenChange={userSearch.setOpen}
+              onSearch={userSearch.setSearch}
               placeholder={text.submissions.user}
               options={userOptions}
               showSearch={{ filterOption: false }}
@@ -131,8 +122,8 @@ export function SubmissionsPage() {
             <Select
               allowClear
               loading={assignments.isFetching}
-              onOpenChange={setAssignmentOpen}
-              onSearch={setAssignmentSearch}
+              onOpenChange={assignmentSearch.setOpen}
+              onSearch={assignmentSearch.setSearch}
               placeholder={text.assignments.title}
               options={assignmentOptions}
               showSearch={{ filterOption: false }}
@@ -143,8 +134,8 @@ export function SubmissionsPage() {
             <Select
               allowClear
               loading={contests.isFetching}
-              onOpenChange={setContestOpen}
-              onSearch={setContestSearch}
+              onOpenChange={contestSearch.setOpen}
+              onSearch={contestSearch.setSearch}
               placeholder={text.contests.title}
               options={contestOptions}
               showSearch={{ filterOption: false }}

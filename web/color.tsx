@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react'
 
 export type ColorMode = 'system' | 'light' | 'dark'
-export type ResolvedColor = 'light' | 'dark'
+type ResolvedColor = 'light' | 'dark'
 
 type ColorState = {
   mode: ColorMode

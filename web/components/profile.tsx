@@ -1,12 +1,12 @@
 import { CheckCircleOutlined, CodeOutlined, MessageOutlined, UserOutlined } from '@ant-design/icons'
-import { Avatar, Card, Col, Empty, Flex, Pagination, Row, Space, Statistic, Table, Tag, Timeline, Typography } from 'antd'
+import { Avatar, Card, Col, Empty, Flex, Pagination, Row, Space, Statistic, Table, Timeline, Typography } from 'antd'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 import type { SolvedProblem, SolvedProblemPage, UserActivity, UserProfile } from '../client'
 import { useLocale } from '../locale'
 import { formatTime } from '../utils/format'
-import { ProblemLink } from './entity'
+import { EntityTag, ProblemLink } from './entity'
 import { YearHeatmap } from './heatmap'
 import { SubmissionStatus } from './status'
 
@@ -175,7 +175,7 @@ function SolvedCard({ page, onPageChange }: { page: SolvedProblemPage; onPageCha
                 render: (_, row) => (
                   <Space size={[4, 4]} wrap>
                     {row.tags.slice(0, 2).map((tag) => (
-                      <Tag key={tag}>{tag}</Tag>
+                      <EntityTag key={tag} maxWidth={72}>{tag}</EntityTag>
                     ))}
                   </Space>
                 )

@@ -660,10 +660,6 @@ export async function getSubmissionPage(params: { problem?: string; user?: strin
   return assertData(data, error)
 }
 
-export async function getSubmissions(params: { problem?: string; user?: string; assignment?: string; contest?: string } = {}) {
-  return (await getSubmissionPage({ ...params, page: 1, pageSize: 50 })).items
-}
-
 export async function getSubmission(id: number) {
   const { data, error } = await client.GET('/api/submissions/{id}', {
     params: { path: { id } }
@@ -715,10 +711,6 @@ export async function getDiscussionPage(params: { q?: string; tags?: string } & 
     params: { query: params }
   })
   return assertData(data, error)
-}
-
-export async function getDiscussions(params: { q?: string; tags?: string } = {}) {
-  return (await getDiscussionPage({ ...params, page: 1, pageSize: 50 })).items
 }
 
 export async function createDiscussion(body: DiscussionCreate) {

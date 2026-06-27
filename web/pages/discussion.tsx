@@ -7,7 +7,7 @@ import { useState } from 'react'
 
 import { createDiscussion, deleteDiscussion, getDiscussion, getDiscussionPage, updateDiscussion } from '../client'
 import type { Discussion, DiscussionCreate } from '../client'
-import { UserLink } from '../components/entity'
+import { EntityTag, UserLink } from '../components/entity'
 import { MarkdownEditor } from '../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { TagSelect } from '../components/tag-select'
@@ -261,11 +261,23 @@ function discussionColumns(
             <Link to={`/discussion/${row.id}`}>{title}</Link>
           </Typography.Text>
           {row.pinned ? <Tag color="green">{text.discussion.pinned}</Tag> : null}
-          {row.locked ? <Tag>{text.discussion.locked}</Tag> : null}
-          {row.tags.map((tag) => (
-            <Tag key={tag}>{tag}</Tag>
-          ))}
+          {row.locked ? <Tag color="warning">{text.discussion.locked}</Tag> : null}
         </Flex>
+      )
+    },
+    {
+      title: text.discussion.tags,
+      dataIndex: 'tags',
+      render: (tags: string[]) => (
+        tags.length > 0 ? (
+          <Space size={[4, 4]} wrap>
+            {tags.map((tag) => (
+              <EntityTag key={tag}>{tag}</EntityTag>
+            ))}
+          </Space>
+        ) : (
+          <Typography.Text type="secondary">-</Typography.Text>
+        )
       )
     },
     {

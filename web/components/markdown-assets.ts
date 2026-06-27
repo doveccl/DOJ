@@ -1,20 +1,6 @@
 import highlightScript from '@highlightjs/cdn-assets/highlight.min.js?url'
-import a11yDarkStyle from '@highlightjs/cdn-assets/styles/a11y-dark.min.css?url'
-import a11yLightStyle from '@highlightjs/cdn-assets/styles/a11y-light.min.css?url'
-import atomDarkStyle from '@highlightjs/cdn-assets/styles/atom-one-dark.min.css?url'
-import atomLightStyle from '@highlightjs/cdn-assets/styles/atom-one-light.min.css?url'
-import gradientDarkStyle from '@highlightjs/cdn-assets/styles/gradient-dark.min.css?url'
-import gradientLightStyle from '@highlightjs/cdn-assets/styles/gradient-light.min.css?url'
 import githubDarkStyle from '@highlightjs/cdn-assets/styles/github-dark.min.css?url'
 import githubStyle from '@highlightjs/cdn-assets/styles/github.min.css?url'
-import kimbieDarkStyle from '@highlightjs/cdn-assets/styles/kimbie-dark.min.css?url'
-import kimbieLightStyle from '@highlightjs/cdn-assets/styles/kimbie-light.min.css?url'
-import paraisoDarkStyle from '@highlightjs/cdn-assets/styles/paraiso-dark.min.css?url'
-import paraisoLightStyle from '@highlightjs/cdn-assets/styles/paraiso-light.min.css?url'
-import qtcreatorDarkStyle from '@highlightjs/cdn-assets/styles/qtcreator-dark.min.css?url'
-import qtcreatorLightStyle from '@highlightjs/cdn-assets/styles/qtcreator-light.min.css?url'
-import stackoverflowDarkStyle from '@highlightjs/cdn-assets/styles/stackoverflow-dark.min.css?url'
-import stackoverflowLightStyle from '@highlightjs/cdn-assets/styles/stackoverflow-light.min.css?url'
 import Cropper from 'cropperjs'
 import screenfull from 'screenfull'
 import katex from 'katex'
@@ -32,37 +18,9 @@ const disabledPrettier = {
 }
 
 const highlightStyles = {
-  a11y: {
-    light: a11yLightStyle,
-    dark: a11yDarkStyle
-  },
-  atom: {
-    light: atomLightStyle,
-    dark: atomDarkStyle
-  },
   github: {
     light: githubStyle,
     dark: githubDarkStyle
-  },
-  gradient: {
-    light: gradientLightStyle,
-    dark: gradientDarkStyle
-  },
-  kimbie: {
-    light: kimbieLightStyle,
-    dark: kimbieDarkStyle
-  },
-  paraiso: {
-    light: paraisoLightStyle,
-    dark: paraisoDarkStyle
-  },
-  qtcreator: {
-    light: qtcreatorLightStyle,
-    dark: qtcreatorDarkStyle
-  },
-  stackoverflow: {
-    light: stackoverflowLightStyle,
-    dark: stackoverflowDarkStyle
   }
 }
 

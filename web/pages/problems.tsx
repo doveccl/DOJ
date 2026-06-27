@@ -21,7 +21,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { createProblem, deleteProblem, getProblemPage, updateProblemVisibility } from '../client'
 import type { ProblemListItem, ProblemListPage } from '../client'
-import { ProblemLink } from '../components/entity'
+import { EntityTag, ProblemLink } from '../components/entity'
 import { JudgeModeSelect } from '../components/judge'
 import { LimitInput } from '../components/limit'
 import { ErrorBlock, LoadingBlock } from '../components/state'
@@ -163,6 +163,7 @@ export function ProblemsPage() {
         ) : (
           <Table<ProblemListItem>
             rowKey="id"
+            tableLayout="fixed"
             columns={columns}
             dataSource={query.data?.items ?? []}
             pagination={{ current: query.data?.page ?? page, pageSize: query.data?.pageSize ?? pageSize, total: query.data?.total ?? 0, showSizeChanger: true }}
@@ -237,9 +238,11 @@ function problemColumns(
     {
       title: text.submissions.problem,
       dataIndex: 'title',
+      width: '48%',
+      ellipsis: true,
       render: (title: string, row) => (
-        <Flex align="center" gap={8} className="tableTitleLine">
-          <ProblemLink id={row.id} title={title} />
+        <Flex align="center" gap={8} wrap={false} className="tableTitleLine">
+          <ProblemLink id={row.id} title={title} maxWidth={560} />
           <ProblemRecordTag mine={row.mine} />
           {!row.visible ? <Tag>{text.problems.hidden}</Tag> : null}
         </Flex>
@@ -248,17 +251,18 @@ function problemColumns(
     {
       title: text.problems.tag,
       dataIndex: 'tags',
+      ellipsis: true,
       render: (tags: string[]) => (
         <Space size={[4, 4]} wrap>
           {tags.map((tag) => (
-            <Tag key={tag}>{tag}</Tag>
+            <EntityTag key={tag}>{tag}</EntityTag>
           ))}
         </Space>
       )
     },
     {
       title: text.problems.limit,
-      render: (_, row) => <Typography.Text type="secondary">{formatLimit(row)}</Typography.Text>
+      render: (_, row) => <Typography.Text type="secondary" className="nowrap">{formatLimit(row)}</Typography.Text>
     },
     {
       title: text.problems.pass,

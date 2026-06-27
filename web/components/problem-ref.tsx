@@ -9,7 +9,7 @@ import type { ProblemListItem, ProblemRef } from '../client'
 import { useLocale } from '../locale'
 import { problemCode, problemLabel } from '../utils/format'
 import { limits } from '../utils/limits'
-import { useDebouncedValue } from './use-debounced-value'
+import { useRemoteSearch } from './use-debounced-value'
 
 type Option = {
   value: number
@@ -25,13 +25,11 @@ type ProblemRefInputProps = {
 
 export function ProblemRefInput({ value = [], onChange, options = [], loading }: ProblemRefInputProps) {
   const { text } = useLocale()
-  const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState('')
-  const searchText = useDebouncedValue(search.trim())
+  const search = useRemoteSearch()
   const remote = useQuery({
-    queryKey: ['problems', 'select', searchText],
-    queryFn: () => getProblems({ q: searchText }),
-    enabled: open || searchText.length > 0 || value.length > 0
+    queryKey: ['problems', 'select', search.searchText],
+    queryFn: () => getProblems({ q: search.searchText }),
+    enabled: search.active || value.length > 0
   })
   const remoteOptions = useMemo(() => (remote.data ?? []).map(problemOption), [remote.data])
   const [knownOptions, setKnownOptions] = useState<Option[]>([])
@@ -44,7 +42,7 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading }:
   }, [options, remoteOptions])
 
   const selectedOptions = value.map((item) => ({ value: item.id, label: optionLabel(item.id, knownOptions, options, remoteOptions) }))
-  const visibleOptions = searchText ? remoteOptions : mergeOptions(options, remoteOptions)
+  const visibleOptions = search.searchText ? remoteOptions : mergeOptions(options, remoteOptions)
   const selectOptions = mergeOptions(selectedOptions, visibleOptions)
   const optionMap = new Map(selectOptions.map((item) => [item.value, item.label]))
 
@@ -85,8 +83,8 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading }:
         maxTagCount="responsive"
         mode="multiple"
         onChange={setIDs}
-        onOpenChange={setOpen}
-        onSearch={setSearch}
+        onOpenChange={search.setOpen}
+        onSearch={search.setSearch}
         options={selectOptions}
         placeholder={text.submissions.searchProblem}
         showSearch={{ filterOption: false }}

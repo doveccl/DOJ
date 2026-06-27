@@ -12,7 +12,6 @@ import (
 	"mime/multipart"
 	"net"
 	"net/http"
-	"net/mail"
 	"net/url"
 	"path"
 	"path/filepath"
@@ -654,7 +653,7 @@ func (api *API) login(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
-	nameKey := userNameKey(req.Name)
+	nameKey := utils.NameKey(req.Name)
 	if nameKey == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "username is required")
 	}
@@ -694,7 +693,7 @@ func (api *API) register(c echo.Context) error {
 
 	now := time.Now()
 
-	nameKey := userNameKey(req.Name)
+	nameKey := utils.NameKey(req.Name)
 	var count int64
 	if err := api.db.Model(&models.User{}).Where("LOWER(name) = ? OR LOWER(mail) = ?", nameKey, req.Mail).Count(&count).Error; err != nil {
 		return err
@@ -2199,7 +2198,7 @@ func (api *API) submissions(c echo.Context) error {
 	}
 	if user := strings.TrimSpace(c.QueryParam("user")); user != "" {
 		query = query.Joins("JOIN users submission_users ON submission_users.id = submissions.user_id AND submission_users.deleted_at IS NULL").
-			Where("LOWER(submission_users.name) = ?", userNameKey(user))
+			Where("LOWER(submission_users.name) = ?", utils.NameKey(user))
 	}
 	if assignment := c.QueryParam("assignment"); assignment != "" {
 		id, err := parseQueryID(assignment, "invalid assignment id")
@@ -2952,7 +2951,7 @@ func (api *API) users(c echo.Context) error {
 }
 
 func (api *API) user(c echo.Context) error {
-	nameKey := userNameKey(c.Param("name"))
+	nameKey := utils.NameKey(c.Param("name"))
 	if nameKey == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "user name is required")
 	}
@@ -3647,14 +3646,7 @@ func (api *API) searchProblemPage(c echo.Context, q string, tag string, limit in
 	if !api.isAdmin(c) {
 		query = api.applyProblemListVisibility(query)
 	}
-	if q != "" {
-		like := "%" + q + "%"
-		if id, err := parseProblemQuery(q); err == nil {
-			query = query.Where("id = ? OR LOWER(title) LIKE LOWER(?)", id, like)
-		} else {
-			query = query.Where("LOWER(title) LIKE LOWER(?)", like)
-		}
-	}
+	query = applyProblemSearch(query, q)
 	if tag != "" {
 		rawTag, _ := json.Marshal([]string{tag})
 		query = query.Where("tags @> ?::jsonb", string(rawTag))
@@ -3772,14 +3764,7 @@ func (api *API) findProblems(c echo.Context, q string, tag string, limit int, or
 	if !api.isAdmin(c) {
 		query = api.applyProblemListVisibility(query)
 	}
-	if q != "" {
-		like := "%" + q + "%"
-		if id, err := parseProblemQuery(q); err == nil {
-			query = query.Where("id = ? OR LOWER(title) LIKE LOWER(?)", id, like)
-		} else {
-			query = query.Where("LOWER(title) LIKE LOWER(?)", like)
-		}
-	}
+	query = applyProblemSearch(query, q)
 	if tag != "" {
 		rawTag, _ := json.Marshal([]string{tag})
 		query = query.Where("tags @> ?::jsonb", string(rawTag))
@@ -3801,6 +3786,19 @@ func (api *API) findProblems(c echo.Context, q string, tag string, limit int, or
 		return nil, err
 	}
 	return items, nil
+}
+
+func applyProblemSearch(query *gorm.DB, q string) *gorm.DB {
+	q = strings.TrimSpace(q)
+	if q == "" {
+		return query
+	}
+	like := "%" + q + "%"
+	id := strings.TrimPrefix(strings.ToUpper(q), "P")
+	if _, err := strconv.ParseUint(id, 10, 64); err == nil {
+		return query.Where("CAST(id AS TEXT) LIKE ? OR LOWER(title) LIKE LOWER(?)", "%"+id+"%", like)
+	}
+	return query.Where("LOWER(title) LIKE LOWER(?)", like)
 }
 
 func problemDTO(row models.Problem) ProblemDTO {
@@ -5074,37 +5072,6 @@ func readTags(raw []byte) []string {
 	return tags
 }
 
-func filterProblems(items []ProblemDTO, q string, tag string) []ProblemDTO {
-	if q == "" && tag == "" {
-		return items
-	}
-	filtered := make([]ProblemDTO, 0, len(items))
-	for _, item := range items {
-		if q != "" && !containsFold(item.Title, q) {
-			continue
-		}
-		if tag != "" && !hasTag(item.Tags, tag) {
-			continue
-		}
-		filtered = append(filtered, item)
-	}
-	return filtered
-}
-
-func visibleProblems(items []ProblemDTO) []ProblemDTO {
-	filtered := make([]ProblemDTO, 0, len(items))
-	for _, item := range items {
-		if item.Visible {
-			filtered = append(filtered, item)
-		}
-	}
-	return filtered
-}
-
-func containsFold(value string, needle string) bool {
-	return strings.Contains(strings.ToLower(value), strings.ToLower(needle))
-}
-
 func hasTag(tags []string, tag string) bool {
 	for _, item := range tags {
 		if item == tag {
@@ -5282,7 +5249,7 @@ func uniqueUint(values []uint) []uint {
 }
 
 func validateRegister(req RegisterRequest) error {
-	if len(req.Name) < models.UserNameMin || len(req.Name) > models.UserNameMax || !validName(req.Name) {
+	if len(req.Name) < models.UserNameMin || len(req.Name) > models.UserNameMax || !utils.ValidName(req.Name) {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid username")
 	}
 	if err := validateMail(req.Mail); err != nil {
@@ -5294,35 +5261,8 @@ func validateRegister(req RegisterRequest) error {
 	return nil
 }
 
-func validName(name string) bool {
-	for _, r := range name {
-		if r >= 'a' && r <= 'z' {
-			continue
-		}
-		if r >= 'A' && r <= 'Z' {
-			continue
-		}
-		if r >= '0' && r <= '9' {
-			continue
-		}
-		if r == '_' || r == '-' {
-			continue
-		}
-		return false
-	}
-	return true
-}
-
-func userNameKey(name string) string {
-	return strings.ToLower(strings.TrimSpace(name))
-}
-
 func validateMail(value string) error {
-	if value == "" || len(value) > models.MailMax {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid mail")
-	}
-	addr, err := mail.ParseAddress(value)
-	if err != nil || addr.Address != value {
+	if !utils.ValidMail(value, models.MailMax, false) {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid mail")
 	}
 	return nil

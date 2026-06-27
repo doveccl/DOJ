@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"net/mail"
 	"sort"
 	"strconv"
 	"strings"
@@ -411,7 +410,7 @@ func (api *API) createUser(c echo.Context) error {
 	}
 
 	var count int64
-	if err := api.db.Model(&models.User{}).Where("LOWER(name) = ? OR LOWER(mail) = ?", userNameKey(req.Name), req.Mail).Count(&count).Error; err != nil {
+	if err := api.db.Model(&models.User{}).Where("LOWER(name) = ? OR LOWER(mail) = ?", utils.NameKey(req.Name), req.Mail).Count(&count).Error; err != nil {
 		return err
 	}
 	if count > 0 {
@@ -813,7 +812,7 @@ func (api *API) ensureOtherAdmin(userID uint) error {
 
 func (api *API) userByName(name string) (models.User, error) {
 	var row models.User
-	nameKey := userNameKey(name)
+	nameKey := utils.NameKey(name)
 	if nameKey == "" {
 		return row, echo.NewHTTPError(http.StatusBadRequest, "user name is required")
 	}
@@ -1348,14 +1347,10 @@ func cleanUserCreate(req *UserCreate) {
 }
 
 func validateUserCreate(req UserCreate) error {
-	if len(req.Name) < models.UserNameMin || len(req.Name) > models.UserNameMax || !validUserName(req.Name) {
+	if len(req.Name) < models.UserNameMin || len(req.Name) > models.UserNameMax || !utils.ValidName(req.Name) {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid username")
 	}
-	if req.Mail == "" || len(req.Mail) > models.MailMax {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid mail")
-	}
-	addr, err := mail.ParseAddress(req.Mail)
-	if err != nil || addr.Address != req.Mail {
+	if !utils.ValidMail(req.Mail, models.MailMax, false) {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid mail")
 	}
 	if len(req.Password) < 8 {
@@ -1365,29 +1360,6 @@ func validateUserCreate(req UserCreate) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid role")
 	}
 	return nil
-}
-
-func validUserName(name string) bool {
-	for _, r := range name {
-		if r >= 'a' && r <= 'z' {
-			continue
-		}
-		if r >= 'A' && r <= 'Z' {
-			continue
-		}
-		if r >= '0' && r <= '9' {
-			continue
-		}
-		if r == '_' || r == '-' {
-			continue
-		}
-		return false
-	}
-	return true
-}
-
-func userNameKey(name string) string {
-	return strings.ToLower(strings.TrimSpace(name))
 }
 
 func cleanLanguageUpdate(req *LanguageUpdate) {
@@ -1530,17 +1502,4 @@ func RegistrationAllowed(db *gorm.DB) bool {
 		return false
 	}
 	return settings.AllowRegistration
-}
-
-func ValidateMail(value string) error {
-	if value == "" {
-		return nil
-	}
-	if len(value) > models.MailMax {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid mail")
-	}
-	if _, err := mail.ParseAddress(value); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid mail")
-	}
-	return nil
 }

@@ -55,6 +55,7 @@ import {
 } from '../client'
 import type { AssetContent, AssetFile, Language as SubmitLang, Problem, ProblemAssets } from '../client'
 import { CodeEditor } from '../components/code'
+import { EntityTag } from '../components/entity'
 import { JudgeModeSelect } from '../components/judge'
 import { LimitInput } from '../components/limit'
 import { MarkdownEditor, MarkdownPreview } from '../components/markdown'
@@ -343,7 +344,7 @@ export function ProblemDetailPage() {
                   </Typography.Text>
                   <Tag color="blue">{formatLimit(problem)}</Tag>
                   {problem.tags.map((tag) => (
-                    <Tag key={tag}>{tag}</Tag>
+                    <EntityTag key={tag}>{tag}</EntityTag>
                   ))}
                 </Flex>
               }

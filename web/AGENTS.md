@@ -13,6 +13,9 @@
 - Do not use deprecated antd props.
 - Do not specify component `size` by default. In dense nested admin surfaces such as a modal containing cards/tables/tool buttons, use `small` consistently inside that surface.
 - Use Tag for row state when table row styling would require custom CSS.
+- Free-form tags from problem/discussion/user data must render through the shared entity tag component so long tags get antd ellipsis and tooltip behavior consistently.
+- Problem references in tables, lists, timelines, and cards should use the shared problem link component; set a max width at the call site only when the surrounding layout needs a fixed budget.
+- For table/list overflow, prefer antd `Table` column `width`, `ellipsis`, `tableLayout="fixed"`, and `Typography.Text` ellipsis before adding CSS.
 - Table action columns must have a visible header, usually `text.common.actions`.
 - User-facing text must go through locale data.
 - Use “用户” and “用户组” consistently in the admin UI; do not mix in “成员”.

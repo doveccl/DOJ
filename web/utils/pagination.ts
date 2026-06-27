@@ -1,5 +1,5 @@
-export const defaultPage = 1
-export const defaultPageSize = 20
+const defaultPage = 1
+const defaultPageSize = 20
 
 export function pageFromParams(params: URLSearchParams) {
   return positiveInt(params.get('page'), defaultPage)

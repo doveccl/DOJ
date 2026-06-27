@@ -5,7 +5,7 @@ import { useLocale } from '../locale'
 
 const modeValues = ['default', 'strict', 'custom'] as const
 
-export type JudgeMode = (typeof modeValues)[number]
+type JudgeMode = (typeof modeValues)[number]
 
 type JudgeModeOption = {
   value: JudgeMode
@@ -38,14 +38,4 @@ export function JudgeModeSelect(props: JudgeModeSelectProps) {
       )}
     />
   )
-}
-
-export function judgeModeLabel(mode: string, text: ReturnType<typeof useLocale>['text']) {
-  if (mode === 'strict') {
-    return text.modes.strict
-  }
-  if (mode === 'custom') {
-    return text.modes.custom
-  }
-  return text.modes.default
 }

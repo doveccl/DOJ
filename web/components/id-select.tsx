@@ -1,9 +1,9 @@
 import { Select } from 'antd'
 import { useQuery } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 
 import { getAdminMembers } from '../client'
-import { useDebouncedValue } from './use-debounced-value'
+import { useRemoteSearch } from './use-debounced-value'
 
 type Option = {
   value: number
@@ -25,29 +25,27 @@ export function IdSelect({
   disabled?: boolean
   kind?: 'users' | 'groups'
 }) {
-  const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState('')
-  const searchText = useDebouncedValue(search.trim())
+  const search = useRemoteSearch()
   const selected = (value ?? []).join(',')
-  const remote = useQuery({
-    queryKey: ['admin-members', kind, searchText, selected],
+  const query = useQuery({
+    queryKey: ['admin-members', kind, search.searchText, selected],
     queryFn: () =>
       getAdminMembers({
-        q: searchText,
+        q: search.searchText,
         users: kind === 'users' ? selected : undefined,
         groups: kind === 'groups' ? selected : undefined
       }),
-    enabled: Boolean(kind) && (open || searchText.length > 0 || selected.length > 0)
+    enabled: Boolean(kind) && (search.active || selected.length > 0)
   })
   const remoteOptions = useMemo(() => {
     if (!kind) {
       return []
     }
-    const rows = kind === 'users' ? (remote.data?.users ?? []) : (remote.data?.groups ?? [])
+    const rows = kind === 'users' ? (query.data?.users ?? []) : (query.data?.groups ?? [])
     return rows.map((item) => ({ value: item.id, label: item.name }))
-  }, [kind, remote.data])
+  }, [kind, query.data])
   const selectedItems = selectedOptions(value ?? [], options ?? [], remoteOptions)
-  const visibleOptions = kind ? (searchText ? remoteOptions : mergeOptions(options ?? [], remoteOptions)) : (options ?? [])
+  const visibleOptions = kind ? (search.searchText ? remoteOptions : mergeOptions(options ?? [], remoteOptions)) : (options ?? [])
   const mergedOptions = mergeOptions(selectedItems, visibleOptions)
   const showSearch = kind ? { filterOption: false } : { optionFilterProp: 'label' }
 
@@ -55,11 +53,11 @@ export function IdSelect({
     <Select
       allowClear
       disabled={disabled}
-      loading={loading || remote.isFetching}
+      loading={loading || query.isFetching}
       maxTagCount="responsive"
       mode="multiple"
-      onOpenChange={setOpen}
-      onSearch={kind ? setSearch : undefined}
+      onOpenChange={search.setOpen}
+      onSearch={kind ? search.setSearch : undefined}
       options={mergedOptions}
       showSearch={showSearch}
       style={{ width: '100%' }}
