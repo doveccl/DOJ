@@ -2062,7 +2062,7 @@ components:
         problems:
           type: array
           items:
-            $ref: "#/components/schemas/ProblemListItem"
+            $ref: "#/components/schemas/HomeProblem"
         assignments:
           type: array
           items:
@@ -2071,6 +2071,23 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Item"
+    HomeProblem:
+      type: object
+      required: [id, title, tags, ac, submit]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+          maxLength: 256
+        tags:
+          type: array
+          items:
+            type: string
+        ac:
+          type: integer
+        submit:
+          type: integer
     NoticeUpdate:
       type: object
       required: [content]

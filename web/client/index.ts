@@ -3,6 +3,7 @@ import createClient from 'openapi-fetch'
 import type { components, paths } from './schema'
 
 export type Home = components['schemas']['Home']
+export type HomeProblem = components['schemas']['HomeProblem']
 export type Site = components['schemas']['Site']
 export type NoticeUpdate = components['schemas']['NoticeUpdate']
 export type CreatedID = components['schemas']['CreatedID']

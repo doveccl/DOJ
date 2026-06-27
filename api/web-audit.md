@@ -32,6 +32,7 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 - Create endpoints that only need to redirect now return `CreatedID` (`{id}`): problems, assignments, contests, and discussions. Comment creation still returns the comment row because the detail page appends it immediately.
 - `GET /api/assignments/{id}` and `GET /api/contests/{id}` no longer return unused submission lists. Assignment detail keeps progress; contest detail keeps rank. Submission browsing stays on `GET /api/submissions`.
 - `GET /api/submissions` now returns `SubmissionListItem`, omitting detail-only fields (`score`, `message`, `public`) that the list page does not render.
+- `GET /api/home` now returns compact `HomeProblem` rows for the latest-problem card and skips per-user mine/latest and discussion decoration.
 
 ## Endpoint Matrix
 
@@ -73,7 +74,7 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 | `POST /api/admin/backups` | Backup mutation | Manual backup command. | OK. Running lock is Redis-backed. |
 | `GET /api/admin/backups/{name}/download` | Backup asset read | Streams selected backup. | OK. Explicit download endpoint. |
 | `DELETE /api/admin/backups/{name}` | Backup mutation | Deletes selected backup. | OK. |
-| `GET /api/home` | Home aggregate | Notice, heatmap, recent problem summaries, assignment/contest summary items. | OK. Uses batched counts; no problem statement/storage reads. |
+| `GET /api/home` | Home aggregate | Notice, heatmap, compact recent problem summaries, assignment/contest summary items. | Fixed. Uses batched counts; no problem statement/storage reads, mine/latest, or discussion decoration. |
 | `PATCH /api/home/notice` | Admin mutation | Notice content only. | OK. Separate from admin settings page. |
 | `GET /api/users/{id}/{year}/{month}/{day}/{name}` | Asset read | User uploaded media. | OK. Explicit media endpoint. |
 | `GET /api/problems` | List | `ProblemListItem` summary. | OK. No statement or asset storage access; stats/discussions/mine are batched. |

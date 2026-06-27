@@ -1176,9 +1176,16 @@ export interface components {
         Home: {
             notice: string;
             heatmap: components["schemas"]["HeatCell"][];
-            problems: components["schemas"]["ProblemListItem"][];
+            problems: components["schemas"]["HomeProblem"][];
             assignments: components["schemas"]["Item"][];
             contests: components["schemas"]["Item"][];
+        };
+        HomeProblem: {
+            id: number;
+            title: string;
+            tags: string[];
+            ac: number;
+            submit: number;
         };
         NoticeUpdate: {
             content: string;

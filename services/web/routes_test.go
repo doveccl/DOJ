@@ -1647,6 +1647,42 @@ func TestDynamicSelectSuggestionEndpoints(t *testing.T) {
 	}
 }
 
+func TestHomeProblemsUseCompactPayload(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	user := models.User{Name: "alice", Mail: "alice@example.com", Auth: "hash"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	problem := models.Problem{ID: 1000, Title: "A+B", Tags: datatypes.JSON([]byte(`["math","beginner"]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	if err := db.Create(&models.Submission{UserID: user.ID, ProblemID: problem.ID, Language: "cpp", Code: "code", Status: "AC", Score: 100, Public: true}).Error; err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+
+	res := requestOK(t, e, http.MethodGet, "/api/home", "")
+	home := decodeJSON[Home](t, res)
+	if len(home.Problems) != 1 || home.Problems[0].ID != problem.ID || home.Problems[0].AC != 1 || home.Problems[0].Submit != 1 {
+		t.Fatalf("home problems should include compact stats: %+v", home.Problems)
+	}
+	var raw struct {
+		Problems []map[string]any `json:"problems"`
+	}
+	if err := json.Unmarshal(res.Body.Bytes(), &raw); err != nil {
+		t.Fatalf("decode raw home: %v", err)
+	}
+	for _, key := range []string{"visible", "mode", "timeMs", "memoryMb", "discussions", "mine", "latest"} {
+		if _, ok := raw.Problems[0][key]; ok {
+			t.Fatalf("home problem should not include list-only field %q: %+v", key, raw.Problems[0])
+		}
+	}
+}
+
 func TestImageUploadUsesRelativeMediaPathsAndHeaders(t *testing.T) {
 	t.Setenv("STORAGE", t.TempDir())
 	db := testWebDB(t)

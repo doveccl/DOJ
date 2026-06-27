@@ -42,11 +42,11 @@ const (
 )
 
 type Home struct {
-	Notice      string       `json:"notice"`
-	Heatmap     []HeatCell   `json:"heatmap"`
-	Problems    []ProblemDTO `json:"problems"`
-	Assignments []Item       `json:"assignments"`
-	Contests    []Item       `json:"contests"`
+	Notice      string        `json:"notice"`
+	Heatmap     []HeatCell    `json:"heatmap"`
+	Problems    []HomeProblem `json:"problems"`
+	Assignments []Item        `json:"assignments"`
+	Contests    []Item        `json:"contests"`
 }
 
 type CreatedID struct {
@@ -66,6 +66,14 @@ type Item struct {
 	ID    uint   `json:"id"`
 	Title string `json:"title"`
 	Meta  string `json:"meta"`
+}
+
+type HomeProblem struct {
+	ID     uint     `json:"id"`
+	Title  string   `json:"title"`
+	Tags   []string `json:"tags"`
+	AC     int      `json:"ac"`
+	Submit int      `json:"submit"`
 }
 
 type MeDTO struct {
@@ -922,7 +930,7 @@ func userUploadKeyAllowed(key string) bool {
 }
 
 func (api *API) home(c echo.Context) error {
-	problems, err := api.listProblems(c, 5)
+	problems, err := api.homeProblems(c)
 	if err != nil {
 		return err
 	}
@@ -945,6 +953,49 @@ func (api *API) home(c echo.Context) error {
 		Assignments: assignments,
 		Contests:    contests,
 	})
+}
+
+func (api *API) homeProblems(c echo.Context) ([]HomeProblem, error) {
+	var rows []models.Problem
+	query := api.db.Select("id", "title", "tags").Order("id desc").Limit(5)
+	if !api.isAdmin(c) {
+		query = api.applyProblemListVisibility(query)
+	}
+	if err := query.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	items := make([]HomeProblem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, HomeProblem{
+			ID:    row.ID,
+			Title: row.Title,
+			Tags:  readTags([]byte(row.Tags)),
+		})
+	}
+	if err := api.decorateHomeProblemStats(items); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (api *API) decorateHomeProblemStats(items []HomeProblem) error {
+	if len(items) == 0 {
+		return nil
+	}
+	ids := make([]uint, 0, len(items))
+	for _, item := range items {
+		ids = append(ids, item.ID)
+	}
+	submitByProblem, acByProblem, err := api.problemSubmissionStats(ids)
+	if err != nil {
+		return err
+	}
+	for index := range items {
+		id := items[index].ID
+		items[index].Submit = submitByProblem[id]
+		items[index].AC = acByProblem[id]
+	}
+	return nil
 }
 
 func (api *API) homeHeatmap(c echo.Context) ([]HeatCell, error) {
@@ -3647,6 +3698,19 @@ func (api *API) decorateProblemSubmissionStats(items []ProblemDTO) error {
 	for _, item := range items {
 		ids = append(ids, item.ID)
 	}
+	submitByProblem, acByProblem, err := api.problemSubmissionStats(ids)
+	if err != nil {
+		return err
+	}
+	for index := range items {
+		id := items[index].ID
+		items[index].Submit = submitByProblem[id]
+		items[index].AC = acByProblem[id]
+	}
+	return nil
+}
+
+func (api *API) problemSubmissionStats(ids []uint) (map[uint]int, map[uint]int, error) {
 	var submits []struct {
 		ProblemID uint
 		Count     int64
@@ -3656,7 +3720,7 @@ func (api *API) decorateProblemSubmissionStats(items []ProblemDTO) error {
 		Where("problem_id IN ?", ids).
 		Group("problem_id").
 		Find(&submits).Error; err != nil {
-		return err
+		return nil, nil, err
 	}
 	submitByProblem := map[uint]int{}
 	for _, item := range submits {
@@ -3671,18 +3735,13 @@ func (api *API) decorateProblemSubmissionStats(items []ProblemDTO) error {
 		Where("problem_id IN ? AND status = ?", ids, "AC").
 		Group("problem_id").
 		Find(&acs).Error; err != nil {
-		return err
+		return nil, nil, err
 	}
 	acByProblem := map[uint]int{}
 	for _, item := range acs {
 		acByProblem[item.ProblemID] = int(item.Count)
 	}
-	for index := range items {
-		id := items[index].ID
-		items[index].Submit = submitByProblem[id]
-		items[index].AC = acByProblem[id]
-	}
-	return nil
+	return submitByProblem, acByProblem, nil
 }
 
 func (api *API) decorateProblemAssetStats(ctx context.Context, items []ProblemDTO) error {
