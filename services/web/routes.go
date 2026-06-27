@@ -287,8 +287,16 @@ type UserOptionDTO struct {
 type UserProfile struct {
 	User       PublicUserDTO     `json:"user"`
 	Heatmap    []HeatCell        `json:"heatmap"`
-	Solved     []ProblemDTO      `json:"solved"`
+	Solved     []SolvedProblem   `json:"solved"`
 	Activities []UserActivityDTO `json:"activities"`
+}
+
+type SolvedProblem struct {
+	ID     uint     `json:"id"`
+	Title  string   `json:"title"`
+	Tags   []string `json:"tags"`
+	AC     int      `json:"ac"`
+	Submit int      `json:"submit"`
 }
 
 type UserActivityDTO struct {
@@ -979,6 +987,26 @@ func (api *API) homeProblems(c echo.Context) ([]HomeProblem, error) {
 }
 
 func (api *API) decorateHomeProblemStats(items []HomeProblem) error {
+	if len(items) == 0 {
+		return nil
+	}
+	ids := make([]uint, 0, len(items))
+	for _, item := range items {
+		ids = append(ids, item.ID)
+	}
+	submitByProblem, acByProblem, err := api.problemSubmissionStats(ids)
+	if err != nil {
+		return err
+	}
+	for index := range items {
+		id := items[index].ID
+		items[index].Submit = submitByProblem[id]
+		items[index].AC = acByProblem[id]
+	}
+	return nil
+}
+
+func (api *API) decorateSolvedProblemStats(items []SolvedProblem) error {
 	if len(items) == 0 {
 		return nil
 	}
@@ -2974,7 +3002,11 @@ func userStatsCacheKey(userID uint) string {
 
 func (api *API) userSubmissions(userID uint, includeHidden bool) ([]models.Submission, error) {
 	var rows []models.Submission
-	query := api.db.Where("user_id = ?", userID).Order("submissions.created_at desc").Limit(20)
+	query := api.db.
+		Select("submissions.id", "submissions.problem_id", "submissions.status", "submissions.created_at").
+		Where("submissions.user_id = ?", userID).
+		Order("submissions.created_at desc").
+		Limit(20)
 	if !includeHidden {
 		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
 		query = api.applyProblemListVisibility(query)
@@ -2991,24 +3023,32 @@ func (api *API) userActivities(userID uint, includeHidden bool) ([]UserActivityD
 		return nil, err
 	}
 	items := make([]UserActivityDTO, 0, len(submissions)+20)
-	submissionItems, err := api.submissionDTOs(submissions)
+	problemIDs := make([]uint, 0, len(submissions))
+	for _, submission := range submissions {
+		problemIDs = append(problemIDs, submission.ProblemID)
+	}
+	titles, err := api.problemTitleMap(problemIDs)
 	if err != nil {
 		return nil, err
 	}
-	for _, submission := range submissionItems {
+	for _, submission := range submissions {
+		title := titles[submission.ProblemID]
+		if title == "" {
+			title = "P" + strconv.Itoa(int(submission.ProblemID))
+		}
 		items = append(items, UserActivityDTO{
 			Type:         "submission",
 			ID:           submission.ID,
-			Title:        submission.ProblemTitle,
+			Title:        title,
 			Status:       submission.Status,
 			ProblemID:    submission.ProblemID,
-			ProblemTitle: submission.ProblemTitle,
+			ProblemTitle: title,
 			CreatedAt:    submission.CreatedAt,
 		})
 	}
 
 	var discussions []models.Discussion
-	if err := api.db.Where("user_id = ?", userID).Order("created_at desc").Limit(20).Find(&discussions).Error; err != nil {
+	if err := api.db.Select("id", "title", "created_at").Where("user_id = ?", userID).Order("created_at desc").Limit(20).Find(&discussions).Error; err != nil {
 		return nil, err
 	}
 	for _, row := range discussions {
@@ -3028,9 +3068,13 @@ func (api *API) userActivities(userID uint, includeHidden bool) ([]UserActivityD
 	return items, nil
 }
 
-func (api *API) solvedProblems(userID uint, includeHidden bool) ([]ProblemDTO, error) {
+func (api *API) solvedProblems(userID uint, includeHidden bool) ([]SolvedProblem, error) {
 	var rows []models.Submission
-	query := api.db.Where("submissions.user_id = ? AND submissions.status = ?", userID, "AC").Order("submissions.created_at desc").Limit(50)
+	query := api.db.
+		Select("submissions.problem_id", "submissions.created_at").
+		Where("submissions.user_id = ? AND submissions.status = ?", userID, "AC").
+		Order("submissions.created_at desc").
+		Limit(50)
 	if !includeHidden {
 		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
 		query = api.applyProblemListVisibility(query)
@@ -3048,9 +3092,9 @@ func (api *API) solvedProblems(userID uint, includeHidden bool) ([]ProblemDTO, e
 		problemIDs = append(problemIDs, row.ProblemID)
 	}
 	if len(problemIDs) == 0 {
-		return []ProblemDTO{}, nil
+		return []SolvedProblem{}, nil
 	}
-	problemQuery := api.db.Model(&models.Problem{}).Where("id IN ?", problemIDs)
+	problemQuery := api.db.Model(&models.Problem{}).Select("id", "title", "tags").Where("id IN ?", problemIDs)
 	if !includeHidden {
 		problemQuery = api.applyProblemListVisibility(problemQuery)
 	}
@@ -3059,13 +3103,20 @@ func (api *API) solvedProblems(userID uint, includeHidden bool) ([]ProblemDTO, e
 		return nil, err
 	}
 	byID := problemRowsByID(problems)
-	items := make([]ProblemDTO, 0, len(problemIDs))
+	items := make([]SolvedProblem, 0, len(problemIDs))
 	for _, id := range problemIDs {
 		problem, ok := byID[id]
 		if !ok {
 			continue
 		}
-		items = append(items, problemDTO(problem))
+		items = append(items, SolvedProblem{
+			ID:    problem.ID,
+			Title: problem.Title,
+			Tags:  readTags([]byte(problem.Tags)),
+		})
+	}
+	if err := api.decorateSolvedProblemStats(items); err != nil {
+		return nil, err
 	}
 	return items, nil
 }
@@ -3073,7 +3124,7 @@ func (api *API) solvedProblems(userID uint, includeHidden bool) ([]ProblemDTO, e
 func (api *API) userHeatmap(userID uint) ([]HeatCell, error) {
 	since := time.Now().AddDate(-1, 0, 0)
 	var rows []models.Submission
-	query := api.db.Where("submissions.user_id = ? AND submissions.created_at >= ?", userID, since)
+	query := api.db.Select("created_at").Where("submissions.user_id = ? AND submissions.created_at >= ?", userID, since)
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
 	}

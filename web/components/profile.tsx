@@ -3,7 +3,7 @@ import { Avatar, Card, Col, Empty, Flex, Row, Space, Statistic, Tag, Timeline, T
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
-import type { ProblemListItem, UserActivity, UserProfile } from '../client'
+import type { SolvedProblem, UserActivity, UserProfile } from '../client'
 import { useLocale } from '../locale'
 import { formatPass, formatTime } from '../utils/format'
 import { ProblemLink } from './entity'
@@ -130,7 +130,7 @@ function ActivityItem({ activity, lang, submitted, posted }: { activity: UserAct
   )
 }
 
-function SolvedCard({ problems }: { problems: ProblemListItem[] }) {
+function SolvedCard({ problems }: { problems: SolvedProblem[] }) {
   const { text } = useLocale()
 
   return (

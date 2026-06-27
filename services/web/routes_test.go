@@ -554,8 +554,9 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 	e := echo.New()
 	Register(e, db)
 
-	profile := decodeJSON[UserProfile](t, requestOK(t, e, http.MethodGet, "/api/users/student", ""))
-	if hasProblem(profile.Solved, hidden.ID) || hasActivityProblem(profile.Activities, hidden.ID) {
+	profileRes := requestOK(t, e, http.MethodGet, "/api/users/student", "")
+	profile := decodeJSON[UserProfile](t, profileRes)
+	if hasSolvedProblem(profile.Solved, hidden.ID) || hasActivityProblem(profile.Activities, hidden.ID) {
 		t.Fatalf("guest profile leaked hidden problem: %+v", profile)
 	}
 	if !hasActivity(profile.Activities, "discussion", "Student note") {
@@ -567,6 +568,19 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 	today := time.Now().Format("2006-01-02")
 	if got := countForDate(profile.Heatmap, today); got != 6 {
 		t.Fatalf("guest profile heatmap should include all submissions, got %d", got)
+	}
+	var rawProfile struct {
+		Solved []map[string]any `json:"solved"`
+	}
+	if err := json.Unmarshal(profileRes.Body.Bytes(), &rawProfile); err != nil {
+		t.Fatalf("decode raw profile: %v", err)
+	}
+	if len(rawProfile.Solved) > 0 {
+		for _, key := range []string{"visible", "mode", "timeMs", "memoryMb", "discussions", "mine", "latest"} {
+			if _, ok := rawProfile.Solved[0][key]; ok {
+				t.Fatalf("profile solved problem should not include list-only field %q: %+v", key, rawProfile.Solved[0])
+			}
+		}
 	}
 
 	if res := requestOK(t, e, http.MethodGet, "/api/assignments", ""); res.Body.String() != "[]\n" {
@@ -612,7 +626,7 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 		t.Fatalf("admin profile got %d body=%s", adminProfileRes.Code, adminProfileRes.Body.String())
 	}
 	adminProfile := decodeJSON[UserProfile](t, adminProfileRes)
-	if !hasProblem(adminProfile.Solved, hidden.ID) || !hasActivityProblem(adminProfile.Activities, hidden.ID) {
+	if !hasSolvedProblem(adminProfile.Solved, hidden.ID) || !hasActivityProblem(adminProfile.Activities, hidden.ID) {
 		t.Fatalf("admin profile should include hidden problem: %+v", adminProfile)
 	}
 	if adminProfile.User.AC != 2 || adminProfile.User.Submit != 6 {
@@ -2109,6 +2123,15 @@ func decodeJSON[T any](t *testing.T, res *httptest.ResponseRecorder) T {
 }
 
 func hasProblem(items []ProblemDTO, id uint) bool {
+	for _, item := range items {
+		if item.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func hasSolvedProblem(items []SolvedProblem, id uint) bool {
 	for _, item := range items {
 		if item.ID == id {
 			return true

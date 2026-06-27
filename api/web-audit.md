@@ -33,6 +33,7 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 - `GET /api/assignments/{id}` and `GET /api/contests/{id}` no longer return unused submission lists. Assignment detail keeps progress; contest detail keeps rank. Submission browsing stays on `GET /api/submissions`.
 - `GET /api/submissions` now returns `SubmissionListItem`, omitting detail-only fields (`score`, `message`, `public`) that the list page does not render.
 - `GET /api/home` now returns compact `HomeProblem` rows for the latest-problem card and skips per-user mine/latest and discussion decoration.
+- `GET /api/users/{name}` now returns compact `SolvedProblem` rows and reads only the columns needed for solved problems, activity timeline, and heatmap.
 
 ## Endpoint Matrix
 
@@ -110,7 +111,7 @@ This file records the Web/Admin API boundary review after the 2026-06 audit.
 | `GET /api/submissions/{id}` | Detail | Submission row, source code, case results. | OK. Detail owns source/cases and visibility checks. |
 | `PATCH /api/submissions/{id}` | Partial mutation | Public flag only. | OK. |
 | `GET /api/rank` | List | Capped user rank rows. | OK. User stats are batched. |
-| `GET /api/users/{name}` | Detail aggregate | Profile, heatmap, solved problem summaries, recent activity. | OK. Solved problems use `ProblemListItem`; activity references are batched. |
+| `GET /api/users/{name}` | Detail aggregate | Profile, heatmap, compact solved problem summaries, recent activity. | Fixed. Solved problems use `SolvedProblem`; activity and heatmap queries select only displayed columns. |
 | `GET /api/discussion` | List | Discussion summary rows. | OK. Search supported; authors/reply counts are batched; content stays detail-only. |
 | `POST /api/discussion` | Mutation | Create title/content/tags, `{id}` out. | Fixed. Caller redirects to detail; list/detail expansion stays on read endpoints. |
 | `GET /api/discussion/{id}` | Detail | Discussion summary, content, comments. | OK. Detail owns content/comments and batches authors. |

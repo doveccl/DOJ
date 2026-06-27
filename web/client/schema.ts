@@ -1354,8 +1354,15 @@ export interface components {
         UserProfile: {
             user: components["schemas"]["PublicUser"];
             heatmap: components["schemas"]["HeatCell"][];
-            solved: components["schemas"]["ProblemListItem"][];
+            solved: components["schemas"]["SolvedProblem"][];
             activities: components["schemas"]["UserActivity"][];
+        };
+        SolvedProblem: {
+            id: number;
+            title: string;
+            tags: string[];
+            ac: number;
+            submit: number;
         };
         UserActivity: {
             /** @enum {string} */

@@ -2476,11 +2476,28 @@ components:
         solved:
           type: array
           items:
-            $ref: "#/components/schemas/ProblemListItem"
+            $ref: "#/components/schemas/SolvedProblem"
         activities:
           type: array
           items:
             $ref: "#/components/schemas/UserActivity"
+    SolvedProblem:
+      type: object
+      required: [id, title, tags, ac, submit]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+          maxLength: 256
+        tags:
+          type: array
+          items:
+            type: string
+        ac:
+          type: integer
+        submit:
+          type: integer
     UserActivity:
       type: object
       required: [type, id, title, createdAt]
