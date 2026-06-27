@@ -2912,7 +2912,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Assignment"];
+                    "application/json": components["schemas"]["CreatedID"];
                 };
             };
             /** @description Assignment not found */
@@ -3040,7 +3040,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Contest"];
+                    "application/json": components["schemas"]["CreatedID"];
                 };
             };
             /** @description Contest not found */

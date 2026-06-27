@@ -1055,7 +1055,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Assignment"
+                $ref: "#/components/schemas/CreatedID"
         "404":
           description: Assignment not found
     delete:
@@ -1139,7 +1139,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Contest"
+                $ref: "#/components/schemas/CreatedID"
         "404":
           description: Contest not found
     delete:

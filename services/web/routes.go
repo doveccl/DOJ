@@ -1758,11 +1758,7 @@ func (api *API) createAssignment(c echo.Context) error {
 	}); err != nil {
 		return err
 	}
-	dto, err := api.assignmentDTO(c, row, len(req.Problems), 0)
-	if err != nil {
-		return err
-	}
-	return c.JSON(http.StatusCreated, CreatedID{ID: dto.ID})
+	return c.JSON(http.StatusCreated, CreatedID{ID: row.ID})
 }
 
 func (api *API) updateAssignment(c echo.Context) error {
@@ -1830,11 +1826,7 @@ func (api *API) updateAssignment(c echo.Context) error {
 	}); err != nil {
 		return err
 	}
-	dto, err := api.assignmentDTO(c, row, len(req.Problems), 0)
-	if err != nil {
-		return err
-	}
-	return c.JSON(http.StatusOK, dto)
+	return c.JSON(http.StatusOK, CreatedID{ID: row.ID})
 }
 
 func (api *API) deleteAssignment(c echo.Context) error {
@@ -2067,7 +2059,7 @@ func (api *API) updateContest(c echo.Context) error {
 	}); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, contestDTO(row, len(req.Problems)))
+	return c.JSON(http.StatusOK, CreatedID{ID: row.ID})
 }
 
 func (api *API) deleteContest(c echo.Context) error {

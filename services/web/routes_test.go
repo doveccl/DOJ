@@ -1028,9 +1028,10 @@ func TestContestOIIgnoresFreezeAndUsesLastScoreAfterEnd(t *testing.T) {
 	if res.Code != http.StatusCreated {
 		t.Fatalf("create OI with freeze got %d body=%s", res.Code, res.Body.String())
 	}
-	created := decodeJSON[ContestDTO](t, res)
-	if created.FreezeAt != nil {
-		t.Fatalf("OI create should ignore freezeAt: %+v", created)
+	created := decodeJSON[CreatedID](t, res)
+	createdDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(created.ID), 10), databaseSession(t, db, admin.ID), nil))
+	if createdDetail.Contest.FreezeAt != nil {
+		t.Fatalf("OI create should ignore freezeAt: %+v", createdDetail.Contest)
 	}
 }
 
@@ -1169,9 +1170,13 @@ func TestAssignmentMembershipCreateUpdateAndVisibility(t *testing.T) {
 	if updateRes.Code != http.StatusOK {
 		t.Fatalf("update assignment got %d body=%s", updateRes.Code, updateRes.Body.String())
 	}
-	updated := decodeJSON[AssignmentDTO](t, updateRes)
-	if len(updated.Users) != 1 || updated.Users[0] != bob.ID || len(updated.Groups) != 0 {
-		t.Fatalf("updated assignment members not returned: %+v", updated)
+	updated := decodeJSON[CreatedID](t, updateRes)
+	if updated.ID != created.ID {
+		t.Fatalf("updated assignment should return id: %+v", updated)
+	}
+	updatedDetail := decodeJSON[AssignmentDetail](t, requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(created.ID), 10), adminCookies, nil))
+	if len(updatedDetail.Assignment.Users) != 1 || updatedDetail.Assignment.Users[0] != bob.ID || len(updatedDetail.Assignment.Groups) != 0 {
+		t.Fatalf("updated assignment members not persisted: %+v", updatedDetail.Assignment)
 	}
 	aliceDetail = requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(created.ID), 10), databaseSession(t, db, alice.ID), nil)
 	if aliceDetail.Code != http.StatusNotFound {
