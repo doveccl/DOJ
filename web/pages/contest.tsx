@@ -120,7 +120,7 @@ export function ContestDetailPage() {
               label: text.contests.rank,
               children: (
                 <Flex vertical gap={12}>
-                  {contest.status === 'frozen' ? <Alert type={session.admin ? 'info' : 'warning'} showIcon message={session.admin ? text.contests.realtimeRank : text.contests.frozenRank} /> : null}
+                  {contest.status === 'frozen' ? <Alert type={session.admin ? 'info' : 'warning'} showIcon title={session.admin ? text.contests.realtimeRank : text.contests.frozenRank} /> : null}
                   <Table<RankUser> rowKey="rank" columns={rankColumns(text, contest.kind, problems)} dataSource={rank} pagination={false} scroll={{ x: 'max-content' }} />
                 </Flex>
               )
@@ -268,7 +268,7 @@ function RankProblemCell({ kind, item }: { kind: string; item?: RankUser['proble
     if (item.status === 'ac') {
       const wrong = Math.max(0, item.submit - 1)
       return (
-        <Space direction="vertical" size={0} align="center">
+        <Space orientation="vertical" size={0} align="center">
           <Tag color="success">{wrong > 0 ? `+${wrong}` : '+'}</Tag>
           <Typography.Text type="secondary">{item.penalty}</Typography.Text>
         </Space>

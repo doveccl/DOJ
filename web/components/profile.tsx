@@ -1,5 +1,5 @@
 import { CheckCircleOutlined, CodeOutlined, MessageOutlined, UserOutlined } from '@ant-design/icons'
-import { Avatar, Card, Col, Empty, Flex, Pagination, Row, Space, Statistic, Table, Tag, Typography } from 'antd'
+import { Avatar, Card, Col, Empty, Flex, Pagination, Row, Space, Statistic, Table, Tag, Timeline, Typography } from 'antd'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -82,21 +82,24 @@ function ActivityCard({ activities }: { activities: UserActivity[] }) {
       {activities.length === 0 ? (
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
       ) : (
-        <Table<UserActivity>
-          size="small"
-          showHeader={false}
-          pagination={false}
-          rowKey={(row) => `${row.type}-${row.id}`}
-          dataSource={activities}
-          columns={[
-            {
-              render: (_, row) => <ActivityItem activity={row} lang={lang} submitted={text.user.submitted} posted={text.user.posted} />
-            }
-          ]}
+        <Timeline
+          items={activities.map((activity) => ({
+            key: `${activity.type}-${activity.id}`,
+            color: activityColor(activity),
+            icon: activityIcon(activity),
+            content: <ActivityItem activity={activity} lang={lang} submitted={text.user.submitted} posted={text.user.posted} />
+          }))}
         />
       )}
     </Card>
   )
+}
+
+function activityColor(row: UserActivity) {
+  if (row.type === 'discussion') {
+    return 'blue'
+  }
+  return row.status === 'AC' ? 'green' : 'red'
 }
 
 function activityIcon(row: UserActivity) {
@@ -109,9 +112,8 @@ function activityIcon(row: UserActivity) {
 function ActivityItem({ activity, lang, submitted, posted }: { activity: UserActivity; lang: string; submitted: string; posted: string }) {
   if (activity.type === 'discussion') {
     return (
-      <Flex align="center" justify="space-between" gap={12} className="tableTitleLine">
-        <Space size={8} className="tableTitleLine">
-          <MessageOutlined />
+      <Flex vertical gap={4}>
+        <Space size={8} wrap>
           <Typography.Text>{posted}</Typography.Text>
           <Typography.Text ellipsis className="lineText">
             <Link to={`/discussion/${activity.id}`}>{activity.title}</Link>
@@ -125,9 +127,8 @@ function ActivityItem({ activity, lang, submitted, posted }: { activity: UserAct
   }
 
   return (
-    <Flex align="center" justify="space-between" gap={12} className="tableTitleLine">
-      <Space size={8} className="tableTitleLine">
-        {activityIcon(activity)}
+    <Flex vertical gap={4}>
+      <Space size={8} wrap>
         {activity.status ? (
           <Link to={`/submissions/${activity.id}`}>
             <SubmissionStatus status={activity.status} />
@@ -162,14 +163,14 @@ function SolvedCard({ page, onPageChange }: { page: SolvedProblemPage; onPageCha
             columns={[
               {
                 render: (_, row) => (
-                <Space size={8} className="tableTitleLine">
-                  <ProblemLink id={row.id} title={row.title} />
-                  <Space size={[4, 4]} wrap>
-                    {row.tags.slice(0, 2).map((tag) => (
-                      <Tag key={tag}>{tag}</Tag>
-                    ))}
+                  <Space size={8} className="tableTitleLine">
+                    <ProblemLink id={row.id} title={row.title} />
+                    <Space size={[4, 4]} wrap>
+                      {row.tags.slice(0, 2).map((tag) => (
+                        <Tag key={tag}>{tag}</Tag>
+                      ))}
+                    </Space>
                   </Space>
-                </Space>
                 )
               }
             ]}

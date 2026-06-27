@@ -105,53 +105,49 @@ export function SubmissionsPage() {
         <Form layout="inline" initialValues={{ problem: problem || undefined, user: user || undefined, assignment: assignment || undefined, contest: contest || undefined }} onFinish={submit} key={`${problem}:${user}:${assignment}:${contest}`}>
           <Form.Item name="problem">
             <Select
-              showSearch
               allowClear
-              filterOption={false}
               loading={problems.isFetching}
               onOpenChange={setProblemOpen}
               onSearch={setProblemSearch}
               placeholder={text.submissions.problem}
               options={problemOptions}
+              showSearch={{ filterOption: false }}
               style={{ width: 240 }}
             />
           </Form.Item>
           <Form.Item name="user">
             <Select
-              showSearch
               allowClear
-              filterOption={false}
               loading={users.isFetching}
               onOpenChange={setUserOpen}
               onSearch={setUserSearch}
               placeholder={text.submissions.user}
               options={userOptions}
+              showSearch={{ filterOption: false }}
               style={{ width: 160 }}
             />
           </Form.Item>
           <Form.Item name="assignment">
             <Select
-              showSearch
               allowClear
-              filterOption={false}
               loading={assignments.isFetching}
               onOpenChange={setAssignmentOpen}
               onSearch={setAssignmentSearch}
               placeholder={text.assignments.title}
               options={assignmentOptions}
+              showSearch={{ filterOption: false }}
               style={{ width: 180 }}
             />
           </Form.Item>
           <Form.Item name="contest">
             <Select
-              showSearch
               allowClear
-              filterOption={false}
               loading={contests.isFetching}
               onOpenChange={setContestOpen}
               onSearch={setContestSearch}
               placeholder={text.contests.title}
               options={contestOptions}
+              showSearch={{ filterOption: false }}
               style={{ width: 180 }}
             />
           </Form.Item>

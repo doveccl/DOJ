@@ -30,7 +30,6 @@ export function TagSelect({ kind, value, onChange, mode, placeholder, allowClear
   return (
     <Select
       allowClear={allowClear}
-      filterOption={false}
       loading={query.isFetching}
       maxTagCount={mode ? 'responsive' : undefined}
       mode={mode}
@@ -39,7 +38,7 @@ export function TagSelect({ kind, value, onChange, mode, placeholder, allowClear
       onSearch={setSearch}
       options={options}
       placeholder={placeholder}
-      showSearch
+      showSearch={{ filterOption: false }}
       style={style}
       tokenSeparators={mode ? [',', '，', ' '] : undefined}
       value={value}

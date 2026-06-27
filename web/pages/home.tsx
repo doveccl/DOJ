@@ -1,5 +1,5 @@
 import { EditOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, Col, Flex, Form, Row, Space, Table, Tag, Typography } from 'antd'
+import { App as AntApp, Button, Card, Col, Flex, Form, Row, Space, Tag, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -119,27 +119,20 @@ function ProblemList({ title, items }: { title: string; items: HomeProblem[] }) 
       {items.length === 0 ? (
         <EmptyBlock />
       ) : (
-        <Table<HomeProblem>
-          size="small"
-          showHeader={false}
-          pagination={false}
-          rowKey="id"
-          dataSource={items}
-          columns={[
-            {
-              render: (_, item) => (
-              <Flex align="center" justify="space-between" gap={12} className="tableTitleLine">
+        <Flex vertical className="homeList">
+          {items.map((item) => (
+            <Flex key={item.id} align="center" justify="space-between" gap={12} className="homeListItem">
+              <span className="homeListTitle">
                 <ProblemLink id={item.id} title={item.title} strong />
-                <Space size={[4, 4]} wrap>
-                  {item.tags.slice(0, 2).map((tag) => (
-                    <Tag key={tag}>{tag}</Tag>
-                  ))}
-                </Space>
-              </Flex>
-              )
-            }
-          ]}
-        />
+              </span>
+              <Space size={[4, 4]} wrap className="homeListTags">
+                {item.tags.slice(0, 2).map((tag) => (
+                  <Tag key={tag}>{tag}</Tag>
+                ))}
+              </Space>
+            </Flex>
+          ))}
+        </Flex>
       )}
     </Card>
   )
@@ -151,22 +144,15 @@ function ItemList({ title, items, hrefPrefix }: { title: string; items: Item[]; 
       {items.length === 0 ? (
         <EmptyBlock />
       ) : (
-        <Table<Item>
-          size="small"
-          showHeader={false}
-          pagination={false}
-          rowKey="id"
-          dataSource={items}
-          columns={[
-            {
-              render: (_, item) => (
-              <Typography.Text strong ellipsis className="lineText">
+        <Flex vertical className="homeList">
+          {items.map((item) => (
+            <Flex key={item.id} align="center" className="homeListItem">
+              <Typography.Text strong ellipsis className="lineText homeListTitle">
                 <Link to={`${hrefPrefix}/${item.id}`}>{item.title}</Link>
               </Typography.Text>
-              )
-            }
-          ]}
-        />
+            </Flex>
+          ))}
+        </Flex>
       )}
     </Card>
   )

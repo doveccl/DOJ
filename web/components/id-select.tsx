@@ -49,20 +49,19 @@ export function IdSelect({
   const selectedItems = selectedOptions(value ?? [], options ?? [], remoteOptions)
   const visibleOptions = kind ? (searchText ? remoteOptions : mergeOptions(options ?? [], remoteOptions)) : (options ?? [])
   const mergedOptions = mergeOptions(selectedItems, visibleOptions)
+  const showSearch = kind ? { filterOption: false } : { optionFilterProp: 'label' }
 
   return (
     <Select
       allowClear
       disabled={disabled}
-      filterOption={kind ? false : undefined}
       loading={loading || remote.isFetching}
       maxTagCount="responsive"
       mode="multiple"
       onOpenChange={setOpen}
       onSearch={kind ? setSearch : undefined}
-      optionFilterProp={kind ? undefined : 'label'}
       options={mergedOptions}
-      showSearch
+      showSearch={showSearch}
       style={{ width: '100%' }}
       value={value}
       onChange={onChange}

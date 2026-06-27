@@ -40,7 +40,7 @@ const (
 	maxEditableAssetBytes = 1 << 20
 	maxTitleRunes         = models.TitleMax
 	homeListLimit         = 5
-	userActivityLimit     = 12
+	userActivityLimit     = 10
 	userSolvedPageSize    = 12
 )
 

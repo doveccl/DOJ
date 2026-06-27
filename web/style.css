@@ -290,6 +290,33 @@ body {
   margin-inline-end: 0;
 }
 
+.homeList {
+  width: 100%;
+}
+
+.homeListItem {
+  min-height: 34px;
+  width: 100%;
+}
+
+.homeListItem + .homeListItem {
+  padding-top: 10px;
+  border-top: 1px solid var(--ant-color-border-secondary);
+}
+
+.homeListTitle {
+  flex: 1;
+  min-width: 0;
+}
+
+.homeListTags {
+  flex: none;
+}
+
+.homeListTags .ant-tag {
+  margin-inline-end: 0;
+}
+
 .statementCard .ant-card-head-title {
   min-width: 0;
 }

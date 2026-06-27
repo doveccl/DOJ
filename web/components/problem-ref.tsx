@@ -81,7 +81,6 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading }:
     <>
       <Select
         allowClear
-        filterOption={false}
         loading={loading || remote.isFetching}
         maxTagCount="responsive"
         mode="multiple"
@@ -90,7 +89,7 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading }:
         onSearch={setSearch}
         options={selectOptions}
         placeholder={text.submissions.searchProblem}
-        showSearch
+        showSearch={{ filterOption: false }}
         style={{ width: '100%' }}
         value={value.map((item) => item.id)}
       />

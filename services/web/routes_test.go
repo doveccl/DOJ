@@ -673,6 +673,9 @@ func TestUserSolvedProblemsArePagedByLatestAC(t *testing.T) {
 	if len(profile.Solved.Items) != 5 {
 		t.Fatalf("solved page item count = %d", len(profile.Solved.Items))
 	}
+	if len(profile.Activities) != userActivityLimit {
+		t.Fatalf("activity count = %d, want %d", len(profile.Activities), userActivityLimit)
+	}
 	if profile.Solved.Items[0].ID != 1009 || profile.Solved.Items[4].ID != 1005 {
 		t.Fatalf("solved page order = %+v", profile.Solved.Items)
 	}
