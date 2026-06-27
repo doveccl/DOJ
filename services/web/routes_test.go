@@ -1524,6 +1524,14 @@ func TestDatabaseDiscussionAuthorsUseNames(t *testing.T) {
 	if len(list) != 1 || list[0].Author != "admin" || list[0].Replies != 1 {
 		t.Fatalf("discussion list should include author and reply count: %+v", list)
 	}
+	listRes := requestOK(t, e, http.MethodGet, "/api/discussion", "")
+	var rawList []map[string]any
+	if err := json.Unmarshal(listRes.Body.Bytes(), &rawList); err != nil {
+		t.Fatalf("decode raw discussion list: %v", err)
+	}
+	if _, ok := rawList[0]["content"]; ok {
+		t.Fatalf("discussion list should not include content: %+v", rawList[0])
+	}
 
 	target := "/api/discussion/" + strconv.FormatUint(uint64(discussion.ID), 10)
 	detail := decodeJSON[DiscussionDetail](t, requestOK(t, e, http.MethodGet, target, ""))
@@ -1535,32 +1543,36 @@ func TestDatabaseDiscussionAuthorsUseNames(t *testing.T) {
 	if updated.Code != http.StatusOK {
 		t.Fatalf("update discussion got %d body=%s", updated.Code, updated.Body.String())
 	}
-	dto := decodeJSON[DiscussionDTO](t, updated)
-	if dto.Author != "admin" || !dto.Pinned || dto.Locked || dto.Title != "Named discussion" || dto.Replies != 1 {
-		t.Fatalf("partial discussion update should preserve unrelated fields and reply count: %+v", dto)
+	updatedID := decodeJSON[CreatedID](t, updated)
+	if updatedID.ID != discussion.ID {
+		t.Fatalf("partial discussion update should return updated id: %+v", updatedID)
 	}
 	detail = decodeJSON[DiscussionDetail](t, requestOK(t, e, http.MethodGet, target, ""))
-	if detail.Content != "body" || len(detail.Discussion.Tags) != 1 || detail.Discussion.Tags[0] != "general" {
+	if !detail.Discussion.Pinned || detail.Discussion.Locked || detail.Discussion.Title != "Named discussion" || detail.Discussion.Replies != 1 || detail.Content != "body" || len(detail.Discussion.Tags) != 1 || detail.Discussion.Tags[0] != "general" {
 		t.Fatalf("partial discussion update should preserve content and tags: %+v", detail)
 	}
 	updated = requestJSONWithCookies(e, http.MethodPatch, target, databaseSession(t, db, admin.ID), `{"pinned":false,"locked":true}`)
 	if updated.Code != http.StatusOK {
 		t.Fatalf("false/true discussion patch got %d body=%s", updated.Code, updated.Body.String())
 	}
-	dto = decodeJSON[DiscussionDTO](t, updated)
-	if dto.Pinned || !dto.Locked || dto.Title != "Named discussion" || dto.Replies != 1 {
-		t.Fatalf("discussion patch should apply false/true flags and preserve unrelated fields: %+v", dto)
+	updatedID = decodeJSON[CreatedID](t, updated)
+	if updatedID.ID != discussion.ID {
+		t.Fatalf("false/true discussion patch should return updated id: %+v", updatedID)
+	}
+	detail = decodeJSON[DiscussionDetail](t, requestOK(t, e, http.MethodGet, target, ""))
+	if detail.Discussion.Pinned || !detail.Discussion.Locked || detail.Discussion.Title != "Named discussion" || detail.Discussion.Replies != 1 {
+		t.Fatalf("discussion patch should apply false/true flags and preserve unrelated fields: %+v", detail)
 	}
 	updated = requestJSONWithCookies(e, http.MethodPatch, target, databaseSession(t, db, admin.ID), `{"locked":false,"tags":[]}`)
 	if updated.Code != http.StatusOK {
 		t.Fatalf("false/empty tags discussion patch got %d body=%s", updated.Code, updated.Body.String())
 	}
-	dto = decodeJSON[DiscussionDTO](t, updated)
-	if dto.Locked || len(dto.Tags) != 0 || dto.Title != "Named discussion" || dto.Replies != 1 {
-		t.Fatalf("discussion patch should apply false flag and empty tags: %+v", dto)
+	updatedID = decodeJSON[CreatedID](t, updated)
+	if updatedID.ID != discussion.ID {
+		t.Fatalf("false/empty tags discussion patch should return updated id: %+v", updatedID)
 	}
 	detail = decodeJSON[DiscussionDetail](t, requestOK(t, e, http.MethodGet, target, ""))
-	if detail.Content != "body" {
+	if detail.Discussion.Locked || len(detail.Discussion.Tags) != 0 || detail.Discussion.Title != "Named discussion" || detail.Discussion.Replies != 1 || detail.Content != "body" {
 		t.Fatalf("discussion false/empty tags patch should preserve content: %+v", detail)
 	}
 	empty := requestJSONWithCookies(e, http.MethodPatch, target, databaseSession(t, db, admin.ID), `{}`)

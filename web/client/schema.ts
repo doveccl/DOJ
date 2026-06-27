@@ -3394,7 +3394,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Discussion"];
+                    "application/json": components["schemas"]["CreatedID"];
                 };
             };
             /** @description Discussion not found */

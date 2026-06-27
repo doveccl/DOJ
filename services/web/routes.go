@@ -3138,7 +3138,9 @@ func (api *API) userHeatmap(userID uint) ([]HeatCell, error) {
 func (api *API) discussions(c echo.Context) error {
 
 	var rows []models.Discussion
-	query := api.db.Order("pinned desc, updated_at desc").Limit(50)
+	query := api.db.Select("id", "title", "user_id", "tags", "pinned", "locked", "created_at").
+		Order("pinned desc, updated_at desc").
+		Limit(50)
 	if q := strings.TrimSpace(c.QueryParam("q")); q != "" {
 		like := "%" + q + "%"
 		query = query.Where("LOWER(title) LIKE LOWER(?) OR LOWER(content) LIKE LOWER(?) OR LOWER(CAST(tags AS TEXT)) LIKE LOWER(?)", like, like, like)
@@ -3222,7 +3224,7 @@ func (api *API) discussion(c echo.Context) error {
 		return err
 	}
 	var comments []models.Comment
-	if err := api.db.Where("discussion_id = ?", row.ID).Order("created_at asc").Find(&comments).Error; err != nil {
+	if err := api.db.Select("id", "user_id", "content", "created_at").Where("discussion_id = ?", row.ID).Order("created_at asc").Find(&comments).Error; err != nil {
 		return err
 	}
 	authorIDs := []uint{row.UserID}
@@ -3315,15 +3317,7 @@ func (api *API) updateDiscussion(c echo.Context) error {
 	if err := api.db.Save(&row).Error; err != nil {
 		return err
 	}
-	authors, err := api.userNameMap([]uint{row.UserID})
-	if err != nil {
-		return err
-	}
-	replies, err := api.discussionReplyCounts([]uint{row.ID})
-	if err != nil {
-		return err
-	}
-	return c.JSON(http.StatusOK, discussionDTOFromRefs(row, authors, replies))
+	return c.JSON(http.StatusOK, CreatedID{ID: row.ID})
 }
 
 func (api *API) deleteDiscussion(c echo.Context) error {
