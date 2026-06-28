@@ -33,6 +33,11 @@ type LoopConfig struct {
 	Logf        func(format string, args ...any)
 }
 
+const (
+	defaultHTTPTimeout      = 30 * time.Second
+	defaultAssetHTTPTimeout = 5 * time.Minute
+)
+
 type leaseRequest struct {
 	Version string `json:"version"`
 	Host    string `json:"host"`
@@ -348,7 +353,7 @@ func downloadTaskAssets(ctx context.Context, client *http.Client, cfg WorkerConf
 		httpReq.Header.Set("Authorization", "Bearer "+cfg.Token)
 	}
 	requestStartedAt := time.Now()
-	httpResp, err := client.Do(httpReq)
+	httpResp, err := assetDownloadClient(client, cfg).Do(httpReq)
 	logTask(cfg.Logf, submissionID, attempt, "asset_package_request=%s status=%s cache_version=%s lease_version=%s", formatDuration(time.Since(requestStartedAt)), responseStatus(httpResp), shortVersion(cacheVersion), shortVersion(packageVersion))
 	if err != nil {
 		return err
@@ -579,5 +584,12 @@ func workerClient(cfg WorkerConfig) *http.Client {
 	if cfg.HTTPClient != nil {
 		return cfg.HTTPClient
 	}
-	return &http.Client{Timeout: 30 * time.Second}
+	return &http.Client{Timeout: defaultHTTPTimeout}
+}
+
+func assetDownloadClient(client *http.Client, cfg WorkerConfig) *http.Client {
+	if cfg.HTTPClient != nil {
+		return client
+	}
+	return &http.Client{Transport: client.Transport, Timeout: defaultAssetHTTPTimeout}
 }

@@ -231,6 +231,30 @@ func TestDownloadTaskAssetsUsesLeasePackageVersionCache(t *testing.T) {
 	}
 }
 
+func TestDownloadTaskAssetsUsesLongerTimeoutThanAPIClient(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/judger/P1000.zip" {
+			http.NotFound(w, r)
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/zip")
+		_, _ = w.Write(testAssetZip(t))
+	}))
+	defer server.Close()
+
+	root := t.TempDir()
+	work := filepath.Join(root, "work")
+	if err := os.MkdirAll(work, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	client := &http.Client{Timeout: time.Nanosecond}
+	cfg := WorkerConfig{Server: server.URL, Work: filepath.Join(root, "jobs")}
+	if err := downloadTaskAssets(t.Context(), client, cfg, 1000, "v1", work, 11, 1); err != nil {
+		t.Fatalf("download should not use short API timeout: %v", err)
+	}
+}
+
 func testAssetZip(t *testing.T) []byte {
 	t.Helper()
 	var body bytes.Buffer
