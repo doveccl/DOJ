@@ -236,7 +236,7 @@ function problemColumns(
     {
       title: text.submissions.problem,
       dataIndex: 'title',
-      width: '48%',
+      width: 420,
       ellipsis: true,
       render: (title: string, row) => (
         <Flex align="center" gap={8} wrap={false} className="tableTitleLine">
@@ -249,6 +249,7 @@ function problemColumns(
     {
       title: text.problems.tag,
       dataIndex: 'tags',
+      width: 280,
       ellipsis: true,
       render: (tags: string[]) => (
         <Space size={[4, 4]} wrap>

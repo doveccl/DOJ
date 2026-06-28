@@ -2897,9 +2897,12 @@ func assignmentEnded(row models.Assignment) bool {
 }
 
 func (api *API) rank(c echo.Context) error {
-
+	page, pageSize, offset, err := parsePage(c)
+	if err != nil {
+		return err
+	}
 	var users []models.User
-	if err := api.db.Order("id asc").Limit(100).Find(&users).Error; err != nil {
+	if err := api.db.Order("id asc").Find(&users).Error; err != nil {
 		return err
 	}
 	userIDs := make([]uint, 0, len(users))
@@ -2929,7 +2932,17 @@ func (api *API) rank(c echo.Context) error {
 	for index := range items {
 		items[index].Rank = index + 1
 	}
-	return c.JSON(http.StatusOK, items)
+	total := int64(len(items))
+	if offset >= len(items) {
+		items = []RankUserDTO{}
+	} else {
+		end := offset + pageSize
+		if end > len(items) {
+			end = len(items)
+		}
+		items = items[offset:end]
+	}
+	return c.JSON(http.StatusOK, PageResult[RankUserDTO]{Items: items, Page: page, PageSize: pageSize, Total: total})
 }
 
 func (api *API) users(c echo.Context) error {

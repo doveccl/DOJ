@@ -1399,6 +1399,12 @@ export interface components {
             penalty: number;
             problems: components["schemas"]["RankProblem"][];
         };
+        RankUserPage: {
+            items: components["schemas"]["RankUser"][];
+            page: number;
+            pageSize: number;
+            total: number;
+        };
         UserProfile: {
             user: components["schemas"]["PublicUser"];
             heatmap: components["schemas"]["HeatCell"][];
@@ -3324,7 +3330,10 @@ export interface operations {
     };
     getRank: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: number;
+                pageSize?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3337,7 +3346,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RankUser"][];
+                    "application/json": components["schemas"]["RankUserPage"];
                 };
             };
         };

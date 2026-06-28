@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -721,28 +722,59 @@ func TestDatabaseRankUsesVisibleSubmissionStatsAndActiveUsers(t *testing.T) {
 	e := echo.New()
 	Register(e, db)
 
-	guestRank := decodeJSON[[]RankUserDTO](t, requestOK(t, e, http.MethodGet, "/api/rank", ""))
-	if len(guestRank) != 3 {
+	guestRank := decodeJSON[PageResult[RankUserDTO]](t, requestOK(t, e, http.MethodGet, "/api/rank", ""))
+	if len(guestRank.Items) != 3 || guestRank.Total != 3 {
 		t.Fatalf("rank should include three active users, got %+v", guestRank)
 	}
-	if guestRank[0].User != "bob" || guestRank[0].AC != 2 || guestRank[0].Submit != 2 {
+	if guestRank.Items[0].User != "bob" || guestRank.Items[0].AC != 2 || guestRank.Items[0].Submit != 2 {
 		t.Fatalf("bob should rank first by visible AC: %+v", guestRank)
 	}
-	if userInRank(guestRank, "disabled") {
+	if userInRank(guestRank.Items, "disabled") {
 		t.Fatalf("rank should not include disabled users: %+v", guestRank)
 	}
 	if res := request(e, http.MethodGet, "/api/users/disabled", "", nil); res.Code != http.StatusNotFound {
 		t.Fatalf("disabled user profile should be hidden, got %d body=%s", res.Code, res.Body.String())
 	}
-	aliceGuest, ok := rankByUser(guestRank, "alice")
+	aliceGuest, ok := rankByUser(guestRank.Items, "alice")
 	if !ok || aliceGuest.AC != 2 || aliceGuest.Submit != 3 {
 		t.Fatalf("alice guest stats should include hidden problem in aggregate stats: %+v", guestRank)
 	}
 
-	adminRank := decodeJSON[[]RankUserDTO](t, requestWithCookies(e, http.MethodGet, "/api/rank", databaseSession(t, db, admin.ID), nil))
-	aliceAdmin, ok := rankByUser(adminRank, "alice")
+	adminRank := decodeJSON[PageResult[RankUserDTO]](t, requestWithCookies(e, http.MethodGet, "/api/rank", databaseSession(t, db, admin.ID), nil))
+	aliceAdmin, ok := rankByUser(adminRank.Items, "alice")
 	if !ok || aliceAdmin.AC != 2 || aliceAdmin.Submit != 3 {
 		t.Fatalf("alice admin stats should include hidden problem: %+v", adminRank)
+	}
+}
+
+func TestDatabaseRankPaginatesAfterRankingAllUsers(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	problem := models.Problem{ID: 1000, Title: "Visible", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	for i := 0; i < 105; i++ {
+		user := models.User{Name: fmt.Sprintf("u%03d", i), Mail: fmt.Sprintf("u%03d@example.com", i), Auth: "hash"}
+		if err := db.Create(&user).Error; err != nil {
+			t.Fatalf("create user: %v", err)
+		}
+		if i == 104 {
+			if err := db.Create(&models.Submission{UserID: user.ID, ProblemID: problem.ID, Language: "cpp", Code: "ok", Status: "AC", Score: 100, Public: true}).Error; err != nil {
+				t.Fatalf("create submission: %v", err)
+			}
+		}
+	}
+	e := echo.New()
+	Register(e, db)
+
+	first := decodeJSON[PageResult[RankUserDTO]](t, requestOK(t, e, http.MethodGet, "/api/rank?page=1&pageSize=20", ""))
+	if first.Total != 105 || len(first.Items) != 20 || first.Items[0].User != "u104" || first.Items[0].Rank != 1 {
+		t.Fatalf("rank should sort all users before paging: %+v", first)
+	}
+	last := decodeJSON[PageResult[RankUserDTO]](t, requestOK(t, e, http.MethodGet, "/api/rank?page=6&pageSize=20", ""))
+	if len(last.Items) != 5 || last.Items[0].Rank != 101 {
+		t.Fatalf("last rank page = %+v", last)
 	}
 }
 

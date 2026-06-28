@@ -65,7 +65,7 @@ func BuiltinJudgeMain(args []string) int {
 
 	output, err := readLimited(os.Stdin, *outputLimit)
 	if err != nil {
-		writeReport(*result, JudgeReport{Verdict: VerdictOutputLimit, Message: err.Error()})
+		writeReport(*result, JudgeReport{Verdict: VerdictOutputLimit})
 		return 0
 	}
 	if err := <-inputErr; err != nil {

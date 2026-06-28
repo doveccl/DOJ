@@ -122,9 +122,9 @@ export function UsersTab({
                 <Tooltip title={text.common.edit}>
                   <Button type="text" icon={<EditOutlined />} onClick={() => onEdit(row)} />
                 </Tooltip>
-                <Tooltip title={text.admin.resetPassword}>
-                  <Button type="text" icon={<KeyOutlined />} loading={resetLoadingName === row.name} onClick={() => onResetPassword(row.name)} />
-                </Tooltip>
+                <Popconfirm title={text.admin.resetPassword} okText={text.admin.resetPassword} cancelText={text.common.cancel} onConfirm={() => onResetPassword(row.name)}>
+                  <Button type="text" icon={<KeyOutlined />} loading={resetLoadingName === row.name} />
+                </Popconfirm>
                 <Popconfirm title={text.common.confirmDelete} okText={text.common.delete} cancelText={text.common.cancel} onConfirm={() => onDelete(row.name)}>
                   <Button type="text" danger icon={<DeleteOutlined />} />
                 </Popconfirm>
@@ -236,10 +236,11 @@ export function LanguagesTab({
         columns={[
           { title: text.admin.name, dataIndex: 'name' },
           { title: text.admin.source, dataIndex: 'source' },
-          { title: text.admin.image, dataIndex: 'image', ellipsis: true },
+          { title: text.admin.image, dataIndex: 'image', width: 220, ellipsis: true },
           {
             title: text.admin.run,
             dataIndex: 'run',
+            width: 320,
             ellipsis: true,
             render: (value: string) => {
               const firstLine = value.split('\n')[0]
@@ -387,12 +388,11 @@ export function BackupsTab({
           dataSource={backups.data?.items ?? []}
           columns={[
             { title: text.admin.backupFile, dataIndex: 'name', width: 320, render: (name: string) => <Typography.Text code ellipsis={{ tooltip: name }} className="backupFileName">{name}</Typography.Text> },
-            { title: text.admin.backupDatabase, dataIndex: 'database', width: 120 },
-            { title: text.admin.createdAt, dataIndex: 'createdAt', width: 220, render: (value: string) => new Date(value).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US') },
-            { title: text.admin.backupSize, dataIndex: 'size', width: 100, render: (value: number) => formatBytes(value) },
+            { title: text.admin.backupDatabase, dataIndex: 'database' },
+            { title: text.admin.createdAt, dataIndex: 'createdAt', render: (value: string) => new Date(value).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US') },
+            { title: text.admin.backupSize, dataIndex: 'size', render: (value: number) => formatBytes(value) },
             {
               title: text.common.actions,
-              width: 120,
               render: (_, row) => (
                 <Space size={4}>
                   <Tooltip title={text.common.download}>

@@ -209,11 +209,11 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: str
     {
       title: <Typography.Text className="nowrap">{text.submissions.id}</Typography.Text>,
       dataIndex: 'id',
-      width: 80,
       render: (id: number) => <Link to={`/submissions/${id}`}>{submissionCode(id)}</Link>
     },
     {
       title: text.submissions.problem,
+      width: 360,
       ellipsis: { showTitle: false },
       render: (_, row) => (
         <Flex align="center" gap={8} className="tableTitleLine">
@@ -224,36 +224,30 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: str
     {
       title: text.submissions.user,
       dataIndex: 'user',
-      width: 96,
       render: (user: string) => <UserLink name={user} />
     },
     {
       title: text.submissions.status,
       dataIndex: 'status',
-      width: 124,
       render: (status: string) => <SubmissionStatus status={status} />
     },
     {
       title: text.submissions.time,
       dataIndex: 'timeMs',
-      width: 88,
       render: (value?: number) => (value === undefined ? '-' : `${value}ms`)
     },
     {
       title: text.submissions.memory,
       dataIndex: 'memoryKb',
-      width: 88,
       render: (value?: number) => memoryText(value)
     },
     {
       title: text.submissions.language,
-      width: 112,
       render: (_, row) => <Tag>{languageNames.get(row.language) ?? row.language}</Tag>
     },
     {
       title: text.submissions.created,
       dataIndex: 'createdAt',
-      width: 156,
       render: (value: string) => <Typography.Text className="nowrap">{formatTime(value, lang)}</Typography.Text>
     }
   ]

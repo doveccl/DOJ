@@ -255,6 +255,7 @@ function discussionColumns(
     {
       title: text.discussion.title,
       dataIndex: 'title',
+      width: 420,
       render: (title: string, row) => (
         <Flex align="center" gap={8} className="tableTitleLine">
           <Typography.Text ellipsis className="lineText">
@@ -268,6 +269,7 @@ function discussionColumns(
     {
       title: text.discussion.tags,
       dataIndex: 'tags',
+      width: 260,
       render: (tags: string[]) => (
         tags.length > 0 ? (
           <Space size={[4, 4]} wrap>

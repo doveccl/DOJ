@@ -20,6 +20,7 @@ func TestRunLocalCaseEvilPrograms(t *testing.T) {
 		mode    JudgeMode
 		limits  Limits
 		want    Verdict
+		message string
 	}{
 		{
 			name:    "output-flood",
@@ -32,6 +33,7 @@ func TestRunLocalCaseEvilPrograms(t *testing.T) {
 			command: "cat >/dev/null; exit 7",
 			limits:  Limits{TimeMS: 1000, OutputKB: 64},
 			want:    VerdictRuntimeError,
+			message: "exit status 7",
 		},
 		{
 			name:    "strict-presentation-error",
@@ -79,6 +81,9 @@ func TestRunLocalCaseEvilPrograms(t *testing.T) {
 			if result.Verdict != tt.want {
 				t.Fatalf("verdict = %s, want %s; result = %#v", result.Verdict, tt.want, result)
 			}
+			if result.Message != tt.message {
+				t.Fatalf("message = %q, want %q; result = %#v", result.Message, tt.message, result)
+			}
 		})
 	}
 }
@@ -110,5 +115,8 @@ func TestRunLocalCaseTimeout(t *testing.T) {
 	}
 	if result.Verdict != VerdictTimeLimit {
 		t.Fatalf("result = %#v", result)
+	}
+	if result.Message != "" {
+		t.Fatalf("timeout message = %q", result.Message)
 	}
 }

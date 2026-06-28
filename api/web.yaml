@@ -1341,15 +1341,22 @@ paths:
   /api/rank:
     get:
       operationId: getRank
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
       responses:
         "200":
           description: Rank list
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/RankUser"
+                $ref: "#/components/schemas/RankUserPage"
   /api/users:
     get:
       operationId: searchUsers
@@ -2658,6 +2665,20 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RankProblem"
+    RankUserPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RankUser"
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
     UserProfile:
       type: object
       required: [user, heatmap, solved, activities]
