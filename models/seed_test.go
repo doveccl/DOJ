@@ -71,7 +71,7 @@ func TestEnsureDefaultLanguageCreatesCppWhenEmpty(t *testing.T) {
 	if err := db.First(&lang, "id = ?", "cpp").Error; err != nil {
 		t.Fatalf("read default lang: %v", err)
 	}
-	if lang.Name != "C/C++" || lang.Source != "main.cc" || lang.Image != "gcc:14" || lang.Compile == "" || lang.Run != "./main" {
+	if lang.Name != "C/C++" || lang.Source != "main.cc" || lang.Image != "gcc" || lang.Compile != "g++ main.cc -o main" || lang.Run != "./main" {
 		t.Fatalf("unexpected default lang: %+v", lang)
 	}
 }

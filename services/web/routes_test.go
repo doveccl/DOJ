@@ -2441,6 +2441,20 @@ func zipHasFile(reader *zip.Reader, name string) bool {
 	return false
 }
 
+func TestJudgeTemplateUsesDockerfileCMDAndInteractorArgs(t *testing.T) {
+	files := judgeTemplateFiles()
+	dockerfile := files["Dockerfile"]
+	main := files["main.cc"]
+	if !strings.Contains(dockerfile, `FROM gcc`) || strings.Contains(dockerfile, `gcc:`) || !strings.Contains(dockerfile, `g++ main.cc -o main`) || !strings.Contains(dockerfile, `CMD ["/src/main"]`) {
+		t.Fatalf("Dockerfile template must build and expose the same CMD path:\n%s", dockerfile)
+	}
+	for _, want := range []string{"argv[1]", "argv[3]", "argv[4]", "thread feeder", "fclose(stdout)", "0 = AC", "1 = WA", "3 = checker/interactor error"} {
+		if !strings.Contains(main, want) {
+			t.Fatalf("main.cc template missing %s:\n%s", want, main)
+		}
+	}
+}
+
 func tinyPNG() []byte {
 	return []byte{
 		0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,

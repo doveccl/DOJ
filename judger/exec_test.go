@@ -40,6 +40,9 @@ func TestRunLocalCaseAccepted(t *testing.T) {
 	if result.Verdict != VerdictAccepted || result.Score != 100 {
 		t.Fatalf("result = %#v", result)
 	}
+	if _, err := os.Stat(filepath.Join(work, "user-output-1.txt")); !os.IsNotExist(err) {
+		t.Fatalf("user output file was not removed: %v", err)
+	}
 }
 
 func TestRunLocalCaseWrongAnswer(t *testing.T) {

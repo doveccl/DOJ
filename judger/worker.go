@@ -146,12 +146,13 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 	}
 	runStartedAt := time.Now()
 	result, err := RunContainerTask(ctx, ContainerTask{
-		Runner:     cfg.Runner,
-		Work:       work,
-		CgroupRoot: cfg.CgroupRoot,
-		ProcRoot:   cfg.ProcRoot,
-		Task:       task.toTask(),
-		Logf:       cfg.Logf,
+		Runner:           cfg.Runner,
+		Work:             work,
+		CgroupRoot:       cfg.CgroupRoot,
+		ProcRoot:         cfg.ProcRoot,
+		CustomJudgeCache: customJudgeCachePath(cfg.Work, task.Problem.ID, task.Problem.PackageVersion, task.Mode),
+		Task:             task.toTask(),
+		Logf:             cfg.Logf,
 	})
 	logStep(cfg.Logf, task.SubmissionID, task.Attempt, "run_container", runStartedAt)
 	if err != nil {
@@ -391,6 +392,16 @@ func taskAssetCacheDir(cfg WorkerConfig, problemID uint) string {
 		root = os.TempDir()
 	}
 	return filepath.Join(root, "asset-cache", fmt.Sprintf("P%d", problemID))
+}
+
+func customJudgeCachePath(root string, problemID uint, version string, mode JudgeMode) string {
+	if mode != ModeCustom || strings.TrimSpace(version) == "" {
+		return ""
+	}
+	if strings.TrimSpace(root) == "" {
+		root = os.TempDir()
+	}
+	return filepath.Join(root, "judge-cache", fmt.Sprintf("P%d", problemID), safeCaseID(version))
 }
 
 func readTaskAssetCacheVersion(cacheDir string) string {

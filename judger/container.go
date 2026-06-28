@@ -7,18 +7,20 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
 const containerWorkDir = "/work"
 
 type ContainerTask struct {
-	Runner     string
-	Work       string
-	CgroupRoot string
-	ProcRoot   string
-	Task       Task
-	Logf       func(format string, args ...any)
+	Runner           string
+	Work             string
+	CgroupRoot       string
+	ProcRoot         string
+	CustomJudgeCache string
+	Task             Task
+	Logf             func(format string, args ...any)
 }
 
 func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error) {
@@ -73,8 +75,8 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error
 	}
 	defer restoreAssets()
 
-	socketDir, err := os.MkdirTemp("", "doj-runner-socket-")
-	if err != nil {
+	socketDir := filepath.Join(work, ".rs")
+	if err := os.MkdirAll(socketDir, 0o755); err != nil {
 		return TaskResult{}, err
 	}
 	defer os.RemoveAll(socketDir)
@@ -95,7 +97,9 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error
 		return TaskResult{}, containerError(ctx, containerID, err)
 	}
 	socketStartedAt := time.Now()
-	if err := waitUnixSocket(ctx, socket); err != nil {
+	socketCtx, cancelSocketWait := context.WithTimeout(ctx, 10*time.Second)
+	defer cancelSocketWait()
+	if err := waitUnixSocket(socketCtx, socket); err != nil {
 		logStep(req.Logf, task.SubmissionID, task.Attempt, "wait_runner_socket_error", socketStartedAt)
 		return TaskResult{}, containerError(ctx, containerID, fmt.Errorf("wait runner socket: %w", err))
 	}
@@ -116,6 +120,7 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error
 		taskID:     safeCaseID(fmt.Sprintf("%d-%d", req.Task.SubmissionID, req.Task.Attempt)),
 		limits:     req.Task.Limits,
 		work:       work,
+		judgeCache: req.CustomJudgeCache,
 		logf:       req.Logf,
 	}
 	return client.runTask(ctx, task, lang.CompileCommand, lang.RunCommand, restoreAssets)
@@ -129,6 +134,7 @@ type runnerClient struct {
 	taskID     string
 	limits     Limits
 	work       string
+	judgeCache string
 	logf       func(format string, args ...any)
 }
 
@@ -160,12 +166,15 @@ func (client runnerClient) runTask(ctx context.Context, task Task, compileComman
 		if err := beforeCases(); err != nil {
 			return TaskResult{}, err
 		}
+		if err := protectCaseFiles(client.work, task.Cases); err != nil {
+			return TaskResult{}, err
+		}
 	}
 	judgeCommand := ""
 	if task.Mode == ModeCustom {
 		var judgeBuild CompileResult
 		customStartedAt := time.Now()
-		judgeCommand, judgeBuild, err = prepareContainerCustomJudge(ctx, client.work, task.Limits)
+		judgeCommand, judgeBuild, err = prepareContainerCustomJudge(ctx, client.work, task.Limits, client.judgeCache)
 		logTask(client.logf, task.SubmissionID, task.Attempt, "custom_judge_build=%s ok=%t reported=%dms", formatDuration(time.Since(customStartedAt)), judgeBuild.OK, judgeBuild.TimeMS)
 		if err != nil {
 			return TaskResult{}, err
@@ -438,7 +447,7 @@ func containerError(ctx context.Context, containerID string, err error) error {
 }
 
 func stashCaseFiles(work string, cases []Case) (func() error, error) {
-	tmp, err := os.MkdirTemp("", "doj-case-assets-")
+	tmp, err := os.MkdirTemp(filepath.Dir(work), ".case-assets-")
 	if err != nil {
 		return nil, err
 	}
@@ -446,7 +455,7 @@ func stashCaseFiles(work string, cases []Case) (func() error, error) {
 	for _, item := range cases {
 		for _, name := range []string{item.Input, item.Answer} {
 			path := absolutizeWorkFile(work, name)
-			if moved[path] != "" || filepath.Dir(path) != work {
+			if moved[path] != "" {
 				continue
 			}
 			info, err := os.Stat(path)
@@ -460,7 +469,15 @@ func stashCaseFiles(work string, cases []Case) (func() error, error) {
 			if !info.Mode().IsRegular() {
 				continue
 			}
-			target := filepath.Join(tmp, filepath.Base(path))
+			rel, err := filepath.Rel(work, path)
+			if err != nil || rel == "." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." {
+				continue
+			}
+			target := filepath.Join(tmp, rel)
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+				_ = os.RemoveAll(tmp)
+				return nil, err
+			}
 			if err := os.Rename(path, target); err != nil {
 				_ = os.RemoveAll(tmp)
 				return nil, err
@@ -476,12 +493,36 @@ func stashCaseFiles(work string, cases []Case) (func() error, error) {
 		restored = true
 		defer os.RemoveAll(tmp)
 		for path, target := range moved {
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				return err
+			}
 			if err := os.Rename(target, path); err != nil {
 				return err
 			}
 		}
 		return nil
 	}, nil
+}
+
+func protectCaseFiles(work string, cases []Case) error {
+	for _, item := range cases {
+		for _, name := range []string{item.Input, item.Answer} {
+			path := absolutizeWorkFile(work, name)
+			rel, err := filepath.Rel(work, path)
+			if err != nil || rel == "." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." {
+				continue
+			}
+			if err := os.Chmod(path, 0o600); err != nil && !os.IsNotExist(err) {
+				return err
+			}
+			for dir := filepath.Dir(path); dir != work && strings.HasPrefix(dir, work+string(filepath.Separator)); dir = filepath.Dir(dir) {
+				if err := os.Chmod(dir, 0o700); err != nil && !os.IsNotExist(err) {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func dockerContainerLogs(ctx context.Context, containerID string) string {

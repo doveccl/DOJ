@@ -41,8 +41,8 @@ func DefaultLanguage() Language {
 		ID:      "cpp",
 		Name:    "C/C++",
 		Source:  "main.cc",
-		Image:   "gcc:14",
-		Compile: "g++ -std=c++20 -O2 -pipe -static -s main.cc -o main",
+		Image:   "gcc",
+		Compile: "g++ main.cc -o main",
 		Run:     "./main",
 	}
 }

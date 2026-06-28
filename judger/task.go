@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func prepareCaseWork(work string, caseWork string, item Case, runtimeRoot string, skipName string) error {
@@ -50,7 +51,12 @@ func shouldSkipRuntimeCopy(path string, item Case) bool {
 	if name == "judge-program" {
 		return true
 	}
-	return len(name) >= len("judge-result-") && name[:len("judge-result-")] == "judge-result-"
+	for _, prefix := range []string{"judge-result-", "judge-transcript-", "user-output-"} {
+		if strings.HasPrefix(name, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func copyFile(src string, dst string, mode os.FileMode) error {

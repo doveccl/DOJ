@@ -6,15 +6,28 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
 
-func TestRunLocalCaseCustomChecker(t *testing.T) {
+func TestRunLocalCaseCustomInteractorCanEmulateOutputCheck(t *testing.T) {
 	runner := buildRunner(t)
 	work := t.TempDir()
-	input, answer := writeCase(t, work, "checker", "5\n", "25")
+	input, answer := writeCase(t, work, "custom", "5\n", "25")
 	writeScript(t, work, "square.sh", "read n; echo $((n * n))\n")
+	writeScript(t, work, "judge.sh", `cat "$1"
+printf 'input=%s transcript=%s answer=%s result=%s\n' "$1" "$2" "$3" "$4" > "$2"
+exec 1>&-
+got="$(cat)"
+ans="$(cat "$3")"
+if [ "$got" = "$ans" ]; then
+  exit 0
+else
+  printf 'custom judge rejected' > "$4"
+  exit 1
+fi
+`)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -22,8 +35,8 @@ func TestRunLocalCaseCustomChecker(t *testing.T) {
 		Runner:       runner,
 		Work:         work,
 		UserCommand:  "sh square.sh",
-		JudgeCommand: "cat \"$INPUT\"; exec 1>&-; got=$(cat); ans=$(cat \"$ANSWER\"); if [ \"$got\" = \"$ans\" ]; then printf '{\"verdict\":\"AC\",\"score\":100}\\n' > \"$RESULT\"; else printf '{\"verdict\":\"WA\",\"score\":0,\"message\":\"checker rejected\"}\\n' > \"$RESULT\"; fi",
-		Case:         Case{ID: "checker", Input: input, Answer: answer, Score: 100},
+		JudgeCommand: "sh judge.sh",
+		Case:         Case{ID: "custom", Input: input, Answer: answer, Score: 100},
 		Limits:       Limits{TimeMS: 3000, OutputKB: 64},
 	})
 	if err != nil {
@@ -32,6 +45,14 @@ func TestRunLocalCaseCustomChecker(t *testing.T) {
 	if result.Verdict != VerdictAccepted || result.Score != 100 {
 		t.Fatalf("result = %#v", result)
 	}
+	transcript, err := os.ReadFile(filepath.Join(work, "judge-transcript-custom.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(transcript), "transcript="+filepath.Join(work, "judge-transcript-custom.txt")) ||
+		!strings.Contains(string(transcript), "result="+filepath.Join(work, "judge-result-custom.txt")) {
+		t.Fatalf("transcript did not record testlib interactor args: %q", transcript)
+	}
 }
 
 func TestRunLocalCaseInteractor(t *testing.T) {
@@ -39,6 +60,17 @@ func TestRunLocalCaseInteractor(t *testing.T) {
 	work := t.TempDir()
 	input, answer := writeCase(t, work, "interactive", "", "")
 	writeScript(t, work, "interactive.sh", "while read n; do echo $((n * n)); done\n")
+	writeScript(t, work, "judge.sh", `printf '3\n'
+read a
+printf '4\n'
+read b
+if [ "$a" = 9 ] && [ "$b" = 16 ]; then
+  exit 0
+else
+  printf 'bad interaction' > "$4"
+  exit 1
+fi
+`)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -46,7 +78,7 @@ func TestRunLocalCaseInteractor(t *testing.T) {
 		Runner:       runner,
 		Work:         work,
 		UserCommand:  "sh interactive.sh",
-		JudgeCommand: "printf '3\\n'; read a; printf '4\\n'; read b; if [ \"$a\" = 9 ] && [ \"$b\" = 16 ]; then printf '{\"verdict\":\"AC\",\"score\":100}\\n' > \"$RESULT\"; else printf '{\"verdict\":\"WA\",\"score\":0,\"message\":\"bad interaction\"}\\n' > \"$RESULT\"; fi",
+		JudgeCommand: "sh judge.sh",
 		Case:         Case{ID: "interactive", Input: input, Answer: answer, Score: 100},
 		Limits:       Limits{TimeMS: 3000, OutputKB: 64},
 	})
@@ -58,10 +90,21 @@ func TestRunLocalCaseInteractor(t *testing.T) {
 	}
 }
 
-func TestRunLocalCaseQuineRejectedByChecker(t *testing.T) {
+func TestRunLocalCaseQuineRejectedByInteractor(t *testing.T) {
 	runner := buildRunner(t)
 	work := t.TempDir()
 	input, answer := writeCase(t, work, "quine", "quine payload\n", "expected semantic output")
+	writeScript(t, work, "judge.sh", `cat "$1"
+exec 1>&-
+got="$(cat)"
+ans="$(cat "$3")"
+if [ "$got" = "$ans" ]; then
+  exit 0
+else
+  printf 'quine echo is not accepted' > "$4"
+  exit 1
+fi
+`)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -69,7 +112,7 @@ func TestRunLocalCaseQuineRejectedByChecker(t *testing.T) {
 		Runner:       runner,
 		Work:         work,
 		UserCommand:  "cat",
-		JudgeCommand: "cat \"$INPUT\"; exec 1>&-; got=$(cat); ans=$(cat \"$ANSWER\"); if [ \"$got\" = \"$ans\" ]; then printf '{\"verdict\":\"AC\",\"score\":100}\\n' > \"$RESULT\"; else printf '{\"verdict\":\"WA\",\"score\":0,\"message\":\"quine echo is not accepted\"}\\n' > \"$RESULT\"; fi",
+		JudgeCommand: "sh judge.sh",
 		Case:         Case{ID: "quine", Input: input, Answer: answer, Score: 100},
 		Limits:       Limits{TimeMS: 3000, OutputKB: 64},
 	})

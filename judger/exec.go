@@ -3,9 +3,10 @@ package judger
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -46,6 +47,13 @@ type waitResult struct {
 }
 
 func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
+	if req.JudgeCommand == "" {
+		return runBuiltinLocalCase(ctx, req)
+	}
+	return runCustomLocalCase(ctx, req)
+}
+
+func runCustomLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 	if req.Runner == "" {
 		return CaseResult{}, fmt.Errorf("runner path is required")
 	}
@@ -59,7 +67,14 @@ func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 	if outputLimit <= 0 {
 		outputLimit = defaultOutputLimit
 	}
-	resultPath := filepath.Join(req.Work, "judge-result-"+safeCaseID(req.Case.ID)+".json")
+	resultPath := filepath.Join(req.Work, "judge-result-"+safeCaseID(req.Case.ID)+".txt")
+	transcriptPath := filepath.Join(req.Work, "judge-transcript-"+safeCaseID(req.Case.ID)+".txt")
+	if err := touchPrivateFile(resultPath); err != nil {
+		return CaseResult{}, err
+	}
+	if err := touchPrivateFile(transcriptPath); err != nil {
+		return CaseResult{}, err
+	}
 	cleanupGate := func() {}
 	releasePath := ""
 	needsReleaseGate := req.UserGate != nil || req.CgroupRoot != ""
@@ -93,7 +108,7 @@ func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 		return result
 	}
 
-	judge := judgeCommand(ctx, req, resultPath, outputLimit)
+	judge := customJudgeCommand(ctx, req, transcriptPath, resultPath)
 	bin, args, err := parseCommand(req.UserCommand)
 	if err != nil {
 		return CaseResult{}, err
@@ -131,11 +146,12 @@ func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 
 	var judgeErr bytes.Buffer
 	var userErr bytes.Buffer
+	userOutput := &limitFileWriter{file: userToJudgeW, limit: outputLimit}
 	judge.Stdin = userToJudgeR
 	judge.Stdout = judgeToUserW
 	judge.Stderr = &judgeErr
 	user.Stdin = judgeToUserR
-	user.Stdout = userToJudgeW
+	user.Stdout = userOutput
 	user.Stderr = &userErr
 
 	startedAt := time.Now()
@@ -192,7 +208,7 @@ func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 			return CaseResult{CaseID: req.Case.ID, Verdict: VerdictSystemError, Message: err.Error()}, nil
 		}
 	}
-	closePipeFiles(judgeToUserR, judgeToUserW, userToJudgeR, userToJudgeW)
+	closePipeFiles(judgeToUserR, judgeToUserW, userToJudgeR)
 
 	waitCh := make(chan waitResult, 2)
 	go func() { waitCh <- waitResult{name: "judge", err: judge.Wait()} }()
@@ -200,55 +216,218 @@ func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 
 	var judgeWait error
 	var userWait error
+	judgeDone := false
 	for waits := 0; waits < 2; waits++ {
 		select {
 		case <-ctx.Done():
 			killProcessGroup(judge)
 			killProcessGroup(user)
 			judgeWait, userWait = collectWaitResults(waitCh, judgeWait, userWait)
-			if report, err := readReport(resultPath); err == nil && report.Verdict != VerdictAccepted {
-				return applyStats(caseResultFromReport(req, report, startedAt)), nil
+			if judgeDone {
+				result := caseResultFromTestlib(req, testlibExitCode(judgeWait), resultPath, elapsedMS(startedAt))
+				if result.Verdict != VerdictAccepted {
+					return applyStats(result), nil
+				}
 			}
 			return applyStats(CaseResult{CaseID: req.Case.ID, Verdict: VerdictTimeLimit, TimeMS: elapsedMS(startedAt)}), nil
 		case got := <-waitCh:
 			if got.name == "judge" {
 				judgeWait = got.err
+				judgeDone = true
 			} else {
 				userWait = got.err
+				_ = userToJudgeW.Close()
 			}
 		}
 	}
 
-	report, err := readReport(resultPath)
-	if err != nil {
-		if userWait != nil {
-			return applyStats(CaseResult{
-				CaseID:  req.Case.ID,
-				Verdict: VerdictRuntimeError,
-				Message: userFailureMessage(userWait, userErr.String()),
-			}), nil
-		}
-		return applyStats(CaseResult{
-			CaseID:  req.Case.ID,
-			Verdict: VerdictSystemError,
-			Message: compactErrors("missing judge report", judgeWait, userWait, judgeErr.String(), userErr.String()),
-		}), nil
-	}
-	result := caseResultFromReport(req, report, startedAt)
-	if result.Score == 100 && req.Case.Score > 0 {
-		result.Score = req.Case.Score
+	result := caseResultFromTestlib(req, testlibExitCode(judgeWait), resultPath, elapsedMS(startedAt))
+	if userOutput.overflow || errors.Is(userWait, errOutputLimit) {
+		result.Verdict = VerdictOutputLimit
+		result.Score = 0
+		result.Message = ""
+		return applyStats(result), nil
 	}
 	if userWait != nil && result.Verdict != VerdictOutputLimit && !isBrokenPipeExit(userWait) {
 		result.Verdict = VerdictRuntimeError
 		result.Score = 0
 		result.Message = userFailureMessage(userWait, userErr.String())
 	}
-	if judgeWait != nil && result.Verdict == VerdictAccepted {
-		result.Verdict = VerdictSystemError
-		result.Score = 0
+	if result.Verdict == VerdictSystemError && result.Message == "" {
 		result.Message = compactErrors("judge program failed", judgeWait, nil, judgeErr.String(), "")
 	}
 	return applyStats(result), nil
+}
+
+func runBuiltinLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
+	if req.Runner == "" {
+		return CaseResult{}, fmt.Errorf("runner path is required")
+	}
+	if req.Work == "" {
+		return CaseResult{}, fmt.Errorf("work directory is required")
+	}
+	if req.UserCommand == "" {
+		return CaseResult{}, fmt.Errorf("user command is required")
+	}
+	outputLimit := int64(req.Limits.OutputKB) * 1024
+	if outputLimit <= 0 {
+		outputLimit = defaultOutputLimit
+	}
+	resultPath := filepath.Join(req.Work, "judge-result-"+safeCaseID(req.Case.ID)+".txt")
+	outputPath := filepath.Join(req.Work, "user-output-"+safeCaseID(req.Case.ID)+".txt")
+	defer os.Remove(outputPath)
+
+	cleanupGate := func() {}
+	releasePath := ""
+	needsReleaseGate := req.UserGate != nil || req.CgroupRoot != ""
+	if needsReleaseGate {
+		gateDir, err := os.MkdirTemp("", "doj-user-release-"+safeCaseID(req.Case.ID)+"-")
+		if err != nil {
+			return CaseResult{}, err
+		}
+		if req.UserIdentity.Enabled {
+			_ = os.Chmod(gateDir, 0o755)
+		}
+		cleanupGate = func() { _ = os.RemoveAll(gateDir) }
+		defer cleanupGate()
+		releasePath = filepath.Join(gateDir, "release")
+	}
+	var cgroup *CgroupCase
+	defer func() {
+		if cgroup != nil {
+			_ = cgroup.Cleanup()
+		}
+	}()
+	applyStats := func(result CaseResult) CaseResult {
+		if cgroup == nil {
+			return result
+		}
+		stats, err := cgroup.Stats()
+		if err != nil {
+			return result
+		}
+		applyCgroupStatsSnapshot(&result, stats)
+		return result
+	}
+
+	bin, args, err := parseCommand(req.UserCommand)
+	if err != nil {
+		return CaseResult{}, err
+	}
+	user := commandContext(ctx, bin, args...)
+	if needsReleaseGate {
+		wrapperArgs := []string{"wait-exec", releasePath, strconv.FormatUint(uint64(req.UserIdentity.UID), 10), strconv.FormatUint(uint64(req.UserIdentity.GID), 10), bin}
+		user = commandContext(ctx, req.Runner, append(wrapperArgs, args...)...)
+	}
+	user.Dir = req.Work
+	if req.UserWork != "" {
+		user.Dir = req.UserWork
+	}
+	if err := prepareUserWorkIdentity(req.UserWork, req.UserIdentity); err != nil {
+		return CaseResult{}, err
+	}
+	configureProcess(user)
+	if !needsReleaseGate {
+		applyProcessIdentity(user, req.UserIdentity)
+	}
+
+	input, err := os.Open(req.Case.Input)
+	if err != nil {
+		return CaseResult{}, err
+	}
+	defer input.Close()
+	output, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return CaseResult{}, err
+	}
+	limitedOutput := &limitFileWriter{file: output, limit: outputLimit}
+	var userErr bytes.Buffer
+	user.Stdin = input
+	user.Stdout = limitedOutput
+	user.Stderr = &userErr
+
+	startedAt := time.Now()
+	if err := user.Start(); err != nil {
+		_ = output.Close()
+		return CaseResult{}, err
+	}
+	if req.UserGate != nil {
+		if err := req.UserGate.WaitUserRelease(ctx, UserPID{TaskID: req.TaskID, CaseID: req.Case.ID, PID: user.Process.Pid}); err != nil {
+			killProcessGroup(user)
+			_ = user.Wait()
+			_ = output.Close()
+			if ctx.Err() != nil {
+				return CaseResult{CaseID: req.Case.ID, Verdict: VerdictTimeLimit, TimeMS: elapsedMS(startedAt)}, nil
+			}
+			return CaseResult{CaseID: req.Case.ID, Verdict: VerdictSystemError, Message: err.Error()}, nil
+		}
+	}
+	if req.CgroupRoot != "" {
+		cg, err := PrepareCgroup(CgroupConfig{
+			Root:         req.CgroupRoot,
+			SubmissionID: safeCaseID(req.TaskID),
+			CaseID:       safeCaseID(req.Case.ID),
+			MemoryMax:    int64(req.Limits.MemoryKB) * 1024,
+			PidsMax:      req.Limits.Pids,
+		})
+		if err != nil {
+			killProcessGroup(user)
+			_ = user.Wait()
+			_ = output.Close()
+			return CaseResult{CaseID: req.Case.ID, Verdict: VerdictSystemError, Message: err.Error()}, nil
+		}
+		cgroup = cg
+		if err := cgroup.Add(user.Process.Pid); err != nil {
+			killProcessGroup(user)
+			_ = user.Wait()
+			_ = output.Close()
+			return CaseResult{CaseID: req.Case.ID, Verdict: VerdictSystemError, Message: err.Error()}, nil
+		}
+	}
+	if needsReleaseGate {
+		if err := os.WriteFile(releasePath, []byte("1"), 0o600); err != nil {
+			killProcessGroup(user)
+			_ = user.Wait()
+			_ = output.Close()
+			return CaseResult{CaseID: req.Case.ID, Verdict: VerdictSystemError, Message: err.Error()}, nil
+		}
+	}
+
+	waitCh := make(chan error, 1)
+	go func() { waitCh <- user.Wait() }()
+
+	var userWait error
+	select {
+	case <-ctx.Done():
+		killProcessGroup(user)
+		select {
+		case userWait = <-waitCh:
+		case <-time.After(100 * time.Millisecond):
+		}
+		_ = output.Close()
+		return applyStats(CaseResult{CaseID: req.Case.ID, Verdict: VerdictTimeLimit, TimeMS: elapsedMS(startedAt)}), nil
+	case userWait = <-waitCh:
+	}
+	userTimeMS := elapsedMS(startedAt)
+	if err := output.Close(); err != nil {
+		return applyStats(CaseResult{CaseID: req.Case.ID, Verdict: VerdictSystemError, Message: err.Error()}), nil
+	}
+	if limitedOutput.overflow || errors.Is(userWait, errOutputLimit) {
+		return applyStats(CaseResult{CaseID: req.Case.ID, Verdict: VerdictOutputLimit, TimeMS: userTimeMS}), nil
+	}
+	if userWait != nil {
+		return applyStats(CaseResult{
+			CaseID:  req.Case.ID,
+			Verdict: VerdictRuntimeError,
+			TimeMS:  userTimeMS,
+			Message: userFailureMessage(userWait, userErr.String()),
+		}), nil
+	}
+	exitCode, err := RunBuiltinChecker(req.Mode, req.Case.Input, outputPath, req.Case.Answer, resultPath)
+	if err != nil {
+		return applyStats(CaseResult{CaseID: req.Case.ID, Verdict: VerdictSystemError, TimeMS: userTimeMS, Message: err.Error()}), nil
+	}
+	return applyStats(caseResultFromTestlib(req, exitCode, resultPath, userTimeMS)), nil
 }
 
 func collectWaitResults(waitCh <-chan waitResult, judgeWait error, userWait error) (error, error) {
@@ -274,20 +453,6 @@ func isBrokenPipeExit(err error) bool {
 	}
 	status, ok := exitErr.Sys().(syscall.WaitStatus)
 	return ok && status.Signaled() && status.Signal() == syscall.SIGPIPE
-}
-
-func caseResultFromReport(req LocalRun, report JudgeReport, startedAt time.Time) CaseResult {
-	result := CaseResult{
-		CaseID:  req.Case.ID,
-		Verdict: report.Verdict,
-		Score:   report.Score,
-		TimeMS:  elapsedMS(startedAt),
-		Message: report.Message,
-	}
-	if result.Score == 100 && req.Case.Score > 0 {
-		result.Score = req.Case.Score
-	}
-	return result
 }
 
 func elapsedMS(startedAt time.Time) int {
@@ -326,37 +491,110 @@ func prepareUserWorkIdentity(root string, identity ProcessIdentity) error {
 	})
 }
 
-func judgeCommand(ctx context.Context, req LocalRun, resultPath string, outputLimit int64) *exec.Cmd {
-	if req.JudgeCommand != "" {
-		cmd := shellCommand(ctx, req.JudgeCommand)
-		cmd.Env = append(os.Environ(),
-			"INPUT="+req.Case.Input,
-			"ANSWER="+req.Case.Answer,
-			"RESULT="+resultPath,
-			"OUTPUT_LIMIT="+strconv.FormatInt(outputLimit, 10),
-		)
-		return cmd
-	}
-	return exec.CommandContext(
-		ctx,
-		req.Runner,
-		"judge",
-		"--mode", string(req.Mode),
-		"--input", req.Case.Input,
-		"--answer", req.Case.Answer,
-		"--result", resultPath,
-		"--output-limit", strconv.FormatInt(outputLimit, 10),
-	)
+func customJudgeCommand(ctx context.Context, req LocalRun, transcriptPath string, resultPath string) *exec.Cmd {
+	return shellCommand(ctx, req.JudgeCommand+" "+strings.Join([]string{
+		shellQuote(req.Case.Input),
+		shellQuote(transcriptPath),
+		shellQuote(req.Case.Answer),
+		shellQuote(resultPath),
+	}, " "))
 }
 
-func readReport(path string) (JudgeReport, error) {
+func touchPrivateFile(path string) error {
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	return file.Close()
+}
+
+func caseResultFromTestlib(req LocalRun, exitCode int, resultPath string, timeMS int) CaseResult {
+	message := readResultMessage(resultPath)
+	result := CaseResult{CaseID: req.Case.ID, TimeMS: timeMS, Message: message}
+	switch exitCode {
+	case 0:
+		result.Verdict = VerdictAccepted
+		result.Score = fullCaseScore(req)
+	case 1:
+		result.Verdict = VerdictWrongAnswer
+	case 2, 8:
+		result.Verdict = VerdictPresentationError
+	case 7:
+		result.Verdict = VerdictWrongAnswer
+		if score, ok := parseTestlibPoints(message); ok {
+			result.Score = clamp(score, 0, fullCaseScore(req))
+			if result.Score == fullCaseScore(req) {
+				result.Verdict = VerdictAccepted
+			}
+		}
+	default:
+		if score, ok := parseTestlibPoints(message); ok {
+			result.Verdict = VerdictWrongAnswer
+			result.Score = clamp(score, 0, fullCaseScore(req))
+			if result.Score == fullCaseScore(req) {
+				result.Verdict = VerdictAccepted
+			}
+			return result
+		}
+		result.Verdict = VerdictSystemError
+		if result.Message == "" {
+			result.Message = fmt.Sprintf("judge exited with code %d", exitCode)
+		}
+	}
+	return result
+}
+
+func testlibExitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		return 3
+	}
+	status, ok := exitErr.Sys().(syscall.WaitStatus)
+	if !ok || status.Signaled() {
+		return 3
+	}
+	return status.ExitStatus()
+}
+
+func readResultMessage(path string) string {
 	file, err := os.Open(path)
 	if err != nil {
-		return JudgeReport{}, err
+		return ""
 	}
 	defer file.Close()
-	var report JudgeReport
-	return report, json.NewDecoder(file).Decode(&report)
+	data, err := io.ReadAll(io.LimitReader(file, defaultCompileOutputLimit))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
+func parseTestlibPoints(message string) (int, bool) {
+	var points float64
+	if _, err := fmt.Sscanf(message, "%f", &points); err != nil {
+		return 0, false
+	}
+	return int(math.Round(points)), true
+}
+
+func fullCaseScore(req LocalRun) int {
+	if req.Case.Score > 0 {
+		return req.Case.Score
+	}
+	return 100
+}
+
+func clamp(value int, low int, high int) int {
+	if value < low {
+		return low
+	}
+	if value > high {
+		return high
+	}
+	return value
 }
 
 func closePipeFiles(files ...*os.File) {
@@ -365,6 +603,38 @@ func closePipeFiles(files ...*os.File) {
 			_ = file.Close()
 		}
 	}
+}
+
+type limitFileWriter struct {
+	file     *os.File
+	limit    int64
+	written  int64
+	overflow bool
+}
+
+func (w *limitFileWriter) Write(p []byte) (int, error) {
+	if w.limit <= 0 {
+		n, err := w.file.Write(p)
+		w.written += int64(n)
+		return n, err
+	}
+	remaining := w.limit - w.written
+	if remaining <= 0 {
+		w.overflow = true
+		return 0, errOutputLimit
+	}
+	if int64(len(p)) > remaining {
+		n, err := w.file.Write(p[:remaining])
+		w.written += int64(n)
+		w.overflow = true
+		if err != nil {
+			return n, err
+		}
+		return n, errOutputLimit
+	}
+	n, err := w.file.Write(p)
+	w.written += int64(n)
+	return n, err
 }
 
 func safeCaseID(id string) string {

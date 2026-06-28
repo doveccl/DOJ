@@ -518,23 +518,25 @@ export function ProblemDetailPage() {
                   </Button>
                 }
               />
-              <AssetSection
-                title={text.problem.judge}
-                files={assets.data?.judge ?? []}
-                section="judge"
-                loading={assets.isLoading || uploadAsset.isPending || removeAsset.isPending || fillTemplate.isPending}
-                onUpload={(file) => uploadAsset.mutate({ section: 'judge', file })}
-                onEdit={(file) => openAsset.mutate(file)}
-                onDownload={(file) => downloadAsset.mutate({ section: 'judge', file })}
-                onDelete={(key) => removeAsset.mutate(key)}
-                extra={
-                  (assets.data?.judge.length ?? 0) === 0 ? (
-                    <Button size="small" icon={<FileAddOutlined />} loading={fillTemplate.isPending} onClick={() => fillTemplate.mutate()}>
-                      {text.problem.fillTemplate}
-                    </Button>
-                  ) : null
-                }
-              />
+              {problem.mode === 'custom' ? (
+                <AssetSection
+                  title={text.problem.judge}
+                  files={assets.data?.judge ?? []}
+                  section="judge"
+                  loading={assets.isLoading || uploadAsset.isPending || removeAsset.isPending || fillTemplate.isPending}
+                  onUpload={(file) => uploadAsset.mutate({ section: 'judge', file })}
+                  onEdit={(file) => openAsset.mutate(file)}
+                  onDownload={(file) => downloadAsset.mutate({ section: 'judge', file })}
+                  onDelete={(key) => removeAsset.mutate(key)}
+                  extra={
+                    (assets.data?.judge.length ?? 0) === 0 ? (
+                      <Button size="small" icon={<FileAddOutlined />} loading={fillTemplate.isPending} onClick={() => fillTemplate.mutate()}>
+                        {text.problem.fillTemplate}
+                      </Button>
+                    ) : null
+                  }
+                />
+              ) : null}
             </Flex>
           </Modal>
           {caseOpen ? <CaseModal loading={addCase.isPending} onCancel={() => setCaseOpen(false)} onSave={(values) => addCase.mutate(values)} /> : null}

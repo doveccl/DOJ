@@ -4508,45 +4508,42 @@ func nextCaseName(assets ProblemAssets) string {
 
 func judgeTemplateFiles() map[string]string {
 	return map[string]string{
-		"Dockerfile": `FROM gcc:14
+		"Dockerfile": `FROM gcc
 WORKDIR /src
 COPY main.cc .
-RUN g++ -O2 -pipe -static -s main.cc -o /out/judge
+RUN g++ main.cc -o main
+CMD ["/src/main"]
 `,
 		"main.cc": `#include <bits/stdc++.h>
 using namespace std;
 
-static string read_file(const char* path) {
-  ifstream file(path, ios::binary);
-  return string((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
-}
+string read_all(istream& in) { return string(istreambuf_iterator<char>(in), {}); }
+string read_file(const char* p) { ifstream f(p, ios::binary); return read_all(f); }
+void trim_right(string& s) { while (!s.empty() && isspace((unsigned char)s.back())) s.pop_back(); }
 
-static string trim_right(string s) {
-  while (!s.empty() && (s.back() == '\n' || s.back() == '\r' || s.back() == ' ' || s.back() == '\t')) {
-    s.pop_back();
+int main(int argc, char** argv) {
+  // argv: input, transcript, answer, result
+  // return: 0 = AC, 1 = WA, 2 = PE, 3 = checker/interactor error
+  if (argc != 5) return 3;
+
+  // Feed input while reading output; doing one whole side first can deadlock on full pipes.
+  thread feeder([&] {
+    cout << ifstream(argv[1], ios::binary).rdbuf() << flush;
+    fclose(stdout);
+  });
+  string got = read_all(cin);
+  feeder.join();
+
+  string ans = read_file(argv[3]);
+  trim_right(got);
+  trim_right(ans);
+
+  if (got != ans) {
+    ofstream(argv[4]) << "expected output differs";
+    return 1; // WA
   }
-  return s;
-}
 
-int main() {
-  const char* inputPath = getenv("INPUT");
-  const char* answerPath = getenv("ANSWER");
-  const char* resultPath = getenv("RESULT");
-  if (!inputPath || !answerPath || !resultPath) return 2;
-
-  cout << read_file(inputPath);
-  cout.flush();
-  fclose(stdout);
-
-  string expected = read_file(answerPath);
-  string output((istreambuf_iterator<char>(cin)), istreambuf_iterator<char>());
-
-  bool ok = trim_right(expected) == trim_right(output);
-
-  ofstream result(resultPath);
-  result << "{\"verdict\":\"" << (ok ? "AC" : "WA") << "\",\"score\":" << (ok ? 100 : 0)
-         << ",\"message\":\"" << (ok ? "" : "output differs") << "\"}\n";
-  return 0;
+  return 0; // AC
 }
 `,
 	}

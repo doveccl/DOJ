@@ -14,9 +14,11 @@
 - A submission may compile once in a short-lived language container, then runs cases in one reused language container.
 - Multiple cases reuse the container.
 - Each case starts fresh JudgeProgram and UserProgram processes.
-- Builtin judge, custom checker, and interactive judge all use the same pipe model:
+- Builtin judge follows the testlib checker model: run UserProgram with the case input, write user output to a private file, then invoke the builtin checker as `judge [--mode=default|strict] <input> <output> <answer> <result>`.
+- Custom judge follows the testlib interactor model and is always invoked as `<judge> <input> <transcript> <answer> <result>` with this pipe model:
   - JudgeProgram stdout -> UserProgram stdin
   - UserProgram stdout -> JudgeProgram stdin
+- Judge results are read from testlib-style exit codes and the plain result file. Do not keep legacy JSON/env protocols.
 - Control protocol uses Unix domain socket + Go gob, not stdout/stderr.
 
 ## Isolation
@@ -29,6 +31,6 @@
 
 ## Tests
 
-- Keep tests for normal judging, custom checker, interactive judging, Quine-style interaction, output flood, timeout, compile limits, case isolation, fd inheritance, Docker, and cgroup behavior.
+- Keep tests for normal judging, custom interactor judging, Quine-style interaction, output flood, timeout, compile limits, case isolation, fd inheritance, Docker, and cgroup behavior.
 - Docker and cgroup tests may skip when prerequisites are missing, but Linux validation must run them on a real Linux host before treating the judger as accepted.
 - Non-Linux stubs are only for compiling server/web development on non-Linux hosts; they are not judger support.

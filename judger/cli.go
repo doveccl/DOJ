@@ -85,7 +85,7 @@ func RunnerCLI(ctx context.Context, args []string) int {
 }
 
 func runnerUsage(w io.Writer) {
-	fmt.Fprintln(w, "usage: doj-runner judge --mode default --input in --answer out --result result.json")
+	fmt.Fprintln(w, "usage: doj-runner judge [--mode=default|strict] input output answer [result]")
 	fmt.Fprintln(w, "       doj-runner serve --socket /path/runner.sock --work /path/job")
 	fmt.Fprintln(w, "       doj-runner wait-exec /path/release uid gid command [args...]")
 }

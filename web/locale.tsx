@@ -320,7 +320,7 @@ const zh = {
   modeDescriptions: {
     default: '忽略行末空格和多余空行，逐行比较',
     strict: '空白字符不一致会判为 PE',
-    custom: '由自定义检查器或交互器判定'
+    custom: '按 testlib interactor 约定判定'
   },
   editor: {
     image: '上传图片',
@@ -684,7 +684,7 @@ const en: typeof zh = {
   modeDescriptions: {
     default: 'Trim trailing blanks, then compare lines',
     strict: 'Whitespace mismatches are judged as PE',
-    custom: 'Checker or interactor decides the result'
+    custom: 'Testlib-style interactor decides the result'
   },
   editor: {
     image: 'Upload image',

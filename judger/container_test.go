@@ -135,7 +135,58 @@ func TestRunContainerTaskCgroupAttach(t *testing.T) {
 	}
 }
 
-func TestRunContainerTaskCustomInteractorFromAsset(t *testing.T) {
+func TestRunContainerTaskMemoryLimit(t *testing.T) {
+	requireDocker(t)
+	root := testCgroupRoot(t)
+	runner := buildRunner(t)
+	work := t.TempDir()
+	writeCase(t, work, "1", "go\n", "done\n")
+	source := `#include <cstring>
+#include <vector>
+int main() {
+  std::vector<char*> blocks;
+  while (true) {
+    char* block = new char[1 << 20];
+    std::memset(block, 1, 1 << 20);
+    blocks.push_back(block);
+  }
+}`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	result, err := RunContainerTask(ctx, ContainerTask{
+		Runner:     runner,
+		Work:       work,
+		CgroupRoot: root,
+		ProcRoot:   "/proc",
+		Task: Task{
+			SubmissionID: 88,
+			Attempt:      1,
+			Source:       source,
+			Lang: Lang{
+				ID:      "cpp",
+				Source:  "main.cc",
+				Image:   "gcc",
+				Compile: "g++ main.cc -o main",
+				Run:     "./main",
+			},
+			Mode:   ModeDefault,
+			Limits: Limits{TimeMS: 3000, MemoryKB: 16 * 1024, OutputKB: 64, Pids: 64},
+			Cases:  []Case{{ID: "1", Input: "1.in", Answer: "1.out", Score: 100}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Verdict != VerdictMemoryLimit || len(result.Cases) != 1 || result.Cases[0].Verdict != VerdictMemoryLimit {
+		t.Fatalf("result = %#v", result)
+	}
+	if result.MemoryKB <= 0 {
+		t.Fatalf("missing memory usage: %#v", result)
+	}
+}
+
+func TestRunContainerTaskCustomInteractorFromDockerfileCMD(t *testing.T) {
 	requireDocker(t)
 	runner := buildRunner(t)
 	work := t.TempDir()
@@ -144,18 +195,23 @@ func TestRunContainerTaskCustomInteractorFromAsset(t *testing.T) {
 	if err := os.MkdirAll(judgeDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	dockerfile := "FROM alpine:3.20\nCOPY my-tool /usr/local/bin/my-tool\nRUN chmod +x /usr/local/bin/my-tool\nCMD [\"/usr/local/bin/my-tool\"]\n"
+	if err := os.WriteFile(filepath.Join(judgeDir, "Dockerfile"), []byte(dockerfile), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	interactor := `#!/bin/sh
 printf '3\n'
 read a
 printf '4\n'
 read b
 if [ "$a" = 9 ] && [ "$b" = 16 ]; then
-  printf '{"verdict":"AC","score":100}\n' > "$RESULT"
+  exit 0
 else
-  printf '{"verdict":"WA","score":0,"message":"bad interaction"}\n' > "$RESULT"
+  printf 'bad interaction' > "$4"
+  exit 1
 fi
 `
-	if err := os.WriteFile(filepath.Join(judgeDir, "interactor"), []byte(interactor), 0o700); err != nil {
+	if err := os.WriteFile(filepath.Join(judgeDir, "my-tool"), []byte(interactor), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -193,22 +249,23 @@ func TestRunContainerTaskCustomJudgeFromDockerfile(t *testing.T) {
 	if err := os.MkdirAll(judgeDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	dockerfile := "FROM alpine:3.20\nCOPY judge.sh /out/judge\nRUN chmod +x /out/judge\n"
+	dockerfile := "FROM alpine:3.20\nCOPY judge.sh /opt/judge\nRUN chmod +x /opt/judge\nCMD [\"/opt/judge\"]\n"
 	if err := os.WriteFile(filepath.Join(judgeDir, "Dockerfile"), []byte(dockerfile), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	checker := `#!/bin/sh
-cat "$INPUT"
+	interactor := `#!/bin/sh
+cat "$1"
 exec 1>&-
 got="$(cat)"
-ans="$(cat "$ANSWER")"
+ans="$(cat "$3")"
 if [ "$got" = "$ans" ]; then
-  printf '{"verdict":"AC","score":100}\n' > "$RESULT"
+  exit 0
 else
-  printf '{"verdict":"WA","score":0,"message":"docker judge rejected"}\n' > "$RESULT"
+  printf 'docker judge rejected' > "$4"
+  exit 1
 fi
 `
-	if err := os.WriteFile(filepath.Join(judgeDir, "judge.sh"), []byte(checker), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(judgeDir, "judge.sh"), []byte(interactor), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -243,8 +300,8 @@ func TestRunContainerTaskUserCannotReadJobArtifacts(t *testing.T) {
 	work := t.TempDir()
 	writeCase(t, work, "secret", "probe\n", "safe\n")
 	for name, content := range map[string]string{
-		"judge-program":                  "secret judge binary",
-		"judge-result-secret-probe.json": `{"verdict":"AC","score":100}`,
+		"judge-program":                 "secret judge binary",
+		"judge-result-secret-probe.txt": "accepted",
 	} {
 		if err := os.WriteFile(filepath.Join(work, name), []byte(content), 0o600); err != nil {
 			t.Fatal(err)
@@ -253,7 +310,7 @@ func TestRunContainerTaskUserCannotReadJobArtifacts(t *testing.T) {
 	source := `#!/bin/sh
 read _
 bad=""
-for p in /work/secret.out /work/judge-program /work/judge-result-secret-probe.json /work/runner.sock; do
+for p in /work/secret.out /work/judge-program /work/judge-result-secret-probe.txt /work/runner.sock; do
   if [ -r "$p" ]; then
     if [ -S "$p" ] || cat "$p" >/dev/null 2>&1; then
       bad="$p"
@@ -331,6 +388,55 @@ int main(){ return 0; }
 	}
 	if !strings.Contains(result.Message, "/work/secret.out") {
 		t.Fatalf("compile error did not mention missing answer include: %q", result.Message)
+	}
+}
+
+func TestRunContainerTaskUserCannotReadNestedAnswers(t *testing.T) {
+	requireDocker(t)
+	runner := buildRunner(t)
+	work := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(work, "data"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(work, "data", "0.in"), []byte("probe\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(work, "data", "0.out"), []byte("safe\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	source := `#include <fstream>
+#include <iostream>
+int main() {
+  std::ifstream ans("/work/data/0.out");
+  std::cout << (ans.good() ? "leak\n" : "safe\n");
+}`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	result, err := RunContainerTask(ctx, ContainerTask{
+		Runner: runner,
+		Work:   work,
+		Task: Task{
+			SubmissionID: 87,
+			Attempt:      1,
+			Source:       source,
+			Lang: Lang{
+				ID:      "cpp",
+				Source:  "main.cc",
+				Image:   "gcc",
+				Compile: "g++ main.cc -o main",
+				Run:     "./main",
+			},
+			Mode:   ModeDefault,
+			Limits: Limits{TimeMS: 1000, MemoryKB: 256 * 1024, OutputKB: 64, Pids: 64},
+			Cases:  []Case{{ID: "0", Input: "data/0.in", Answer: "data/0.out", Score: 100}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Verdict != VerdictAccepted {
+		t.Fatalf("result = %#v", result)
 	}
 }
 

@@ -135,7 +135,7 @@ export function LangModal({
           <Input placeholder="main.cc" maxLength={limits.source} />
         </Form.Item>
         <Form.Item name="image" label={text.admin.image} rules={[{ required: true, whitespace: true }]}>
-          <Input placeholder="gcc:14" maxLength={256} />
+          <Input placeholder="gcc" maxLength={256} />
         </Form.Item>
         <Form.Item name="compile" label={text.admin.compile}>
           <Input.TextArea rows={3} />
