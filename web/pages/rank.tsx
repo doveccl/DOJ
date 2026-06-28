@@ -57,6 +57,7 @@ function rankColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Ran
       title: text.profile.bio,
       dataIndex: 'bio',
       width: 360,
+      ellipsis: true,
       render: (bio: string) => (
         <Typography.Text type={bio ? undefined : 'secondary'} ellipsis className="lineText">
           {bio || text.user.noBio}
