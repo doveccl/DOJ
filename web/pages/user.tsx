@@ -65,7 +65,7 @@ export function UserPage() {
     return <ErrorBlock error={text.common.emptyResponse} />
   }
 
-  const me = meQuery.data
+  const me = isOwn ? meQuery.data : undefined
   const uploadAvatar: UploadProps['beforeUpload'] = (file) => {
     if (!me) {
       return Upload.LIST_IGNORE
