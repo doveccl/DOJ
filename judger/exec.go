@@ -60,7 +60,6 @@ func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 		outputLimit = defaultOutputLimit
 	}
 	resultPath := filepath.Join(req.Work, "judge-result-"+safeCaseID(req.Case.ID)+".json")
-	userCommand := req.UserCommand
 	cleanupGate := func() {}
 	releasePath := ""
 	needsReleaseGate := req.UserGate != nil || req.CgroupRoot != ""
@@ -75,7 +74,6 @@ func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 		cleanupGate = func() { _ = os.RemoveAll(gateDir) }
 		defer cleanupGate()
 		releasePath = filepath.Join(gateDir, "release")
-		userCommand = waitForReleaseCommand(releasePath, req.UserCommand)
 	}
 	var cgroup *CgroupCase
 	defer func() {
@@ -96,7 +94,15 @@ func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 	}
 
 	judge := judgeCommand(ctx, req, resultPath, outputLimit)
-	user := shellCommand(ctx, userCommand)
+	bin, args, err := parseCommand(req.UserCommand)
+	if err != nil {
+		return CaseResult{}, err
+	}
+	user := commandContext(ctx, bin, args...)
+	if needsReleaseGate {
+		wrapperArgs := []string{"wait-exec", releasePath, strconv.FormatUint(uint64(req.UserIdentity.UID), 10), strconv.FormatUint(uint64(req.UserIdentity.GID), 10), bin}
+		user = commandContext(ctx, req.Runner, append(wrapperArgs, args...)...)
+	}
 	judge.Dir = req.Work
 	user.Dir = req.Work
 	if req.UserWork != "" {
@@ -107,7 +113,9 @@ func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 	}
 	configureProcess(judge)
 	configureProcess(user)
-	applyProcessIdentity(user, req.UserIdentity)
+	if !needsReleaseGate {
+		applyProcessIdentity(user, req.UserIdentity)
+	}
 
 	judgeToUserR, judgeToUserW, err := os.Pipe()
 	if err != nil {
@@ -316,10 +324,6 @@ func prepareUserWorkIdentity(root string, identity ProcessIdentity) error {
 		}
 		return os.Chown(path, int(identity.UID), int(identity.GID))
 	})
-}
-
-func waitForReleaseCommand(path string, command string) string {
-	return "while [ ! -e " + shellQuote(path) + " ]; do sleep 0.01; done\nexec " + command
 }
 
 func judgeCommand(ctx context.Context, req LocalRun, resultPath string, outputLimit int64) *exec.Cmd {

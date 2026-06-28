@@ -141,7 +141,7 @@ export function SubmissionDetailPage() {
             ) : null
           }
         >
-          <SourceBlock code={code} />
+          <SourceBlock code={code} language={submission.language} />
         </Card>
       ) : null}
     </Flex>
@@ -156,12 +156,25 @@ function codeMarkdown(source: string, syntax: string) {
   return `\`\`\`${fenceLanguage(syntax)}\n${source.replaceAll('```', '`\\`\\`')}\n\`\`\``
 }
 
-function SourceBlock({ code }: { code: string }) {
-  return (
-    <pre className="sourceCodeBlock">
-      <code>{code}</code>
-    </pre>
-  )
+const maxHighlightedLineLength = 20000
+
+function SourceBlock({ code, language }: { code: string; language: string }) {
+  if (!hasLongLine(code, maxHighlightedLineLength)) {
+    return <MarkdownPreview value={codeMarkdown(code, language)} />
+  }
+  return <pre className="sourceCodeBlock"><code>{code}</code></pre>
+}
+
+function hasLongLine(value: string, max: number) {
+  let line = 0
+  for (const char of value) {
+    if (char === '\n') {
+      line = 0
+    } else if (++line > max) {
+      return true
+    }
+  }
+  return false
 }
 
 function fenceLanguage(syntax: string) {

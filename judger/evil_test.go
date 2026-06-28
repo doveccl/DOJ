@@ -23,14 +23,13 @@ func TestRunLocalCaseEvilPrograms(t *testing.T) {
 		message string
 	}{
 		{
-			name:    "output-flood",
-			command: "cat >/dev/null; yes x | head -c 4096",
-			limits:  Limits{TimeMS: 1000, OutputKB: 1},
-			want:    VerdictOutputLimit,
+			name:   "output-flood",
+			limits: Limits{TimeMS: 1000, OutputKB: 1},
+			want:   VerdictOutputLimit,
 		},
 		{
 			name:    "runtime-error",
-			command: "cat >/dev/null; exit 7",
+			command: "sh runtime-error.sh",
 			limits:  Limits{TimeMS: 1000, OutputKB: 64},
 			want:    VerdictRuntimeError,
 			message: "exit status 7",
@@ -38,7 +37,7 @@ func TestRunLocalCaseEvilPrograms(t *testing.T) {
 		{
 			name:    "strict-presentation-error",
 			answer:  "hello\n",
-			command: "cat >/dev/null; printf 'hello  \\n\\n'",
+			command: "sh strict-presentation-error.sh",
 			mode:    ModeStrict,
 			limits:  Limits{TimeMS: 1000, OutputKB: 64},
 			want:    VerdictPresentationError,
@@ -63,6 +62,15 @@ func TestRunLocalCaseEvilPrograms(t *testing.T) {
 			}
 			if err := os.WriteFile(answer, []byte(tt.answer), 0o600); err != nil {
 				t.Fatal(err)
+			}
+			switch tt.name {
+			case "output-flood":
+				writeScript(t, work, "flood.sh", "cat >/dev/null; yes x | head -c 4096\n")
+				tt.command = "sh flood.sh"
+			case "runtime-error":
+				writeScript(t, work, "runtime-error.sh", "cat >/dev/null; exit 7\n")
+			case "strict-presentation-error":
+				writeScript(t, work, "strict-presentation-error.sh", "cat >/dev/null; printf 'hello  \\n\\n'\n")
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

@@ -79,7 +79,7 @@ func TestRunContainerTaskCppPartialInputReaderIsWrongAnswer(t *testing.T) {
 				ID:      "cpp",
 				Source:  "main.cc",
 				Image:   "gcc:14",
-				Compile: "g++ -std=c++20 -O2 -pipe -static -s main.cc -o /work/main",
+				Compile: "g++ -std=c++20 -O2 -pipe -static -s main.cc -o main",
 				Run:     "./main",
 			},
 			Mode:   ModeDefault,
@@ -315,7 +315,7 @@ int main(){ return 0; }
 				ID:      "cpp",
 				Source:  "main.cc",
 				Image:   "gcc:14",
-				Compile: "g++ -std=c++20 -O2 -pipe -static -s main.cc -o /work/main",
+				Compile: "g++ -std=c++20 -O2 -pipe -static -s main.cc -o main",
 				Run:     "./main",
 			},
 			Mode:   ModeDefault,
@@ -356,7 +356,7 @@ func testShellLang() Lang {
 		ID:      "sh",
 		Source:  "main.sh",
 		Image:   "alpine:3.20",
-		Compile: "cp main.sh /work/main.sh && chmod 0755 /work/main.sh",
-		Run:     "./main.sh",
+		Compile: "",
+		Run:     "sh main.sh",
 	}
 }

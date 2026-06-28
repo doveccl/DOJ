@@ -15,6 +15,8 @@ type RunnerServe struct {
 	Socket       string
 	Runner       string
 	Work         string
+	RuntimeRoot  string
+	SkipRuntime  string
 	UserIdentity ProcessIdentity
 }
 
@@ -37,6 +39,9 @@ func ServeRunner(ctx context.Context, req RunnerServe) error {
 	}
 	if err := os.MkdirAll(req.Work, 0o755); err != nil {
 		return err
+	}
+	if req.RuntimeRoot == "" {
+		req.RuntimeRoot = req.Work
 	}
 	_ = os.Remove(req.Socket)
 
@@ -112,12 +117,13 @@ func handleRunnerConn(ctx context.Context, conn net.Conn, req RunnerServe) {
 				_ = codec.Send(Message{Kind: MsgError, Error: "user command is required"})
 				continue
 			}
-			if msg.Compile.CompileCommand != "" {
-				_ = codec.Send(Message{Kind: MsgError, Error: "compile command must run in judger host compile container"})
+			result, err := compileUserProgram(ctx, req.Work, *msg.Compile)
+			if err != nil {
+				_ = codec.Send(Message{Kind: MsgError, Error: err.Error()})
 				continue
 			}
 			commands[msg.Compile.TaskID] = msg.Compile.UserCommand
-			_ = codec.Send(Message{Kind: MsgCompileResult, CompileResult: &CompileResult{OK: true}})
+			_ = codec.Send(Message{Kind: MsgCompileResult, CompileResult: &result})
 		case MsgRunCase:
 			if msg.RunCase == nil {
 				_ = codec.Send(Message{Kind: MsgError, Error: "run_case request is empty"})
@@ -152,7 +158,7 @@ func handleRunnerConn(ctx context.Context, conn net.Conn, req RunnerServe) {
 					return
 				}
 				defer os.RemoveAll(caseWork)
-				if err := prepareCaseWork(req.Work, caseWork, absCase); err != nil {
+				if err := prepareCaseWork(req.Work, caseWork, absCase, req.RuntimeRoot, req.SkipRuntime); err != nil {
 					_ = codec.Send(Message{Kind: MsgError, Error: err.Error()})
 					return
 				}

@@ -6,14 +6,14 @@ import (
 	"path/filepath"
 )
 
-func prepareCaseWork(work string, caseWork string, item Case) error {
+func prepareCaseWork(work string, caseWork string, item Case, runtimeRoot string, skipName string) error {
 	if err := os.RemoveAll(caseWork); err != nil {
 		return err
 	}
 	if err := os.MkdirAll(caseWork, 0o755); err != nil {
 		return err
 	}
-	entries, err := os.ReadDir(work)
+	entries, err := os.ReadDir(runtimeRoot)
 	if err != nil {
 		return err
 	}
@@ -21,8 +21,11 @@ func prepareCaseWork(work string, caseWork string, item Case) error {
 		if entry.IsDir() {
 			continue
 		}
-		src := filepath.Join(work, entry.Name())
-		if shouldSkipRuntimeCopy(src, item) {
+		if entry.Name() == skipName {
+			continue
+		}
+		src := filepath.Join(runtimeRoot, entry.Name())
+		if runtimeRoot == work && shouldSkipRuntimeCopy(src, item) {
 			continue
 		}
 		info, err := entry.Info()
@@ -64,7 +67,10 @@ func copyFile(src string, dst string, mode os.FileMode) error {
 		_ = out.Close()
 		return err
 	}
-	return out.Close()
+	if err := out.Close(); err != nil {
+		return err
+	}
+	return os.Chmod(dst, mode)
 }
 
 func absolutizeCase(work string, item Case) Case {

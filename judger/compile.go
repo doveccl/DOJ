@@ -3,7 +3,6 @@ package judger
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 )
@@ -13,24 +12,13 @@ const (
 	defaultUserCompileTimeout = 2 * time.Minute
 )
 
-func compileLanguageRuntime(ctx context.Context, lang preparedLang, work string, limits Limits, submissionID uint, attempt int, logf func(format string, args ...any)) (CompileResult, error) {
-	if lang.CompileCommand == "" {
-		source := filepath.Join(work, languageSourceDir, lang.SourceName)
-		if err := copyFile(source, filepath.Join(work, lang.SourceName), 0o644); err != nil {
-			return CompileResult{}, err
-		}
+func compileUserProgram(ctx context.Context, work string, req CompileRequest) (CompileResult, error) {
+	if req.CompileCommand == "" {
 		return CompileResult{OK: true}, nil
 	}
-	sourceDir := filepath.Join(work, languageSourceDir)
-	outputDir, err := os.MkdirTemp(work, "lang-out-")
-	if err != nil {
-		return CompileResult{}, err
-	}
-	defer os.RemoveAll(outputDir)
-
 	timeout := minUserCompileTimeout
-	if limits.TimeMS > int(timeout/time.Millisecond) {
-		timeout = time.Duration(limits.TimeMS) * time.Millisecond
+	if req.Limits.TimeMS > int(timeout/time.Millisecond) {
+		timeout = time.Duration(req.Limits.TimeMS) * time.Millisecond
 	}
 	if timeout > defaultUserCompileTimeout {
 		timeout = defaultUserCompileTimeout
@@ -39,44 +27,29 @@ func compileLanguageRuntime(ctx context.Context, lang preparedLang, work string,
 	defer cancel()
 
 	startedAt := time.Now()
-	containerID, err := dockerCreateContainer(runCtx, dockerCreateRequest{
-		Image:      lang.Image,
-		Cmd:        []string{"sh", "-lc", lang.CompileCommand},
-		WorkingDir: "/src",
-		HostConfig: dockerHostConfig{
-			Binds:       []string{sourceDir + ":/src:ro", outputDir + ":/work"},
-			NetworkMode: "none",
-			SecurityOpt: []string{"no-new-privileges"},
-			CapDrop:     []string{"ALL"},
-		},
-	})
+	output := &limitBuffer{limit: defaultCompileOutputLimit + 1}
+	bin, args, err := parseCommand(req.CompileCommand)
 	if err != nil {
-		return CompileResult{}, err
+		return CompileResult{OK: false, Message: err.Error()}, nil
 	}
-	defer dockerRemoveContainer(context.Background(), containerID)
-	if err := dockerStartContainer(runCtx, containerID); err != nil {
-		return CompileResult{}, err
-	}
-	exitCode, err := dockerWaitContainer(runCtx, containerID)
+	cmd := commandContext(runCtx, bin, args...)
+	cmd.Dir = filepath.Join(work, languageSourceDir)
+	cmd.Stdout = output
+	cmd.Stderr = output
+	err = cmd.Run()
 	elapsed := int(time.Since(startedAt).Milliseconds())
-	logTask(logf, submissionID, attempt, "compile_container=%s exit=%d", formatDuration(time.Since(startedAt)), exitCode)
-	logCtx, logCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer logCancel()
-	message := cleanCompileMessage(dockerLogs(logCtx, containerID, defaultCompileOutputLimit))
+	message := cleanCompileMessage(output.String())
 	if runCtx.Err() != nil {
 		return CompileResult{OK: false, Message: runCtx.Err().Error(), TimeMS: elapsed}, nil
 	}
-	if err != nil {
-		return CompileResult{}, err
+	if output.overflow {
+		return CompileResult{OK: false, Message: "compile output limit exceeded", TimeMS: elapsed}, nil
 	}
-	if exitCode != 0 {
+	if err != nil {
 		if message == "" {
-			message = fmt.Sprintf("compile exited with status %d", exitCode)
+			message = fmt.Sprintf("compile failed: %v", err)
 		}
 		return CompileResult{OK: false, Message: message, TimeMS: elapsed}, nil
-	}
-	if err := copyDir(outputDir, work); err != nil {
-		return CompileResult{}, err
 	}
 	return CompileResult{OK: true, Message: message, TimeMS: elapsed}, nil
 }

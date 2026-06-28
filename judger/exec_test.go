@@ -53,13 +53,14 @@ func TestRunLocalCaseWrongAnswer(t *testing.T) {
 	if err := os.WriteFile(answer, []byte("42\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	writeScript(t, work, "wa.sh", "cat >/dev/null; printf '41\\n'\n")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	result, err := RunLocalCase(ctx, LocalRun{
 		Runner:      runner,
 		Work:        work,
-		UserCommand: "cat >/dev/null; printf '41\\n'",
+		UserCommand: "sh wa.sh",
 		Mode:        ModeDefault,
 		Case:        Case{ID: "1", Input: input, Answer: answer, Score: 100},
 		Limits:      Limits{OutputKB: 64},
@@ -86,13 +87,14 @@ func TestRunLocalCaseUserMayExitBeforeReadingAllInput(t *testing.T) {
 	if err := os.WriteFile(answer, []byte("42\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	writeScript(t, work, "print.sh", "printf '42\\n'\n")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	result, err := RunLocalCase(ctx, LocalRun{
 		Runner:      runner,
 		Work:        work,
-		UserCommand: "printf '42\\n'",
+		UserCommand: "sh print.sh",
 		Mode:        ModeDefault,
 		Case:        Case{ID: "1", Input: input, Answer: answer, Score: 100},
 		Limits:      Limits{OutputKB: 64},
@@ -116,13 +118,14 @@ func TestRunLocalCasePartialInputReaderIsWrongAnswer(t *testing.T) {
 	if err := os.WriteFile(answer, []byte("not 3\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	writeScript(t, work, "sum.sh", "read a b; echo $((a + b))\n")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	result, err := RunLocalCase(ctx, LocalRun{
 		Runner:      runner,
 		Work:        work,
-		UserCommand: "read a b; echo $((a + b))",
+		UserCommand: "sh sum.sh",
 		Mode:        ModeDefault,
 		Case:        Case{ID: "1", Input: input, Answer: answer, Score: 100},
 		Limits:      Limits{OutputKB: 64},
@@ -193,13 +196,14 @@ func TestRunLocalCaseRuntimeErrorKeepsOnlyUsefulMessage(t *testing.T) {
 	if err := os.WriteFile(answer, []byte("1\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	writeScript(t, work, "boom.sh", "echo boom >&2; exit 7\n")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	result, err := RunLocalCase(ctx, LocalRun{
 		Runner:      runner,
 		Work:        work,
-		UserCommand: "echo boom >&2; exit 7",
+		UserCommand: "sh boom.sh",
 		Mode:        ModeDefault,
 		Case:        Case{ID: "1", Input: input, Answer: answer, Score: 100},
 		Limits:      Limits{OutputKB: 64},
@@ -209,6 +213,13 @@ func TestRunLocalCaseRuntimeErrorKeepsOnlyUsefulMessage(t *testing.T) {
 	}
 	if result.Verdict != VerdictRuntimeError || result.Message != "boom" {
 		t.Fatalf("result = %#v", result)
+	}
+}
+
+func writeScript(t *testing.T, dir string, name string, content string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o755); err != nil {
+		t.Fatal(err)
 	}
 }
 

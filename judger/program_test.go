@@ -14,13 +14,14 @@ func TestRunLocalCaseCustomChecker(t *testing.T) {
 	runner := buildRunner(t)
 	work := t.TempDir()
 	input, answer := writeCase(t, work, "checker", "5\n", "25")
+	writeScript(t, work, "square.sh", "read n; echo $((n * n))\n")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	result, err := RunLocalCase(ctx, LocalRun{
 		Runner:       runner,
 		Work:         work,
-		UserCommand:  "read n; echo $((n * n))",
+		UserCommand:  "sh square.sh",
 		JudgeCommand: "cat \"$INPUT\"; exec 1>&-; got=$(cat); ans=$(cat \"$ANSWER\"); if [ \"$got\" = \"$ans\" ]; then printf '{\"verdict\":\"AC\",\"score\":100}\\n' > \"$RESULT\"; else printf '{\"verdict\":\"WA\",\"score\":0,\"message\":\"checker rejected\"}\\n' > \"$RESULT\"; fi",
 		Case:         Case{ID: "checker", Input: input, Answer: answer, Score: 100},
 		Limits:       Limits{TimeMS: 3000, OutputKB: 64},
@@ -37,13 +38,14 @@ func TestRunLocalCaseInteractor(t *testing.T) {
 	runner := buildRunner(t)
 	work := t.TempDir()
 	input, answer := writeCase(t, work, "interactive", "", "")
+	writeScript(t, work, "interactive.sh", "while read n; do echo $((n * n)); done\n")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	result, err := RunLocalCase(ctx, LocalRun{
 		Runner:       runner,
 		Work:         work,
-		UserCommand:  "while read n; do echo $((n * n)); done",
+		UserCommand:  "sh interactive.sh",
 		JudgeCommand: "printf '3\\n'; read a; printf '4\\n'; read b; if [ \"$a\" = 9 ] && [ \"$b\" = 16 ]; then printf '{\"verdict\":\"AC\",\"score\":100}\\n' > \"$RESULT\"; else printf '{\"verdict\":\"WA\",\"score\":0,\"message\":\"bad interaction\"}\\n' > \"$RESULT\"; fi",
 		Case:         Case{ID: "interactive", Input: input, Answer: answer, Score: 100},
 		Limits:       Limits{TimeMS: 3000, OutputKB: 64},

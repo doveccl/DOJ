@@ -46,26 +46,42 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error
 	if err != nil {
 		return TaskResult{}, err
 	}
-	compileStartedAt := time.Now()
-	compile, err := compileLanguageRuntime(ctx, lang, work, task.Limits, task.SubmissionID, task.Attempt, req.Logf)
-	logTask(req.Logf, task.SubmissionID, task.Attempt, "compile_language=%s ok=%t reported=%dms", formatDuration(time.Since(compileStartedAt)), compile.OK, compile.TimeMS)
+	imageStartedAt := time.Now()
+	pulled, err := dockerEnsureImage(ctx, lang.Image)
+	logStep(req.Logf, task.SubmissionID, task.Attempt, "ensure_language_image", imageStartedAt)
+	if err != nil {
+		return TaskResult{}, fmt.Errorf("ensure language image %q: %w", lang.Image, err)
+	}
+	if pulled {
+		logTask(req.Logf, task.SubmissionID, task.Attempt, "language_image_pulled=%s", lang.Image)
+	}
+	if lang.CompileCommand == "" {
+		source := filepath.Join(work, languageSourceDir, lang.SourceName)
+		if err := copyFile(source, filepath.Join(work, lang.SourceName), 0o644); err != nil {
+			return TaskResult{}, err
+		}
+	}
+	runtimeRoot := containerWorkDir
+	skipRuntime := ""
+	if lang.CompileCommand != "" {
+		runtimeRoot = filepath.ToSlash(filepath.Join(containerWorkDir, languageSourceDir))
+		skipRuntime = lang.SourceName
+	}
+	restoreAssets, err := stashCaseFiles(work, task.Cases)
 	if err != nil {
 		return TaskResult{}, err
 	}
-	if !compile.OK {
-		return TaskResult{
-			SubmissionID: task.SubmissionID,
-			Attempt:      task.Attempt,
-			Verdict:      VerdictCompileError,
-			Message:      compile.Message,
-			TimeMS:       compile.TimeMS,
-		}, nil
-	}
+	defer restoreAssets()
 
-	socket := filepath.Join(work, "runner.sock")
+	socketDir, err := os.MkdirTemp("", "doj-runner-socket-")
+	if err != nil {
+		return TaskResult{}, err
+	}
+	defer os.RemoveAll(socketDir)
+	socket := filepath.Join(socketDir, "runner.sock")
 	_ = os.Remove(socket)
 	startContainerStartedAt := time.Now()
-	containerID, err := startRunnerContainer(ctx, lang.Image, req.Runner, work, socket)
+	containerID, err := startRunnerContainer(ctx, lang.Image, req.Runner, work, socket, runtimeRoot, skipRuntime)
 	logStep(req.Logf, task.SubmissionID, task.Attempt, "start_runner_container", startContainerStartedAt)
 	if err != nil {
 		return TaskResult{}, err
@@ -102,7 +118,7 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error
 		work:       work,
 		logf:       req.Logf,
 	}
-	return client.runTask(ctx, task, "", lang.RunCommand)
+	return client.runTask(ctx, task, lang.CompileCommand, lang.RunCommand, restoreAssets)
 }
 
 type runnerClient struct {
@@ -116,7 +132,7 @@ type runnerClient struct {
 	logf       func(format string, args ...any)
 }
 
-func (client runnerClient) runTask(ctx context.Context, task Task, compileCommand string, userCommand string) (TaskResult, error) {
+func (client runnerClient) runTask(ctx context.Context, task Task, compileCommand string, userCommand string, beforeCases func() error) (TaskResult, error) {
 	result := TaskResult{SubmissionID: task.SubmissionID, Attempt: task.Attempt}
 	if len(task.Cases) == 0 {
 		result.Verdict = VerdictSystemError
@@ -139,6 +155,11 @@ func (client runnerClient) runTask(ctx context.Context, task Task, compileComman
 		result.Message = compile.Message
 		result.TimeMS = compile.TimeMS
 		return result, nil
+	}
+	if beforeCases != nil {
+		if err := beforeCases(); err != nil {
+			return TaskResult{}, err
+		}
 	}
 	judgeCommand := ""
 	if task.Mode == ModeCustom {
@@ -367,20 +388,23 @@ func applyCgroupStatsSnapshot(result *CaseResult, stats CgroupStats) {
 	}
 }
 
-func startRunnerContainer(ctx context.Context, image string, runner string, work string, socket string) (string, error) {
+func startRunnerContainer(ctx context.Context, image string, runner string, work string, socket string, runtimeRoot string, skipRuntime string) (string, error) {
 	_ = os.Remove(socket)
 	containerID, err := dockerCreateContainer(ctx, dockerCreateRequest{
 		Image: image,
 		Cmd: []string{
 			"/usr/local/bin/doj-runner", "serve",
-			"--socket", filepath.ToSlash(filepath.Join(containerWorkDir, "runner.sock")),
+			"--socket", "/runner/runner.sock",
 			"--work", containerWorkDir,
 			"--runner", "/usr/local/bin/doj-runner",
+			"--runtime-root", runtimeRoot,
+			"--skip-runtime", skipRuntime,
 		},
 		WorkingDir: containerWorkDir,
 		HostConfig: dockerHostConfig{
 			Binds: []string{
 				work + ":" + containerWorkDir,
+				filepath.Dir(socket) + ":/runner",
 				runner + ":/usr/local/bin/doj-runner:ro",
 			},
 			NetworkMode: "none",
@@ -411,6 +435,53 @@ func containerError(ctx context.Context, containerID string, err error) error {
 		return err
 	}
 	return fmt.Errorf("%w\nrunner container logs:\n%s", err, logs)
+}
+
+func stashCaseFiles(work string, cases []Case) (func() error, error) {
+	tmp, err := os.MkdirTemp("", "doj-case-assets-")
+	if err != nil {
+		return nil, err
+	}
+	moved := map[string]string{}
+	for _, item := range cases {
+		for _, name := range []string{item.Input, item.Answer} {
+			path := absolutizeWorkFile(work, name)
+			if moved[path] != "" || filepath.Dir(path) != work {
+				continue
+			}
+			info, err := os.Stat(path)
+			if err != nil {
+				if os.IsNotExist(err) {
+					continue
+				}
+				_ = os.RemoveAll(tmp)
+				return nil, err
+			}
+			if !info.Mode().IsRegular() {
+				continue
+			}
+			target := filepath.Join(tmp, filepath.Base(path))
+			if err := os.Rename(path, target); err != nil {
+				_ = os.RemoveAll(tmp)
+				return nil, err
+			}
+			moved[path] = target
+		}
+	}
+	restored := false
+	return func() error {
+		if restored {
+			return nil
+		}
+		restored = true
+		defer os.RemoveAll(tmp)
+		for path, target := range moved {
+			if err := os.Rename(target, path); err != nil {
+				return err
+			}
+		}
+		return nil
+	}, nil
 }
 
 func dockerContainerLogs(ctx context.Context, containerID string) string {

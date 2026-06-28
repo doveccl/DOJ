@@ -16,6 +16,6 @@ export const defaultLanguage = {
   name: '',
   source: 'main.cc',
   image: 'gcc:14',
-  compile: 'g++ -std=c++20 -O2 -pipe -static -s main.cc -o /work/main',
+  compile: 'g++ -std=c++20 -O2 -pipe -static -s main.cc -o main',
   run: './main'
 }

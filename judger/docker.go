@@ -113,6 +113,29 @@ func dockerCreateContainer(ctx context.Context, req dockerCreateRequest) (string
 	return strings.TrimSpace(got.ID), nil
 }
 
+func dockerEnsureImage(ctx context.Context, image string) (bool, error) {
+	cli, err := newDockerClient()
+	if err != nil {
+		return false, err
+	}
+	defer cli.Close()
+	if _, _, err := cli.ImageInspectWithRaw(ctx, image); err != nil {
+		if !errdefs.IsNotFound(err) {
+			return false, err
+		}
+		reader, err := cli.ImagePull(ctx, image, dockerimage.PullOptions{})
+		if err != nil {
+			return false, err
+		}
+		defer reader.Close()
+		if _, err := io.Copy(io.Discard, reader); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
 func dockerStartContainer(ctx context.Context, id string) error {
 	cli, err := newDockerClient()
 	if err != nil {
