@@ -27,7 +27,7 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 
 FROM alpine:3.23
 
-RUN apk add --no-cache ca-certificates postgresql-client \
+RUN apk add --no-cache ca-certificates postgresql-client tzdata \
   && adduser -D -h /var/lib/doj doj \
   && mkdir -p /app /var/lib/doj \
   && chown -R doj:doj /app /var/lib/doj
