@@ -249,7 +249,7 @@ func TestRunContainerTaskCustomJudgeFromDockerfile(t *testing.T) {
 	if err := os.MkdirAll(judgeDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	dockerfile := "FROM alpine:3.20\nCOPY judge.sh /opt/judge\nRUN chmod +x /opt/judge\nCMD [\"/opt/judge\"]\n"
+	dockerfile := "FROM alpine:3.20\nCOPY judge.sh /opt/judge\nRUN chmod +x /opt/judge\nCMD /opt/judge\n"
 	if err := os.WriteFile(filepath.Join(judgeDir, "Dockerfile"), []byte(dockerfile), 0o600); err != nil {
 		t.Fatal(err)
 	}

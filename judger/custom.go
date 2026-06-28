@@ -115,8 +115,9 @@ func compileDockerfileJudge(ctx context.Context, dir string, output string, limi
 	if err != nil {
 		return dockerBuildResult("", err, startedAt), nil
 	}
-	if len(cmd) != 1 || !slashpath.IsAbs(cmd[0]) {
-		return CompileResult{OK: false, Message: "custom judge Dockerfile CMD must be a single absolute program path", TimeMS: int(time.Since(startedAt).Milliseconds())}, nil
+	program, ok := customJudgeProgramFromCmd(cmd)
+	if !ok {
+		return CompileResult{OK: false, Message: "custom judge Dockerfile CMD must point to a single absolute program path", TimeMS: int(time.Since(startedAt).Milliseconds())}, nil
 	}
 	containerID, err := dockerCreateContainer(runCtx, dockerCreateRequest{Image: imageID})
 	if err != nil {
@@ -124,13 +125,26 @@ func compileDockerfileJudge(ctx context.Context, dir string, output string, limi
 	}
 	defer dockerRemoveContainer(context.Background(), containerID)
 
-	if err := dockerCopyFile(runCtx, containerID, cmd[0], output); err != nil {
+	if err := dockerCopyFile(runCtx, containerID, program, output); err != nil {
 		return dockerBuildResult("", err, startedAt), nil
 	}
-	if err := validateCustomJudgeProgram(output, cmd[0]); err != nil {
+	if err := validateCustomJudgeProgram(output, program); err != nil {
 		return CompileResult{OK: false, Message: err.Error(), TimeMS: int(time.Since(startedAt).Milliseconds())}, nil
 	}
 	return CompileResult{OK: true, TimeMS: int(time.Since(startedAt).Milliseconds())}, nil
+}
+
+func customJudgeProgramFromCmd(cmd []string) (string, bool) {
+	if len(cmd) == 1 && slashpath.IsAbs(cmd[0]) {
+		return cmd[0], true
+	}
+	if len(cmd) == 3 && cmd[0] == "/bin/sh" && cmd[1] == "-c" {
+		program := strings.TrimSpace(cmd[2])
+		if slashpath.IsAbs(program) && len(strings.Fields(program)) == 1 {
+			return program, true
+		}
+	}
+	return "", false
 }
 
 func dockerBuildResult(out string, err error, startedAt time.Time) CompileResult {
