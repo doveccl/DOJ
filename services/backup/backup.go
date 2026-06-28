@@ -43,7 +43,6 @@ type Settings struct {
 
 type Item struct {
 	Name      string    `json:"name"`
-	Database  string    `json:"database"`
 	CreatedAt time.Time `json:"createdAt"`
 	Size      int64     `json:"size"`
 }
@@ -204,7 +203,7 @@ func (manager Manager) BackupNow(ctx context.Context) (Item, error) {
 	if err := store.Put(ctx, key, file, info.Size(), contentType); err != nil {
 		return Item{}, err
 	}
-	item := Item{Name: name, Database: DatabaseName(manager.dsn()), CreatedAt: now, Size: info.Size()}
+	item := Item{Name: name, CreatedAt: now, Size: info.Size()}
 	settings, err := ReadSettings(manager.DB)
 	if err == nil {
 		_ = manager.Prune(ctx, settings.Keep)
@@ -314,11 +313,11 @@ func (manager Manager) dsn() string {
 
 func itemFromObject(object utils.ObjectInfo) (Item, bool) {
 	base := path.Base(object.Key)
-	database, createdAt, ok := ParseName(base)
+	_, createdAt, ok := ParseName(base)
 	if !ok {
 		return Item{}, false
 	}
-	return Item{Name: base, Database: database, CreatedAt: createdAt, Size: object.Size}, true
+	return Item{Name: base, CreatedAt: createdAt, Size: object.Size}, true
 }
 
 func BuildName(database string, at time.Time) string {

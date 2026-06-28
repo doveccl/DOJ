@@ -1723,11 +1723,9 @@ components:
           type: boolean
     BackupItem:
       type: object
-      required: [name, database, createdAt, size]
+      required: [name, createdAt, size]
       properties:
         name:
-          type: string
-        database:
           type: string
         createdAt:
           type: string

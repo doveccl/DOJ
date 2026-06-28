@@ -56,7 +56,7 @@ func TestBackupNowWritesSQLGZToStorage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("backup now: %v", err)
 	}
-	if item.Name != "doj_test_2026-06-26_03-00-00.sql.gz" || item.Database != "doj_test" || item.Size != int64(len(data)) {
+	if item.Name != "doj_test_2026-06-26_03-00-00.sql.gz" || item.Size != int64(len(data)) {
 		t.Fatalf("unexpected item: %+v", item)
 	}
 

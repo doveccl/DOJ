@@ -352,7 +352,11 @@ export function BackupsTab({
     if (!settings.data) {
       return
     }
-    onSaveSettings({ ...settings.data, ...form.getFieldsValue(true), ...patch })
+    const next = { ...settings.data, ...form.getFieldsValue(true), ...patch }
+    if (next.enabled === settings.data.enabled && next.cron === settings.data.cron && next.keep === settings.data.keep) {
+      return
+    }
+    onSaveSettings(next)
   }
   return (
     <div className="adminBackupPage">
@@ -387,8 +391,7 @@ export function BackupsTab({
           scroll={{ x: 760 }}
           dataSource={backups.data?.items ?? []}
           columns={[
-            { title: text.admin.backupFile, dataIndex: 'name', width: 320, render: (name: string) => <Typography.Text code ellipsis={{ tooltip: name }} className="backupFileName">{name}</Typography.Text> },
-            { title: text.admin.backupDatabase, dataIndex: 'database' },
+            { title: text.admin.backupFile, dataIndex: 'name', width: 360, render: (name: string) => <Typography.Text ellipsis={{ tooltip: name }} className="backupFileName">{name}</Typography.Text> },
             { title: text.admin.createdAt, dataIndex: 'createdAt', render: (value: string) => new Date(value).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US') },
             { title: text.admin.backupSize, dataIndex: 'size', render: (value: number) => formatBytes(value) },
             {

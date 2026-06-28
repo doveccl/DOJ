@@ -996,7 +996,6 @@ export interface components {
         };
         BackupItem: {
             name: string;
-            database: string;
             /** Format: date-time */
             createdAt: string;
             /** Format: int64 */

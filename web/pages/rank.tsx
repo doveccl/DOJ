@@ -43,6 +43,7 @@ function rankColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Ran
     },
     {
       title: text.rank.user,
+      width: 220,
       render: (_, row) => (
         <Flex align="center" gap={12}>
           <Avatar src={row.avatar || undefined}>{row.user.slice(0, 1).toUpperCase()}</Avatar>
@@ -55,6 +56,7 @@ function rankColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Ran
     {
       title: text.profile.bio,
       dataIndex: 'bio',
+      width: 360,
       render: (bio: string) => (
         <Typography.Text type={bio ? undefined : 'secondary'} ellipsis className="lineText">
           {bio || text.user.noBio}

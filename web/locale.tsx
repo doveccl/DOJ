@@ -124,7 +124,7 @@ const zh = {
     submit: '提交',
     language: '语言',
     noLanguages: '请先配置语言',
-    publicSource: '公开源码',
+    publicSource: '公开',
     queued: '提交已进入队列'
   },
   assignments: {
@@ -301,7 +301,6 @@ const zh = {
     backupFiles: '备份文件',
     backupNow: '立即备份',
     backupFile: '备份文件',
-    backupDatabase: '数据库',
     backupSize: '大小',
     backupManualDone: '备份已创建',
     backupCronPresets: {
@@ -489,7 +488,7 @@ const en: typeof zh = {
     submit: 'Submit',
     language: 'Language',
     noLanguages: 'Configure a language first',
-    publicSource: 'Public source',
+    publicSource: 'Public',
     queued: 'Submission queued'
   },
   assignments: {
@@ -666,7 +665,6 @@ const en: typeof zh = {
     backupFiles: 'Backup files',
     backupNow: 'Back up now',
     backupFile: 'Backup file',
-    backupDatabase: 'Database',
     backupSize: 'Size',
     backupManualDone: 'Backup created',
     backupCronPresets: {
