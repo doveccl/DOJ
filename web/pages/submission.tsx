@@ -141,7 +141,7 @@ export function SubmissionDetailPage() {
             ) : null
           }
         >
-          <MarkdownPreview value={codeMarkdown(code, submission.language)} />
+          <SourceBlock code={code} />
         </Card>
       ) : null}
     </Flex>
@@ -154,6 +154,14 @@ function ResultCard({ judging, children }: { judging: boolean; children: ReactNo
 
 function codeMarkdown(source: string, syntax: string) {
   return `\`\`\`${fenceLanguage(syntax)}\n${source.replaceAll('```', '`\\`\\`')}\n\`\`\``
+}
+
+function SourceBlock({ code }: { code: string }) {
+  return (
+    <pre className="sourceCodeBlock">
+      <code>{code}</code>
+    </pre>
+  )
 }
 
 function fenceLanguage(syntax: string) {

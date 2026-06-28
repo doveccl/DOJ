@@ -1169,8 +1169,14 @@ func (api *API) problem(c echo.Context) error {
 		}
 		return err
 	}
-	if !api.isAdmin(c) && !api.problemVisibleInDetail(problem) {
-		return echo.NewHTTPError(http.StatusNotFound, "problem not found")
+	if !api.isAdmin(c) {
+		visible, err := api.problemVisibleInDetail(c, problem)
+		if err != nil {
+			return err
+		}
+		if !visible {
+			return echo.NewHTTPError(http.StatusNotFound, "problem not found")
+		}
 	}
 	item, err := api.problemDTOWithStatement(c.Request().Context(), problem)
 	if err != nil {
@@ -1729,15 +1735,12 @@ func (api *API) assignments(c echo.Context) error {
 				SELECT 1 FROM assignment_users
 				WHERE assignment_users.assignment_id = assignments.id
 				AND assignment_users.user_id = ?
-				AND assignment_users.deleted_at IS NULL
 			)
 			OR EXISTS (
 				SELECT 1 FROM assignment_groups
 				JOIN group_users ON group_users.group_id = assignment_groups.group_id
 				WHERE assignment_groups.assignment_id = assignments.id
 				AND group_users.user_id = ?
-				AND assignment_groups.deleted_at IS NULL
-				AND group_users.deleted_at IS NULL
 			)
 		`, user.ID, user.ID)
 	}
@@ -1923,7 +1926,7 @@ func (api *API) assignment(c echo.Context) error {
 	if err := api.db.Where("assignment_id = ?", row.ID).Order("sort asc").Find(&links).Error; err != nil {
 		return err
 	}
-	problems, err := api.assignmentProblems(c, links)
+	problems, err := api.assignmentProblems(c, row, links)
 	if err != nil {
 		return err
 	}
@@ -2257,8 +2260,14 @@ func (api *API) submit(c echo.Context) error {
 		}
 		return err
 	}
-	if !api.isAdmin(c) && !api.problemVisibleInDetail(problem) {
-		return echo.NewHTTPError(http.StatusNotFound, "problem not found")
+	if !api.isAdmin(c) {
+		visible, err := api.problemVisibleInDetail(c, problem)
+		if err != nil {
+			return err
+		}
+		if !visible {
+			return echo.NewHTTPError(http.StatusNotFound, "problem not found")
+		}
 	}
 	var language models.Language
 	if err := api.db.First(&language, "id = ?", req.Language).Error; err != nil {
@@ -2762,7 +2771,11 @@ func (api *API) submission(c echo.Context) error {
 		if err := api.db.First(&problem, row.ProblemID).Error; err != nil {
 			return err
 		}
-		if !api.problemVisibleInDetail(problem) {
+		visible, err := api.problemVisibleInDetail(c, problem)
+		if err != nil {
+			return err
+		}
+		if !visible {
 			return echo.NewHTTPError(http.StatusNotFound, "submission not found")
 		}
 	}
@@ -4153,17 +4166,51 @@ func (api *API) requireProblemVisible(c echo.Context, id uint) error {
 		}
 		return err
 	}
-	if !api.problemVisibleInDetail(problem) {
+	visible, err := api.problemVisibleInDetail(c, problem)
+	if err != nil {
+		return err
+	}
+	if !visible {
 		return echo.NewHTTPError(http.StatusNotFound, "problem not found")
 	}
 	return nil
 }
 
-func (api *API) problemVisibleInDetail(problem models.Problem) bool {
+func (api *API) problemVisibleInDetail(c echo.Context, problem models.Problem) (bool, error) {
 	if api.problemVisibleInList(problem) {
-		return true
+		return true, nil
 	}
-	return api.problemInRunningContest(problem.ID)
+	if api.problemInRunningContest(problem.ID) {
+		return true, nil
+	}
+	if api.role(c) == "guest" {
+		return false, nil
+	}
+	user, err := api.currentUser(c)
+	if err != nil {
+		return false, err
+	}
+	return api.problemInActiveAssignmentForUser(problem.ID, user.ID)
+}
+
+func (api *API) problemInActiveAssignmentForUser(problemID uint, userID uint) (bool, error) {
+	var rows []models.Assignment
+	if err := api.db.
+		Joins("JOIN assignment_problems ON assignment_problems.assignment_id = assignments.id").
+		Where("assignment_problems.problem_id = ? AND assignments.end_at >= ?", problemID, time.Now()).
+		Find(&rows).Error; err != nil {
+		return false, err
+	}
+	for _, row := range rows {
+		ok, err := api.userAssignedTo(row.ID, userID)
+		if err != nil {
+			return false, err
+		}
+		if ok {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (api *API) problemVisibleInList(problem models.Problem) bool {
@@ -4770,7 +4817,7 @@ func (api *API) assignmentDoneMap(c echo.Context, ids []uint) (map[uint]int, err
 	return done, nil
 }
 
-func (api *API) assignmentProblems(c echo.Context, links []models.AssignmentProblem) ([]ProblemDTO, error) {
+func (api *API) assignmentProblems(c echo.Context, assignment models.Assignment, links []models.AssignmentProblem) ([]ProblemDTO, error) {
 	if len(links) == 0 {
 		return []ProblemDTO{}, nil
 	}
@@ -4779,9 +4826,6 @@ func (api *API) assignmentProblems(c echo.Context, links []models.AssignmentProb
 		ids = append(ids, link.ProblemID)
 	}
 	query := api.db.Model(&models.Problem{}).Where("id IN ?", uniqueUint(ids))
-	if !api.isAdmin(c) {
-		query = api.applyProblemListVisibility(query)
-	}
 	var rows []models.Problem
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
@@ -4793,11 +4837,18 @@ func (api *API) assignmentProblems(c echo.Context, links []models.AssignmentProb
 		if !ok {
 			continue
 		}
+		if !api.assignmentShouldIncludeHiddenProblem(c, assignment) && !api.problemVisibleInList(problem) {
+			continue
+		}
 		item := problemDTO(problem)
 		item.Sort = link.Sort
 		items = append(items, item)
 	}
 	return items, nil
+}
+
+func (api *API) assignmentShouldIncludeHiddenProblem(c echo.Context, assignment models.Assignment) bool {
+	return api.isAdmin(c) || !assignment.EndAt.Before(time.Now())
 }
 
 func contestDTO(row models.Contest, total int) ContestDTO {

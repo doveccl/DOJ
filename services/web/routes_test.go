@@ -508,7 +508,7 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 	}
 
 	assignment := models.Assignment{Title: "HW", EndAt: time.Now().Add(time.Hour)}
-	contest := models.Contest{Title: "Round", Kind: "OI", StartAt: time.Now().Add(-2 * time.Hour), EndAt: time.Now().Add(-time.Hour)}
+	contest := models.Contest{Title: "Round", Kind: "OI", StartAt: time.Now().Add(-time.Hour), EndAt: time.Now().Add(time.Hour)}
 	if err := db.Create(&assignment).Error; err != nil {
 		t.Fatalf("create assignment: %v", err)
 	}
@@ -597,10 +597,10 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 		t.Fatalf("unassigned assignment detail should be hidden, got %d body=%s", res.Code, res.Body.String())
 	}
 	studentAssignment := decodeJSON[AssignmentDetail](t, requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(assignment.ID), 10), databaseSession(t, db, student.ID), nil))
-	if hasProblem(studentAssignment.Problems, hidden.ID) {
-		t.Fatalf("student assignment leaked hidden problem: %+v", studentAssignment)
+	if !hasProblem(studentAssignment.Problems, hidden.ID) {
+		t.Fatalf("student assignment should include assigned hidden problem: %+v", studentAssignment)
 	}
-	if len(studentAssignment.Problems) != 1 || studentAssignment.Problems[0].Sort != "A" {
+	if len(studentAssignment.Problems) != 2 || studentAssignment.Problems[0].Sort != "A" || studentAssignment.Problems[1].Sort != "B" {
 		t.Fatalf("student assignment should expose collection problem order: %+v", studentAssignment.Problems)
 	}
 	if studentAssignment.Assignment.Done != 2 || studentAssignment.Assignment.Total != 2 {
@@ -609,15 +609,15 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 	if len(studentAssignment.Progress) != 1 || studentAssignment.Progress[0].User != "student" {
 		t.Fatalf("student assignment completion should include assigned student only: %+v", studentAssignment.Progress)
 	}
-	if len(studentAssignment.Progress[0].Problems) != 1 || studentAssignment.Progress[0].Problems[0].ProblemID != visible.ID || studentAssignment.Progress[0].Problems[0].Status != "ac" {
-		t.Fatalf("student assignment completion should expose visible problem status only: %+v", studentAssignment.Progress[0].Problems)
+	if len(studentAssignment.Progress[0].Problems) != 2 || studentAssignment.Progress[0].Problems[0].ProblemID != visible.ID || studentAssignment.Progress[0].Problems[1].ProblemID != hidden.ID {
+		t.Fatalf("student assignment completion should expose assigned problem statuses: %+v", studentAssignment.Progress[0].Problems)
 	}
 
 	contestDetail := decodeJSON[ContestDetail](t, requestOK(t, e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), ""))
-	if hasProblem(contestDetail.Problems, hidden.ID) {
-		t.Fatalf("guest contest leaked hidden problem: %+v", contestDetail)
+	if !hasProblem(contestDetail.Problems, hidden.ID) {
+		t.Fatalf("running contest should include linked hidden problem: %+v", contestDetail)
 	}
-	if len(contestDetail.Problems) != 1 || contestDetail.Problems[0].Sort != "A" {
+	if len(contestDetail.Problems) != 2 || contestDetail.Problems[0].Sort != "A" || contestDetail.Problems[1].Sort != "B" {
 		t.Fatalf("guest contest should expose collection problem order: %+v", contestDetail.Problems)
 	}
 
@@ -864,7 +864,7 @@ func TestDatabaseSubmitStoresAndValidatesContext(t *testing.T) {
 	if err := db.Create(&student).Error; err != nil {
 		t.Fatalf("create student: %v", err)
 	}
-	included := models.Problem{ID: 1000, Title: "Included", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	included := models.Problem{ID: 1000, Title: "Included", Tags: datatypes.JSON([]byte(`[]`)), Visible: false, Mode: "default", TimeMS: 1000, MemoryMB: 256}
 	outside := models.Problem{ID: 1001, Title: "Outside", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
 	for _, problem := range []*models.Problem{&included, &outside} {
 		if err := db.Create(problem).Error; err != nil {
@@ -885,6 +885,13 @@ func TestDatabaseSubmitStoresAndValidatesContext(t *testing.T) {
 	e := echo.New()
 	Register(e, db)
 	cookies := databaseSession(t, db, student.ID)
+	list := decodePageItems[ProblemDTO](t, requestWithCookies(e, http.MethodGet, "/api/problems", cookies, nil))
+	if hasProblem(list, included.ID) {
+		t.Fatalf("assignment-only hidden problem should not appear in problem list: %+v", list)
+	}
+	if res := requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil); res.Code != http.StatusOK {
+		t.Fatalf("assigned active assignment problem detail got %d body=%s", res.Code, res.Body.String())
+	}
 	okBody := `{"problemId":1000,"language":"cpp","code":"int main(){}","public":true}`
 	res := requestJSONWithCookies(e, http.MethodPost, "/api/submissions", cookies, okBody)
 	if res.Code != http.StatusCreated {

@@ -10,6 +10,7 @@ import {
 } from '../client'
 import type { AdminGroupUpdate, AdminJudgers, AdminLang, AdminLangCreate, AdminMembers } from '../client'
 import { ErrorBlock, LoadingBlock } from '../components/state'
+import { MarkdownPreview } from '../components/markdown'
 import { useDebouncedValue } from '../components/use-debounced-value'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
@@ -164,18 +165,32 @@ export function AdminPage() {
       saveJudgers(data)
       closeJudger()
       if (created?.token) {
-        const command = `SERVER=http://server:7974 TOKEN=${created.token} doj-judger`
+        const dockerCommand = `docker run -d --name doj-judger --restart unless-stopped --privileged --network host --pid host --cgroupns host -v /var/run/docker.sock:/var/run/docker.sock -v /sys/fs/cgroup:/sys/fs/cgroup -v /var/lib/doj:/var/lib/doj -e SERVER=http://server:7974 -e TOKEN=${created.token} doveccl/doj:4 doj-judger`
+        const composeExample = `services:
+  judger:
+    image: doveccl/doj:4
+    command: doj-judger
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    pid: host
+    cgroup: host
+    environment:
+      SERVER: http://server:7974
+      TOKEN: ${created.token}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /sys/fs/cgroup:/sys/fs/cgroup
+      - /var/lib/doj:/var/lib/doj`
         modal.info({
           title: text.admin.judgerTokenCreated,
+          width: 760,
           content: (
             <Space orientation="vertical" style={{ width: '100%' }}>
               <Typography.Text type="secondary">{text.admin.judgerTokenHelp}</Typography.Text>
-              <Typography.Paragraph copyable code>
-                {created.token}
-              </Typography.Paragraph>
-              <Typography.Paragraph copyable={{ text: command }} code>
-                {command}
-              </Typography.Paragraph>
+              <MarkdownPreview value={codeBlock(created.token, 'text')} />
+              <MarkdownPreview value={codeBlock(dockerCommand, 'bash')} />
+              <MarkdownPreview value={codeBlock(composeExample, 'yaml')} />
             </Space>
           )
         })
@@ -403,6 +418,10 @@ export function AdminPage() {
       ) : null}
     </>
   )
+}
+
+function codeBlock(value: string, lang: string) {
+  return `\`\`\`${lang}\n${value.replaceAll('```', '`\\`\\`')}\n\`\`\``
 }
 
 function saveBlob(blob: Blob, filename: string) {

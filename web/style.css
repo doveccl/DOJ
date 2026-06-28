@@ -442,6 +442,18 @@ body {
   z-index: 1;
 }
 
+.sourceCodeBlock {
+  max-width: 100%;
+  margin: 0;
+  overflow: auto;
+  white-space: pre;
+}
+
+.sourceCodeBlock code {
+  display: block;
+  min-width: max-content;
+}
+
 .markdownShell .md-editor-fullscreen,
 .markdownPreviewShell .md-editor-fullscreen,
 .markdownShell .md-editor-modal-container,
