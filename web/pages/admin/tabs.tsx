@@ -238,12 +238,18 @@ export function LanguagesTab({
         columns={[
           { title: text.admin.name, dataIndex: 'name' },
           { title: text.admin.source, dataIndex: 'source' },
-          { title: text.admin.image, dataIndex: 'image', width: 220, ellipsis: true },
+          {
+            title: text.admin.image,
+            dataIndex: 'image',
+            width: 220,
+            ellipsis: { showTitle: false },
+            render: (image: string) => <Typography.Text ellipsis={{ tooltip: image }} className="lineText">{image}</Typography.Text>
+          },
           {
             title: text.admin.run,
             dataIndex: 'run',
             width: 320,
-            ellipsis: true,
+            ellipsis: { showTitle: false },
             render: (value: string) => {
               const firstLine = value.split('\n')[0]
               return <Typography.Text ellipsis={{ tooltip: firstLine }} className="lineText">{firstLine}</Typography.Text>

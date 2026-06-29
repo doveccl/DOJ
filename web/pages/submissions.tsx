@@ -244,8 +244,11 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: str
     {
       title: text.submissions.language,
       width: 180,
-      ellipsis: true,
-      render: (_, row) => languageNames.get(row.language) ?? row.language
+      ellipsis: { showTitle: false },
+      render: (_, row) => {
+        const language = languageNames.get(row.language) ?? row.language
+        return <Typography.Text ellipsis={{ tooltip: language }} className="lineText">{language}</Typography.Text>
+      }
     },
     {
       title: text.submissions.created,

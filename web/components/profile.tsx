@@ -167,7 +167,7 @@ function SolvedCard({ page, onPageChange }: { page: SolvedProblemPage; onPageCha
             dataSource={problems}
             columns={[
               {
-                ellipsis: true,
+                ellipsis: { showTitle: false },
                 render: (_, row) => <ProblemLink id={row.id} title={row.title} />
               },
               {
