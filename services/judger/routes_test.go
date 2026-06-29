@@ -22,20 +22,30 @@ import (
 
 func TestCasePayloadsFromObjects(t *testing.T) {
 	cases := casePayloadsFromObjects(1000, []utils.ObjectInfo{
+		{Key: "problems/1000/data/10.in", Size: 4},
+		{Key: "problems/1000/data/10.out", Size: 2},
 		{Key: "problems/1000/data/2.out", Size: 2},
+		{Key: "problems/1000/data/3.in", Size: 4},
+		{Key: "problems/1000/data/3.ans", Size: 2},
 		{Key: "problems/1000/data/1.in", Size: 4},
 		{Key: "problems/1000/data/1.out", Size: 2},
 		{Key: "problems/1000/data/2.in", Size: 4},
 		{Key: "problems/1000/data/readme.txt", Size: 10},
 	})
-	if len(cases) != 2 {
+	if len(cases) != 4 {
 		t.Fatalf("cases = %+v", cases)
 	}
-	if cases[0].ID != "1" || cases[0].Input != "data/1.in" || cases[0].Answer != "data/1.out" || cases[0].Score != 50 {
+	if cases[0].ID != "1" || cases[0].Input != "data/1.in" || cases[0].Answer != "data/1.out" || cases[0].Score != 25 {
 		t.Fatalf("case 1 = %+v", cases[0])
 	}
-	if cases[1].ID != "2" || cases[1].Input != "data/2.in" || cases[1].Answer != "data/2.out" || cases[1].Score != 50 {
+	if cases[1].ID != "2" || cases[1].Input != "data/2.in" || cases[1].Answer != "data/2.out" || cases[1].Score != 25 {
 		t.Fatalf("case 2 = %+v", cases[1])
+	}
+	if cases[2].ID != "3" || cases[2].Input != "data/3.in" || cases[2].Answer != "data/3.ans" || cases[2].Score != 25 {
+		t.Fatalf("case 3 = %+v", cases[2])
+	}
+	if cases[3].ID != "10" || cases[3].Input != "data/10.in" || cases[3].Answer != "data/10.out" || cases[3].Score != 25 {
+		t.Fatalf("case 10 = %+v", cases[3])
 	}
 }
 

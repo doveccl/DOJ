@@ -532,6 +532,22 @@ export interface paths {
         patch: operations["updateProblemVisibility"];
         trace?: never;
     };
+    "/api/problems/{id}/rejudge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["rejudgeProblem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/problems/{id}/assets": {
         parameters: {
             query?: never;
@@ -923,6 +939,9 @@ export interface components {
         };
         CreatedID: {
             id: number;
+        };
+        CountResult: {
+            count: number;
         };
         Me: {
             id: number;
@@ -2606,6 +2625,42 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ProblemListItem"];
                 };
+            };
+            /** @description Problem not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    rejudgeProblem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Problem submissions requeued */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountResult"];
+                };
+            };
+            /** @description Admin required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Problem not found */
             404: {

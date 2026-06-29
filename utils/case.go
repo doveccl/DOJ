@@ -2,6 +2,7 @@ package utils
 
 import (
 	"path"
+	"strconv"
 	"strings"
 )
 
@@ -22,7 +23,7 @@ func DataCaseStem(name string) (string, string) {
 		if stem != "" {
 			return stem, "in"
 		}
-	case strings.HasSuffix(lower, ".out"):
+	case strings.HasSuffix(lower, ".out"), strings.HasSuffix(lower, ".ans"):
 		stem := base[:len(base)-4]
 		if stem != "" {
 			return stem, "out"
@@ -48,4 +49,27 @@ func firstDigitRun(value string) string {
 		return value[start:]
 	}
 	return ""
+}
+
+func CaseStemLess(a string, b string) bool {
+	aInt, aErr := strconv.Atoi(a)
+	bInt, bErr := strconv.Atoi(b)
+	if aErr == nil && bErr == nil && aInt != bInt {
+		return aInt < bInt
+	}
+	return a < b
+}
+
+func DataCaseFileLess(a string, b string) bool {
+	aStem, aKind := DataCaseStem(a)
+	bStem, bKind := DataCaseStem(b)
+	if aKind != "" && bKind != "" {
+		if aStem != bStem {
+			return CaseStemLess(aStem, bStem)
+		}
+		if aKind != bKind {
+			return aKind == "in"
+		}
+	}
+	return a < b
 }

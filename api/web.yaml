@@ -789,6 +789,26 @@ paths:
                 $ref: "#/components/schemas/ProblemListItem"
         "404":
           description: Problem not found
+  /api/problems/{id}/rejudge:
+    post:
+      operationId: rejudgeProblem
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Problem submissions requeued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CountResult"
+        "403":
+          description: Admin required
+        "404":
+          description: Problem not found
   /api/problems/{id}/assets:
     get:
       operationId: getProblemAssets
@@ -1559,6 +1579,12 @@ components:
       required: [id]
       properties:
         id:
+          type: integer
+    CountResult:
+      type: object
+      required: [count]
+      properties:
+        count:
           type: integer
     Me:
       type: object

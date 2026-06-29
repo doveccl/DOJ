@@ -55,6 +55,10 @@ type CreatedID struct {
 	ID uint `json:"id"`
 }
 
+type CountResult struct {
+	Count int64 `json:"count"`
+}
+
 type NoticeUpdate struct {
 	Content string `json:"content"`
 }
@@ -480,6 +484,7 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.GET("/problems/:id", api.problem)
 	group.PATCH("/problems/:id", api.updateProblem, echomw.BodyLimit(utils.BodyLimitMarkdown))
 	group.PATCH("/problems/:id/visibility", api.updateProblemVisibility, echomw.BodyLimit(utils.BodyLimitShortText))
+	group.POST("/problems/:id/rejudge", api.rejudgeProblem)
 	group.DELETE("/problems/:id", api.deleteProblem)
 	group.GET("/problems/:id/assets", api.problemAssets)
 	group.POST("/problems/:id/assets/images", api.uploadProblemImage, api.rateLimit("problem-upload", 60, time.Minute), echomw.BodyLimit(utils.BodyLimitImage))
@@ -2852,17 +2857,7 @@ func (api *API) rejudgeSubmission(c echo.Context) error {
 		if err := tx.Where("submission_id = ?", row.ID).Delete(&models.Case{}).Error; err != nil {
 			return err
 		}
-		updates := map[string]any{
-			"status":      "queued",
-			"score":       0,
-			"message":     "",
-			"attempt":     gorm.Expr("attempt + 1"),
-			"judger_id":   nil,
-			"lease_until": nil,
-			"time_ms":     nil,
-			"memory_kb":   nil,
-		}
-		if err := tx.Model(&row).Updates(updates).Error; err != nil {
+		if err := tx.Model(&row).Updates(rejudgeUpdates()).Error; err != nil {
 			return err
 		}
 		return tx.First(&row, row.ID).Error
@@ -2875,6 +2870,46 @@ func (api *API) rejudgeSubmission(c echo.Context) error {
 	}
 	events.SubmissionChanged()
 	return c.JSON(http.StatusOK, CreatedID{ID: row.ID})
+}
+
+func (api *API) rejudgeProblem(c echo.Context) error {
+	id, err := api.requireProblemAdmin(c)
+	if err != nil {
+		return err
+	}
+	var count int64
+	err = api.db.Transaction(func(tx *gorm.DB) error {
+		var ids []uint
+		if err := tx.Model(&models.Submission{}).Where("problem_id = ?", id).Pluck("id", &ids).Error; err != nil {
+			return err
+		}
+		count = int64(len(ids))
+		if len(ids) == 0 {
+			return nil
+		}
+		if err := tx.Where("submission_id IN ?", ids).Delete(&models.Case{}).Error; err != nil {
+			return err
+		}
+		return tx.Model(&models.Submission{}).Where("id IN ?", ids).Updates(rejudgeUpdates()).Error
+	})
+	if err != nil {
+		return err
+	}
+	events.SubmissionChanged()
+	return c.JSON(http.StatusOK, CountResult{Count: count})
+}
+
+func rejudgeUpdates() map[string]any {
+	return map[string]any{
+		"status":      "queued",
+		"score":       0,
+		"message":     "",
+		"attempt":     gorm.Expr("attempt + 1"),
+		"judger_id":   nil,
+		"lease_until": nil,
+		"time_ms":     nil,
+		"memory_kb":   nil,
+	}
 }
 
 func (api *API) submissionSourceLocked(row models.Submission) (bool, error) {
@@ -4394,7 +4429,7 @@ func assetFiles(ctx context.Context, store utils.ObjectStore, prefix string) ([]
 			Editable: editableAsset(name, object.Size),
 		})
 	}
-	sort.Slice(items, func(i, j int) bool { return items[i].Name < items[j].Name })
+	sort.Slice(items, func(i, j int) bool { return utils.DataCaseFileLess(items[i].Name, items[j].Name) })
 	return items, nil
 }
 

@@ -753,7 +753,7 @@ func casePayloadsFromObjects(problemID uint, objects []utils.ObjectInfo) []CaseP
 			pairs = append(pairs, pair{id: stem, input: input, answer: answer})
 		}
 	}
-	sort.Slice(pairs, func(i, j int) bool { return pairs[i].id < pairs[j].id })
+	sort.Slice(pairs, func(i, j int) bool { return utils.CaseStemLess(pairs[i].id, pairs[j].id) })
 	if len(pairs) == 0 {
 		return nil
 	}

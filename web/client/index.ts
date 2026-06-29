@@ -216,34 +216,20 @@ export async function downloadBackup(name: string) {
   return response.blob()
 }
 
-export async function uploadProblemAsset(id: number, section: 'data' | 'judge' | 'assets', file: File) {
-  const body = new FormData()
-  body.set('section', section)
-  body.set('file', file)
-  const response = await apiFetch(`/api/problems/${id}/assets/files`, { method: 'POST', body })
-  if (!response.ok) {
-    throw new Error(await response.text())
-  }
-  return (await response.json()) as ProblemAssets
+export function csrfHeaders() {
+  const token = readCookie('doj_csrf')
+  return token ? { 'X-DOJ-CSRF': token } : undefined
 }
 
-export async function downloadProblemAssets(id: number) {
-  const response = await apiFetch(`/api/problems/${id}.zip`)
-  if (!response.ok) {
-    throw new Error(await response.text())
-  }
-  return response.blob()
+export function problemAssetsDownloadURL(id: number) {
+  return apiUrl(`/api/problems/${id}.zip`).toString()
 }
 
-export async function downloadProblemFile(id: number, section: 'data' | 'judge', name: string) {
+export function problemFileDownloadURL(id: number, section: 'data' | 'judge', name: string) {
   const path = name
     .split('/')
     .filter(Boolean)
     .map((part) => encodeURIComponent(part))
     .join('/')
-  const response = await apiFetch(`/api/problems/${id}/${section}/${path}`)
-  if (!response.ok) {
-    throw new Error(await response.text())
-  }
-  return response.blob()
+  return apiUrl(`/api/problems/${id}/${section}/${path}`).toString()
 }

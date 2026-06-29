@@ -3,6 +3,7 @@ package web
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,7 +12,9 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -401,6 +404,75 @@ func TestSubmissionCanBeRejudgedByAdmin(t *testing.T) {
 	}
 	if cases != 0 {
 		t.Fatalf("cases after rejudge = %d, want 0", cases)
+	}
+}
+
+func TestProblemSubmissionsCanBeRejudgedByAdmin(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	owner := models.User{Name: "owner", Mail: "owner@example.com", Auth: "hash"}
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	for _, user := range []*models.User{&owner, &admin} {
+		if err := db.Create(user).Error; err != nil {
+			t.Fatalf("create user %s: %v", user.Name, err)
+		}
+	}
+	problem := models.Problem{ID: 1000, Title: "Target", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	otherProblem := models.Problem{ID: 1001, Title: "Other", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&[]models.Problem{problem, otherProblem}).Error; err != nil {
+		t.Fatalf("create problems: %v", err)
+	}
+	timeMS := 123
+	memoryKB := 456
+	leaseUntil := time.Now().Add(time.Minute)
+	submissions := []models.Submission{
+		{UserID: owner.ID, ProblemID: problem.ID, Language: "cpp", Code: "a", Status: "WA", Score: 20, Message: "wrong", Attempt: 3, JudgerID: &admin.ID, LeaseUntil: &leaseUntil, TimeMS: &timeMS, MemoryKB: &memoryKB},
+		{UserID: owner.ID, ProblemID: problem.ID, Language: "cpp", Code: "b", Status: "AC", Score: 100, Message: "ok", Attempt: 1, TimeMS: &timeMS, MemoryKB: &memoryKB},
+		{UserID: owner.ID, ProblemID: otherProblem.ID, Language: "cpp", Code: "c", Status: "WA", Score: 10, Message: "other", Attempt: 2, TimeMS: &timeMS, MemoryKB: &memoryKB},
+	}
+	if err := db.Create(&submissions).Error; err != nil {
+		t.Fatalf("create submissions: %v", err)
+	}
+	for _, submission := range submissions {
+		if err := db.Create(&models.Case{SubmissionID: submission.ID, No: 1, Status: submission.Status}).Error; err != nil {
+			t.Fatalf("create case: %v", err)
+		}
+	}
+
+	e := echo.New()
+	Register(e, db)
+	target := "/api/problems/1000/rejudge"
+	if res := requestWithCookies(e, http.MethodPost, target, nil, nil); res.Code != http.StatusForbidden {
+		t.Fatalf("guest should not rejudge problem, got %d body=%s", res.Code, res.Body.String())
+	}
+	adminRes := requestWithCookies(e, http.MethodPost, target, databaseSession(t, db, admin.ID), nil)
+	if adminRes.Code != http.StatusOK {
+		t.Fatalf("admin should rejudge problem, got %d body=%s", adminRes.Code, adminRes.Body.String())
+	}
+	if got := decodeJSON[CountResult](t, adminRes); got.Count != 2 {
+		t.Fatalf("rejudge count = %+v", got)
+	}
+	var got []models.Submission
+	if err := db.Order("id").Find(&got).Error; err != nil {
+		t.Fatalf("reload submissions: %v", err)
+	}
+	for _, row := range got[:2] {
+		if row.Status != "queued" || row.Score != 0 || row.Message != "" || row.JudgerID != nil || row.LeaseUntil != nil || row.TimeMS != nil || row.MemoryKB != nil {
+			t.Fatalf("rejudged submission = %+v", row)
+		}
+	}
+	if got[0].Attempt != 4 || got[1].Attempt != 2 {
+		t.Fatalf("attempts after rejudge = %d, %d", got[0].Attempt, got[1].Attempt)
+	}
+	if got[2].Status != "WA" || got[2].Attempt != 2 {
+		t.Fatalf("other problem submission changed: %+v", got[2])
+	}
+	var cases int64
+	if err := db.Model(&models.Case{}).Where("submission_id IN ?", []uint{submissions[0].ID, submissions[1].ID}).Count(&cases).Error; err != nil {
+		t.Fatalf("count target cases: %v", err)
+	}
+	if cases != 0 {
+		t.Fatalf("target cases after rejudge = %d, want 0", cases)
 	}
 }
 
@@ -2033,6 +2105,35 @@ func readZipFile(file *zip.File) ([]byte, error) {
 	}
 	defer reader.Close()
 	return io.ReadAll(reader)
+}
+
+func TestProblemAssetsUseCaseFileOrder(t *testing.T) {
+	t.Setenv("STORAGE", t.TempDir())
+	store, err := utils.NewObjectStoreFromEnv()
+	if err != nil {
+		t.Fatalf("object store: %v", err)
+	}
+	for _, name := range []string{"10.out", "2.out", "1.out", "10.in", "readme.txt", "3.ans", "2.in", "input4.txt", "answer4.txt", "3.in", "1.in"} {
+		key := path.Join("problems", "1000", "data", name)
+		if err := store.Put(context.Background(), key, strings.NewReader(name), int64(len(name)), "text/plain"); err != nil {
+			t.Fatalf("put %s: %v", name, err)
+		}
+	}
+	assets, err := problemAssetsFromStore(context.Background(), 1000, store)
+	if err != nil {
+		t.Fatalf("problem assets: %v", err)
+	}
+	var got []string
+	for _, item := range assets.Data {
+		got = append(got, item.Name)
+	}
+	want := []string{"1.in", "1.out", "2.in", "2.out", "3.in", "3.ans", "input4.txt", "answer4.txt", "10.in", "10.out", "readme.txt"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("data files = %+v, want %+v", got, want)
+	}
+	if assets.Cases != 5 {
+		t.Fatalf("cases = %d, want 5", assets.Cases)
+	}
 }
 
 func TestSafeAssetZipNameRejectsUnsafeNames(t *testing.T) {
