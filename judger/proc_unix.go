@@ -10,10 +10,6 @@ import (
 	"syscall"
 )
 
-func shellCommand(ctx context.Context, command string) *exec.Cmd {
-	return exec.CommandContext(ctx, "sh", "-lc", command)
-}
-
 func commandContext(ctx context.Context, name string, arg ...string) *exec.Cmd {
 	return exec.CommandContext(ctx, name, arg...)
 }
