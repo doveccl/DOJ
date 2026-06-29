@@ -261,16 +261,19 @@ function problemColumns(
     },
     {
       title: text.problems.limit,
+      width: 160,
       render: (_, row) => <Typography.Text type="secondary" className="nowrap">{formatLimit(row)}</Typography.Text>
     },
     {
       title: text.problems.pass,
+      width: 96,
       render: (_, row) => <Typography.Text>{formatPass(row)}</Typography.Text>
     }
   ]
   if (admin) {
     columns.push({
       title: text.common.actions,
+      width: 116,
       align: 'right',
       render: (_, row) => (
         <Space size={4}>

@@ -1,5 +1,5 @@
 import { ReloadOutlined } from '@ant-design/icons'
-import { App as AntApp, BorderBeam, Button, Card, Col, Flex, Row, Space, Switch, Table, Tooltip, Typography } from 'antd'
+import { App as AntApp, BorderBeam, Button, Card, Col, Flex, Popconfirm, Row, Space, Switch, Table, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
@@ -94,7 +94,11 @@ export function SubmissionDetailPage() {
                   <MetaInline label={text.submissions.score}>{submission.score}</MetaInline>
                   <MetaInline label={text.submissions.time}>{submission.timeMs === undefined ? '-' : `${submission.timeMs}ms`}</MetaInline>
                   <MetaInline label={text.submissions.memory}>{memoryText(submission.memoryKb)}</MetaInline>
-                  {session.admin ? <Button size="small" icon={<ReloadOutlined />} loading={rejudge.isPending} onClick={() => rejudge.mutate()}>{text.submissions.rejudge}</Button> : null}
+                  {session.admin ? (
+                    <Popconfirm title={text.submissions.confirmRejudge} okText={text.submissions.rejudge} cancelText={text.common.cancel} onConfirm={() => rejudge.mutate()}>
+                      <Button size="small" icon={<ReloadOutlined />} loading={rejudge.isPending}>{text.submissions.rejudge}</Button>
+                    </Popconfirm>
+                  ) : null}
                 </Space>
               }
             >
@@ -202,20 +206,23 @@ function MetaInline({ label, children }: { label: string; children: ReactNode })
 
 function caseColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Case>['columns'] {
   return [
-    { title: text.submissions.cases, dataIndex: 'no', render: (no: number) => caseCode(no) },
+    { title: text.submissions.cases, dataIndex: 'no', width: 96, render: (no: number) => caseCode(no) },
     {
       title: text.submissions.status,
       dataIndex: 'status',
+      width: 120,
       render: (status: string) => <SubmissionStatus status={status} />
     },
     {
       title: text.submissions.time,
       dataIndex: 'timeMs',
+      width: 96,
       render: (value?: number) => (value === undefined ? '-' : `${value}ms`)
     },
     {
       title: text.submissions.memory,
       dataIndex: 'memoryKb',
+      width: 96,
       render: (value?: number) => memoryText(value)
     },
     {

@@ -271,7 +271,7 @@ function assignmentColumns(
       dataIndex: 'title',
       render: (title: string, row) => (
         <Flex align="center" gap={8} className="tableTitleLine">
-          <Typography.Text ellipsis className="lineText">
+          <Typography.Text ellipsis={{ tooltip: title }} className="lineText">
             <Link to={`/assignments/${row.id}`}>{title}</Link>
           </Typography.Text>
         </Flex>
@@ -279,10 +279,12 @@ function assignmentColumns(
     },
     {
       title: text.assignments.status,
+      width: 120,
       render: (_, row) => <ScheduleTag kind="assignment" status={row.status} target={row.endAt} onFinish={actions.refresh} />
     },
     {
       title: text.assignments.progress,
+      width: 180,
       render: (_, row) => (
         <Flex align="center" gap={10} style={{ minWidth: 160 }}>
           <Progress percent={progress(row)} size="small" showInfo={false} style={{ minWidth: 96 }} />
@@ -294,6 +296,7 @@ function assignmentColumns(
   if (admin) {
     columns.push({
       title: text.common.actions,
+      width: 96,
       align: 'right',
       render: (_, row) => (
         <Space size={4}>

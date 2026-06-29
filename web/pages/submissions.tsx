@@ -1,5 +1,5 @@
 import { SearchOutlined } from '@ant-design/icons'
-import { Button, Card, Flex, Form, Select, Table, Tag, Typography } from 'antd'
+import { Button, Card, Flex, Form, Select, Table, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -243,7 +243,9 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: str
     },
     {
       title: text.submissions.language,
-      render: (_, row) => <Tag>{languageNames.get(row.language) ?? row.language}</Tag>
+      width: 180,
+      ellipsis: true,
+      render: (_, row) => languageNames.get(row.language) ?? row.language
     },
     {
       title: text.submissions.created,

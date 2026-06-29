@@ -258,7 +258,7 @@ function discussionColumns(
       width: 420,
       render: (title: string, row) => (
         <Flex align="center" gap={8} className="tableTitleLine">
-          <Typography.Text ellipsis className="lineText">
+          <Typography.Text ellipsis={{ tooltip: title }} className="lineText">
             <Link to={`/discussion/${row.id}`}>{title}</Link>
           </Typography.Text>
           {row.pinned ? <Tag color="green">{text.discussion.pinned}</Tag> : null}
@@ -290,16 +290,19 @@ function discussionColumns(
     {
       title: text.discussion.replies,
       dataIndex: 'replies',
+      width: 96
     },
     {
       title: text.discussion.created,
       dataIndex: 'createdAt',
+      width: 180,
       render: (value: string) => <Typography.Text className="nowrap">{formatTime(value, lang)}</Typography.Text>
     }
   ]
   if (admin) {
     columns.push({
       title: text.common.actions,
+      width: 156,
       align: 'right',
       render: (_, row) => (
         <Space size={4}>

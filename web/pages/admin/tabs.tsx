@@ -113,10 +113,11 @@ export function UsersTab({
         columns={[
           { title: text.rank.user, dataIndex: 'name', render: (name: string) => <UserLink name={name} /> },
           { title: text.profile.email, dataIndex: 'mail' },
-          { title: text.admin.role, dataIndex: 'role', render: (role: string) => <Tag color={role === 'admin' ? 'blue' : undefined}>{roleText[role] ?? role}</Tag> },
-          { title: text.admin.groupCount, dataIndex: 'groups', render: (groups: number[] | undefined) => <Typography.Text>{groups?.length ?? 0}</Typography.Text> },
+          { title: text.admin.role, dataIndex: 'role', width: 96, render: (role: string) => <Tag color={role === 'admin' ? 'blue' : undefined}>{roleText[role] ?? role}</Tag> },
+          { title: text.admin.groupCount, dataIndex: 'groups', width: 96, render: (groups: number[] | undefined) => <Typography.Text>{groups?.length ?? 0}</Typography.Text> },
           {
             title: text.common.actions,
+            width: 132,
             render: (_, row) => (
               <Space size={4}>
                 <Tooltip title={text.common.edit}>
@@ -190,9 +191,10 @@ export function GroupsTab({
         }}
         columns={[
           { title: text.admin.groups, dataIndex: 'name' },
-          { title: text.admin.userCount, render: (_, row) => <Typography.Text>{row.users?.length ?? 0}</Typography.Text> },
+          { title: text.admin.userCount, width: 96, render: (_, row) => <Typography.Text>{row.users?.length ?? 0}</Typography.Text> },
           {
             title: text.common.actions,
+            width: 96,
             render: (_, row) => (
               <Space size={4}>
                 <Tooltip title={text.common.edit}>
@@ -249,6 +251,7 @@ export function LanguagesTab({
           },
           {
             title: text.common.actions,
+            width: 96,
             render: (_, row) => (
               <Space size={4}>
                 <Tooltip title={text.common.edit}>
@@ -298,10 +301,11 @@ export function JudgersTab({
         dataSource={data?.judgers ?? []}
         columns={[
           { title: text.admin.name, dataIndex: 'name' },
-          { title: text.admin.status, dataIndex: 'online', render: (online: boolean) => (online ? <Tag color="success">{text.admin.online}</Tag> : <Tag>{text.admin.offline}</Tag>) },
+          { title: text.admin.status, dataIndex: 'online', width: 96, render: (online: boolean) => (online ? <Tag color="success">{text.admin.online}</Tag> : <Tag>{text.admin.offline}</Tag>) },
           { title: text.admin.uptime, dataIndex: 'uptimeSeconds', render: (value: number, row) => (row.online ? formatDuration(value, lang) : '-') },
           {
             title: text.common.actions,
+            width: 96,
             render: (_, row) => (
               <Space size={4}>
                 <Tooltip title={text.common.edit}>
@@ -396,6 +400,7 @@ export function BackupsTab({
             { title: text.admin.backupSize, dataIndex: 'size', render: (value: number) => formatBytes(value) },
             {
               title: text.common.actions,
+              width: 132,
               render: (_, row) => (
                 <Space size={4}>
                   <Tooltip title={text.common.download}>

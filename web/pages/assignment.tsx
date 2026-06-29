@@ -204,10 +204,12 @@ function progressColumns(text: ReturnType<typeof useLocale>['text'], problems: P
     {
       title: text.rank.ac,
       dataIndex: 'ac',
+      width: 72
     },
     {
       title: text.rank.submit,
       dataIndex: 'submit',
+      width: 96
     }
   ]
 }
@@ -217,6 +219,7 @@ function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<
     {
       title: text.common.sort,
       dataIndex: 'sort',
+      width: 96,
       render: (sort: string | undefined, row) => <Typography.Text>{sort || problemCode(row.id)}</Typography.Text>
     },
     {
@@ -227,6 +230,7 @@ function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<
     {
       title: text.assignments.status,
       dataIndex: 'mine',
+      width: 120,
       render: (mine: string) => <AssignmentProblemStatus mine={mine} text={text} />
     }
   ]

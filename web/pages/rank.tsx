@@ -24,6 +24,7 @@ export function RankPage() {
         <LoadingBlock />
       ) : (
         <Table<RankUser>
+          tableLayout="fixed"
           rowKey="user"
           columns={rankColumns(text)}
           dataSource={query.data?.items ?? []}
@@ -40,10 +41,10 @@ function rankColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Ran
     {
       title: text.rank.rank,
       dataIndex: 'rank',
+      width: 72
     },
     {
       title: text.rank.user,
-      width: 220,
       render: (_, row) => (
         <Flex align="center" gap={12}>
           <Avatar src={row.avatar || undefined}>{row.user.slice(0, 1).toUpperCase()}</Avatar>
@@ -59,7 +60,7 @@ function rankColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Ran
       width: 360,
       ellipsis: true,
       render: (bio: string) => (
-        <Typography.Text type={bio ? undefined : 'secondary'} ellipsis className="lineText">
+        <Typography.Text type={bio ? undefined : 'secondary'} ellipsis={{ tooltip: bio || text.user.noBio }} className="lineText">
           {bio || text.user.noBio}
         </Typography.Text>
       )
@@ -67,10 +68,12 @@ function rankColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Ran
     {
       title: text.rank.ac,
       dataIndex: 'ac',
+      width: 72
     },
     {
       title: text.rank.submit,
       dataIndex: 'submit',
+      width: 96
     }
   ]
 }

@@ -325,7 +325,7 @@ export function ProblemDetailPage() {
                   <Typography.Text strong className="problemCodeText">
                     {problemCode(problem.id)}
                   </Typography.Text>
-                  <Typography.Text strong ellipsis className="problemTitleText">
+                  <Typography.Text strong ellipsis={{ tooltip: problem.title }} className="problemTitleText">
                     {problem.title}
                   </Typography.Text>
                   <Tag color="blue">{formatLimit(problem)}</Tag>
@@ -421,9 +421,11 @@ export function ProblemDetailPage() {
                       <Button size="small" icon={<FolderOpenOutlined />} onClick={() => setAssetsOpen(true)}>
                         {text.problem.assetManage}
                       </Button>
-                      <Button size="small" icon={<ReloadOutlined />} loading={rejudge.isPending} onClick={() => rejudge.mutate()}>
-                        {text.problem.rejudgeAll}
-                      </Button>
+                      <Popconfirm title={text.problem.confirmRejudgeAll} okText={text.problem.rejudgeAll} cancelText={text.common.cancel} onConfirm={() => rejudge.mutate()}>
+                        <Button size="small" icon={<ReloadOutlined />} loading={rejudge.isPending}>
+                          {text.problem.rejudgeAll}
+                        </Button>
+                      </Popconfirm>
                     </Space>
                   }
                 >
@@ -657,15 +659,24 @@ function AssetSection({
     }
     return true
   }
-  const onChange: UploadProps<ProblemAssets>['onChange'] = ({ file }) => {
-    setUploadFiles((current) => current.filter((item) => item.uid !== file.uid).concat(file).filter((item) => item.status !== 'done' && item.status !== 'error' && item.status !== 'removed'))
+  const onChange: UploadProps<ProblemAssets>['onChange'] = ({ file, fileList }) => {
+    const currentFiles = fileList.filter((item) => item.status !== 'removed')
+    setUploadFiles(currentFiles.some((item) => item.status === 'uploading') ? currentFiles : [])
     if (file.status === 'uploading') {
-      message.open({ key: uploadKey, type: 'loading', content: `${file.name} ${Math.round(file.percent ?? 0)}%`, duration: 0 })
+      const done = currentFiles.filter((item) => item.status === 'done').length
+      message.open({
+        key: uploadKey,
+        type: 'loading',
+        content: currentFiles.length > 1 ? text.problem.uploadedCount(done, currentFiles.length) : text.problem.uploadedPercent(Math.round(file.percent ?? 0)),
+        duration: 0
+      })
       return
     }
     if (file.status === 'done' && file.response) {
       onUploaded(file.response)
-      message.success({ key: uploadKey, content: text.common.saved })
+      if (currentFiles.every((item) => item.status === 'done')) {
+        message.success({ key: uploadKey, content: text.problem.uploadDone })
+      }
     } else if (file.status === 'error') {
       message.error({ key: uploadKey, content: file.error?.message || text.common.loadingFailed })
     }
@@ -729,7 +740,7 @@ function AssetSection({
 
 function AssetName({ file }: { file: AssetFile }) {
   return (
-    <Typography.Text ellipsis>
+    <Typography.Text ellipsis={{ tooltip: `${file.name} (${formatBytes(file.size)})` }}>
       {file.name} <Typography.Text type="secondary">({formatBytes(file.size)})</Typography.Text>
     </Typography.Text>
   )

@@ -147,7 +147,7 @@ function AssignmentList({ title, items }: { title: string; items: HomeAssignment
           dataSource={items}
           renderItem={(item) => (
             <List.Item key={item.id} extra={<Typography.Text type="secondary" className="nowrap">{text.assignments.done(item.done, item.total)}</Typography.Text>}>
-              <Typography.Text strong ellipsis className="lineText">
+              <Typography.Text strong ellipsis={{ tooltip: item.title }} className="lineText">
                 <Link to={`/assignments/${item.id}`}>{item.title}</Link>
               </Typography.Text>
             </List.Item>
@@ -171,7 +171,7 @@ function ContestList({ title, items }: { title: string; items: HomeContest[] }) 
           dataSource={items}
           renderItem={(item) => (
             <List.Item key={item.id} extra={<Tag color={contestStatusColor(item.status)}>{contestStatusText(item.status, text)}</Tag>}>
-              <Typography.Text strong ellipsis className="lineText">
+              <Typography.Text strong ellipsis={{ tooltip: item.title }} className="lineText">
                 <Link to={`/contests/${item.id}`}>{item.title}</Link>
               </Typography.Text>
             </List.Item>

@@ -116,7 +116,7 @@ function ActivityItem({ activity, lang, submitted, posted }: { activity: UserAct
         <Flex align="center" gap={8} className="profileActivityLine">
           <Typography.Text>{posted}</Typography.Text>
           <span className="profileActivityTitle">
-            <Typography.Text ellipsis className="lineText">
+            <Typography.Text ellipsis={{ tooltip: activity.title }} className="lineText">
               <Link to={`/discussion/${activity.id}`}>{activity.title}</Link>
             </Typography.Text>
           </span>
@@ -138,7 +138,7 @@ function ActivityItem({ activity, lang, submitted, posted }: { activity: UserAct
         ) : null}
         <Typography.Text className="nowrap">{submitted}</Typography.Text>
         <span className="profileActivityTitle">
-          {activity.problemId ? <ProblemLink id={activity.problemId} title={activity.problemTitle} /> : <Typography.Text ellipsis className="lineText">{activity.title}</Typography.Text>}
+          {activity.problemId ? <ProblemLink id={activity.problemId} title={activity.problemTitle} /> : <Typography.Text ellipsis={{ tooltip: activity.title }} className="lineText">{activity.title}</Typography.Text>}
         </span>
       </Flex>
       <Typography.Text type="secondary" className="nowrap">

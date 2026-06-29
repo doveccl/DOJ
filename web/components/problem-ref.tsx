@@ -68,7 +68,7 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading }:
     {
       title: text.submissions.problem,
       render: (_, row) => (
-        <Typography.Text ellipsis className="lineText">
+        <Typography.Text ellipsis={{ tooltip: optionMap.get(row.id) || problemCode(row.id) }} className="lineText">
           <Link to={`/problems/${row.id}`}>{optionMap.get(row.id) || problemCode(row.id)}</Link>
         </Typography.Text>
       )
