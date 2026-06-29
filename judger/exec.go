@@ -492,12 +492,7 @@ func prepareUserWorkIdentity(root string, identity ProcessIdentity) error {
 }
 
 func customJudgeCommand(ctx context.Context, req LocalRun, transcriptPath string, resultPath string) *exec.Cmd {
-	return shellCommand(ctx, req.JudgeCommand+" "+strings.Join([]string{
-		shellQuote(req.Case.Input),
-		shellQuote(transcriptPath),
-		shellQuote(req.Case.Answer),
-		shellQuote(resultPath),
-	}, " "))
+	return commandContext(ctx, req.JudgeCommand, req.Case.Input, transcriptPath, req.Case.Answer, resultPath)
 }
 
 func touchPrivateFile(path string) error {

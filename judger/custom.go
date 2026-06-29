@@ -22,7 +22,7 @@ func prepareContainerCustomJudge(ctx context.Context, work string, limits Limits
 	if err != nil || rel == "." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." {
 		return "", CompileResult{OK: false, Message: "custom judge path is outside job directory"}, nil
 	}
-	return shellQuote(slashpath.Join(containerWorkDir, filepath.ToSlash(rel))), result, nil
+	return slashpath.Join(containerWorkDir, filepath.ToSlash(rel)), result, nil
 }
 
 func prepareCustomJudgePath(ctx context.Context, work string, limits Limits, cachePath string) (string, CompileResult, error) {
@@ -173,8 +173,4 @@ func validateCustomJudgeProgram(path string, source string) error {
 		return err
 	}
 	return nil
-}
-
-func shellQuote(value string) string {
-	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
