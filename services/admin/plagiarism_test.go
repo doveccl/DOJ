@@ -3,11 +3,14 @@ package admin
 import (
 	"archive/zip"
 	"bytes"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/doveccl/doj/models"
+	"github.com/labstack/echo/v4"
 )
 
 func TestPlagiarismPackageUsesScopeAsNewAndProblemHistoryAsOld(t *testing.T) {
@@ -73,5 +76,27 @@ func TestJPlagFailureUnwrapsEchoJSONAndDropsVersionWarning(t *testing.T) {
 	}
 	if !strings.Contains(got, "Not enough valid submissions") {
 		t.Fatalf("failure message lost useful error: %q", got)
+	}
+}
+
+func TestProxyPlagiarismDropsCookie(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if cookie := r.Header.Get(echo.HeaderCookie); cookie != "" {
+			t.Fatalf("proxied cookie = %q", cookie)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer upstream.Close()
+	t.Setenv("JPLAG", upstream.URL)
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/JPlag/?file=x", nil)
+	req.Header.Set(echo.HeaderCookie, "doj_session=secret")
+	rec := httptest.NewRecorder()
+	if err := (&API{}).proxyPlagiarism(e.NewContext(req, rec), "JPlag/"); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
 	}
 }

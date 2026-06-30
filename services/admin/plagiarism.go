@@ -167,11 +167,12 @@ func (api *API) proxyPlagiarism(c echo.Context, rel string) error {
 	}
 	proxy := &httputil.ReverseProxy{Rewrite: func(req *httputil.ProxyRequest) {
 		req.SetURL(base)
-		req.Out.URL.Path = path.Join(base.Path, rel)
+		req.Out.URL.Path = "/" + strings.TrimLeft(path.Join(base.Path, rel), "/")
 		if strings.HasSuffix(c.Request().URL.Path, "/") && !strings.HasSuffix(req.Out.URL.Path, "/") {
 			req.Out.URL.Path += "/"
 		}
 		req.Out.URL.RawQuery = c.Request().URL.RawQuery
+		req.Out.Header.Del(echo.HeaderCookie)
 	}}
 	proxy.ServeHTTP(c.Response(), c.Request())
 	return nil
