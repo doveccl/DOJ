@@ -705,12 +705,6 @@ function AssetSection({
       title={title}
       extra={
         <Space wrap size={6}>
-          {extra}
-          {onDeleteAll ? (
-            <Popconfirm title={text.common.confirmDelete} okText={text.common.delete} cancelText={text.common.cancel} onConfirm={onDeleteAll}>
-              <Button size="small" danger disabled={loading || files.length === 0} loading={loading} icon={<DeleteOutlined />}>{text.common.deleteAll}</Button>
-            </Popconfirm>
-          ) : null}
           <Upload<ProblemAssets>
             accept={accept}
             action={apiUrl(`/api/problems/${problemId}/assets/files`).toString()}
@@ -727,6 +721,12 @@ function AssetSection({
           >
             <Button size="small" disabled={loading} loading={loading} icon={<UploadOutlined />}>{text.problem.upload}</Button>
           </Upload>
+          {extra}
+          {onDeleteAll ? (
+            <Popconfirm title={text.common.confirmDelete} okText={text.common.delete} cancelText={text.common.cancel} onConfirm={onDeleteAll}>
+              <Button size="small" danger disabled={loading || files.length === 0} loading={loading} icon={<DeleteOutlined />}>{text.common.clear}</Button>
+            </Popconfirm>
+          ) : null}
         </Space>
       }
     >
@@ -869,16 +869,16 @@ function ProblemManageActions({
   const { text } = useLocale()
   const items: MenuProps['items'] = [
     {
-      key: 'download',
-      icon: <DownloadOutlined />,
-      label: text.problem.downloadAssets,
-      onClick: () => downloadURL(problemAssetsDownloadURL(id), `${problemCode(id)}.zip`)
-    },
-    {
       key: 'assets',
       icon: <FolderOpenOutlined />,
       label: text.problem.assetManage,
       onClick: onOpenAssets
+    },
+    {
+      key: 'download',
+      icon: <DownloadOutlined />,
+      label: text.problem.downloadAssets,
+      onClick: () => downloadURL(problemAssetsDownloadURL(id), `${problemCode(id)}.zip`)
     },
     {
       key: 'rejudge',
@@ -899,11 +899,11 @@ function ProblemManageActions({
   }
   return (
     <Space size={6}>
-      <Button size="small" icon={<DownloadOutlined />} onClick={() => downloadURL(problemAssetsDownloadURL(id), `${problemCode(id)}.zip`)}>
-        {text.problem.downloadAssets}
-      </Button>
       <Button size="small" icon={<FolderOpenOutlined />} onClick={onOpenAssets}>
         {text.problem.assetManage}
+      </Button>
+      <Button size="small" icon={<DownloadOutlined />} onClick={() => downloadURL(problemAssetsDownloadURL(id), `${problemCode(id)}.zip`)}>
+        {text.problem.downloadAssets}
       </Button>
       <Popconfirm title={text.problem.confirmRejudgeAll} okText={text.problem.rejudgeAll} cancelText={text.common.cancel} onConfirm={onRejudge}>
         <Button size="small" icon={<ReloadOutlined />} loading={rejudgeLoading}>
