@@ -62,10 +62,10 @@ export function ProfileOverview({ profile, renderAvatar, sidebarAction, onSolved
             <YearHeatmap cells={profile.heatmap} />
           </Card>
           <Row gutter={[20, 20]}>
-            <Col xs={24} xl={14}>
+            <Col xs={24} xl={12}>
               <ActivityCard activities={profile.activities} />
             </Col>
-            <Col xs={24} xl={10}>
+            <Col xs={24} xl={12}>
               <SolvedCard page={profile.solved} onPageChange={onSolvedPageChange} />
             </Col>
           </Row>

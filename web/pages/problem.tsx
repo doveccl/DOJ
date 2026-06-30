@@ -915,7 +915,7 @@ function ProblemManageActions({
 
 function ProblemStat({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <Flex vertical gap={4}>
+    <Flex vertical align="center" gap={4}>
       <Typography.Text type="secondary">{title}</Typography.Text>
       <Typography.Text strong>{children}</Typography.Text>
     </Flex>
