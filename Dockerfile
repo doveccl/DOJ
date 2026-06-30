@@ -29,11 +29,17 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 FROM eclipse-temurin:25-jre-alpine AS jplag
 
 ARG JPLAG_VERSION=6.3.0
+ENV PATH="/opt/java/openjdk/bin:${PATH}"
 
 RUN apk add --no-cache ca-certificates wget \
   && adduser -D -h /var/lib/doj doj \
   && mkdir -p /app /var/lib/doj \
   && wget -q -O /app/jplag.jar "https://github.com/jplag/JPlag/releases/download/v${JPLAG_VERSION}/jplag-${JPLAG_VERSION}-jar-with-dependencies.jar" \
+  && mkdir -p /tmp/doj-jplag-viewer/new /tmp/doj-jplag-viewer/old \
+  && printf '#include <bits/stdc++.h>\nusing namespace std;\nint main(){ vector<int> a(50); iota(a.begin(), a.end(), 1); long long s=0; for(int v:a) s+=v*v; cout<<s<<"\\n"; }\n' > /tmp/doj-jplag-viewer/new/a.cpp \
+  && printf '#include <bits/stdc++.h>\nusing namespace std;\nint main(){ vector<int> b(50); iota(b.begin(), b.end(), 1); long long ans=0; for(int x:b) ans+=x*x; cout<<ans<<"\\n"; }\n' > /tmp/doj-jplag-viewer/old/b.cpp \
+  && java -jar /app/jplag.jar --mode run --language cpp --new /tmp/doj-jplag-viewer/new --old /tmp/doj-jplag-viewer/old --min-tokens 1 --result-file /app/viewer.jplag --overwrite >/tmp/doj-jplag-viewer/build.log 2>&1 \
+  && rm -rf /tmp/doj-jplag-viewer \
   && chown -R doj:doj /app /var/lib/doj
 
 COPY --from=build /out/doj-jplag /usr/local/bin/doj-jplag
