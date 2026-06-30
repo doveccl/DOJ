@@ -93,6 +93,11 @@ func runJPlagHandler(c echo.Context) error {
 	if err := unzip(input, filepath.Join(work, "src")); err != nil {
 		return err
 	}
+	for _, dir := range []string{"new", "old"} {
+		if err := os.MkdirAll(filepath.Join(work, "src", dir), 0o755); err != nil {
+			return err
+		}
+	}
 	report := filepath.Join(work, "report.jplag")
 	if err := runJPlag(c.Request().Context(), filepath.Join(work, "src", "new"), filepath.Join(work, "src", "old"), report); err != nil {
 		return echo.NewHTTPError(http.StatusBadGateway, err.Error())
@@ -137,12 +142,24 @@ func runJPlag(ctx context.Context, newDir string, oldDir string, report string) 
 	cmd := exec.CommandContext(ctx, "java", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(output)))
+		return fmt.Errorf("%w: %s", err, jplagError(output))
 	}
 	if _, err := os.Stat(report); err != nil {
 		return fmt.Errorf("JPlag did not create report: %w", err)
 	}
 	return nil
+}
+
+func jplagError(output []byte) string {
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	items := lines[:0]
+	for _, line := range lines {
+		if strings.Contains(line, "JPlagVersionChecker") {
+			continue
+		}
+		items = append(items, strings.TrimSpace(line))
+	}
+	return strings.Join(items, "\n")
 }
 
 func writeFile(name string, src io.Reader) error {
