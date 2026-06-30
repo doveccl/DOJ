@@ -6,6 +6,7 @@ import {
   EyeOutlined,
   FileAddOutlined,
   FolderOpenOutlined,
+  MoreOutlined,
   ReloadOutlined,
   SendOutlined,
   UploadOutlined
@@ -17,8 +18,10 @@ import {
   Checkbox,
   Col,
   Divider,
+  Dropdown,
   Flex,
   Form,
+  Grid,
   Input,
   Modal,
   Popconfirm,
@@ -32,6 +35,7 @@ import {
   Upload
 } from 'antd'
 import type { UploadFile, UploadProps } from 'antd'
+import type { MenuProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -84,6 +88,7 @@ type ProblemEditForm = {
 
 export function ProblemDetailPage() {
   const { text } = useLocale()
+  const screens = Grid.useBreakpoint()
   const session = useSession()
   const { message } = App.useApp()
   const client = useQueryClient()
@@ -305,6 +310,15 @@ export function ProblemDetailPage() {
   const langItems = languages.data ?? []
   const langOptions = langItems.map((item) => ({ value: item.id, label: item.name }))
   const selectedLang = langItems.find((item) => item.id === lang)
+  const manageActions = (
+    <ProblemManageActions
+      id={id}
+      rejudgeLoading={rejudge.isPending}
+      compact={!screens.sm}
+      onOpenAssets={() => setAssetsOpen(true)}
+      onRejudge={() => rejudge.mutate()}
+    />
+  )
 
   function changeLang(next: string) {
     setLang(next)
@@ -429,21 +443,8 @@ export function ProblemDetailPage() {
                 </Row>
               </Card>
               {session.admin ? (
-                <Card title={text.problem.manage}>
+                <Card title={text.problem.manage} extra={manageActions}>
                   <Flex vertical gap={12}>
-                    <Space size={6} wrap>
-                      <Button size="small" icon={<DownloadOutlined />} onClick={() => downloadURL(problemAssetsDownloadURL(id), `${problemCode(id)}.zip`)}>
-                        {text.problem.downloadAssets}
-                      </Button>
-                      <Button size="small" icon={<FolderOpenOutlined />} onClick={() => setAssetsOpen(true)}>
-                        {text.problem.assetManage}
-                      </Button>
-                      <Popconfirm title={text.problem.confirmRejudgeAll} okText={text.problem.rejudgeAll} cancelText={text.common.cancel} onConfirm={() => rejudge.mutate()}>
-                        <Button size="small" icon={<ReloadOutlined />} loading={rejudge.isPending}>
-                          {text.problem.rejudgeAll}
-                        </Button>
-                      </Popconfirm>
-                    </Space>
                     <ResourceRow label={text.problem.mode}>
                       <JudgeModeSelect
                         size="small"
@@ -850,6 +851,67 @@ function dataCaseStem(name: string) {
 
 function acceptedDataFile(name: string) {
   return ['.in', '.out', '.ans', '.txt'].some((suffix) => name.toLowerCase().endsWith(suffix))
+}
+
+function ProblemManageActions({
+  id,
+  rejudgeLoading,
+  compact,
+  onOpenAssets,
+  onRejudge
+}: {
+  id: number
+  rejudgeLoading: boolean
+  compact: boolean
+  onOpenAssets: () => void
+  onRejudge: () => void
+}) {
+  const { text } = useLocale()
+  const items: MenuProps['items'] = [
+    {
+      key: 'download',
+      icon: <DownloadOutlined />,
+      label: text.problem.downloadAssets,
+      onClick: () => downloadURL(problemAssetsDownloadURL(id), `${problemCode(id)}.zip`)
+    },
+    {
+      key: 'assets',
+      icon: <FolderOpenOutlined />,
+      label: text.problem.assetManage,
+      onClick: onOpenAssets
+    },
+    {
+      key: 'rejudge',
+      icon: <ReloadOutlined />,
+      label: (
+        <Popconfirm title={text.problem.confirmRejudgeAll} okText={text.problem.rejudgeAll} cancelText={text.common.cancel} onConfirm={onRejudge}>
+          <span>{text.problem.rejudgeAll}</span>
+        </Popconfirm>
+      )
+    }
+  ]
+  if (compact) {
+    return (
+      <Dropdown menu={{ items }} trigger={['click']}>
+        <Button size="small" icon={<MoreOutlined />} aria-label={text.common.actions} loading={rejudgeLoading} />
+      </Dropdown>
+    )
+  }
+  return (
+    <Space size={6}>
+      <Button size="small" icon={<DownloadOutlined />} onClick={() => downloadURL(problemAssetsDownloadURL(id), `${problemCode(id)}.zip`)}>
+        {text.problem.downloadAssets}
+      </Button>
+      <Button size="small" icon={<FolderOpenOutlined />} onClick={onOpenAssets}>
+        {text.problem.assetManage}
+      </Button>
+      <Popconfirm title={text.problem.confirmRejudgeAll} okText={text.problem.rejudgeAll} cancelText={text.common.cancel} onConfirm={onRejudge}>
+        <Button size="small" icon={<ReloadOutlined />} loading={rejudgeLoading}>
+          {text.problem.rejudgeAll}
+        </Button>
+      </Popconfirm>
+    </Space>
+  )
 }
 
 function ProblemStat({ title, children }: { title: string; children: ReactNode }) {
