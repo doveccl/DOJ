@@ -26,23 +26,6 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
   CGO_ENABLED=0 go build -tags runner -o /out/doj-runner ./cmd/runner.go && \
   CGO_ENABLED=0 go build -tags jplag -o /out/doj-jplag ./cmd/jplag.go
 
-FROM alpine:3.23
-
-RUN apk add --no-cache ca-certificates postgresql-client tzdata \
-  && adduser -D -h /var/lib/doj doj \
-  && mkdir -p /app /var/lib/doj \
-  && chown -R doj:doj /app /var/lib/doj
-
-COPY --from=build /out/doj-server /usr/local/bin/doj-server
-COPY --from=build /out/doj-judger /usr/local/bin/doj-judger
-COPY --from=build /out/doj-runner /usr/local/bin/doj-runner
-COPY --from=web --chown=doj:doj /src/dist /app/dist
-
-WORKDIR /app
-USER doj
-EXPOSE 7974
-CMD ["doj-server"]
-
 FROM eclipse-temurin:21-jre-alpine AS jplag
 
 ARG JPLAG_VERSION=6.2.0
@@ -59,3 +42,20 @@ WORKDIR /app
 USER doj
 EXPOSE 7979
 CMD ["doj-jplag"]
+
+FROM alpine:3.23 AS app
+
+RUN apk add --no-cache ca-certificates postgresql-client tzdata \
+  && adduser -D -h /var/lib/doj doj \
+  && mkdir -p /app /var/lib/doj \
+  && chown -R doj:doj /app /var/lib/doj
+
+COPY --from=build /out/doj-server /usr/local/bin/doj-server
+COPY --from=build /out/doj-judger /usr/local/bin/doj-judger
+COPY --from=build /out/doj-runner /usr/local/bin/doj-runner
+COPY --from=web --chown=doj:doj /src/dist /app/dist
+
+WORKDIR /app
+USER doj
+EXPOSE 7974
+CMD ["doj-server"]
