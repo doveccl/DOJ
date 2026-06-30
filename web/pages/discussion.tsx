@@ -7,9 +7,10 @@ import { useState } from 'react'
 
 import { api, apiData, apiEmpty } from '../client'
 import type { Discussion, DiscussionCreate } from '../client'
-import { EntityTag, UserLink } from '../components/entity'
+import { UserLink } from '../components/entity'
 import { MarkdownEditor } from '../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../components/state'
+import { TagList } from '../components/tags'
 import { TagSelect } from '../components/tag-select'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
@@ -271,17 +272,7 @@ function discussionColumns(
       title: text.discussion.tags,
       dataIndex: 'tags',
       width: 260,
-      render: (tags: string[]) => (
-        tags.length > 0 ? (
-          <Space size={[4, 4]} wrap>
-            {tags.map((tag) => (
-              <EntityTag key={tag}>{tag}</EntityTag>
-            ))}
-          </Space>
-        ) : (
-          <Typography.Text type="secondary">-</Typography.Text>
-        )
-      )
+      render: (tags: string[]) => <TagList tags={tags} empty={<Typography.Text type="secondary">-</Typography.Text>} />
     },
     {
       title: text.discussion.author,

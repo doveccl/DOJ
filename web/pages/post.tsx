@@ -6,9 +6,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { api, apiData, apiEmpty } from '../client'
 import type { CommentCreate, DiscussionDetail } from '../client'
-import { EntityTag, UserLink } from '../components/entity'
+import { UserLink } from '../components/entity'
 import { MarkdownEditor, MarkdownPreview } from '../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../components/state'
+import { TagList } from '../components/tags'
 import { TagSelect } from '../components/tag-select'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
@@ -157,11 +158,7 @@ export function PostPage() {
           <Space size={8} wrap>
             <UserLink name={discussion.author} />
             <Typography.Text type="secondary">{formatTime(discussion.createdAt, lang)}</Typography.Text>
-            {discussion.tags.map((tag) => (
-              <EntityTag key={tag} title={tag}>
-                <Link to={`/discussion?tags=${encodeURIComponent(tag)}`}>{tag}</Link>
-              </EntityTag>
-            ))}
+            <TagList tags={discussion.tags} linkTo={(tag) => `/discussion?tags=${encodeURIComponent(tag)}`} />
           </Space>
           <MarkdownPreview value={content} />
         </Flex>

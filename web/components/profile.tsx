@@ -6,9 +6,10 @@ import { Link } from 'react-router-dom'
 import type { SolvedProblem, SolvedProblemPage, UserActivity, UserProfile } from '../client'
 import { useLocale } from '../locale'
 import { formatTime } from '../utils/format'
-import { EntityTag, ProblemLink } from './entity'
+import { ProblemLink } from './entity'
 import { YearHeatmap } from './heatmap'
 import { SubmissionStatus } from './status'
+import { TagList } from './tags'
 
 type ProfileOverviewProps = {
   profile: UserProfile
@@ -173,13 +174,7 @@ function SolvedCard({ page, onPageChange }: { page: SolvedProblemPage; onPageCha
               },
               {
                 width: 132,
-                render: (_, row) => (
-                  <Space size={[4, 4]} wrap>
-                    {row.tags.slice(0, 2).map((tag) => (
-                      <EntityTag key={tag} maxWidth={72}>{tag}</EntityTag>
-                    ))}
-                  </Space>
-                )
+                render: (_, row) => <TagList tags={row.tags} maxWidth={72} />
               }
             ]}
           />

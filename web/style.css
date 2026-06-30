@@ -319,7 +319,6 @@ body {
 
 .problemCodeText,
 .problemHeadActions,
-.problemHeadTitle .ant-tag,
 .problemHeadTitle .ant-btn {
   flex: none;
 }
@@ -331,14 +330,9 @@ body {
   min-width: 0;
 }
 
-.problemHeadTitle .ant-tag,
 .problemHeadTitle .ant-btn {
   display: inline-flex;
   align-items: center;
-}
-
-.problemHeadTitle .ant-tag {
-  margin-inline-end: 0;
 }
 
 .submissionMessagePreview {

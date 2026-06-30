@@ -52,12 +52,12 @@ import {
 } from '../client'
 import type { AssetContent, AssetFile, Language as SubmitLang, Problem, ProblemAssets } from '../client'
 import { CodeEditor } from '../components/code'
-import { EntityTag } from '../components/entity'
 import { JudgeModeSelect } from '../components/judge'
 import { LimitInput } from '../components/limit'
 import { MarkdownEditor, MarkdownPreview } from '../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { SubmissionStatus } from '../components/status'
+import { TagList } from '../components/tags'
 import { TagSelect } from '../components/tag-select'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
@@ -360,10 +360,6 @@ export function ProblemDetailPage() {
                   <Typography.Text strong ellipsis={{ tooltip: problem.title }} className="problemTitleText">
                     {problem.title}
                   </Typography.Text>
-                  <Tag color="blue">{formatLimit(problem)}</Tag>
-                  {problem.tags.map((tag) => (
-                    <EntityTag key={tag}>{tag}</EntityTag>
-                  ))}
                 </Flex>
               }
               extra={
@@ -423,7 +419,10 @@ export function ProblemDetailPage() {
           </Col>
           <Col xs={24} lg={8}>
             <Flex vertical gap={16} className="pageStack">
-              <Card>
+              <Card
+                title={<Tag color="blue">{formatLimit(problem)}</Tag>}
+                extra={<TagList tags={problem.tags} />}
+              >
                 <Row gutter={[12, 12]}>
                   {problem.latest ? (
                     <Col span={8}>

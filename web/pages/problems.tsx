@@ -21,10 +21,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { api, apiData, apiEmpty } from '../client'
 import type { ProblemListItem, ProblemListPage } from '../client'
-import { EntityTag, ProblemLink } from '../components/entity'
+import { ProblemLink } from '../components/entity'
 import { JudgeModeSelect } from '../components/judge'
 import { LimitInput } from '../components/limit'
 import { ErrorBlock, LoadingBlock } from '../components/state'
+import { TagList } from '../components/tags'
 import { TagSelect } from '../components/tag-select'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
@@ -252,13 +253,7 @@ function problemColumns(
       dataIndex: 'tags',
       width: 280,
       ellipsis: { showTitle: false },
-      render: (tags: string[]) => (
-        <Space size={[4, 4]} wrap>
-          {tags.map((tag) => (
-            <EntityTag key={tag}>{tag}</EntityTag>
-          ))}
-        </Space>
-      )
+      render: (tags: string[]) => <TagList tags={tags} empty={<Typography.Text type="secondary">-</Typography.Text>} />
     },
     {
       title: text.problems.limit,
