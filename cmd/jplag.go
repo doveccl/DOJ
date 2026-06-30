@@ -29,6 +29,7 @@ import (
 const (
 	defaultJPlagListen  = ":7979"
 	defaultJPlagJar     = "/app/jplag.jar"
+	defaultJava         = "/opt/java/openjdk/bin/java"
 	defaultViewerPort   = "1996"
 	defaultViewerReport = "/app/viewer.jplag"
 )
@@ -142,7 +143,7 @@ func viewerHandler(c echo.Context) error {
 func startBundledViewer() (func(), error) {
 	port := getenv("VIEWER_PORT", defaultViewerPort)
 	cmd := exec.Command(
-		getenv("JAVA", "java"),
+		getenv("JAVA", defaultJava),
 		"-jar", getenv("JAR", defaultJPlagJar),
 		"--mode", "view",
 		"--port", port,
@@ -211,7 +212,7 @@ func runJPlag(ctx context.Context, newDir string, oldDir string, report string) 
 		"--csv-export",
 		"--result-file", report,
 	}
-	cmd := exec.CommandContext(ctx, "java", args...)
+	cmd := exec.CommandContext(ctx, getenv("JAVA", defaultJava), args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, jplagError(output))
