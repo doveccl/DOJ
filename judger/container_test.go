@@ -465,6 +465,9 @@ int main(){ return 0; }
 	if result.Verdict != VerdictCompileError {
 		t.Fatalf("result = %#v", result)
 	}
+	if result.TimeMS != 0 {
+		t.Fatalf("compile error should not expose submission time, got %dms", result.TimeMS)
+	}
 	if !strings.Contains(result.Message, "/work/secret.out") {
 		t.Fatalf("compile error did not mention missing answer include: %q", result.Message)
 	}

@@ -163,7 +163,6 @@ func (client runnerClient) runTask(ctx context.Context, task Task, compileComman
 	if !compile.OK {
 		result.Verdict = VerdictCompileError
 		result.Message = compile.Message
-		result.TimeMS = compile.TimeMS
 		return result, nil
 	}
 	if beforeCases != nil {
