@@ -135,7 +135,7 @@ func viewerHandler(c echo.Context) error {
 		}
 		req.Out.URL.RawQuery = c.Request().URL.RawQuery
 		req.Out.Header.Del(echo.HeaderCookie)
-	}, ModifyResponse: rewriteViewerHTML}
+	}, ModifyResponse: rewriteViewerResponse}
 	proxy.ServeHTTP(c.Response(), c.Request())
 	return nil
 }
@@ -180,9 +180,9 @@ func startBundledViewer() (func(), error) {
 	return nil, errors.New("bundled viewer did not become ready")
 }
 
-func rewriteViewerHTML(resp *http.Response) error {
+func rewriteViewerResponse(resp *http.Response) error {
 	contentType := resp.Header.Get(echo.HeaderContentType)
-	if !strings.Contains(contentType, "text/html") {
+	if !strings.Contains(contentType, "text/html") && !strings.Contains(contentType, "javascript") {
 		return nil
 	}
 	body, err := io.ReadAll(resp.Body)
@@ -193,6 +193,8 @@ func rewriteViewerHTML(resp *http.Response) error {
 	text := strings.ReplaceAll(string(body), `src="/assets/`, `src="/JPlag/assets/`)
 	text = strings.ReplaceAll(text, `href="/assets/`, `href="/JPlag/assets/`)
 	text = strings.ReplaceAll(text, `href="/favicon.ico"`, `href="/JPlag/favicon.ico"`)
+	text = strings.ReplaceAll(text, `history:Uw("/")`, `history:Uw("/JPlag/")`)
+	text = strings.ReplaceAll(text, "`${window.location.origin}/${t}`", "`${window.location.origin}/JPlag/${t}`")
 	data := []byte(text)
 	resp.Body = io.NopCloser(bytes.NewReader(data))
 	resp.ContentLength = int64(len(data))
