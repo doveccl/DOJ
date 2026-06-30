@@ -108,7 +108,7 @@ export function SubmissionDetailPage() {
                     <MarkdownPreview value={codeMarkdown(submission.message, 'text')} />
                   </div>
                 ) : null}
-                <Table<Case> rowKey="no" columns={caseColumns(text)} dataSource={cases} pagination={false} size="small" />
+                <Table<Case> rowKey="no" columns={caseColumns(text)} dataSource={cases} pagination={false} size="small" scroll={{ x: 620 }} />
               </Flex>
             </Card>
           </ResultCard>
@@ -117,7 +117,7 @@ export function SubmissionDetailPage() {
           <Card>
             <Flex vertical gap={12}>
               <Meta label={text.submissions.problem}>
-                <ProblemLink id={submission.problemId} title={submission.problemTitle} />
+                <ProblemLink id={submission.problemId} title={submission.problemTitle} maxWidth={220} />
               </Meta>
               <Meta label={text.submissions.user}>
                 <UserLink name={submission.user} />

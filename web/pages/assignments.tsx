@@ -145,6 +145,7 @@ export function AssignmentsPage() {
       ) : (
         <Table<AssignmentListItem>
           rowKey="id"
+          scroll={{ x: session.admin ? 720 : 620 }}
           columns={assignmentColumns(
             text,
             {
@@ -295,7 +296,6 @@ function assignmentColumns(
   ]
   if (admin) {
     columns.push({
-      title: text.common.actions,
       width: 96,
       align: 'right',
       render: (_, row) => (

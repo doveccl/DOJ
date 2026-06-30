@@ -16,6 +16,7 @@ import {
   Card,
   Checkbox,
   Col,
+  Divider,
   Flex,
   Form,
   Input,
@@ -428,10 +429,9 @@ export function ProblemDetailPage() {
                 </Row>
               </Card>
               {session.admin ? (
-                <Card
-                  title={text.problem.manage}
-                  extra={
-                    <Space size={6}>
+                <Card title={text.problem.manage}>
+                  <Flex vertical gap={12}>
+                    <Space size={6} wrap>
                       <Button size="small" icon={<DownloadOutlined />} onClick={() => downloadURL(problemAssetsDownloadURL(id), `${problemCode(id)}.zip`)}>
                         {text.problem.downloadAssets}
                       </Button>
@@ -444,9 +444,6 @@ export function ProblemDetailPage() {
                         </Button>
                       </Popconfirm>
                     </Space>
-                  }
-                >
-                  <Flex vertical gap={12}>
                     <ResourceRow label={text.problem.mode}>
                       <JudgeModeSelect
                         size="small"
@@ -519,7 +516,7 @@ export function ProblemDetailPage() {
             destroyOnHidden
             footer={null}
             title={text.problem.assets}
-            width={920}
+            width={{ xs: 'calc(100vw - 32px)', sm: 920 }}
             onCancel={() => setAssetsOpen(false)}
           >
             <Flex vertical gap={12}>
@@ -570,7 +567,7 @@ export function ProblemDetailPage() {
             okText={text.common.save}
             cancelText={text.common.cancel}
             confirmLoading={saveAsset.isPending}
-            width={860}
+            width={{ xs: 'calc(100vw - 32px)', sm: 860 }}
             onCancel={() => {
               setAssetEdit(null)
               setAssetDraft('')
@@ -736,14 +733,17 @@ function AssetSection({
         <Table<DataPairRow>
           rowKey="key"
           size="small"
+          showHeader={false}
           loading={loading}
           dataSource={dataPairRows(files)}
           pagination={{ pageSize: 10, hideOnSinglePage: true, showSizeChanger: false, size: 'small' }}
+          scroll={{ x: 760 }}
           columns={[
             { title: text.problem.inputFile, render: (_, row) => row.input ? <AssetName file={row.input} /> : null },
-            { title: text.common.actions, width: 132, align: 'right', render: (_, row) => row.input ? <AssetActions file={row.input} onEdit={onEdit} onDownload={onDownload} onDelete={onDelete} /> : null },
+            { width: 132, align: 'right', render: (_, row) => row.input ? <AssetActions file={row.input} onEdit={onEdit} onDownload={onDownload} onDelete={onDelete} /> : null },
+            { width: 32, align: 'center', render: () => <Divider type="vertical" /> },
             { title: text.problem.outputFile, render: (_, row) => row.output ? <AssetName file={row.output} /> : null },
-            { title: text.common.actions, width: 132, align: 'right', render: (_, row) => row.output ? <AssetActions file={row.output} onEdit={onEdit} onDownload={onDownload} onDelete={onDelete} /> : null }
+            { width: 132, align: 'right', render: (_, row) => row.output ? <AssetActions file={row.output} onEdit={onEdit} onDownload={onDownload} onDelete={onDelete} /> : null }
           ]}
         />
       ) : (
@@ -753,9 +753,10 @@ function AssetSection({
           loading={loading}
           dataSource={files}
           pagination={false}
+          scroll={{ x: 520 }}
           columns={[
             { title: text.problem.judgeFile, render: (_, file) => <AssetName file={file} /> },
-            { title: text.common.actions, width: 132, align: 'right', render: (_, file) => <AssetActions file={file} onEdit={onEdit} onDownload={onDownload} onDelete={onDelete} /> }
+            { width: 132, align: 'right', render: (_, file) => <AssetActions file={file} onEdit={onEdit} onDownload={onDownload} onDelete={onDelete} /> }
           ]}
         />
       )}

@@ -159,6 +159,7 @@ export function SubmissionsPage() {
           <Table<SubmissionListItem>
             tableLayout="fixed"
             rowKey="id"
+            scroll={{ x: 1040 }}
             rowClassName="clickableRow"
             onRow={(row) => ({
               onClick: (event) => {

@@ -141,6 +141,7 @@ export function ContestsPage() {
       ) : (
         <Table<Contest>
           rowKey="id"
+          scroll={{ x: session.admin ? 800 : 700 }}
           columns={contestColumns(
             text,
             lang,
@@ -316,7 +317,6 @@ function contestColumns(
   ]
   if (admin) {
     columns.push({
-      title: text.common.actions,
       width: 96,
       align: 'right',
       render: (_, row) => (

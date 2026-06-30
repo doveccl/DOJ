@@ -174,6 +174,7 @@ export function DiscussionPage() {
       ) : (
         <Table<Discussion>
           rowKey="id"
+          scroll={{ x: session.admin ? 1120 : 940 }}
           columns={discussionColumns(text, lang, {
             edit: openEdit,
             togglePin: (item) => toggleState.mutate({ item, pinned: !item.pinned }),
@@ -301,7 +302,6 @@ function discussionColumns(
   ]
   if (admin) {
     columns.push({
-      title: text.common.actions,
       width: 156,
       align: 'right',
       render: (_, row) => (

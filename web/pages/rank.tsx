@@ -28,6 +28,7 @@ export function RankPage() {
           rowKey="user"
           columns={rankColumns(text)}
           dataSource={query.data?.items ?? []}
+          scroll={{ x: 640 }}
           pagination={{ current: query.data?.page ?? page, pageSize: query.data?.pageSize ?? pageSize, total: query.data?.total ?? 0, showSizeChanger: true }}
           onChange={(pagination) => setParams(setPageParams(params, pagination.current ?? page, pagination.pageSize ?? pageSize))}
         />

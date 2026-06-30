@@ -91,7 +91,7 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading }:
         style={{ width: '100%' }}
         value={value.map((item) => item.id)}
       />
-      {value.length > 0 ? <Table<ProblemRef> rowKey="id" size="small" pagination={false} columns={columns} dataSource={value} /> : null}
+      {value.length > 0 ? <Table<ProblemRef> rowKey="id" size="small" pagination={false} columns={columns} dataSource={value} scroll={{ x: 420 }} /> : null}
     </>
   )
 }

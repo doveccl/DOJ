@@ -10,7 +10,6 @@
   --heat-3: #1677ff;
   --heat-4: #0958d9;
   background: var(--page-bg);
-  scrollbar-gutter: stable;
 }
 
 :root[data-theme='dark'] {

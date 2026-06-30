@@ -104,6 +104,7 @@ export function UsersTab({
       </Space>
       <Table<UserRow>
         rowKey="name"
+        scroll={{ x: 760 }}
         pagination={{ current: data?.page ?? page, pageSize: data?.pageSize ?? pageSize, total: data?.total ?? 0, showSizeChanger: true }}
         dataSource={data?.items ?? []}
         onChange={(pagination) => {
@@ -116,8 +117,8 @@ export function UsersTab({
           { title: text.admin.role, dataIndex: 'role', width: 96, render: (role: string) => <Tag color={role === 'admin' ? 'blue' : undefined}>{roleText[role] ?? role}</Tag> },
           { title: text.admin.groupCount, dataIndex: 'groups', width: 96, render: (groups: number[] | undefined) => <Typography.Text>{groups?.length ?? 0}</Typography.Text> },
           {
-            title: text.common.actions,
             width: 132,
+            align: 'right',
             render: (_, row) => (
               <Space size={4}>
                 <Tooltip title={text.common.edit}>
@@ -183,6 +184,7 @@ export function GroupsTab({
       </Space>
       <Table<GroupRow>
         rowKey="id"
+        scroll={{ x: 520 }}
         pagination={{ current: data?.page ?? page, pageSize: data?.pageSize ?? pageSize, total: data?.total ?? 0, showSizeChanger: true }}
         dataSource={data?.items ?? []}
         onChange={(pagination) => {
@@ -193,8 +195,8 @@ export function GroupsTab({
           { title: text.admin.groups, dataIndex: 'name' },
           { title: text.admin.userCount, width: 96, render: (_, row) => <Typography.Text>{row.users?.length ?? 0}</Typography.Text> },
           {
-            title: text.common.actions,
             width: 96,
+            align: 'right',
             render: (_, row) => (
               <Space size={4}>
                 <Tooltip title={text.common.edit}>
@@ -233,6 +235,7 @@ export function LanguagesTab({
       </Button>
       <Table<LanguageRow>
         rowKey="id"
+        scroll={{ x: 980 }}
         pagination={false}
         dataSource={data ?? []}
         columns={[
@@ -256,8 +259,8 @@ export function LanguagesTab({
             }
           },
           {
-            title: text.common.actions,
             width: 96,
+            align: 'right',
             render: (_, row) => (
               <Space size={4}>
                 <Tooltip title={text.common.edit}>
@@ -303,6 +306,7 @@ export function JudgersTab({
       </Button>
       <Table<JudgerRow>
         rowKey="id"
+        scroll={{ x: 680 }}
         pagination={false}
         dataSource={data?.judgers ?? []}
         columns={[
@@ -310,8 +314,8 @@ export function JudgersTab({
           { title: text.admin.status, dataIndex: 'online', width: 96, render: (online: boolean) => (online ? <Tag color="success">{text.admin.online}</Tag> : <Tag>{text.admin.offline}</Tag>) },
           { title: text.admin.uptime, dataIndex: 'uptimeSeconds', render: (value: number, row) => (row.online ? formatDuration(value, lang) : '-') },
           {
-            title: text.common.actions,
             width: 96,
+            align: 'right',
             render: (_, row) => (
               <Space size={4}>
                 <Tooltip title={text.common.edit}>
@@ -405,8 +409,8 @@ export function BackupsTab({
             { title: text.admin.createdAt, dataIndex: 'createdAt', render: (value: string) => new Date(value).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US') },
             { title: text.admin.backupSize, dataIndex: 'size', render: (value: number) => formatBytes(value) },
             {
-              title: text.common.actions,
               width: 132,
+              align: 'right',
               render: (_, row) => (
                 <Space size={4}>
                   <Tooltip title={text.common.download}>

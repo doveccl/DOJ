@@ -162,6 +162,7 @@ export function ProblemsPage() {
           <Table<ProblemListItem>
             rowKey="id"
             tableLayout="fixed"
+            scroll={{ x: session.admin ? 1080 : 960 }}
             columns={columns}
             dataSource={query.data?.items ?? []}
             pagination={{ current: query.data?.page ?? page, pageSize: query.data?.pageSize ?? pageSize, total: query.data?.total ?? 0, showSizeChanger: true }}
@@ -272,7 +273,6 @@ function problemColumns(
   ]
   if (admin) {
     columns.push({
-      title: text.common.actions,
       width: 116,
       align: 'right',
       render: (_, row) => (

@@ -104,12 +104,12 @@ export function AssignmentDetailPage() {
             {
               key: 'problems',
               label: text.assignments.problems,
-              children: <Table<ProblemListItem> rowKey="id" columns={problemColumns(text)} dataSource={problems} pagination={false} />
+              children: <Table<ProblemListItem> rowKey="id" columns={problemColumns(text)} dataSource={problems} pagination={false} scroll={{ x: 560 }} />
             },
             {
               key: 'progress',
               label: text.assignments.completion,
-              children: <Table<AssignmentProgress> rowKey="user" columns={progressColumns(text, problems)} dataSource={assignmentProgress} pagination={false} />
+              children: <Table<AssignmentProgress> rowKey="user" columns={progressColumns(text, problems)} dataSource={assignmentProgress} pagination={false} scroll={{ x: 'max-content' }} />
             }
           ]}
         />

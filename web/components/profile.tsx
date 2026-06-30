@@ -165,6 +165,7 @@ function SolvedCard({ page, onPageChange }: { page: SolvedProblemPage; onPageCha
             pagination={false}
             rowKey="id"
             dataSource={problems}
+            scroll={{ x: 360 }}
             columns={[
               {
                 ellipsis: { showTitle: false },

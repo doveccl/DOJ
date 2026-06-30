@@ -113,7 +113,7 @@ export function ContestDetailPage() {
             {
               key: 'problems',
               label: text.contests.problems,
-              children: <Table<ProblemListItem> rowKey="id" columns={problemColumns(text)} dataSource={problems} pagination={false} />
+              children: <Table<ProblemListItem> rowKey="id" columns={problemColumns(text)} dataSource={problems} pagination={false} scroll={{ x: 560 }} />
             },
             {
               key: 'rank',
