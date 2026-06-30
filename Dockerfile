@@ -26,9 +26,9 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
   CGO_ENABLED=0 go build -tags runner -o /out/doj-runner ./cmd/runner.go && \
   CGO_ENABLED=0 go build -tags jplag -o /out/doj-jplag ./cmd/jplag.go
 
-FROM eclipse-temurin:21-jre-alpine AS jplag
+FROM eclipse-temurin:25-jre-alpine AS jplag
 
-ARG JPLAG_VERSION=6.2.0
+ARG JPLAG_VERSION=6.3.0
 
 RUN apk add --no-cache ca-certificates wget \
   && adduser -D -h /var/lib/doj doj \

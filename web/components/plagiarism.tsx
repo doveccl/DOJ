@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRef } from 'react'
 import screenfull from 'screenfull'
 
-import { api, apiData } from '../client'
+import { api, apiData, apiUrl } from '../client'
 import type { PlagiarismJob } from '../client'
 import { useLocale } from '../locale'
 
@@ -34,6 +34,9 @@ export function PlagiarismPanel({ scope, id }: Props) {
   })
   const job = jobs.data?.items[0]
   const busy = create.isPending || job?.status === 'queued' || job?.status === 'running'
+  const reportViewerUrl = job?.reportUrl
+    ? `/api/admin/plagiarism/viewer/?file=${encodeURIComponent(apiUrl(job.reportUrl).toString())}`
+    : ''
 
   function fullscreen() {
     const frame = frameRef.current
@@ -49,26 +52,28 @@ export function PlagiarismPanel({ scope, id }: Props) {
           <Button type="primary" icon={<PlayCircleOutlined />} loading={create.isPending} onClick={() => create.mutate()}>
             {text.plagiarism.run}
           </Button>
-          <Button icon={<ReloadOutlined />} loading={jobs.isFetching} onClick={() => void jobs.refetch()}>
+          <Button icon={<ReloadOutlined />} onClick={() => void jobs.refetch()}>
             {text.common.refresh}
           </Button>
         </Space>
-        {job ? <PlagiarismStatus job={job} /> : <Typography.Text type="secondary">{text.plagiarism.empty}</Typography.Text>}
+        {busy ? <Space><Spin size="small" /> <Typography.Text type="secondary">{text.plagiarism.running}</Typography.Text></Space> : job ? <PlagiarismStatus job={job} /> : null}
       </Flex>
       {create.isError ? <Alert type="error" showIcon message={create.error instanceof Error ? create.error.message : text.common.loadingFailed} /> : null}
-      {job?.status === 'failed' ? <Alert type="error" showIcon message={job.message || text.plagiarism.failed} /> : null}
-      {busy ? (
-        <Alert type="info" showIcon message={<Space><Spin size="small" />{text.plagiarism.running}</Space>} />
-      ) : job?.viewerUrl ? (
+      {busy ? null : job?.status === 'failed' ? (
+        <Alert type="error" showIcon message={text.plagiarism.failed} description={friendlyFailure(job.message, text)} />
+      ) : job && reportViewerUrl ? (
         <Flex vertical gap={8}>
-          <Flex justify="flex-end">
+          <Flex justify="space-between" align="center" gap={12} wrap>
+            <Typography.Text type="secondary">{job.message}</Typography.Text>
             <Button icon={<FullscreenOutlined />} onClick={fullscreen}>
               {text.plagiarism.fullscreen}
             </Button>
           </Flex>
-          <iframe ref={frameRef} title={text.plagiarism.title} src={job.viewerUrl} style={{ width: '100%', height: 720, border: 0 }} />
+          <iframe ref={frameRef} title={text.plagiarism.title} src={reportViewerUrl} style={{ width: '100%', height: 720, border: 0 }} />
         </Flex>
-      ) : null}
+      ) : (
+        <Alert type="info" showIcon message={text.plagiarism.empty} />
+      )}
     </Flex>
   )
 }
@@ -76,10 +81,33 @@ export function PlagiarismPanel({ scope, id }: Props) {
 function PlagiarismStatus({ job }: { job: PlagiarismJob }) {
   const { text } = useLocale()
   const color = job.status === 'done' ? 'success' : job.status === 'failed' ? 'error' : 'processing'
-  return (
-    <Space>
-      <Tag color={color}>{text.plagiarism.status[job.status]}</Tag>
-      {job.message ? <Typography.Text type="secondary">{job.message}</Typography.Text> : null}
-    </Space>
-  )
+  return <Tag color={color}>{text.plagiarism.status[job.status]}</Tag>
+}
+
+function friendlyFailure(message: string, text: ReturnType<typeof useLocale>['text']) {
+  const clean = cleanFailure(message)
+  if (clean.includes('/src/old') && clean.includes('does not exist')) {
+    return text.plagiarism.oldDirFixed
+  }
+  return clean || text.plagiarism.failed
+}
+
+function cleanFailure(message: string) {
+  let clean = message.trim()
+  const jsonStart = clean.indexOf('{')
+  if (jsonStart >= 0) {
+    try {
+      const body = JSON.parse(clean.slice(jsonStart)) as { message?: string }
+      clean = body.message || clean
+    } catch {
+      // Keep the original message.
+    }
+  }
+  return clean
+    .replace(/^JPlag failed:\s*/, '')
+    .replace(/^exit status \d+:\s*/, '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.includes('JPlagVersionChecker'))
+    .join('\n')
 }

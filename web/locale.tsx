@@ -187,6 +187,7 @@ const zh = {
     running: '正在分析 C++ 提交',
     empty: '暂无分析任务',
     failed: '分析失败',
+    oldDirFixed: '历史提交为空导致分析失败，已修复，请重新运行。',
     fullscreen: '全屏',
     status: {
       queued: '排队中',
@@ -589,6 +590,7 @@ const en: typeof zh = {
     running: 'Analyzing C++ submissions',
     empty: 'No analysis jobs',
     failed: 'Analysis failed',
+    oldDirFixed: 'The previous run failed because there were no old submissions. This is fixed; run it again.',
     fullscreen: 'Fullscreen',
     status: {
       queued: 'Queued',

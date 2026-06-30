@@ -65,3 +65,13 @@ func TestPlagiarismPackageUsesScopeAsNewAndProblemHistoryAsOld(t *testing.T) {
 		}
 	}
 }
+
+func TestJPlagFailureUnwrapsEchoJSONAndDropsVersionWarning(t *testing.T) {
+	got := jplagFailure([]byte(`{"message":"exit status 1: 2026-06-30 [WARN] JPlagVersionChecker - newer\n2026-06-30 [ERROR] CLI - Not enough valid submissions"}`))
+	if strings.Contains(got, "JPlagVersionChecker") || strings.Contains(got, `{"message"`) {
+		t.Fatalf("failure message was not cleaned: %q", got)
+	}
+	if !strings.Contains(got, "Not enough valid submissions") {
+		t.Fatalf("failure message lost useful error: %q", got)
+	}
+}

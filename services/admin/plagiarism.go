@@ -255,9 +255,29 @@ func runJPlag(ctx context.Context, payload []byte) ([]byte, error) {
 		return nil, err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("JPlag failed: %s", strings.TrimSpace(string(data)))
+		return nil, fmt.Errorf("JPlag failed: %s", jplagFailure(data))
 	}
 	return data, nil
+}
+
+func jplagFailure(data []byte) string {
+	message := strings.TrimSpace(string(data))
+	var body struct {
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(data, &body); err == nil && strings.TrimSpace(body.Message) != "" {
+		message = strings.TrimSpace(body.Message)
+	}
+	lines := strings.Split(message, "\n")
+	items := lines[:0]
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.Contains(line, "JPlagVersionChecker") {
+			continue
+		}
+		items = append(items, line)
+	}
+	return strings.TrimPrefix(strings.Join(items, "\n"), "exit status 1: ")
 }
 
 func (api *API) plagiarismPackage(scope string, scopeID uint) ([]byte, int, error) {
