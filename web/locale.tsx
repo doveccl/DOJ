@@ -199,6 +199,18 @@ const zh = {
     rejudged: '已重新进入队列',
     searchProblem: '题目编号',
     allStatus: '全部状态',
+    progress: {
+      waiting: '等待评测机接单',
+      leased: '评测机已接单',
+      judging: '评测中',
+      download: '正在下载题目数据',
+      downloaded: (value: string) => `已下载 ${value}`,
+      prepare: '准备运行环境',
+      compile: '编译中',
+      judge: '正在评测测试点',
+      cases: (done: number, total: number) => `已评测 ${done} / ${total} 个测试点`,
+      upload: '正在提交评测结果'
+    },
     statuses: {
       queued: '排队中',
       judging: '评测中',
@@ -573,6 +585,18 @@ const en: typeof zh = {
     rejudged: 'Requeued',
     searchProblem: 'Problem ID',
     allStatus: 'All statuses',
+    progress: {
+      waiting: 'Waiting for a judger',
+      leased: 'Judger accepted the task',
+      judging: 'Judging',
+      download: 'Downloading problem data',
+      downloaded: (value: string) => `Downloaded ${value}`,
+      prepare: 'Preparing runtime',
+      compile: 'Compiling',
+      judge: 'Running test cases',
+      cases: (done: number, total: number) => `Finished ${done} / ${total} cases`,
+      upload: 'Submitting judge result'
+    },
     statuses: {
       queued: 'Queued',
       judging: 'Judging',

@@ -2612,6 +2612,24 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Case"
+        progress:
+          $ref: "#/components/schemas/SubmissionProgress"
+    SubmissionProgress:
+      type: object
+      required: [stage, done, updatedAt]
+      properties:
+        stage:
+          type: string
+          enum: [leased, download, prepare, compile, judge, upload]
+        done:
+          type: integer
+          format: int64
+        total:
+          type: integer
+          format: int64
+        updatedAt:
+          type: string
+          format: date-time
     SubmitRequest:
       type: object
       required: [problemId, language, code, public]

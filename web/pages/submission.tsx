@@ -1,5 +1,5 @@
 import { ReloadOutlined } from '@ant-design/icons'
-import { App as AntApp, BorderBeam, Button, Card, Col, Flex, Popconfirm, Row, Space, Switch, Table, Tooltip, Typography } from 'antd'
+import { App as AntApp, BorderBeam, Button, Card, Col, Flex, Popconfirm, Progress, Row, Space, Spin, Switch, Table, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
@@ -13,7 +13,7 @@ import { ErrorBlock, LoadingBlock } from '../components/state'
 import { SubmissionStatus } from '../components/status'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { caseCode, formatTime, memoryText, submissionCode } from '../utils/format'
+import { caseCode, formatBytes, formatTime, memoryText, submissionCode } from '../utils/format'
 
 export function SubmissionDetailPage() {
   const { message } = AntApp.useApp()
@@ -51,7 +51,8 @@ export function SubmissionDetailPage() {
                 timeMs: undefined,
                 memoryKb: undefined
               },
-              cases: []
+              cases: [],
+              progress: undefined
             }
           : current
       )
@@ -103,6 +104,7 @@ export function SubmissionDetailPage() {
               }
             >
               <Flex vertical gap={24}>
+                {judging ? <JudgeProgressPanel status={submission.status} progress={query.data.progress} /> : null}
                 {submission.message ? (
                   <div className="submissionMessagePreview">
                     <MarkdownPreview value={codeMarkdown(submission.message, 'text')} />
@@ -154,6 +156,59 @@ export function SubmissionDetailPage() {
 
 function ResultCard({ judging, children }: { judging: boolean; children: ReactNode }) {
   return judging ? <BorderBeam>{children}</BorderBeam> : children
+}
+
+function JudgeProgressPanel({ status, progress }: { status: string; progress?: SubmissionDetail['progress'] }) {
+  const { text } = useLocale()
+  const copy = progressCopy(status, progress, text)
+  const percent = progress && progress.total && progress.total > 0 ? clampPercent(progress.done, progress.total) : undefined
+  return (
+    <Flex vertical gap={8} className="judgeProgressPanel">
+      <Flex align="center" justify="space-between" gap={12} wrap>
+        <Space size={8}>
+          {percent === undefined ? <Spin size="small" /> : null}
+          <Typography.Text strong>{copy.title}</Typography.Text>
+        </Space>
+        {copy.detail ? <Typography.Text type="secondary">{copy.detail}</Typography.Text> : null}
+      </Flex>
+      {percent === undefined ? null : <Progress percent={percent} size="small" showInfo={false} status="active" />}
+    </Flex>
+  )
+}
+
+function progressCopy(status: string, progress: SubmissionDetail['progress'] | undefined, text: ReturnType<typeof useLocale>['text']) {
+  if (!progress) {
+    return { title: status === 'queued' ? text.submissions.progress.waiting : text.submissions.progress.judging }
+  }
+  switch (progress.stage) {
+    case 'leased':
+      return { title: text.submissions.progress.leased }
+    case 'download':
+      return {
+        title: text.submissions.progress.download,
+        detail: progress.total && progress.total > 0 ? `${formatBytes(progress.done)} / ${formatBytes(progress.total)}` : text.submissions.progress.downloaded(formatBytes(progress.done))
+      }
+    case 'prepare':
+      return { title: text.submissions.progress.prepare }
+    case 'compile':
+      return { title: text.submissions.progress.compile }
+    case 'judge':
+      return {
+        title: text.submissions.progress.judge,
+        detail: progress.total && progress.total > 0 ? text.submissions.progress.cases(progress.done, progress.total) : undefined
+      }
+    case 'upload':
+      return { title: text.submissions.progress.upload }
+    default:
+      return { title: text.submissions.progress.judging }
+  }
+}
+
+function clampPercent(done: number, total: number) {
+  if (total <= 0) {
+    return 0
+  }
+  return Math.max(0, Math.min(99, Math.floor((done / total) * 100)))
 }
 
 function codeMarkdown(source: string, syntax: string) {

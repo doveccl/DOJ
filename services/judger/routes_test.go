@@ -391,6 +391,78 @@ func TestHeartbeatExtendsDatabaseLease(t *testing.T) {
 	}
 }
 
+func TestHeartbeatStoresProgressForCurrentAttempt(t *testing.T) {
+	db := newJudgerTestDB(t)
+	remote := models.Judger{Name: "linux-a", Auth: utils.TokenHash("token-a")}
+	if err := db.Create(&remote).Error; err != nil {
+		t.Fatalf("create judger: %v", err)
+	}
+	until := time.Now().Add(time.Minute)
+	submission := models.Submission{UserID: 1, ProblemID: 1000, Language: "cpp", Code: "int main(){}", Status: "judging", Attempt: 3, JudgerID: &remote.ID, LeaseUntil: &until}
+	if err := db.Create(&submission).Error; err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+	e := echo.New()
+	Register(e, db)
+	target := "/api/judger/tasks/" + strconv.FormatUint(uint64(submission.ID), 10) + "/heartbeat"
+	body := `{"submissionId":` + strconv.FormatUint(uint64(submission.ID), 10) + `,"attempt":3,"stage":"download","done":4096}`
+	res := judgerJSON(e, target, "token-a", body)
+	if res.Code != http.StatusAccepted {
+		t.Fatalf("heartbeat got %d body=%s", res.Code, res.Body.String())
+	}
+	progress, err := ReadProgress(t.Context(), submission.ID, 3)
+	if err != nil {
+		t.Fatalf("read progress: %v", err)
+	}
+	if progress == nil || progress.Stage != "download" || progress.Done != 4096 || progress.Total != nil {
+		t.Fatalf("progress = %+v", progress)
+	}
+
+	stale := `{"submissionId":` + strconv.FormatUint(uint64(submission.ID), 10) + `,"attempt":2,"stage":"judge","done":1,"total":2}`
+	res = judgerJSON(e, target, "token-a", stale)
+	if res.Code != http.StatusAccepted {
+		t.Fatalf("stale heartbeat got %d body=%s", res.Code, res.Body.String())
+	}
+	progress, err = ReadProgress(t.Context(), submission.ID, 3)
+	if err != nil {
+		t.Fatalf("read progress after stale: %v", err)
+	}
+	if progress == nil || progress.Stage != "download" || progress.Done != 4096 {
+		t.Fatalf("stale heartbeat changed progress: %+v", progress)
+	}
+}
+
+func TestResultClearsProgress(t *testing.T) {
+	db := newJudgerTestDB(t)
+	remote := models.Judger{Name: "linux-a", Auth: utils.TokenHash("token-a")}
+	if err := db.Create(&remote).Error; err != nil {
+		t.Fatalf("create judger: %v", err)
+	}
+	until := time.Now().Add(time.Minute)
+	submission := models.Submission{UserID: 1, ProblemID: 1000, Language: "cpp", Code: "int main(){}", Status: "judging", Attempt: 2, JudgerID: &remote.ID, LeaseUntil: &until}
+	if err := db.Create(&submission).Error; err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+	if err := SaveProgress(t.Context(), submission.ID, Progress{Attempt: 2, Stage: "judge", Done: 1, UpdatedAt: time.Now()}); err != nil {
+		t.Fatalf("save progress: %v", err)
+	}
+	e := echo.New()
+	Register(e, db)
+	target := "/api/judger/tasks/" + strconv.FormatUint(uint64(submission.ID), 10) + "/result"
+	body := `{"submissionId":` + strconv.FormatUint(uint64(submission.ID), 10) + `,"attempt":2,"status":"AC","score":100,"message":"","cases":[]}`
+	res := judgerJSON(e, target, "token-a", body)
+	if res.Code != http.StatusAccepted {
+		t.Fatalf("result got %d body=%s", res.Code, res.Body.String())
+	}
+	progress, err := ReadProgress(t.Context(), submission.ID, 2)
+	if err != nil {
+		t.Fatalf("read progress: %v", err)
+	}
+	if progress != nil {
+		t.Fatalf("progress after result = %+v, want nil", progress)
+	}
+}
+
 func TestJudgerRequestNameDefault(t *testing.T) {
 	if got := judgerRequestName(LeaseRequest{Host: " linux-a "}); got != "linux-a" {
 		t.Fatalf("name = %q", got)

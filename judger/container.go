@@ -21,6 +21,7 @@ type ContainerTask struct {
 	CustomJudgeCache string
 	Task             Task
 	Logf             func(format string, args ...any)
+	Progress         func(stage string, done int64, total *int64)
 }
 
 func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error) {
@@ -122,6 +123,7 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error
 		work:       work,
 		judgeCache: req.CustomJudgeCache,
 		logf:       req.Logf,
+		progress:   req.Progress,
 	}
 	return client.runTask(ctx, task, lang.CompileCommand, lang.RunCommand, restoreAssets)
 }
@@ -136,6 +138,7 @@ type runnerClient struct {
 	work       string
 	judgeCache string
 	logf       func(format string, args ...any)
+	progress   func(stage string, done int64, total *int64)
 }
 
 func (client runnerClient) runTask(ctx context.Context, task Task, compileCommand string, userCommand string, beforeCases func() error) (TaskResult, error) {
@@ -151,6 +154,7 @@ func (client runnerClient) runTask(ctx context.Context, task Task, compileComman
 	}
 	logStep(client.logf, task.SubmissionID, task.Attempt, "runner_hello", helloStartedAt)
 	compileStartedAt := time.Now()
+	client.reportProgress("compile", 0, nil)
 	compile, err := client.compile(task, compileCommand, userCommand)
 	logTask(client.logf, task.SubmissionID, task.Attempt, "compile=%s ok=%t reported=%dms", formatDuration(time.Since(compileStartedAt)), compile.OK, compile.TimeMS)
 	if err != nil {
@@ -192,6 +196,8 @@ func (client runnerClient) runTask(ctx context.Context, task Task, compileComman
 	maxTime := 0
 	maxMemory := 0
 	caseResults := make([]CaseResult, 0, len(task.Cases))
+	totalCases := int64(len(task.Cases))
+	client.reportProgress("judge", 0, &totalCases)
 	for index, item := range task.Cases {
 		caseStartedAt := time.Now()
 		got, err := client.runCase(ctx, RunCaseRequest{
@@ -216,6 +222,8 @@ func (client runnerClient) runTask(ctx context.Context, task Task, compileComman
 		if verdict == VerdictAccepted && got.Verdict != VerdictAccepted {
 			verdict = got.Verdict
 		}
+		done := int64(index + 1)
+		client.reportProgress("judge", done, &totalCases)
 	}
 	result.Verdict = verdict
 	result.Score = totalScore
@@ -223,6 +231,12 @@ func (client runnerClient) runTask(ctx context.Context, task Task, compileComman
 	result.MemoryKB = maxMemory
 	result.Cases = caseResults
 	return result, nil
+}
+
+func (client runnerClient) reportProgress(stage string, done int64, total *int64) {
+	if client.progress != nil {
+		client.progress(stage, done, total)
+	}
 }
 
 func (client runnerClient) hello() error {

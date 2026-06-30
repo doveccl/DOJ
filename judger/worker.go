@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -25,6 +26,7 @@ type WorkerConfig struct {
 	ProcRoot   string
 	HTTPClient *http.Client
 	Logf       func(format string, args ...any)
+	Progress   func(stage string, done int64, total *int64)
 }
 
 type LoopConfig struct {
@@ -84,8 +86,11 @@ type resultRequest struct {
 }
 
 type heartbeatRequest struct {
-	SubmissionID uint `json:"submissionId"`
-	Attempt      int  `json:"attempt"`
+	SubmissionID uint   `json:"submissionId"`
+	Attempt      int    `json:"attempt"`
+	Stage        string `json:"stage,omitempty"`
+	Done         int64  `json:"done,omitempty"`
+	Total        *int64 `json:"total,omitempty"`
 }
 
 type caseResult struct {
@@ -116,7 +121,10 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 
 	heartbeatCtx, stopHeartbeat := context.WithCancel(ctx)
 	defer stopHeartbeat()
-	go heartbeatLoop(heartbeatCtx, client, cfg, task.ID, task.SubmissionID, task.Attempt)
+	progress := newProgressReporter(client, cfg, task.ID, task.SubmissionID, task.Attempt)
+	cfg.Progress = progress.Update
+	progress.Set(ctx, "prepare", 0, nil)
+	go heartbeatLoop(heartbeatCtx, progress)
 
 	workStartedAt := time.Now()
 	work := filepath.Join(cfg.Work, strconv.FormatUint(uint64(task.SubmissionID), 10), strconv.Itoa(task.Attempt))
@@ -153,6 +161,7 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 		CustomJudgeCache: customJudgeCachePath(cfg.Work, task.Problem.ID, task.Problem.PackageVersion, task.Mode),
 		Task:             task.toTask(),
 		Logf:             cfg.Logf,
+		Progress:         cfg.Progress,
 	})
 	logStep(cfg.Logf, task.SubmissionID, task.Attempt, "run_container", runStartedAt)
 	if err != nil {
@@ -164,6 +173,7 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 		}
 	}
 	postStartedAt := time.Now()
+	progress.Set(ctx, "upload", 0, nil)
 	if err := postResult(ctx, client, cfg, task.ID, result); err != nil {
 		return true, err
 	}
@@ -180,15 +190,15 @@ func (task leaseTask) needsAssets() bool {
 	return false
 }
 
-func heartbeatLoop(ctx context.Context, client *http.Client, cfg WorkerConfig, taskID uint, submissionID uint, attempt int) {
-	ticker := time.NewTicker(5 * time.Second)
+func heartbeatLoop(ctx context.Context, progress *progressReporter) {
+	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			_ = postHeartbeat(ctx, client, cfg, taskID, submissionID, attempt)
+			progress.Flush(ctx)
 		}
 	}
 }
@@ -326,9 +336,69 @@ func postResult(ctx context.Context, client *http.Client, cfg WorkerConfig, task
 	return doJSON(ctx, client, cfg, http.MethodPost, fmt.Sprintf("/api/judger/tasks/%d/result", taskID), req, nil)
 }
 
-func postHeartbeat(ctx context.Context, client *http.Client, cfg WorkerConfig, taskID uint, submissionID uint, attempt int) error {
-	req := heartbeatRequest{SubmissionID: submissionID, Attempt: attempt}
+func postProgressHeartbeat(ctx context.Context, client *http.Client, cfg WorkerConfig, taskID uint, submissionID uint, attempt int, progress taskProgress) error {
+	req := heartbeatRequest{SubmissionID: submissionID, Attempt: attempt, Stage: progress.stage, Done: progress.done, Total: progress.total}
 	return doJSON(ctx, client, cfg, http.MethodPost, fmt.Sprintf("/api/judger/tasks/%d/heartbeat", taskID), req, nil)
+}
+
+type taskProgress struct {
+	stage string
+	done  int64
+	total *int64
+}
+
+type progressReporter struct {
+	mu           sync.Mutex
+	client       *http.Client
+	cfg          WorkerConfig
+	taskID       uint
+	submissionID uint
+	attempt      int
+	current      taskProgress
+}
+
+func newProgressReporter(client *http.Client, cfg WorkerConfig, taskID uint, submissionID uint, attempt int) *progressReporter {
+	return &progressReporter{client: client, cfg: cfg, taskID: taskID, submissionID: submissionID, attempt: attempt}
+}
+
+func (reporter *progressReporter) Update(stage string, done int64, total *int64) {
+	reporter.update(stage, done, total)
+}
+
+func (reporter *progressReporter) Set(ctx context.Context, stage string, done int64, total *int64) {
+	reporter.update(stage, done, total)
+	reporter.Flush(ctx)
+}
+
+func (reporter *progressReporter) Flush(ctx context.Context) {
+	reporter.mu.Lock()
+	progress := reporter.current
+	reporter.mu.Unlock()
+	reporter.send(ctx, progress)
+}
+
+func (reporter *progressReporter) update(stage string, done int64, total *int64) {
+	if stage == "" {
+		return
+	}
+	reporter.mu.Lock()
+	reporter.current = taskProgress{stage: stage, done: done, total: cloneInt64(total)}
+	reporter.mu.Unlock()
+}
+
+func (reporter *progressReporter) send(ctx context.Context, progress taskProgress) {
+	if progress.stage == "" {
+		return
+	}
+	_ = postProgressHeartbeat(ctx, reporter.client, reporter.cfg, reporter.taskID, reporter.submissionID, reporter.attempt, progress)
+}
+
+func cloneInt64(value *int64) *int64 {
+	if value == nil {
+		return nil
+	}
+	got := *value
+	return &got
 }
 
 func downloadTaskAssets(ctx context.Context, client *http.Client, cfg WorkerConfig, problemID uint, packageVersion string, work string, submissionID uint, attempt int) error {
@@ -365,7 +435,15 @@ func downloadTaskAssets(ctx context.Context, client *http.Client, cfg WorkerConf
 	}
 	const maxTaskAssetBytes = 512 << 20
 	readStartedAt := time.Now()
-	data, err := io.ReadAll(io.LimitReader(httpResp.Body, maxTaskAssetBytes+1))
+	if cfg.Progress != nil {
+		cfg.Progress("download", 0, nil)
+	}
+	reader := &progressReader{reader: httpResp.Body, report: func(done int64) {
+		if cfg.Progress != nil {
+			cfg.Progress("download", done, nil)
+		}
+	}}
+	data, err := io.ReadAll(io.LimitReader(reader, maxTaskAssetBytes+1))
 	if err != nil {
 		return err
 	}
@@ -384,6 +462,21 @@ func downloadTaskAssets(ctx context.Context, client *http.Client, cfg WorkerConf
 	}
 	logTask(cfg.Logf, submissionID, attempt, "asset_cache_copy=%s source=download", formatDuration(time.Since(copyStartedAt)))
 	return nil
+}
+
+type progressReader struct {
+	reader io.Reader
+	done   int64
+	report func(done int64)
+}
+
+func (reader *progressReader) Read(p []byte) (int, error) {
+	n, err := reader.reader.Read(p)
+	if n > 0 {
+		reader.done += int64(n)
+		reader.report(reader.done)
+	}
+	return n, err
 }
 
 func taskAssetCacheDir(cfg WorkerConfig, problemID uint) string {

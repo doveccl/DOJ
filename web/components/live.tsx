@@ -36,6 +36,9 @@ export function LiveEvents() {
         predicate: (query) => liveKeys.has(String(query.queryKey[0]))
       })
     })
+    source.addEventListener('submission-progress', () => {
+      void client.invalidateQueries({ queryKey: ['submission'] })
+    })
     return () => source.close()
   }, [client, enabled])
 

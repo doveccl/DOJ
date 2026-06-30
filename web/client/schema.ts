@@ -1381,6 +1381,17 @@ export interface components {
             submission: components["schemas"]["Submission"];
             code: string;
             cases: components["schemas"]["Case"][];
+            progress?: components["schemas"]["SubmissionProgress"];
+        };
+        SubmissionProgress: {
+            /** @enum {string} */
+            stage: "leased" | "download" | "prepare" | "compile" | "judge" | "upload";
+            /** Format: int64 */
+            done: number;
+            /** Format: int64 */
+            total?: number;
+            /** Format: date-time */
+            updatedAt: string;
         };
         SubmitRequest: {
             problemId: number;

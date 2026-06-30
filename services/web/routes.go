@@ -23,6 +23,7 @@ import (
 	"github.com/doveccl/doj/models"
 	adminsvc "github.com/doveccl/doj/services/admin"
 	"github.com/doveccl/doj/services/events"
+	judgersvc "github.com/doveccl/doj/services/judger"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
@@ -252,6 +253,14 @@ type SubmissionDetail struct {
 	Submission SubmissionDTO `json:"submission"`
 	Code       string        `json:"code"`
 	Cases      []CaseDTO     `json:"cases"`
+	Progress   *ProgressDTO  `json:"progress,omitempty"`
+}
+
+type ProgressDTO struct {
+	Stage     string    `json:"stage"`
+	Done      int64     `json:"done"`
+	Total     *int64    `json:"total,omitempty"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 type SubmitRequest struct {
@@ -2804,7 +2813,7 @@ func (api *API) submission(c echo.Context) error {
 	for _, item := range cases {
 		items = append(items, CaseDTO{No: item.No, Status: item.Status, TimeMS: item.TimeMS, MemoryKB: item.MemoryKB, Message: item.Message})
 	}
-	return c.JSON(http.StatusOK, SubmissionDetail{Submission: api.submissionDTO(row), Code: row.Code, Cases: items})
+	return c.JSON(http.StatusOK, SubmissionDetail{Submission: api.submissionDTO(row), Code: row.Code, Cases: items, Progress: api.submissionProgress(c.Request().Context(), row)})
 }
 
 func (api *API) updateSubmission(c echo.Context) error {
@@ -2868,6 +2877,7 @@ func (api *API) rejudgeSubmission(c echo.Context) error {
 		}
 		return err
 	}
+	judgersvc.DeleteProgress(c.Request().Context(), row.ID)
 	events.SubmissionChanged()
 	return c.JSON(http.StatusOK, CreatedID{ID: row.ID})
 }
@@ -2878,8 +2888,8 @@ func (api *API) rejudgeProblem(c echo.Context) error {
 		return err
 	}
 	var count int64
+	var ids []uint
 	err = api.db.Transaction(func(tx *gorm.DB) error {
-		var ids []uint
 		if err := tx.Model(&models.Submission{}).Where("problem_id = ?", id).Pluck("id", &ids).Error; err != nil {
 			return err
 		}
@@ -2895,8 +2905,22 @@ func (api *API) rejudgeProblem(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	for _, id := range ids {
+		judgersvc.DeleteProgress(c.Request().Context(), id)
+	}
 	events.SubmissionChanged()
 	return c.JSON(http.StatusOK, CountResult{Count: count})
+}
+
+func (api *API) submissionProgress(ctx context.Context, row models.Submission) *ProgressDTO {
+	if row.Status != "queued" && row.Status != "judging" {
+		return nil
+	}
+	progress, err := judgersvc.ReadProgress(ctx, row.ID, row.Attempt)
+	if err != nil || progress == nil {
+		return nil
+	}
+	return &ProgressDTO{Stage: progress.Stage, Done: progress.Done, Total: progress.Total, UpdatedAt: progress.UpdatedAt}
 }
 
 func rejudgeUpdates() map[string]any {

@@ -345,6 +345,13 @@ body {
   min-width: 0;
 }
 
+.judgeProgressPanel {
+  padding: 12px 14px;
+  border: 1px solid var(--ant-color-info-border);
+  border-radius: 8px;
+  background: var(--ant-color-info-bg);
+}
+
 .adminBackupPage {
   display: flex;
   flex-direction: column;

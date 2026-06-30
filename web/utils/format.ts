@@ -45,7 +45,10 @@ export function formatBytes(value: number) {
   if (value < 1024 * 1024) {
     return `${Math.round(value / 1024)}KB`
   }
-  return `${(value / 1024 / 1024).toFixed(1)}MB`
+  if (value < 1024 * 1024 * 1024) {
+    return `${(value / 1024 / 1024).toFixed(1)}MB`
+  }
+  return `${(value / 1024 / 1024 / 1024).toFixed(1)}GB`
 }
 
 export function memoryText(kb?: number) {

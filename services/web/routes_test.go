@@ -23,6 +23,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/doveccl/doj/models"
 	adminsvc "github.com/doveccl/doj/services/admin"
+	judgersvc "github.com/doveccl/doj/services/judger"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	"gorm.io/datatypes"
@@ -268,6 +269,49 @@ func TestSubmissionDetailIncludesTopLevelMessage(t *testing.T) {
 	}
 }
 
+func TestSubmissionDetailIncludesProgressButListDoesNot(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	owner := models.User{Name: "owner", Mail: "owner@example.com", Auth: "hash"}
+	if err := db.Create(&owner).Error; err != nil {
+		t.Fatalf("create owner: %v", err)
+	}
+	problem := models.Problem{ID: 1000, Title: "Visible", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	total := int64(12)
+	submission := models.Submission{
+		UserID:    owner.ID,
+		ProblemID: problem.ID,
+		Language:  "cpp",
+		Code:      "int main(){}",
+		Status:    "judging",
+		Attempt:   4,
+		Public:    true,
+	}
+	if err := db.Create(&submission).Error; err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+	if err := judgersvc.SaveProgress(t.Context(), submission.ID, judgersvc.Progress{Attempt: 4, Stage: "judge", Done: 3, Total: &total, UpdatedAt: time.Now()}); err != nil {
+		t.Fatalf("save progress: %v", err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+
+	target := "/api/submissions/" + strconv.FormatUint(uint64(submission.ID), 10)
+	got := decodeJSON[SubmissionDetail](t, requestOK(t, e, http.MethodGet, target, ""))
+	if got.Progress == nil || got.Progress.Stage != "judge" || got.Progress.Done != 3 || got.Progress.Total == nil || *got.Progress.Total != total {
+		t.Fatalf("submission detail progress = %+v", got.Progress)
+	}
+
+	list := requestOK(t, e, http.MethodGet, "/api/submissions", "")
+	if strings.Contains(list.Body.String(), "progress") {
+		t.Fatalf("submission list should not expose progress: %s", list.Body.String())
+	}
+}
+
 func TestSubmissionPublicCanBeUpdatedByOwnerOrAdmin(t *testing.T) {
 	db := testWebDB(t)
 	allowGuest(t, db)
@@ -373,6 +417,9 @@ func TestSubmissionCanBeRejudgedByAdmin(t *testing.T) {
 	if err := db.Create(&models.Case{SubmissionID: submission.ID, No: 1, Status: "WA", TimeMS: &timeMS, MemoryKB: &memoryKB, Message: "bad"}).Error; err != nil {
 		t.Fatalf("create case: %v", err)
 	}
+	if err := judgersvc.SaveProgress(t.Context(), submission.ID, judgersvc.Progress{Attempt: 3, Stage: "judge", Done: 1, UpdatedAt: time.Now()}); err != nil {
+		t.Fatalf("save progress: %v", err)
+	}
 
 	e := echo.New()
 	Register(e, db)
@@ -404,6 +451,13 @@ func TestSubmissionCanBeRejudgedByAdmin(t *testing.T) {
 	}
 	if cases != 0 {
 		t.Fatalf("cases after rejudge = %d, want 0", cases)
+	}
+	progress, err := judgersvc.ReadProgress(t.Context(), submission.ID, 3)
+	if err != nil {
+		t.Fatalf("read progress after rejudge: %v", err)
+	}
+	if progress != nil {
+		t.Fatalf("progress after rejudge = %+v, want nil", progress)
 	}
 }
 

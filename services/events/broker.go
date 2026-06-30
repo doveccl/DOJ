@@ -57,3 +57,7 @@ func (broker *Broker) Publish(kind string, data any) {
 func SubmissionChanged() {
 	Default.Publish("submission", map[string]string{"changed": "submission"})
 }
+
+func SubmissionProgressChanged() {
+	Default.Publish("submission-progress", map[string]string{"changed": "submission-progress"})
+}

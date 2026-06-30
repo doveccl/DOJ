@@ -231,6 +231,43 @@ func TestDownloadTaskAssetsUsesLeasePackageVersionCache(t *testing.T) {
 	}
 }
 
+func TestDownloadTaskAssetsReportsDownloadedBytes(t *testing.T) {
+	body := testAssetZip(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/judger/P1000.zip" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/zip")
+		_, _ = w.Write(body)
+	}))
+	defer server.Close()
+
+	root := t.TempDir()
+	work := filepath.Join(root, "work")
+	if err := os.MkdirAll(work, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var got []heartbeatRequest
+	cfg := WorkerConfig{
+		Server: server.URL,
+		Work:   filepath.Join(root, "jobs"),
+		Progress: func(stage string, done int64, total *int64) {
+			got = append(got, heartbeatRequest{Stage: stage, Done: done, Total: total})
+		},
+	}
+	if err := downloadTaskAssets(t.Context(), server.Client(), cfg, 1000, "v1", work, 11, 1); err != nil {
+		t.Fatalf("download: %v", err)
+	}
+	if len(got) == 0 {
+		t.Fatal("missing download progress")
+	}
+	last := got[len(got)-1]
+	if last.Stage != "download" || last.Done != int64(len(body)) || last.Total != nil {
+		t.Fatalf("download progress = %+v, want done=%d without total", last, len(body))
+	}
+}
+
 func TestDownloadTaskAssetsUsesLongerTimeoutThanAPIClient(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/judger/P1000.zip" {

@@ -103,8 +103,11 @@ type ResultRequest struct {
 }
 
 type HeartbeatRequest struct {
-	SubmissionID uint `json:"submissionId"`
-	Attempt      int  `json:"attempt"`
+	SubmissionID uint   `json:"submissionId"`
+	Attempt      int    `json:"attempt"`
+	Stage        string `json:"stage"`
+	Done         int64  `json:"done"`
+	Total        *int64 `json:"total"`
 }
 
 type CaseResult struct {
@@ -239,6 +242,9 @@ func (api *API) tryLease(ctx context.Context, judgerID uint) (*TaskPayload, erro
 	if err != nil {
 		return nil, err
 	}
+	if payload != nil {
+		_ = SaveProgress(ctx, payload.SubmissionID, Progress{Attempt: payload.Attempt, Stage: "leased", UpdatedAt: now})
+	}
 	return payload, nil
 }
 
@@ -320,6 +326,16 @@ func (api *API) heartbeat(c echo.Context) error {
 	}
 	if applied {
 		TouchStatus(c.Request().Context(), ownerID, now)
+		if req.Stage != "" {
+			_ = SaveProgress(c.Request().Context(), req.SubmissionID, Progress{
+				Attempt:   req.Attempt,
+				Stage:     req.Stage,
+				Done:      req.Done,
+				Total:     req.Total,
+				UpdatedAt: now,
+			})
+			events.SubmissionProgressChanged()
+		}
 	}
 	return c.NoContent(http.StatusAccepted)
 }
@@ -398,6 +414,7 @@ func (api *API) result(c echo.Context) error {
 	}
 	if applied {
 		TouchStatus(c.Request().Context(), ownerID, time.Now())
+		DeleteProgress(c.Request().Context(), req.SubmissionID)
 		events.SubmissionChanged()
 	}
 	return c.NoContent(http.StatusAccepted)
@@ -548,6 +565,15 @@ func validateHeartbeat(req HeartbeatRequest) error {
 	}
 	if req.Attempt <= 0 {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid heartbeat attempt")
+	}
+	if req.Stage != "" && !validProgressStage(req.Stage) {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid heartbeat stage")
+	}
+	if req.Done < 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid heartbeat progress")
+	}
+	if req.Total != nil && *req.Total < 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid heartbeat progress total")
 	}
 	return nil
 }
