@@ -136,16 +136,13 @@ func (api *API) plagiarismReport(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	reader, contentType, err := store.Open(c.Request().Context(), job.ReportKey)
+	reader, _, err := store.Open(c.Request().Context(), job.ReportKey)
 	if err != nil {
 		return err
 	}
 	defer reader.Close()
-	if contentType == "" {
-		contentType = "application/octet-stream"
-	}
 	c.Response().Header().Set(echo.HeaderContentDisposition, fmt.Sprintf(`inline; filename="plagiarism-%d.jplag"`, job.ID))
-	return c.Stream(http.StatusOK, contentType, reader)
+	return c.Stream(http.StatusOK, "application/zip", reader)
 }
 
 func (api *API) plagiarismViewer(c echo.Context) error {
