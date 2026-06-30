@@ -1,4 +1,4 @@
-import { Space, Tag, Tooltip } from 'antd'
+import { Space, Tag, Tooltip, Typography } from 'antd'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -35,7 +35,7 @@ export function TagList({ tags, color, maxWidth = 96, linkTo, empty = null }: Ta
       ))}
       <Tooltip title={foldedTags.join(', ')}>
         <Tag color={color}>
-          +{foldedTags.length}
+          <Typography.Text style={{ lineHeight: 'inherit' }}>+{foldedTags.length}</Typography.Text>
         </Tag>
       </Tooltip>
     </Space>
