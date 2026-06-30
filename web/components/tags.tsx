@@ -26,16 +26,16 @@ export function TagList({ tags, color, maxWidth = 96, linkTo, empty = null }: Ta
     )
   }
 
-  const visible = tags.slice(0, 3)
-  const hidden = tags.slice(3)
+  const inlineTags = tags.slice(0, 2)
+  const foldedTags = tags.slice(2)
   return (
     <Space size={[4, 4]} wrap>
-      {visible.map((tag) => (
+      {inlineTags.map((tag) => (
         <TagItem key={tag} tag={tag} color={color} maxWidth={maxWidth} linkTo={linkTo} />
       ))}
-      <Tooltip title={hidden.join(', ')}>
+      <Tooltip title={foldedTags.join(', ')}>
         <Tag color={color}>
-          +{hidden.length}
+          +{foldedTags.length}
         </Tag>
       </Tooltip>
     </Space>
