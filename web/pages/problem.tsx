@@ -215,6 +215,23 @@ export function ProblemDetailPage() {
     },
     onError: showError
   })
+  const removeAssets = useMutation({
+    mutationFn: async (files: AssetFile[]) => {
+      let next = assets.data
+      for (const file of files) {
+        next = await apiData(api.DELETE('/api/problems/{id}/assets/files', { params: { path: { id }, query: { key: file.key } } }))
+      }
+      if (!next) {
+        throw new Error(text.common.emptyResponse)
+      }
+      return next
+    },
+    onSuccess: (next) => {
+      setAssets(next)
+      message.success(text.common.saved)
+    },
+    onError: showError
+  })
   const openAsset = useMutation({
     mutationFn: (file: AssetFile) => apiData(api.GET('/api/problems/{id}/assets/files/content', { params: { path: { id }, query: { key: file.key } } })),
     onSuccess: (content) => {
@@ -511,11 +528,12 @@ export function ProblemDetailPage() {
                 files={assets.data?.data ?? []}
                 section="data"
                 problemId={id}
-                loading={assets.isLoading || removeAsset.isPending}
+                loading={assets.isLoading || removeAsset.isPending || removeAssets.isPending}
                 onUploaded={setAssets}
                 onEdit={(file) => openAsset.mutate(file)}
                 onDownload={(file) => downloadURL(problemFileDownloadURL(id, 'data', file.name), file.name)}
                 onDelete={(key) => removeAsset.mutateAsync(key)}
+                onDeleteAll={() => removeAssets.mutateAsync(assets.data?.data ?? [])}
                 extra={
                   <Button size="small" icon={<FileAddOutlined />} onClick={() => setCaseOpen(true)}>
                     {text.problem.addCase}
@@ -634,7 +652,8 @@ function AssetSection({
   onUploaded,
   onEdit,
   onDownload,
-  onDelete
+  onDelete,
+  onDeleteAll
 }: {
   title: string
   files: AssetFile[]
@@ -646,6 +665,7 @@ function AssetSection({
   onEdit: (file: AssetFile) => void
   onDownload: (file: AssetFile) => void
   onDelete: (key: string) => Promise<ProblemAssets>
+  onDeleteAll?: () => Promise<ProblemAssets>
 }) {
   const { text } = useLocale()
   const { message } = App.useApp()
@@ -688,6 +708,11 @@ function AssetSection({
       extra={
         <Space wrap size={6}>
           {extra}
+          {onDeleteAll ? (
+            <Popconfirm title={text.common.confirmDelete} okText={text.common.delete} cancelText={text.common.cancel} onConfirm={onDeleteAll}>
+              <Button size="small" danger disabled={loading || files.length === 0} loading={loading} icon={<DeleteOutlined />}>{text.common.deleteAll}</Button>
+            </Popconfirm>
+          ) : null}
           <Upload<ProblemAssets>
             accept={accept}
             action={apiUrl(`/api/problems/${problemId}/assets/files`).toString()}
