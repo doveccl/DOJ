@@ -165,7 +165,7 @@ func startBundledViewer() (func(), error) {
 		}
 		_ = cmd.Wait()
 	}
-	deadline := time.Now().Add(10 * time.Second)
+	deadline := time.Now().Add(60 * time.Second)
 	for time.Now().Before(deadline) {
 		resp, err := http.Get("http://127.0.0.1:" + port + "/")
 		if err == nil {
