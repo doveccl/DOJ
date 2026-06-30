@@ -723,7 +723,7 @@ function AssetSection({
           </Upload>
           {extra}
           {onDeleteAll ? (
-            <Popconfirm title={text.common.confirmDelete} okText={text.common.delete} cancelText={text.common.cancel} onConfirm={onDeleteAll}>
+            <Popconfirm title={text.common.confirmClear} okText={text.common.clear} cancelText={text.common.cancel} onConfirm={onDeleteAll}>
               <Button size="small" danger disabled={loading || files.length === 0} loading={loading} icon={<DeleteOutlined />}>{text.common.clear}</Button>
             </Popconfirm>
           ) : null}
