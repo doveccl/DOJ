@@ -11,6 +11,7 @@ import { api, apiData } from '../client'
 import type { AssignmentProgress, ProblemListItem, ProblemRef } from '../client'
 import { ProblemLink, UserLink } from '../components/entity'
 import { IdSelect } from '../components/id-select'
+import { PlagiarismPanel } from '../components/plagiarism'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { DeadlineTimer } from '../components/time'
@@ -110,7 +111,14 @@ export function AssignmentDetailPage() {
               key: 'progress',
               label: text.assignments.completion,
               children: <Table<AssignmentProgress> rowKey="user" columns={progressColumns(text, problems)} dataSource={assignmentProgress} pagination={false} scroll={{ x: 'max-content' }} />
-            }
+            },
+            ...(session.admin
+              ? [{
+                  key: 'plagiarism',
+                  label: text.plagiarism.title,
+                  children: <PlagiarismPanel scope="assignment" id={assignment.id} />
+                }]
+              : [])
           ]}
         />
       </Card>

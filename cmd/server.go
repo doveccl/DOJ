@@ -160,7 +160,7 @@ func securityHeaders() echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			h := c.Response().Header()
 			h.Set(echo.HeaderXContentTypeOptions, "nosniff")
-			h.Set(echo.HeaderXFrameOptions, "DENY")
+			h.Set(echo.HeaderXFrameOptions, "SAMEORIGIN")
 			h.Set("Referrer-Policy", "same-origin")
 			h.Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src 'self'")
 			return next(c)

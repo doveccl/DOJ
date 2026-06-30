@@ -586,6 +586,77 @@ paths:
       responses:
         "204":
           description: Deleted backup
+  /api/admin/plagiarism:
+    get:
+      operationId: listPlagiarismJobs
+      parameters:
+        - name: scope
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [assignment, contest]
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Plagiarism jobs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlagiarismJobs"
+  /api/admin/plagiarism/assignments/{id}:
+    post:
+      operationId: createAssignmentPlagiarismJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "202":
+          description: Plagiarism job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlagiarismJob"
+  /api/admin/plagiarism/contests/{id}:
+    post:
+      operationId: createContestPlagiarismJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "202":
+          description: Plagiarism job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlagiarismJob"
+  /api/admin/plagiarism/jobs/{id}/report.jplag:
+    get:
+      operationId: getPlagiarismReport
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: JPlag report
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
   /api/home:
     get:
       operationId: home
@@ -1759,6 +1830,41 @@ components:
         size:
           type: integer
           format: int64
+    PlagiarismJobs:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlagiarismJob"
+    PlagiarismJob:
+      type: object
+      required: [id, scope, scopeId, status, message, reportUrl, viewerUrl, createdAt, finishedAt]
+      properties:
+        id:
+          type: integer
+        scope:
+          type: string
+          enum: [assignment, contest]
+        scopeId:
+          type: integer
+        status:
+          type: string
+          enum: [queued, running, done, failed]
+        message:
+          type: string
+        reportUrl:
+          type: string
+        viewerUrl:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
     AdminUser:
       type: object
       required: [id, name, mail, role, groups]

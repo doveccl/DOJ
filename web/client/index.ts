@@ -61,6 +61,7 @@ export type AdminJudgers = components['schemas']['AdminJudgers']
 export type BackupSettings = components['schemas']['BackupSettings']
 export type BackupList = components['schemas']['BackupList']
 export type BackupItem = components['schemas']['BackupItem']
+export type PlagiarismJob = components['schemas']['PlagiarismJob']
 
 function defaultBaseUrl() {
   return typeof window === 'undefined' ? 'http://localhost:7974' : window.location.origin

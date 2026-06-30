@@ -56,7 +56,8 @@ const zh = {
     createProblem: '创建题目',
     submitCode: '提交代码',
     send: '发送',
-    saved: '已保存'
+    saved: '已保存',
+    refresh: '刷新'
   },
   time: {
     dayTimer: 'D[天] HH:mm:ss',
@@ -179,6 +180,20 @@ const zh = {
     end: '结束时间',
     freeze: '封榜时间',
     total: (total: number) => `${total} 题`
+  },
+  plagiarism: {
+    title: '相似度',
+    run: '运行分析',
+    running: '正在分析 C++ 提交',
+    empty: '暂无分析任务',
+    failed: '分析失败',
+    fullscreen: '全屏',
+    status: {
+      queued: '排队中',
+      running: '运行中',
+      done: '已完成',
+      failed: '失败'
+    }
   },
   submissions: {
     title: '提交',
@@ -443,7 +458,8 @@ const en: typeof zh = {
     createProblem: 'Create problem',
     submitCode: 'Submit code',
     send: 'Send',
-    saved: 'Saved'
+    saved: 'Saved',
+    refresh: 'Refresh'
   },
   time: {
     dayTimer: 'D[d] HH:mm:ss',
@@ -566,6 +582,20 @@ const en: typeof zh = {
     end: 'End time',
     freeze: 'Freeze time',
     total: (total: number) => `${total} problems`
+  },
+  plagiarism: {
+    title: 'Similarity',
+    run: 'Run analysis',
+    running: 'Analyzing C++ submissions',
+    empty: 'No analysis jobs',
+    failed: 'Analysis failed',
+    fullscreen: 'Fullscreen',
+    status: {
+      queued: 'Queued',
+      running: 'Running',
+      done: 'Done',
+      failed: 'Failed'
+    }
   },
   submissions: {
     title: 'Submissions',

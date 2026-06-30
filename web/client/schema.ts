@@ -420,6 +420,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/plagiarism": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPlagiarismJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/plagiarism/assignments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createAssignmentPlagiarismJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/plagiarism/contests/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createContestPlagiarismJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/plagiarism/jobs/{id}/report.jplag": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPlagiarismReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/home": {
         parameters: {
             query?: never;
@@ -1019,6 +1083,24 @@ export interface components {
             createdAt: string;
             /** Format: int64 */
             size: number;
+        };
+        PlagiarismJobs: {
+            items: components["schemas"]["PlagiarismJob"][];
+        };
+        PlagiarismJob: {
+            id: number;
+            /** @enum {string} */
+            scope: "assignment" | "contest";
+            scopeId: number;
+            /** @enum {string} */
+            status: "queued" | "running" | "done" | "failed";
+            message: string;
+            reportUrl: string;
+            viewerUrl: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            finishedAt: string | null;
         };
         AdminUser: {
             id: number;
@@ -2386,6 +2468,95 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    listPlagiarismJobs: {
+        parameters: {
+            query: {
+                scope: "assignment" | "contest";
+                id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plagiarism jobs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlagiarismJobs"];
+                };
+            };
+        };
+    };
+    createAssignmentPlagiarismJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plagiarism job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlagiarismJob"];
+                };
+            };
+        };
+    };
+    createContestPlagiarismJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plagiarism job queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlagiarismJob"];
+                };
+            };
+        };
+    };
+    getPlagiarismReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description JPlag report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
             };
         };
     };

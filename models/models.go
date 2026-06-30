@@ -166,6 +166,19 @@ type Setting struct {
 	Value datatypes.JSON `gorm:"type:jsonb;not null" json:"value"`
 }
 
+type PlagiarismJob struct {
+	ID         uint       `gorm:"primaryKey" json:"id"`
+	Scope      string     `gorm:"size:16;index;not null" json:"scope"`
+	ScopeID    uint       `gorm:"index;not null" json:"scopeId"`
+	Status     string     `gorm:"size:16;index;not null;default:'queued'" json:"status"`
+	Message    string     `gorm:"type:text;not null;default:''" json:"message"`
+	InputKey   string     `gorm:"size:256;not null;default:''" json:"inputKey"`
+	ReportKey  string     `gorm:"size:256;not null;default:''" json:"reportKey"`
+	CreatedAt  time.Time  `json:"createdAt"`
+	UpdatedAt  time.Time  `json:"updatedAt"`
+	FinishedAt *time.Time `json:"finishedAt"`
+}
+
 func All() []any {
 	return []any{
 		&User{},
@@ -185,6 +198,7 @@ func All() []any {
 		&Discussion{},
 		&Comment{},
 		&Setting{},
+		&PlagiarismJob{},
 	}
 }
 
