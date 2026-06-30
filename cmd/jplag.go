@@ -32,6 +32,7 @@ const (
 	defaultJava         = "/opt/java/openjdk/bin/java"
 	defaultViewerPort   = "1996"
 	defaultViewerReport = "/app/viewer.jplag"
+	reportCookie        = "doj_jplag_file"
 )
 
 func main() {
@@ -118,6 +119,13 @@ func runJPlagHandler(c echo.Context) error {
 }
 
 func viewerHandler(c echo.Context) error {
+	rel := strings.TrimPrefix(c.Param("*"), "/")
+	if file := strings.TrimSpace(c.QueryParam("file")); file != "" {
+		c.SetCookie(&http.Cookie{Name: reportCookie, Value: url.QueryEscape(file), Path: "/JPlag", SameSite: http.SameSiteLaxMode})
+	}
+	if rel == "results.jplag" {
+		return viewerReport(c)
+	}
 	target := strings.TrimSpace(os.Getenv("VIEWER"))
 	if target == "" {
 		target = "http://127.0.0.1:" + getenv("VIEWER_PORT", defaultViewerPort) + "/"
@@ -128,7 +136,6 @@ func viewerHandler(c echo.Context) error {
 	}
 	proxy := &httputil.ReverseProxy{Rewrite: func(req *httputil.ProxyRequest) {
 		req.SetURL(base)
-		rel := strings.TrimPrefix(c.Param("*"), "/")
 		req.Out.URL.Path = joinURLPath(base.Path, rel)
 		if strings.HasSuffix(c.Request().URL.Path, "/") && !strings.HasSuffix(req.Out.URL.Path, "/") {
 			req.Out.URL.Path += "/"
@@ -138,6 +145,35 @@ func viewerHandler(c echo.Context) error {
 	}, ModifyResponse: rewriteViewerResponse}
 	proxy.ServeHTTP(c.Response(), c.Request())
 	return nil
+}
+
+func viewerReport(c echo.Context) error {
+	cookie, err := c.Cookie(reportCookie)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "report not selected")
+	}
+	file, err := url.QueryUnescape(cookie.Value)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid report")
+	}
+	parsed, err := url.Parse(file)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || !strings.HasSuffix(parsed.Path, "/report.jplag") || !strings.Contains(parsed.Path, "/api/admin/plagiarism/jobs/") {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid report")
+	}
+	req, err := http.NewRequestWithContext(c.Request().Context(), http.MethodGet, file, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set(echo.HeaderCookie, c.Request().Header.Get(echo.HeaderCookie))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return echo.NewHTTPError(resp.StatusCode, "report unavailable")
+	}
+	return c.Stream(http.StatusOK, "application/zip", resp.Body)
 }
 
 func startBundledViewer() (func(), error) {

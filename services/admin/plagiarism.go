@@ -169,7 +169,9 @@ func (api *API) proxyPlagiarism(c echo.Context, rel string) error {
 			req.Out.URL.Path += "/"
 		}
 		req.Out.URL.RawQuery = c.Request().URL.RawQuery
-		req.Out.Header.Del(echo.HeaderCookie)
+		if !strings.HasSuffix(req.Out.URL.Path, "/JPlag/results.jplag") {
+			req.Out.Header.Del(echo.HeaderCookie)
+		}
 	}}
 	proxy.ServeHTTP(c.Response(), c.Request())
 	return nil
