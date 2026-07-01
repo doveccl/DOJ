@@ -640,7 +640,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PlagiarismJob"
-  /api/admin/plagiarism/jobs/{id}/report.jplag:
+  /api/admin/{id}.jplag:
     get:
       operationId: getPlagiarismReport
       parameters:

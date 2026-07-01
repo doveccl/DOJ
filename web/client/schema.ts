@@ -468,7 +468,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/plagiarism/jobs/{id}/report.jplag": {
+    "/api/admin/{id}.jplag": {
         parameters: {
             query?: never;
             header?: never;

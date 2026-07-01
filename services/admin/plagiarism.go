@@ -212,7 +212,7 @@ func (api *API) runPlagiarismJob(id uint) {
 		finish(plagiarismStatusFailed, err.Error(), map[string]any{"input_key": inputKey})
 		return
 	}
-	reportKey := path.Join(plagiarismPrefix, fmt.Sprintf("%s-%d", job.Scope, job.ScopeID), fmt.Sprintf("job-%d-report.jplag", job.ID))
+	reportKey := path.Join("jplag", fmt.Sprintf("%d.jplag", job.ID))
 	if err := store.Put(ctx, reportKey, bytes.NewReader(report), int64(len(report)), "application/octet-stream"); err != nil {
 		finish(plagiarismStatusFailed, err.Error(), map[string]any{"input_key": inputKey})
 		return
@@ -651,7 +651,7 @@ func plagiarismJobDTO(row models.PlagiarismJob) PlagiarismJobDTO {
 		FinishedAt: row.FinishedAt,
 	}
 	if row.Status == plagiarismStatusDone && row.ReportKey != "" {
-		dto.ReportURL = fmt.Sprintf("/api/admin/plagiarism/jobs/%d/report.jplag", row.ID)
+		dto.ReportURL = fmt.Sprintf("/api/admin/%d.jplag", row.ID)
 	}
 	return dto
 }
