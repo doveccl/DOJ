@@ -46,6 +46,7 @@ func main() {
 	e.Use(middleware.Logger())
 	e.GET("/ready", func(c echo.Context) error { return c.NoContent(http.StatusNoContent) })
 	e.POST("/run", runJPlagHandler)
+	e.GET("/viewer", viewerHandler)
 	e.GET("/viewer/*", viewerHandler)
 	if err := startJPlagServer(e); err != nil {
 		e.Logger.Fatal(err)
