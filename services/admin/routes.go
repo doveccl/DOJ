@@ -189,7 +189,6 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.POST("/plagiarism/assignments/:id", api.createAssignmentPlagiarismJob)
 	group.POST("/plagiarism/contests/:id", api.createContestPlagiarismJob)
 	group.GET("/plagiarism/jobs/:id/report.jplag", api.plagiarismReport)
-	group.GET("/plagiarism/viewer/*", api.plagiarismViewer)
 	e.GET("/JPlag/*", api.requireAdmin(api.plagiarismViewerAsset))
 }
 

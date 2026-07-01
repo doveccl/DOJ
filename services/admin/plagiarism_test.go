@@ -58,7 +58,7 @@ func TestPlagiarismPackageUsesScopeRepresentativeAsNewAndACHistoryAsOld(t *testi
 	for _, file := range reader.File {
 		names[file.Name] = true
 	}
-	for _, name := range []string{"new/P1000#3U1(alice).cc", "old/P1000#2U2(bob).cc", "old/P1000#5U1(alice).cc", "manifest.json"} {
+	for _, name := range []string{"new/P1000#3U1(alice).cc", "old/P1000#2U2(bob).cc", "old/P1000#5U1(alice).cc"} {
 		if !names[name] {
 			t.Fatalf("zip missing %s in %v", name, names)
 		}

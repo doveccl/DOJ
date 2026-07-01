@@ -1840,7 +1840,7 @@ components:
             $ref: "#/components/schemas/PlagiarismJob"
     PlagiarismJob:
       type: object
-      required: [id, scope, scopeId, status, message, reportUrl, viewerUrl, createdAt, finishedAt]
+      required: [id, scope, scopeId, status, message, reportUrl, createdAt, finishedAt]
       properties:
         id:
           type: integer
@@ -1855,8 +1855,6 @@ components:
         message:
           type: string
         reportUrl:
-          type: string
-        viewerUrl:
           type: string
         createdAt:
           type: string

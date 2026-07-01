@@ -1096,7 +1096,6 @@ export interface components {
             status: "queued" | "running" | "done" | "failed";
             message: string;
             reportUrl: string;
-            viewerUrl: string;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */

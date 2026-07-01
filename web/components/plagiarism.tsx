@@ -50,7 +50,7 @@ export function PlagiarismPanel({ scope, id }: Props) {
       </Flex>
       {create.isError ? <Alert type="error" showIcon message={create.error instanceof Error ? create.error.message : text.common.loadingFailed} /> : null}
       {busy ? null : job?.status === 'failed' ? (
-        <Alert type="error" showIcon message={text.plagiarism.failed} description={friendlyFailure(job.message, text)} />
+        <Alert type="error" showIcon message={text.plagiarism.failed} description={cleanFailure(job.message) || text.plagiarism.failed} />
       ) : job && reportViewerUrl ? (
         <Alert
           type="success"
@@ -74,14 +74,6 @@ function PlagiarismStatus({ job }: { job: PlagiarismJob }) {
   const { text } = useLocale()
   const color = job.status === 'done' ? 'success' : job.status === 'failed' ? 'error' : 'processing'
   return <Tag color={color}>{text.plagiarism.status[job.status]}</Tag>
-}
-
-function friendlyFailure(message: string, text: ReturnType<typeof useLocale>['text']) {
-  const clean = cleanFailure(message)
-  if (clean.includes('/src/old') && clean.includes('does not exist')) {
-    return text.plagiarism.oldDirFixed
-  }
-  return clean || text.plagiarism.failed
 }
 
 function cleanFailure(message: string) {

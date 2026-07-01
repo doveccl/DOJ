@@ -47,30 +47,12 @@ type PlagiarismJobDTO struct {
 	Status     string     `json:"status"`
 	Message    string     `json:"message"`
 	ReportURL  string     `json:"reportUrl"`
-	ViewerURL  string     `json:"viewerUrl"`
 	CreatedAt  time.Time  `json:"createdAt"`
 	FinishedAt *time.Time `json:"finishedAt"`
 }
 
 type PlagiarismJobs struct {
 	Items []PlagiarismJobDTO `json:"items"`
-}
-
-type plagiarismManifest struct {
-	Scope       string                 `json:"scope"`
-	ScopeID     uint                   `json:"scopeId"`
-	Language    string                 `json:"language"`
-	NewDir      string                 `json:"newDir"`
-	OldDir      string                 `json:"oldDir"`
-	Submissions []plagiarismSubmission `json:"submissions"`
-}
-
-type plagiarismSubmission struct {
-	ID        uint   `json:"id"`
-	UserID    uint   `json:"userId"`
-	ProblemID uint   `json:"problemId"`
-	Group     string `json:"group"`
-	File      string `json:"file"`
 }
 
 func (api *API) plagiarismJobs(c echo.Context) error {
@@ -148,10 +130,6 @@ func (api *API) plagiarismReport(c echo.Context) error {
 	defer reader.Close()
 	c.Response().Header().Set(echo.HeaderContentDisposition, fmt.Sprintf(`inline; filename="plagiarism-%d.jplag"`, job.ID))
 	return c.Stream(http.StatusOK, "application/zip", reader)
-}
-
-func (api *API) plagiarismViewer(c echo.Context) error {
-	return api.proxyPlagiarism(c, path.Join("viewer", strings.TrimPrefix(c.Param("*"), "/")))
 }
 
 func (api *API) plagiarismViewerAsset(c echo.Context) error {
@@ -420,14 +398,14 @@ func (api *API) plagiarismPackage(scope string, scopeID uint) ([]byte, int, erro
 	zw := zip.NewWriter(&buf)
 	// Plagiarism scope: new uses the score-bearing representative submission,
 	// old uses all AC history for the same problems; report filtering only drops same-user pairs.
-	manifest := plagiarismManifest{Scope: scope, ScopeID: scopeID, Language: "cpp", NewDir: "new", OldDir: "old"}
+	count := 0
 	for _, row := range queryRows {
 		name := plagiarismFileName("new", row, users)
 		if err := zipText(zw, name, row.Code); err != nil {
 			_ = zw.Close()
 			return nil, 0, err
 		}
-		manifest.Submissions = append(manifest.Submissions, plagiarismSubmission{ID: row.ID, UserID: row.UserID, ProblemID: row.ProblemID, Group: "new", File: name})
+		count++
 	}
 	for _, row := range history {
 		if queryIDs[row.ID] {
@@ -438,21 +416,12 @@ func (api *API) plagiarismPackage(scope string, scopeID uint) ([]byte, int, erro
 			_ = zw.Close()
 			return nil, 0, err
 		}
-		manifest.Submissions = append(manifest.Submissions, plagiarismSubmission{ID: row.ID, UserID: row.UserID, ProblemID: row.ProblemID, Group: "old", File: name})
-	}
-	data, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		_ = zw.Close()
-		return nil, 0, err
-	}
-	if err := zipText(zw, "manifest.json", string(data)); err != nil {
-		_ = zw.Close()
-		return nil, 0, err
+		count++
 	}
 	if err := zw.Close(); err != nil {
 		return nil, 0, err
 	}
-	return buf.Bytes(), len(manifest.Submissions), nil
+	return buf.Bytes(), count, nil
 }
 
 func (api *API) plagiarismNewSubmissions(scope string, scopeID uint, rows []models.Submission) ([]models.Submission, error) {
@@ -673,9 +642,7 @@ func plagiarismJobDTO(row models.PlagiarismJob) PlagiarismJobDTO {
 		FinishedAt: row.FinishedAt,
 	}
 	if row.Status == plagiarismStatusDone && row.ReportKey != "" {
-		report := fmt.Sprintf("/api/admin/plagiarism/jobs/%d/report.jplag", row.ID)
-		dto.ReportURL = report
-		dto.ViewerURL = "/api/admin/plagiarism/viewer/?file=" + url.QueryEscape(report)
+		dto.ReportURL = fmt.Sprintf("/api/admin/plagiarism/jobs/%d/report.jplag", row.ID)
 	}
 	return dto
 }
