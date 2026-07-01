@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/signal"
 	"path"
@@ -176,6 +178,9 @@ func webAppHandler(root string, index string) echo.HandlerFunc {
 		}
 		file, cache, found := webFile(root, index, requestPath)
 		if !found {
+			if strings.HasPrefix(strings.TrimPrefix(path.Clean("/"+requestPath), "/"), "assets/") {
+				return proxyJPlagAsset(c)
+			}
 			return echo.ErrNotFound
 		}
 		if cache {
@@ -185,6 +190,26 @@ func webAppHandler(root string, index string) echo.HandlerFunc {
 		}
 		return c.File(file)
 	}
+}
+
+func proxyJPlagAsset(c echo.Context) error {
+	target := strings.TrimRight(strings.TrimSpace(os.Getenv("JPLAG")), "/")
+	if target == "" {
+		return echo.ErrNotFound
+	}
+	base, err := url.Parse(target)
+	if err != nil {
+		return err
+	}
+	rel := strings.TrimPrefix(path.Clean("/"+c.Request().URL.Path), "/")
+	proxy := &httputil.ReverseProxy{Rewrite: func(req *httputil.ProxyRequest) {
+		req.SetURL(base)
+		req.Out.URL.Path = "/" + strings.TrimLeft(path.Join(base.Path, "viewer", rel), "/")
+		req.Out.URL.RawQuery = c.Request().URL.RawQuery
+		req.Out.Header.Del(echo.HeaderCookie)
+	}}
+	proxy.ServeHTTP(c.Response(), c.Request())
+	return nil
 }
 
 func webFile(root string, index string, requestPath string) (string, bool, bool) {

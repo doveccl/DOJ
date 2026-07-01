@@ -32,7 +32,7 @@ export function PlagiarismPanel({ scope, id }: Props) {
   const job = jobs.data?.items[0]
   const busy = create.isPending || job?.status === 'queued' || job?.status === 'running'
   const reportViewerUrl = job?.reportUrl
-    ? `/JPlag/?file=${encodeURIComponent(apiUrl(job.reportUrl).toString())}`
+    ? `/jplag/${job.id}?file=${encodeURIComponent(apiUrl(job.reportUrl).toString())}`
     : ''
 
   return (

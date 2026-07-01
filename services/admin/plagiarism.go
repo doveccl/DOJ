@@ -116,6 +116,32 @@ func (api *API) plagiarismReport(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	return api.streamPlagiarismReport(c, job)
+}
+
+func (api *API) plagiarismViewer(c echo.Context) error {
+	if _, err := parseUintParam(c, "id", "invalid plagiarism job id"); err != nil {
+		return err
+	}
+	return api.proxyPlagiarism(c, "viewer/")
+}
+
+func (api *API) plagiarismViewerReport(c echo.Context) error {
+	id, ok := plagiarismJobIDFromReferer(c)
+	if !ok {
+		return echo.NewHTTPError(http.StatusNotFound, "report not found")
+	}
+	var job models.PlagiarismJob
+	if err := api.db.First(&job, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return echo.NewHTTPError(http.StatusNotFound, "report not found")
+		}
+		return err
+	}
+	return api.streamPlagiarismReport(c, job)
+}
+
+func (api *API) streamPlagiarismReport(c echo.Context, job models.PlagiarismJob) error {
 	if job.Status != plagiarismStatusDone || job.ReportKey == "" {
 		return echo.NewHTTPError(http.StatusNotFound, "report not found")
 	}
@@ -132,8 +158,24 @@ func (api *API) plagiarismReport(c echo.Context) error {
 	return c.Stream(http.StatusOK, "application/zip", reader)
 }
 
-func (api *API) plagiarismViewerAsset(c echo.Context) error {
-	return api.proxyPlagiarism(c, path.Join("JPlag", strings.TrimPrefix(c.Param("*"), "/")))
+func plagiarismJobIDFromReferer(c echo.Context) (uint, bool) {
+	ref := c.Request().Referer()
+	if strings.TrimSpace(ref) == "" {
+		return 0, false
+	}
+	u, err := url.Parse(ref)
+	if err != nil {
+		return 0, false
+	}
+	if u.Host != "" && !strings.EqualFold(u.Host, c.Request().Host) {
+		return 0, false
+	}
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	if len(parts) != 2 || parts[0] != "jplag" {
+		return 0, false
+	}
+	id, err := strconv.ParseUint(parts[1], 10, 64)
+	return uint(id), err == nil && id > 0
 }
 
 func (api *API) proxyPlagiarism(c echo.Context, rel string) error {
@@ -152,9 +194,7 @@ func (api *API) proxyPlagiarism(c echo.Context, rel string) error {
 			req.Out.URL.Path += "/"
 		}
 		req.Out.URL.RawQuery = c.Request().URL.RawQuery
-		if !strings.HasSuffix(req.Out.URL.Path, "/JPlag/results.jplag") {
-			req.Out.Header.Del(echo.HeaderCookie)
-		}
+		req.Out.Header.Del(echo.HeaderCookie)
 	}}
 	proxy.ServeHTTP(c.Response(), c.Request())
 	return nil

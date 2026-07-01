@@ -164,13 +164,40 @@ func TestProxyPlagiarismDropsCookie(t *testing.T) {
 	t.Setenv("JPLAG", upstream.URL)
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/JPlag/?file=x", nil)
+	req := httptest.NewRequest(http.MethodGet, "/jplag/1?file=x", nil)
 	req.Header.Set(echo.HeaderCookie, "doj_session=secret")
 	rec := httptest.NewRecorder()
-	if err := (&API{}).proxyPlagiarism(e.NewContext(req, rec), "JPlag/"); err != nil {
+	if err := (&API{}).proxyPlagiarism(e.NewContext(req, rec), "viewer/"); err != nil {
 		t.Fatal(err)
 	}
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
+	}
+}
+
+func TestPlagiarismJobIDFromReferer(t *testing.T) {
+	cases := []struct {
+		name    string
+		host    string
+		referer string
+		id      uint
+		ok      bool
+	}{
+		{name: "same origin", host: "test.local", referer: "https://test.local/jplag/42?file=x", id: 42, ok: true},
+		{name: "relative", host: "test.local", referer: "/jplag/7?file=x", id: 7, ok: true},
+		{name: "foreign host", host: "test.local", referer: "https://evil.local/jplag/42", ok: false},
+		{name: "missing id", host: "test.local", referer: "https://test.local/results.jplag", ok: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/results.jplag", nil)
+			req.Host = tc.host
+			req.Header.Set("Referer", tc.referer)
+			id, ok := plagiarismJobIDFromReferer(e.NewContext(req, httptest.NewRecorder()))
+			if id != tc.id || ok != tc.ok {
+				t.Fatalf("id, ok = %d, %v, want %d, %v", id, ok, tc.id, tc.ok)
+			}
+		})
 	}
 }

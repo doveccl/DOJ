@@ -4,7 +4,6 @@ package main
 
 import (
 	"archive/zip"
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -17,7 +16,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -27,12 +25,10 @@ import (
 )
 
 const (
-	defaultJPlagListen  = ":7979"
-	defaultJPlagJar     = "/app/jplag.jar"
-	defaultJava         = "/opt/java/openjdk/bin/java"
-	defaultViewerPort   = "1996"
-	defaultViewerReport = "/app/viewer.jplag"
-	reportCookie        = "doj_jplag_file"
+	defaultJPlagListen = ":7979"
+	defaultJPlagJar    = "/app/jplag.jar"
+	defaultJava        = "/opt/java/openjdk/bin/java"
+	defaultViewerPort  = "1996"
 )
 
 func main() {
@@ -51,7 +47,6 @@ func main() {
 	e.GET("/ready", func(c echo.Context) error { return c.NoContent(http.StatusNoContent) })
 	e.POST("/run", runJPlagHandler)
 	e.GET("/viewer/*", viewerHandler)
-	e.GET("/JPlag/*", viewerHandler)
 	if err := startJPlagServer(e); err != nil {
 		e.Logger.Fatal(err)
 	}
@@ -120,12 +115,6 @@ func runJPlagHandler(c echo.Context) error {
 
 func viewerHandler(c echo.Context) error {
 	rel := strings.TrimPrefix(c.Param("*"), "/")
-	if file := strings.TrimSpace(c.QueryParam("file")); file != "" {
-		c.SetCookie(&http.Cookie{Name: reportCookie, Value: url.QueryEscape(file), Path: "/JPlag", SameSite: http.SameSiteLaxMode})
-	}
-	if rel == "results.jplag" {
-		return viewerReport(c)
-	}
 	target := strings.TrimSpace(os.Getenv("VIEWER"))
 	if target == "" {
 		target = "http://127.0.0.1:" + getenv("VIEWER_PORT", defaultViewerPort) + "/"
@@ -142,38 +131,9 @@ func viewerHandler(c echo.Context) error {
 		}
 		req.Out.URL.RawQuery = c.Request().URL.RawQuery
 		req.Out.Header.Del(echo.HeaderCookie)
-	}, ModifyResponse: rewriteViewerResponse}
+	}}
 	proxy.ServeHTTP(c.Response(), c.Request())
 	return nil
-}
-
-func viewerReport(c echo.Context) error {
-	cookie, err := c.Cookie(reportCookie)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "report not selected")
-	}
-	file, err := url.QueryUnescape(cookie.Value)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid report")
-	}
-	parsed, err := url.Parse(file)
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || !strings.HasSuffix(parsed.Path, "/report.jplag") || !strings.Contains(parsed.Path, "/api/admin/plagiarism/jobs/") {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid report")
-	}
-	req, err := http.NewRequestWithContext(c.Request().Context(), http.MethodGet, file, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set(echo.HeaderCookie, c.Request().Header.Get(echo.HeaderCookie))
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return echo.NewHTTPError(resp.StatusCode, "report unavailable")
-	}
-	return c.Stream(http.StatusOK, "application/zip", resp.Body)
 }
 
 func startBundledViewer() (func(), error) {
@@ -183,7 +143,6 @@ func startBundledViewer() (func(), error) {
 		"-jar", getenv("JAR", defaultJPlagJar),
 		"--mode", "view",
 		"--port", port,
-		getenv("VIEWER_REPORT", defaultViewerReport),
 	)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -214,28 +173,6 @@ func startBundledViewer() (func(), error) {
 	}
 	stop()
 	return nil, errors.New("bundled viewer did not become ready")
-}
-
-func rewriteViewerResponse(resp *http.Response) error {
-	contentType := resp.Header.Get(echo.HeaderContentType)
-	if !strings.Contains(contentType, "text/html") && !strings.Contains(contentType, "javascript") {
-		return nil
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	_ = resp.Body.Close()
-	text := strings.ReplaceAll(string(body), `src="/assets/`, `src="/JPlag/assets/`)
-	text = strings.ReplaceAll(text, `href="/assets/`, `href="/JPlag/assets/`)
-	text = strings.ReplaceAll(text, `href="/favicon.ico"`, `href="/JPlag/favicon.ico"`)
-	text = strings.ReplaceAll(text, `history:Uw("/")`, `history:Uw("/JPlag/")`)
-	text = strings.ReplaceAll(text, "`${window.location.origin}/${t}`", "`${window.location.origin}/JPlag/${t}`")
-	data := []byte(text)
-	resp.Body = io.NopCloser(bytes.NewReader(data))
-	resp.ContentLength = int64(len(data))
-	resp.Header.Set(echo.HeaderContentLength, strconv.Itoa(len(data)))
-	return nil
 }
 
 func runJPlag(ctx context.Context, newDir string, oldDir string, report string) error {
