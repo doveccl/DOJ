@@ -69,27 +69,6 @@ func TestPlagiarismPackageUsesScopeAsNewAndProblemHistoryAsOld(t *testing.T) {
 	}
 }
 
-func TestPlagiarismPackageRejectsMultiProblemScope(t *testing.T) {
-	db := testAdminDB(t)
-	api := &API{db: db}
-	assignment := models.Assignment{Title: "hw", EndAt: time.Now().Add(time.Hour)}
-	if err := db.Create(&assignment).Error; err != nil {
-		t.Fatal(err)
-	}
-	for _, id := range []uint{1000, 1001} {
-		if err := db.Create(&models.Problem{ID: id, Title: "P"}).Error; err != nil {
-			t.Fatal(err)
-		}
-		if err := db.Create(&models.AssignmentProblem{AssignmentID: assignment.ID, ProblemID: id}).Error; err != nil {
-			t.Fatal(err)
-		}
-	}
-	_, _, err := api.plagiarismPackage(plagiarismScopeAssignment, assignment.ID)
-	if err == nil || !strings.Contains(err.Error(), "exactly one problem") {
-		t.Fatalf("error = %v, want one-problem guard", err)
-	}
-}
-
 func TestJPlagFailureUnwrapsEchoJSONAndDropsVersionWarning(t *testing.T) {
 	got := jplagFailure([]byte(`{"message":"exit status 1: 2026-06-30 [WARN] JPlagVersionChecker - newer\n2026-06-30 [ERROR] CLI - Not enough valid submissions"}`))
 	if strings.Contains(got, "JPlagVersionChecker") || strings.Contains(got, `{"message"`) {
@@ -97,6 +76,47 @@ func TestJPlagFailureUnwrapsEchoJSONAndDropsVersionWarning(t *testing.T) {
 	}
 	if !strings.Contains(got, "Not enough valid submissions") {
 		t.Fatalf("failure message lost useful error: %q", got)
+	}
+}
+
+func TestFilterJPlagReportKeepsOnlySameProblemDifferentUsers(t *testing.T) {
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	mustZipText(t, zw, "topComparisons.json", `[
+{"firstSubmission":"new_p1000_alice_u1_s1.cpp","secondSubmission":"new_p1000_bob_u2_s2.cpp"},
+{"firstSubmission":"new_p1000_alice_u1_s1.cpp","secondSubmission":"new_p1000_alice_u1_s3.cpp"},
+{"firstSubmission":"new_p1000_alice_u1_s1.cpp","secondSubmission":"new_p1001_bob_u2_s4.cpp"}]`)
+	mustZipText(t, zw, "runInformation.json", `{"totalComparisons":3}`)
+	mustZipText(t, zw, "comparisons/new_p1000_alice_u1_s1.cpp-new_p1000_bob_u2_s2.cpp.json", `{"firstSubmissionId":"new_p1000_alice_u1_s1.cpp","secondSubmissionId":"new_p1000_bob_u2_s2.cpp"}`)
+	mustZipText(t, zw, "comparisons/new_p1000_alice_u1_s1.cpp-new_p1000_alice_u1_s3.cpp.json", `{"firstSubmissionId":"new_p1000_alice_u1_s1.cpp","secondSubmissionId":"new_p1000_alice_u1_s3.cpp"}`)
+	mustZipText(t, zw, "comparisons/new_p1000_alice_u1_s1.cpp-new_p1001_bob_u2_s4.cpp.json", `{"firstSubmissionId":"new_p1000_alice_u1_s1.cpp","secondSubmissionId":"new_p1001_bob_u2_s4.cpp"}`)
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	got, err := filterJPlagReport(buf.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader, err := zip.NewReader(bytes.NewReader(got), int64(len(got)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := map[string]bool{}
+	for _, file := range reader.File {
+		names[file.Name] = true
+	}
+	if !names["comparisons/new_p1000_alice_u1_s1.cpp-new_p1000_bob_u2_s2.cpp.json"] {
+		t.Fatalf("kept comparison missing: %v", names)
+	}
+	if names["comparisons/new_p1000_alice_u1_s1.cpp-new_p1000_alice_u1_s3.cpp.json"] || names["comparisons/new_p1000_alice_u1_s1.cpp-new_p1001_bob_u2_s4.cpp.json"] {
+		t.Fatalf("invalid comparison kept: %v", names)
+	}
+}
+
+func mustZipText(t *testing.T, zw *zip.Writer, name string, text string) {
+	t.Helper()
+	if err := zipText(zw, name, text); err != nil {
+		t.Fatal(err)
 	}
 }
 

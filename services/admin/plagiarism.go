@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -215,6 +216,11 @@ func (api *API) runPlagiarismJob(id uint) {
 		finish(plagiarismStatusFailed, err.Error(), map[string]any{"input_key": inputKey})
 		return
 	}
+	report, err = filterJPlagReport(report)
+	if err != nil {
+		finish(plagiarismStatusFailed, err.Error(), map[string]any{"input_key": inputKey})
+		return
+	}
 	reportKey := path.Join(plagiarismPrefix, fmt.Sprintf("%s-%d", job.Scope, job.ScopeID), fmt.Sprintf("job-%d-report.jplag", job.ID))
 	if err := store.Put(ctx, reportKey, bytes.NewReader(report), int64(len(report)), "application/octet-stream"); err != nil {
 		finish(plagiarismStatusFailed, err.Error(), map[string]any{"input_key": inputKey})
@@ -280,13 +286,104 @@ func jplagFailure(data []byte) string {
 	return strings.TrimPrefix(strings.Join(items, "\n"), "exit status 1: ")
 }
 
+var plagiarismReportName = regexp.MustCompile(`p(\d+).*?(?:_u|user)(\d+)`)
+
+func filterJPlagReport(data []byte) ([]byte, error) {
+	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil, err
+	}
+	files := make(map[string][]byte, len(reader.File))
+	keepComparison := map[string]bool{}
+	for _, file := range reader.File {
+		body, err := readZipEntry(file)
+		if err != nil {
+			return nil, err
+		}
+		files[file.Name] = body
+		if strings.HasPrefix(file.Name, "comparisons/") {
+			var item map[string]any
+			if err := json.Unmarshal(body, &item); err != nil {
+				return nil, err
+			}
+			keepComparison[file.Name] = sameProblemDifferentUser(asString(item["firstSubmissionId"]), asString(item["secondSubmissionId"]))
+		}
+	}
+	if body, ok := files["topComparisons.json"]; ok {
+		var items []map[string]any
+		if err := json.Unmarshal(body, &items); err != nil {
+			return nil, err
+		}
+		filtered := items[:0]
+		for _, item := range items {
+			if sameProblemDifferentUser(asString(item["firstSubmission"]), asString(item["secondSubmission"])) {
+				filtered = append(filtered, item)
+			}
+		}
+		if files["topComparisons.json"], err = json.Marshal(filtered); err != nil {
+			return nil, err
+		}
+		if body, ok := files["runInformation.json"]; ok {
+			var info map[string]any
+			if err := json.Unmarshal(body, &info); err == nil {
+				info["totalComparisons"] = len(filtered)
+				if body, err := json.Marshal(info); err == nil {
+					files["runInformation.json"] = body
+				}
+			}
+		}
+	}
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for _, file := range reader.File {
+		if strings.HasPrefix(file.Name, "comparisons/") && !keepComparison[file.Name] {
+			continue
+		}
+		if err := zipBytes(zw, file.Name, files[file.Name]); err != nil {
+			_ = zw.Close()
+			return nil, err
+		}
+	}
+	if err := zw.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func readZipEntry(file *zip.File) ([]byte, error) {
+	src, err := file.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer src.Close()
+	return io.ReadAll(src)
+}
+
+func sameProblemDifferentUser(a string, b string) bool {
+	ap, au, okA := plagiarismProblemUser(a)
+	bp, bu, okB := plagiarismProblemUser(b)
+	return okA && okB && ap == bp && au != bu
+}
+
+func plagiarismProblemUser(name string) (string, string, bool) {
+	match := plagiarismReportName.FindStringSubmatch(name)
+	if len(match) != 3 {
+		return "", "", false
+	}
+	return match[1], match[2], true
+}
+
+func asString(value any) string {
+	if s, ok := value.(string); ok {
+		return s
+	}
+	return ""
+}
+
 func (api *API) plagiarismPackage(scope string, scopeID uint) ([]byte, int, error) {
 	problemIDs, err := api.plagiarismProblemIDs(scope, scopeID)
 	if err != nil {
 		return nil, 0, err
-	}
-	if len(problemIDs) != 1 {
-		return nil, 0, fmt.Errorf("plagiarism analysis requires exactly one problem")
 	}
 	queryRows, err := api.plagiarismScopeSubmissions(scope, scopeID, problemIDs)
 	if err != nil {
@@ -442,11 +539,15 @@ func safePlagiarismName(name string) string {
 }
 
 func zipText(zw *zip.Writer, name string, text string) error {
+	return zipBytes(zw, name, []byte(text))
+}
+
+func zipBytes(zw *zip.Writer, name string, data []byte) error {
 	file, err := zw.Create(name)
 	if err != nil {
 		return err
 	}
-	_, err = file.Write([]byte(text))
+	_, err = file.Write(data)
 	return err
 }
 
