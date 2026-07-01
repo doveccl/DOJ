@@ -1843,7 +1843,7 @@ components:
       required: [id, scope, scopeId, status, message, reportUrl, createdAt, finishedAt]
       properties:
         id:
-          type: integer
+          type: string
         scope:
           type: string
           enum: [assignment, contest]

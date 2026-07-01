@@ -1088,7 +1088,7 @@ export interface components {
             items: components["schemas"]["PlagiarismJob"][];
         };
         PlagiarismJob: {
-            id: number;
+            id: string;
             /** @enum {string} */
             scope: "assignment" | "contest";
             scopeId: number;

@@ -155,17 +155,18 @@ func mustZipText(t *testing.T, zw *zip.Writer, name string, text string) {
 	}
 }
 
-func TestPlagiarismJobIDFromReferer(t *testing.T) {
+func TestPlagiarismRefFromReferer(t *testing.T) {
 	cases := []struct {
 		name    string
 		host    string
 		referer string
-		id      uint
+		ref     string
 		ok      bool
 	}{
-		{name: "entry", host: "test.local", referer: "https://test.local/?jplag=9&file=x", id: 9, ok: true},
-		{name: "viewer route", host: "test.local", referer: "https://test.local/overview?jplag=10&file=x", id: 10, ok: true},
-		{name: "foreign host", host: "test.local", referer: "https://evil.local/?jplag=42", ok: false},
+		{name: "entry", host: "test.local", referer: "https://test.local/?jplag=A9&file=x", ref: "A9", ok: true},
+		{name: "viewer route", host: "test.local", referer: "https://test.local/overview?jplag=C10&file=x", ref: "C10", ok: true},
+		{name: "foreign host", host: "test.local", referer: "https://evil.local/?jplag=A42", ok: false},
+		{name: "numeric job id", host: "test.local", referer: "https://test.local/?jplag=42", ok: false},
 		{name: "missing id", host: "test.local", referer: "https://test.local/results.jplag", ok: false},
 	}
 	for _, tc := range cases {
@@ -174,9 +175,9 @@ func TestPlagiarismJobIDFromReferer(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/results.jplag", nil)
 			req.Host = tc.host
 			req.Header.Set("Referer", tc.referer)
-			id, ok := plagiarismJobIDFromReferer(e.NewContext(req, httptest.NewRecorder()))
-			if id != tc.id || ok != tc.ok {
-				t.Fatalf("id, ok = %d, %v, want %d, %v", id, ok, tc.id, tc.ok)
+			ref, ok := plagiarismRefFromReferer(e.NewContext(req, httptest.NewRecorder()))
+			if ref != tc.ref || ok != tc.ok {
+				t.Fatalf("ref, ok = %q, %v, want %q, %v", ref, ok, tc.ref, tc.ok)
 			}
 		})
 	}
@@ -189,17 +190,20 @@ func TestPlagiarismReportURLUsesStorageState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	job := models.PlagiarismJob{ID: 12, Status: plagiarismStatusDone}
-	if got := plagiarismReportKey(job.ID); got != "jplag/12.jplag" {
+	state := plagiarismState{ID: "A12", Scope: plagiarismScopeAssignment, ScopeID: 12, Status: plagiarismStatusDone}
+	if got := plagiarismReportKey(state.ID); got != "jplag/A12/result.jplag" {
 		t.Fatalf("report key = %q", got)
 	}
-	if dto := plagiarismJobDTO(job, plagiarismReportExists(ctx, store, job)); dto.ReportURL != "" {
+	if got := plagiarismStateKey(state.ID); got != "jplag/A12/meta.json" {
+		t.Fatalf("state key = %q", got)
+	}
+	if dto := plagiarismJobDTO(state, plagiarismReportExists(ctx, store, state.ID)); dto.ReportURL != "" {
 		t.Fatalf("reportUrl without storage object = %q", dto.ReportURL)
 	}
-	if err := store.Put(ctx, plagiarismReportKey(job.ID), strings.NewReader("report"), int64(len("report")), "application/octet-stream"); err != nil {
+	if err := store.Put(ctx, plagiarismReportKey(state.ID), strings.NewReader("report"), int64(len("report")), "application/octet-stream"); err != nil {
 		t.Fatal(err)
 	}
-	if dto := plagiarismJobDTO(job, plagiarismReportExists(ctx, store, job)); dto.ReportURL != "/api/admin/12.jplag" {
+	if dto := plagiarismJobDTO(state, plagiarismReportExists(ctx, store, state.ID)); dto.ReportURL != "/api/admin/A12.jplag" {
 		t.Fatalf("reportUrl = %q", dto.ReportURL)
 	}
 }
