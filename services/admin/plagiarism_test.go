@@ -3,6 +3,7 @@ package admin
 import (
 	"archive/zip"
 	"bytes"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -185,6 +186,7 @@ func TestPlagiarismJobIDFromReferer(t *testing.T) {
 	}{
 		{name: "same origin", host: "test.local", referer: "https://test.local/jplag/42?file=x", id: 42, ok: true},
 		{name: "relative", host: "test.local", referer: "/jplag/7?file=x", id: 7, ok: true},
+		{name: "temporary root", host: "test.local", referer: "https://test.local/?job=9&file=x", id: 9, ok: true},
 		{name: "foreign host", host: "test.local", referer: "https://evil.local/jplag/42", ok: false},
 		{name: "missing id", host: "test.local", referer: "https://test.local/results.jplag", ok: false},
 	}
@@ -199,5 +201,30 @@ func TestPlagiarismJobIDFromReferer(t *testing.T) {
 				t.Fatalf("id, ok = %d, %v, want %d, %v", id, ok, tc.id, tc.ok)
 			}
 		})
+	}
+}
+
+func TestInjectPlagiarismViewerEntry(t *testing.T) {
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{echo.HeaderContentType: []string{"text/html; charset=utf-8"}},
+		Body:       io.NopCloser(strings.NewReader(`<!doctype html><script type="module" src="/assets/index.js"></script>`)),
+	}
+	if err := injectPlagiarismViewerEntry(resp, "5", "file=https%3A%2F%2Ftest.local%2Freport.jplag"); err != nil {
+		t.Fatal(err)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(body)
+	if !strings.Contains(text, `root="/?file=https%3A%2F%2Ftest.local%2Freport.jplag\u0026job=5"`) {
+		t.Fatalf("missing temporary root url in %q", text)
+	}
+	if !strings.Contains(text, `original="/jplag/5?file=https%3A%2F%2Ftest.local%2Freport.jplag"`) {
+		t.Fatalf("missing original url in %q", text)
+	}
+	if !strings.Contains(text, `<script type="module"`) {
+		t.Fatalf("module script missing in %q", text)
 	}
 }
