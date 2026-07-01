@@ -294,7 +294,7 @@ function discussionColumns(
   ]
   if (admin || userName) {
     columns.push({
-      width: 156,
+      width: admin ? 156 : 56,
       align: 'right',
       render: (_, row) => (
         <Space size={4}>

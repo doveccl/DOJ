@@ -123,7 +123,7 @@ export function DiscussionDetailPage() {
                 {discussion.title}
               </Typography.Title>
             </Flex>
-            {session.admin || canDelete ? (
+            {canDelete ? (
               <Space size={4}>
                 {session.admin ? (
                   <>
