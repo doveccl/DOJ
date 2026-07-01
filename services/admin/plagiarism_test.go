@@ -34,7 +34,7 @@ func TestPlagiarismPackageUsesScopeAsNewAndProblemHistoryAsOld(t *testing.T) {
 	submissions := []models.Submission{
 		{ID: 1, UserID: 1, ProblemID: 1000, AssignmentID: &assignment.ID, Language: "cpp", Status: "AC", Code: "new"},
 		{ID: 2, UserID: 2, ProblemID: 1000, Language: "cpp", Status: "AC", Code: "old"},
-		{ID: 3, UserID: 1, ProblemID: 1000, Language: "cpp", Status: "AC", Code: "same user"},
+		{ID: 3, UserID: 1, ProblemID: 1000, AssignmentID: &assignment.ID, Language: "cpp", Status: "AC", Code: "same user latest"},
 		{ID: 4, UserID: 2, ProblemID: 1000, Language: "py", Status: "AC", Code: "python"},
 	}
 	for _, row := range submissions {
@@ -57,15 +57,36 @@ func TestPlagiarismPackageUsesScopeAsNewAndProblemHistoryAsOld(t *testing.T) {
 	for _, file := range reader.File {
 		names[file.Name] = true
 	}
-	for _, name := range []string{"new/p1000_sub1_user1.cpp", "old/p1000_sub2_user2.cpp", "manifest.json"} {
+	for _, name := range []string{"new/p1000_alice_u1_s3.cpp", "old/p1000_bob_u2_s2.cpp", "manifest.json"} {
 		if !names[name] {
 			t.Fatalf("zip missing %s in %v", name, names)
 		}
 	}
 	for name := range names {
-		if strings.Contains(name, "sub3") || strings.Contains(name, "sub4") {
+		if strings.Contains(name, "_s1.") || strings.Contains(name, "_s4.") {
 			t.Fatalf("unexpected file %s in zip", name)
 		}
+	}
+}
+
+func TestPlagiarismPackageRejectsMultiProblemScope(t *testing.T) {
+	db := testAdminDB(t)
+	api := &API{db: db}
+	assignment := models.Assignment{Title: "hw", EndAt: time.Now().Add(time.Hour)}
+	if err := db.Create(&assignment).Error; err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []uint{1000, 1001} {
+		if err := db.Create(&models.Problem{ID: id, Title: "P"}).Error; err != nil {
+			t.Fatal(err)
+		}
+		if err := db.Create(&models.AssignmentProblem{AssignmentID: assignment.ID, ProblemID: id}).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, _, err := api.plagiarismPackage(plagiarismScopeAssignment, assignment.ID)
+	if err == nil || !strings.Contains(err.Error(), "exactly one problem") {
+		t.Fatalf("error = %v, want one-problem guard", err)
 	}
 }
 

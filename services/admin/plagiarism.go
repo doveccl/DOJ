@@ -285,10 +285,14 @@ func (api *API) plagiarismPackage(scope string, scopeID uint) ([]byte, int, erro
 	if err != nil {
 		return nil, 0, err
 	}
+	if len(problemIDs) != 1 {
+		return nil, 0, fmt.Errorf("plagiarism analysis requires exactly one problem")
+	}
 	queryRows, err := api.plagiarismScopeSubmissions(scope, scopeID, problemIDs)
 	if err != nil {
 		return nil, 0, err
 	}
+	queryRows = latestSubmissionPerUserProblem(queryRows)
 	if len(queryRows) == 0 {
 		return nil, 0, nil
 	}
@@ -300,11 +304,15 @@ func (api *API) plagiarismPackage(scope string, scopeID uint) ([]byte, int, erro
 	if err := api.db.Where("problem_id IN ? AND language = ? AND status = ?", problemIDs, plagiarismLanguage, "AC").Order("id asc").Find(&history).Error; err != nil {
 		return nil, 0, err
 	}
+	users, err := api.plagiarismUserNames(append(queryRows, history...))
+	if err != nil {
+		return nil, 0, err
+	}
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
 	manifest := plagiarismManifest{Scope: scope, ScopeID: scopeID, Language: plagiarismLanguage, NewDir: "new", OldDir: "old"}
 	for _, row := range queryRows {
-		name := plagiarismFileName("new", row)
+		name := plagiarismFileName("new", row, users)
 		if err := zipText(zw, name, row.Code); err != nil {
 			_ = zw.Close()
 			return nil, 0, err
@@ -319,7 +327,7 @@ func (api *API) plagiarismPackage(scope string, scopeID uint) ([]byte, int, erro
 		if queryIDs[row.ID] || queryUsers[row.UserID] {
 			continue
 		}
-		name := plagiarismFileName("old", row)
+		name := plagiarismFileName("old", row, users)
 		if err := zipText(zw, name, row.Code); err != nil {
 			_ = zw.Close()
 			return nil, 0, err
@@ -339,6 +347,41 @@ func (api *API) plagiarismPackage(scope string, scopeID uint) ([]byte, int, erro
 		return nil, 0, err
 	}
 	return buf.Bytes(), len(manifest.Submissions), nil
+}
+
+func latestSubmissionPerUserProblem(rows []models.Submission) []models.Submission {
+	index := make(map[[2]uint]int, len(rows))
+	out := make([]models.Submission, 0, len(rows))
+	for _, row := range rows {
+		key := [2]uint{row.ProblemID, row.UserID}
+		if i, ok := index[key]; ok {
+			out[i] = row
+			continue
+		}
+		index[key] = len(out)
+		out = append(out, row)
+	}
+	return out
+}
+
+func (api *API) plagiarismUserNames(rows []models.Submission) (map[uint]string, error) {
+	ids := make([]uint, 0, len(rows))
+	seen := map[uint]bool{}
+	for _, row := range rows {
+		if !seen[row.UserID] {
+			seen[row.UserID] = true
+			ids = append(ids, row.UserID)
+		}
+	}
+	var users []models.User
+	if err := api.db.Where("id IN ?", ids).Find(&users).Error; err != nil {
+		return nil, err
+	}
+	names := make(map[uint]string, len(users))
+	for _, user := range users {
+		names[user.ID] = user.Name
+	}
+	return names, nil
 }
 
 func (api *API) plagiarismProblemIDs(scope string, scopeID uint) ([]uint, error) {
@@ -373,8 +416,29 @@ func (api *API) plagiarismScopeSubmissions(scope string, scopeID uint, problemID
 	return rows, err
 }
 
-func plagiarismFileName(group string, row models.Submission) string {
-	return path.Join(group, fmt.Sprintf("p%d_sub%d_user%d.cpp", row.ProblemID, row.ID, row.UserID))
+func plagiarismFileName(group string, row models.Submission, users map[uint]string) string {
+	name := safePlagiarismName(users[row.UserID])
+	if name == "" {
+		name = fmt.Sprintf("user%d", row.UserID)
+	}
+	return path.Join(group, fmt.Sprintf("p%d_%s_u%d_s%d.cpp", row.ProblemID, name, row.UserID, row.ID))
+}
+
+func safePlagiarismName(name string) string {
+	name = strings.TrimSpace(name)
+	var b strings.Builder
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+		case b.Len() > 0 && b.String()[b.Len()-1] != '_':
+			b.WriteByte('_')
+		}
+		if b.Len() >= 32 {
+			break
+		}
+	}
+	return strings.Trim(b.String(), "_")
 }
 
 func zipText(zw *zip.Writer, name string, text string) error {
