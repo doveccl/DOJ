@@ -145,48 +145,50 @@ export function DiscussionsPage() {
 
   return (
     <Card>
-      <Flex justify="space-between" align="center" gap={12} wrap style={{ marginBottom: 18 }}>
-        <Form layout="inline" initialValues={{ q: q || undefined, tags: tags || undefined }} onFinish={submitSearch} key={`${q}:${tags}`}>
-          <Form.Item name="q">
-            <Input placeholder={text.discussion.search} allowClear style={{ width: 280 }} />
-          </Form.Item>
-          <Form.Item name="tags">
-            <TagSelect kind="discussion" placeholder={text.discussion.tags} allowClear style={{ width: 180 }} />
-          </Form.Item>
-          <Form.Item>
-            <Button onClick={clearSearch}>{text.common.clear}</Button>
-          </Form.Item>
-          <Form.Item>
-            <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>
-              {text.common.search}
+      <Flex vertical gap={16}>
+        <Flex className="tableToolbar" justify="space-between" align="center" gap={12} wrap>
+          <Form className="tableToolbarForm" layout="inline" initialValues={{ q: q || undefined, tags: tags || undefined }} onFinish={submitSearch} key={`${q}:${tags}`}>
+            <Form.Item name="q">
+              <Input placeholder={text.discussion.search} allowClear style={{ width: 280 }} />
+            </Form.Item>
+            <Form.Item name="tags">
+              <TagSelect kind="discussion" placeholder={text.discussion.tags} allowClear style={{ width: 180 }} />
+            </Form.Item>
+            <Form.Item>
+              <Button onClick={clearSearch}>{text.common.clear}</Button>
+            </Form.Item>
+            <Form.Item>
+              <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>
+                {text.common.search}
+              </Button>
+            </Form.Item>
+          </Form>
+          {session.signedIn ? (
+            <Button icon={<PlusOutlined />} onClick={openCreate}>
+              {text.discussion.create}
             </Button>
-          </Form.Item>
-        </Form>
-        {session.signedIn ? (
-          <Button icon={<PlusOutlined />} onClick={openCreate}>
-            {text.discussion.create}
-          </Button>
-        ) : null}
+          ) : null}
+        </Flex>
+        {query.isError ? (
+          <ErrorBlock error={query.error} />
+        ) : query.isLoading ? (
+          <LoadingBlock />
+        ) : (
+          <Table<Discussion>
+            rowKey="id"
+            scroll={{ x: session.signedIn ? 1120 : 940 }}
+            columns={discussionColumns(text, lang, {
+              edit: openEdit,
+              togglePin: (item) => toggleState.mutate({ item, pinned: !item.pinned }),
+              toggleLock: (item) => toggleState.mutate({ item, locked: !item.locked }),
+              remove: (id) => remove.mutate(id)
+            }, session.admin, session.name)}
+            dataSource={query.data?.items ?? []}
+            pagination={{ current: query.data?.page ?? page, pageSize: query.data?.pageSize ?? pageSize, total: query.data?.total ?? 0, showSizeChanger: true }}
+            onChange={(pagination) => setParams(setPageParams(params, pagination.current ?? page, pagination.pageSize ?? pageSize))}
+          />
+        )}
       </Flex>
-      {query.isError ? (
-        <ErrorBlock error={query.error} />
-      ) : query.isLoading ? (
-        <LoadingBlock />
-      ) : (
-        <Table<Discussion>
-          rowKey="id"
-          scroll={{ x: session.signedIn ? 1120 : 940 }}
-          columns={discussionColumns(text, lang, {
-            edit: openEdit,
-            togglePin: (item) => toggleState.mutate({ item, pinned: !item.pinned }),
-            toggleLock: (item) => toggleState.mutate({ item, locked: !item.locked }),
-            remove: (id) => remove.mutate(id)
-          }, session.admin, session.name)}
-          dataSource={query.data?.items ?? []}
-          pagination={{ current: query.data?.page ?? page, pageSize: query.data?.pageSize ?? pageSize, total: query.data?.total ?? 0, showSizeChanger: true }}
-          onChange={(pagination) => setParams(setPageParams(params, pagination.current ?? page, pagination.pageSize ?? pageSize))}
-        />
-      )}
       {open && draft ? (
         <DiscussionModal
           editing={Boolean(editing)}
@@ -259,9 +261,10 @@ function discussionColumns(
       title: text.discussion.title,
       dataIndex: 'title',
       width: 420,
+      ellipsis: { showTitle: false },
       render: (title: string, row) => (
         <Flex align="center" gap={8} className="tableTitleLine">
-          <Typography.Text ellipsis={{ tooltip: title }} className="lineText">
+          <Typography.Text ellipsis={{ tooltip: title }}>
             <Link to={`/discussion/${row.id}`}>{title}</Link>
           </Typography.Text>
           {row.pinned ? <Tag color="green">{text.discussion.pinned}</Tag> : null}
@@ -272,7 +275,6 @@ function discussionColumns(
     {
       title: text.discussion.tags,
       dataIndex: 'tags',
-      width: 260,
       render: (tags: string[]) => <TagList tags={tags} empty={<Typography.Text type="secondary">-</Typography.Text>} />
     },
     {
@@ -282,13 +284,11 @@ function discussionColumns(
     },
     {
       title: text.discussion.replies,
-      dataIndex: 'replies',
-      width: 96
+      dataIndex: 'replies'
     },
     {
       title: text.discussion.created,
       dataIndex: 'createdAt',
-      width: 180,
       render: (value: string) => <Typography.Text className="nowrap">{formatTime(value, lang)}</Typography.Text>
     }
   ]

@@ -127,36 +127,38 @@ export function ContestsPage() {
 
   return (
     <Card>
-      <Flex justify="flex-end" style={{ marginBottom: 18 }}>
-        {session.admin ? (
-          <Button icon={<PlusOutlined />} onClick={openCreate}>
-            {text.contests.create}
-          </Button>
-        ) : null}
+      <Flex vertical gap={16}>
+        <Flex className="tableToolbar" justify="flex-end">
+          {session.admin ? (
+            <Button icon={<PlusOutlined />} onClick={openCreate}>
+              {text.contests.create}
+            </Button>
+          ) : null}
+        </Flex>
+        {query.isError ? (
+          <ErrorBlock error={query.error} />
+        ) : query.isLoading ? (
+          <LoadingBlock />
+        ) : (
+          <Table<Contest>
+            rowKey="id"
+            scroll={{ x: session.admin ? 800 : 700 }}
+            columns={contestColumns(
+              text,
+              lang,
+              {
+                edit: openEdit,
+                remove: (id) => remove.mutate(id),
+                refresh: () => void query.refetch()
+              },
+              session.admin
+            )}
+            dataSource={query.data?.items ?? []}
+            pagination={{ current: query.data?.page ?? page, pageSize: query.data?.pageSize ?? pageSize, total: query.data?.total ?? 0, showSizeChanger: true }}
+            onChange={(pagination) => setParams(setPageParams(params, pagination.current ?? page, pagination.pageSize ?? pageSize))}
+          />
+        )}
       </Flex>
-      {query.isError ? (
-        <ErrorBlock error={query.error} />
-      ) : query.isLoading ? (
-        <LoadingBlock />
-      ) : (
-        <Table<Contest>
-          rowKey="id"
-          scroll={{ x: session.admin ? 800 : 700 }}
-          columns={contestColumns(
-            text,
-            lang,
-            {
-              edit: openEdit,
-              remove: (id) => remove.mutate(id),
-              refresh: () => void query.refetch()
-            },
-            session.admin
-          )}
-          dataSource={query.data?.items ?? []}
-          pagination={{ current: query.data?.page ?? page, pageSize: query.data?.pageSize ?? pageSize, total: query.data?.total ?? 0, showSizeChanger: true }}
-          onChange={(pagination) => setParams(setPageParams(params, pagination.current ?? page, pagination.pageSize ?? pageSize))}
-        />
-      )}
       {session.admin && open ? (
         <ContestModal
           editingId={editingId}
@@ -281,9 +283,11 @@ function contestColumns(
     {
       title: text.contests.name,
       dataIndex: 'title',
+      width: 280,
+      ellipsis: { showTitle: false },
       render: (title: string, row) => (
         <Flex align="center" gap={8} className="tableTitleLine">
-          <Typography.Text ellipsis={{ tooltip: title }} className="lineText">
+          <Typography.Text ellipsis={{ tooltip: title }}>
             <Link to={`/contests/${row.id}`}>{title}</Link>
           </Typography.Text>
         </Flex>
@@ -291,7 +295,6 @@ function contestColumns(
     },
     {
       title: text.contests.status,
-      width: 120,
       render: (_, row) => (
         <ScheduleTag
           kind="contest"
@@ -305,19 +308,16 @@ function contestColumns(
     {
       title: text.contests.kind,
       dataIndex: 'kind',
-      width: 80,
       render: (kind: string) => <Tag>{kind}</Tag>
     },
     {
       title: text.contests.problems,
       dataIndex: 'total',
-      width: 120,
       render: (total: number) => <Typography.Text>{text.contests.total(total)}</Typography.Text>
     }
   ]
   if (admin) {
     columns.push({
-      width: 96,
       align: 'right',
       render: (_, row) => (
         <Space size={4}>

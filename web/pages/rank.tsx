@@ -24,7 +24,6 @@ export function RankPage() {
         <LoadingBlock />
       ) : (
         <Table<RankUser>
-          tableLayout="fixed"
           rowKey="user"
           columns={rankColumns(text)}
           dataSource={query.data?.items ?? []}
@@ -41,16 +40,16 @@ function rankColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Ran
   return [
     {
       title: text.rank.rank,
-      dataIndex: 'rank',
-      width: 72
+      dataIndex: 'rank'
     },
     {
       title: text.rank.user,
+      width: 240,
       ellipsis: { showTitle: false },
       render: (_, row) => (
         <Flex align="center" gap={12}>
           <Avatar src={row.avatar || undefined}>{row.user.slice(0, 1).toUpperCase()}</Avatar>
-          <Typography.Text strong ellipsis={{ tooltip: row.user }} className="lineText">
+          <Typography.Text strong ellipsis={{ tooltip: row.user }}>
             <Link to={`/users/${row.user}`}>{row.user}</Link>
           </Typography.Text>
         </Flex>
@@ -59,22 +58,21 @@ function rankColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Ran
     {
       title: text.profile.bio,
       dataIndex: 'bio',
+      width: 240,
       ellipsis: { showTitle: false },
       render: (bio: string) => (
-        <Typography.Text type={bio ? undefined : 'secondary'} ellipsis={{ tooltip: bio || text.user.noBio }} className="lineText">
+        <Typography.Text type={bio ? undefined : 'secondary'} ellipsis={{ tooltip: bio || text.user.noBio }}>
           {bio || text.user.noBio}
         </Typography.Text>
       )
     },
     {
       title: text.rank.ac,
-      dataIndex: 'ac',
-      width: 72
+      dataIndex: 'ac'
     },
     {
       title: text.rank.submit,
-      dataIndex: 'submit',
-      width: 96
+      dataIndex: 'submit'
     }
   ]
 }

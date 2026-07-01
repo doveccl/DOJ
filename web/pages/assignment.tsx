@@ -211,13 +211,11 @@ function progressColumns(text: ReturnType<typeof useLocale>['text'], problems: P
     })),
     {
       title: text.rank.ac,
-      dataIndex: 'ac',
-      width: 72
+      dataIndex: 'ac'
     },
     {
       title: text.rank.submit,
-      dataIndex: 'submit',
-      width: 96
+      dataIndex: 'submit'
     }
   ]
 }
@@ -227,18 +225,18 @@ function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<
     {
       title: text.common.sort,
       dataIndex: 'sort',
-      width: 96,
       render: (sort: string | undefined, row) => <Typography.Text>{sort || problemCode(row.id)}</Typography.Text>
     },
     {
       title: text.submissions.problem,
       dataIndex: 'title',
+      width: 320,
+      ellipsis: { showTitle: false },
       render: (title: string, row) => <ProblemLink id={row.id} title={title} />
     },
     {
       title: text.assignments.status,
       dataIndex: 'mine',
-      width: 120,
       render: (mine: string) => <AssignmentProblemStatus mine={mine} text={text} />
     }
   ]

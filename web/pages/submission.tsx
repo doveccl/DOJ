@@ -266,23 +266,20 @@ function MetaInline({ label, children }: { label: string; children: ReactNode })
 
 function caseColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Case>['columns'] {
   return [
-    { title: text.submissions.cases, dataIndex: 'no', width: 96, render: (no: number) => caseCode(no) },
+    { title: text.submissions.cases, dataIndex: 'no', render: (no: number) => caseCode(no) },
     {
       title: text.submissions.status,
       dataIndex: 'status',
-      width: 120,
       render: (status: string) => <SubmissionStatus status={status} />
     },
     {
       title: text.submissions.time,
       dataIndex: 'timeMs',
-      width: 96,
       render: (value?: number) => (value === undefined ? '-' : `${value}ms`)
     },
     {
       title: text.submissions.memory,
       dataIndex: 'memoryKb',
-      width: 96,
       render: (value?: number) => memoryText(value)
     },
     {

@@ -15,7 +15,8 @@
 - Use Tag for row state when table row styling would require custom CSS.
 - Free-form tags from problem/discussion/user data must render through the shared entity tag component so long tags get antd ellipsis and tooltip behavior consistently.
 - Problem references in tables, lists, timelines, and cards should use the shared problem link component; set a max width at the call site only when the surrounding layout needs a fixed budget.
-- For table/list overflow, prefer antd `Table` column `width`, `ellipsis`, `tableLayout="fixed"`, and `Typography.Text` ellipsis before adding CSS.
+- For table overflow, give ellipsized text columns an explicit `width` and use `ellipsis: { showTitle: false }` with `Typography.Text` ellipsis. Do not use `tableLayout="fixed"` or shared CSS as a substitute for column sizing. `TagList` handles its own item width; do not add table column ellipsis just for tag lists.
+- Table filter toolbars use `Flex vertical gap={16}` around the toolbar and table, with `tableToolbar` plus `tableToolbarForm` on inline antd forms so wrapped fields keep row spacing.
 - Table action columns must have a visible header, usually `text.common.actions`.
 - User-facing text must go through locale data.
 - Use “用户” and “用户组” consistently in the admin UI; do not mix in “成员”.

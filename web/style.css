@@ -136,6 +136,18 @@ body {
   width: 100%;
 }
 
+.tableToolbar {
+  width: 100%;
+}
+
+.tableToolbarForm {
+  row-gap: 12px;
+}
+
+.tableToolbarForm .ant-form-item {
+  margin-bottom: 0;
+}
+
 .nowrap {
   white-space: nowrap;
 }
@@ -259,22 +271,6 @@ body {
   height: 12px;
 }
 
-.lineText {
-  display: inline-block;
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  vertical-align: middle;
-  white-space: nowrap;
-}
-
-.lineText > a {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .tableTitleLine {
   display: inline-flex;
   align-items: center;
@@ -289,7 +285,6 @@ body {
   min-width: 0;
 }
 
-.tableTitleLine > .lineText,
 .tableTitleLine > .ant-typography {
   min-width: 0;
 }
@@ -350,26 +345,7 @@ body {
 }
 
 .adminBackupPage {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
   width: 100%;
-}
-
-.adminBackupTop {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 2px;
-}
-
-.adminBackupForm .ant-form-item {
-  margin-bottom: 0;
-}
-
-.backupFileName {
-  max-width: 100%;
 }
 
 .modeSelect {
@@ -603,10 +579,6 @@ body {
   overflow: hidden;
 }
 
-.profileActivityTitle .lineText {
-  display: block;
-}
-
 @media (max-width: 900px) {
   .appHeader {
     padding: 0 14px;
@@ -645,15 +617,6 @@ body {
     width: 128px !important;
     height: 128px !important;
     font-size: 52px !important;
-  }
-
-  .adminBackupTop {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .adminBackupForm {
-    row-gap: 12px;
   }
 
 }

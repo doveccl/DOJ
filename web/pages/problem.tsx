@@ -739,11 +739,11 @@ function AssetSection({
           pagination={{ pageSize: 10, hideOnSinglePage: true, showSizeChanger: false, size: 'small' }}
           scroll={{ x: 760 }}
           columns={[
-            { title: text.problem.inputFile, render: (_, row) => row.input ? <AssetName file={row.input} /> : null },
-            { width: 132, align: 'right', render: (_, row) => row.input ? <AssetActions file={row.input} onEdit={onEdit} onDownload={onDownload} onDelete={onDelete} /> : null },
-            { width: 32, align: 'center', render: () => <Divider type="vertical" /> },
-            { title: text.problem.outputFile, render: (_, row) => row.output ? <AssetName file={row.output} /> : null },
-            { width: 132, align: 'right', render: (_, row) => row.output ? <AssetActions file={row.output} onEdit={onEdit} onDownload={onDownload} onDelete={onDelete} /> : null }
+            { title: text.problem.inputFile, width: 280, ellipsis: { showTitle: false }, render: (_, row) => row.input ? <AssetName file={row.input} /> : null },
+            { align: 'right', render: (_, row) => row.input ? <AssetActions file={row.input} onEdit={onEdit} onDownload={onDownload} onDelete={onDelete} /> : null },
+            { align: 'center', render: () => <Divider type="vertical" /> },
+            { title: text.problem.outputFile, width: 280, ellipsis: { showTitle: false }, render: (_, row) => row.output ? <AssetName file={row.output} /> : null },
+            { align: 'right', render: (_, row) => row.output ? <AssetActions file={row.output} onEdit={onEdit} onDownload={onDownload} onDelete={onDelete} /> : null }
           ]}
         />
       ) : (
@@ -755,8 +755,8 @@ function AssetSection({
           pagination={false}
           scroll={{ x: 520 }}
           columns={[
-            { title: text.problem.judgeFile, render: (_, file) => <AssetName file={file} /> },
-            { width: 132, align: 'right', render: (_, file) => <AssetActions file={file} onEdit={onEdit} onDownload={onDownload} onDelete={onDelete} /> }
+            { title: text.problem.judgeFile, width: 360, ellipsis: { showTitle: false }, render: (_, file) => <AssetName file={file} /> },
+            { align: 'right', render: (_, file) => <AssetActions file={file} onEdit={onEdit} onDownload={onDownload} onDelete={onDelete} /> }
           ]}
         />
       )}

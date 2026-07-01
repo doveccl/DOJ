@@ -131,40 +131,42 @@ export function AssignmentsPage() {
 
   return (
     <Card>
-      <Flex justify="flex-end" style={{ marginBottom: 18 }}>
-        {session.admin ? (
-          <Button icon={<PlusOutlined />} onClick={openCreate}>
-            {text.assignments.create}
-          </Button>
-        ) : null}
+      <Flex vertical gap={16}>
+        <Flex className="tableToolbar" justify="flex-end">
+          {session.admin ? (
+            <Button icon={<PlusOutlined />} onClick={openCreate}>
+              {text.assignments.create}
+            </Button>
+          ) : null}
+        </Flex>
+        {query.isError ? (
+          <ErrorBlock error={query.error} />
+        ) : query.isLoading ? (
+          <LoadingBlock />
+        ) : (
+          <Table<AssignmentListItem>
+            rowKey="id"
+            scroll={{ x: session.admin ? 720 : 620 }}
+            columns={assignmentColumns(
+              text,
+              {
+                edit: openEdit,
+                remove: (id) => remove.mutate(id),
+                refresh: () => void query.refetch()
+              },
+              session.admin
+            )}
+            dataSource={query.data?.items ?? []}
+            pagination={{ current: query.data?.page ?? page, pageSize: query.data?.pageSize ?? pageSize, total: query.data?.total ?? 0, showSizeChanger: true }}
+            onChange={(pagination) => setParams(setPageParams(params, pagination.current ?? page, pagination.pageSize ?? pageSize))}
+          />
+        )}
       </Flex>
-      {query.isError ? (
-        <ErrorBlock error={query.error} />
-      ) : query.isLoading ? (
-        <LoadingBlock />
-      ) : (
-        <Table<AssignmentListItem>
-          rowKey="id"
-          scroll={{ x: session.admin ? 720 : 620 }}
-          columns={assignmentColumns(
-            text,
-            {
-              edit: openEdit,
-              remove: (id) => remove.mutate(id),
-              refresh: () => void query.refetch()
-            },
-            session.admin
-          )}
-          dataSource={query.data?.items ?? []}
-          pagination={{ current: query.data?.page ?? page, pageSize: query.data?.pageSize ?? pageSize, total: query.data?.total ?? 0, showSizeChanger: true }}
-          onChange={(pagination) => setParams(setPageParams(params, pagination.current ?? page, pagination.pageSize ?? pageSize))}
-        />
-      )}
       {session.admin && open ? (
         <AssignmentModal
-	          editingId={editingId}
-	          loading={create.isPending || update.isPending}
-	          onCancel={closeModal}
+          editingId={editingId}
+          loading={create.isPending || update.isPending}
+          onCancel={closeModal}
           onSave={save}
         />
       ) : null}
@@ -270,9 +272,11 @@ function assignmentColumns(
     {
       title: text.assignments.name,
       dataIndex: 'title',
+      width: 280,
+      ellipsis: { showTitle: false },
       render: (title: string, row) => (
         <Flex align="center" gap={8} className="tableTitleLine">
-          <Typography.Text ellipsis={{ tooltip: title }} className="lineText">
+          <Typography.Text ellipsis={{ tooltip: title }}>
             <Link to={`/assignments/${row.id}`}>{title}</Link>
           </Typography.Text>
         </Flex>
@@ -280,7 +284,6 @@ function assignmentColumns(
     },
     {
       title: text.assignments.status,
-      width: 120,
       render: (_, row) => <ScheduleTag kind="assignment" status={row.status} target={row.endAt} onFinish={actions.refresh} />
     },
     {
@@ -296,7 +299,6 @@ function assignmentColumns(
   ]
   if (admin) {
     columns.push({
-      width: 96,
       align: 'right',
       render: (_, row) => (
         <Space size={4}>

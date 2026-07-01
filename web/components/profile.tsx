@@ -117,7 +117,7 @@ function ActivityItem({ activity, lang, submitted, posted }: { activity: UserAct
         <Flex align="center" gap={8} className="profileActivityLine">
           <Typography.Text>{posted}</Typography.Text>
           <span className="profileActivityTitle">
-            <Typography.Text ellipsis={{ tooltip: activity.title }} className="lineText">
+            <Typography.Text ellipsis={{ tooltip: activity.title }}>
               <Link to={`/discussion/${activity.id}`}>{activity.title}</Link>
             </Typography.Text>
           </span>
@@ -139,7 +139,7 @@ function ActivityItem({ activity, lang, submitted, posted }: { activity: UserAct
         ) : null}
         <Typography.Text className="nowrap">{submitted}</Typography.Text>
         <span className="profileActivityTitle">
-          {activity.problemId ? <ProblemLink id={activity.problemId} title={activity.problemTitle} /> : <Typography.Text ellipsis={{ tooltip: activity.title }} className="lineText">{activity.title}</Typography.Text>}
+          {activity.problemId ? <ProblemLink id={activity.problemId} title={activity.problemTitle} /> : <Typography.Text ellipsis={{ tooltip: activity.title }}>{activity.title}</Typography.Text>}
         </span>
       </Flex>
       <Typography.Text type="secondary" className="nowrap">
@@ -162,19 +162,19 @@ function SolvedCard({ page, onPageChange }: { page: SolvedProblemPage; onPageCha
           <Table<SolvedProblem>
             size="small"
             showHeader={false}
-            tableLayout="fixed"
             pagination={false}
             rowKey="id"
             dataSource={problems}
             scroll={{ x: 360 }}
             columns={[
               {
+                width: 228,
                 ellipsis: { showTitle: false },
                 render: (_, row) => <ProblemLink id={row.id} title={row.title} />
               },
               {
-                width: 132,
-                render: (_, row) => <TagList tags={row.tags} maxWidth={72} />
+                align: 'right',
+                render: (_, row) => <TagList tags={row.tags} />
               }
             ]}
           />

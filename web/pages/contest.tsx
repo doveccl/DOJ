@@ -222,8 +222,7 @@ function rankColumns(text: ReturnType<typeof useLocale>['text'], kind: string, p
   const columns: NonNullable<TableProps<RankUser>['columns']> = [
     {
       title: text.rank.rank,
-      dataIndex: 'rank',
-      width: 72
+      dataIndex: 'rank'
     },
     {
       title: text.rank.user,
@@ -231,15 +230,13 @@ function rankColumns(text: ReturnType<typeof useLocale>['text'], kind: string, p
     },
     {
       title: text.rank.submit,
-      dataIndex: 'submit',
-      width: 96
+      dataIndex: 'submit'
     }
   ]
   if (kind === 'OI') {
     columns.splice(2, 0, {
       title: text.rank.score,
-      dataIndex: 'score',
-      width: 96
+      dataIndex: 'score'
     })
     return [...columns, ...rankProblemColumns(kind, problems)]
   }
@@ -248,13 +245,11 @@ function rankColumns(text: ReturnType<typeof useLocale>['text'], kind: string, p
     0,
     {
       title: text.rank.ac,
-      dataIndex: 'ac',
-      width: 72
+      dataIndex: 'ac'
     },
     {
       title: text.rank.penalty,
-      dataIndex: 'penalty',
-      width: 96
+      dataIndex: 'penalty'
     }
   )
   return [...columns, ...rankProblemColumns(kind, problems)]
@@ -308,6 +303,8 @@ function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<
     {
       title: text.submissions.problem,
       dataIndex: 'title',
+      width: 320,
+      ellipsis: { showTitle: false },
       render: (title: string, row) => <ProblemLink id={row.id} title={title} />
     },
     {

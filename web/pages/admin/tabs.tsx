@@ -1,5 +1,5 @@
 import { CloudUploadOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, KeyOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
-import { AutoComplete, Button, Form, Input, InputNumber, Popconfirm, Space, Statistic, Switch, Table, Tag, Tooltip, Typography } from 'antd'
+import { AutoComplete, Button, Flex, Form, Input, InputNumber, Popconfirm, Space, Statistic, Switch, Table, Tag, Tooltip, Typography } from 'antd'
 import type { FormInstance } from 'antd'
 import type { ReactNode } from 'react'
 
@@ -114,10 +114,9 @@ export function UsersTab({
         columns={[
           { title: text.rank.user, dataIndex: 'name', render: (name: string) => <UserLink name={name} /> },
           { title: text.profile.email, dataIndex: 'mail' },
-          { title: text.admin.role, dataIndex: 'role', width: 96, render: (role: string) => <Tag color={role === 'admin' ? 'blue' : undefined}>{roleText[role] ?? role}</Tag> },
-          { title: text.admin.groupCount, dataIndex: 'groups', width: 96, render: (groups: number[] | undefined) => <Typography.Text>{groups?.length ?? 0}</Typography.Text> },
+          { title: text.admin.role, dataIndex: 'role', render: (role: string) => <Tag color={role === 'admin' ? 'blue' : undefined}>{roleText[role] ?? role}</Tag> },
+          { title: text.admin.groupCount, dataIndex: 'groups', render: (groups: number[] | undefined) => <Typography.Text>{groups?.length ?? 0}</Typography.Text> },
           {
-            width: 132,
             align: 'right',
             render: (_, row) => (
               <Space size={4}>
@@ -193,9 +192,8 @@ export function GroupsTab({
         }}
         columns={[
           { title: text.admin.groups, dataIndex: 'name' },
-          { title: text.admin.userCount, width: 96, render: (_, row) => <Typography.Text>{row.users?.length ?? 0}</Typography.Text> },
+          { title: text.admin.userCount, render: (_, row) => <Typography.Text>{row.users?.length ?? 0}</Typography.Text> },
           {
-            width: 96,
             align: 'right',
             render: (_, row) => (
               <Space size={4}>
@@ -246,7 +244,7 @@ export function LanguagesTab({
             dataIndex: 'image',
             width: 220,
             ellipsis: { showTitle: false },
-            render: (image: string) => <Typography.Text ellipsis={{ tooltip: image }} className="lineText">{image}</Typography.Text>
+            render: (image: string) => <Typography.Text ellipsis={{ tooltip: image }}>{image}</Typography.Text>
           },
           {
             title: text.admin.run,
@@ -255,11 +253,10 @@ export function LanguagesTab({
             ellipsis: { showTitle: false },
             render: (value: string) => {
               const firstLine = value.split('\n')[0]
-              return <Typography.Text ellipsis={{ tooltip: firstLine }} className="lineText">{firstLine}</Typography.Text>
+              return <Typography.Text ellipsis={{ tooltip: firstLine }}>{firstLine}</Typography.Text>
             }
           },
           {
-            width: 96,
             align: 'right',
             render: (_, row) => (
               <Space size={4}>
@@ -311,10 +308,9 @@ export function JudgersTab({
         dataSource={data?.judgers ?? []}
         columns={[
           { title: text.admin.name, dataIndex: 'name' },
-          { title: text.admin.status, dataIndex: 'online', width: 96, render: (online: boolean) => (online ? <Tag color="success">{text.admin.online}</Tag> : <Tag>{text.admin.offline}</Tag>) },
+          { title: text.admin.status, dataIndex: 'online', render: (online: boolean) => (online ? <Tag color="success">{text.admin.online}</Tag> : <Tag>{text.admin.offline}</Tag>) },
           { title: text.admin.uptime, dataIndex: 'uptimeSeconds', render: (value: number, row) => (row.online ? formatDuration(value, lang) : '-') },
           {
-            width: 96,
             align: 'right',
             render: (_, row) => (
               <Space size={4}>
@@ -373,12 +369,12 @@ export function BackupsTab({
     onSaveSettings(next)
   }
   return (
-    <div className="adminBackupPage">
-      <div className="adminBackupTop">
+    <Flex vertical gap={16} className="adminBackupPage">
+      <Flex className="tableToolbar" justify="space-between" align="center" gap={12} wrap>
         {settings.isLoading ? <LoadingBlock /> : settings.isError ? <ErrorBlock error={settings.error} /> : settings.data ? (
           <Form<BackupSettingsForm>
             form={form}
-            className="adminBackupForm"
+            className="tableToolbarForm"
             layout="inline"
             initialValues={settings.data}
             key={`${settings.data.enabled}:${settings.data.cron}:${settings.data.keep}`}
@@ -397,7 +393,7 @@ export function BackupsTab({
         <Button type="primary" icon={<CloudUploadOutlined />} loading={createLoading || !!backups.data?.running} onClick={onCreate}>
           {text.admin.backupNow}
         </Button>
-      </div>
+      </Flex>
       {backups.isLoading ? <LoadingBlock /> : backups.isError ? <ErrorBlock error={backups.error} /> : (
         <Table<BackupItem>
           rowKey="name"
@@ -405,11 +401,10 @@ export function BackupsTab({
           scroll={{ x: 760 }}
           dataSource={backups.data?.items ?? []}
           columns={[
-            { title: text.admin.backupFile, dataIndex: 'name', width: 360, render: (name: string) => <Typography.Text ellipsis={{ tooltip: name }} className="backupFileName">{name}</Typography.Text> },
+            { title: text.admin.backupFile, dataIndex: 'name', width: 360, render: (name: string) => <Typography.Text ellipsis={{ tooltip: name }}>{name}</Typography.Text> },
             { title: text.admin.createdAt, dataIndex: 'createdAt', render: (value: string) => new Date(value).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US') },
             { title: text.admin.backupSize, dataIndex: 'size', render: (value: number) => formatBytes(value) },
             {
-              width: 132,
               align: 'right',
               render: (_, row) => (
                 <Space size={4}>
@@ -425,7 +420,7 @@ export function BackupsTab({
           ]}
         />
       )}
-    </div>
+    </Flex>
   )
 }
 

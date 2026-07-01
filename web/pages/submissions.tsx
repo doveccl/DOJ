@@ -94,71 +94,72 @@ export function SubmissionsPage() {
   return (
     <Card>
       <Flex vertical gap={16}>
-        <Form layout="inline" initialValues={{ problem: problem || undefined, user: user || undefined, assignment: assignment || undefined, contest: contest || undefined }} onFinish={submit} key={`${problem}:${user}:${assignment}:${contest}`}>
-          <Form.Item name="problem">
-            <Select
-              allowClear
-              loading={problems.isFetching}
-              onOpenChange={problemSearch.setOpen}
-              onSearch={problemSearch.setSearch}
-              placeholder={text.submissions.problem}
-              options={problemOptions}
-              showSearch={{ filterOption: false }}
-              style={{ width: 240 }}
-            />
-          </Form.Item>
-          <Form.Item name="user">
-            <Select
-              allowClear
-              loading={users.isFetching}
-              onOpenChange={userSearch.setOpen}
-              onSearch={userSearch.setSearch}
-              placeholder={text.submissions.user}
-              options={userOptions}
-              showSearch={{ filterOption: false }}
-              style={{ width: 160 }}
-            />
-          </Form.Item>
-          <Form.Item name="assignment">
-            <Select
-              allowClear
-              loading={assignments.isFetching}
-              onOpenChange={assignmentSearch.setOpen}
-              onSearch={assignmentSearch.setSearch}
-              placeholder={text.assignments.title}
-              options={assignmentOptions}
-              showSearch={{ filterOption: false }}
-              style={{ width: 180 }}
-            />
-          </Form.Item>
-          <Form.Item name="contest">
-            <Select
-              allowClear
-              loading={contests.isFetching}
-              onOpenChange={contestSearch.setOpen}
-              onSearch={contestSearch.setSearch}
-              placeholder={text.contests.title}
-              options={contestOptions}
-              showSearch={{ filterOption: false }}
-              style={{ width: 180 }}
-            />
-          </Form.Item>
-          <Form.Item>
-            <Button onClick={clear}>{text.common.clear}</Button>
-          </Form.Item>
-          <Form.Item>
-            <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>
-              {text.common.search}
-            </Button>
-          </Form.Item>
-        </Form>
+        <Flex className="tableToolbar" justify="space-between" align="center" gap={12} wrap>
+          <Form className="tableToolbarForm" layout="inline" initialValues={{ problem: problem || undefined, user: user || undefined, assignment: assignment || undefined, contest: contest || undefined }} onFinish={submit} key={`${problem}:${user}:${assignment}:${contest}`}>
+            <Form.Item name="problem">
+              <Select
+                allowClear
+                loading={problems.isFetching}
+                onOpenChange={problemSearch.setOpen}
+                onSearch={problemSearch.setSearch}
+                placeholder={text.submissions.problem}
+                options={problemOptions}
+                showSearch={{ filterOption: false }}
+                style={{ width: 240 }}
+              />
+            </Form.Item>
+            <Form.Item name="user">
+              <Select
+                allowClear
+                loading={users.isFetching}
+                onOpenChange={userSearch.setOpen}
+                onSearch={userSearch.setSearch}
+                placeholder={text.submissions.user}
+                options={userOptions}
+                showSearch={{ filterOption: false }}
+                style={{ width: 160 }}
+              />
+            </Form.Item>
+            <Form.Item name="assignment">
+              <Select
+                allowClear
+                loading={assignments.isFetching}
+                onOpenChange={assignmentSearch.setOpen}
+                onSearch={assignmentSearch.setSearch}
+                placeholder={text.assignments.title}
+                options={assignmentOptions}
+                showSearch={{ filterOption: false }}
+                style={{ width: 180 }}
+              />
+            </Form.Item>
+            <Form.Item name="contest">
+              <Select
+                allowClear
+                loading={contests.isFetching}
+                onOpenChange={contestSearch.setOpen}
+                onSearch={contestSearch.setSearch}
+                placeholder={text.contests.title}
+                options={contestOptions}
+                showSearch={{ filterOption: false }}
+                style={{ width: 180 }}
+              />
+            </Form.Item>
+            <Form.Item>
+              <Button onClick={clear}>{text.common.clear}</Button>
+            </Form.Item>
+            <Form.Item>
+              <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>
+                {text.common.search}
+              </Button>
+            </Form.Item>
+          </Form>
+        </Flex>
         {query.isError ? (
           <ErrorBlock error={query.error} />
         ) : query.isLoading ? (
           <LoadingBlock />
         ) : (
           <Table<SubmissionListItem>
-            tableLayout="fixed"
             rowKey="id"
             scroll={{ x: 1040 }}
             rowClassName="clickableRow"
@@ -253,7 +254,7 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: str
       ellipsis: { showTitle: false },
       render: (_, row) => {
         const language = languageNames.get(row.language) ?? row.language
-        return <Typography.Text ellipsis={{ tooltip: language }} className="lineText">{language}</Typography.Text>
+        return <Typography.Text ellipsis={{ tooltip: language }}>{language}</Typography.Text>
       }
     },
     {

@@ -132,8 +132,8 @@ export function ProblemsPage() {
   return (
     <Card>
       <Flex vertical gap={16}>
-        <Flex justify="space-between" align="center" gap={12} wrap>
-          <Form layout="inline" initialValues={{ q: q || undefined, tag: tag || undefined }} onFinish={submit} key={`${q}:${tag}`}>
+        <Flex className="tableToolbar" justify="space-between" align="center" gap={12} wrap>
+          <Form className="tableToolbarForm" layout="inline" initialValues={{ q: q || undefined, tag: tag || undefined }} onFinish={submit} key={`${q}:${tag}`}>
             <Form.Item name="q">
               <Input placeholder={text.problems.q} allowClear style={{ width: 280 }} />
             </Form.Item>
@@ -162,7 +162,6 @@ export function ProblemsPage() {
         ) : (
           <Table<ProblemListItem>
             rowKey="id"
-            tableLayout="fixed"
             scroll={{ x: session.admin ? 1080 : 960 }}
             columns={columns}
             dataSource={query.data?.items ?? []}
@@ -251,24 +250,19 @@ function problemColumns(
     {
       title: text.problems.tag,
       dataIndex: 'tags',
-      width: 280,
-      ellipsis: { showTitle: false },
       render: (tags: string[]) => <TagList tags={tags} empty={<Typography.Text type="secondary">-</Typography.Text>} />
     },
     {
       title: text.problems.limit,
-      width: 160,
       render: (_, row) => <Typography.Text type="secondary" className="nowrap">{formatLimit(row)}</Typography.Text>
     },
     {
       title: text.problems.pass,
-      width: 96,
       render: (_, row) => <Typography.Text>{formatPass(row)}</Typography.Text>
     }
   ]
   if (admin) {
     columns.push({
-      width: 116,
       align: 'right',
       render: (_, row) => (
         <Space size={4}>
