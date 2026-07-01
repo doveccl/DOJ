@@ -3,7 +3,6 @@ package admin
 import (
 	"archive/zip"
 	"bytes"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -154,28 +153,6 @@ func mustZipText(t *testing.T, zw *zip.Writer, name string, text string) {
 	}
 }
 
-func TestProxyPlagiarismDropsCookie(t *testing.T) {
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if cookie := r.Header.Get(echo.HeaderCookie); cookie != "" {
-			t.Fatalf("proxied cookie = %q", cookie)
-		}
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer upstream.Close()
-	t.Setenv("JPLAG", upstream.URL)
-
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/jplag/1?file=x", nil)
-	req.Header.Set(echo.HeaderCookie, "doj_session=secret")
-	rec := httptest.NewRecorder()
-	if err := (&API{}).proxyPlagiarism(e.NewContext(req, rec), "viewer/"); err != nil {
-		t.Fatal(err)
-	}
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
-	}
-}
-
 func TestPlagiarismJobIDFromReferer(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -184,11 +161,9 @@ func TestPlagiarismJobIDFromReferer(t *testing.T) {
 		id      uint
 		ok      bool
 	}{
-		{name: "same origin", host: "test.local", referer: "https://test.local/jplag/42?file=x", id: 42, ok: true},
-		{name: "relative", host: "test.local", referer: "/jplag/7?file=x", id: 7, ok: true},
-		{name: "temporary root", host: "test.local", referer: "https://test.local/?job=9&file=x", id: 9, ok: true},
-		{name: "viewer route", host: "test.local", referer: "https://test.local/overview?job=10&file=x", id: 10, ok: true},
-		{name: "foreign host", host: "test.local", referer: "https://evil.local/jplag/42", ok: false},
+		{name: "entry", host: "test.local", referer: "https://test.local/?jplag=9&file=x", id: 9, ok: true},
+		{name: "viewer route", host: "test.local", referer: "https://test.local/overview?jplag=10&file=x", id: 10, ok: true},
+		{name: "foreign host", host: "test.local", referer: "https://evil.local/?jplag=42", ok: false},
 		{name: "missing id", host: "test.local", referer: "https://test.local/results.jplag", ok: false},
 	}
 	for _, tc := range cases {
@@ -202,30 +177,5 @@ func TestPlagiarismJobIDFromReferer(t *testing.T) {
 				t.Fatalf("id, ok = %d, %v, want %d, %v", id, ok, tc.id, tc.ok)
 			}
 		})
-	}
-}
-
-func TestInjectPlagiarismViewerEntry(t *testing.T) {
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     http.Header{echo.HeaderContentType: []string{"text/html; charset=utf-8"}},
-		Body:       io.NopCloser(strings.NewReader(`<!doctype html><script type="module" src="/assets/index.js"></script>`)),
-	}
-	if err := injectPlagiarismViewerEntry(resp, "5", "file=https%3A%2F%2Ftest.local%2Freport.jplag"); err != nil {
-		t.Fatal(err)
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
-	text := string(body)
-	if !strings.Contains(text, `root="/?file=https%3A%2F%2Ftest.local%2Freport.jplag\u0026job=5"`) {
-		t.Fatalf("missing temporary root url in %q", text)
-	}
-	if !strings.Contains(text, `original="/jplag/5?file=https%3A%2F%2Ftest.local%2Freport.jplag"`) {
-		t.Fatalf("missing original url in %q", text)
-	}
-	if !strings.Contains(text, `<script type="module"`) {
-		t.Fatalf("module script missing in %q", text)
 	}
 }

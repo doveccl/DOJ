@@ -2,7 +2,7 @@ import { ExportOutlined, PlayCircleOutlined, ReloadOutlined } from '@ant-design/
 import { Alert, Button, Flex, Space, Spin, Tag, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { api, apiData, apiUrl } from '../client'
+import { api, apiData } from '../client'
 import type { PlagiarismJob } from '../client'
 import { useLocale } from '../locale'
 
@@ -32,7 +32,7 @@ export function PlagiarismPanel({ scope, id }: Props) {
   const job = jobs.data?.items[0]
   const busy = create.isPending || job?.status === 'queued' || job?.status === 'running'
   const reportViewerUrl = job?.reportUrl
-    ? `/jplag/${job.id}?file=${encodeURIComponent(apiUrl(job.reportUrl).toString())}`
+    ? `/?jplag=${job.id}&file=${encodeURIComponent(job.reportUrl)}`
     : ''
 
   return (

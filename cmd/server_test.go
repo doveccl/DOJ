@@ -133,6 +133,40 @@ func TestMissingAssetFallsBackToJPlagViewer(t *testing.T) {
 	}
 }
 
+func TestJPlagQueryUsesViewerRoot(t *testing.T) {
+	dir := t.TempDir()
+	mustWriteFile(t, filepath.Join(dir, "index.html"), "<html>app</html>")
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/viewer" {
+			t.Fatalf("upstream path = %q, want /viewer", r.URL.Path)
+		}
+		if got := r.URL.Query().Get("jplag"); got != "5" {
+			t.Fatalf("jplag query = %q, want 5", got)
+		}
+		if cookie := r.Header.Get(echo.HeaderCookie); cookie != "" {
+			t.Fatalf("proxied cookie = %q", cookie)
+		}
+		_, _ = w.Write([]byte("jplag viewer"))
+	}))
+	defer upstream.Close()
+	t.Setenv("JPLAG", upstream.URL)
+
+	e := echo.New()
+	if err := registerWebApp(e, dir); err != nil {
+		t.Fatalf("registerWebApp failed: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/?jplag=5&file=%2Fapi%2Freport.jplag", nil)
+	req.Header.Set(echo.HeaderCookie, "doj_session=secret")
+	res := httptest.NewRecorder()
+	e.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%q, want %d", res.Code, res.Body.String(), http.StatusOK)
+	}
+	if res.Body.String() != "jplag viewer" {
+		t.Fatalf("body = %q", res.Body.String())
+	}
+}
+
 func mustWriteFile(t *testing.T, file string, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {

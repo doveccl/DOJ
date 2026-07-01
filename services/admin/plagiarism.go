@@ -9,7 +9,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"os"
 	"path"
@@ -119,14 +118,6 @@ func (api *API) plagiarismReport(c echo.Context) error {
 	return api.streamPlagiarismReport(c, job)
 }
 
-func (api *API) plagiarismViewer(c echo.Context) error {
-	if _, err := parseUintParam(c, "id", "invalid plagiarism job id"); err != nil {
-		return err
-	}
-	c.Response().Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src 'self' https://api.github.com")
-	return api.proxyPlagiarism(c, "viewer/")
-}
-
 func (api *API) plagiarismViewerReport(c echo.Context) error {
 	id, ok := plagiarismJobIDFromReferer(c)
 	if !ok {
@@ -171,79 +162,11 @@ func plagiarismJobIDFromReferer(c echo.Context) (uint, bool) {
 	if u.Host != "" && !strings.EqualFold(u.Host, c.Request().Host) {
 		return 0, false
 	}
-	if job := u.Query().Get("job"); job != "" {
+	if job := u.Query().Get("jplag"); job != "" {
 		id, err := strconv.ParseUint(job, 10, 64)
 		return uint(id), err == nil && id > 0
 	}
-	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
-	if len(parts) != 2 || parts[0] != "jplag" {
-		return 0, false
-	}
-	id, err := strconv.ParseUint(parts[1], 10, 64)
-	return uint(id), err == nil && id > 0
-}
-
-func (api *API) proxyPlagiarism(c echo.Context, rel string) error {
-	target := strings.TrimRight(strings.TrimSpace(os.Getenv("JPLAG")), "/")
-	if target == "" {
-		return echo.NewHTTPError(http.StatusServiceUnavailable, "JPlag service is not configured")
-	}
-	base, err := url.Parse(target)
-	if err != nil {
-		return err
-	}
-	proxy := &httputil.ReverseProxy{Rewrite: func(req *httputil.ProxyRequest) {
-		req.SetURL(base)
-		req.Out.URL.Path = "/" + strings.TrimLeft(path.Join(base.Path, rel), "/")
-		if strings.HasSuffix(c.Request().URL.Path, "/") && !strings.HasSuffix(req.Out.URL.Path, "/") {
-			req.Out.URL.Path += "/"
-		}
-		req.Out.URL.RawQuery = c.Request().URL.RawQuery
-		req.Out.Header.Del(echo.HeaderCookie)
-	}, ModifyResponse: func(resp *http.Response) error {
-		if rel != "viewer/" {
-			return nil
-		}
-		return injectPlagiarismViewerEntry(resp, c.Param("id"), c.Request().URL.RawQuery)
-	}}
-	proxy.ServeHTTP(c.Response(), c.Request())
-	return nil
-}
-
-func injectPlagiarismViewerEntry(resp *http.Response, jobID string, rawQuery string) error {
-	if resp.StatusCode != http.StatusOK || !strings.Contains(resp.Header.Get(echo.HeaderContentType), "text/html") {
-		return nil
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	_ = resp.Body.Close()
-	rootQuery, err := url.ParseQuery(rawQuery)
-	if err != nil {
-		rootQuery = url.Values{}
-	}
-	rootQuery.Set("job", jobID)
-	root := "/?" + rootQuery.Encode()
-	original := "/jplag/" + url.PathEscape(jobID)
-	if rawQuery != "" {
-		original += "?" + rawQuery
-	}
-	script := fmt.Sprintf(`<script>(()=>{const original=%s,root=%s;history.replaceState(history.state,"",root);addEventListener("DOMContentLoaded",()=>history.replaceState(history.state,"",original),{once:true});})();</script>`, jsonString(original), jsonString(root))
-	text := strings.Replace(string(body), `<script type="module"`, script+"\n    <script type=\"module\"", 1)
-	if text == string(body) {
-		text = script + string(body)
-	}
-	data := []byte(text)
-	resp.Body = io.NopCloser(bytes.NewReader(data))
-	resp.ContentLength = int64(len(data))
-	resp.Header.Set(echo.HeaderContentLength, strconv.Itoa(len(data)))
-	return nil
-}
-
-func jsonString(value string) string {
-	data, _ := json.Marshal(value)
-	return string(data)
+	return 0, false
 }
 
 func (api *API) runPlagiarismJob(id uint) {
