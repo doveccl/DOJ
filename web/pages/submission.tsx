@@ -25,7 +25,8 @@ export function SubmissionDetailPage() {
   const query = useQuery({
     queryKey: ['submission', id],
     queryFn: () => apiData(api.GET('/api/submissions/{id}', { params: { path: { id } } })),
-    enabled: Number.isFinite(id)
+    enabled: Number.isFinite(id),
+    refetchInterval: (query) => (isLiveSubmissionStatus(query.state.data?.submission.status) ? 3000 : false)
   })
   const languages = useQuery({ queryKey: ['languages'], queryFn: () => apiData(api.GET('/api/languages')) })
   const updatePublic = useMutation({
@@ -75,7 +76,7 @@ export function SubmissionDetailPage() {
   const { submission, code, cases } = query.data
   const languageName = (languages.data ?? []).find((item) => item.id === submission.language)?.name ?? submission.language
   const canUpdatePublic = session.admin || session.name === submission.user
-  const judging = submission.status === 'queued' || submission.status === 'judging'
+  const judging = isLiveSubmissionStatus(submission.status)
 
   return (
     <Flex vertical gap={20}>
@@ -156,6 +157,10 @@ export function SubmissionDetailPage() {
 
 function ResultCard({ judging, children }: { judging: boolean; children: ReactNode }) {
   return judging ? <BorderBeam>{children}</BorderBeam> : children
+}
+
+function isLiveSubmissionStatus(status?: string) {
+  return status === 'queued' || status === 'judging'
 }
 
 function JudgeProgressPanel({ status, progress }: { status: string; progress?: SubmissionDetail['progress'] }) {

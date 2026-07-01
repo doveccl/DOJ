@@ -189,7 +189,7 @@ export function DiscussionDetailPage() {
                   <Space size={8}>
                     <Typography.Text type="secondary">{text.discussion.floor(pageStart + index + 1)}</Typography.Text>
                     {item.deleted ? <Typography.Text type="secondary">{text.discussion.deletedReply}</Typography.Text> : <UserLink name={item.author} strong />}
-                    <Typography.Text type="secondary">{formatTime(item.createdAt, lang)}</Typography.Text>
+                    {item.deleted ? null : <Typography.Text type="secondary">{formatTime(item.createdAt, lang)}</Typography.Text>}
                   </Space>
                   {!item.deleted && (session.admin || (session.signedIn && item.author.toLowerCase() === session.name.toLowerCase())) ? (
                     <Popconfirm title={text.common.confirmDelete} okText={text.common.delete} cancelText={text.common.cancel} onConfirm={() => removeComment.mutate(item.id)}>

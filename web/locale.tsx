@@ -229,6 +229,7 @@ const zh = {
       upload: '正在提交评测结果'
     },
     statuses: {
+      pending: '排队中',
       queued: '排队中',
       judging: '评测中',
       AC: '通过',
@@ -633,6 +634,7 @@ const en: typeof zh = {
       upload: 'Submitting judge result'
     },
     statuses: {
+      pending: 'Pending',
       queued: 'Queued',
       judging: 'Judging',
       AC: 'Accepted',

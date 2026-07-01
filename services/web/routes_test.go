@@ -224,14 +224,15 @@ func TestPrivateSubmissionSourceVisibilityWithDatabase(t *testing.T) {
 	if res := requestWithCookies(e, http.MethodGet, publicTarget, nil, nil); res.Code != http.StatusOK {
 		t.Fatalf("guest should read public DB submission, got %d body=%s", res.Code, res.Body.String())
 	}
-	if res := requestWithCookies(e, http.MethodGet, privateTarget, databaseSession(t, db, other.ID), nil); res.Code != http.StatusForbidden {
-		t.Fatalf("other user should not read private DB submission, got %d body=%s", res.Code, res.Body.String())
+	otherDetail := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, privateTarget, databaseSession(t, db, other.ID), nil))
+	if otherDetail.Code != "" || otherDetail.Submission.ID != private.ID {
+		t.Fatalf("other user should read private submission detail without source: %+v", otherDetail)
 	}
-	if res := requestWithCookies(e, http.MethodGet, privateTarget, databaseSession(t, db, owner.ID), nil); res.Code != http.StatusOK {
-		t.Fatalf("owner should read private DB submission, got %d body=%s", res.Code, res.Body.String())
+	if got := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, privateTarget, databaseSession(t, db, owner.ID), nil)); got.Code != "secret" {
+		t.Fatalf("owner should read private DB submission source: %+v", got)
 	}
-	if res := requestWithCookies(e, http.MethodGet, privateTarget, databaseSession(t, db, admin.ID), nil); res.Code != http.StatusOK {
-		t.Fatalf("admin should read private DB submission, got %d body=%s", res.Code, res.Body.String())
+	if got := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, privateTarget, databaseSession(t, db, admin.ID), nil)); got.Code != "secret" {
+		t.Fatalf("admin should read private DB submission source: %+v", got)
 	}
 }
 
@@ -580,8 +581,8 @@ func TestContextSubmissionSourceLockedUntilContextEnds(t *testing.T) {
 		return "/api/submissions/" + strconv.FormatUint(uint64(row.ID), 10)
 	}
 
-	if res := requestWithCookies(e, http.MethodGet, target(submissions[0]), otherCookies, nil); res.Code != http.StatusForbidden {
-		t.Fatalf("other user should not read live contest public source, got %d body=%s", res.Code, res.Body.String())
+	if got := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, target(submissions[0]), otherCookies, nil)); got.Code != "" || got.Submission.Status != "AC" {
+		t.Fatalf("other user should read live contest detail without source: %+v", got)
 	}
 	if res := requestWithCookies(e, http.MethodGet, target(submissions[0]), ownerCookies, nil); res.Code != http.StatusOK {
 		t.Fatalf("owner should read live contest source, got %d body=%s", res.Code, res.Body.String())
@@ -592,8 +593,8 @@ func TestContextSubmissionSourceLockedUntilContextEnds(t *testing.T) {
 	if got := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, target(submissions[1]), otherCookies, nil)); got.Code != "ended contest" {
 		t.Fatalf("other user should read ended contest public source: %+v", got)
 	}
-	if res := requestWithCookies(e, http.MethodGet, target(submissions[2]), otherCookies, nil); res.Code != http.StatusForbidden {
-		t.Fatalf("other user should not read live assignment public source, got %d body=%s", res.Code, res.Body.String())
+	if got := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, target(submissions[2]), otherCookies, nil)); got.Code != "" || got.Submission.Status != "AC" {
+		t.Fatalf("other user should read live assignment detail without source: %+v", got)
 	}
 	if res := requestWithCookies(e, http.MethodGet, target(submissions[2]), ownerCookies, nil); res.Code != http.StatusOK {
 		t.Fatalf("owner should read live assignment source, got %d body=%s", res.Code, res.Body.String())
@@ -604,8 +605,8 @@ func TestContextSubmissionSourceLockedUntilContextEnds(t *testing.T) {
 	if got := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, target(submissions[3]), otherCookies, nil)); got.Code != "ended assignment" {
 		t.Fatalf("other user should read ended assignment public source: %+v", got)
 	}
-	if res := requestWithCookies(e, http.MethodGet, target(submissions[4]), otherCookies, nil); res.Code != http.StatusForbidden {
-		t.Fatalf("other user should never read private source, got %d body=%s", res.Code, res.Body.String())
+	if got := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, target(submissions[4]), otherCookies, nil)); got.Code != "" {
+		t.Fatalf("other user should read private detail without source: %+v", got)
 	}
 }
 
@@ -826,17 +827,28 @@ func TestDatabaseRankUsesVisibleSubmissionStatsAndActiveUsers(t *testing.T) {
 	visibleA := models.Problem{ID: 1000, Title: "Visible A", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
 	visibleB := models.Problem{ID: 1001, Title: "Visible B", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
 	hidden := models.Problem{ID: 1002, Title: "Hidden", Tags: datatypes.JSON([]byte(`[]`)), Visible: false, Mode: "default", TimeMS: 1000, MemoryMB: 256}
-	for _, problem := range []*models.Problem{&visibleA, &visibleB, &hidden} {
+	contestOnly := models.Problem{ID: 1003, Title: "Running Contest", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	for _, problem := range []*models.Problem{&visibleA, &visibleB, &hidden, &contestOnly} {
 		if err := db.Create(problem).Error; err != nil {
 			t.Fatalf("create problem %s: %v", problem.Title, err)
 		}
 	}
+	now := time.Now()
+	contest := models.Contest{Title: "Running OI", Kind: "OI", StartAt: now.Add(-time.Hour), EndAt: now.Add(time.Hour)}
+	if err := db.Create(&contest).Error; err != nil {
+		t.Fatalf("create contest: %v", err)
+	}
+	if err := db.Create(&models.ContestProblem{ContestID: contest.ID, ProblemID: contestOnly.ID, Sort: "A"}).Error; err != nil {
+		t.Fatalf("create contest problem: %v", err)
+	}
+	contestID := contest.ID
 	submissions := []models.Submission{
 		{UserID: alice.ID, ProblemID: visibleA.ID, Language: "cpp", Code: "a1", Status: "AC", Score: 100, Public: true},
 		{UserID: alice.ID, ProblemID: visibleA.ID, Language: "cpp", Code: "a2", Status: "WA", Score: 0, Public: true},
 		{UserID: bob.ID, ProblemID: visibleA.ID, Language: "cpp", Code: "b1", Status: "AC", Score: 100, Public: true},
 		{UserID: bob.ID, ProblemID: visibleB.ID, Language: "cpp", Code: "b2", Status: "AC", Score: 100, Public: true},
 		{UserID: alice.ID, ProblemID: hidden.ID, Language: "cpp", Code: "hidden", Status: "AC", Score: 100, Public: true},
+		{UserID: alice.ID, ProblemID: contestOnly.ID, ContestID: &contestID, Language: "cpp", Code: "contest", Status: "AC", Score: 100, Public: true},
 		{UserID: disabled.ID, ProblemID: visibleA.ID, Language: "cpp", Code: "disabled", Status: "AC", Score: 100, Public: true},
 	}
 	for index := range submissions {
@@ -862,14 +874,22 @@ func TestDatabaseRankUsesVisibleSubmissionStatsAndActiveUsers(t *testing.T) {
 		t.Fatalf("disabled user profile should be hidden, got %d body=%s", res.Code, res.Body.String())
 	}
 	aliceGuest, ok := rankByUser(guestRank.Items, "alice")
-	if !ok || aliceGuest.AC != 2 || aliceGuest.Submit != 3 {
-		t.Fatalf("alice guest stats should include hidden problem in aggregate stats: %+v", guestRank)
+	if !ok || aliceGuest.AC != 2 || aliceGuest.Submit != 4 {
+		t.Fatalf("alice guest stats should include hidden problem but not running OI AC: %+v", guestRank)
+	}
+	aliceProfile := decodeJSON[UserProfile](t, requestOK(t, e, http.MethodGet, "/api/users/alice", ""))
+	if aliceProfile.User.AC != 2 || aliceProfile.User.Submit != 4 {
+		t.Fatalf("alice profile should not expose running OI AC: %+v", aliceProfile.User)
 	}
 
 	adminRank := decodeJSON[PageResult[RankUserDTO]](t, requestWithCookies(e, http.MethodGet, "/api/rank", databaseSession(t, db, admin.ID), nil))
 	aliceAdmin, ok := rankByUser(adminRank.Items, "alice")
-	if !ok || aliceAdmin.AC != 2 || aliceAdmin.Submit != 3 {
+	if !ok || aliceAdmin.AC != 3 || aliceAdmin.Submit != 4 {
 		t.Fatalf("alice admin stats should include hidden problem: %+v", adminRank)
+	}
+	adminProfile := decodeJSON[UserProfile](t, requestWithCookies(e, http.MethodGet, "/api/users/alice", databaseSession(t, db, admin.ID), nil))
+	if adminProfile.User.AC != 3 || adminProfile.User.Submit != 4 {
+		t.Fatalf("admin profile should include running OI AC: %+v", adminProfile.User)
 	}
 }
 
@@ -1159,23 +1179,39 @@ func TestContestFreezeHidesLateResultsFromNonAdmin(t *testing.T) {
 	if guest.Contest.Status != "frozen" {
 		t.Fatalf("contest status should be frozen: %+v", guest.Contest)
 	}
-	if len(guest.Rank) != 1 || guest.Rank[0].User != "alice" {
-		t.Fatalf("guest rank should only use pre-freeze submissions: %+v", guest.Rank)
+	if len(guest.Rank) != 2 || guest.Rank[0].User != "alice" {
+		t.Fatalf("guest rank should score pre-freeze submissions but keep pending post-freeze submitters: %+v", guest.Rank)
+	}
+	bobGuest, ok := rankByUser(guest.Rank, "bob")
+	if !ok || bobGuest.AC != 0 || bobGuest.Penalty != 0 || bobGuest.Submit != 0 {
+		t.Fatalf("guest rank should not expose bob post-freeze result: %+v", guest.Rank)
+	}
+	bobProblem, ok := rankProblemByID(bobGuest.Problems, problem.ID)
+	if !ok || bobProblem.Status != "pending" || bobProblem.Submit != 1 || bobProblem.Score != 0 || bobProblem.Penalty != 0 {
+		t.Fatalf("guest rank should show bob post-freeze submit as pending: %+v", bobGuest.Problems)
 	}
 
 	aliceDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, alice.ID), nil))
-	if len(aliceDetail.Rank) != 1 || aliceDetail.Rank[0].User != "alice" || aliceDetail.Rank[0].AC != 1 {
-		t.Fatalf("alice rank should still use only pre-freeze submissions: %+v", aliceDetail.Rank)
+	if len(aliceDetail.Rank) != 2 || aliceDetail.Rank[0].User != "alice" || aliceDetail.Rank[0].AC != 1 {
+		t.Fatalf("alice rank should score pre-freeze submissions and keep pending rows: %+v", aliceDetail.Rank)
 	}
 
 	bobDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, bob.ID), nil))
-	if len(bobDetail.Rank) != 1 || bobDetail.Rank[0].User != "alice" {
-		t.Fatalf("bob rank should not include his post-freeze accepted submission: %+v", bobDetail.Rank)
+	if len(bobDetail.Rank) != 2 || bobDetail.Rank[0].User != "alice" {
+		t.Fatalf("bob rank should not score his post-freeze accepted submission: %+v", bobDetail.Rank)
 	}
 
 	adminDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, admin.ID), nil))
 	if _, ok := rankByUser(adminDetail.Rank, "bob"); !ok {
 		t.Fatalf("admin rank should include post-freeze submitter: %+v", adminDetail.Rank)
+	}
+	otherView := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, "/api/submissions/"+strconv.FormatUint(uint64(bobAfter.ID), 10), databaseSession(t, db, alice.ID), nil))
+	if otherView.Submission.Status != "pending" || otherView.Submission.Score != 0 || otherView.Code != "" || len(otherView.Cases) != 0 || otherView.Progress != nil {
+		t.Fatalf("post-freeze result should be hidden from other users: %+v", otherView)
+	}
+	ownerView := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, "/api/submissions/"+strconv.FormatUint(uint64(bobAfter.ID), 10), databaseSession(t, db, bob.ID), nil))
+	if ownerView.Submission.Status != "AC" || ownerView.Submission.Score != 100 || ownerView.Code != "bob after" {
+		t.Fatalf("post-freeze result should be visible to owner: %+v", ownerView)
 	}
 }
 
@@ -1241,6 +1277,105 @@ func TestContestOIIgnoresFreezeAndUsesLastScoreAfterEnd(t *testing.T) {
 	createdDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(created.ID), 10), databaseSession(t, db, admin.ID), nil))
 	if createdDetail.Contest.FreezeAt != nil {
 		t.Fatalf("OI create should ignore freezeAt: %+v", createdDetail.Contest)
+	}
+}
+
+func TestRunningOIContestHidesSubmissionResults(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	owner := models.User{Name: "owner", Mail: "owner@example.com", Auth: "hash"}
+	other := models.User{Name: "other", Mail: "other@example.com", Auth: "hash"}
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	for _, user := range []*models.User{&owner, &other, &admin} {
+		if err := db.Create(user).Error; err != nil {
+			t.Fatalf("create user %s: %v", user.Name, err)
+		}
+	}
+	problem := models.Problem{ID: 1000, Title: "OI", Tags: datatypes.JSON([]byte(`[]`)), Visible: false, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	contest := models.Contest{Title: "OI Round", Kind: "OI", StartAt: time.Now().Add(-time.Hour), EndAt: time.Now().Add(time.Hour)}
+	if err := db.Create(&contest).Error; err != nil {
+		t.Fatalf("create contest: %v", err)
+	}
+	if err := db.Create(&models.ContestProblem{ContestID: contest.ID, ProblemID: problem.ID, Sort: "A"}).Error; err != nil {
+		t.Fatalf("create contest problem: %v", err)
+	}
+	contestID := contest.ID
+	timeMS := 12
+	memoryKB := 345
+	submission := models.Submission{UserID: owner.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "secret", Status: "AC", Score: 100, Message: "accepted", TimeMS: &timeMS, MemoryKB: &memoryKB, Public: true}
+	if err := db.Create(&submission).Error; err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+	if err := db.Create(&models.Case{SubmissionID: submission.ID, No: 1, Status: "AC", TimeMS: &timeMS, MemoryKB: &memoryKB, Message: "ok"}).Error; err != nil {
+		t.Fatalf("create case: %v", err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+	target := "/api/submissions/" + strconv.FormatUint(uint64(submission.ID), 10)
+	ownerView := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, owner.ID), nil))
+	if ownerView.Submission.Status != "pending" || ownerView.Submission.Score != 0 || ownerView.Submission.Message != "" || ownerView.Submission.TimeMS != nil || ownerView.Submission.MemoryKB != nil || len(ownerView.Cases) != 0 || ownerView.Code != "secret" {
+		t.Fatalf("running OI owner should see source but pending result: %+v", ownerView)
+	}
+	otherView := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, other.ID), nil))
+	if otherView.Submission.Status != "pending" || otherView.Code != "" || len(otherView.Cases) != 0 {
+		t.Fatalf("running OI other user should see pending detail without source: %+v", otherView)
+	}
+	adminView := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, admin.ID), nil))
+	if adminView.Submission.Status != "AC" || adminView.Submission.Score != 100 || len(adminView.Cases) != 1 || adminView.Code != "secret" {
+		t.Fatalf("admin should see running OI result and source: %+v", adminView)
+	}
+	contestDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), databaseSession(t, db, owner.ID), nil))
+	if contestDetail.Problems[0].Mine != "pending" || contestDetail.Problems[0].Latest == nil || contestDetail.Problems[0].Latest.Status != "pending" || contestDetail.Problems[0].Latest.Score != 0 {
+		t.Fatalf("running OI contest problem should not expose mine/latest result: %+v", contestDetail.Problems)
+	}
+	ownerProfile := decodeJSON[UserProfile](t, requestWithCookies(e, http.MethodGet, "/api/users/owner", databaseSession(t, db, owner.ID), nil))
+	if _, ok := activityBySubmission(ownerProfile.Activities, submission.ID); ok {
+		t.Fatalf("profile activity should not expose unfinished contest submission: %+v", ownerProfile.Activities)
+	}
+	api := &API{db: db}
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	for _, cookie := range databaseSession(t, db, owner.ID) {
+		req.AddCookie(cookie)
+	}
+	ctx := echo.New().NewContext(req, httptest.NewRecorder())
+	if got, err := api.submissionListItems(ctx, []models.Submission{submission}); err != nil || len(got) != 1 || got[0].Status != "pending" || got[0].TimeMS != nil || got[0].MemoryKB != nil {
+		t.Fatalf("submission list item should hide running OI result: items=%+v err=%v", got, err)
+	}
+}
+
+func TestRunningAssignmentShowsResultsButHidesOtherSource(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	owner := models.User{Name: "owner", Mail: "owner@example.com", Auth: "hash"}
+	other := models.User{Name: "other", Mail: "other@example.com", Auth: "hash"}
+	for _, user := range []*models.User{&owner, &other} {
+		if err := db.Create(user).Error; err != nil {
+			t.Fatalf("create user %s: %v", user.Name, err)
+		}
+	}
+	problem := models.Problem{ID: 1000, Title: "HW", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	assignment := models.Assignment{Title: "HW", EndAt: time.Now().Add(time.Hour)}
+	if err := db.Create(&assignment).Error; err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+	assignmentID := assignment.ID
+	submission := models.Submission{UserID: owner.ID, ProblemID: problem.ID, AssignmentID: &assignmentID, Language: "cpp", Code: "homework", Status: "WA", Score: 20, Public: true}
+	if err := db.Create(&submission).Error; err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+	got := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, "/api/submissions/"+strconv.FormatUint(uint64(submission.ID), 10), databaseSession(t, db, other.ID), nil))
+	if got.Submission.Status != "WA" || got.Submission.Score != 20 || got.Code != "" {
+		t.Fatalf("running assignment should expose result but hide source from other users: %+v", got)
 	}
 }
 
@@ -2628,6 +2763,15 @@ func hasActivity(items []UserActivityDTO, kind string, title string) bool {
 		}
 	}
 	return false
+}
+
+func activityBySubmission(items []UserActivityDTO, id uint) (UserActivityDTO, bool) {
+	for _, item := range items {
+		if item.Type == "submission" && item.ID == id {
+			return item, true
+		}
+	}
+	return UserActivityDTO{}, false
 }
 
 func hasSubmission(items []SubmissionDTO, id uint) bool {

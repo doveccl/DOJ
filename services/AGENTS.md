@@ -16,6 +16,15 @@
   - OI: last score per problem;
   - ICPC: accepted count and penalty from the first AC;
   - ICPC freeze: non-admin rank uses submissions before `freeze_at`; admin rank is live.
+- Submission result visibility is independent from source visibility:
+  - normal submissions and ended assignments/contests expose results to everyone;
+  - running assignments expose results to everyone but source only to the owner/admin;
+  - running OI contests hide results from non-admin users, including the owner;
+  - running ICPC contests expose results unless a non-owner/non-admin views a post-freeze submission;
+  - hidden results must be represented as `pending` and must not expose score, time, memory, messages, cases, or progress.
+- Submission source is visible to the owner/admin; other users only see it for normal or ended-context submissions when `public` is true.
+- Submission lists, profile activities, problem latest/mine, and contest ranks must not expose hidden submission results through alternate DTOs.
+- `/api/events` only publishes lightweight invalidation signals. Do not put submission status, score, cases, progress, messages, or source in SSE payloads.
 - Assignments are visible only to assigned users/groups and administrators.
 - Context submissions must be written with `assignment_id` / `contest_id`; do not infer context from problem membership.
 

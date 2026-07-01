@@ -278,6 +278,9 @@ function RankProblemCell({ kind, item }: { kind: string; item?: RankUser['proble
     return <Typography.Text type="secondary">-</Typography.Text>
   }
   if (kind === 'ICPC') {
+    if (item.status === 'pending') {
+      return <Tag color="processing">{item.submit > 0 ? `?${item.submit}` : '?'}</Tag>
+    }
     if (item.status === 'ac') {
       const wrong = Math.max(0, item.submit - 1)
       return (
@@ -316,6 +319,9 @@ function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<
 }
 
 function ContestProblemStatus({ mine, text }: { mine?: string; text: ReturnType<typeof useLocale>['text'] }) {
+  if (mine === 'pending') {
+    return <Tag color="processing">{text.submissions.statuses.pending}</Tag>
+  }
   if (mine === 'ac') {
     return <Tag color="success">{text.contests.completed}</Tag>
   }

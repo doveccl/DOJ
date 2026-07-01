@@ -2135,7 +2135,7 @@ components:
           type: integer
         mine:
           type: string
-          enum: [none, tried, ac]
+          enum: [none, tried, ac, pending]
         latest:
           $ref: "#/components/schemas/ProblemRecord"
     ProblemListPage:
@@ -2206,7 +2206,7 @@ components:
           type: integer
         mine:
           type: string
-          enum: [none, tried, ac]
+          enum: [none, tried, ac, pending]
         latest:
           $ref: "#/components/schemas/ProblemRecord"
     ProblemRecord:
@@ -2492,7 +2492,7 @@ components:
           type: integer
         status:
           type: string
-          enum: [none, tried, ac]
+          enum: [none, tried, ac, pending]
     AssignmentCreate:
       type: object
       required: [title, endAt, problems, users, groups]
@@ -2794,7 +2794,7 @@ components:
           type: integer
         status:
           type: string
-          enum: [none, tried, ac]
+          enum: [none, tried, ac, pending]
         submit:
           type: integer
         score:

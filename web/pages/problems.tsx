@@ -297,6 +297,9 @@ function problemColumns(
 
 function ProblemRecordTag({ mine }: { mine?: string }) {
   const { text } = useLocale()
+  if (mine === 'pending') {
+    return <Tag color="processing">{text.submissions.statuses.pending}</Tag>
+  }
   if (mine === 'ac') {
     return <Tag color="success">{text.problem.passed}</Tag>
   }

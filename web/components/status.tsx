@@ -11,6 +11,7 @@ function submissionStatusColor(status: string) {
   switch (status) {
     case 'AC':
       return 'green'
+    case 'pending':
     case 'queued':
       return 'blue'
     case 'judging':

@@ -245,6 +245,9 @@ function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<
 }
 
 function AssignmentProblemStatus({ mine, text }: { mine?: string; text: ReturnType<typeof useLocale>['text'] }) {
+  if (mine === 'pending') {
+    return <Tag color="processing">{text.submissions.statuses.pending}</Tag>
+  }
   if (mine === 'ac') {
     return <Tag color="success">{text.assignments.completed}</Tag>
   }

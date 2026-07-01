@@ -37,7 +37,8 @@ export function SubmissionsPage() {
   const contestSearch = useRemoteSearch()
   const query = useQuery({
     queryKey: ['submissions', problem, user, assignment, contest, page, pageSize],
-    queryFn: () => apiData(api.GET('/api/submissions', { params: { query: cleanFilters({ problem, user, assignment, contest, page, pageSize }) } }))
+    queryFn: () => apiData(api.GET('/api/submissions', { params: { query: cleanFilters({ problem, user, assignment, contest, page, pageSize }) } })),
+    refetchInterval: (query) => (query.state.data?.items.some((item) => isLiveSubmissionStatus(item.status)) ? 3000 : false)
   })
   const languages = useQuery({ queryKey: ['languages'], queryFn: () => apiData(api.GET('/api/languages')) })
   const problems = useQuery({
@@ -183,6 +184,10 @@ export function SubmissionsPage() {
 
 function cleanFilters<T extends Record<string, string | number | undefined>>(filters: T) {
   return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== undefined && value !== '')) as T
+}
+
+function isLiveSubmissionStatus(status?: string) {
+  return status === 'queued' || status === 'judging'
 }
 
 function normalizeProblemValue(value: string) {

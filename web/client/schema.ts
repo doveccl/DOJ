@@ -1220,7 +1220,7 @@ export interface components {
             submit: number;
             discussions: number;
             /** @enum {string} */
-            mine: "none" | "tried" | "ac";
+            mine: "none" | "tried" | "ac" | "pending";
             latest?: components["schemas"]["ProblemRecord"];
         };
         ProblemListPage: {
@@ -1247,7 +1247,7 @@ export interface components {
             submit: number;
             discussions: number;
             /** @enum {string} */
-            mine: "none" | "tried" | "ac";
+            mine: "none" | "tried" | "ac" | "pending";
             latest?: components["schemas"]["ProblemRecord"];
         };
         ProblemRecord: {
@@ -1373,7 +1373,7 @@ export interface components {
         AssignmentProblemProgress: {
             problemId: number;
             /** @enum {string} */
-            status: "none" | "tried" | "ac";
+            status: "none" | "tried" | "ac" | "pending";
         };
         AssignmentCreate: {
             title: string;
@@ -1509,7 +1509,7 @@ export interface components {
         RankProblem: {
             problemId: number;
             /** @enum {string} */
-            status: "none" | "tried" | "ac";
+            status: "none" | "tried" | "ac" | "pending";
             submit: number;
             score: number;
             penalty: number;
