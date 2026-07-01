@@ -1,8 +1,6 @@
-import { FullscreenOutlined, PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons'
+import { ExportOutlined, PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons'
 import { Alert, Button, Flex, Space, Spin, Tag, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useRef } from 'react'
-import screenfull from 'screenfull'
 
 import { api, apiData, apiUrl } from '../client'
 import type { PlagiarismJob } from '../client'
@@ -16,7 +14,6 @@ type Props = {
 export function PlagiarismPanel({ scope, id }: Props) {
   const { text } = useLocale()
   const queryClient = useQueryClient()
-  const frameRef = useRef<HTMLIFrameElement>(null)
   const jobs = useQuery({
     queryKey: ['plagiarism', scope, id],
     queryFn: () => apiData(api.GET('/api/admin/plagiarism', { params: { query: { scope, id } } })),
@@ -38,13 +35,6 @@ export function PlagiarismPanel({ scope, id }: Props) {
     ? `/JPlag/?file=${encodeURIComponent(apiUrl(job.reportUrl).toString())}`
     : ''
 
-  function fullscreen() {
-    const frame = frameRef.current
-    if (frame && screenfull.isEnabled) {
-      void screenfull.request(frame)
-    }
-  }
-
   return (
     <Flex vertical gap={12}>
       <Flex justify="space-between" align="center" gap={12} wrap>
@@ -62,15 +52,17 @@ export function PlagiarismPanel({ scope, id }: Props) {
       {busy ? null : job?.status === 'failed' ? (
         <Alert type="error" showIcon message={text.plagiarism.failed} description={friendlyFailure(job.message, text)} />
       ) : job && reportViewerUrl ? (
-        <Flex vertical gap={8}>
-          <Flex justify="space-between" align="center" gap={12} wrap>
-            <Typography.Text type="secondary">{job.message}</Typography.Text>
-            <Button icon={<FullscreenOutlined />} onClick={fullscreen}>
-              {text.plagiarism.fullscreen}
+        <Alert
+          type="success"
+          showIcon
+          message={job.message}
+          description={text.plagiarism.openHint}
+          action={
+            <Button icon={<ExportOutlined />} href={reportViewerUrl} target="_blank" rel="noreferrer">
+              {text.plagiarism.openReport}
             </Button>
-          </Flex>
-          <iframe ref={frameRef} title={text.plagiarism.title} src={reportViewerUrl} style={{ width: '100%', height: 720, border: 0 }} />
-        </Flex>
+          }
+        />
       ) : (
         <Alert type="info" showIcon message={text.plagiarism.empty} />
       )}

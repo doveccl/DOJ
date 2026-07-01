@@ -188,7 +188,8 @@ const zh = {
     empty: '暂无分析任务',
     failed: '分析失败',
     oldDirFixed: '历史提交为空导致分析失败，已修复，请重新运行。',
-    fullscreen: '全屏',
+    openReport: '打开报告',
+    openHint: '报告将在新标签页打开，返回作业或比赛页面时直接切回本页即可。',
     status: {
       queued: '排队中',
       running: '运行中',
@@ -591,7 +592,8 @@ const en: typeof zh = {
     empty: 'No analysis jobs',
     failed: 'Analysis failed',
     oldDirFixed: 'The previous run failed because there were no old submissions. This is fixed; run it again.',
-    fullscreen: 'Fullscreen',
+    openReport: 'Open report',
+    openHint: 'The report opens in a new tab. Switch back here to return to the assignment or contest.',
     status: {
       queued: 'Queued',
       running: 'Running',
