@@ -32,8 +32,12 @@ const (
 	plagiarismStatusRunning   = "running"
 	plagiarismStatusDone      = "done"
 	plagiarismStatusFailed    = "failed"
-	plagiarismLanguage        = "cpp"
 	plagiarismPrefix          = "plagiarism"
+)
+
+var (
+	plagiarismLanguageIDs      = []string{"c", "cc", "cpp"}
+	plagiarismLanguageSuffixes = []string{".c", ".cc", ".cpp", ".cxx", ".c++"}
 )
 
 type PlagiarismJobDTO struct {
@@ -286,7 +290,7 @@ func jplagFailure(data []byte) string {
 	return strings.TrimPrefix(strings.Join(items, "\n"), "exit status 1: ")
 }
 
-var plagiarismReportName = regexp.MustCompile(`p(\d+).*?(?:_u|user)(\d+)`)
+var plagiarismReportName = regexp.MustCompile(`P(\d+)#\d+U(\d+)\(`)
 
 func filterJPlagReport(data []byte) ([]byte, error) {
 	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
@@ -306,7 +310,7 @@ func filterJPlagReport(data []byte) ([]byte, error) {
 			if err := json.Unmarshal(body, &item); err != nil {
 				return nil, err
 			}
-			keepComparison[file.Name] = sameProblemDifferentUser(asString(item["firstSubmissionId"]), asString(item["secondSubmissionId"]))
+			keepComparison[file.Name] = differentUsers(asString(item["firstSubmissionId"]), asString(item["secondSubmissionId"]))
 		}
 	}
 	if body, ok := files["topComparisons.json"]; ok {
@@ -316,7 +320,7 @@ func filterJPlagReport(data []byte) ([]byte, error) {
 		}
 		filtered := items[:0]
 		for _, item := range items {
-			if sameProblemDifferentUser(asString(item["firstSubmission"]), asString(item["secondSubmission"])) {
+			if differentUsers(asString(item["firstSubmission"]), asString(item["secondSubmission"])) {
 				filtered = append(filtered, item)
 			}
 		}
@@ -359,10 +363,10 @@ func readZipEntry(file *zip.File) ([]byte, error) {
 	return io.ReadAll(src)
 }
 
-func sameProblemDifferentUser(a string, b string) bool {
-	ap, au, okA := plagiarismProblemUser(a)
-	bp, bu, okB := plagiarismProblemUser(b)
-	return okA && okB && ap == bp && au != bu
+func differentUsers(a string, b string) bool {
+	_, au, okA := plagiarismProblemUser(a)
+	_, bu, okB := plagiarismProblemUser(b)
+	return okA && okB && au != bu
 }
 
 func plagiarismProblemUser(name string) (string, string, bool) {
@@ -385,11 +389,18 @@ func (api *API) plagiarismPackage(scope string, scopeID uint) ([]byte, int, erro
 	if err != nil {
 		return nil, 0, err
 	}
-	queryRows, err := api.plagiarismScopeSubmissions(scope, scopeID, problemIDs)
+	languageIDs, err := api.plagiarismLanguageIDs()
 	if err != nil {
 		return nil, 0, err
 	}
-	queryRows = latestSubmissionPerUserProblem(queryRows)
+	queryRows, err := api.plagiarismScopeSubmissions(scope, scopeID, problemIDs, languageIDs)
+	if err != nil {
+		return nil, 0, err
+	}
+	queryRows, err = api.plagiarismNewSubmissions(scope, scopeID, queryRows)
+	if err != nil {
+		return nil, 0, err
+	}
 	if len(queryRows) == 0 {
 		return nil, 0, nil
 	}
@@ -398,7 +409,7 @@ func (api *API) plagiarismPackage(scope string, scopeID uint) ([]byte, int, erro
 		queryIDs[row.ID] = true
 	}
 	var history []models.Submission
-	if err := api.db.Where("problem_id IN ? AND language = ? AND status = ?", problemIDs, plagiarismLanguage, "AC").Order("id asc").Find(&history).Error; err != nil {
+	if err := api.db.Where("problem_id IN ? AND language IN ? AND status = ?", problemIDs, languageIDs, "AC").Order("created_at asc, id asc").Find(&history).Error; err != nil {
 		return nil, 0, err
 	}
 	users, err := api.plagiarismUserNames(append(queryRows, history...))
@@ -407,7 +418,9 @@ func (api *API) plagiarismPackage(scope string, scopeID uint) ([]byte, int, erro
 	}
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
-	manifest := plagiarismManifest{Scope: scope, ScopeID: scopeID, Language: plagiarismLanguage, NewDir: "new", OldDir: "old"}
+	// Plagiarism scope: new uses the score-bearing representative submission,
+	// old uses all AC history for the same problems; report filtering only drops same-user pairs.
+	manifest := plagiarismManifest{Scope: scope, ScopeID: scopeID, Language: "cpp", NewDir: "new", OldDir: "old"}
 	for _, row := range queryRows {
 		name := plagiarismFileName("new", row, users)
 		if err := zipText(zw, name, row.Code); err != nil {
@@ -416,12 +429,8 @@ func (api *API) plagiarismPackage(scope string, scopeID uint) ([]byte, int, erro
 		}
 		manifest.Submissions = append(manifest.Submissions, plagiarismSubmission{ID: row.ID, UserID: row.UserID, ProblemID: row.ProblemID, Group: "new", File: name})
 	}
-	queryUsers := make(map[uint]bool, len(queryRows))
-	for _, row := range queryRows {
-		queryUsers[row.UserID] = true
-	}
 	for _, row := range history {
-		if queryIDs[row.ID] || queryUsers[row.UserID] {
+		if queryIDs[row.ID] {
 			continue
 		}
 		name := plagiarismFileName("old", row, users)
@@ -444,6 +453,58 @@ func (api *API) plagiarismPackage(scope string, scopeID uint) ([]byte, int, erro
 		return nil, 0, err
 	}
 	return buf.Bytes(), len(manifest.Submissions), nil
+}
+
+func (api *API) plagiarismNewSubmissions(scope string, scopeID uint, rows []models.Submission) ([]models.Submission, error) {
+	switch scope {
+	case plagiarismScopeAssignment:
+		return firstHighestSubmissionPerUserProblem(rows), nil
+	case plagiarismScopeContest:
+		var contest models.Contest
+		if err := api.db.First(&contest, scopeID).Error; err != nil {
+			return nil, err
+		}
+		if contest.Kind == "ICPC" {
+			return firstACSubmissionPerUserProblem(rows), nil
+		}
+		return latestSubmissionPerUserProblem(rows), nil
+	default:
+		return nil, fmt.Errorf("invalid plagiarism scope")
+	}
+}
+
+func firstHighestSubmissionPerUserProblem(rows []models.Submission) []models.Submission {
+	index := make(map[[2]uint]int, len(rows))
+	out := make([]models.Submission, 0, len(rows))
+	for _, row := range rows {
+		key := [2]uint{row.ProblemID, row.UserID}
+		if i, ok := index[key]; ok {
+			if row.Score > out[i].Score {
+				out[i] = row
+			}
+			continue
+		}
+		index[key] = len(out)
+		out = append(out, row)
+	}
+	return out
+}
+
+func firstACSubmissionPerUserProblem(rows []models.Submission) []models.Submission {
+	index := make(map[[2]uint]bool, len(rows))
+	out := make([]models.Submission, 0, len(rows))
+	for _, row := range rows {
+		if row.Status != "AC" {
+			continue
+		}
+		key := [2]uint{row.ProblemID, row.UserID}
+		if index[key] {
+			continue
+		}
+		index[key] = true
+		out = append(out, row)
+	}
+	return out
 }
 
 func latestSubmissionPerUserProblem(rows []models.Submission) []models.Submission {
@@ -481,6 +542,29 @@ func (api *API) plagiarismUserNames(rows []models.Submission) (map[uint]string, 
 	return names, nil
 }
 
+func (api *API) plagiarismLanguageIDs() ([]string, error) {
+	ids := map[string]bool{}
+	for _, id := range plagiarismLanguageIDs {
+		ids[id] = true
+	}
+	var rows []models.Language
+	if err := api.db.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		id := strings.ToLower(strings.TrimSpace(row.ID))
+		if slices.Contains(plagiarismLanguageIDs, id) || slices.Contains(plagiarismLanguageSuffixes, strings.ToLower(path.Ext(row.Source))) {
+			ids[row.ID] = true
+		}
+	}
+	out := make([]string, 0, len(ids))
+	for id := range ids {
+		out = append(out, id)
+	}
+	slices.Sort(out)
+	return out, nil
+}
+
 func (api *API) plagiarismProblemIDs(scope string, scopeID uint) ([]uint, error) {
 	var ids []uint
 	switch scope {
@@ -495,12 +579,12 @@ func (api *API) plagiarismProblemIDs(scope string, scopeID uint) ([]uint, error)
 	}
 }
 
-func (api *API) plagiarismScopeSubmissions(scope string, scopeID uint, problemIDs []uint) ([]models.Submission, error) {
+func (api *API) plagiarismScopeSubmissions(scope string, scopeID uint, problemIDs []uint, languageIDs []string) ([]models.Submission, error) {
 	if len(problemIDs) == 0 {
 		return nil, nil
 	}
 	var rows []models.Submission
-	query := api.db.Where("problem_id IN ? AND language = ? AND status = ?", problemIDs, plagiarismLanguage, "AC")
+	query := api.db.Where("problem_id IN ? AND language IN ? AND status NOT IN ?", problemIDs, languageIDs, []string{"queued", "judging"})
 	switch scope {
 	case plagiarismScopeAssignment:
 		query = query.Where("assignment_id = ?", scopeID)
@@ -509,7 +593,7 @@ func (api *API) plagiarismScopeSubmissions(scope string, scopeID uint, problemID
 	default:
 		return nil, fmt.Errorf("invalid plagiarism scope")
 	}
-	err := query.Order("id asc").Find(&rows).Error
+	err := query.Order("created_at asc, id asc").Find(&rows).Error
 	return rows, err
 }
 
@@ -518,7 +602,7 @@ func plagiarismFileName(group string, row models.Submission, users map[uint]stri
 	if name == "" {
 		name = fmt.Sprintf("user%d", row.UserID)
 	}
-	return path.Join(group, fmt.Sprintf("p%d_%s_u%d_s%d.cpp", row.ProblemID, name, row.UserID, row.ID))
+	return path.Join(group, fmt.Sprintf("P%d#%dU%d(%s).cc", row.ProblemID, row.ID, row.UserID, name))
 }
 
 func safePlagiarismName(name string) string {

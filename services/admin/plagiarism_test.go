@@ -13,7 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func TestPlagiarismPackageUsesScopeAsNewAndProblemHistoryAsOld(t *testing.T) {
+func TestPlagiarismPackageUsesScopeRepresentativeAsNewAndACHistoryAsOld(t *testing.T) {
 	db := testAdminDB(t)
 	api := &API{db: db}
 	assignment := models.Assignment{Title: "hw", EndAt: time.Now().Add(time.Hour)}
@@ -32,10 +32,11 @@ func TestPlagiarismPackageUsesScopeAsNewAndProblemHistoryAsOld(t *testing.T) {
 		t.Fatal(err)
 	}
 	submissions := []models.Submission{
-		{ID: 1, UserID: 1, ProblemID: 1000, AssignmentID: &assignment.ID, Language: "cpp", Status: "AC", Code: "new"},
-		{ID: 2, UserID: 2, ProblemID: 1000, Language: "cpp", Status: "AC", Code: "old"},
-		{ID: 3, UserID: 1, ProblemID: 1000, AssignmentID: &assignment.ID, Language: "cpp", Status: "AC", Code: "same user latest"},
-		{ID: 4, UserID: 2, ProblemID: 1000, Language: "py", Status: "AC", Code: "python"},
+		{ID: 1, UserID: 1, ProblemID: 1000, AssignmentID: &assignment.ID, Language: "cpp", Status: "WA", Score: 80, Code: "lower score"},
+		{ID: 2, UserID: 2, ProblemID: 1000, Language: "cc", Status: "AC", Score: 100, Code: "old"},
+		{ID: 3, UserID: 1, ProblemID: 1000, AssignmentID: &assignment.ID, Language: "cpp", Status: "AC", Score: 100, Code: "first highest"},
+		{ID: 4, UserID: 2, ProblemID: 1000, Language: "py", Status: "AC", Score: 100, Code: "python"},
+		{ID: 5, UserID: 1, ProblemID: 1000, AssignmentID: &assignment.ID, Language: "cpp", Status: "AC", Score: 100, Code: "same user later tie"},
 	}
 	for _, row := range submissions {
 		if err := db.Create(&row).Error; err != nil {
@@ -46,8 +47,8 @@ func TestPlagiarismPackageUsesScopeAsNewAndProblemHistoryAsOld(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if count != 2 {
-		t.Fatalf("submission count = %d, want 2", count)
+	if count != 3 {
+		t.Fatalf("submission count = %d, want 3", count)
 	}
 	reader, err := zip.NewReader(bytes.NewReader(payload), int64(len(payload)))
 	if err != nil {
@@ -57,13 +58,13 @@ func TestPlagiarismPackageUsesScopeAsNewAndProblemHistoryAsOld(t *testing.T) {
 	for _, file := range reader.File {
 		names[file.Name] = true
 	}
-	for _, name := range []string{"new/p1000_alice_u1_s3.cpp", "old/p1000_bob_u2_s2.cpp", "manifest.json"} {
+	for _, name := range []string{"new/P1000#3U1(alice).cc", "old/P1000#2U2(bob).cc", "old/P1000#5U1(alice).cc", "manifest.json"} {
 		if !names[name] {
 			t.Fatalf("zip missing %s in %v", name, names)
 		}
 	}
 	for name := range names {
-		if strings.Contains(name, "_s1.") || strings.Contains(name, "_s4.") {
+		if strings.Contains(name, "#1U") || strings.Contains(name, "#4U") {
 			t.Fatalf("unexpected file %s in zip", name)
 		}
 	}
@@ -79,17 +80,49 @@ func TestJPlagFailureUnwrapsEchoJSONAndDropsVersionWarning(t *testing.T) {
 	}
 }
 
-func TestFilterJPlagReportKeepsOnlySameProblemDifferentUsers(t *testing.T) {
+func TestPlagiarismNewSubmissionsFollowScopeRules(t *testing.T) {
+	db := testAdminDB(t)
+	api := &API{db: db}
+	oi := models.Contest{Title: "oi", Kind: "OI", StartAt: time.Now().Add(-time.Hour), EndAt: time.Now().Add(time.Hour)}
+	icpc := models.Contest{Title: "icpc", Kind: "ICPC", StartAt: time.Now().Add(-time.Hour), EndAt: time.Now().Add(time.Hour)}
+	if err := db.Create(&oi).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&icpc).Error; err != nil {
+		t.Fatal(err)
+	}
+	rows := []models.Submission{
+		{ID: 1, UserID: 1, ProblemID: 1000, Status: "WA", Score: 0},
+		{ID: 2, UserID: 1, ProblemID: 1000, Status: "AC", Score: 100},
+		{ID: 3, UserID: 1, ProblemID: 1000, Status: "WA", Score: 0},
+	}
+	got, err := api.plagiarismNewSubmissions(plagiarismScopeContest, oi.ID, rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].ID != 3 {
+		t.Fatalf("OI representative = %+v, want last submission 3", got)
+	}
+	got, err = api.plagiarismNewSubmissions(plagiarismScopeContest, icpc.ID, rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].ID != 2 {
+		t.Fatalf("ICPC representative = %+v, want first AC 2", got)
+	}
+}
+
+func TestFilterJPlagReportDropsOnlySameUser(t *testing.T) {
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
 	mustZipText(t, zw, "topComparisons.json", `[
-{"firstSubmission":"new_p1000_alice_u1_s1.cpp","secondSubmission":"new_p1000_bob_u2_s2.cpp"},
-{"firstSubmission":"new_p1000_alice_u1_s1.cpp","secondSubmission":"new_p1000_alice_u1_s3.cpp"},
-{"firstSubmission":"new_p1000_alice_u1_s1.cpp","secondSubmission":"new_p1001_bob_u2_s4.cpp"}]`)
+{"firstSubmission":"new_P1000#1U1(alice).cc","secondSubmission":"new_P1000#2U2(bob).cc"},
+{"firstSubmission":"new_P1000#1U1(alice).cc","secondSubmission":"new_P1000#3U1(alice).cc"},
+{"firstSubmission":"new_P1000#1U1(alice).cc","secondSubmission":"new_P1001#4U2(bob).cc"}]`)
 	mustZipText(t, zw, "runInformation.json", `{"totalComparisons":3}`)
-	mustZipText(t, zw, "comparisons/new_p1000_alice_u1_s1.cpp-new_p1000_bob_u2_s2.cpp.json", `{"firstSubmissionId":"new_p1000_alice_u1_s1.cpp","secondSubmissionId":"new_p1000_bob_u2_s2.cpp"}`)
-	mustZipText(t, zw, "comparisons/new_p1000_alice_u1_s1.cpp-new_p1000_alice_u1_s3.cpp.json", `{"firstSubmissionId":"new_p1000_alice_u1_s1.cpp","secondSubmissionId":"new_p1000_alice_u1_s3.cpp"}`)
-	mustZipText(t, zw, "comparisons/new_p1000_alice_u1_s1.cpp-new_p1001_bob_u2_s4.cpp.json", `{"firstSubmissionId":"new_p1000_alice_u1_s1.cpp","secondSubmissionId":"new_p1001_bob_u2_s4.cpp"}`)
+	mustZipText(t, zw, "comparisons/new_P1000#1U1(alice).cc-new_P1000#2U2(bob).cc.json", `{"firstSubmissionId":"new_P1000#1U1(alice).cc","secondSubmissionId":"new_P1000#2U2(bob).cc"}`)
+	mustZipText(t, zw, "comparisons/new_P1000#1U1(alice).cc-new_P1000#3U1(alice).cc.json", `{"firstSubmissionId":"new_P1000#1U1(alice).cc","secondSubmissionId":"new_P1000#3U1(alice).cc"}`)
+	mustZipText(t, zw, "comparisons/new_P1000#1U1(alice).cc-new_P1001#4U2(bob).cc.json", `{"firstSubmissionId":"new_P1000#1U1(alice).cc","secondSubmissionId":"new_P1001#4U2(bob).cc"}`)
 	if err := zw.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -105,10 +138,10 @@ func TestFilterJPlagReportKeepsOnlySameProblemDifferentUsers(t *testing.T) {
 	for _, file := range reader.File {
 		names[file.Name] = true
 	}
-	if !names["comparisons/new_p1000_alice_u1_s1.cpp-new_p1000_bob_u2_s2.cpp.json"] {
+	if !names["comparisons/new_P1000#1U1(alice).cc-new_P1000#2U2(bob).cc.json"] || !names["comparisons/new_P1000#1U1(alice).cc-new_P1001#4U2(bob).cc.json"] {
 		t.Fatalf("kept comparison missing: %v", names)
 	}
-	if names["comparisons/new_p1000_alice_u1_s1.cpp-new_p1000_alice_u1_s3.cpp.json"] || names["comparisons/new_p1000_alice_u1_s1.cpp-new_p1001_bob_u2_s4.cpp.json"] {
+	if names["comparisons/new_P1000#1U1(alice).cc-new_P1000#3U1(alice).cc.json"] {
 		t.Fatalf("invalid comparison kept: %v", names)
 	}
 }

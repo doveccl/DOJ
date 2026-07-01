@@ -246,6 +246,7 @@ func runJPlag(ctx context.Context, newDir string, oldDir string, report string) 
 		"--language", "cpp",
 		"--new", newDir,
 		"--old", oldDir,
+		"--suffixes", ".c,.cc,.cpp,.cxx,.c++",
 		"--normalize",
 		"--csv-export",
 		"--result-file", report,
