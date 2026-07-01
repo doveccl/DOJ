@@ -12,6 +12,11 @@
   background: var(--page-bg);
 }
 
+html,
+body {
+  overflow-x: clip;
+}
+
 :root[data-theme='dark'] {
   --page-bg: var(--ant-color-bg-layout, #000);
   --header-bg: var(--ant-color-bg-container, #141414);
@@ -31,7 +36,8 @@ body {
   background: var(--page-bg);
 }
 
-.appShell {
+.appLayout {
+  width: 100vw;
   min-height: 100vh;
   background: var(--page-bg);
 }
@@ -40,9 +46,6 @@ body {
   position: sticky;
   top: 0;
   z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 18px;
   height: 64px;
   padding: 0 28px;
   background: var(--header-bg);
@@ -50,7 +53,11 @@ body {
   backdrop-filter: blur(12px);
 }
 
-.brand {
+.appHeaderInner {
+  height: 100%;
+}
+
+.appBrand {
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -88,12 +95,6 @@ body {
   white-space: nowrap;
 }
 
-.userArea .ant-space-item {
-  display: flex;
-  align-items: center;
-  line-height: 1;
-}
-
 .profileButton {
   height: 40px;
   padding-inline: 8px;
@@ -124,9 +125,11 @@ body {
 }
 
 .appContent {
-  width: min(1480px, calc(100vw - 48px));
+  width: 100%;
+  max-width: 1480px;
+  min-width: 0;
   margin: 0 auto;
-  padding: 28px 0 48px;
+  padding: 28px 24px 48px;
 }
 
 .pageStack {
@@ -604,23 +607,8 @@ body {
   display: block;
 }
 
-@media (max-width: 991px) {
-  .appContent > .ant-row,
-  .pageStack > .ant-row {
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-  }
-
-  .appContent > .ant-row > .ant-col,
-  .pageStack > .ant-row > .ant-col {
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-  }
-}
-
 @media (max-width: 900px) {
   .appHeader {
-    gap: 10px;
     padding: 0 14px;
   }
 
@@ -649,7 +637,7 @@ body {
   }
 
   .appContent {
-    width: min(100vw - 24px, 1480px);
+    padding-inline: 12px;
     padding-top: 16px;
   }
 

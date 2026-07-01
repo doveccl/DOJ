@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react'
 import type { ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
-import { Shell } from './components/shell'
+import { AppLayout } from './components/app-layout'
 import { LoadingBlock } from './components/state'
 
 const AdminPage = lazy(() => import('./pages/admin').then((mod) => ({ default: mod.AdminPage })))
@@ -10,9 +10,9 @@ const AssignmentDetailPage = lazy(() => import('./pages/assignment').then((mod) 
 const AssignmentsPage = lazy(() => import('./pages/assignments').then((mod) => ({ default: mod.AssignmentsPage })))
 const ContestDetailPage = lazy(() => import('./pages/contest').then((mod) => ({ default: mod.ContestDetailPage })))
 const ContestsPage = lazy(() => import('./pages/contests').then((mod) => ({ default: mod.ContestsPage })))
-const DiscussionPage = lazy(() => import('./pages/discussion').then((mod) => ({ default: mod.DiscussionPage })))
+const DiscussionDetailPage = lazy(() => import('./pages/discussion').then((mod) => ({ default: mod.DiscussionDetailPage })))
+const DiscussionsPage = lazy(() => import('./pages/discussions').then((mod) => ({ default: mod.DiscussionsPage })))
 const HomePage = lazy(() => import('./pages/home').then((mod) => ({ default: mod.HomePage })))
-const PostPage = lazy(() => import('./pages/post').then((mod) => ({ default: mod.PostPage })))
 const ProblemDetailPage = lazy(() => import('./pages/problem').then((mod) => ({ default: mod.ProblemDetailPage })))
 const ProblemsPage = lazy(() => import('./pages/problems').then((mod) => ({ default: mod.ProblemsPage })))
 const RankPage = lazy(() => import('./pages/rank').then((mod) => ({ default: mod.RankPage })))
@@ -28,7 +28,7 @@ export function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<Shell />}>
+        <Route element={<AppLayout />}>
           <Route index element={page(<HomePage />)} />
           <Route path="problems" element={page(<ProblemsPage />)} />
           <Route path="problems/:id" element={page(<ProblemDetailPage />)} />
@@ -36,8 +36,8 @@ export function AppRoutes() {
           <Route path="assignments/:id" element={page(<AssignmentDetailPage />)} />
           <Route path="contests" element={page(<ContestsPage />)} />
           <Route path="contests/:id" element={page(<ContestDetailPage />)} />
-          <Route path="discussion" element={page(<DiscussionPage />)} />
-          <Route path="discussion/:id" element={page(<PostPage />)} />
+          <Route path="discussion" element={page(<DiscussionsPage />)} />
+          <Route path="discussion/:id" element={page(<DiscussionDetailPage />)} />
           <Route path="rank" element={page(<RankPage />)} />
           <Route path="users/:name" element={page(<UserPage />)} />
           <Route path="submissions" element={page(<SubmissionsPage />)} />

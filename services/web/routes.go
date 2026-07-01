@@ -3497,7 +3497,8 @@ func (api *API) updateDiscussion(c echo.Context) error {
 }
 
 func (api *API) deleteDiscussion(c echo.Context) error {
-	if err := api.requireAdmin(c); err != nil {
+	user, err := api.currentUser(c)
+	if err != nil {
 		return err
 	}
 	id, err := parseID(c, "id", "invalid discussion id")
@@ -3505,7 +3506,17 @@ func (api *API) deleteDiscussion(c echo.Context) error {
 		return err
 	}
 
-	if err := api.db.Delete(&models.Discussion{}, id).Error; err != nil {
+	var row models.Discussion
+	if err := api.db.First(&row, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return echo.NewHTTPError(http.StatusNotFound, "discussion not found")
+		}
+		return err
+	}
+	if !user.Admin && row.UserID != user.ID {
+		return echo.NewHTTPError(http.StatusForbidden, "discussion owner required")
+	}
+	if err := api.db.Delete(&row).Error; err != nil {
 		return err
 	}
 	return c.NoContent(http.StatusNoContent)

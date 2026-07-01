@@ -1814,6 +1814,47 @@ func TestDatabaseDiscussionAuthorsUseNames(t *testing.T) {
 	}
 }
 
+func TestDiscussionDeleteAllowsOwnerOrAdmin(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	users := []models.User{
+		{Name: "owner", Mail: "owner@example.com", Auth: "hash"},
+		{Name: "other", Mail: "other@example.com", Auth: "hash"},
+		{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true},
+	}
+	if err := db.Create(&users).Error; err != nil {
+		t.Fatalf("create users: %v", err)
+	}
+	owner, other, admin := users[0], users[1], users[2]
+	discussions := []models.Discussion{
+		{Title: "owner post", Content: "body", UserID: owner.ID, Tags: datatypes.JSON([]byte(`[]`))},
+		{Title: "admin delete", Content: "body", UserID: owner.ID, Tags: datatypes.JSON([]byte(`[]`))},
+	}
+	if err := db.Create(&discussions).Error; err != nil {
+		t.Fatalf("create discussions: %v", err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+	target := func(id uint) string { return "/api/discussion/" + strconv.FormatUint(uint64(id), 10) }
+
+	if res := requestWithCookies(e, http.MethodDelete, target(discussions[0].ID), nil, nil); res.Code != http.StatusUnauthorized {
+		t.Fatalf("guest delete got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestWithCookies(e, http.MethodDelete, target(discussions[0].ID), databaseSession(t, db, other.ID), nil); res.Code != http.StatusForbidden {
+		t.Fatalf("other user delete got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestWithCookies(e, http.MethodDelete, target(discussions[0].ID), databaseSession(t, db, owner.ID), nil); res.Code != http.StatusNoContent {
+		t.Fatalf("owner delete got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestWithCookies(e, http.MethodDelete, target(discussions[0].ID), databaseSession(t, db, admin.ID), nil); res.Code != http.StatusNotFound {
+		t.Fatalf("deleted discussion got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestWithCookies(e, http.MethodDelete, target(discussions[1].ID), databaseSession(t, db, admin.ID), nil); res.Code != http.StatusNoContent {
+		t.Fatalf("admin delete got %d body=%s", res.Code, res.Body.String())
+	}
+}
+
 func TestDiscussionListSearchesTitleContentAndTags(t *testing.T) {
 	db := testWebDB(t)
 	allowGuest(t, db)

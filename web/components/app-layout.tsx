@@ -54,7 +54,7 @@ function selectedKey(pathname: string, items: MenuProps['items']) {
   return hit && 'key' in hit ? [String(hit.key)] : []
 }
 
-export function Shell() {
+export function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const { lang, setLang, text } = useLocale()
@@ -95,79 +95,81 @@ export function Shell() {
 
   return (
     <>
-      <Layout className="appShell">
+      <Layout className="appLayout">
         <Layout.Header className="appHeader">
-          <Link to="/" className="brand" aria-label="DOJ home">
-            <span className="brandMark">
-              <CodeOutlined />
-            </span>
-            <Typography.Text className="brandText">{siteName}</Typography.Text>
-          </Link>
-          <Menu
-            className="navMenu"
-            mode="horizontal"
-            selectedKeys={selectedKey(location.pathname, items)}
-            items={items}
-          />
-          <Space className="userArea" size={12}>
-            <Dropdown
-              trigger={['hover', 'click']}
-              menu={{
-                items: languageItems,
-                selectable: true,
-                selectedKeys: [lang],
-                onClick: ({ key }) => setLang(key as Lang)
-              }}
-            >
-              <Button type="text" aria-label={text.prefs.language} icon={<TranslationOutlined />} />
-            </Dropdown>
-            <Dropdown
-              trigger={['hover', 'click']}
-              menu={{
-                items: themeItems,
-                selectable: true,
-                selectedKeys: [mode],
-                onClick: ({ key }) => setMode(key as ColorMode)
-              }}
-            >
-              <Button
-                type="text"
-                aria-label={text.prefs.theme}
-                icon={color === 'dark' ? <MoonOutlined /> : mode === 'system' ? <DesktopOutlined /> : <SunOutlined />}
-              />
-            </Dropdown>
-            {session.signedIn ? (
+          <Flex align="center" gap={12} className="appHeaderInner">
+            <Link to="/" className="appBrand" aria-label="DOJ home">
+              <span className="brandMark">
+                <CodeOutlined />
+              </span>
+              <Typography.Text className="brandText">{siteName}</Typography.Text>
+            </Link>
+            <Menu
+              className="navMenu"
+              mode="horizontal"
+              selectedKeys={selectedKey(location.pathname, items)}
+              items={items}
+            />
+            <Space className="userArea" size={12} align="center">
               <Dropdown
                 trigger={['hover', 'click']}
                 menu={{
-                  items: profileItems,
-                  onClick: ({ key }) => {
-                    if (key === 'logout') {
-                      void session.logout().then(() => {
-                        if (location.pathname.startsWith('/admin')) {
-                          navigate('/')
-                        }
-                      })
-                    }
-                  }
+                  items: languageItems,
+                  selectable: true,
+                  selectedKeys: [lang],
+                  onClick: ({ key }) => setLang(key as Lang)
                 }}
               >
-                <Button type="text" className="profileButton" aria-label={`${text.prefs.profile}: ${session.name}`}>
-                  <Flex align="center" gap={8} className="profileButtonInner">
-                    <Avatar size={28} src={session.avatar || undefined} icon={<UserOutlined />}>
-                      {session.name.slice(0, 1).toUpperCase()}
-                    </Avatar>
-                    <span className="profileName">{session.name}</span>
-                    <DownOutlined className="profileArrow" />
-                  </Flex>
-                </Button>
+                <Button type="text" aria-label={text.prefs.language} icon={<TranslationOutlined />} />
               </Dropdown>
-            ) : (
-              <Button type="primary" icon={<LoginOutlined />} onClick={() => setLoginOpen(true)}>
-                {text.prefs.login}
-              </Button>
-            )}
-          </Space>
+              <Dropdown
+                trigger={['hover', 'click']}
+                menu={{
+                  items: themeItems,
+                  selectable: true,
+                  selectedKeys: [mode],
+                  onClick: ({ key }) => setMode(key as ColorMode)
+                }}
+              >
+                <Button
+                  type="text"
+                  aria-label={text.prefs.theme}
+                  icon={color === 'dark' ? <MoonOutlined /> : mode === 'system' ? <DesktopOutlined /> : <SunOutlined />}
+                />
+              </Dropdown>
+              {session.signedIn ? (
+                <Dropdown
+                  trigger={['hover', 'click']}
+                  menu={{
+                    items: profileItems,
+                    onClick: ({ key }) => {
+                      if (key === 'logout') {
+                        void session.logout().then(() => {
+                          if (location.pathname.startsWith('/admin')) {
+                            navigate('/')
+                          }
+                        })
+                      }
+                    }
+                  }}
+                >
+                  <Button type="text" className="profileButton" aria-label={`${text.prefs.profile}: ${session.name}`}>
+                    <Flex align="center" gap={8} className="profileButtonInner">
+                      <Avatar size={28} src={session.avatar || undefined} icon={<UserOutlined />}>
+                        {session.name.slice(0, 1).toUpperCase()}
+                      </Avatar>
+                      <span className="profileName">{session.name}</span>
+                      <DownOutlined className="profileArrow" />
+                    </Flex>
+                  </Button>
+                </Dropdown>
+              ) : (
+                <Button type="primary" icon={<LoginOutlined />} onClick={() => setLoginOpen(true)}>
+                  {text.prefs.login}
+                </Button>
+              )}
+            </Space>
+          </Flex>
         </Layout.Header>
         <Layout.Content className="appContent">
           {guestBlocked ? (

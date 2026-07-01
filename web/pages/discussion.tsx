@@ -1,14 +1,13 @@
-import { DeleteOutlined, EditOutlined, LockOutlined, PlusOutlined, PushpinOutlined, SearchOutlined, UnlockOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, Flex, Form, Input, Modal, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd'
-import type { TableProps } from 'antd'
+import { DeleteOutlined, EditOutlined, LockOutlined, PushpinOutlined, UnlockOutlined } from '@ant-design/icons'
+import { App as AntApp, Button, Card, Divider, Flex, Form, Input, Modal, Pagination, Popconfirm, Space, Tag, Tooltip, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { api, apiData, apiEmpty } from '../client'
-import type { Discussion, DiscussionCreate } from '../client'
+import type { CommentCreate, DiscussionDetail } from '../client'
 import { UserLink } from '../components/entity'
-import { MarkdownEditor } from '../components/markdown'
+import { MarkdownEditor, MarkdownPreview } from '../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { TagList } from '../components/tags'
 import { TagSelect } from '../components/tag-select'
@@ -16,7 +15,8 @@ import { useLocale } from '../locale'
 import { useSession } from '../session'
 import { formatTime } from '../utils/format'
 import { limits } from '../utils/limits'
-import { pageFromParams, pageSizeFromParams, setPageParams } from '../utils/pagination'
+
+const commentPageSize = 20
 
 type DiscussionForm = {
   title: string
@@ -24,190 +24,202 @@ type DiscussionForm = {
   tags: string[]
 }
 
-export function DiscussionPage() {
+export function DiscussionDetailPage() {
   const { lang, text } = useLocale()
   const session = useSession()
-  const [params, setParams] = useSearchParams()
-  const [open, setOpen] = useState(false)
-  const [editing, setEditing] = useState<Discussion | null>(null)
-  const [draft, setDraft] = useState<DiscussionForm | null>(null)
   const { message } = AntApp.useApp()
   const client = useQueryClient()
   const navigate = useNavigate()
-  const q = params.get('q') ?? ''
-  const tags = params.get('tags') ?? ''
-  const page = pageFromParams(params)
-  const pageSize = pageSizeFromParams(params)
-  const query = useQuery({ queryKey: ['discussion', q, tags, page, pageSize], queryFn: () => apiData(api.GET('/api/discussion', { params: { query: { q, tags, page, pageSize } } })) })
+  const [form] = Form.useForm<CommentCreate>()
+  const [editOpen, setEditOpen] = useState(false)
+  const [commentPage, setCommentPage] = useState(1)
+  const params = useParams()
+  const id = Number(params.id)
+  const query = useQuery({
+    queryKey: ['discussion', id],
+    queryFn: () => apiData(api.GET('/api/discussion/{id}', { params: { path: { id } } })),
+    enabled: Number.isFinite(id)
+  })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
-  const create = useMutation({
-    mutationFn: (body: DiscussionCreate) => apiData(api.POST('/api/discussion', { body })),
+  const reply = useMutation({
+    mutationFn: (body: CommentCreate) => apiData(api.POST('/api/discussion/{id}/comments', { params: { path: { id } }, body })),
     onSuccess: (item) => {
-      void client.invalidateQueries({ queryKey: ['discussion'] })
-      message.success(text.discussion.createdTip)
-      setOpen(false)
-      setDraft(null)
-      navigate(`/discussion/${item.id}`)
+      const nextCount = (query.data?.comments.length ?? 0) + 1
+      setCommentPage(Math.max(1, Math.ceil(nextCount / commentPageSize)))
+      client.setQueryData<DiscussionDetail>(['discussion', id], (old) =>
+        old
+          ? {
+              ...old,
+              discussion: { ...old.discussion, replies: old.discussion.replies + 1 },
+              comments: [...old.comments, item]
+            }
+          : old
+      )
+      form.resetFields()
+      message.success(text.discussion.repliedTip)
     },
     onError: showError
   })
-  const update = useMutation({
-    mutationFn: (values: DiscussionForm) => {
-      if (!editing) {
-        throw new Error(text.common.emptyResponse)
-      }
-      return apiData(api.PATCH('/api/discussion/{id}', { params: { path: { id: editing.id } }, body: values }))
-    },
+  const edit = useMutation({
+    mutationFn: (body: DiscussionForm) => apiData(api.PATCH('/api/discussion/{id}', { params: { path: { id } }, body })),
     onSuccess: (item) => {
       void client.invalidateQueries({ queryKey: ['discussion'] })
-      void client.invalidateQueries({ queryKey: ['discussion', item.id] })
+      void client.invalidateQueries({ queryKey: ['discussion', id] })
+      setEditOpen(false)
       message.success(text.common.saved)
-      closeModal()
+      query.refetch()
+      if (item.id !== id) {
+        navigate(`/discussion/${item.id}`)
+      }
     },
     onError: showError
   })
   const toggleState = useMutation({
-    mutationFn: ({ item, pinned, locked }: { item: Discussion; pinned?: boolean; locked?: boolean }) => apiData(api.PATCH('/api/discussion/{id}', { params: { path: { id: item.id } }, body: { pinned, locked } })),
-    onSuccess: (item) => {
+    mutationFn: (body: { pinned?: boolean; locked?: boolean }) => apiData(api.PATCH('/api/discussion/{id}', { params: { path: { id } }, body })),
+    onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['discussion'] })
-      void client.invalidateQueries({ queryKey: ['discussion', item.id] })
+      void client.invalidateQueries({ queryKey: ['discussion', id] })
       message.success(text.common.saved)
+      query.refetch()
     },
     onError: showError
   })
   const remove = useMutation({
-    mutationFn: (id: number) => apiEmpty(api.DELETE('/api/discussion/{id}', { params: { path: { id } } })),
+    mutationFn: () => apiEmpty(api.DELETE('/api/discussion/{id}', { params: { path: { id } } })),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['discussion'] })
       message.success(text.common.saved)
+      navigate('/discussion')
     },
     onError: showError
   })
 
-  const closeModal = () => {
-    setOpen(false)
-    setEditing(null)
-    setDraft(null)
+  if (query.isLoading) {
+    return <LoadingBlock />
+  }
+  if (query.isError) {
+    return <ErrorBlock error={query.error} />
+  }
+  if (!query.data) {
+    return <ErrorBlock error={text.common.emptyResponse} />
   }
 
-  function openCreate() {
-    setEditing(null)
-    setDraft({ title: '', content: '', tags: tags ? [tags] : [] })
-    setOpen(true)
-  }
-
-  async function openEdit(item: Discussion) {
-    setEditing(item)
-    try {
-      const detail = await client.fetchQuery({ queryKey: ['discussion', item.id], queryFn: () => apiData(api.GET('/api/discussion/{id}', { params: { path: { id: item.id } } })) })
-      setEditing(detail.discussion)
-      setDraft({
-        title: detail.discussion.title,
-        content: detail.content,
-        tags: detail.discussion.tags
-      })
-      setOpen(true)
-    } catch (error) {
-      showError(error)
-      setEditing(null)
-    }
-  }
-
-  function save(values: DiscussionForm) {
-    if (editing) {
-      update.mutate(values)
-      return
-    }
-    const body: DiscussionCreate = {
-      title: values.title,
-      content: values.content,
-      tags: values.tags
-    }
-    create.mutate(body)
-  }
-
-  function submitSearch(values: { q?: string; tags?: string }) {
-    const next = new URLSearchParams()
-    if (values.q) {
-      next.set('q', values.q)
-    }
-    if (values.tags) {
-      next.set('tags', values.tags)
-    }
-    setParams(next)
-  }
-
-  function clearSearch() {
-    setParams(new URLSearchParams())
-  }
+  const { discussion, content, comments } = query.data
+  const pageStart = (commentPage - 1) * commentPageSize
+  const pageComments = comments.slice(pageStart, pageStart + commentPageSize)
+  const canDelete = session.admin || (session.signedIn && discussion.author.toLowerCase() === session.name.toLowerCase())
 
   return (
-    <Card>
-      <Flex justify="space-between" align="center" gap={12} wrap style={{ marginBottom: 18 }}>
-        <Form layout="inline" initialValues={{ q: q || undefined, tags: tags || undefined }} onFinish={submitSearch} key={`${q}:${tags}`}>
-          <Form.Item name="q">
-            <Input placeholder={text.discussion.search} allowClear style={{ width: 280 }} />
-          </Form.Item>
-          <Form.Item name="tags">
-            <TagSelect kind="discussion" placeholder={text.discussion.tags} allowClear style={{ width: 180 }} />
-          </Form.Item>
-          <Form.Item>
-            <Button onClick={clearSearch}>{text.common.clear}</Button>
-          </Form.Item>
-          <Form.Item>
-            <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>
-              {text.common.search}
-            </Button>
-          </Form.Item>
-        </Form>
-        {session.signedIn ? (
-          <Button icon={<PlusOutlined />} onClick={openCreate}>
-            {text.discussion.create}
-          </Button>
-        ) : null}
-      </Flex>
-      {query.isError ? (
-        <ErrorBlock error={query.error} />
-      ) : query.isLoading ? (
-        <LoadingBlock />
-      ) : (
-        <Table<Discussion>
-          rowKey="id"
-          scroll={{ x: session.admin ? 1120 : 940 }}
-          columns={discussionColumns(text, lang, {
-            edit: openEdit,
-            togglePin: (item) => toggleState.mutate({ item, pinned: !item.pinned }),
-            toggleLock: (item) => toggleState.mutate({ item, locked: !item.locked }),
-            remove: (id) => remove.mutate(id)
-          }, session.admin)}
-          dataSource={query.data?.items ?? []}
-          pagination={{ current: query.data?.page ?? page, pageSize: query.data?.pageSize ?? pageSize, total: query.data?.total ?? 0, showSizeChanger: true }}
-          onChange={(pagination) => setParams(setPageParams(params, pagination.current ?? page, pagination.pageSize ?? pageSize))}
-        />
-      )}
-      {open && draft ? (
-        <DiscussionModal
-          editing={Boolean(editing)}
-          initial={draft}
-          loading={create.isPending || update.isPending}
-          onCancel={closeModal}
-          onSave={save}
+    <Flex vertical gap={16}>
+      <Card>
+        <Flex vertical gap={12}>
+          <Flex align="flex-start" justify="space-between" gap={16} wrap>
+            <Flex align="center" gap={8} wrap>
+              {discussion.pinned ? <Tag color="green">{text.discussion.pinned}</Tag> : null}
+              {discussion.locked ? <Tag color="warning">{text.discussion.locked}</Tag> : null}
+              <Typography.Title level={3} style={{ margin: 0 }}>
+                {discussion.title}
+              </Typography.Title>
+            </Flex>
+            {session.admin || canDelete ? (
+              <Space size={4}>
+                {session.admin ? (
+                  <>
+                    <Tooltip title={discussion.pinned ? text.discussion.unpin : text.discussion.pinned}>
+                      <Button
+                        aria-label={`${discussion.pinned ? text.discussion.unpin : text.discussion.pinned} #${discussion.id}`}
+                        type="text"
+                        size="small"
+                        icon={<PushpinOutlined />}
+                        style={{ color: discussion.pinned ? 'var(--ant-color-primary)' : undefined }}
+                        loading={toggleState.isPending && toggleState.variables?.pinned !== undefined}
+                        onClick={() => toggleState.mutate({ pinned: !discussion.pinned })}
+                      />
+                    </Tooltip>
+                    <Tooltip title={discussion.locked ? text.discussion.unlock : text.discussion.locked}>
+                      <Button
+                        aria-label={`${discussion.locked ? text.discussion.unlock : text.discussion.locked} #${discussion.id}`}
+                        type="text"
+                        size="small"
+                        icon={discussion.locked ? <LockOutlined /> : <UnlockOutlined />}
+                        style={{ color: discussion.locked ? 'var(--ant-color-warning)' : undefined }}
+                        loading={toggleState.isPending && toggleState.variables?.locked !== undefined}
+                        onClick={() => toggleState.mutate({ locked: !discussion.locked })}
+                      />
+                    </Tooltip>
+                    <Tooltip title={text.common.edit}>
+                      <Button aria-label={`${text.common.edit} #${discussion.id}`} type="text" size="small" icon={<EditOutlined />} onClick={() => setEditOpen(true)} />
+                    </Tooltip>
+                  </>
+                ) : null}
+                {canDelete ? (
+                  <Popconfirm title={text.common.confirmDelete} okText={text.common.delete} cancelText={text.common.cancel} onConfirm={() => remove.mutate()}>
+                    <Button aria-label={`${text.common.delete} #${discussion.id}`} type="text" size="small" danger icon={<DeleteOutlined />} loading={remove.isPending} />
+                  </Popconfirm>
+                ) : null}
+              </Space>
+            ) : null}
+          </Flex>
+          <Space size={8} wrap>
+            <UserLink name={discussion.author} />
+            <Typography.Text type="secondary">{formatTime(discussion.createdAt, lang)}</Typography.Text>
+            <TagList tags={discussion.tags} linkTo={(tag) => `/discussion?tags=${encodeURIComponent(tag)}`} />
+          </Space>
+          <MarkdownPreview value={content} />
+        </Flex>
+      </Card>
+      <Card title={text.discussion.replies}>
+        <Flex vertical gap={16}>
+          {pageComments.map((item, index) => (
+            <div key={item.id}>
+              {index > 0 ? <Divider className="softDivider" /> : null}
+              <Flex vertical gap={8} style={{ width: '100%' }}>
+                <Space size={8}>
+                  <Typography.Text type="secondary">{text.discussion.floor(pageStart + index + 1)}</Typography.Text>
+                  <UserLink name={item.author} strong />
+                  <Typography.Text type="secondary">{formatTime(item.createdAt, lang)}</Typography.Text>
+                </Space>
+                <div className="compactMarkdown">
+                  <MarkdownPreview value={item.content} />
+                </div>
+              </Flex>
+            </div>
+          ))}
+          {comments.length > commentPageSize ? (
+            <Pagination current={commentPage} pageSize={commentPageSize} total={comments.length} showSizeChanger={false} onChange={setCommentPage} />
+          ) : null}
+          {!discussion.locked && session.signedIn ? (
+            <Form<CommentCreate> form={form} layout="vertical" onFinish={(values) => reply.mutate(values)}>
+              <Form.Item name="content" rules={[{ required: true, whitespace: true }]}>
+                <MarkdownEditor minHeight={180} />
+              </Form.Item>
+              <Button type="primary" htmlType="submit" loading={reply.isPending}>
+                {text.common.send}
+              </Button>
+            </Form>
+          ) : null}
+        </Flex>
+      </Card>
+      {editOpen ? (
+        <DiscussionEditModal
+          initial={{ title: discussion.title, content, tags: discussion.tags }}
+          loading={edit.isPending}
+          onCancel={() => setEditOpen(false)}
+          onSave={(values) => edit.mutate(values)}
         />
       ) : null}
-    </Card>
+    </Flex>
   )
 }
 
-function DiscussionModal({
-  editing,
+function DiscussionEditModal({
   initial,
   loading,
   onCancel,
   onSave
 }: {
-  editing: boolean
   initial: DiscussionForm
   loading: boolean
   onCancel: () => void
@@ -220,8 +232,8 @@ function DiscussionModal({
     <Modal
       open
       destroyOnHidden
-      title={editing ? text.common.edit : text.discussion.create}
-      okText={editing ? text.common.save : text.common.create}
+      title={text.common.edit}
+      okText={text.common.save}
       cancelText={text.common.cancel}
       confirmLoading={loading}
       onCancel={onCancel}
@@ -240,90 +252,4 @@ function DiscussionModal({
       </Form>
     </Modal>
   )
-}
-
-function discussionColumns(
-  text: ReturnType<typeof useLocale>['text'],
-  lang: string,
-  actions: {
-    edit: (item: Discussion) => void
-    togglePin: (item: Discussion) => void
-    toggleLock: (item: Discussion) => void
-    remove: (id: number) => void
-  },
-  admin: boolean
-): TableProps<Discussion>['columns'] {
-  const columns: TableProps<Discussion>['columns'] = [
-    {
-      title: text.discussion.title,
-      dataIndex: 'title',
-      width: 420,
-      render: (title: string, row) => (
-        <Flex align="center" gap={8} className="tableTitleLine">
-          <Typography.Text ellipsis={{ tooltip: title }} className="lineText">
-            <Link to={`/discussion/${row.id}`}>{title}</Link>
-          </Typography.Text>
-          {row.pinned ? <Tag color="green">{text.discussion.pinned}</Tag> : null}
-          {row.locked ? <Tag color="warning">{text.discussion.locked}</Tag> : null}
-        </Flex>
-      )
-    },
-    {
-      title: text.discussion.tags,
-      dataIndex: 'tags',
-      width: 260,
-      render: (tags: string[]) => <TagList tags={tags} empty={<Typography.Text type="secondary">-</Typography.Text>} />
-    },
-    {
-      title: text.discussion.author,
-      dataIndex: 'author',
-      render: (author: string) => <UserLink name={author} />
-    },
-    {
-      title: text.discussion.replies,
-      dataIndex: 'replies',
-      width: 96
-    },
-    {
-      title: text.discussion.created,
-      dataIndex: 'createdAt',
-      width: 180,
-      render: (value: string) => <Typography.Text className="nowrap">{formatTime(value, lang)}</Typography.Text>
-    }
-  ]
-  if (admin) {
-    columns.push({
-      width: 156,
-      align: 'right',
-      render: (_, row) => (
-        <Space size={4}>
-          <Tooltip title={row.pinned ? text.discussion.unpin : text.discussion.pinned}>
-            <Button
-              aria-label={`${row.pinned ? text.discussion.unpin : text.discussion.pinned} #${row.id}`}
-              type="text"
-              icon={<PushpinOutlined />}
-              style={{ color: row.pinned ? 'var(--ant-color-primary)' : undefined }}
-              onClick={() => actions.togglePin(row)}
-            />
-          </Tooltip>
-          <Tooltip title={row.locked ? text.discussion.unlock : text.discussion.locked}>
-            <Button
-              aria-label={`${row.locked ? text.discussion.unlock : text.discussion.locked} #${row.id}`}
-              type="text"
-              icon={row.locked ? <LockOutlined /> : <UnlockOutlined />}
-              style={{ color: row.locked ? 'var(--ant-color-warning)' : undefined }}
-              onClick={() => actions.toggleLock(row)}
-            />
-          </Tooltip>
-          <Tooltip title={text.common.edit}>
-            <Button aria-label={`${text.common.edit} #${row.id}`} type="text" icon={<EditOutlined />} onClick={() => actions.edit(row)} />
-          </Tooltip>
-          <Popconfirm title={text.common.confirmDelete} okText={text.common.delete} cancelText={text.common.cancel} onConfirm={() => actions.remove(row.id)}>
-            <Button aria-label={`${text.common.delete} #${row.id}`} type="text" danger icon={<DeleteOutlined />} />
-          </Popconfirm>
-        </Space>
-      )
-    })
-  }
-  return columns
 }
