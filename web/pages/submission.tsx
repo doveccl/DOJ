@@ -288,8 +288,9 @@ function caseColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Cas
     {
       title: text.submissions.message,
       dataIndex: 'message',
+      width: 360,
       ellipsis: { showTitle: false },
-      render: (value: string) => (value ? <Typography.Text ellipsis={{ tooltip: value }} className="lineText">{value}</Typography.Text> : '-')
+      render: (value: string) => (value ? <Typography.Text ellipsis={{ tooltip: value }}>{value}</Typography.Text> : '-')
     }
   ]
 }
