@@ -230,7 +230,7 @@ func injectPlagiarismViewerEntry(resp *http.Response, jobID string, rawQuery str
 		original += "?" + rawQuery
 	}
 	script := fmt.Sprintf(`<script>(()=>{const original=%s,root=%s;history.replaceState(history.state,"",root);addEventListener("DOMContentLoaded",()=>history.replaceState(history.state,"",original),{once:true});})();</script>`, jsonString(original), jsonString(root))
-	text := strings.Replace(string(body), `<script type="module"`, script+`\n    <script type="module"`, 1)
+	text := strings.Replace(string(body), `<script type="module"`, script+"\n    <script type=\"module\"", 1)
 	if text == string(body) {
 		text = script + string(body)
 	}
