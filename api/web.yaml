@@ -1607,6 +1607,23 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Comment"
+  /api/discussion/{id}/comments/{commentId}:
+    delete:
+      operationId: deleteComment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Comment deleted
 components:
   schemas:
     Health:
@@ -3004,7 +3021,7 @@ components:
             $ref: "#/components/schemas/Comment"
     Comment:
       type: object
-      required: [id, author, content, createdAt]
+      required: [id, author, content, deleted, createdAt]
       properties:
         id:
           type: integer
@@ -3012,6 +3029,8 @@ components:
           type: string
         content:
           type: string
+        deleted:
+          type: boolean
         createdAt:
           type: string
           format: date-time

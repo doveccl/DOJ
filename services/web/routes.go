@@ -374,6 +374,7 @@ type CommentDTO struct {
 	ID        uint      `json:"id"`
 	Author    string    `json:"author"`
 	Content   string    `json:"content"`
+	Deleted   bool      `json:"deleted"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
@@ -530,6 +531,7 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.PATCH("/discussion/:id", api.updateDiscussion, echomw.BodyLimit(utils.BodyLimitMarkdown))
 	group.DELETE("/discussion/:id", api.deleteDiscussion)
 	group.POST("/discussion/:id/comments", api.createComment, api.rateLimit("comment", 60, time.Minute), echomw.BodyLimit(utils.BodyLimitShortText))
+	group.DELETE("/discussion/:id/comments/:commentId", api.deleteComment)
 }
 
 func (api *API) requireGuestAccess(next echo.HandlerFunc) echo.HandlerFunc {
@@ -3400,7 +3402,7 @@ func (api *API) discussion(c echo.Context) error {
 		return err
 	}
 	var comments []models.Comment
-	if err := api.db.Select("id", "user_id", "content", "created_at").Where("discussion_id = ?", row.ID).Order("created_at asc").Find(&comments).Error; err != nil {
+	if err := api.db.Unscoped().Select("id", "user_id", "content", "created_at", "deleted_at").Where("discussion_id = ?", row.ID).Order("created_at asc").Find(&comments).Error; err != nil {
 		return err
 	}
 	authorIDs := []uint{row.UserID}
@@ -3412,11 +3414,20 @@ func (api *API) discussion(c echo.Context) error {
 		return err
 	}
 	items := make([]CommentDTO, 0, len(comments))
+	replies := 0
 	for _, item := range comments {
+		deleted := item.DeletedAt.Valid
+		content := item.Content
+		if !deleted {
+			replies++
+		} else {
+			content = ""
+		}
 		items = append(items, CommentDTO{
 			ID:        item.ID,
 			Author:    authorName(item.UserID, authors),
-			Content:   item.Content,
+			Content:   content,
+			Deleted:   deleted,
 			CreatedAt: item.CreatedAt,
 		})
 	}
@@ -3427,7 +3438,7 @@ func (api *API) discussion(c echo.Context) error {
 		Tags:      readTags([]byte(row.Tags)),
 		Pinned:    row.Pinned,
 		Locked:    row.Locked,
-		Replies:   len(items),
+		Replies:   replies,
 		CreatedAt: row.CreatedAt,
 	}
 	return c.JSON(http.StatusOK, DiscussionDetail{
@@ -3561,6 +3572,35 @@ func (api *API) createComment(c echo.Context) error {
 		return err
 	}
 	return c.JSON(http.StatusCreated, CommentDTO{ID: row.ID, Author: user.Name, Content: row.Content, CreatedAt: row.CreatedAt})
+}
+
+func (api *API) deleteComment(c echo.Context) error {
+	user, err := api.currentUser(c)
+	if err != nil {
+		return err
+	}
+	discussionID, err := parseID(c, "id", "invalid discussion id")
+	if err != nil {
+		return err
+	}
+	commentID, err := parseID(c, "commentId", "invalid comment id")
+	if err != nil {
+		return err
+	}
+	var comment models.Comment
+	if err := api.db.First(&comment, "id = ? AND discussion_id = ?", commentID, discussionID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return echo.NewHTTPError(http.StatusNotFound, "comment not found")
+		}
+		return err
+	}
+	if !user.Admin && comment.UserID != user.ID {
+		return echo.NewHTTPError(http.StatusForbidden, "comment owner required")
+	}
+	if err := api.db.Delete(&comment).Error; err != nil {
+		return err
+	}
+	return c.NoContent(http.StatusNoContent)
 }
 
 func discussionDTOFromRefs(row models.Discussion, authors map[uint]string, replies map[uint]int) DiscussionDTO {

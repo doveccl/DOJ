@@ -1855,6 +1855,59 @@ func TestDiscussionDeleteAllowsOwnerOrAdmin(t *testing.T) {
 	}
 }
 
+func TestCommentDeleteKeepsFloorSlots(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	users := []models.User{
+		{Name: "owner", Mail: "owner@example.com", Auth: "hash"},
+		{Name: "other", Mail: "other@example.com", Auth: "hash"},
+		{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true},
+	}
+	if err := db.Create(&users).Error; err != nil {
+		t.Fatalf("create users: %v", err)
+	}
+	owner, other, admin := users[0], users[1], users[2]
+	discussion := models.Discussion{Title: "post", Content: "body", UserID: owner.ID, Tags: datatypes.JSON([]byte(`[]`))}
+	if err := db.Create(&discussion).Error; err != nil {
+		t.Fatalf("create discussion: %v", err)
+	}
+	comments := []models.Comment{
+		{DiscussionID: discussion.ID, UserID: owner.ID, Content: "first"},
+		{DiscussionID: discussion.ID, UserID: other.ID, Content: "second"},
+		{DiscussionID: discussion.ID, UserID: owner.ID, Content: "third"},
+	}
+	if err := db.Create(&comments).Error; err != nil {
+		t.Fatalf("create comments: %v", err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+	target := func(id uint) string {
+		return "/api/discussion/" + strconv.FormatUint(uint64(discussion.ID), 10) + "/comments/" + strconv.FormatUint(uint64(id), 10)
+	}
+
+	if res := requestWithCookies(e, http.MethodDelete, target(comments[1].ID), nil, nil); res.Code != http.StatusUnauthorized {
+		t.Fatalf("guest delete comment got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestWithCookies(e, http.MethodDelete, target(comments[1].ID), databaseSession(t, db, owner.ID), nil); res.Code != http.StatusForbidden {
+		t.Fatalf("other user delete comment got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestWithCookies(e, http.MethodDelete, target(comments[1].ID), databaseSession(t, db, other.ID), nil); res.Code != http.StatusNoContent {
+		t.Fatalf("owner delete comment got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestWithCookies(e, http.MethodDelete, target(comments[0].ID), databaseSession(t, db, admin.ID), nil); res.Code != http.StatusNoContent {
+		t.Fatalf("admin delete comment got %d body=%s", res.Code, res.Body.String())
+	}
+
+	detail := decodeJSON[DiscussionDetail](t, requestOK(t, e, http.MethodGet, "/api/discussion/"+strconv.FormatUint(uint64(discussion.ID), 10), ""))
+	if detail.Discussion.Replies != 1 || len(detail.Comments) != 3 {
+		t.Fatalf("deleted comments should stay as floor slots but not active replies: %+v", detail)
+	}
+	if !detail.Comments[0].Deleted || detail.Comments[0].Content != "" || !detail.Comments[1].Deleted || detail.Comments[2].Deleted || detail.Comments[2].Content != "third" {
+		t.Fatalf("comment tombstones should preserve order and hide content: %+v", detail.Comments)
+	}
+}
+
 func TestDiscussionListSearchesTitleContentAndTags(t *testing.T) {
 	db := testWebDB(t)
 	allowGuest(t, db)

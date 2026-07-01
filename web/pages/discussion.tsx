@@ -95,6 +95,15 @@ export function DiscussionDetailPage() {
     },
     onError: showError
   })
+  const removeComment = useMutation({
+    mutationFn: (commentId: number) => apiEmpty(api.DELETE('/api/discussion/{id}/comments/{commentId}', { params: { path: { id, commentId } } })),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ['discussion'] })
+      void client.invalidateQueries({ queryKey: ['discussion', id] })
+      message.success(text.common.saved)
+    },
+    onError: showError
+  })
 
   if (query.isLoading) {
     return <LoadingBlock />
@@ -176,14 +185,23 @@ export function DiscussionDetailPage() {
             <div key={item.id}>
               {index > 0 ? <Divider className="softDivider" /> : null}
               <Flex vertical gap={8} style={{ width: '100%' }}>
-                <Space size={8}>
-                  <Typography.Text type="secondary">{text.discussion.floor(pageStart + index + 1)}</Typography.Text>
-                  <UserLink name={item.author} strong />
-                  <Typography.Text type="secondary">{formatTime(item.createdAt, lang)}</Typography.Text>
-                </Space>
-                <div className="compactMarkdown">
-                  <MarkdownPreview value={item.content} />
-                </div>
+                <Flex align="center" justify="space-between" gap={8}>
+                  <Space size={8}>
+                    <Typography.Text type="secondary">{text.discussion.floor(pageStart + index + 1)}</Typography.Text>
+                    {item.deleted ? <Typography.Text type="secondary">{text.discussion.deletedReply}</Typography.Text> : <UserLink name={item.author} strong />}
+                    <Typography.Text type="secondary">{formatTime(item.createdAt, lang)}</Typography.Text>
+                  </Space>
+                  {!item.deleted && (session.admin || (session.signedIn && item.author.toLowerCase() === session.name.toLowerCase())) ? (
+                    <Popconfirm title={text.common.confirmDelete} okText={text.common.delete} cancelText={text.common.cancel} onConfirm={() => removeComment.mutate(item.id)}>
+                      <Button aria-label={`${text.common.delete} #${item.id}`} type="text" size="small" danger icon={<DeleteOutlined />} loading={removeComment.isPending && removeComment.variables === item.id} />
+                    </Popconfirm>
+                  ) : null}
+                </Flex>
+                {item.deleted ? null : (
+                  <div className="compactMarkdown">
+                    <MarkdownPreview value={item.content} />
+                  </div>
+                )}
               </Flex>
             </div>
           ))}
