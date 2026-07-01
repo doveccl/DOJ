@@ -172,8 +172,6 @@ type PlagiarismJob struct {
 	ScopeID    uint       `gorm:"index;not null" json:"scopeId"`
 	Status     string     `gorm:"size:16;index;not null;default:'queued'" json:"status"`
 	Message    string     `gorm:"type:text;not null;default:''" json:"message"`
-	InputKey   string     `gorm:"size:256;not null;default:''" json:"inputKey"`
-	ReportKey  string     `gorm:"size:256;not null;default:''" json:"reportKey"`
 	CreatedAt  time.Time  `json:"createdAt"`
 	UpdatedAt  time.Time  `json:"updatedAt"`
 	FinishedAt *time.Time `json:"finishedAt"`

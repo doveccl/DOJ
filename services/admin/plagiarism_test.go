@@ -3,6 +3,7 @@ package admin
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/doveccl/doj/models"
+	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 )
 
@@ -177,5 +179,27 @@ func TestPlagiarismJobIDFromReferer(t *testing.T) {
 				t.Fatalf("id, ok = %d, %v, want %d, %v", id, ok, tc.id, tc.ok)
 			}
 		})
+	}
+}
+
+func TestPlagiarismReportURLUsesStorageState(t *testing.T) {
+	t.Setenv("STORAGE", t.TempDir())
+	ctx := context.Background()
+	store, err := utils.NewObjectStoreFromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	job := models.PlagiarismJob{ID: 12, Status: plagiarismStatusDone}
+	if got := plagiarismReportKey(job.ID); got != "jplag/12.jplag" {
+		t.Fatalf("report key = %q", got)
+	}
+	if dto := plagiarismJobDTO(job, plagiarismReportExists(ctx, store, job)); dto.ReportURL != "" {
+		t.Fatalf("reportUrl without storage object = %q", dto.ReportURL)
+	}
+	if err := store.Put(ctx, plagiarismReportKey(job.ID), strings.NewReader("report"), int64(len("report")), "application/octet-stream"); err != nil {
+		t.Fatal(err)
+	}
+	if dto := plagiarismJobDTO(job, plagiarismReportExists(ctx, store, job)); dto.ReportURL != "/api/admin/12.jplag" {
+		t.Fatalf("reportUrl = %q", dto.ReportURL)
 	}
 }

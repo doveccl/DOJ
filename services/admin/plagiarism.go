@@ -31,7 +31,6 @@ const (
 	plagiarismStatusRunning   = "running"
 	plagiarismStatusDone      = "done"
 	plagiarismStatusFailed    = "failed"
-	plagiarismPrefix          = "plagiarism"
 )
 
 var (
@@ -63,9 +62,13 @@ func (api *API) plagiarismJobs(c echo.Context) error {
 	if err := api.db.Where("scope = ? AND scope_id = ?", scope, id).Order("id desc").Limit(20).Find(&rows).Error; err != nil {
 		return err
 	}
+	store, err := utils.NewObjectStoreFromEnv()
+	if err != nil {
+		return err
+	}
 	items := make([]PlagiarismJobDTO, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, plagiarismJobDTO(row))
+		items = append(items, plagiarismJobDTO(row, plagiarismReportExists(c.Request().Context(), store, row)))
 	}
 	return c.JSON(http.StatusOK, PlagiarismJobs{Items: items})
 }
@@ -107,7 +110,7 @@ func (api *API) createPlagiarismJob(c echo.Context, scope string, scopeID uint) 
 		return err
 	}
 	go api.runPlagiarismJob(job.ID)
-	return c.JSON(http.StatusAccepted, plagiarismJobDTO(job))
+	return c.JSON(http.StatusAccepted, plagiarismJobDTO(job, false))
 }
 
 func (api *API) plagiarismReport(c echo.Context) error {
@@ -134,16 +137,16 @@ func (api *API) plagiarismViewerReport(c echo.Context) error {
 }
 
 func (api *API) streamPlagiarismReport(c echo.Context, job models.PlagiarismJob) error {
-	if job.Status != plagiarismStatusDone || job.ReportKey == "" {
+	if job.Status != plagiarismStatusDone {
 		return echo.NewHTTPError(http.StatusNotFound, "report not found")
 	}
 	store, err := utils.NewObjectStoreFromEnv()
 	if err != nil {
 		return err
 	}
-	reader, _, err := store.Open(c.Request().Context(), job.ReportKey)
+	reader, _, err := store.Open(c.Request().Context(), plagiarismReportKey(job.ID))
 	if err != nil {
-		return err
+		return echo.NewHTTPError(http.StatusNotFound, "report not found")
 	}
 	defer reader.Close()
 	c.Response().Header().Set(echo.HeaderContentDisposition, fmt.Sprintf(`inline; filename="plagiarism-%d.jplag"`, job.ID))
@@ -183,11 +186,6 @@ func (api *API) runPlagiarismJob(id uint) {
 	if err := api.db.First(&job, id).Error; err != nil {
 		return
 	}
-	store, err := utils.NewObjectStoreFromEnv()
-	if err != nil {
-		finish(plagiarismStatusFailed, err.Error(), map[string]any{})
-		return
-	}
 	payload, count, err := api.plagiarismPackage(job.Scope, job.ScopeID)
 	if err != nil {
 		finish(plagiarismStatusFailed, err.Error(), map[string]any{})
@@ -197,27 +195,42 @@ func (api *API) runPlagiarismJob(id uint) {
 		finish(plagiarismStatusFailed, "no C++ submissions to analyze", map[string]any{})
 		return
 	}
-	inputKey := path.Join(plagiarismPrefix, fmt.Sprintf("%s-%d", job.Scope, job.ScopeID), fmt.Sprintf("job-%d-input.zip", job.ID))
-	if err := store.Put(ctx, inputKey, bytes.NewReader(payload), int64(len(payload)), "application/zip"); err != nil {
-		finish(plagiarismStatusFailed, err.Error(), map[string]any{})
-		return
-	}
 	report, err := runJPlag(ctx, payload)
 	if err != nil {
-		finish(plagiarismStatusFailed, err.Error(), map[string]any{"input_key": inputKey})
+		finish(plagiarismStatusFailed, err.Error(), map[string]any{})
 		return
 	}
 	report, err = filterJPlagReport(report)
 	if err != nil {
-		finish(plagiarismStatusFailed, err.Error(), map[string]any{"input_key": inputKey})
+		finish(plagiarismStatusFailed, err.Error(), map[string]any{})
 		return
 	}
-	reportKey := path.Join("jplag", fmt.Sprintf("%d.jplag", job.ID))
-	if err := store.Put(ctx, reportKey, bytes.NewReader(report), int64(len(report)), "application/octet-stream"); err != nil {
-		finish(plagiarismStatusFailed, err.Error(), map[string]any{"input_key": inputKey})
+	store, err := utils.NewObjectStoreFromEnv()
+	if err != nil {
+		finish(plagiarismStatusFailed, err.Error(), map[string]any{})
 		return
 	}
-	finish(plagiarismStatusDone, fmt.Sprintf("analyzed %d C++ submissions", count), map[string]any{"input_key": inputKey, "report_key": reportKey})
+	if err := store.Put(ctx, plagiarismReportKey(job.ID), bytes.NewReader(report), int64(len(report)), "application/octet-stream"); err != nil {
+		finish(plagiarismStatusFailed, err.Error(), map[string]any{})
+		return
+	}
+	finish(plagiarismStatusDone, fmt.Sprintf("analyzed %d C++ submissions", count), map[string]any{})
+}
+
+func plagiarismReportKey(id uint) string {
+	return path.Join("jplag", fmt.Sprintf("%d.jplag", id))
+}
+
+func plagiarismReportExists(ctx context.Context, store utils.ObjectStore, job models.PlagiarismJob) bool {
+	if job.Status != plagiarismStatusDone {
+		return false
+	}
+	reader, _, err := store.Open(ctx, plagiarismReportKey(job.ID))
+	if err != nil {
+		return false
+	}
+	_ = reader.Close()
+	return true
 }
 
 func runJPlag(ctx context.Context, payload []byte) ([]byte, error) {
@@ -640,7 +653,7 @@ func parsePlagiarismScope(scope string, rawID string) (string, uint, error) {
 	return scope, uint(parsed), nil
 }
 
-func plagiarismJobDTO(row models.PlagiarismJob) PlagiarismJobDTO {
+func plagiarismJobDTO(row models.PlagiarismJob, reportAvailable bool) PlagiarismJobDTO {
 	dto := PlagiarismJobDTO{
 		ID:         row.ID,
 		Scope:      row.Scope,
@@ -650,7 +663,7 @@ func plagiarismJobDTO(row models.PlagiarismJob) PlagiarismJobDTO {
 		CreatedAt:  row.CreatedAt,
 		FinishedAt: row.FinishedAt,
 	}
-	if row.Status == plagiarismStatusDone && row.ReportKey != "" {
+	if reportAvailable {
 		dto.ReportURL = fmt.Sprintf("/api/admin/%d.jplag", row.ID)
 	}
 	return dto
