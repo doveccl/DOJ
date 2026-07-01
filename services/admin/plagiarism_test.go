@@ -187,6 +187,7 @@ func TestPlagiarismJobIDFromReferer(t *testing.T) {
 		{name: "same origin", host: "test.local", referer: "https://test.local/jplag/42?file=x", id: 42, ok: true},
 		{name: "relative", host: "test.local", referer: "/jplag/7?file=x", id: 7, ok: true},
 		{name: "temporary root", host: "test.local", referer: "https://test.local/?job=9&file=x", id: 9, ok: true},
+		{name: "viewer route", host: "test.local", referer: "https://test.local/overview?job=10&file=x", id: 10, ok: true},
 		{name: "foreign host", host: "test.local", referer: "https://evil.local/jplag/42", ok: false},
 		{name: "missing id", host: "test.local", referer: "https://test.local/results.jplag", ok: false},
 	}

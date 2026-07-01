@@ -171,8 +171,8 @@ func plagiarismJobIDFromReferer(c echo.Context) (uint, bool) {
 	if u.Host != "" && !strings.EqualFold(u.Host, c.Request().Host) {
 		return 0, false
 	}
-	if u.Path == "" || u.Path == "/" {
-		id, err := strconv.ParseUint(u.Query().Get("job"), 10, 64)
+	if job := u.Query().Get("job"); job != "" {
+		id, err := strconv.ParseUint(job, 10, 64)
 		return uint(id), err == nil && id > 0
 	}
 	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
