@@ -14,7 +14,7 @@
 - A submission may compile once in a short-lived language container, then runs cases in one reused language container.
 - Multiple cases reuse the container.
 - Each case starts fresh JudgeProgram and UserProgram processes.
-- Builtin judge follows the testlib checker model: run UserProgram with the case input, write user output to a private file, then invoke the builtin checker as `judge [--mode=default|strict] <input> <output> <answer> <result>`.
+- Builtin judge follows the testlib checker model: run UserProgram with the case input, write user output to a private file, then invoke the builtin checker as `doj runner judge [--mode=default|strict] <input> <output> <answer> <result>`.
 - Custom judge follows the testlib interactor model and is always invoked as `<judge> <input> <transcript> <answer> <result>` with this pipe model:
   - JudgeProgram stdout -> UserProgram stdin
   - UserProgram stdout -> JudgeProgram stdin

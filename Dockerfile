@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1.7
-
 FROM node:24-alpine AS web
 
 WORKDIR /src
@@ -21,42 +19,28 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 COPY . .
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-  CGO_ENABLED=0 go build -o /out/doj-server ./cmd/server.go && \
-  CGO_ENABLED=0 go build -tags judger -o /out/doj-judger ./cmd/judger.go && \
-  CGO_ENABLED=0 go build -tags runner -o /out/doj-runner ./cmd/runner.go && \
-  CGO_ENABLED=0 go build -tags jplag -o /out/doj-jplag ./cmd/jplag.go
+  CGO_ENABLED=0 go build -o /out/doj . && \
+  CGO_ENABLED=0 go build -o /out/doj-jplag ./cmd/jplag
 
 FROM eclipse-temurin:25-jre-alpine AS jplag
 
 ARG JPLAG_VERSION=6.3.0
-ENV PATH="/opt/java/openjdk/bin:${PATH}"
-
-RUN apk add --no-cache ca-certificates wget \
-  && adduser -D -h /var/lib/doj doj \
-  && mkdir -p /app /var/lib/doj \
-  && wget -q -O /app/jplag.jar "https://github.com/jplag/JPlag/releases/download/v${JPLAG_VERSION}/jplag-${JPLAG_VERSION}-jar-with-dependencies.jar" \
-  && chown -R doj:doj /app /var/lib/doj
+ADD "https://github.com/jplag/JPlag/releases/download/v${JPLAG_VERSION}/jplag-${JPLAG_VERSION}-jar-with-dependencies.jar" /app/jplag.jar
 
 COPY --from=build /out/doj-jplag /usr/local/bin/doj-jplag
 
 WORKDIR /app
-USER doj
 EXPOSE 7979
 CMD ["doj-jplag"]
 
-FROM alpine:3.23 AS app
-
-RUN apk add --no-cache ca-certificates postgresql-client tzdata \
-  && adduser -D -h /var/lib/doj doj \
-  && mkdir -p /app /var/lib/doj \
-  && chown -R doj:doj /app /var/lib/doj
-
-COPY --from=build /out/doj-server /usr/local/bin/doj-server
-COPY --from=build /out/doj-judger /usr/local/bin/doj-judger
-COPY --from=build /out/doj-runner /usr/local/bin/doj-runner
-COPY --from=web --chown=doj:doj /src/dist /app/dist
+FROM alpine:3 AS app
 
 WORKDIR /app
-USER doj
+
+RUN apk add --no-cache ca-certificates postgresql-client tzdata
+
+COPY --from=build /out/doj /usr/local/bin/doj
+COPY --from=web /src/dist /app/dist
+
 EXPOSE 7974
-CMD ["doj-server"]
+CMD ["doj", "server"]

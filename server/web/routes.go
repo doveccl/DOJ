@@ -21,9 +21,9 @@ import (
 	"time"
 
 	"github.com/doveccl/doj/models"
-	adminsvc "github.com/doveccl/doj/services/admin"
-	"github.com/doveccl/doj/services/events"
-	judgersvc "github.com/doveccl/doj/services/judger"
+	adminsvc "github.com/doveccl/doj/server/admin"
+	"github.com/doveccl/doj/server/events"
+	judgersvc "github.com/doveccl/doj/server/judger"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"

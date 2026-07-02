@@ -32,8 +32,6 @@ type ObjectInfo struct {
 	UpdatedAt time.Time
 }
 
-const fallbackStorageRoot = "/var/lib/doj"
-
 func NewObjectStoreFromEnv() (ObjectStore, error) {
 	storage := storageURL()
 	if strings.HasPrefix(storage, "http://") || strings.HasPrefix(storage, "https://") {
@@ -71,7 +69,7 @@ func defaultStorageRoot() string {
 	if err == nil && strings.TrimSpace(home) != "" {
 		return home
 	}
-	return fallbackStorageRoot
+	return "storage"
 }
 
 type s3StorageConfig struct {

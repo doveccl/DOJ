@@ -36,7 +36,8 @@ func JudgerCLI(ctx context.Context, args []string) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	work := filepath.Join(JudgerRoot, "jobs")
+	root := judgerRoot()
+	work := filepath.Join(root, "jobs")
 	if err := os.MkdirAll(work, 0o755); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
@@ -85,9 +86,9 @@ func RunnerCLI(ctx context.Context, args []string) int {
 }
 
 func runnerUsage(w io.Writer) {
-	fmt.Fprintln(w, "usage: doj-runner judge [--mode=default|strict] input output answer [result]")
-	fmt.Fprintln(w, "       doj-runner serve --socket /path/runner.sock --work /path/job")
-	fmt.Fprintln(w, "       doj-runner wait-exec /path/release uid gid command [args...]")
+	fmt.Fprintln(w, "usage: doj runner judge [--mode=default|strict] input output answer [result]")
+	fmt.Fprintln(w, "       doj runner serve --socket /path/runner.sock --work /path/job")
+	fmt.Fprintln(w, "       doj runner wait-exec /path/release uid gid command [args...]")
 }
 
 func runnerServe(ctx context.Context, args []string) int {
@@ -150,8 +151,8 @@ func runnerWaitExec(ctx context.Context, args []string) int {
 }
 
 func judgerUsage(w io.Writer) {
-	fmt.Fprintln(w, "usage: doj-judger")
-	fmt.Fprintln(w, "       doj-judger version")
+	fmt.Fprintln(w, "usage: doj judger")
+	fmt.Fprintln(w, "       doj judger version")
 }
 
 func getenv(key string, defaultValue string) string {
@@ -178,7 +179,7 @@ func installRunner() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	target := filepath.Join(JudgerRoot, "bin", "doj-runner")
+	target := filepath.Join(judgerRoot(), "bin", "doj")
 	if sameFile(src, target) {
 		return target, nil
 	}
@@ -207,16 +208,20 @@ func installRunner() (string, error) {
 func findRunner() (string, error) {
 	exe, err := os.Executable()
 	if err == nil {
-		candidate := filepath.Join(filepath.Dir(exe), "doj-runner")
-		if info, statErr := os.Stat(candidate); statErr == nil && info.Mode().IsRegular() {
-			return candidate, nil
-		}
+		return exe, nil
 	}
-	path, err := exec.LookPath("doj-runner")
+	path, err := exec.LookPath("doj")
 	if err != nil {
-		return "", fmt.Errorf("doj-runner binary is required beside doj-judger or in PATH")
+		return "", fmt.Errorf("doj binary is required in PATH")
 	}
 	return path, nil
+}
+
+func judgerRoot() string {
+	if value := os.Getenv("JUDGER_ROOT"); value != "" {
+		return value
+	}
+	return JudgerRoot
 }
 
 func sameFile(a string, b string) bool {

@@ -228,11 +228,11 @@ func writeScript(t *testing.T, dir string, name string, content string) {
 
 func buildRunner(t *testing.T) string {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "doj-runner")
-	cmd := exec.Command("go", "build", "-buildvcs=false", "-tags", "runner", "-o", path, "../cmd/runner.go")
+	path := filepath.Join(t.TempDir(), "doj")
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", path, "..")
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("build runner: %v\n%s", err, out)
+		t.Fatalf("build doj: %v\n%s", err, out)
 	}
 	return path
 }

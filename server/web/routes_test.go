@@ -22,8 +22,8 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/doveccl/doj/models"
-	adminsvc "github.com/doveccl/doj/services/admin"
-	judgersvc "github.com/doveccl/doj/services/judger"
+	adminsvc "github.com/doveccl/doj/server/admin"
+	judgersvc "github.com/doveccl/doj/server/judger"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	"gorm.io/datatypes"

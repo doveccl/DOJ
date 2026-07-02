@@ -35,6 +35,12 @@ func TestUploadRootUsesStorage(t *testing.T) {
 	if got := UploadRoot(); got != os.Getenv("STORAGE") {
 		t.Fatalf("upload root = %q, want STORAGE", got)
 	}
+	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "")
+	t.Setenv("STORAGE", "")
+	if got := UploadRoot(); got != "storage" {
+		t.Fatalf("fallback upload root = %q, want storage", got)
+	}
 }
 
 func TestParseS3Storage(t *testing.T) {

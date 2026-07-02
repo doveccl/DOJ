@@ -1,8 +1,8 @@
 # Server API Rules
 
-- `services/web` handles guest and signed-in user APIs.
-- `services/admin` handles system administration APIs.
-- `services/judger` handles APIs consumed by `doj-judger`.
+- `server/web` handles guest and signed-in user APIs.
+- `server/admin` handles system administration APIs.
+- `server/judger` handles APIs consumed by `doj judger`.
 - Handlers may call GORM and small helpers directly until the logic is large enough to justify another layer.
 
 ## Product Invariants

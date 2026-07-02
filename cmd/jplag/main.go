@@ -1,5 +1,3 @@
-//go:build jplag
-
 package main
 
 import (

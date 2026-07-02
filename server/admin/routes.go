@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/doveccl/doj/models"
-	backupsvc "github.com/doveccl/doj/services/backup"
-	judgersvc "github.com/doveccl/doj/services/judger"
+	backupsvc "github.com/doveccl/doj/server/backup"
+	judgersvc "github.com/doveccl/doj/server/judger"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"

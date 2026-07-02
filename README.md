@@ -29,13 +29,13 @@ Change the default password before exposing the service.
 
 ## Configuration
 
-The server reads three environment variables:
+The server reads these environment variables:
 
 | Variable | Default | Description |
 | --- | --- | --- |
 | `DATABASE` | `postgres://postgres@localhost` | PostgreSQL connection string. |
 | `REDIS` | `redis://localhost:6379/0` | Redis or Valkey connection string. |
-| `STORAGE` | current user home | Local storage path, or an S3-compatible `http(s)` URL. |
+| `STORAGE` | current user home, or `storage` | Local storage path, or an S3-compatible `http(s)` URL. |
 | `LISTEN` | `:7974` | Server listen address. |
 
 Storage examples:
@@ -79,7 +79,7 @@ pnpm install
 Run the server:
 
 ```bash
-go run ./cmd/server.go
+go run . server
 ```
 
 Run the Vite dev server:
@@ -141,13 +141,13 @@ docker compose -f compose.example.yml up --build
 
 ## 配置
 
-server 读取三个环境变量：
+server 读取这些环境变量：
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
 | `DATABASE` | `postgres://postgres@localhost` | PostgreSQL 连接串。 |
 | `REDIS` | `redis://localhost:6379/0` | Redis 或 Valkey 连接串。 |
-| `STORAGE` | 当前用户 home | 本地存储路径，或 S3 兼容 `http(s)` URL。 |
+| `STORAGE` | 当前用户 home，或 `storage` | 本地存储路径，或 S3 兼容 `http(s)` URL。 |
 | `LISTEN` | `:7974` | server 监听地址。 |
 
 存储配置示例：
@@ -191,7 +191,7 @@ pnpm install
 启动 server：
 
 ```bash
-go run ./cmd/server.go
+go run . server
 ```
 
 启动 Vite：

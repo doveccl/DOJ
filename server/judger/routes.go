@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/doveccl/doj/models"
-	"github.com/doveccl/doj/services/events"
+	"github.com/doveccl/doj/server/events"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"

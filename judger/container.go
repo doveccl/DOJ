@@ -415,10 +415,10 @@ func startRunnerContainer(ctx context.Context, image string, runner string, work
 	containerID, err := dockerCreateContainer(ctx, dockerCreateRequest{
 		Image: image,
 		Cmd: []string{
-			"/usr/local/bin/doj-runner", "serve",
+			"/usr/local/bin/doj", "runner", "serve",
 			"--socket", "/runner/runner.sock",
 			"--work", containerWorkDir,
-			"--runner", "/usr/local/bin/doj-runner",
+			"--runner", "/usr/local/bin/doj",
 			"--runtime-root", runtimeRoot,
 			"--skip-runtime", skipRuntime,
 		},
@@ -427,7 +427,7 @@ func startRunnerContainer(ctx context.Context, image string, runner string, work
 			Binds: []string{
 				work + ":" + containerWorkDir,
 				filepath.Dir(socket) + ":/runner",
-				runner + ":/usr/local/bin/doj-runner:ro",
+				runner + ":/usr/local/bin/doj:ro",
 			},
 			NetworkMode: "none",
 			SecurityOpt: []string{"no-new-privileges"},

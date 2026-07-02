@@ -4,16 +4,17 @@
 
 - Frontend: React + Vite + TypeScript + antd.
 - Server: Go + Echo + GORM + OpenAPI.
-- Judging: Go `doj-judger` on the host and Go `doj-runner` in language containers.
+- Judging: Go `doj judger` on the host and Go `doj runner` in language containers.
 - Data services: PostgreSQL, Redis/Valkey, and local or S3-compatible object storage.
 
 ## Layout
 
-- `cmd/` only contains `server.go`, `judger.go`, and `runner.go`.
+- `main.go` is the `doj` entrypoint for `server`, `judger`, and `runner` subcommands.
+- `cmd/` contains standalone extra binaries such as `cmd/jplag`.
 - `api/` contains OpenAPI contracts.
 - `models/` contains GORM models and database helpers.
 - `middleware/` contains Echo middleware.
-- `services/` contains server-side API handlers.
+- `server/` contains the server entrypoint and server-side API handlers.
 - `judger/` contains all judger and runner implementation.
 - `utils/` contains small shared helpers.
 - `index.html` is the Vite HTML entry.

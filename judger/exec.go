@@ -115,7 +115,7 @@ func runCustomLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 	}
 	user := commandContext(ctx, bin, args...)
 	if needsReleaseGate {
-		wrapperArgs := []string{"wait-exec", releasePath, strconv.FormatUint(uint64(req.UserIdentity.UID), 10), strconv.FormatUint(uint64(req.UserIdentity.GID), 10), bin}
+		wrapperArgs := []string{"runner", "wait-exec", releasePath, strconv.FormatUint(uint64(req.UserIdentity.UID), 10), strconv.FormatUint(uint64(req.UserIdentity.GID), 10), bin}
 		user = commandContext(ctx, req.Runner, append(wrapperArgs, args...)...)
 	}
 	judge.Dir = req.Work
@@ -316,7 +316,7 @@ func runBuiltinLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) 
 	}
 	user := commandContext(ctx, bin, args...)
 	if needsReleaseGate {
-		wrapperArgs := []string{"wait-exec", releasePath, strconv.FormatUint(uint64(req.UserIdentity.UID), 10), strconv.FormatUint(uint64(req.UserIdentity.GID), 10), bin}
+		wrapperArgs := []string{"runner", "wait-exec", releasePath, strconv.FormatUint(uint64(req.UserIdentity.UID), 10), strconv.FormatUint(uint64(req.UserIdentity.GID), 10), bin}
 		user = commandContext(ctx, req.Runner, append(wrapperArgs, args...)...)
 	}
 	user.Dir = req.Work

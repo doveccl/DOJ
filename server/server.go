@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"context"
@@ -16,10 +16,10 @@ import (
 
 	dojmw "github.com/doveccl/doj/middleware"
 	"github.com/doveccl/doj/models"
-	adminsvc "github.com/doveccl/doj/services/admin"
-	backupsvc "github.com/doveccl/doj/services/backup"
-	judgersvc "github.com/doveccl/doj/services/judger"
-	websvc "github.com/doveccl/doj/services/web"
+	adminsvc "github.com/doveccl/doj/server/admin"
+	backupsvc "github.com/doveccl/doj/server/backup"
+	judgersvc "github.com/doveccl/doj/server/judger"
+	websvc "github.com/doveccl/doj/server/web"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -33,7 +33,7 @@ const (
 	shutdownGrace      = 15 * time.Second
 )
 
-func main() {
+func Main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

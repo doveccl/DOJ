@@ -38,8 +38,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: ["doj-server"]
-    user: doj
+    command: ["doj", "server"]
     restart: unless-stopped
     stop_grace_period: 20s
     depends_on:
@@ -67,8 +66,7 @@ services:
     profiles:
       - judger
     image: doj:latest
-    command: ["doj-judger"]
-    user: root
+    command: ["doj", "judger"]
     restart: unless-stopped
     privileged: true
     pid: host

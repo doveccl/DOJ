@@ -165,11 +165,11 @@ export function AdminPage() {
       saveJudgers(data)
       closeJudger()
       if (created?.token) {
-        const dockerCommand = `docker run -d --name doj-judger --restart unless-stopped --privileged --network host --pid host --cgroupns host -v /var/run/docker.sock:/var/run/docker.sock -v /sys/fs/cgroup:/sys/fs/cgroup -v /var/lib/doj:/var/lib/doj -e SERVER=http://server:7974 -e TOKEN=${created.token} doveccl/doj:4 doj-judger`
+        const dockerCommand = `docker run -d --name doj-judger --restart unless-stopped --privileged --network host --pid host --cgroupns host -v /var/run/docker.sock:/var/run/docker.sock -v /sys/fs/cgroup:/sys/fs/cgroup -v /var/lib/doj:/var/lib/doj -e SERVER=http://server:7974 -e TOKEN=${created.token} doveccl/doj:4 doj judger`
         const composeExample = `services:
   judger:
     image: doveccl/doj:4
-    command: doj-judger
+    command: doj judger
     restart: unless-stopped
     privileged: true
     network_mode: host
