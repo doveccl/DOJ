@@ -36,6 +36,7 @@
 - Assignment visibility must cover guest, unassigned user, assigned user, and admin behavior.
 - Submission-related statistics must use submission context fields such as `assignment_id` and `contest_id`, not reverse inference from problem membership.
 - Submission result visibility and source visibility are separate. Hidden results are returned as `pending` with score, time, memory, message, cases, and progress cleared; hidden source is returned as an empty `code`.
-- Submission lists, profile activities, problem latest/mine, ranks, and live refreshes must not bypass submission result visibility. SSE events must stay lightweight invalidation signals and must not carry result, case, progress, or source payloads.
+- Submission list/detail access is independent from problem visibility; hidden problem titles may appear on submissions, while problem detail links still enforce problem visibility.
+- Submission lists, assignment progress and done counts, profile activities, problem latest/mine, ranks, and live refreshes must not bypass submission result visibility. SSE events must stay lightweight invalidation signals and must not carry result, case, progress, or source payloads.
 - Detail edit modals must mount after data is ready, or use a stable `key`; do not let empty async data seed `initialValues`.
 - Prefer fixing dirty development data by resetting it instead of adding compatibility logic.

@@ -5,7 +5,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import type { ReactNode } from 'react'
+import { Link, useParams } from 'react-router-dom'
 
 import { api, apiData } from '../client'
 import type { ProblemListItem, ProblemRef, RankUser } from '../client'
@@ -227,10 +228,6 @@ function rankColumns(text: ReturnType<typeof useLocale>['text'], kind: string, p
     {
       title: text.rank.user,
       render: (_, row) => <UserLink name={row.user} strong />
-    },
-    {
-      title: text.rank.submit,
-      dataIndex: 'submit'
     }
   ]
   if (kind === 'OI') {
@@ -310,20 +307,22 @@ function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<
     {
       title: text.contests.status,
       dataIndex: 'mine',
-      render: (mine: string) => <ContestProblemStatus mine={mine} text={text} />
+      render: (_: string, row) => <ContestProblemStatus row={row} text={text} />
     }
   ]
 }
 
-function ContestProblemStatus({ mine, text }: { mine?: string; text: ReturnType<typeof useLocale>['text'] }) {
+function ContestProblemStatus({ row, text }: { row: ProblemListItem; text: ReturnType<typeof useLocale>['text'] }) {
+  const mine = row.mine
+  const wrap = (node: ReactNode) => row.latest?.id ? <Link to={`/submissions/${row.latest.id}`}>{node}</Link> : node
   if (mine === 'pending') {
-    return <Tag color="processing">{text.submissions.statuses.pending}</Tag>
+    return wrap(<Tag color="processing">{text.submissions.statuses.pending}</Tag>)
   }
   if (mine === 'ac') {
-    return <Tag color="success">{text.contests.completed}</Tag>
+    return wrap(<Tag color="success">{text.contests.completed}</Tag>)
   }
   if (mine === 'tried') {
-    return <Tag color="warning">{text.contests.attempted}</Tag>
+    return wrap(<Tag color="warning">{text.contests.attempted}</Tag>)
   }
   return <Tag>{text.contests.notCompleted}</Tag>
 }

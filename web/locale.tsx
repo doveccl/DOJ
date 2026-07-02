@@ -99,7 +99,7 @@ const zh = {
   problem: {
     statement: '题面',
     visible: '普通用户可见',
-    record: '上次提交',
+    record: '最近提交',
     passed: '已通过',
     tried: '已尝试',
     none: '无记录',
@@ -152,9 +152,9 @@ const zh = {
     submissions: '提交',
     running: '进行中',
     ended: '已结束',
-    completed: '已完成',
-    attempted: '已尝试',
-    notCompleted: '未完成',
+    completed: '通过',
+    attempted: '未通过',
+    notCompleted: '未提交',
     done: (done: number, total: number) => `${done}/${total}`
   },
   contests: {
@@ -173,9 +173,9 @@ const zh = {
     frozenRank: '封榜中，榜单只统计封榜前提交',
     realtimeRank: '管理员实时榜，包含封榜后提交',
     ended: '已结束',
-    completed: '已完成',
-    attempted: '已尝试',
-    notCompleted: '未完成',
+    completed: '通过',
+    attempted: '未通过',
+    notCompleted: '未提交',
     start: '开始时间',
     end: '结束时间',
     freeze: '封榜时间',
@@ -188,7 +188,6 @@ const zh = {
     empty: '暂无分析任务',
     failed: '分析失败',
     openReport: '打开报告',
-    openHint: '报告将在新标签页打开，返回作业或比赛页面时直接切回本页即可。',
     status: {
       queued: '排队中',
       running: '运行中',
@@ -229,7 +228,7 @@ const zh = {
       upload: '正在提交评测结果'
     },
     statuses: {
-      pending: '排队中',
+      pending: '待公布',
       queued: '排队中',
       judging: '评测中',
       AC: '通过',
@@ -317,7 +316,7 @@ const zh = {
     online: '在线',
     offline: '离线',
     uptime: '在线时长',
-    queued: '排队',
+    queued: '排队中',
     running: '运行中',
     done: '已完成',
     createdAt: '创建时间',
@@ -504,7 +503,7 @@ const en: typeof zh = {
   problem: {
     statement: 'Statement',
     visible: 'Visible to regular users',
-    record: 'Last submission',
+    record: 'Latest',
     passed: 'Accepted',
     tried: 'Tried',
     none: 'No record',
@@ -557,9 +556,9 @@ const en: typeof zh = {
     submissions: 'Submissions',
     running: 'Running',
     ended: 'Ended',
-    completed: 'Completed',
-    attempted: 'Attempted',
-    notCompleted: 'Not completed',
+    completed: 'Accepted',
+    attempted: 'Not accepted',
+    notCompleted: 'No submission',
     done: (done: number, total: number) => `${done}/${total}`
   },
   contests: {
@@ -578,9 +577,9 @@ const en: typeof zh = {
     frozenRank: 'Frozen scoreboard, only pre-freeze submissions are counted',
     realtimeRank: 'Admin live scoreboard, including post-freeze submissions',
     ended: 'Ended',
-    completed: 'Completed',
-    attempted: 'Attempted',
-    notCompleted: 'Not completed',
+    completed: 'Accepted',
+    attempted: 'Not accepted',
+    notCompleted: 'No submission',
     start: 'Start time',
     end: 'End time',
     freeze: 'Freeze time',
@@ -593,7 +592,6 @@ const en: typeof zh = {
     empty: 'No analysis jobs',
     failed: 'Analysis failed',
     openReport: 'Open report',
-    openHint: 'The report opens in a new tab. Switch back here to return to the assignment or contest.',
     status: {
       queued: 'Queued',
       running: 'Running',

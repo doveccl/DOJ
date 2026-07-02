@@ -2493,6 +2493,8 @@ components:
         status:
           type: string
           enum: [none, tried, ac, pending]
+        score:
+          type: integer
     AssignmentCreate:
       type: object
       required: [title, endAt, problems, users, groups]

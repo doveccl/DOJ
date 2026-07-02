@@ -185,6 +185,7 @@ type AssignmentProgressDTO struct {
 type AssignmentProblemProgressDTO struct {
 	ProblemID uint   `json:"problemId"`
 	Status    string `json:"status"`
+	Score     *int   `json:"score,omitempty"`
 }
 
 type ContestDTO struct {
@@ -1949,7 +1950,7 @@ func (api *API) assignment(c echo.Context) error {
 	if err := api.decorateProblemMines(c, problems); err != nil {
 		return err
 	}
-	progressRows, err := api.assignmentProgress(row.ID, problems)
+	progressRows, err := api.assignmentProgress(c, row.ID, problems)
 	if err != nil {
 		return err
 	}
@@ -2180,7 +2181,7 @@ func (api *API) contest(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := api.decorateProblemMinesInContest(c, problems, row.ID); err != nil {
+	if err := api.decorateProblemMinesInContest(c, problems, row); err != nil {
 		return err
 	}
 	admin := api.isAdmin(c)
@@ -2206,7 +2207,7 @@ func (api *API) submissions(c echo.Context) error {
 	query := api.db.Model(&models.Submission{})
 	if !api.isAdmin(c) {
 		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
-		query = api.applyProblemListVisibility(query)
+		query = query.Where("problems.deleted_at IS NULL")
 	}
 	if problem := c.QueryParam("problem"); problem != "" {
 		id, err := parseProblemQuery(problem)
@@ -2652,7 +2653,7 @@ func penalizable(status string) bool {
 	}
 }
 
-func (api *API) assignmentProgress(id uint, problems []ProblemDTO) ([]AssignmentProgressDTO, error) {
+func (api *API) assignmentProgress(c echo.Context, id uint, problems []ProblemDTO) ([]AssignmentProgressDTO, error) {
 	userIDs, err := api.assignmentProgressUserIDs(id)
 	if err != nil {
 		return nil, err
@@ -2693,13 +2694,41 @@ func (api *API) assignmentProgress(id uint, problems []ProblemDTO) ([]Assignment
 		var submissions []struct {
 			UserID    uint
 			ProblemID uint
+			ContestID *uint
 			Status    string
+			Score     int
+			CreatedAt time.Time
 		}
 		if err := api.db.Model(&models.Submission{}).
-			Select("user_id, problem_id, status").
+			Select("user_id, problem_id, contest_id, status, score, created_at").
 			Where("assignment_id = ? AND user_id IN ? AND problem_id IN ?", id, userIDs, problemIDs).
 			Find(&submissions).Error; err != nil {
 			return nil, err
+		}
+		contestIDs := make([]uint, 0, len(submissions))
+		for _, submission := range submissions {
+			if submission.ContestID != nil {
+				contestIDs = append(contestIDs, *submission.ContestID)
+			}
+		}
+		contests := map[uint]models.Contest{}
+		if len(contestIDs) > 0 {
+			var rows []models.Contest
+			if err := api.db.Where("id IN ?", uniqueUint(contestIDs)).Find(&rows).Error; err != nil {
+				return nil, err
+			}
+			for _, row := range rows {
+				contests[row.ID] = row
+			}
+		}
+		admin := api.isAdmin(c)
+		viewerID := uint(0)
+		if !admin {
+			id, err := api.viewerID(c)
+			if err != nil {
+				return nil, err
+			}
+			viewerID = id
 		}
 		for _, submission := range submissions {
 			got := states[submission.UserID]
@@ -2710,6 +2739,20 @@ func (api *API) assignmentProgress(id uint, problems []ProblemDTO) ([]Assignment
 			problem := got.byProblem[submission.ProblemID]
 			if problem == nil {
 				continue
+			}
+			if assignmentProgressResultHidden(admin, viewerID, submission.UserID, submission.ContestID, submission.CreatedAt, contests) {
+				if problem.Status != "ac" {
+					problem.Status = "pending"
+					problem.Score = nil
+				}
+				continue
+			}
+			if problem.Status == "pending" && submission.Status != "AC" {
+				continue
+			}
+			if problem.Score == nil || submission.Score > *problem.Score {
+				score := submission.Score
+				problem.Score = &score
 			}
 			if submission.Status == "AC" {
 				problem.Status = "ac"
@@ -2740,6 +2783,20 @@ func (api *API) assignmentProgress(id uint, problems []ProblemDTO) ([]Assignment
 		return items[i].User < items[j].User
 	})
 	return items, nil
+}
+
+func assignmentProgressResultHidden(admin bool, viewerID uint, userID uint, contestID *uint, createdAt time.Time, contests map[uint]models.Contest) bool {
+	if admin || contestID == nil {
+		return false
+	}
+	contest, ok := contests[*contestID]
+	if !ok || contestEnded(contest) {
+		return false
+	}
+	if contest.Kind == "OI" {
+		return true
+	}
+	return viewerID != userID && contest.FreezeAt != nil && !createdAt.Before(*contest.FreezeAt)
 }
 
 func (api *API) assignmentProgressUserIDs(id uint) ([]uint, error) {
@@ -2788,15 +2845,11 @@ func (api *API) submission(c echo.Context) error {
 		return err
 	}
 	if !api.isAdmin(c) {
-		var problem models.Problem
-		if err := api.db.First(&problem, row.ProblemID).Error; err != nil {
+		var count int64
+		if err := api.db.Model(&models.Problem{}).Where("id = ?", row.ProblemID).Count(&count).Error; err != nil {
 			return err
 		}
-		visible, err := api.problemVisibleInDetail(c, problem)
-		if err != nil {
-			return err
-		}
-		if !visible {
+		if count == 0 {
 			return echo.NewHTTPError(http.StatusNotFound, "submission not found")
 		}
 	}
@@ -4297,7 +4350,7 @@ func (api *API) decorateProblemMines(c echo.Context, items []ProblemDTO) error {
 	return nil
 }
 
-func (api *API) decorateProblemMinesInContest(c echo.Context, items []ProblemDTO, contestID uint) error {
+func (api *API) decorateProblemMinesInContest(c echo.Context, items []ProblemDTO, contest models.Contest) error {
 	if len(items) == 0 {
 		return nil
 	}
@@ -4325,7 +4378,7 @@ func (api *API) decorateProblemMinesInContest(c echo.Context, items []ProblemDTO
 	}
 	if err := api.db.Model(&models.Submission{}).
 		Select("problem_id, id, contest_id, status, score, created_at").
-		Where("user_id = ? AND contest_id = ? AND problem_id IN ?", user.ID, contestID, ids).
+		Where("user_id = ? AND contest_id = ? AND problem_id IN ?", user.ID, contest.ID, ids).
 		Order("created_at desc").
 		Find(&rows).Error; err != nil {
 		return err
@@ -4355,8 +4408,22 @@ func (api *API) decorateProblemMinesInContest(c echo.Context, items []ProblemDTO
 			}
 			continue
 		}
+		if contest.Kind == "OI" {
+			if mine[row.ProblemID] == "" {
+				if row.Score >= 100 {
+					mine[row.ProblemID] = "ac"
+				} else {
+					mine[row.ProblemID] = "tried"
+				}
+			}
+			continue
+		}
+		if mine[row.ProblemID] == "ac" {
+			continue
+		}
 		if row.Status == "AC" {
 			mine[row.ProblemID] = "ac"
+			latest[row.ProblemID] = RecordDTO{ID: row.ID, Status: row.Status, Score: row.Score, CreatedAt: row.CreatedAt}
 			continue
 		}
 		if mine[row.ProblemID] == "" {
@@ -5020,6 +5087,10 @@ func (api *API) assignmentDoneCount(c echo.Context, id uint) (int, error) {
 		Select("DISTINCT submissions.problem_id").
 		Joins("JOIN assignment_problems ON assignment_problems.problem_id = submissions.problem_id").
 		Where("assignment_problems.assignment_id = ? AND submissions.assignment_id = ? AND submissions.user_id = ? AND submissions.status = ?", id, id, user.ID, "AC")
+	query, err = api.filterHiddenResultAC(c, query)
+	if err != nil {
+		return 0, err
+	}
 	if err := query.Find(&rows).Error; err != nil {
 		return 0, err
 	}
@@ -5040,12 +5111,16 @@ func (api *API) assignmentDoneMap(c echo.Context, ids []uint) (map[uint]int, err
 		AssignmentID uint
 		Count        int64
 	}
-	if err := api.db.Model(&models.Submission{}).
+	query := api.db.Model(&models.Submission{}).
 		Select("submissions.assignment_id, count(DISTINCT submissions.problem_id) as count").
 		Joins("JOIN assignment_problems ON assignment_problems.assignment_id = submissions.assignment_id AND assignment_problems.problem_id = submissions.problem_id").
 		Where("submissions.assignment_id IN ? AND submissions.user_id = ? AND submissions.status = ?", ids, user.ID, "AC").
-		Group("submissions.assignment_id").
-		Find(&rows).Error; err != nil {
+		Group("submissions.assignment_id")
+	query, err = api.filterHiddenResultAC(c, query)
+	if err != nil {
+		return nil, err
+	}
+	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	for _, row := range rows {

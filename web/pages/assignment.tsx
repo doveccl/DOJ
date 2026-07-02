@@ -13,6 +13,7 @@ import { ProblemLink, UserLink } from '../components/entity'
 import { IdSelect } from '../components/id-select'
 import { PlagiarismPanel } from '../components/plagiarism'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
+import { ScoreTag } from '../components/score'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { DeadlineTimer } from '../components/time'
 import { useLocale } from '../locale'
@@ -124,10 +125,10 @@ export function AssignmentDetailPage() {
       </Card>
       {editOpen ? (
         <AssignmentEditModal
-	          assignment={assignment}
-	          problems={problems}
-	          problemOptions={problemOptions}
-	          loading={update.isPending}
+          assignment={assignment}
+          problems={problems}
+          problemOptions={problemOptions}
+          loading={update.isPending}
           onCancel={() => setEditOpen(false)}
           onSave={(values) => update.mutate(values)}
         />
@@ -183,12 +184,12 @@ function AssignmentEditModal({
         <Form.Item name="problems" label={text.assignments.problems}>
           <ProblemRefInput options={problemOptions} />
         </Form.Item>
-	        <Form.Item name="users" label={text.assignments.users}>
-	          <IdSelect kind="users" />
-	        </Form.Item>
-	        <Form.Item name="groups" label={text.assignments.groups}>
-	          <IdSelect kind="groups" />
-	        </Form.Item>
+        <Form.Item name="users" label={text.assignments.users}>
+          <IdSelect kind="users" />
+        </Form.Item>
+        <Form.Item name="groups" label={text.assignments.groups}>
+          <IdSelect kind="groups" />
+        </Form.Item>
       </Form>
     </Modal>
   )
@@ -200,15 +201,6 @@ function progressColumns(text: ReturnType<typeof useLocale>['text'], problems: P
       title: text.rank.user,
       render: (_, row) => <UserLink name={row.user} strong />
     },
-    ...problems.map((problem) => ({
-      key: `problem-${problem.id}`,
-      title: (
-        <Tooltip title={problemLabel(problem.id, problem.title)}>
-          <span>{problem.sort || problemCode(problem.id)}</span>
-        </Tooltip>
-      ),
-      render: (_: unknown, row: AssignmentProgress) => <AssignmentProblemStatus mine={row.problems?.find((item) => item.problemId === problem.id)?.status} text={text} />
-    })),
     {
       title: text.rank.ac,
       dataIndex: 'ac'
@@ -216,7 +208,20 @@ function progressColumns(text: ReturnType<typeof useLocale>['text'], problems: P
     {
       title: text.rank.submit,
       dataIndex: 'submit'
-    }
+    },
+    ...problems.map((problem) => ({
+      key: `problem-${problem.id}`,
+      align: 'center' as const,
+      title: (
+        <Tooltip title={problemLabel(problem.id, problem.title)}>
+          <span>{problem.sort || problemCode(problem.id)}</span>
+        </Tooltip>
+      ),
+      render: (_: unknown, row: AssignmentProgress) => {
+        const item = row.problems?.find((problemProgress) => problemProgress.problemId === problem.id)
+        return item?.status === 'pending' ? <Tag color="processing">{text.submissions.statuses.pending}</Tag> : <ScoreTag score={item?.score} />
+      }
+    }))
   ]
 }
 

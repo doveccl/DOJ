@@ -1,5 +1,5 @@
 import { ExportOutlined, PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons'
-import { Alert, Button, Flex, Space, Spin, Tag, Typography } from 'antd'
+import { Button, Flex, Space, Tag, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api, apiData } from '../client'
@@ -34,38 +34,33 @@ export function PlagiarismPanel({ scope, id }: Props) {
   const reportViewerUrl = job?.reportUrl
     ? `/?jplag=${encodeURIComponent(job.id)}&file=${encodeURIComponent(job.reportUrl)}`
     : ''
+  const error = create.isError
+    ? create.error instanceof Error ? create.error.message : text.common.loadingFailed
+    : job?.status === 'failed'
+      ? cleanFailure(job.message) || text.plagiarism.failed
+      : ''
 
   return (
     <Flex vertical gap={12}>
       <Flex justify="space-between" align="center" gap={12} wrap>
-        <Space>
+        <Space wrap>
           <Button type="primary" icon={<PlayCircleOutlined />} loading={create.isPending} onClick={() => create.mutate()}>
             {text.plagiarism.run}
           </Button>
           <Button icon={<ReloadOutlined />} onClick={() => void jobs.refetch()}>
             {text.common.refresh}
           </Button>
-        </Space>
-        {busy ? <Space><Spin size="small" /> <Typography.Text type="secondary">{text.plagiarism.running}</Typography.Text></Space> : job ? <PlagiarismStatus job={job} /> : null}
-      </Flex>
-      {create.isError ? <Alert type="error" showIcon message={create.error instanceof Error ? create.error.message : text.common.loadingFailed} /> : null}
-      {busy ? null : job?.status === 'failed' ? (
-        <Alert type="error" showIcon message={text.plagiarism.failed} description={cleanFailure(job.message) || text.plagiarism.failed} />
-      ) : job && reportViewerUrl ? (
-        <Alert
-          type="success"
-          showIcon
-          message={job.message}
-          description={text.plagiarism.openHint}
-          action={
+          {job && reportViewerUrl ? (
             <Button icon={<ExportOutlined />} href={reportViewerUrl} target="_blank" rel="noreferrer">
               {text.plagiarism.openReport}
             </Button>
-          }
-        />
-      ) : (
-        <Alert type="info" showIcon message={text.plagiarism.empty} />
-      )}
+          ) : null}
+        </Space>
+        {busy ? <Tag color="processing">{text.plagiarism.running}</Tag> : job ? <PlagiarismStatus job={job} /> : null}
+      </Flex>
+      {error ? <Typography.Text type="danger">{error}</Typography.Text> : null}
+      {!busy && !job ? <Typography.Text type="secondary">{text.plagiarism.empty}</Typography.Text> : null}
+      {!busy && job?.status === 'done' && job.message ? <Typography.Text type="secondary">{job.message}</Typography.Text> : null}
     </Flex>
   )
 }

@@ -1374,6 +1374,7 @@ export interface components {
             problemId: number;
             /** @enum {string} */
             status: "none" | "tried" | "ac" | "pending";
+            score?: number;
         };
         AssignmentCreate: {
             title: string;

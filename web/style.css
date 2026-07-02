@@ -315,7 +315,6 @@ body {
   overflow: hidden;
 }
 
-.problemCodeText,
 .problemHeadActions,
 .problemHeadTitle .ant-btn {
   flex: none;

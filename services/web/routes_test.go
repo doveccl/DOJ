@@ -809,6 +809,53 @@ func TestUserSolvedProblemsArePagedByLatestAC(t *testing.T) {
 	}
 }
 
+func TestSubmissionEndpointsReadHiddenProblemSubmissionsButHideFields(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	owner := models.User{Name: "owner", Mail: "owner@example.com", Auth: "hash"}
+	other := models.User{Name: "other", Mail: "other@example.com", Auth: "hash"}
+	if err := db.Create(&owner).Error; err != nil {
+		t.Fatalf("create owner: %v", err)
+	}
+	if err := db.Create(&other).Error; err != nil {
+		t.Fatalf("create other: %v", err)
+	}
+	problem := models.Problem{ID: 1000, Title: "Hidden", Tags: datatypes.JSON([]byte(`[]`)), Visible: false, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	assignment := models.Assignment{Title: "HW", EndAt: time.Now().Add(time.Hour)}
+	if err := db.Create(&assignment).Error; err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+	if err := db.Create(&models.AssignmentProblem{AssignmentID: assignment.ID, ProblemID: problem.ID, Sort: "A"}).Error; err != nil {
+		t.Fatalf("create assignment problem: %v", err)
+	}
+	if err := db.Create(&models.AssignmentUser{AssignmentID: assignment.ID, UserID: owner.ID}).Error; err != nil {
+		t.Fatalf("assign owner: %v", err)
+	}
+	assignmentID := assignment.ID
+	submission := models.Submission{UserID: owner.ID, ProblemID: problem.ID, AssignmentID: &assignmentID, Language: "cpp", Code: "hidden source", Status: "AC", Score: 100, Public: true}
+	if err := db.Create(&submission).Error; err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+	otherCookies := databaseSession(t, db, other.ID)
+	list := decodeJSON[PageResult[SubmissionListItem]](t, requestWithCookies(e, http.MethodGet, "/api/submissions", otherCookies, nil))
+	if list.Total != 1 || len(list.Items) != 1 || list.Items[0].ID != submission.ID || list.Items[0].ProblemID != problem.ID || list.Items[0].Status != "AC" {
+		t.Fatalf("hidden problem submission should remain visible in list with public result: %+v", list)
+	}
+	detail := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, "/api/submissions/"+strconv.FormatUint(uint64(submission.ID), 10), otherCookies, nil))
+	if detail.Submission.ID != submission.ID || detail.Submission.ProblemTitle != "Hidden" || detail.Submission.Status != "AC" || detail.Code != "" {
+		t.Fatalf("hidden problem submission detail should read but hide source from non-owner live assignment view: %+v", detail)
+	}
+	if res := requestWithCookies(e, http.MethodGet, "/api/problems/1000", otherCookies, nil); res.Code != http.StatusNotFound {
+		t.Fatalf("problem detail should still be hidden, got %d body=%s", res.Code, res.Body.String())
+	}
+}
+
 func TestDatabaseRankUsesVisibleSubmissionStatsAndActiveUsers(t *testing.T) {
 	db := testWebDB(t)
 	allowGuest(t, db)
@@ -1195,6 +1242,9 @@ func TestContestFreezeHidesLateResultsFromNonAdmin(t *testing.T) {
 	if len(aliceDetail.Rank) != 2 || aliceDetail.Rank[0].User != "alice" || aliceDetail.Rank[0].AC != 1 {
 		t.Fatalf("alice rank should score pre-freeze submissions and keep pending rows: %+v", aliceDetail.Rank)
 	}
+	if aliceDetail.Problems[0].Mine != "ac" || aliceDetail.Problems[0].Latest == nil || aliceDetail.Problems[0].Latest.ID != before.ID {
+		t.Fatalf("ICPC problem status should link first AC, not later WA: %+v", aliceDetail.Problems[0])
+	}
 
 	bobDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, bob.ID), nil))
 	if len(bobDetail.Rank) != 2 || bobDetail.Rank[0].User != "alice" {
@@ -1212,6 +1262,14 @@ func TestContestFreezeHidesLateResultsFromNonAdmin(t *testing.T) {
 	ownerView := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, "/api/submissions/"+strconv.FormatUint(uint64(bobAfter.ID), 10), databaseSession(t, db, bob.ID), nil))
 	if ownerView.Submission.Status != "AC" || ownerView.Submission.Score != 100 || ownerView.Code != "bob after" {
 		t.Fatalf("post-freeze result should be visible to owner: %+v", ownerView)
+	}
+	aliceList := decodeJSON[PageResult[SubmissionListItem]](t, requestWithCookies(e, http.MethodGet, "/api/submissions?contest="+strconv.FormatUint(uint64(contest.ID), 10), databaseSession(t, db, alice.ID), nil))
+	if len(aliceList.Items) != 3 || aliceList.Items[0].ID != bobAfter.ID || aliceList.Items[0].Status != "pending" || aliceList.Items[1].ID != aliceAfter.ID || aliceList.Items[1].Status != "WA" {
+		t.Fatalf("contest submission list should keep rows but hide only non-owner post-freeze results: %+v", aliceList.Items)
+	}
+	bobList := decodeJSON[PageResult[SubmissionListItem]](t, requestWithCookies(e, http.MethodGet, "/api/submissions?contest="+strconv.FormatUint(uint64(contest.ID), 10), databaseSession(t, db, bob.ID), nil))
+	if len(bobList.Items) != 3 || bobList.Items[0].ID != bobAfter.ID || bobList.Items[0].Status != "AC" || bobList.Items[1].ID != aliceAfter.ID || bobList.Items[1].Status != "pending" {
+		t.Fatalf("contest submission list should expose owner post-freeze result only to owner: %+v", bobList.Items)
 	}
 }
 
@@ -1302,10 +1360,25 @@ func TestRunningOIContestHidesSubmissionResults(t *testing.T) {
 	if err := db.Create(&models.ContestProblem{ContestID: contest.ID, ProblemID: problem.ID, Sort: "A"}).Error; err != nil {
 		t.Fatalf("create contest problem: %v", err)
 	}
+	assignment := models.Assignment{Title: "Overlapping HW", EndAt: time.Now().Add(time.Hour)}
+	if err := db.Create(&assignment).Error; err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+	if err := db.Create(&models.AssignmentProblem{AssignmentID: assignment.ID, ProblemID: problem.ID, Sort: "A"}).Error; err != nil {
+		t.Fatalf("create assignment problem: %v", err)
+	}
+	if err := db.Create(&models.AssignmentUser{AssignmentID: assignment.ID, UserID: owner.ID}).Error; err != nil {
+		t.Fatalf("assign owner: %v", err)
+	}
 	contestID := contest.ID
+	assignmentID := assignment.ID
 	timeMS := 12
 	memoryKB := 345
-	submission := models.Submission{UserID: owner.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "secret", Status: "AC", Score: 100, Message: "accepted", TimeMS: &timeMS, MemoryKB: &memoryKB, Public: true}
+	tried := models.Submission{UserID: owner.ID, ProblemID: problem.ID, AssignmentID: &assignmentID, Language: "cpp", Code: "visible try", Status: "WA", Score: 20, Public: true, CreatedAt: time.Now().Add(-10 * time.Minute)}
+	if err := db.Create(&tried).Error; err != nil {
+		t.Fatalf("create tried submission: %v", err)
+	}
+	submission := models.Submission{UserID: owner.ID, ProblemID: problem.ID, AssignmentID: &assignmentID, ContestID: &contestID, Language: "cpp", Code: "secret", Status: "AC", Score: 100, Message: "accepted", TimeMS: &timeMS, MemoryKB: &memoryKB, Public: true}
 	if err := db.Create(&submission).Error; err != nil {
 		t.Fatalf("create submission: %v", err)
 	}
@@ -1332,9 +1405,22 @@ func TestRunningOIContestHidesSubmissionResults(t *testing.T) {
 	if contestDetail.Problems[0].Mine != "pending" || contestDetail.Problems[0].Latest == nil || contestDetail.Problems[0].Latest.Status != "pending" || contestDetail.Problems[0].Latest.Score != 0 {
 		t.Fatalf("running OI contest problem should not expose mine/latest result: %+v", contestDetail.Problems)
 	}
+	assignmentDetail := decodeJSON[AssignmentDetail](t, requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(assignment.ID), 10), databaseSession(t, db, owner.ID), nil))
+	progress := assignmentDetail.Progress[0].Problems[0]
+	if assignmentDetail.Assignment.Done != 0 || progress.Status != "pending" || progress.Score != nil {
+		t.Fatalf("assignment completion should not expose hidden contest result: detail=%+v progress=%+v", assignmentDetail.Assignment, progress)
+	}
+	assignmentList := decodeJSON[PageResult[AssignmentDTO]](t, requestWithCookies(e, http.MethodGet, "/api/assignments", databaseSession(t, db, owner.ID), nil))
+	if len(assignmentList.Items) != 1 || assignmentList.Items[0].Done != 0 {
+		t.Fatalf("assignment list done should not count hidden contest result: %+v", assignmentList)
+	}
 	ownerProfile := decodeJSON[UserProfile](t, requestWithCookies(e, http.MethodGet, "/api/users/owner", databaseSession(t, db, owner.ID), nil))
 	if _, ok := activityBySubmission(ownerProfile.Activities, submission.ID); ok {
 		t.Fatalf("profile activity should not expose unfinished contest submission: %+v", ownerProfile.Activities)
+	}
+	submissionList := decodeJSON[PageResult[SubmissionListItem]](t, requestWithCookies(e, http.MethodGet, "/api/submissions", databaseSession(t, db, owner.ID), nil))
+	if len(submissionList.Items) != 2 || submissionList.Items[0].ID != submission.ID || submissionList.Items[0].Status != "pending" || submissionList.Items[0].TimeMS != nil || submissionList.Items[0].MemoryKB != nil || submissionList.Items[1].ID != tried.ID || submissionList.Items[1].Status != "WA" {
+		t.Fatalf("submission endpoint list should include running OI submission as pending: %+v", submissionList)
 	}
 	api := &API{db: db}
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

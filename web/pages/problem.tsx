@@ -6,7 +6,6 @@ import {
   EyeOutlined,
   FileAddOutlined,
   FolderOpenOutlined,
-  MoreOutlined,
   ReloadOutlined,
   SendOutlined,
   UploadOutlined
@@ -18,10 +17,8 @@ import {
   Checkbox,
   Col,
   Divider,
-  Dropdown,
   Flex,
   Form,
-  Grid,
   Input,
   Modal,
   Popconfirm,
@@ -35,7 +32,6 @@ import {
   Upload
 } from 'antd'
 import type { UploadFile, UploadProps } from 'antd'
-import type { MenuProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -88,7 +84,6 @@ type ProblemEditForm = {
 
 export function ProblemDetailPage() {
   const { text } = useLocale()
-  const screens = Grid.useBreakpoint()
   const session = useSession()
   const { message } = App.useApp()
   const client = useQueryClient()
@@ -314,7 +309,6 @@ export function ProblemDetailPage() {
     <ProblemManageActions
       id={id}
       rejudgeLoading={rejudge.isPending}
-      compact={!screens.sm}
       onOpenAssets={() => setAssetsOpen(true)}
       onRejudge={() => rejudge.mutate()}
     />
@@ -354,11 +348,8 @@ export function ProblemDetailPage() {
                       />
                     </Tooltip>
                   ) : null}
-                  <Typography.Text strong className="problemCodeText">
-                    {problemCode(problem.id)}
-                  </Typography.Text>
-                  <Typography.Text strong ellipsis={{ tooltip: problem.title }} className="problemTitleText">
-                    {problem.title}
+                  <Typography.Text strong ellipsis={{ tooltip: `${problemCode(problem.id)} ${problem.title}` }} className="problemTitleText">
+                    {`${problemCode(problem.id)} ${problem.title}`}
                   </Typography.Text>
                 </Flex>
               }
@@ -855,49 +846,17 @@ function acceptedDataFile(name: string) {
 function ProblemManageActions({
   id,
   rejudgeLoading,
-  compact,
   onOpenAssets,
   onRejudge
 }: {
   id: number
   rejudgeLoading: boolean
-  compact: boolean
   onOpenAssets: () => void
   onRejudge: () => void
 }) {
   const { text } = useLocale()
-  const items: MenuProps['items'] = [
-    {
-      key: 'assets',
-      icon: <FolderOpenOutlined />,
-      label: text.problem.assetManage,
-      onClick: onOpenAssets
-    },
-    {
-      key: 'download',
-      icon: <DownloadOutlined />,
-      label: text.problem.downloadAssets,
-      onClick: () => downloadURL(problemAssetsDownloadURL(id), `${problemCode(id)}.zip`)
-    },
-    {
-      key: 'rejudge',
-      icon: <ReloadOutlined />,
-      label: (
-        <Popconfirm title={text.problem.confirmRejudgeAll} okText={text.problem.rejudgeAll} cancelText={text.common.cancel} onConfirm={onRejudge}>
-          <span>{text.problem.rejudgeAll}</span>
-        </Popconfirm>
-      )
-    }
-  ]
-  if (compact) {
-    return (
-      <Dropdown menu={{ items }} trigger={['click']}>
-        <Button size="small" icon={<MoreOutlined />} aria-label={text.common.actions} loading={rejudgeLoading} />
-      </Dropdown>
-    )
-  }
   return (
-    <Space size={6}>
+    <Space size={6} wrap>
       <Button size="small" icon={<FolderOpenOutlined />} onClick={onOpenAssets}>
         {text.problem.assetManage}
       </Button>
