@@ -1,4 +1,4 @@
-import { EditOutlined } from '@ant-design/icons'
+import { EditOutlined, UnorderedListOutlined } from '@ant-design/icons'
 import { App as AntApp, Button, Card, DatePicker, Flex, Form, Input, Modal, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -106,7 +106,7 @@ export function AssignmentDetailPage() {
             {
               key: 'problems',
               label: text.assignments.problems,
-              children: <Table<ProblemListItem> rowKey="id" columns={problemColumns(text)} dataSource={problems} pagination={false} scroll={{ x: 560 }} />
+              children: <Table<ProblemListItem> rowKey="id" columns={problemColumns(text, session.admin, assignment.id)} dataSource={problems} pagination={false} scroll={{ x: session.admin ? 640 : 560 }} />
             },
             {
               key: 'progress',
@@ -225,8 +225,8 @@ function progressColumns(text: ReturnType<typeof useLocale>['text'], problems: P
   ]
 }
 
-function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<ProblemListItem>['columns'] {
-  return [
+function problemColumns(text: ReturnType<typeof useLocale>['text'], admin: boolean, assignmentID: number): TableProps<ProblemListItem>['columns'] {
+  const columns: TableProps<ProblemListItem>['columns'] = [
     {
       title: text.common.sort,
       dataIndex: 'sort',
@@ -245,6 +245,17 @@ function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<
       render: (mine: string) => <AssignmentProblemStatus mine={mine} text={text} />
     }
   ]
+  if (admin) {
+    columns.push({
+      align: 'right',
+      render: (_, row) => (
+        <Tooltip title={text.submissions.viewProblemRecords}>
+          <Button aria-label={`${text.submissions.viewProblemRecords} ${problemCode(row.id)}`} type="text" icon={<UnorderedListOutlined />} href={`/submissions?assignment=${assignmentID}&problem=${row.id}`} />
+        </Tooltip>
+      )
+    })
+  }
+  return columns
 }
 
 function AssignmentProblemStatus({ mine, text }: { mine?: string; text: ReturnType<typeof useLocale>['text'] }) {

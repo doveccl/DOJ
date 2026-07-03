@@ -213,6 +213,9 @@ const zh = {
     rejudge: '重测',
     confirmRejudge: '确认重测？',
     rejudged: '已重新进入队列',
+    viewAssignmentRecords: '查看作业提交记录',
+    viewContestRecords: '查看比赛提交记录',
+    viewProblemRecords: '查看本题提交记录',
     searchProblem: '题目编号',
     allStatus: '全部状态',
     progress: {
@@ -617,6 +620,9 @@ const en: typeof zh = {
     rejudge: 'Rejudge',
     confirmRejudge: 'Rejudge this submission?',
     rejudged: 'Requeued',
+    viewAssignmentRecords: 'View assignment submissions',
+    viewContestRecords: 'View contest submissions',
+    viewProblemRecords: 'View problem submissions',
     searchProblem: 'Problem ID',
     allStatus: 'All statuses',
     progress: {

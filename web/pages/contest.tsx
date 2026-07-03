@@ -1,4 +1,4 @@
-import { EditOutlined } from '@ant-design/icons'
+import { EditOutlined, UnorderedListOutlined } from '@ant-design/icons'
 import { Alert, App as AntApp, Button, Card, DatePicker, Flex, Form, Input, Modal, Select, Space, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -115,7 +115,7 @@ export function ContestDetailPage() {
             {
               key: 'problems',
               label: text.contests.problems,
-              children: <Table<ProblemListItem> rowKey="id" columns={problemColumns(text)} dataSource={problems} pagination={false} scroll={{ x: 560 }} />
+              children: <Table<ProblemListItem> rowKey="id" columns={problemColumns(text, session.admin, contest.id)} dataSource={problems} pagination={false} scroll={{ x: session.admin ? 640 : 560 }} />
             },
             {
               key: 'rank',
@@ -290,8 +290,8 @@ function RankProblemCell({ kind, item }: { kind: string; item?: RankUser['proble
   return <Tag color={item.score > 0 ? 'warning' : 'error'}>{item.score}</Tag>
 }
 
-function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<ProblemListItem>['columns'] {
-  return [
+function problemColumns(text: ReturnType<typeof useLocale>['text'], admin: boolean, contestID: number): TableProps<ProblemListItem>['columns'] {
+  const columns: TableProps<ProblemListItem>['columns'] = [
     {
       title: text.common.sort,
       dataIndex: 'sort',
@@ -310,6 +310,17 @@ function problemColumns(text: ReturnType<typeof useLocale>['text']): TableProps<
       render: (_: string, row) => <ContestProblemStatus row={row} text={text} />
     }
   ]
+  if (admin) {
+    columns.push({
+      align: 'right',
+      render: (_, row) => (
+        <Tooltip title={text.submissions.viewProblemRecords}>
+          <Button aria-label={`${text.submissions.viewProblemRecords} ${problemCode(row.id)}`} type="text" icon={<UnorderedListOutlined />} href={`/submissions?contest=${contestID}&problem=${row.id}`} />
+        </Tooltip>
+      )
+    })
+  }
+  return columns
 }
 
 function ContestProblemStatus({ row, text }: { row: ProblemListItem; text: ReturnType<typeof useLocale>['text'] }) {

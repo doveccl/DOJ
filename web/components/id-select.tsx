@@ -50,9 +50,7 @@ export function IdSelect({
     const rows = kind === 'users' ? (query.data?.users ?? []) : (query.data?.groups ?? [])
     return rows.map((item) => ({ value: item.id, label: item.name }))
   }, [kind, query.data])
-  const selectedItems = selectedOptions(value ?? [], options ?? [], remoteOptions)
-  const visibleOptions = kind ? (search.searchText ? remoteOptions : mergeOptions(options ?? [], remoteOptions)) : (options ?? [])
-  const mergedOptions = mergeOptions(selectedItems, visibleOptions)
+  const visibleOptions = kind ? (search.searchText ? remoteOptions : mergeIDOptions(options ?? [], remoteOptions)) : (options ?? [])
   const showSearch = kind ? { filterOption: false } : { optionFilterProp: 'label' }
 
   return (
@@ -64,7 +62,7 @@ export function IdSelect({
       mode="multiple"
       onOpenChange={search.setOpen}
       onSearch={kind ? search.setSearch : undefined}
-      options={mergedOptions}
+      options={visibleOptions}
       showSearch={showSearch}
       style={{ width: '100%' }}
       value={value}
@@ -73,21 +71,7 @@ export function IdSelect({
   )
 }
 
-function selectedOptions(values: number[], ...lists: Option[][]) {
-  return values.map((value) => ({ value, label: optionLabel(value, lists) }))
-}
-
-function optionLabel(value: number, lists: Option[][]) {
-  for (const list of lists) {
-    const found = list.find((item) => item.value === value)
-    if (found) {
-      return found.label
-    }
-  }
-  return String(value)
-}
-
-function mergeOptions(...lists: Option[][]) {
+function mergeIDOptions(...lists: Option[][]) {
   const merged = new Map<number, string>()
   for (const list of lists) {
     for (const item of list) {

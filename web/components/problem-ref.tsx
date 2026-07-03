@@ -36,15 +36,13 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading }:
 
   useEffect(() => {
     setKnownOptions((current) => {
-      const next = mergeOptions(current, options, remoteOptions)
+      const next = mergeProblemOptions(current, options, remoteOptions)
       return sameOptions(current, next) ? current : next
     })
   }, [options, remoteOptions])
 
-  const selectedOptions = value.map((item) => ({ value: item.id, label: optionLabel(item.id, knownOptions, options, remoteOptions) }))
-  const visibleOptions = search.searchText ? remoteOptions : mergeOptions(options, remoteOptions)
-  const selectOptions = mergeOptions(selectedOptions, visibleOptions)
-  const optionMap = new Map(selectOptions.map((item) => [item.value, item.label]))
+  const visibleOptions = search.searchText ? remoteOptions : mergeProblemOptions(options, remoteOptions)
+  const optionMap = new Map(mergeProblemOptions(remoteOptions, options, knownOptions).map((item) => [item.value, item.label]))
 
   function setIDs(ids: number[]) {
     const current = new Map(value.map((item) => [item.id, item.sort]))
@@ -70,8 +68,8 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading }:
       width: 300,
       ellipsis: { showTitle: false },
       render: (_, row) => (
-        <Typography.Text ellipsis={{ tooltip: optionMap.get(row.id) || problemCode(row.id) }}>
-          <Link to={`/problems/${row.id}`}>{optionMap.get(row.id) || problemCode(row.id)}</Link>
+        <Typography.Text ellipsis={{ tooltip: optionMap.get(row.id) || String(row.id) }}>
+          <Link to={`/problems/${row.id}`}>{optionMap.get(row.id) || String(row.id)}</Link>
         </Typography.Text>
       )
     }
@@ -87,7 +85,7 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading }:
         onChange={setIDs}
         onOpenChange={search.setOpen}
         onSearch={search.setSearch}
-        options={selectOptions}
+        options={visibleOptions}
         placeholder={text.submissions.searchProblem}
         showSearch={{ filterOption: false }}
         style={{ width: '100%' }}
@@ -102,17 +100,7 @@ function problemOption(item: ProblemListItem): Option {
   return { value: item.id, label: problemLabel(item.id, item.title) }
 }
 
-function optionLabel(id: number, ...lists: Option[][]): string {
-  for (const list of lists) {
-    const found = list.find((item) => item.value === id)
-    if (found) {
-      return found.label
-    }
-  }
-  return problemCode(id)
-}
-
-function mergeOptions(...lists: Option[][]): Option[] {
+function mergeProblemOptions(...lists: Option[][]): Option[] {
   const merged = new Map<number, string>()
   for (const list of lists) {
     for (const item of list) {

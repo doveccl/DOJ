@@ -1,4 +1,4 @@
-import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
+import { DeleteOutlined, EditOutlined, PlusOutlined, UnorderedListOutlined } from '@ant-design/icons'
 import {
   App as AntApp,
   Button,
@@ -302,6 +302,9 @@ function assignmentColumns(
       align: 'right',
       render: (_, row) => (
         <Space size={4}>
+          <Tooltip title={text.submissions.viewAssignmentRecords}>
+            <Button aria-label={`${text.submissions.viewAssignmentRecords} #${row.id}`} type="text" icon={<UnorderedListOutlined />} href={`/submissions?assignment=${row.id}`} />
+          </Tooltip>
           <Tooltip title={text.common.edit}>
             <Button aria-label={`${text.common.edit} #${row.id}`} type="text" icon={<EditOutlined />} onClick={() => actions.edit(row)} />
           </Tooltip>

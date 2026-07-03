@@ -35,6 +35,8 @@ const (
 	contentType    = "application/gzip"
 )
 
+var settingKeys = [...]string{settingEnabled, settingKeep, settingCron}
+
 type Settings struct {
 	Enabled bool   `json:"enabled"`
 	Cron    string `json:"cron"`
@@ -84,21 +86,21 @@ func DefaultSettings() Settings {
 func ReadSettings(db *gorm.DB) (Settings, error) {
 	settings := DefaultSettings()
 	var rows []models.Setting
-	if err := db.Find(&rows, "key IN ?", settingKeys()).Error; err != nil {
+	if err := db.Find(&rows, "key IN ?", settingKeys[:]).Error; err != nil {
 		return settings, err
 	}
 	for _, row := range rows {
 		switch row.Key {
 		case settingEnabled:
-			if err := unmarshalSetting(row.Value, &settings.Enabled); err != nil {
+			if err := json.Unmarshal(row.Value, &settings.Enabled); err != nil {
 				return settings, err
 			}
 		case settingKeep:
-			if err := unmarshalSetting(row.Value, &settings.Keep); err != nil {
+			if err := json.Unmarshal(row.Value, &settings.Keep); err != nil {
 				return settings, err
 			}
 		case settingCron:
-			if err := unmarshalSetting(row.Value, &settings.Cron); err != nil {
+			if err := json.Unmarshal(row.Value, &settings.Cron); err != nil {
 				return settings, err
 			}
 		}
@@ -117,7 +119,7 @@ func SaveSettings(db *gorm.DB, settings Settings) error {
 			settingKeep:    clean.Keep,
 			settingCron:    clean.Cron,
 		}
-		for _, key := range settingKeys() {
+		for _, key := range settingKeys {
 			if err := saveSetting(tx, key, values[key]); err != nil {
 				return err
 			}
@@ -364,20 +366,12 @@ func runningLock(ctx context.Context, now time.Time) (*Running, error) {
 	return &Running{Name: lock.Name, StartedAt: lock.StartedAt, Stale: now.Sub(lock.StartedAt) > staleAfter}, nil
 }
 
-func settingKeys() []string {
-	return []string{settingEnabled, settingKeep, settingCron}
-}
-
 func saveSetting(db *gorm.DB, key string, value any) error {
 	encoded, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
 	return db.Save(&models.Setting{Key: key, Value: datatypes.JSON(encoded)}).Error
-}
-
-func unmarshalSetting(data datatypes.JSON, value any) error {
-	return json.Unmarshal(data, value)
 }
 
 var (

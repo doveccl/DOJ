@@ -15,36 +15,39 @@ import { formatTime, memoryText, problemCode, problemLabel, submissionCode } fro
 import { pageFromParams, pageSizeFromParams, setPageParams } from '../utils/pagination'
 
 type SubmissionFilters = {
-  problem?: string
+  problem?: number
   user?: string
-  assignment?: string
-  contest?: string
+  assignment?: number
+  contest?: number
 }
 
 export function SubmissionsPage() {
   const { lang, text } = useLocale()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const problem = normalizeProblemValue(params.get('problem') ?? '')
+  const problem = numberParam(params.get('problem'))
   const user = params.get('user') ?? ''
-  const assignment = params.get('assignment') ?? ''
-  const contest = params.get('contest') ?? ''
+  const assignment = numberParam(params.get('assignment'))
+  const contest = numberParam(params.get('contest'))
   const page = pageFromParams(params)
   const pageSize = pageSizeFromParams(params)
   const problemSearch = useRemoteSearch()
   const userSearch = useRemoteSearch()
   const assignmentSearch = useRemoteSearch()
   const contestSearch = useRemoteSearch()
+  const problemQuery = problemSearch.searchText || stringParam(problem) || ''
+  const assignmentQuery = assignmentSearch.searchText || stringParam(assignment) || ''
+  const contestQuery = contestSearch.searchText || stringParam(contest) || ''
   const query = useQuery({
     queryKey: ['submissions', problem, user, assignment, contest, page, pageSize],
-    queryFn: () => apiData(api.GET('/api/submissions', { params: { query: cleanFilters({ problem, user, assignment, contest, page, pageSize }) } })),
+    queryFn: () => apiData(api.GET('/api/submissions', { params: { query: cleanFilters({ problem: stringParam(problem), user, assignment: stringParam(assignment), contest: stringParam(contest), page, pageSize }) } })),
     refetchInterval: (query) => (query.state.data?.items.some((item) => isLiveSubmissionStatus(item.status)) ? 3000 : false)
   })
   const languages = useQuery({ queryKey: ['languages'], queryFn: () => apiData(api.GET('/api/languages')) })
   const problems = useQuery({
-    queryKey: ['problems', 'submission-filter', problemSearch.searchText],
-    queryFn: () => apiData(api.GET('/api/problems', { params: { query: { q: problemSearch.searchText, page: 1, pageSize: 50 } } })).then((page) => page.items),
-    enabled: problemSearch.active || problem.length > 0
+    queryKey: ['problems', 'submission-filter', problemQuery],
+    queryFn: () => apiData(api.GET('/api/problems', { params: { query: { q: problemQuery, page: 1, pageSize: 50 } } })).then((page) => page.items),
+    enabled: problemSearch.active || problem !== undefined
   })
   const users = useQuery({
     queryKey: ['users', 'submission-filter', userSearch.searchText],
@@ -52,37 +55,34 @@ export function SubmissionsPage() {
     enabled: userSearch.active || user.length > 0
   })
   const assignments = useQuery({
-    queryKey: ['assignments', 'submission-filter', assignmentSearch.searchText],
-    queryFn: () => apiData(api.GET('/api/assignments', { params: { query: { q: assignmentSearch.searchText, page: 1, pageSize: 50 } } })).then((page) => page.items),
-    enabled: assignmentSearch.active || assignment.length > 0
+    queryKey: ['assignments', 'submission-filter', assignmentQuery],
+    queryFn: () => apiData(api.GET('/api/assignments', { params: { query: { q: assignmentQuery, page: 1, pageSize: 50 } } })).then((page) => page.items),
+    enabled: assignmentSearch.active || assignment !== undefined
   })
   const contests = useQuery({
-    queryKey: ['contests', 'submission-filter', contestSearch.searchText],
-    queryFn: () => apiData(api.GET('/api/contests', { params: { query: { q: contestSearch.searchText, page: 1, pageSize: 50 } } })).then((page) => page.items),
-    enabled: contestSearch.active || contest.length > 0
+    queryKey: ['contests', 'submission-filter', contestQuery],
+    queryFn: () => apiData(api.GET('/api/contests', { params: { query: { q: contestQuery, page: 1, pageSize: 50 } } })).then((page) => page.items),
+    enabled: contestSearch.active || contest !== undefined
   })
   const languageNames = new Map((languages.data ?? []).map((item) => [item.id, item.name]))
-  const problemOptions = selectFilterOptions(
-    problem ? [{ value: problem, label: numericProblem(problem) ? problemCode(Number(problem)) : problem }] : [],
-    (problems.data ?? []).map((item) => ({ value: String(item.id), label: problemLabel(item.id, item.title) }))
-  )
-  const userOptions = selectFilterOptions(user ? [{ value: user, label: user }] : [], (users.data ?? []).map((item) => ({ value: item.name, label: item.name })))
-  const assignmentOptions = selectFilterOptions(assignment ? [{ value: assignment, label: `#${assignment}` }] : [], (assignments.data ?? []).map((item) => ({ value: String(item.id), label: item.title })))
-  const contestOptions = selectFilterOptions(contest ? [{ value: contest, label: `#${contest}` }] : [], (contests.data ?? []).map((item) => ({ value: String(item.id), label: item.title })))
+  const problemOptions = (problems.data ?? []).map((item) => ({ value: item.id, label: problemLabel(item.id, item.title) }))
+  const userOptions = (users.data ?? []).map((item) => ({ value: item.name, label: item.name }))
+  const assignmentOptions = (assignments.data ?? []).map((item) => ({ value: item.id, label: item.title }))
+  const contestOptions = (contests.data ?? []).map((item) => ({ value: item.id, label: item.title }))
 
   function submit(values: SubmissionFilters) {
     const next = new URLSearchParams()
-    if (values.problem) {
-      next.set('problem', values.problem)
+    if (values.problem !== undefined) {
+      next.set('problem', String(values.problem))
     }
     if (values.user) {
       next.set('user', values.user)
     }
-    if (values.assignment) {
-      next.set('assignment', values.assignment)
+    if (values.assignment !== undefined) {
+      next.set('assignment', String(values.assignment))
     }
-    if (values.contest) {
-      next.set('contest', values.contest)
+    if (values.contest !== undefined) {
+      next.set('contest', String(values.contest))
     }
     setParams(next)
   }
@@ -95,7 +95,7 @@ export function SubmissionsPage() {
     <Card>
       <Flex vertical gap={16}>
         <Flex className="tableToolbar" justify="space-between" align="center" gap={12} wrap>
-          <Form className="tableToolbarForm" layout="inline" initialValues={{ problem: problem || undefined, user: user || undefined, assignment: assignment || undefined, contest: contest || undefined }} onFinish={submit} key={`${problem}:${user}:${assignment}:${contest}`}>
+          <Form className="tableToolbarForm" layout="inline" initialValues={{ problem, user: user || undefined, assignment, contest }} onFinish={submit} key={`${problem ?? ''}:${user}:${assignment ?? ''}:${contest ?? ''}`}>
             <Form.Item name="problem">
               <Select
                 allowClear
@@ -187,28 +187,20 @@ function cleanFilters<T extends Record<string, string | number | undefined>>(fil
   return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== undefined && value !== '')) as T
 }
 
+function stringParam(value: number | undefined) {
+  return value === undefined ? undefined : String(value)
+}
+
 function isLiveSubmissionStatus(status?: string) {
   return status === 'queued' || status === 'judging'
 }
 
-function normalizeProblemValue(value: string) {
-  return value.trim().replace(/^p/i, '')
-}
-
-function numericProblem(value: string) {
-  return /^\d+$/.test(value)
-}
-
-function selectFilterOptions(...lists: { value: string; label: string }[][]) {
-  const merged = new Map<string, string>()
-  for (const list of lists) {
-    for (const item of list) {
-      if (!merged.has(item.value)) {
-        merged.set(item.value, item.label)
-      }
-    }
+function numberParam(value: string | null) {
+  const normalized = (value ?? '').trim().replace(/^(p|c|#)/i, '')
+  if (!/^\d+$/.test(normalized)) {
+    return undefined
   }
-  return Array.from(merged, ([value, label]) => ({ value, label }))
+  return Number(normalized)
 }
 
 function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: string, languageNames: Map<string, string>): TableProps<SubmissionListItem>['columns'] {
