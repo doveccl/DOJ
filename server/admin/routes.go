@@ -24,7 +24,8 @@ import (
 )
 
 type API struct {
-	db *gorm.DB
+	db              *gorm.DB
+	backupScheduler *backupsvc.Scheduler
 }
 
 type Members struct {
@@ -153,11 +154,14 @@ const (
 	settingHomeNotice              = "home_notice"
 )
 
-func Register(e *echo.Echo, db *gorm.DB) {
+func Register(e *echo.Echo, db *gorm.DB, backupScheduler ...*backupsvc.Scheduler) {
 	if db == nil {
 		panic("admin API requires a database")
 	}
 	api := &API{db: db}
+	if len(backupScheduler) > 0 {
+		api.backupScheduler = backupScheduler[0]
+	}
 	group := e.Group("/api/admin", api.requireAdmin)
 	group.GET("/settings", api.getSettings)
 	group.PATCH("/settings", api.updateSettings, echomw.BodyLimit(utils.BodyLimitSettings))
@@ -294,6 +298,11 @@ func (api *API) updateBackupSettings(c echo.Context) error {
 	}
 	if err := backupsvc.SaveSettings(api.db, settings); err != nil {
 		return err
+	}
+	if api.backupScheduler != nil {
+		if err := api.backupScheduler.Reload(settings); err != nil {
+			return err
+		}
 	}
 	return c.JSON(http.StatusOK, settings)
 }

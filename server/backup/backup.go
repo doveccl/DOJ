@@ -254,35 +254,6 @@ func (manager Manager) Prune(ctx context.Context, keep int) error {
 	return nil
 }
 
-func (manager Manager) Due(ctx context.Context, settings Settings, now time.Time) (bool, error) {
-	settings, err := CleanSettings(settings)
-	if err != nil {
-		return false, err
-	}
-	if !settings.Enabled {
-		return false, nil
-	}
-	list, err := manager.List(ctx)
-	if err != nil {
-		return false, err
-	}
-	if list.Running != nil && !list.Running.Stale {
-		return false, nil
-	}
-	schedule, err := cron.ParseStandard(settings.Cron)
-	if err != nil {
-		return false, err
-	}
-	if !schedule.Next(now.Add(-time.Minute)).Equal(now.Truncate(time.Minute)) {
-		return false, nil
-	}
-	if len(list.Items) == 0 {
-		return true, nil
-	}
-	latest := list.Items[0].CreatedAt
-	return now.Sub(latest.In(now.Location())) >= time.Minute, nil
-}
-
 func (manager Manager) store() (utils.ObjectStore, error) {
 	if manager.Store != nil {
 		return manager.Store, nil

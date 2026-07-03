@@ -52,10 +52,10 @@ func Main() {
 	if err != nil {
 		e.Logger.Fatal(err)
 	}
+	backupScheduler := backupsvc.StartScheduler(ctx, db)
 	websvc.Register(e, db)
-	adminsvc.Register(e, db)
+	adminsvc.Register(e, db, backupScheduler)
 	judgersvc.Register(e, db)
-	backupsvc.StartScheduler(ctx, db)
 	if err := registerWebApp(e, defaultWebDir); err != nil {
 		e.Logger.Fatal(err)
 	}

@@ -140,12 +140,45 @@ func TestBackupCronSettings(t *testing.T) {
 	if _, err := CleanSettings(Settings{Enabled: true, Cron: "not cron", Keep: 7}); err == nil {
 		t.Fatalf("invalid cron accepted")
 	}
+}
+
+func TestSchedulerReloadReplacesCronEntry(t *testing.T) {
+	scheduler := NewScheduler(t.Context(), Manager{DB: testDB(t)})
+	if err := scheduler.Reload(Settings{Enabled: true, Cron: "30 3 * * *", Keep: 7}); err != nil {
+		t.Fatalf("reload enabled: %v", err)
+	}
+	if len(scheduler.cron.Entries()) != 1 {
+		t.Fatalf("entries after enable = %d", len(scheduler.cron.Entries()))
+	}
+	if err := scheduler.Reload(Settings{Enabled: true, Cron: "45 4 * * *", Keep: 7}); err != nil {
+		t.Fatalf("reload changed: %v", err)
+	}
+	if len(scheduler.cron.Entries()) != 1 {
+		t.Fatalf("entries after change = %d", len(scheduler.cron.Entries()))
+	}
+	if err := scheduler.Reload(Settings{Enabled: false, Cron: "45 4 * * *", Keep: 7}); err != nil {
+		t.Fatalf("reload disabled: %v", err)
+	}
+	if len(scheduler.cron.Entries()) != 0 {
+		t.Fatalf("entries after disable = %d", len(scheduler.cron.Entries()))
+	}
+}
+
+func TestScheduledBackupDeduplicatesSameMinute(t *testing.T) {
 	db := testDB(t)
 	t.Setenv("STORAGE", t.TempDir())
-	manager := Manager{DB: db}
-	due, err := manager.Due(t.Context(), Settings{Enabled: true, Cron: "30 3 * * *", Keep: 7}, time.Date(2026, 6, 26, 3, 30, 0, 0, time.Local))
-	if err != nil || !due {
-		t.Fatalf("cron should be due, due=%v err=%v", due, err)
+	t.Setenv("DATABASE", "postgres://postgres@localhost/doj")
+	now := time.Date(2026, 6, 26, 3, 30, 0, 0, time.Local)
+	manager := Manager{DB: db, Runner: stubRunner{dir: t.TempDir(), data: gzipData(t, "select 1;\n")}, Now: func() time.Time { return now }}
+	scheduler := NewScheduler(t.Context(), manager)
+	scheduler.backup()
+	scheduler.backup()
+	list, err := manager.List(t.Context())
+	if err != nil {
+		t.Fatalf("list backups: %v", err)
+	}
+	if len(list.Items) != 1 {
+		t.Fatalf("scheduled backups = %d, want 1: %+v", len(list.Items), list.Items)
 	}
 }
 
