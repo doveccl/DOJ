@@ -20,7 +20,7 @@ func prepareContainerCustomJudge(ctx context.Context, work string, limits Limits
 	}
 	rel, err := filepath.Rel(work, path)
 	if err != nil || rel == "." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." {
-		return "", CompileResult{OK: false, Message: "custom judge path is outside job directory"}, nil
+		return "", CompileResult{OK: false, Message: "custom judge path is outside task directory"}, nil
 	}
 	return slashpath.Join(containerWorkDir, filepath.ToSlash(rel)), result, nil
 }

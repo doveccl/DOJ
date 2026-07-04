@@ -68,12 +68,12 @@ type LangPayload struct {
 }
 
 type ProblemPayload struct {
-	ID             uint     `json:"id"`
-	Mode           string   `json:"mode"`
-	TimeMS         int      `json:"timeMs"`
-	MemoryMB       int      `json:"memoryMb"`
-	Tags           []string `json:"tags"`
-	PackageVersion string   `json:"packageVersion"`
+	ID          uint     `json:"id"`
+	Mode        string   `json:"mode"`
+	TimeMS      int      `json:"timeMs"`
+	MemoryMB    int      `json:"memoryMb"`
+	Tags        []string `json:"tags"`
+	PackageHash string   `json:"packageHash"`
 }
 
 type LimitsPayload struct {
@@ -274,7 +274,7 @@ func (api *API) problemPackage(c echo.Context) error {
 	c.Response().WriteHeader(http.StatusOK)
 	writer := zip.NewWriter(c.Response().Writer)
 	defer writer.Close()
-	return writeTaskAssetZip(c.Request().Context(), writer, store, problem.ID, files)
+	return writeProblemPackageZip(c.Request().Context(), writer, store, problem.ID, files)
 }
 
 func (api *API) heartbeat(c echo.Context) error {
@@ -635,12 +635,12 @@ func buildPayload(ctx context.Context, tx *gorm.DB, submission models.Submission
 		},
 		Cases: cases,
 		Problem: ProblemPayload{
-			ID:             problem.ID,
-			Mode:           problem.Mode,
-			TimeMS:         problem.TimeMS,
-			MemoryMB:       problem.MemoryMB,
-			Tags:           readTags(problem.Tags),
-			PackageVersion: problemPackageVersion(problem.ID, files),
+			ID:          problem.ID,
+			Mode:        problem.Mode,
+			TimeMS:      problem.TimeMS,
+			MemoryMB:    problem.MemoryMB,
+			Tags:        readTags(problem.Tags),
+			PackageHash: problemPackageHash(problem.ID, files),
 		},
 	}, nil
 }
@@ -671,13 +671,13 @@ func listProblemObjectsCached(ctx context.Context, store utils.ObjectStore, prob
 	return files, nil
 }
 
-func problemPackageVersion(problemID uint, files []utils.ObjectInfo) string {
+func problemPackageHash(problemID uint, files []utils.ObjectInfo) string {
 	ordered := append([]utils.ObjectInfo(nil), files...)
 	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Key < ordered[j].Key })
 	hash := sha256.New()
 	_, _ = fmt.Fprintf(hash, "P%d\n", problemID)
 	for _, object := range ordered {
-		if _, _, ok := taskAssetZipName(problemID, object.Key); !ok {
+		if _, _, ok := problemPackageZipName(problemID, object.Key); !ok {
 			continue
 		}
 		_, _ = fmt.Fprintf(hash, "%s\x00%d\x00%s\x00%d\n", object.Key, object.Size, object.ETag, object.UpdatedAt.UnixNano())
@@ -685,13 +685,13 @@ func problemPackageVersion(problemID uint, files []utils.ObjectInfo) string {
 	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
-func writeTaskAssetZip(ctx context.Context, writer *zip.Writer, store utils.ObjectStore, problemID uint, files []utils.ObjectInfo) error {
+func writeProblemPackageZip(ctx context.Context, writer *zip.Writer, store utils.ObjectStore, problemID uint, files []utils.ObjectInfo) error {
 	for _, object := range files {
-		section, name, ok := taskAssetZipName(problemID, object.Key)
+		section, name, ok := problemPackageZipName(problemID, object.Key)
 		if !ok {
 			continue
 		}
-		zipName, ok := safeTaskAssetZipName(section, name)
+		zipName, ok := safeProblemPackageZipName(section, name)
 		if !ok {
 			continue
 		}
@@ -728,7 +728,7 @@ func parseProblemCode(raw string) (uint, error) {
 	return uint(value), nil
 }
 
-func safeTaskAssetZipName(section string, name string) (string, bool) {
+func safeProblemPackageZipName(section string, name string) (string, bool) {
 	normalized := strings.TrimSpace(strings.ReplaceAll(name, "\\", "/"))
 	clean, err := utils.CleanObjectKey(normalized)
 	if err != nil || clean != normalized {
@@ -737,7 +737,7 @@ func safeTaskAssetZipName(section string, name string) (string, bool) {
 	return path.Join(section, clean), true
 }
 
-func taskAssetZipName(problemID uint, key string) (string, string, bool) {
+func problemPackageZipName(problemID uint, key string) (string, string, bool) {
 	for _, section := range []string{"data", "judge"} {
 		prefix := problemAssetPrefix(problemID, section) + "/"
 		if strings.HasPrefix(key, prefix) {

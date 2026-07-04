@@ -11,6 +11,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 )
@@ -18,7 +20,7 @@ import (
 func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 	requireDocker(t)
 	runner := buildRunner(t)
-	work := t.TempDir()
+	root := t.TempDir()
 
 	gotResult := make(chan resultRequest, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +38,7 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 				Lang:         testShellLang(),
 				Mode:         ModeDefault,
 				Limits:       Limits{TimeMS: 1000, OutputKB: 64},
-				Problem:      taskProblem{ID: 1000, PackageVersion: "fixture-v1"},
+				Problem:      taskProblem{ID: 1000, PackageHash: "fixture-v1"},
 				Cases: []casePayload{{
 					ID:     "1",
 					Input:  "data/1.in",
@@ -46,7 +48,7 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 			}})
 		case "/api/judger/P1000.zip":
 			w.Header().Set("Content-Type", "application/zip")
-			_, _ = w.Write(testAssetZip(t))
+			_, _ = w.Write(testPackageZip(t))
 		case "/api/judger/tasks/7/result":
 			var req resultRequest
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -68,13 +70,17 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 		Server: server.URL,
 		Token:  "secret",
 		Runner: runner,
-		Work:   filepath.Join(work, "jobs"),
+		Tasks:  filepath.Join(root, "tasks"),
+		Cache:  filepath.Join(root, "cache"),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !worked {
 		t.Fatal("expected task")
+	}
+	if _, err := os.Stat(filepath.Join(root, "tasks", "11")); !os.IsNotExist(err) {
+		t.Fatalf("task directory should be cleaned after task, err=%v", err)
 	}
 
 	select {
@@ -90,10 +96,10 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 	}
 }
 
-func TestRunOneDownloadsAssetsForRelativeCases(t *testing.T) {
+func TestRunOneDownloadsPackageForRelativeCases(t *testing.T) {
 	requireDocker(t)
 	runner := buildRunner(t)
-	work := t.TempDir()
+	root := t.TempDir()
 
 	gotResult := make(chan resultRequest, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -111,7 +117,7 @@ func TestRunOneDownloadsAssetsForRelativeCases(t *testing.T) {
 				Lang:         testShellLang(),
 				Mode:         ModeDefault,
 				Limits:       Limits{TimeMS: 1000, OutputKB: 64},
-				Problem:      taskProblem{ID: 1000, PackageVersion: "fixture-v1"},
+				Problem:      taskProblem{ID: 1000, PackageHash: "fixture-v1"},
 				Cases: []casePayload{{
 					ID:     "1",
 					Input:  "data/1.in",
@@ -121,7 +127,7 @@ func TestRunOneDownloadsAssetsForRelativeCases(t *testing.T) {
 			}})
 		case "/api/judger/P1000.zip":
 			w.Header().Set("Content-Type", "application/zip")
-			_, _ = w.Write(testAssetZip(t))
+			_, _ = w.Write(testPackageZip(t))
 		case "/api/judger/tasks/8/result":
 			var req resultRequest
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -143,13 +149,17 @@ func TestRunOneDownloadsAssetsForRelativeCases(t *testing.T) {
 		Server: server.URL,
 		Token:  "secret",
 		Runner: runner,
-		Work:   filepath.Join(work, "jobs"),
+		Tasks:  filepath.Join(root, "tasks"),
+		Cache:  filepath.Join(root, "cache"),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !worked {
 		t.Fatal("expected task")
+	}
+	if _, err := os.Stat(filepath.Join(root, "tasks", "12")); !os.IsNotExist(err) {
+		t.Fatalf("task directory should be cleaned after task, err=%v", err)
 	}
 
 	select {
@@ -162,7 +172,66 @@ func TestRunOneDownloadsAssetsForRelativeCases(t *testing.T) {
 	}
 }
 
-func TestExtractTaskAssetsRejectsZipSlip(t *testing.T) {
+func TestRunOneCleansWorkAfterPackageError(t *testing.T) {
+	root := t.TempDir()
+	gotResult := make(chan resultRequest, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/judger/lease":
+			_ = json.NewEncoder(w).Encode(leaseResponse{Task: &leaseTask{
+				ID:           9,
+				SubmissionID: 13,
+				Attempt:      1,
+				Source:       "cat\n",
+				Lang:         testShellLang(),
+				Mode:         ModeDefault,
+				Limits:       Limits{TimeMS: 1000, OutputKB: 64},
+				Problem:      taskProblem{ID: 1000, PackageHash: "fixture-v1"},
+				Cases: []casePayload{{
+					ID:     "1",
+					Input:  "data/1.in",
+					Answer: "data/1.out",
+					Score:  100,
+				}},
+			}})
+		case "/api/judger/P1000.zip":
+			http.Error(w, "missing", http.StatusNotFound)
+		case "/api/judger/tasks/9/result":
+			var req resultRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Error(err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			gotResult <- req
+			w.WriteHeader(http.StatusAccepted)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	worked, err := RunOne(t.Context(), WorkerConfig{
+		Server: server.URL,
+		Tasks:  filepath.Join(root, "tasks"),
+		Cache:  filepath.Join(root, "cache"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !worked {
+		t.Fatal("expected task")
+	}
+	if _, err := os.Stat(filepath.Join(root, "tasks", "13")); !os.IsNotExist(err) {
+		t.Fatalf("task directory should be cleaned after package error, err=%v", err)
+	}
+	result := <-gotResult
+	if result.Status != string(VerdictSystemError) {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
+func TestExtractProblemPackageRejectsZipSlip(t *testing.T) {
 	for _, name := range []string{"../escape.txt", "/absolute.txt", "data/../../escape.txt"} {
 		t.Run(name, func(t *testing.T) {
 			var body bytes.Buffer
@@ -177,14 +246,14 @@ func TestExtractTaskAssetsRejectsZipSlip(t *testing.T) {
 			if err := writer.Close(); err != nil {
 				t.Fatal(err)
 			}
-			if err := extractTaskAssets(body.Bytes(), t.TempDir()); err == nil {
-				t.Fatal("expected zip-slip asset to be rejected")
+			if err := extractProblemPackage(body.Bytes(), t.TempDir()); err == nil {
+				t.Fatal("expected zip-slip package to be rejected")
 			}
 		})
 	}
 }
 
-func TestDownloadTaskAssetsUsesLeasePackageVersionCache(t *testing.T) {
+func TestDownloadProblemPackageUsesLeasePackageHashCache(t *testing.T) {
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/judger/P1000.zip" {
@@ -195,7 +264,7 @@ func TestDownloadTaskAssetsUsesLeasePackageVersionCache(t *testing.T) {
 		switch requests {
 		case 1:
 			w.Header().Set("Content-Type", "application/zip")
-			_, _ = w.Write(testAssetZip(t))
+			_, _ = w.Write(testPackageZip(t))
 		default:
 			t.Errorf("unexpected package request %d", requests)
 			http.Error(w, "too many requests", http.StatusInternalServerError)
@@ -204,35 +273,104 @@ func TestDownloadTaskAssetsUsesLeasePackageVersionCache(t *testing.T) {
 	defer server.Close()
 
 	root := t.TempDir()
-	cfg := WorkerConfig{Server: server.URL, Work: filepath.Join(root, "jobs")}
+	cfg := WorkerConfig{Server: server.URL, Cache: filepath.Join(root, "cache")}
 	work1 := filepath.Join(root, "one")
 	if err := os.MkdirAll(work1, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := downloadTaskAssets(t.Context(), server.Client(), cfg, 1000, "v1", work1, 11, 1); err != nil {
+	if err := downloadProblemPackage(t.Context(), server.Client(), cfg, 1000, "v1", work1, 11, 1); err != nil {
 		t.Fatalf("first download: %v", err)
 	}
 	if got, err := os.ReadFile(filepath.Join(work1, "data", "1.in")); err != nil || string(got) != "42\n" {
-		t.Fatalf("first work asset = %q, %v", got, err)
+		t.Fatalf("first work package file = %q, %v", got, err)
+	}
+	if got := readProblemCacheHash(filepath.Join(root, "cache", "P1000")); got != "v1" {
+		t.Fatalf("problem cache hash = %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(root, "cache", "P1000", "data", "1.in")); err != nil {
+		t.Fatalf("problem cache data file missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "cache", "P1000", "package")); !os.IsNotExist(err) {
+		t.Fatalf("problem cache should not contain package directory, err=%v", err)
 	}
 
 	work2 := filepath.Join(root, "two")
 	if err := os.MkdirAll(work2, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := downloadTaskAssets(t.Context(), server.Client(), cfg, 1000, "v1", work2, 12, 1); err != nil {
+	if err := downloadProblemPackage(t.Context(), server.Client(), cfg, 1000, "v1", work2, 12, 1); err != nil {
 		t.Fatalf("cached download: %v", err)
 	}
 	if got, err := os.ReadFile(filepath.Join(work2, "data", "1.out")); err != nil || string(got) != "42\n" {
-		t.Fatalf("cached work asset = %q, %v", got, err)
+		t.Fatalf("cached work package file = %q, %v", got, err)
 	}
 	if requests != 1 {
 		t.Fatalf("package requests = %d", requests)
 	}
 }
 
-func TestDownloadTaskAssetsReportsDownloadedBytes(t *testing.T) {
-	body := testAssetZip(t)
+func TestDownloadProblemPackageSharesConcurrentDownload(t *testing.T) {
+	var mu sync.Mutex
+	requests := 0
+	entered := make(chan struct{}, 2)
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/judger/P1000.zip" {
+			http.NotFound(w, r)
+			return
+		}
+		mu.Lock()
+		requests++
+		got := requests
+		mu.Unlock()
+		entered <- struct{}{}
+		if got > 1 {
+			t.Errorf("unexpected concurrent package request %d", got)
+			http.Error(w, "too many requests", http.StatusInternalServerError)
+			return
+		}
+		<-release
+		w.Header().Set("Content-Type", "application/zip")
+		_, _ = w.Write(testPackageZip(t))
+	}))
+	defer server.Close()
+
+	root := t.TempDir()
+	cfg := WorkerConfig{Server: server.URL, Cache: filepath.Join(root, "cache")}
+	errCh := make(chan error, 2)
+	for index := 0; index < 2; index++ {
+		go func(index int) {
+			work := filepath.Join(root, "work", strconv.Itoa(index))
+			if err := os.MkdirAll(work, 0o755); err != nil {
+				errCh <- err
+				return
+			}
+			errCh <- downloadProblemPackage(t.Context(), server.Client(), cfg, 1000, "v1", work, uint(index+1), 1)
+		}(index)
+	}
+	<-entered
+	close(release)
+	for index := 0; index < 2; index++ {
+		if err := <-errCh; err != nil {
+			t.Fatalf("download %d: %v", index, err)
+		}
+	}
+	mu.Lock()
+	gotRequests := requests
+	mu.Unlock()
+	if gotRequests != 1 {
+		t.Fatalf("package requests = %d", gotRequests)
+	}
+	for index := 0; index < 2; index++ {
+		got, err := os.ReadFile(filepath.Join(root, "work", strconv.Itoa(index), "data", "1.in"))
+		if err != nil || string(got) != "42\n" {
+			t.Fatalf("work %d package file = %q, %v", index, got, err)
+		}
+	}
+}
+
+func TestDownloadProblemPackageReportsDownloadedBytes(t *testing.T) {
+	body := testPackageZip(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/judger/P1000.zip" {
 			http.NotFound(w, r)
@@ -251,12 +389,12 @@ func TestDownloadTaskAssetsReportsDownloadedBytes(t *testing.T) {
 	var got []heartbeatRequest
 	cfg := WorkerConfig{
 		Server: server.URL,
-		Work:   filepath.Join(root, "jobs"),
+		Cache:  filepath.Join(root, "cache"),
 		Progress: func(stage string, done int64, total *int64) {
 			got = append(got, heartbeatRequest{Stage: stage, Done: done, Total: total})
 		},
 	}
-	if err := downloadTaskAssets(t.Context(), server.Client(), cfg, 1000, "v1", work, 11, 1); err != nil {
+	if err := downloadProblemPackage(t.Context(), server.Client(), cfg, 1000, "v1", work, 11, 1); err != nil {
 		t.Fatalf("download: %v", err)
 	}
 	if len(got) == 0 {
@@ -268,7 +406,7 @@ func TestDownloadTaskAssetsReportsDownloadedBytes(t *testing.T) {
 	}
 }
 
-func TestDownloadTaskAssetsUsesLongerTimeoutThanAPIClient(t *testing.T) {
+func TestDownloadProblemPackageUsesLongerTimeoutThanAPIClient(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/judger/P1000.zip" {
 			http.NotFound(w, r)
@@ -276,7 +414,7 @@ func TestDownloadTaskAssetsUsesLongerTimeoutThanAPIClient(t *testing.T) {
 		}
 		time.Sleep(20 * time.Millisecond)
 		w.Header().Set("Content-Type", "application/zip")
-		_, _ = w.Write(testAssetZip(t))
+		_, _ = w.Write(testPackageZip(t))
 	}))
 	defer server.Close()
 
@@ -286,13 +424,13 @@ func TestDownloadTaskAssetsUsesLongerTimeoutThanAPIClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	client := &http.Client{Timeout: time.Nanosecond}
-	cfg := WorkerConfig{Server: server.URL, Work: filepath.Join(root, "jobs")}
-	if err := downloadTaskAssets(t.Context(), client, cfg, 1000, "v1", work, 11, 1); err != nil {
+	cfg := WorkerConfig{Server: server.URL, Cache: filepath.Join(root, "cache")}
+	if err := downloadProblemPackage(t.Context(), client, cfg, 1000, "v1", work, 11, 1); err != nil {
 		t.Fatalf("download should not use short API timeout: %v", err)
 	}
 }
 
-func testAssetZip(t *testing.T) []byte {
+func testPackageZip(t *testing.T) []byte {
 	t.Helper()
 	var body bytes.Buffer
 	writer := zip.NewWriter(&body)

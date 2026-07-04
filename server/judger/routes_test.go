@@ -348,8 +348,8 @@ func TestTryLeaseStoresDatabaseLease(t *testing.T) {
 	if payload == nil || payload.SubmissionID != submission.ID || payload.Attempt != 1 {
 		t.Fatalf("payload = %+v", payload)
 	}
-	if payload.Problem.PackageVersion == "" {
-		t.Fatalf("lease payload should include problem package version: %+v", payload.Problem)
+	if payload.Problem.PackageHash == "" {
+		t.Fatalf("lease payload should include problem package hash: %+v", payload.Problem)
 	}
 	var got models.Submission
 	if err := db.First(&got, submission.ID).Error; err != nil {
@@ -504,14 +504,14 @@ func judgerJSON(e *echo.Echo, target string, token string, body string) *httptes
 	return res
 }
 
-func TestSafeTaskAssetZipNameRejectsUnsafeNames(t *testing.T) {
-	name, ok := safeTaskAssetZipName("judge", "custom/main.cc")
+func TestSafeProblemPackageZipNameRejectsUnsafeNames(t *testing.T) {
+	name, ok := safeProblemPackageZipName("judge", "custom/main.cc")
 	if !ok || name != "judge/custom/main.cc" {
-		t.Fatalf("safe task asset name = %q, %v", name, ok)
+		t.Fatalf("safe problem package name = %q, %v", name, ok)
 	}
 	for _, unsafe := range []string{"../evil", "custom/../../evil", "/absolute", `custom\..\evil`, "custom//main.cc"} {
-		if name, ok := safeTaskAssetZipName("judge", unsafe); ok {
-			t.Fatalf("unsafe task asset name %q accepted as %q", unsafe, name)
+		if name, ok := safeProblemPackageZipName("judge", unsafe); ok {
+			t.Fatalf("unsafe problem package name %q accepted as %q", unsafe, name)
 		}
 	}
 }

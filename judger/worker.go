@@ -21,7 +21,8 @@ type WorkerConfig struct {
 	Server     string
 	Token      string
 	Runner     string
-	Work       string
+	Tasks      string
+	Cache      string
 	CgroupRoot string
 	ProcRoot   string
 	HTTPClient *http.Client
@@ -36,9 +37,11 @@ type LoopConfig struct {
 }
 
 const (
-	defaultHTTPTimeout      = 30 * time.Second
-	defaultAssetHTTPTimeout = 5 * time.Minute
+	defaultHTTPTimeout        = 30 * time.Second
+	defaultPackageHTTPTimeout = 5 * time.Minute
 )
+
+var problemPackageLocks sync.Map
 
 type leaseRequest struct {
 	Version string `json:"version"`
@@ -63,8 +66,8 @@ type leaseTask struct {
 }
 
 type taskProblem struct {
-	ID             uint   `json:"id"`
-	PackageVersion string `json:"packageVersion"`
+	ID          uint   `json:"id"`
+	PackageHash string `json:"packageHash"`
 }
 
 type casePayload struct {
@@ -126,19 +129,24 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 	progress.Set(ctx, "prepare", 0, nil)
 	go heartbeatLoop(heartbeatCtx, progress)
 
-	workStartedAt := time.Now()
-	work := filepath.Join(cfg.Work, strconv.FormatUint(uint64(task.SubmissionID), 10), strconv.Itoa(task.Attempt))
-	if err := os.RemoveAll(work); err != nil {
+	taskStartedAt := time.Now()
+	tasksRoot := strings.TrimSpace(cfg.Tasks)
+	if tasksRoot == "" {
+		return true, fmt.Errorf("task directory is required")
+	}
+	taskDir := filepath.Join(tasksRoot, strconv.FormatUint(uint64(task.SubmissionID), 10), strconv.Itoa(task.Attempt))
+	if err := os.RemoveAll(taskDir); err != nil {
 		return true, err
 	}
-	if err := os.MkdirAll(work, 0o755); err != nil {
+	if err := os.MkdirAll(taskDir, 0o755); err != nil {
 		return true, err
 	}
-	logStep(cfg.Logf, task.SubmissionID, task.Attempt, "prepare_work", workStartedAt)
-	if task.needsAssets() {
-		assetsStartedAt := time.Now()
-		if err := downloadTaskAssets(ctx, client, cfg, task.Problem.ID, task.Problem.PackageVersion, work, task.SubmissionID, task.Attempt); err != nil {
-			logStep(cfg.Logf, task.SubmissionID, task.Attempt, "download_assets_error", assetsStartedAt)
+	defer cleanupTaskDir(taskDir)
+	logStep(cfg.Logf, task.SubmissionID, task.Attempt, "prepare_task", taskStartedAt)
+	if task.needsProblemPackage() {
+		packageStartedAt := time.Now()
+		if err := downloadProblemPackage(ctx, client, cfg, task.Problem.ID, task.Problem.PackageHash, taskDir, task.SubmissionID, task.Attempt); err != nil {
+			logStep(cfg.Logf, task.SubmissionID, task.Attempt, "download_problem_package_error", packageStartedAt)
 			result := TaskResult{
 				SubmissionID: task.SubmissionID,
 				Attempt:      task.Attempt,
@@ -150,15 +158,15 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 			}
 			return true, nil
 		}
-		logStep(cfg.Logf, task.SubmissionID, task.Attempt, "download_assets", assetsStartedAt)
+		logStep(cfg.Logf, task.SubmissionID, task.Attempt, "download_problem_package", packageStartedAt)
 	}
 	runStartedAt := time.Now()
 	result, err := RunContainerTask(ctx, ContainerTask{
 		Runner:           cfg.Runner,
-		Work:             work,
+		Work:             taskDir,
 		CgroupRoot:       cfg.CgroupRoot,
 		ProcRoot:         cfg.ProcRoot,
-		CustomJudgeCache: customJudgeCachePath(cfg.Work, task.Problem.ID, task.Problem.PackageVersion, task.Mode),
+		CustomJudgeCache: customJudgeCachePath(cfg.Cache, task.Problem.ID, task.Mode),
 		Task:             task.toTask(),
 		Logf:             cfg.Logf,
 		Progress:         cfg.Progress,
@@ -181,7 +189,10 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 	return true, nil
 }
 
-func (task leaseTask) needsAssets() bool {
+func (task leaseTask) needsProblemPackage() bool {
+	if task.Mode == ModeCustom {
+		return true
+	}
 	for _, item := range task.Cases {
 		if !filepath.IsAbs(item.Input) || !filepath.IsAbs(item.Answer) {
 			return true
@@ -250,6 +261,11 @@ func sleepContext(ctx context.Context, d time.Duration) error {
 	case <-timer.C:
 		return nil
 	}
+}
+
+func cleanupTaskDir(taskDir string) {
+	_ = os.RemoveAll(taskDir)
+	_ = os.Remove(filepath.Dir(taskDir))
 }
 
 func logStep(logf func(format string, args ...any), submissionID uint, attempt int, step string, startedAt time.Time) {
@@ -401,18 +417,30 @@ func cloneInt64(value *int64) *int64 {
 	return &got
 }
 
-func downloadTaskAssets(ctx context.Context, client *http.Client, cfg WorkerConfig, problemID uint, packageVersion string, work string, submissionID uint, attempt int) error {
-	cacheDir := taskAssetCacheDir(cfg, problemID)
-	cacheFilesDir := filepath.Join(cacheDir, "files")
-	cacheVersion := readTaskAssetCacheVersion(cacheDir)
-	cacheReady := cacheVersion != "" && cacheVersion == strings.TrimSpace(packageVersion) && dirExists(cacheFilesDir)
-	logTask(cfg.Logf, submissionID, attempt, "asset_cache ready=%t version=%s dir=%s", cacheReady, shortVersion(cacheVersion), cacheDir)
+func downloadProblemPackage(ctx context.Context, client *http.Client, cfg WorkerConfig, problemID uint, packageHash string, taskDir string, submissionID uint, attempt int) error {
+	packageHash = strings.TrimSpace(packageHash)
+	if packageHash == "" {
+		return fmt.Errorf("problem package hash is required")
+	}
+	cacheRoot := strings.TrimSpace(cfg.Cache)
+	if cacheRoot == "" {
+		return fmt.Errorf("cache directory is required")
+	}
+	cacheDir := problemCacheDir(cacheRoot, problemID)
+	lockValue, _ := problemPackageLocks.LoadOrStore(cacheDir, &sync.Mutex{})
+	lock := lockValue.(*sync.Mutex)
+	lock.Lock()
+	defer lock.Unlock()
+
+	cacheHash := readProblemCacheHash(cacheDir)
+	cacheReady := cacheHash != "" && cacheHash == packageHash && dirExists(cacheDir)
+	logTask(cfg.Logf, submissionID, attempt, "cache ready=%t hash=%s dir=%s", cacheReady, shortHash(cacheHash), cacheDir)
 	if cacheReady {
 		copyStartedAt := time.Now()
-		if err := copyDir(cacheFilesDir, work); err != nil {
+		if err := copyProblemCache(cacheDir, taskDir); err != nil {
 			return err
 		}
-		logTask(cfg.Logf, submissionID, attempt, "asset_cache_copy=%s source=hit", formatDuration(time.Since(copyStartedAt)))
+		logTask(cfg.Logf, submissionID, attempt, "cache_copy=%s source=hit", formatDuration(time.Since(copyStartedAt)))
 		return nil
 	}
 
@@ -424,8 +452,8 @@ func downloadTaskAssets(ctx context.Context, client *http.Client, cfg WorkerConf
 		httpReq.Header.Set("Authorization", "Bearer "+cfg.Token)
 	}
 	requestStartedAt := time.Now()
-	httpResp, err := assetDownloadClient(client, cfg).Do(httpReq)
-	logTask(cfg.Logf, submissionID, attempt, "asset_package_request=%s status=%s cache_version=%s lease_version=%s", formatDuration(time.Since(requestStartedAt)), responseStatus(httpResp), shortVersion(cacheVersion), shortVersion(packageVersion))
+	httpResp, err := packageDownloadClient(client, cfg).Do(httpReq)
+	logTask(cfg.Logf, submissionID, attempt, "problem_package_request=%s status=%s cache_hash=%s lease_hash=%s", formatDuration(time.Since(requestStartedAt)), responseStatus(httpResp), shortHash(cacheHash), shortHash(packageHash))
 	if err != nil {
 		return err
 	}
@@ -433,7 +461,7 @@ func downloadTaskAssets(ctx context.Context, client *http.Client, cfg WorkerConf
 	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
 		return fmt.Errorf("GET problem package returned %s", httpResp.Status)
 	}
-	const maxTaskAssetBytes = 512 << 20
+	const maxProblemPackageBytes = 512 << 20
 	readStartedAt := time.Now()
 	if cfg.Progress != nil {
 		cfg.Progress("download", 0, nil)
@@ -443,24 +471,24 @@ func downloadTaskAssets(ctx context.Context, client *http.Client, cfg WorkerConf
 			cfg.Progress("download", done, nil)
 		}
 	}}
-	data, err := io.ReadAll(io.LimitReader(reader, maxTaskAssetBytes+1))
+	data, err := io.ReadAll(io.LimitReader(reader, maxProblemPackageBytes+1))
 	if err != nil {
 		return err
 	}
-	if len(data) > maxTaskAssetBytes {
-		return fmt.Errorf("task assets exceed %d bytes", maxTaskAssetBytes)
+	if len(data) > maxProblemPackageBytes {
+		return fmt.Errorf("problem package exceed %d bytes", maxProblemPackageBytes)
 	}
-	logTask(cfg.Logf, submissionID, attempt, "asset_package_read=%s bytes=%d version=%s", formatDuration(time.Since(readStartedAt)), len(data), shortVersion(packageVersion))
+	logTask(cfg.Logf, submissionID, attempt, "problem_package_read=%s bytes=%d hash=%s", formatDuration(time.Since(readStartedAt)), len(data), shortHash(packageHash))
 	cacheStartedAt := time.Now()
-	if err := replaceTaskAssetCache(cacheDir, data, packageVersion); err != nil {
+	if err := replaceProblemCache(cacheDir, data, packageHash); err != nil {
 		return err
 	}
-	logTask(cfg.Logf, submissionID, attempt, "asset_cache_write=%s", formatDuration(time.Since(cacheStartedAt)))
+	logTask(cfg.Logf, submissionID, attempt, "cache_write=%s", formatDuration(time.Since(cacheStartedAt)))
 	copyStartedAt := time.Now()
-	if err := copyDir(cacheFilesDir, work); err != nil {
+	if err := copyProblemCache(cacheDir, taskDir); err != nil {
 		return err
 	}
-	logTask(cfg.Logf, submissionID, attempt, "asset_cache_copy=%s source=download", formatDuration(time.Since(copyStartedAt)))
+	logTask(cfg.Logf, submissionID, attempt, "cache_copy=%s source=download", formatDuration(time.Since(copyStartedAt)))
 	return nil
 }
 
@@ -479,42 +507,37 @@ func (reader *progressReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
-func taskAssetCacheDir(cfg WorkerConfig, problemID uint) string {
-	root := strings.TrimSpace(cfg.Work)
-	if root == "" {
-		root = os.TempDir()
-	}
-	return filepath.Join(root, "asset-cache", fmt.Sprintf("P%d", problemID))
+func problemCacheDir(root string, problemID uint) string {
+	root = strings.TrimSpace(root)
+	return filepath.Join(root, fmt.Sprintf("P%d", problemID))
 }
 
-func customJudgeCachePath(root string, problemID uint, version string, mode JudgeMode) string {
-	if mode != ModeCustom || strings.TrimSpace(version) == "" {
+func customJudgeCachePath(root string, problemID uint, mode JudgeMode) string {
+	root = strings.TrimSpace(root)
+	if mode != ModeCustom || root == "" {
 		return ""
 	}
-	if strings.TrimSpace(root) == "" {
-		root = os.TempDir()
-	}
-	return filepath.Join(root, "judge-cache", fmt.Sprintf("P%d", problemID), safeCaseID(version))
+	return filepath.Join(root, fmt.Sprintf("P%d", problemID), "judge.bin")
 }
 
-func readTaskAssetCacheVersion(cacheDir string) string {
-	raw, err := os.ReadFile(filepath.Join(cacheDir, "version"))
+func readProblemCacheHash(cacheDir string) string {
+	raw, err := os.ReadFile(filepath.Join(cacheDir, "hash"))
 	if err != nil {
 		return ""
 	}
 	return strings.TrimSpace(string(raw))
 }
 
-func replaceTaskAssetCache(cacheDir string, data []byte, version string) error {
-	version = strings.TrimSpace(version)
-	if version == "" {
-		return fmt.Errorf("problem package version is required")
+func replaceProblemCache(cacheDir string, data []byte, hash string) error {
+	hash = strings.TrimSpace(hash)
+	if hash == "" {
+		return fmt.Errorf("problem package hash is required")
 	}
 	parent := filepath.Dir(cacheDir)
 	if err := os.MkdirAll(parent, 0o755); err != nil {
 		return err
 	}
-	tmp, err := os.MkdirTemp(parent, ".asset-cache-")
+	tmp, err := os.MkdirTemp(parent, ".cache-")
 	if err != nil {
 		return err
 	}
@@ -524,14 +547,10 @@ func replaceTaskAssetCache(cacheDir string, data []byte, version string) error {
 			_ = os.RemoveAll(tmp)
 		}
 	}()
-	filesDir := filepath.Join(tmp, "files")
-	if err := os.MkdirAll(filesDir, 0o755); err != nil {
+	if err := extractProblemPackage(data, tmp); err != nil {
 		return err
 	}
-	if err := extractTaskAssets(data, filesDir); err != nil {
-		return err
-	}
-	if err := os.WriteFile(filepath.Join(tmp, "version"), []byte(version+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmp, "hash"), []byte(hash+"\n"), 0o644); err != nil {
 		return err
 	}
 	if err := os.RemoveAll(cacheDir); err != nil {
@@ -541,6 +560,19 @@ func replaceTaskAssetCache(cacheDir string, data []byte, version string) error {
 		return err
 	}
 	cleanup = false
+	return nil
+}
+
+func copyProblemCache(cacheDir string, taskDir string) error {
+	for _, name := range []string{"data", "judge"} {
+		src := filepath.Join(cacheDir, name)
+		if !dirExists(src) {
+			continue
+		}
+		if err := copyDir(src, filepath.Join(taskDir, name)); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -601,15 +633,15 @@ func responseStatus(resp *http.Response) string {
 	return resp.Status
 }
 
-func shortVersion(version string) string {
-	clean := strings.Trim(strings.TrimSpace(version), `"`)
+func shortHash(hash string) string {
+	clean := strings.Trim(strings.TrimSpace(hash), `"`)
 	if len(clean) <= 12 {
 		return clean
 	}
 	return clean[:12]
 }
 
-func extractTaskAssets(data []byte, work string) error {
+func extractProblemPackage(data []byte, work string) error {
 	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return err
@@ -617,7 +649,7 @@ func extractTaskAssets(data []byte, work string) error {
 	for _, file := range reader.File {
 		name := filepath.Clean(strings.ReplaceAll(file.Name, "\\", "/"))
 		if name == "." || name == ".." || filepath.IsAbs(name) || strings.HasPrefix(name, ".."+string(filepath.Separator)) {
-			return fmt.Errorf("invalid asset path %q", file.Name)
+			return fmt.Errorf("invalid package path %q", file.Name)
 		}
 		target := filepath.Join(work, filepath.FromSlash(name))
 		if file.FileInfo().IsDir() {
@@ -691,9 +723,9 @@ func workerClient(cfg WorkerConfig) *http.Client {
 	return &http.Client{Timeout: defaultHTTPTimeout}
 }
 
-func assetDownloadClient(client *http.Client, cfg WorkerConfig) *http.Client {
+func packageDownloadClient(client *http.Client, cfg WorkerConfig) *http.Client {
 	if cfg.HTTPClient != nil {
 		return client
 	}
-	return &http.Client{Transport: client.Transport, Timeout: defaultAssetHTTPTimeout}
+	return &http.Client{Transport: client.Transport, Timeout: defaultPackageHTTPTimeout}
 }

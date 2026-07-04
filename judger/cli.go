@@ -37,8 +37,13 @@ func JudgerCLI(ctx context.Context, args []string) int {
 		return 1
 	}
 	root := judgerRoot()
-	work := filepath.Join(root, "jobs")
-	if err := os.MkdirAll(work, 0o755); err != nil {
+	tasks := filepath.Join(root, "tasks")
+	cache := filepath.Join(root, "cache")
+	if err := os.MkdirAll(tasks, 0o755); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	if err := os.MkdirAll(cache, 0o755); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
@@ -47,7 +52,8 @@ func JudgerCLI(ctx context.Context, args []string) int {
 			Server:     getenv("SERVER", defaultServer),
 			Token:      os.Getenv("TOKEN"),
 			Runner:     runner,
-			Work:       work,
+			Tasks:      tasks,
+			Cache:      cache,
 			CgroupRoot: DefaultCgroupRoot(),
 			ProcRoot:   "/proc",
 		},
@@ -87,7 +93,7 @@ func RunnerCLI(ctx context.Context, args []string) int {
 
 func runnerUsage(w io.Writer) {
 	fmt.Fprintln(w, "usage: doj runner judge [--mode=default|strict] input output answer [result]")
-	fmt.Fprintln(w, "       doj runner serve --socket /path/runner.sock --work /path/job")
+	fmt.Fprintln(w, "       doj runner serve --socket /path/runner.sock --work /path/task")
 	fmt.Fprintln(w, "       doj runner wait-exec /path/release uid gid command [args...]")
 }
 
@@ -95,7 +101,7 @@ func runnerServe(ctx context.Context, args []string) int {
 	flags := flag.NewFlagSet("serve", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	socket := flags.String("socket", "", "unix socket path")
-	work := flags.String("work", "", "job work directory")
+	work := flags.String("work", "", "task work directory")
 	runner := flags.String("runner", "", "runner binary path")
 	runtimeRoot := flags.String("runtime-root", "", "runtime file root")
 	skipRuntime := flags.String("skip-runtime", "", "comma-separated runtime files to skip")

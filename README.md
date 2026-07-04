@@ -64,7 +64,7 @@ The judger is Linux-only. It reads:
 
 The default compose judger shares the server container's network namespace, so it connects to `127.0.0.1` and is treated as a local judger. No token is needed for the default compose deployment.
 
-The judger uses the same DOJ image with a different command. It is privileged, uses the host PID and cgroup namespaces, uses the host Docker socket, and mounts `/var/lib/doj:/var/lib/doj` so runner containers can see the judger work directory.
+The judger uses the same DOJ image with a different command. It is privileged, uses the host PID and cgroup namespaces, uses the host Docker socket, and mounts `/var/lib/doj:/var/lib/doj` so runner containers can see `/var/lib/doj/tasks`. Problem data and custom judge binaries are cached under `/var/lib/doj/cache/P{id}`.
 
 ## Development
 
@@ -174,7 +174,7 @@ STORAGE=https://access:secret@s3.example.com/bucket?lookup=dns
 
 默认 compose 里的评测机会共享 server 容器的网络命名空间，因此它连接 `127.0.0.1`，会被 server 视为本地评测机。默认 compose 部署不需要 token。
 
-评测机使用同一个 DOJ 镜像，但用不同 command 启动。它使用 privileged 模式和宿主机 PID/cgroup namespace，挂载宿主机 Docker socket，并挂载 `/var/lib/doj:/var/lib/doj`，让 runner 容器能访问评测机工作目录。
+评测机使用同一个 DOJ 镜像，但用不同 command 启动。它使用 privileged 模式和宿主机 PID/cgroup namespace，挂载宿主机 Docker socket，并挂载 `/var/lib/doj:/var/lib/doj`，让 runner 容器能访问 `/var/lib/doj/tasks`。题目数据和自定义评测二进制缓存放在 `/var/lib/doj/cache/P{id}`。
 
 ## 本地开发
 
