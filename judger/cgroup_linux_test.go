@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -140,7 +141,8 @@ func entryNames(entries []os.DirEntry) string {
 
 func testCgroupRoot(t *testing.T) string {
 	t.Helper()
-	root := "/sys/fs/cgroup/doj-test"
+	name := strings.NewReplacer("/", "-", " ", "-").Replace(t.Name())
+	root := filepath.Join("/sys/fs/cgroup", "doj-test-"+name+"-"+strconv.Itoa(os.Getpid()))
 	_ = os.RemoveAll(root)
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		t.Skipf("writable cgroup v2 test root is required: %v", err)
