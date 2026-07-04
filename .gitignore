@@ -10,6 +10,7 @@ coverage/
 *.log
 *.token
 tmp/
+storage/
 data/
 .data/
 .local/

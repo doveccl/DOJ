@@ -50,8 +50,8 @@ jobs:
           pnpm test
           pnpm build
 
-      - name: Check compose example
-        run: docker compose -f compose.example.yml config >/tmp/doj-compose.yml
+      - name: Check compose
+        run: docker compose config >/tmp/doj-compose.yml
 
       - name: Build Docker images
         run: |

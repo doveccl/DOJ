@@ -12,13 +12,13 @@ DOJ is a self-hosted online judge with a React web app, a Go API server, and a G
 
 ## Quick Start
 
-The example compose file starts PostgreSQL, Valkey, MinIO, and one DOJ image. The server container serves both the API and the built web app:
+The compose file starts PostgreSQL, Valkey, the DOJ server, and a local judger. The server container serves both the API and the built web app:
 
 ```bash
-docker compose -f compose.example.yml up --build
+docker compose up -d
 ```
 
-Open `http://localhost:28080`. If the database has no administrator, DOJ creates:
+Open `http://localhost:7974`. If the database has no administrator, DOJ creates:
 
 ```text
 username: admin
@@ -26,6 +26,8 @@ password: admin
 ```
 
 Change the default password before exposing the service.
+
+Uploaded files, problem packages, and backups are stored in `./storage` by default.
 
 ## Configuration
 
@@ -41,7 +43,7 @@ The server reads these environment variables:
 Storage examples:
 
 ```bash
-STORAGE=/var/lib/doj
+STORAGE=/storage
 STORAGE=http://access:secret@localhost:9000/doj
 STORAGE=https://access:secret@s3.example.com/doj?region=auto
 STORAGE=https://access:secret@s3.example.com/bucket?region=auto&lookup=dns&ensure=false
@@ -60,13 +62,9 @@ The judger is Linux-only. It reads:
 | `SERVER` | `http://localhost:7974` | DOJ server URL. |
 | `TOKEN` | empty | Judger token created in the admin UI. |
 
-To run the compose judger profile, create a judger in the admin UI, copy the token, then run:
+The default compose judger shares the server container's network namespace, so it connects to `127.0.0.1` and is treated as a local judger. No token is needed for the default compose deployment.
 
-```bash
-TOKEN=replace-with-generated-token docker compose -f compose.example.yml --profile judger up --build
-```
-
-The judger profile uses the same DOJ image with a different command. It is privileged, uses the host PID and cgroup namespaces, uses the host Docker socket, and mounts `/var/lib/doj:/var/lib/doj`.
+The judger uses the same DOJ image with a different command. It is privileged, uses the host PID and cgroup namespaces, uses the host Docker socket, and mounts `/var/lib/doj:/var/lib/doj` so runner containers can see the judger work directory.
 
 ## Development
 
@@ -124,13 +122,13 @@ DOJ 是一个可自部署的在线评测系统，包含 React 前端、Go API �
 
 ## 快速开始
 
-示例 compose 会启动 PostgreSQL、Valkey、MinIO，以及一个 DOJ 镜像。server 容器同时提供 API 和前端静态文件：
+compose 会启动 PostgreSQL、Valkey、DOJ server 和本地评测机。server 容器同时提供 API 和前端静态文件：
 
 ```bash
-docker compose -f compose.example.yml up --build
+docker compose up -d
 ```
 
-打开 `http://localhost:28080`。如果数据库里还没有管理员，DOJ 会创建：
+打开 `http://localhost:7974`。如果数据库里还没有管理员，DOJ 会创建：
 
 ```text
 用户名：admin
@@ -138,6 +136,8 @@ docker compose -f compose.example.yml up --build
 ```
 
 正式暴露服务前请先修改默认密码。
+
+上传文件、题目数据和备份默认存放在 `./storage`。
 
 ## 配置
 
@@ -153,7 +153,7 @@ server 读取这些环境变量：
 存储配置示例：
 
 ```bash
-STORAGE=/var/lib/doj
+STORAGE=/storage
 STORAGE=http://access:secret@localhost:9000/doj
 STORAGE=https://access:secret@s3.example.com/doj?region=auto
 STORAGE=https://access:secret@s3.example.com/bucket?region=auto&lookup=dns&ensure=false
@@ -172,13 +172,9 @@ STORAGE=https://access:secret@s3.example.com/bucket?region=auto&lookup=dns&ensur
 | `SERVER` | `http://localhost:7974` | DOJ server 地址。 |
 | `TOKEN` | 空 | 管理页创建的评测机 token。 |
 
-运行 compose 评测机 profile 前，先在管理页创建评测机并复制 token：
+默认 compose 里的评测机会共享 server 容器的网络命名空间，因此它连接 `127.0.0.1`，会被 server 视为本地评测机。默认 compose 部署不需要 token。
 
-```bash
-TOKEN=replace-with-generated-token docker compose -f compose.example.yml --profile judger up --build
-```
-
-评测机 profile 使用同一个 DOJ 镜像，但用不同 command 启动。它使用 privileged 模式和宿主机 PID/cgroup namespace，挂载宿主机 Docker socket，并挂载 `/var/lib/doj:/var/lib/doj`。
+评测机使用同一个 DOJ 镜像，但用不同 command 启动。它使用 privileged 模式和宿主机 PID/cgroup namespace，挂载宿主机 Docker socket，并挂载 `/var/lib/doj:/var/lib/doj`，让 runner 容器能访问评测机工作目录。
 
 ## 本地开发
 

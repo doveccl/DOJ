@@ -20,24 +20,8 @@ services:
     volumes:
       - valkey:/data
 
-  minio:
-    image: minio/minio:latest
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: doj
-      MINIO_ROOT_PASSWORD: doj-minio-password
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio:/data
-
   server:
-    image: doj:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: doveccl/doj:4
     command: ["doj", "server"]
     restart: unless-stopped
     stop_grace_period: 20s
@@ -46,14 +30,14 @@ services:
         condition: service_healthy
       valkey:
         condition: service_started
-      minio:
-        condition: service_started
     environment:
-      DATABASE: "postgres://doj:doj@postgres:5432/doj"
-      REDIS: "redis://valkey:6379/0"
-      STORAGE: "http://doj:doj-minio-password@minio:9000/doj"
+      DATABASE: "postgres://doj:doj@postgres/doj"
+      REDIS: "redis://valkey/0"
+      STORAGE: "/storage"
     ports:
-      - "28080:7974"
+      - "7974:7974"
+    volumes:
+      - ./storage:/storage
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:7974/api/ready >/dev/null"]
       interval: 5s
@@ -62,25 +46,20 @@ services:
       start_period: 5s
 
   judger:
-    profiles:
-      - judger
-    image: doj:latest
+    image: doveccl/doj:4
     command: ["doj", "judger"]
     restart: unless-stopped
     privileged: true
     pid: host
     cgroup: host
+    network_mode: service:server
     depends_on:
       server:
         condition: service_healthy
-    environment:
-      SERVER: "http://server:7974"
-      TOKEN: "${TOKEN:-replace-with-judger-token}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /sys/fs/cgroup:/sys/fs/cgroup
       - /var/lib/doj:/var/lib/doj
+
 volumes:
   postgres:
   valkey:
-  minio:
