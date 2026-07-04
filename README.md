@@ -45,11 +45,11 @@ Storage examples:
 ```bash
 STORAGE=/storage
 STORAGE=http://access:secret@localhost:9000/doj
-STORAGE=https://access:secret@s3.example.com/doj?region=auto
-STORAGE=https://access:secret@s3.example.com/bucket?region=auto&lookup=dns&ensure=false
+STORAGE=https://access:secret@s3.example.com/doj
+STORAGE=https://access:secret@s3.example.com/bucket?lookup=dns
 ```
 
-`lookup=dns` forces virtual-host style bucket URLs. `ensure=false` skips bucket creation checks for existing cloud buckets with scoped credentials.
+`lookup=dns` forces virtual-host style bucket URLs. Use it only when your S3-compatible provider requires bucket names in the host.
 
 When `dist/` exists, the server serves the web app and supports history fallback for frontend routes.
 
@@ -155,11 +155,11 @@ server 读取这些环境变量：
 ```bash
 STORAGE=/storage
 STORAGE=http://access:secret@localhost:9000/doj
-STORAGE=https://access:secret@s3.example.com/doj?region=auto
-STORAGE=https://access:secret@s3.example.com/bucket?region=auto&lookup=dns&ensure=false
+STORAGE=https://access:secret@s3.example.com/doj
+STORAGE=https://access:secret@s3.example.com/bucket?lookup=dns
 ```
 
-`lookup=dns` 强制使用 bucket 子域名风格；`ensure=false` 会跳过建桶探测，适合已创建好的云存储桶和最小权限密钥。
+`lookup=dns` 强制使用 bucket 子域名风格。只有对象存储服务要求 bucket 出现在 host 里时才需要它。
 
 存在 `dist/` 时，server 会提供前端静态文件，并支持前端路由的 history fallback。
 

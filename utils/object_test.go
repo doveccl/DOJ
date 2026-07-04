@@ -44,18 +44,18 @@ func TestUploadRootUsesStorage(t *testing.T) {
 }
 
 func TestParseS3Storage(t *testing.T) {
-	got, err := parseS3Storage("https://ak:sk@s3.example.com/doj?region=us-east-1&lookup=dns&ensure=false")
+	got, err := parseS3Storage("https://ak:sk@s3.example.com/doj?lookup=dns")
 	if err != nil {
 		t.Fatalf("parse storage: %v", err)
 	}
-	if got.endpoint != "s3.example.com" || got.access != "ak" || got.secret != "sk" || got.bucket != "doj" || got.region != "us-east-1" || !got.secure || got.lookup != minio.BucketLookupDNS || got.ensure {
+	if got.endpoint != "s3.example.com" || got.access != "ak" || got.secret != "sk" || got.bucket != "doj" || !got.secure || got.lookup != minio.BucketLookupDNS {
 		t.Fatalf("unexpected storage config: %+v", got)
 	}
 	got, err = parseS3Storage("http://ak:sk@s3.example.com/doj")
 	if err != nil {
 		t.Fatalf("parse default storage: %v", err)
 	}
-	if got.lookup != minio.BucketLookupAuto || !got.ensure || got.secure {
+	if got.lookup != minio.BucketLookupAuto || got.secure {
 		t.Fatalf("unexpected default storage config: %+v", got)
 	}
 	if _, err := parseS3Storage("https://ak:sk@s3.example.com/doj/prefix"); err == nil {
@@ -63,9 +63,6 @@ func TestParseS3Storage(t *testing.T) {
 	}
 	if _, err := parseS3Storage("https://ak:sk@s3.example.com/doj?lookup=bad"); err == nil {
 		t.Fatalf("bad lookup should be rejected")
-	}
-	if _, err := parseS3Storage("https://ak:sk@s3.example.com/doj?ensure=maybe"); err == nil {
-		t.Fatalf("bad ensure should be rejected")
 	}
 }
 

@@ -42,13 +42,12 @@ func NewObjectStoreFromEnv() (ObjectStore, error) {
 		client, err := minio.New(config.endpoint, &minio.Options{
 			Creds:        credentials.NewStaticV4(config.access, config.secret, ""),
 			Secure:       config.secure,
-			Region:       config.region,
 			BucketLookup: config.lookup,
 		})
 		if err != nil {
 			return nil, err
 		}
-		return s3Store{client: client, bucket: config.bucket, region: config.region, ensure: config.ensure}, nil
+		return s3Store{client: client, bucket: config.bucket}, nil
 	}
 	return localStore{root: UploadRoot()}, nil
 }
@@ -77,10 +76,8 @@ type s3StorageConfig struct {
 	access   string
 	secret   string
 	bucket   string
-	region   string
 	secure   bool
 	lookup   minio.BucketLookupType
-	ensure   bool
 }
 
 func parseS3Storage(raw string) (s3StorageConfig, error) {
@@ -108,19 +105,13 @@ func parseS3Storage(raw string) (s3StorageConfig, error) {
 	if err != nil {
 		return s3StorageConfig{}, err
 	}
-	ensure, err := parseBoolQuery(query.Get("ensure"), true)
-	if err != nil {
-		return s3StorageConfig{}, fmt.Errorf("STORAGE ensure must be true or false")
-	}
 	return s3StorageConfig{
 		endpoint: parsed.Host,
 		access:   access,
 		secret:   secret,
 		bucket:   bucket,
-		region:   query.Get("region"),
 		secure:   parsed.Scheme == "https",
 		lookup:   lookup,
-		ensure:   ensure,
 	}, nil
 }
 
@@ -134,19 +125,6 @@ func parseBucketLookup(value string) (minio.BucketLookupType, error) {
 		return minio.BucketLookupPath, nil
 	default:
 		return minio.BucketLookupAuto, fmt.Errorf("STORAGE lookup must be auto, dns, or path")
-	}
-}
-
-func parseBoolQuery(value string, fallback bool) (bool, error) {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "":
-		return fallback, nil
-	case "true", "1", "yes":
-		return true, nil
-	case "false", "0", "no":
-		return false, nil
-	default:
-		return fallback, fmt.Errorf("invalid boolean")
 	}
 }
 
@@ -261,8 +239,6 @@ func (store localStore) Delete(_ context.Context, key string) error {
 type s3Store struct {
 	client *minio.Client
 	bucket string
-	region string
-	ensure bool
 }
 
 func (store s3Store) Put(ctx context.Context, key string, data io.Reader, size int64, contentType string) error {
@@ -270,24 +246,8 @@ func (store s3Store) Put(ctx context.Context, key string, data io.Reader, size i
 	if err != nil {
 		return err
 	}
-	if store.ensure {
-		if err := store.ensureBucket(ctx); err != nil {
-			return err
-		}
-	}
 	_, err = store.client.PutObject(ctx, store.bucket, clean, data, size, minio.PutObjectOptions{ContentType: contentType})
 	return err
-}
-
-func (store s3Store) ensureBucket(ctx context.Context) error {
-	exists, err := store.client.BucketExists(ctx, store.bucket)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return nil
-	}
-	return store.client.MakeBucket(ctx, store.bucket, minio.MakeBucketOptions{Region: store.region})
 }
 
 func (store s3Store) Open(ctx context.Context, key string) (io.ReadCloser, string, error) {
