@@ -1,6 +1,7 @@
 import { App as AntApp, Card, Form, Space, Tabs, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
 import {
   api,
@@ -18,11 +19,15 @@ import { GroupModal, JudgerModal, LangModal, UserEditModal, UserModal } from './
 import { BackupsTab, GroupsTab, JudgersTab, LanguagesTab, SettingsTab, UsersTab } from './admin/tabs'
 import type { BackupSettingsForm, GroupRow, JudgerForm, JudgerRow, LanguageRow, SettingsForm, UserForm, UserRow } from './admin/types'
 
+const defaultAdminTab = 'settings'
+const adminTabs = new Set(['settings', 'users', 'groups', 'languages', 'judgers', 'backups'])
+
 export function AdminPage() {
   const { lang, text } = useLocale()
   const session = useSession()
   const { message, modal } = AntApp.useApp()
   const client = useQueryClient()
+  const [params, setParams] = useSearchParams()
   const [groupOpen, setGroupOpen] = useState(false)
   const [userOpen, setUserOpen] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
@@ -37,7 +42,7 @@ export function AdminPage() {
   const [userPageSize, setUserPageSize] = useState(20)
   const [groupPage, setGroupPage] = useState(1)
   const [groupPageSize, setGroupPageSize] = useState(20)
-  const [activeTab, setActiveTab] = useState('settings')
+  const activeTab = adminTab(params.get('tab'))
   const [settingsForm] = Form.useForm<SettingsForm>()
   const userQuery = useDebouncedValue(userSearch.trim())
   const groupQuery = useDebouncedValue(groupSearch.trim())
@@ -338,13 +343,24 @@ export function AdminPage() {
     setEditingJudger(null)
   }
 
+  function changeTab(key: string) {
+    const tab = adminTab(key)
+    const next = new URLSearchParams(params)
+    if (tab === defaultAdminTab) {
+      next.delete('tab')
+    } else {
+      next.set('tab', tab)
+    }
+    setParams(next)
+  }
+
   return (
     <>
       <Card>
         <Tabs
           activeKey={activeTab}
           destroyOnHidden
-          onChange={setActiveTab}
+          onChange={changeTab}
           items={[
             {
               key: 'settings',
@@ -418,6 +434,10 @@ export function AdminPage() {
       ) : null}
     </>
   )
+}
+
+function adminTab(value: string | null) {
+  return value && adminTabs.has(value) ? value : defaultAdminTab
 }
 
 function codeBlock(value: string, lang: string) {
