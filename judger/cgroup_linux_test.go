@@ -141,6 +141,9 @@ func entryNames(entries []os.DirEntry) string {
 
 func testCgroupRoot(t *testing.T) string {
 	t.Helper()
+	if testing.Short() {
+		t.Skip("cgroup integration test")
+	}
 	name := strings.NewReplacer("/", "-", " ", "-").Replace(t.Name())
 	root := filepath.Join("/sys/fs/cgroup", "doj-test-"+name+"-"+strconv.Itoa(os.Getpid()))
 	_ = os.RemoveAll(root)

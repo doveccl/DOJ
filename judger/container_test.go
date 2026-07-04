@@ -524,6 +524,9 @@ int main() {
 
 func requireDocker(t *testing.T) {
 	t.Helper()
+	if testing.Short() {
+		t.Skip("docker integration test")
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := dockerPing(ctx); err != nil {

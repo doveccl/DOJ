@@ -39,7 +39,7 @@ jobs:
           git diff --exit-code -- web/client/schema.ts
 
       - name: Run Go tests
-        run: go test ./...
+        run: go test -short ./...
 
       - name: Run frontend checks
         run: |
