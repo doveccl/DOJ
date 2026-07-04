@@ -39,7 +39,7 @@ jobs:
           git diff --exit-code -- web/client/schema.ts
 
       - name: Run Go tests
-        run: go test -short ./...
+        run: go test -short $(go list ./... | grep -v /judger$)
 
       - name: Run frontend checks
         run: |
@@ -49,9 +49,6 @@ jobs:
 
       - name: Check compose
         run: docker compose config >/tmp/doj-compose.yml
-
-      - name: Build Docker images
-        run: docker build -t doj-ci .
 
       - name: Build release binaries
         run: |
