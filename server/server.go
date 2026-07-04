@@ -4,8 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"os"
 	"os/signal"
 	"path"
@@ -176,14 +174,8 @@ func webAppHandler(root string, index string) echo.HandlerFunc {
 		if requestPath == "/api" || strings.HasPrefix(requestPath, "/api/") {
 			return echo.ErrNotFound
 		}
-		if c.QueryParam("jplag") != "" {
-			return proxyJPlagViewer(c, "")
-		}
 		file, cache, found := webFile(root, index, requestPath)
 		if !found {
-			if strings.HasPrefix(strings.TrimPrefix(path.Clean("/"+requestPath), "/"), "assets/") {
-				return proxyJPlagViewer(c, strings.TrimPrefix(path.Clean("/"+requestPath), "/"))
-			}
 			return echo.ErrNotFound
 		}
 		if cache {
@@ -193,28 +185,6 @@ func webAppHandler(root string, index string) echo.HandlerFunc {
 		}
 		return c.File(file)
 	}
-}
-
-func proxyJPlagViewer(c echo.Context, rel string) error {
-	target := strings.TrimRight(strings.TrimSpace(os.Getenv("JPLAG")), "/")
-	if target == "" {
-		return echo.ErrNotFound
-	}
-	base, err := url.Parse(target)
-	if err != nil {
-		return err
-	}
-	proxy := &httputil.ReverseProxy{Rewrite: func(req *httputil.ProxyRequest) {
-		req.SetURL(base)
-		req.Out.URL.Path = "/" + strings.TrimLeft(path.Join(base.Path, "viewer", rel), "/")
-		req.Out.URL.RawQuery = c.Request().URL.RawQuery
-		req.Out.Header.Del(echo.HeaderCookie)
-	}, ModifyResponse: func(resp *http.Response) error {
-		resp.Header.Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src 'self' https://api.github.com")
-		return nil
-	}}
-	proxy.ServeHTTP(c.Response(), c.Request())
-	return nil
 }
 
 func webFile(root string, index string, requestPath string) (string, bool, bool) {

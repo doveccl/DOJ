@@ -181,20 +181,6 @@ const zh = {
     freeze: '封榜时间',
     total: (total: number) => `${total} 题`
   },
-  plagiarism: {
-    title: '相似度',
-    run: '运行分析',
-    running: '正在分析 C++ 提交',
-    empty: '暂无分析任务',
-    failed: '分析失败',
-    openReport: '打开报告',
-    status: {
-      queued: '排队中',
-      running: '运行中',
-      done: '已完成',
-      failed: '失败'
-    }
-  },
   submissions: {
     title: '提交',
     id: '编号',
@@ -587,20 +573,6 @@ const en: typeof zh = {
     end: 'End time',
     freeze: 'Freeze time',
     total: (total: number) => `${total} problems`
-  },
-  plagiarism: {
-    title: 'Similarity',
-    run: 'Run analysis',
-    running: 'Analyzing C++ submissions',
-    empty: 'No analysis jobs',
-    failed: 'Analysis failed',
-    openReport: 'Open report',
-    status: {
-      queued: 'Queued',
-      running: 'Running',
-      done: 'Done',
-      failed: 'Failed'
-    }
   },
   submissions: {
     title: 'Submissions',

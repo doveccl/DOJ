@@ -189,11 +189,6 @@ func Register(e *echo.Echo, db *gorm.DB, backupScheduler ...*backupsvc.Scheduler
 	group.POST("/backups", api.createBackup)
 	group.GET("/backups/:name/download", api.downloadBackup)
 	group.DELETE("/backups/:name", api.deleteBackup)
-	group.GET("/plagiarism", api.plagiarismJobs)
-	group.POST("/plagiarism/assignments/:id", api.createAssignmentPlagiarismJob)
-	group.POST("/plagiarism/contests/:id", api.createContestPlagiarismJob)
-	group.GET("/:id.jplag", api.plagiarismReport)
-	e.GET("/results.jplag", api.requireAdmin(api.plagiarismViewerReport))
 }
 
 func (api *API) requireAdmin(next echo.HandlerFunc) echo.HandlerFunc {

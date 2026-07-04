@@ -52,7 +52,6 @@ services:
       DATABASE: "postgres://doj:doj@postgres:5432/doj"
       REDIS: "redis://valkey:6379/0"
       STORAGE: "http://doj:doj-minio-password@minio:9000/doj"
-      JPLAG: "http://jplag:7979"
     ports:
       - "28080:7974"
     healthcheck:
@@ -81,21 +80,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /sys/fs/cgroup:/sys/fs/cgroup
       - /var/lib/doj:/var/lib/doj
-
-  jplag:
-    profiles:
-      - jplag
-    image: doveccl/doj:jplag
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: jplag
-    restart: unless-stopped
-    environment:
-      LISTEN: ":7979"
-    ports:
-      - "7979:7979"
-
 volumes:
   postgres:
   valkey:

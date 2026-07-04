@@ -11,7 +11,6 @@ import { Link, useParams } from 'react-router-dom'
 import { api, apiData } from '../client'
 import type { ProblemListItem, ProblemRef, RankUser } from '../client'
 import { ProblemLink, UserLink } from '../components/entity'
-import { PlagiarismPanel } from '../components/plagiarism'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { contestTarget, DeadlineTimer } from '../components/time'
@@ -126,14 +125,7 @@ export function ContestDetailPage() {
                   <Table<RankUser> rowKey="rank" columns={rankColumns(text, contest.kind, problems)} dataSource={rank} pagination={false} scroll={{ x: 'max-content' }} />
                 </Flex>
               )
-            },
-            ...(session.admin
-              ? [{
-                  key: 'plagiarism',
-                  label: text.plagiarism.title,
-                  children: <PlagiarismPanel scope="contest" id={contest.id} />
-                }]
-              : [])
+            }
           ]}
         />
       </Card>
