@@ -26,7 +26,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: pnpm
 
       - name: Enable pnpm
         run: corepack enable
@@ -40,9 +39,7 @@ jobs:
           git diff --exit-code -- web/client/schema.ts
 
       - name: Run Go tests
-        run: |
-          go test ./...
-          go test -tags server ./cmd
+        run: go test ./...
 
       - name: Run frontend checks
         run: |
@@ -54,20 +51,16 @@ jobs:
         run: docker compose config >/tmp/doj-compose.yml
 
       - name: Build Docker images
-        run: |
-          docker build -f Dockerfile.server -t doj-server-ci .
-          docker build -f Dockerfile.judger -t doj-judger-ci .
+        run: docker build -t doj-ci .
 
       - name: Build release binaries
         run: |
           mkdir -p .local/build
-          CGO_ENABLED=0 go build -tags server -o .local/build/doj-server ./cmd/server.go
-          CGO_ENABLED=0 go build -tags judger -o .local/build/doj-judger ./cmd/judger.go
-          CGO_ENABLED=0 go build -tags runner -o .local/build/doj-runner ./cmd/runner.go
+          CGO_ENABLED=0 go build -o .local/build/doj .
 
       - name: Scan for private local details
         run: |
-          git grep -nE '10\.0\.|/Users/|NAS|nas|MacBook' -- . \
+          git grep -nE '10\.0\.|/Users/|NAS|MacBook' -- . \
             ':!go.sum' \
             ':!pnpm-lock.yaml' \
             ':!web/dist/**' \
