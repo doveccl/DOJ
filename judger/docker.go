@@ -141,7 +141,10 @@ func dockerEnsureImage(ctx context.Context, image string) (bool, error) {
 			return false, err
 		}
 		defer reader.Close()
-		if _, err := io.Copy(io.Discard, reader); err != nil {
+		if err := readDockerErrorStream(reader); err != nil {
+			return false, err
+		}
+		if _, _, err := cli.ImageInspectWithRaw(ctx, image); err != nil {
 			return false, err
 		}
 		return true, nil
@@ -312,6 +315,28 @@ func readBuildStream(reader io.Reader, outputLimit int64) (string, error) {
 		return output.String(), err
 	}
 	return output.String(), nil
+}
+
+func readDockerErrorStream(reader io.Reader) error {
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		var item struct {
+			Error       string `json:"error"`
+			ErrorDetail *struct {
+				Message string `json:"message"`
+			} `json:"errorDetail"`
+		}
+		if err := json.Unmarshal(scanner.Bytes(), &item); err != nil {
+			continue
+		}
+		if item.ErrorDetail != nil && item.ErrorDetail.Message != "" {
+			return fmt.Errorf("%s", item.ErrorDetail.Message)
+		}
+		if item.Error != "" {
+			return fmt.Errorf("%s", item.Error)
+		}
+	}
+	return scanner.Err()
 }
 
 func tarDirectory(dir string) ([]byte, error) {
