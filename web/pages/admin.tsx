@@ -170,7 +170,7 @@ export function AdminPage() {
       saveJudgers(data)
       closeJudger()
       if (created?.token) {
-        const dockerCommand = `docker run -d --name doj-judger --restart unless-stopped --privileged --network host --pid host --cgroupns host -v /var/run/docker.sock:/var/run/docker.sock -v /sys/fs/cgroup:/sys/fs/cgroup -v /var/lib/doj:/var/lib/doj -e SERVER=http://server:7974 -e TOKEN=${created.token} doveccl/doj:4 doj judger`
+        const server = typeof window === 'undefined' ? 'http://localhost:7974' : window.location.origin
         const composeExample = `services:
   judger:
     image: doveccl/doj:4
@@ -181,11 +181,10 @@ export function AdminPage() {
     pid: host
     cgroup: host
     environment:
-      SERVER: http://server:7974
+      SERVER: ${server}
       TOKEN: ${created.token}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /sys/fs/cgroup:/sys/fs/cgroup
       - /var/lib/doj:/var/lib/doj`
         modal.info({
           title: text.admin.judgerTokenCreated,
@@ -193,8 +192,6 @@ export function AdminPage() {
           content: (
             <Space orientation="vertical" style={{ width: '100%' }}>
               <Typography.Text type="secondary">{text.admin.judgerTokenHelp}</Typography.Text>
-              <MarkdownPreview value={codeBlock(created.token, 'text')} />
-              <MarkdownPreview value={codeBlock(dockerCommand, 'bash')} />
               <MarkdownPreview value={codeBlock(composeExample, 'yaml')} />
             </Space>
           )
