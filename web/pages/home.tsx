@@ -84,11 +84,11 @@ export function HomePage() {
         {noticeEditing ? (
           <Form<NoticeForm> form={noticeForm} layout="vertical" initialValues={{ content: home.notice }} onFinish={(values) => notice.mutate(values)}>
             <Form.Item name="content" rules={[{ required: true, whitespace: true }]} noStyle>
-              <MarkdownEditor minHeight={320} trust="trusted" />
+              <MarkdownEditor id="home-notice" />
             </Form.Item>
           </Form>
         ) : home.notice ? (
-          <MarkdownPreview value={home.notice} trust="trusted" />
+          <MarkdownPreview id="home-notice" value={home.notice} />
         ) : (
           <EmptyBlock />
         )}

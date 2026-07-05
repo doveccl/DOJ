@@ -237,7 +237,7 @@ function DiscussionModal({
           <TagSelect kind="discussion" mode="tags" />
         </Form.Item>
         <Form.Item name="content" label={text.discussion.content} rules={[{ required: true, whitespace: true }]}>
-          <MarkdownEditor minHeight={300} />
+          <MarkdownEditor />
         </Form.Item>
       </Form>
     </Modal>

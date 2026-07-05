@@ -1,21 +1,21 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  clearMarkdownAssetBase,
   configureMarkdownAssetRenderer,
   problemAssetUploadMarkdownURL,
+  problemMarkdownID,
   rewriteAssetURL,
-  sanitizeKaTeXStyle,
-  setMarkdownAssetBase
+  trustedMarkdownID
 } from './markdown'
 
 describe('markdown assets', () => {
   it('maps only relative problem asset urls', () => {
-    expect(rewriteAssetURL('./assets/a.png', '/api/problems/1000/assets/')).toBe('/api/problems/1000/assets/a.png')
-    expect(rewriteAssetURL('assets/a.png#v', '/api/problems/1000/assets')).toBe('/api/problems/1000/assets/a.png#v')
-    expect(rewriteAssetURL('/assets/a.png', '/api/problems/1000/assets')).toBe('/api/problems/1000/assets/a.png')
-    expect(rewriteAssetURL('https://example.com/assets/a.png', '/api/problems/1000/assets')).toBe('https://example.com/assets/a.png')
-    expect(rewriteAssetURL('./data/1.in', '/api/problems/1000/assets')).toBe('./data/1.in')
+    expect(rewriteAssetURL('./assets/a.png', 'P1000')).toBe('/api/problems/1000/assets/a.png')
+    expect(rewriteAssetURL('assets/a.png#v', 'P1000')).toBe('/api/problems/1000/assets/a.png#v')
+    expect(rewriteAssetURL('/assets/a.png', 'P1000')).toBe('/api/problems/1000/assets/a.png')
+    expect(rewriteAssetURL('https://example.com/assets/a.png', 'P1000')).toBe('https://example.com/assets/a.png')
+    expect(rewriteAssetURL('./data/1.in', 'P1000')).toBe('./data/1.in')
+    expect(rewriteAssetURL('./assets/a.png', 'md-1')).toBe('./assets/a.png')
   })
 
   it('uses relative urls for newly uploaded problem assets in markdown', () => {
@@ -24,9 +24,11 @@ describe('markdown assets', () => {
     expect(problemAssetUploadMarkdownURL('/api/problems/1001/assets/a.png', 1000)).toBe('/api/problems/1001/assets/a.png')
   })
 
-  it('keeps only safe KaTeX layout styles', () => {
-    expect(sanitizeKaTeXStyle('height:0.6833em;vertical-align:-0.25em;top:-2.314em')).toBe('height: 0.6833em; vertical-align: -0.25em; top: -2.314em')
-    expect(sanitizeKaTeXStyle('position:fixed;left:0;background:url(https://example.com/a.png);height:999em')).toBe('')
+  it('trusts only static internal markdown ids and problem statements', () => {
+    expect(problemMarkdownID(1000)).toBe('P1000')
+    expect(trustedMarkdownID('P1000')).toBe(true)
+    expect(trustedMarkdownID('home-notice')).toBe(true)
+    expect(trustedMarkdownID('md-1')).toBe(false)
   })
 
   it('rewrites image and link tokens during markdown rendering', () => {
@@ -35,8 +37,7 @@ describe('markdown assets', () => {
         rules: {}
       }
     }
-    setMarkdownAssetBase('editor-1', '/api/problems/1000/assets')
-    configureMarkdownAssetRenderer(md, 'editor-1')
+    configureMarkdownAssetRenderer(md, 'P1000')
     const self = {
       renderToken: () => ''
     }
@@ -50,7 +51,6 @@ describe('markdown assets', () => {
 
     expect(image.attrGet('src')).toBe('/api/problems/1000/assets/a.png')
     expect(link.attrGet('href')).toBe('/api/problems/1000/assets/b.png')
-    clearMarkdownAssetBase('editor-1')
   })
 })
 

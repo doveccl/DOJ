@@ -1,13 +1,9 @@
 import { lazy, Suspense } from 'react'
 
-import type { MarkdownTrust } from '../utils/markdown'
-
 type MarkdownEditorProps = {
+  id?: string
   value?: string
-  minHeight?: number
   readOnly?: boolean
-  trust?: MarkdownTrust
-  assetBase?: string
   upload?: (file: File) => Promise<string>
   variant?: 'editor' | 'preview'
   onChange?: (value: string) => void
@@ -17,16 +13,16 @@ const LazyMarkdownEditor = lazy(() => import('./mdeditor').then((mod) => ({ defa
 
 export function MarkdownEditor(props: MarkdownEditorProps) {
   return (
-    <Suspense fallback={<div className="markdownShell markdownFallback" style={{ minHeight: props.minHeight ?? 260 }} />}>
+    <Suspense fallback={<div className="markdownShell markdownFallback" />}>
       <LazyMarkdownEditor {...props} />
     </Suspense>
   )
 }
 
-export function MarkdownPreview({ value, trust = 'ugc', assetBase }: { value: string; trust?: MarkdownTrust; assetBase?: string }) {
+export function MarkdownPreview({ id, value }: { id?: string; value: string }) {
   if (!value.trim()) {
     return null
   }
 
-  return <MarkdownEditor value={value} minHeight={0} readOnly trust={trust} assetBase={assetBase} variant="preview" />
+  return <MarkdownEditor id={id} value={value} readOnly variant="preview" />
 }

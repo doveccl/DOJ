@@ -59,7 +59,7 @@ import { useLocale } from '../locale'
 import { useSession } from '../session'
 import { formatBytes, formatLimit, problemCode } from '../utils/format'
 import { limits } from '../utils/limits'
-import { problemAssetUploadMarkdownURL } from '../utils/markdown'
+import { problemAssetUploadMarkdownURL, problemMarkdownID } from '../utils/markdown'
 
 const sourceTemplate = `#include <bits/stdc++.h>
 using namespace std;
@@ -104,7 +104,7 @@ export function ProblemDetailPage() {
     async (file: File) => problemAssetUploadMarkdownURL(await uploadProblemImage(id, file), id),
     [id]
   )
-  const statementAssetBase = Number.isFinite(id) ? `/api/problems/${id}/assets/` : undefined
+  const statementMarkdownID = problemMarkdownID(id)
   const query = useQuery({
     queryKey: ['problem', id],
     queryFn: () => apiData(api.GET('/api/problems/{id}', { params: { path: { id } } })),
@@ -400,11 +400,11 @@ export function ProblemDetailPage() {
                     </Col>
                   </Row>
                   <Form.Item name="statement" label={text.problem.statement} rules={[{ required: true, whitespace: true }]}>
-                    <MarkdownEditor minHeight={420} trust="trusted" assetBase={statementAssetBase} upload={uploadStatementImage} />
+                    <MarkdownEditor id={statementMarkdownID} upload={uploadStatementImage} />
                   </Form.Item>
                 </Form>
               ) : (
-                <MarkdownPreview value={problem.statement || `# ${problem.title}`} trust="trusted" assetBase={statementAssetBase} />
+                <MarkdownPreview id={statementMarkdownID} value={problem.statement || `# ${problem.title}`} />
               )}
             </Card>
           </Col>

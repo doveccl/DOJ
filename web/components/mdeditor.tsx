@@ -1,19 +1,16 @@
 import { MdEditor, MdPreview } from 'md-editor-rt'
-import { useEffect, useId } from 'react'
+import { useId } from 'react'
 
 import { uploadImage } from '../client'
 import { useColor } from '../color'
 import { useLocale } from '../locale'
-import { clearMarkdownAssetBase, rewriteAssetURL, sanitizerForTrust, setMarkdownAssetBase } from '../utils/markdown'
-import type { MarkdownTrust } from '../utils/markdown'
+import { rewriteAssetURL } from '../utils/markdown'
 import { configureMarkdownRuntime } from './markdown-runtime'
 
 type MarkdownEditorProps = {
+  id?: string
   value?: string
-  minHeight?: number
   readOnly?: boolean
-  trust?: MarkdownTrust
-  assetBase?: string
   upload?: (file: File) => Promise<string>
   variant?: 'editor' | 'preview'
   onChange?: (value: string) => void
@@ -45,20 +42,17 @@ const toolbars = [
 configureMarkdownRuntime()
 
 export function MarkdownEditor({
+  id,
   value = '',
-  minHeight = 260,
   readOnly = false,
-  trust = 'ugc',
-  assetBase,
   upload: uploadFile = uploadImage,
   variant = 'editor',
   onChange
 }: MarkdownEditorProps) {
   const { color } = useColor()
   const { lang } = useLocale()
-  const editorID = `md-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
-  setMarkdownAssetBase(editorID, assetBase)
-  useEffect(() => () => clearMarkdownAssetBase(editorID), [editorID])
+  const generatedID = `md-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
+  const editorID = id ?? generatedID
   const language = lang === 'zh' ? 'zh-CN' : 'en-US'
   const theme = color === 'dark' ? 'dark' : 'light'
   const common = {
@@ -69,11 +63,11 @@ export function MarkdownEditor({
     previewTheme: 'github',
     codeTheme: 'github',
     showCodeRowNumber: false,
-    sanitize: sanitizerForTrust(trust),
-    transformImgUrl: (url: string) => rewriteAssetURL(url, assetBase),
+    transformImgUrl: (url: string) => rewriteAssetURL(url, editorID),
     noMermaid: true,
     noEcharts: true,
-    noImgZoomIn: true
+    noImgZoomIn: true,
+    codeFoldable: false
   } as const
 
   if (readOnly || variant === 'preview') {
@@ -88,16 +82,13 @@ export function MarkdownEditor({
     <div className="markdownShell">
       <MdEditor
         {...common}
-        placeholder=""
         onChange={(next) => onChange?.(next)}
         onUploadImg={(files, callback) => {
           void uploadFiles(files, uploadFile).then(callback)
         }}
         toolbars={[...toolbars]}
-        footers={[]}
         noPrettier
-        autoFoldThreshold={80}
-        style={{ height: minHeight }}
+        style={{ height: 500 }}
       />
     </div>
   )

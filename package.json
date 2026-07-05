@@ -23,7 +23,6 @@
     "antd": "^6.4.4",
     "cropperjs": "1.6.2",
     "dayjs": "^1.11.21",
-    "dompurify": "^3.4.11",
     "katex": "^0.17.0",
     "md-editor-rt": "^6.5.2",
     "openapi-fetch": "^0.17.0",

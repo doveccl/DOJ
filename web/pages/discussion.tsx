@@ -211,7 +211,7 @@ export function DiscussionDetailPage() {
           {!discussion.locked && session.signedIn ? (
             <Form<CommentCreate> form={form} layout="vertical" onFinish={(values) => reply.mutate(values)}>
               <Form.Item name="content" rules={[{ required: true, whitespace: true }]}>
-                <MarkdownEditor minHeight={180} />
+                <MarkdownEditor />
               </Form.Item>
               <Button type="primary" htmlType="submit" loading={reply.isPending}>
                 {text.common.send}
@@ -265,7 +265,7 @@ function DiscussionEditModal({
           <TagSelect kind="discussion" mode="tags" />
         </Form.Item>
         <Form.Item name="content" label={text.discussion.content} rules={[{ required: true, whitespace: true }]}>
-          <MarkdownEditor minHeight={300} />
+          <MarkdownEditor />
         </Form.Item>
       </Form>
     </Modal>
