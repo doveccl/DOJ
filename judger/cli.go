@@ -36,7 +36,7 @@ func JudgerCLI(ctx context.Context, args []string) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	root := judgerRoot()
+	root := JudgerRoot
 	tasks := filepath.Join(root, "tasks")
 	cache := filepath.Join(root, "cache")
 	if err := os.MkdirAll(tasks, 0o755); err != nil {
@@ -185,7 +185,7 @@ func installRunner() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	target := filepath.Join(judgerRoot(), "bin", "doj")
+	target := filepath.Join(JudgerRoot, "bin", "doj")
 	if sameFile(src, target) {
 		return target, nil
 	}
@@ -221,13 +221,6 @@ func findRunner() (string, error) {
 		return "", fmt.Errorf("doj binary is required in PATH")
 	}
 	return path, nil
-}
-
-func judgerRoot() string {
-	if value := os.Getenv("JUDGER_ROOT"); value != "" {
-		return value
-	}
-	return JudgerRoot
 }
 
 func sameFile(a string, b string) bool {

@@ -61,14 +61,15 @@ The judger is Linux-only. It reads:
 | --- | --- | --- |
 | `SERVER` | `http://localhost:7974` | DOJ server URL. |
 | `TOKEN` | empty | Judger token created in the admin UI. |
+| `CONCURRENCY` | `1` | Number of concurrent judging workers. |
 
 The default compose judger shares the server container's network namespace, so it connects to `127.0.0.1` and is treated as a local judger. No token is needed for the default compose deployment.
 
-The judger uses the same DOJ image with a different command. It is privileged, uses the host PID and cgroup namespaces, uses the host Docker socket, and mounts `/var/lib/doj:/var/lib/doj` so runner containers can see `/var/lib/doj/tasks`. Problem data and custom judge binaries are cached under `/var/lib/doj/cache/P{id}`.
+The judger uses the same DOJ image with a different command. It is privileged, uses the host PID and cgroup namespaces, uses the host Docker socket, and mounts `/var/lib/doj:/var/lib/doj`. It keeps runner binaries in `/var/lib/doj/bin`, active work under `/var/lib/doj/tasks`, and problem cache under `/var/lib/doj/cache/P{id}`.
 
 ## Development
 
-Install frontend dependencies:
+Install frontend dependencies once:
 
 ```bash
 pnpm install
@@ -86,18 +87,18 @@ Run the Vite dev server:
 pnpm dev --host 0.0.0.0 --port 28080
 ```
 
-Regenerate the TypeScript API schema after editing `api/web.yaml`:
-
-```bash
-pnpm api:gen
-```
-
 Run checks:
 
 ```bash
 go test ./...
 pnpm test
 pnpm build
+```
+
+Regenerate the TypeScript API schema after editing `api/web.yaml`:
+
+```bash
+pnpm api:gen
 ```
 
 Linux judger validation should also run on a Linux host with Docker and cgroup v2 available:
@@ -171,14 +172,15 @@ STORAGE=https://access:secret@s3.example.com/bucket?lookup=dns
 | --- | --- | --- |
 | `SERVER` | `http://localhost:7974` | DOJ server 地址。 |
 | `TOKEN` | 空 | 管理页创建的评测机 token。 |
+| `CONCURRENCY` | `1` | 并发评测 worker 数。 |
 
 默认 compose 里的评测机会共享 server 容器的网络命名空间，因此它连接 `127.0.0.1`，会被 server 视为本地评测机。默认 compose 部署不需要 token。
 
-评测机使用同一个 DOJ 镜像，但用不同 command 启动。它使用 privileged 模式和宿主机 PID/cgroup namespace，挂载宿主机 Docker socket，并挂载 `/var/lib/doj:/var/lib/doj`，让 runner 容器能访问 `/var/lib/doj/tasks`。题目数据和自定义评测二进制缓存放在 `/var/lib/doj/cache/P{id}`。
+评测机使用同一个 DOJ 镜像，但用不同 command 启动。它使用 privileged 模式和宿主机 PID/cgroup namespace，挂载宿主机 Docker socket，并挂载 `/var/lib/doj:/var/lib/doj`。runner 二进制放在 `/var/lib/doj/bin`，当前评测工作目录放在 `/var/lib/doj/tasks`，题目缓存放在 `/var/lib/doj/cache/P{id}`。
 
 ## 本地开发
 
-安装前端依赖：
+首次安装前端依赖：
 
 ```bash
 pnpm install
@@ -196,18 +198,18 @@ go run . server
 pnpm dev --host 0.0.0.0 --port 28080
 ```
 
-修改 `api/web.yaml` 后重新生成 TypeScript API schema：
-
-```bash
-pnpm api:gen
-```
-
 运行检查：
 
 ```bash
 go test ./...
 pnpm test
 pnpm build
+```
+
+修改 `api/web.yaml` 后重新生成 TypeScript API schema：
+
+```bash
+pnpm api:gen
 ```
 
 Linux 评测链路需要在具备 Docker 和 cgroup v2 的 Linux 主机上验证：

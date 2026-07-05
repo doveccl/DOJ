@@ -19,10 +19,3 @@ func TestJudgerCLIVersion(t *testing.T) {
 		t.Fatalf("JudgerCLI version code = %d, want 0", code)
 	}
 }
-
-func TestJudgerRootOverride(t *testing.T) {
-	t.Setenv("JUDGER_ROOT", "/tmp/doj-smoke")
-	if got := judgerRoot(); got != "/tmp/doj-smoke" {
-		t.Fatalf("judgerRoot = %q", got)
-	}
-}

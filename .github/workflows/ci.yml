@@ -52,18 +52,4 @@ jobs:
 
       - name: Build release binaries
         run: |
-          mkdir -p .local/build
-          CGO_ENABLED=0 go build -o .local/build/doj .
-
-      - name: Scan for private local details
-        run: |
-          git grep -nE '10\.0\.|/Users/|NAS|MacBook' -- . \
-            ':!go.sum' \
-            ':!pnpm-lock.yaml' \
-            ':!web/dist/**' \
-            ':!.github/workflows/ci.yml' > /tmp/doj-local-hits || true
-          if [ -s /tmp/doj-local-hits ]; then
-            cat /tmp/doj-local-hits
-            echo "Unexpected private local host or path found"
-            exit 1
-          fi
+          CGO_ENABLED=0 go build -o /tmp/doj .

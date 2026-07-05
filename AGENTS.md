@@ -10,7 +10,6 @@
 ## Layout
 
 - `main.go` is the `doj` entrypoint for `server`, `judger`, and `runner` subcommands.
-- `cmd/` contains standalone extra binaries.
 - `api/` contains OpenAPI contracts.
 - `models/` contains GORM models and database helpers.
 - `middleware/` contains Echo middleware.
