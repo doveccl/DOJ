@@ -13,13 +13,11 @@ import (
 	"strings"
 	"time"
 
-	dockerbuild "github.com/docker/docker/api/types/build"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	dockerimage "github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/strslice"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/errdefs"
-	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/containerd/errdefs"
+	"github.com/moby/moby/api/pkg/stdcopy"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/strslice"
+	"github.com/moby/moby/client"
 )
 
 type dockerHostConfig struct {
@@ -64,7 +62,7 @@ func dockerBuildImageTimed(ctx context.Context, dir string, dockerfile string, o
 	}
 	tag := tempDockerTag()
 	requestStartedAt := time.Now()
-	resp, err := cli.ImageBuild(ctx, bytes.NewReader(body), dockerbuild.ImageBuildOptions{
+	resp, err := cli.ImageBuild(ctx, bytes.NewReader(body), client.ImageBuildOptions{
 		Tags:        []string{tag},
 		Dockerfile:  dockerfile,
 		NetworkMode: "none",
@@ -93,17 +91,20 @@ func dockerCreateContainer(ctx context.Context, req dockerCreateRequest) (string
 	}
 	defer cli.Close()
 
-	got, err := cli.ContainerCreate(ctx, &dockercontainer.Config{
-		Image:      req.Image,
-		Cmd:        strslice.StrSlice(req.Cmd),
-		WorkingDir: req.WorkingDir,
-	}, &dockercontainer.HostConfig{
-		Binds:       req.HostConfig.Binds,
-		NetworkMode: dockercontainer.NetworkMode(req.HostConfig.NetworkMode),
-		SecurityOpt: req.HostConfig.SecurityOpt,
-		CapDrop:     strslice.StrSlice(req.HostConfig.CapDrop),
-		CapAdd:      strslice.StrSlice(req.HostConfig.CapAdd),
-	}, nil, nil, "")
+	got, err := cli.ContainerCreate(ctx, client.ContainerCreateOptions{
+		Config: &dockercontainer.Config{
+			Image:      req.Image,
+			Cmd:        strslice.StrSlice(req.Cmd),
+			WorkingDir: req.WorkingDir,
+		},
+		HostConfig: &dockercontainer.HostConfig{
+			Binds:       req.HostConfig.Binds,
+			NetworkMode: dockercontainer.NetworkMode(req.HostConfig.NetworkMode),
+			SecurityOpt: req.HostConfig.SecurityOpt,
+			CapDrop:     strslice.StrSlice(req.HostConfig.CapDrop),
+			CapAdd:      strslice.StrSlice(req.HostConfig.CapAdd),
+		},
+	})
 	if err != nil {
 		return "", err
 	}
@@ -119,7 +120,7 @@ func dockerImageCmd(ctx context.Context, image string) ([]string, error) {
 		return nil, err
 	}
 	defer cli.Close()
-	got, _, err := cli.ImageInspectWithRaw(ctx, image)
+	got, err := cli.ImageInspect(ctx, image)
 	if err != nil {
 		return nil, err
 	}
@@ -132,11 +133,11 @@ func dockerEnsureImage(ctx context.Context, image string) (bool, error) {
 		return false, err
 	}
 	defer cli.Close()
-	if _, _, err := cli.ImageInspectWithRaw(ctx, image); err != nil {
+	if _, err := cli.ImageInspect(ctx, image); err != nil {
 		if !errdefs.IsNotFound(err) {
 			return false, err
 		}
-		reader, err := cli.ImagePull(ctx, image, dockerimage.PullOptions{})
+		reader, err := cli.ImagePull(ctx, image, client.ImagePullOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -144,7 +145,7 @@ func dockerEnsureImage(ctx context.Context, image string) (bool, error) {
 		if err := readDockerErrorStream(reader); err != nil {
 			return false, err
 		}
-		if _, _, err := cli.ImageInspectWithRaw(ctx, image); err != nil {
+		if _, err := cli.ImageInspect(ctx, image); err != nil {
 			return false, err
 		}
 		return true, nil
@@ -158,7 +159,8 @@ func dockerStartContainer(ctx context.Context, id string) error {
 		return err
 	}
 	defer cli.Close()
-	return cli.ContainerStart(ctx, id, dockercontainer.StartOptions{})
+	_, err = cli.ContainerStart(ctx, id, client.ContainerStartOptions{})
+	return err
 }
 
 func dockerWaitContainer(ctx context.Context, id string) (int, error) {
@@ -168,14 +170,14 @@ func dockerWaitContainer(ctx context.Context, id string) (int, error) {
 	}
 	defer cli.Close()
 
-	statusCh, errCh := cli.ContainerWait(ctx, id, dockercontainer.WaitConditionNotRunning)
+	wait := cli.ContainerWait(ctx, id, client.ContainerWaitOptions{Condition: dockercontainer.WaitConditionNotRunning})
 	select {
-	case err := <-errCh:
+	case err := <-wait.Error:
 		if err != nil {
 			return 0, err
 		}
 		return 0, fmt.Errorf("docker wait ended without a status")
-	case status := <-statusCh:
+	case status := <-wait.Result:
 		return int(status.StatusCode), nil
 	case <-ctx.Done():
 		return 0, ctx.Err()
@@ -190,7 +192,7 @@ func dockerRemoveContainer(ctx context.Context, id string) {
 		return
 	}
 	defer cli.Close()
-	err = cli.ContainerRemove(cleanupCtx, id, dockercontainer.RemoveOptions{Force: true})
+	_, err = cli.ContainerRemove(cleanupCtx, id, client.ContainerRemoveOptions{Force: true})
 	if err != nil && !errdefs.IsNotFound(err) {
 		return
 	}
@@ -204,7 +206,7 @@ func dockerRemoveImage(ctx context.Context, id string) {
 		return
 	}
 	defer cli.Close()
-	_, err = cli.ImageRemove(cleanupCtx, id, dockerimage.RemoveOptions{Force: true, PruneChildren: true})
+	_, err = cli.ImageRemove(cleanupCtx, id, client.ImageRemoveOptions{Force: true, PruneChildren: true})
 	if err != nil && !errdefs.IsNotFound(err) {
 		return
 	}
@@ -216,14 +218,14 @@ func dockerInspectPID(ctx context.Context, id string) (int, error) {
 		return 0, err
 	}
 	defer cli.Close()
-	got, err := cli.ContainerInspect(ctx, id)
+	got, err := cli.ContainerInspect(ctx, id, client.ContainerInspectOptions{})
 	if err != nil {
 		return 0, err
 	}
-	if got.State == nil || got.State.Pid <= 0 {
+	if got.Container.State == nil || got.Container.State.Pid <= 0 {
 		return 0, fmt.Errorf("invalid container pid")
 	}
-	return got.State.Pid, nil
+	return got.Container.State.Pid, nil
 }
 
 func dockerLogs(ctx context.Context, id string, outputLimit int64) string {
@@ -232,7 +234,7 @@ func dockerLogs(ctx context.Context, id string, outputLimit int64) string {
 		return ""
 	}
 	defer cli.Close()
-	reader, err := cli.ContainerLogs(ctx, id, dockercontainer.LogsOptions{ShowStdout: true, ShowStderr: true})
+	reader, err := cli.ContainerLogs(ctx, id, client.ContainerLogsOptions{ShowStdout: true, ShowStderr: true})
 	if err != nil {
 		return ""
 	}
@@ -248,12 +250,12 @@ func dockerCopyFile(ctx context.Context, id string, source string, target string
 		return err
 	}
 	defer cli.Close()
-	reader, _, err := cli.CopyFromContainer(ctx, id, source)
+	got, err := cli.CopyFromContainer(ctx, id, client.CopyFromContainerOptions{SourcePath: source})
 	if err != nil {
 		return err
 	}
-	defer reader.Close()
-	return extractSingleFile(reader, target, source)
+	defer got.Content.Close()
+	return extractSingleFile(got.Content, target, source)
 }
 
 func dockerPing(ctx context.Context) error {
@@ -262,7 +264,7 @@ func dockerPing(ctx context.Context) error {
 		return err
 	}
 	defer cli.Close()
-	_, err = cli.Ping(ctx)
+	_, err = cli.Ping(ctx, client.PingOptions{NegotiateAPIVersion: true})
 	return err
 }
 
