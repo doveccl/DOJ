@@ -1,0 +1,44 @@
+@media (max-width: 900px) {
+  .appHeader {
+    padding: 0 14px;
+  }
+
+  .brandText {
+    display: none;
+  }
+
+  .userArea {
+    display: inline-flex;
+    gap: 4px !important;
+  }
+
+  .navMenu {
+    overflow: hidden;
+  }
+
+  .profileButton {
+    width: 36px;
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .profileName,
+  .profileArrow {
+    display: none;
+  }
+
+  .appContent {
+    padding-inline: 12px;
+    padding-top: 16px;
+  }
+
+  .profileAvatar {
+    width: 128px !important;
+    height: 128px !important;
+    font-size: 52px !important;
+  }
+
+}
+
+@media (max-width: 560px) {
+}

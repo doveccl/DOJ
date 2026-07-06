@@ -1,0 +1,91 @@
+.profileLayout {
+  align-items: flex-start;
+}
+
+.profileSidebar .ant-card-body {
+  padding: 24px;
+}
+
+.profileIdentity,
+.profileNameLine,
+.profileStats,
+.profileSidebarAction {
+  width: 100%;
+}
+
+.profileAvatar {
+  font-size: 64px !important;
+}
+
+.profileAvatarButton {
+  position: relative;
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.profileAvatarButton:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.profileAvatarMask {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 45%);
+  color: #fff;
+  font-size: 28px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.profileAvatarButton:hover .profileAvatarMask,
+.profileAvatarButton:focus-visible .profileAvatarMask,
+.profileSidebar .ant-upload:hover .profileAvatarMask {
+  opacity: 1;
+}
+
+.profileNameLine {
+  justify-content: center;
+  text-align: center;
+}
+
+.profileNameLine .ant-space-item {
+  display: inline-flex;
+}
+
+.profileBio {
+  margin-bottom: 0;
+  text-align: center;
+  white-space: pre-wrap;
+}
+
+.profileStats {
+  text-align: center;
+}
+
+.profileActivityLine {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.profileActivityLine > .ant-typography,
+.profileActivityLine > a,
+.profileActivityLine > .ant-tag {
+  flex: none;
+}
+
+.profileActivityTitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}

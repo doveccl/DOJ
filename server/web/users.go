@@ -146,38 +146,6 @@ func (api *API) userStatsMap(c echo.Context, userIDs []uint) (map[uint]userStats
 	return stats, nil
 }
 
-func (api *API) filterHiddenResultAC(c echo.Context, query *gorm.DB) (*gorm.DB, error) {
-	if api.isAdmin(c) {
-		return query, nil
-	}
-	viewerID, err := api.viewerID(c)
-	if err != nil {
-		return nil, err
-	}
-	return query.Where(
-		`NOT EXISTS (
-			SELECT 1 FROM contests
-			WHERE contests.id = submissions.contest_id
-				AND contests.deleted_at IS NULL
-				AND contests.end_at > ?
-				AND (
-					contests.kind = ?
-					OR (
-						contests.kind = ?
-						AND contests.freeze_at IS NOT NULL
-						AND submissions.created_at >= contests.freeze_at
-						AND (? = 0 OR submissions.user_id <> ?)
-					)
-				)
-		)`,
-		time.Now(),
-		"OI",
-		"ICPC",
-		viewerID,
-		viewerID,
-	), nil
-}
-
 func (api *API) userSubmissions(userID uint, includeHidden bool) ([]models.Submission, error) {
 	var rows []models.Submission
 	query := api.db.
