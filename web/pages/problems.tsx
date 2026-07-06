@@ -20,7 +20,7 @@ import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { api, apiData, apiEmpty } from '../client'
-import type { ProblemListItem, ProblemListPage } from '../client'
+import type { ProblemListItem, ProblemListPage, ProblemState } from '../client'
 import { ProblemLink } from '../components/entity'
 import { JudgeModeSelect } from '../components/judge'
 import { LimitInput } from '../components/limit'
@@ -54,6 +54,13 @@ export function ProblemsPage() {
   const page = pageFromParams(params)
   const pageSize = pageSizeFromParams(params)
   const query = useQuery({ queryKey: ['problems', q, tag, page, pageSize], queryFn: () => apiData(api.GET('/api/problems', { params: { query: { q, tag, page, pageSize } } })) })
+  const problemIds = (query.data?.items ?? []).map((item) => item.id)
+  const ids = problemIds.join(',')
+  const state = useQuery({
+    queryKey: ['problem-state', ids],
+    queryFn: () => apiData(api.GET('/api/problem-state', { params: { query: { ids } } })),
+    enabled: ids.length > 0
+  })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
@@ -96,7 +103,9 @@ export function ProblemsPage() {
     },
     onError: showError
   })
-  const columns = problemColumns(text, {
+  const stateByProblem = mapByProblem(state.data ?? [])
+  const stateLoading = ids.length > 0 && state.isLoading
+  const columns = problemColumns(text, stateByProblem, {
     remove: (id) => remove.mutate(id),
     toggle: (item) => visibility.mutate(item),
     toggling: (item) => visibility.isPending && visibility.variables?.id === item.id
@@ -157,12 +166,13 @@ export function ProblemsPage() {
         </Flex>
         {query.isError ? (
           <ErrorBlock error={query.error} />
-        ) : query.isLoading ? (
-          <LoadingBlock />
+        ) : state.isError ? (
+          <ErrorBlock error={state.error} />
         ) : (
           <Table<ProblemListItem>
             rowKey="id"
             scroll={{ x: session.admin ? 1080 : 960 }}
+            loading={query.isLoading || stateLoading}
             columns={columns}
             dataSource={query.data?.items ?? []}
             pagination={{ current: query.data?.page ?? page, pageSize: query.data?.pageSize ?? pageSize, total: query.data?.total ?? 0, showSizeChanger: true }}
@@ -226,6 +236,7 @@ function ProblemModal({
 
 function problemColumns(
   text: ReturnType<typeof useLocale>['text'],
+  state: Map<number, ProblemState>,
   actions: {
     remove: (id: number) => void
     toggle: (item: ProblemListItem) => void
@@ -242,7 +253,7 @@ function problemColumns(
       render: (title: string, row) => (
         <Flex align="center" gap={8} wrap={false} className="tableTitleLine">
           <ProblemLink id={row.id} title={title} maxWidth={560} />
-          <ProblemRecordTag mine={row.mine} />
+          <ProblemRecordTag status={state.get(row.id)?.status} />
           {!row.visible ? <Tag>{text.problems.hidden}</Tag> : null}
         </Flex>
       )
@@ -258,7 +269,10 @@ function problemColumns(
     },
     {
       title: text.problems.pass,
-      render: (_, row) => <Typography.Text>{formatPass(row)}</Typography.Text>
+      render: (_, row) => {
+        const item = state.get(row.id)
+        return item ? <Typography.Text>{formatPass(item)}</Typography.Text> : <Typography.Text type="secondary">-</Typography.Text>
+      }
     }
   ]
   if (admin) {
@@ -289,18 +303,22 @@ function problemColumns(
   return columns
 }
 
-function ProblemRecordTag({ mine }: { mine?: string }) {
+function ProblemRecordTag({ status }: { status?: string }) {
   const { text } = useLocale()
-  if (mine === 'pending') {
+  if (status === 'pending') {
     return <Tag color="processing">{text.submissions.statuses.pending}</Tag>
   }
-  if (mine === 'ac') {
+  if (status === 'ac') {
     return <Tag color="success">{text.problem.passed}</Tag>
   }
-  if (mine === 'tried') {
+  if (status === 'tried') {
     return <Tag color="warning">{text.problem.tried}</Tag>
   }
   return null
+}
+
+function mapByProblem<T extends { problemId: number }>(items: T[]) {
+  return new Map(items.map((item) => [item.problemId, item]))
 }
 
 function replaceProblemInCaches(client: ReturnType<typeof useQueryClient>, item: ProblemListItem) {

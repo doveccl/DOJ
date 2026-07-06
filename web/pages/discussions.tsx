@@ -217,6 +217,7 @@ function DiscussionModal({
 }) {
   const { text } = useLocale()
   const [form] = Form.useForm<DiscussionForm>()
+  const [editorKey, setEditorKey] = useState(0)
 
   return (
     <Modal
@@ -226,6 +227,12 @@ function DiscussionModal({
       okText={editing ? text.common.save : text.common.create}
       cancelText={text.common.cancel}
       confirmLoading={loading}
+      width={{ xs: 'calc(100vw - 32px)', sm: 960 }}
+      afterOpenChange={(open) => {
+        if (open) {
+          setEditorKey((key) => key + 1)
+        }
+      }}
       onCancel={onCancel}
       onOk={() => form.submit()}
     >
@@ -237,7 +244,7 @@ function DiscussionModal({
           <TagSelect kind="discussion" mode="tags" />
         </Form.Item>
         <Form.Item name="content" label={text.discussion.content} rules={[{ required: true, whitespace: true }]}>
-          <MarkdownEditor />
+          <MarkdownEditor key={editorKey} />
         </Form.Item>
       </Form>
     </Modal>

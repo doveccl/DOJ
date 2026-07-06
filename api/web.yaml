@@ -713,6 +713,31 @@ paths:
                 type: array
                 items:
                   type: string
+  /api/problem-state:
+    get:
+      operationId: getProblemState
+      parameters:
+        - name: ids
+          in: query
+          schema:
+            type: string
+        - name: assignment
+          in: query
+          schema:
+            type: integer
+        - name: contest
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Problem state for current user and page context
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProblemState"
   /api/problems/{id}:
     get:
       operationId: getProblem
@@ -1997,10 +2022,6 @@ components:
         - mode
         - timeMs
         - memoryMb
-        - ac
-        - submit
-        - discussions
-        - mine
       properties:
         id:
           type: integer
@@ -2023,17 +2044,6 @@ components:
           type: integer
         memoryMb:
           type: integer
-        ac:
-          type: integer
-        submit:
-          type: integer
-        discussions:
-          type: integer
-        mine:
-          type: string
-          enum: [none, tried, ac, pending]
-        latest:
-          $ref: "#/components/schemas/ProblemRecord"
     ProblemListPage:
       type: object
       required: [items, page, pageSize, total]
@@ -2061,10 +2071,6 @@ components:
         - memoryMb
         - cases
         - dataBytes
-        - ac
-        - submit
-        - discussions
-        - mine
       properties:
         id:
           type: integer
@@ -2094,16 +2100,22 @@ components:
         dataBytes:
           type: integer
           format: int64
+    ProblemState:
+      type: object
+      required: [problemId, ac, submit, status]
+      properties:
+        problemId:
+          type: integer
         ac:
           type: integer
         submit:
           type: integer
         discussions:
           type: integer
-        mine:
+        status:
           type: string
           enum: [none, tried, ac, pending]
-        latest:
+        submission:
           $ref: "#/components/schemas/ProblemRecord"
     ProblemRecord:
       type: object

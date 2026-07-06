@@ -13,6 +13,10 @@ type MarkdownRuntime = {
   }
 }
 
+declare global {
+  var hljs: { getLanguage: (lang: string) => unknown } | undefined
+}
+
 let markdownRuntimeConfigured = false
 
 export function configureMarkdownRuntime() {
@@ -39,10 +43,19 @@ export function configureMarkdownHTML(md: Pick<MarkdownRuntime, 'set'>, editorID
 export function configurePlainCodeBlocks(md: MarkdownRuntime) {
   const highlight = md.options.highlight ?? undefined
   md.options.highlight = (code, lang, attrs) => {
-    if (lang.trim()) {
+    if (supportedCodeLanguage(lang)) {
       return highlight?.(code, lang, attrs) ?? ''
     }
     const escaped = md.utils.escapeHtml(code).replace(/^\n+|\n+$/g, '')
-    return `<pre><code class="language-" language=""><span class="${mdEditorPrefix}-code-block">${escaped}</span></code></pre>`
+    const language = md.utils.escapeHtml(lang.trim())
+    return `<pre><code class="language-${language}" language="${language}"><span class="${mdEditorPrefix}-code-block">${escaped}</span></code></pre>`
   }
+}
+
+function supportedCodeLanguage(lang: string) {
+  const key = lang.trim()
+  if (!key || !/^[a-zA-Z0-9_+#.-]+$/.test(key)) {
+    return false
+  }
+  return !globalThis.hljs || globalThis.hljs.getLanguage(key)
 }

@@ -53,16 +53,28 @@ func TestProblemDiscussionCountsUseTagsWithoutProblemVisibilityCoupling(t *testi
 	if err := db.Create(&discussions).Error; err != nil {
 		t.Fatalf("create discussions: %v", err)
 	}
+	if err := db.Create(&[]models.Submission{
+		{UserID: admin.ID, ProblemID: visible.ID, Language: "cpp", Code: "visible", Status: "AC", Score: 100},
+		{UserID: admin.ID, ProblemID: hidden.ID, Language: "cpp", Code: "hidden", Status: "AC", Score: 100},
+	}).Error; err != nil {
+		t.Fatalf("create submissions: %v", err)
+	}
 	e := echo.New()
 	Register(e, db)
 
-	guestProblem := decodeJSON[ProblemDTO](t, requestOK(t, e, http.MethodGet, "/api/problems/1000", ""))
-	if guestProblem.Discussions != 2 {
-		t.Fatalf("guest discussion count should use soft tags regardless of other problem tags: %+v", guestProblem)
+	guestState := decodeJSON[[]ProblemStateDTO](t, requestOK(t, e, http.MethodGet, "/api/problem-state?ids=1000,1001", ""))
+	if len(guestState) != 2 || guestState[0].AC != 1 || guestState[0].Submit != 1 || guestState[1].AC != 0 || guestState[1].Submit != 0 {
+		t.Fatalf("guest stats should hide invisible problems: %+v", guestState)
 	}
-	adminProblem := decodeJSON[ProblemDTO](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", databaseSession(t, db, admin.ID), nil))
-	if adminProblem.Discussions != 2 {
-		t.Fatalf("admin discussion count should match soft tag count: %+v", adminProblem)
+	if guestState[0].Discussions == nil || *guestState[0].Discussions != 2 || guestState[1].Discussions != nil {
+		t.Fatalf("guest discussion count should use soft tags and hide invisible problems: %+v", guestState)
+	}
+	adminState := decodeJSON[[]ProblemStateDTO](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?ids=1000,1001", databaseSession(t, db, admin.ID), nil))
+	if len(adminState) != 2 || adminState[0].AC != 1 || adminState[0].Submit != 1 || adminState[1].AC != 1 || adminState[1].Submit != 1 {
+		t.Fatalf("admin stats should include hidden problems: %+v", adminState)
+	}
+	if adminState[0].Discussions == nil || *adminState[0].Discussions != 2 || adminState[1].Discussions == nil || *adminState[1].Discussions != 1 {
+		t.Fatalf("admin discussion count should match soft tag count: %+v", adminState)
 	}
 }
 
@@ -703,7 +715,7 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 		t.Fatalf("decode raw profile: %v", err)
 	}
 	if len(rawProfile.Solved.Items) > 0 {
-		for _, key := range []string{"visible", "mode", "timeMs", "memoryMb", "discussions", "mine", "latest"} {
+		for _, key := range []string{"visible", "mode", "timeMs", "memoryMb", "discussions", "mine", "latest", "submission"} {
 			if _, ok := rawProfile.Solved.Items[0][key]; ok {
 				t.Fatalf("profile solved problem should not include list-only field %q: %+v", key, rawProfile.Solved.Items[0])
 			}
@@ -1120,7 +1132,7 @@ func TestContestProblemVisibilityIsDerivedFromContestTime(t *testing.T) {
 	if err := db.Create(&admin).Error; err != nil {
 		t.Fatalf("create admin: %v", err)
 	}
-	problem := models.Problem{ID: 1000, Title: "Contest Only", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	problem := models.Problem{ID: 1000, Title: "Contest Only", Tags: datatypes.JSON([]byte(`["math"]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
 	if err := db.Create(&problem).Error; err != nil {
 		t.Fatalf("create problem: %v", err)
 	}
@@ -1131,6 +1143,9 @@ func TestContestProblemVisibilityIsDerivedFromContestTime(t *testing.T) {
 	}
 	if err := db.Create(&models.ContestProblem{ContestID: contest.ID, ProblemID: problem.ID, Sort: "A"}).Error; err != nil {
 		t.Fatalf("create contest problem: %v", err)
+	}
+	if err := db.Create(&models.Discussion{Title: "Problem discussion", Content: "body", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["P1000"]`))}).Error; err != nil {
+		t.Fatalf("create discussion: %v", err)
 	}
 	e := echo.New()
 	Register(e, db)
@@ -1160,10 +1175,22 @@ func TestContestProblemVisibilityIsDerivedFromContestTime(t *testing.T) {
 	}
 	if res := request(e, http.MethodGet, "/api/problems/1000", "", nil); res.Code != http.StatusOK {
 		t.Fatalf("running contest problem detail should be visible, got %d body=%s", res.Code, res.Body.String())
+	} else {
+		got := decodeJSON[ProblemDTO](t, res)
+		if len(got.Tags) != 0 {
+			t.Fatalf("running contest problem detail should hide tags: %+v", got)
+		}
+	}
+	state := decodeJSON[[]ProblemStateDTO](t, requestOK(t, e, http.MethodGet, "/api/problem-state?ids=1000", ""))
+	if len(state) != 1 || state[0].AC != 0 || state[0].Submit != 0 || state[0].Discussions != nil {
+		t.Fatalf("running contest problem state should hide stats and discussions: %+v", state)
 	}
 	contestDetail := decodeJSON[ContestDetail](t, requestOK(t, e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), ""))
 	if !hasProblem(contestDetail.Problems, problem.ID) {
 		t.Fatalf("running contest detail should include linked problem: %+v", contestDetail.Problems)
+	}
+	if len(contestDetail.Problems[0].Tags) != 0 {
+		t.Fatalf("running contest detail should hide problem tags: %+v", contestDetail.Problems[0])
 	}
 
 	contest.EndAt = now.Add(-time.Minute)
@@ -1242,8 +1269,9 @@ func TestContestFreezeHidesLateResultsFromNonAdmin(t *testing.T) {
 	if len(aliceDetail.Rank) != 2 || aliceDetail.Rank[0].User != "alice" || aliceDetail.Rank[0].AC != 1 {
 		t.Fatalf("alice rank should score pre-freeze submissions and keep pending rows: %+v", aliceDetail.Rank)
 	}
-	if aliceDetail.Problems[0].Mine != "ac" || aliceDetail.Problems[0].Latest == nil || aliceDetail.Problems[0].Latest.ID != before.ID {
-		t.Fatalf("ICPC problem status should link first AC, not later WA: %+v", aliceDetail.Problems[0])
+	aliceRecords := decodeJSON[[]ProblemStateDTO](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?contest="+strconv.FormatUint(uint64(contest.ID), 10)+"&ids=1000", databaseSession(t, db, alice.ID), nil))
+	if len(aliceRecords) != 1 || aliceRecords[0].Status != "ac" || aliceRecords[0].Submission == nil || aliceRecords[0].Submission.ID != before.ID {
+		t.Fatalf("ICPC problem status should link first AC, not later WA: %+v", aliceRecords)
 	}
 
 	bobDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, bob.ID), nil))
@@ -1401,9 +1429,13 @@ func TestRunningOIContestHidesSubmissionResults(t *testing.T) {
 	if adminView.Submission.Status != "AC" || adminView.Submission.Score != 100 || len(adminView.Cases) != 1 || adminView.Code != "secret" {
 		t.Fatalf("admin should see running OI result and source: %+v", adminView)
 	}
-	contestDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), databaseSession(t, db, owner.ID), nil))
-	if contestDetail.Problems[0].Mine != "pending" || contestDetail.Problems[0].Latest == nil || contestDetail.Problems[0].Latest.Status != "pending" || contestDetail.Problems[0].Latest.Score != 0 {
-		t.Fatalf("running OI contest problem should not expose mine/latest result: %+v", contestDetail.Problems)
+	records := decodeJSON[[]ProblemStateDTO](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?contest="+strconv.FormatUint(uint64(contest.ID), 10)+"&ids=1000", databaseSession(t, db, owner.ID), nil))
+	if len(records) != 1 || records[0].Status != "pending" || records[0].Submission == nil || records[0].Submission.Status != "pending" || records[0].Submission.Score != 0 {
+		t.Fatalf("running OI contest problem should not expose record result: %+v", records)
+	}
+	allRecords := decodeJSON[[]ProblemStateDTO](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?ids=1000", databaseSession(t, db, owner.ID), nil))
+	if len(allRecords) != 1 || allRecords[0].Status != "pending" || allRecords[0].Submission == nil || allRecords[0].Submission.ID != submission.ID || allRecords[0].Submission.Status != "pending" {
+		t.Fatalf("global problem state should use the current user's submission with visibility applied: %+v", allRecords)
 	}
 	assignmentDetail := decodeJSON[AssignmentDetail](t, requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(assignment.ID), 10), databaseSession(t, db, owner.ID), nil))
 	progress := assignmentDetail.Progress[0].Problems[0]
@@ -1534,8 +1566,9 @@ func TestContestICPCRankUsesPenalty(t *testing.T) {
 	if len(aliceDetail.Problems) != 2 {
 		t.Fatalf("contest problems = %+v", aliceDetail.Problems)
 	}
-	if aliceDetail.Problems[0].Mine != "ac" || aliceDetail.Problems[1].Mine != "none" {
-		t.Fatalf("contest problem mine should use contest submissions only: %+v", aliceDetail.Problems)
+	records := decodeJSON[[]ProblemStateDTO](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?contest="+strconv.FormatUint(uint64(contest.ID), 10)+"&ids=1000,1001", databaseSession(t, db, alice.ID), nil))
+	if len(records) != 2 || records[0].Status != "ac" || records[1].Status != "none" {
+		t.Fatalf("contest problem state should use contest submissions only: %+v", records)
 	}
 }
 
@@ -1728,9 +1761,6 @@ func TestProblemVisibilityUpdateDoesNotTouchStatementStorage(t *testing.T) {
 	updated := decodeJSON[ProblemDTO](t, res)
 	if updated.Visible {
 		t.Fatalf("problem should be hidden after visibility update: %+v", updated)
-	}
-	if updated.AC != 1 || updated.Submit != 1 || updated.Discussions != 1 || updated.Mine != "ac" {
-		t.Fatalf("visibility response should preserve list decorations: %+v", updated)
 	}
 	if updated.Cases != nil || updated.DataBytes != nil || updated.Statement != "" {
 		t.Fatalf("visibility response should stay a list item without storage/detail fields: %+v", updated)
@@ -2251,7 +2281,7 @@ func TestHomeProblemsUseCompactPayload(t *testing.T) {
 	if err := json.Unmarshal(res.Body.Bytes(), &raw); err != nil {
 		t.Fatalf("decode raw home: %v", err)
 	}
-	for _, key := range []string{"tags", "visible", "mode", "timeMs", "memoryMb", "discussions", "mine", "latest", "ac", "submit"} {
+	for _, key := range []string{"tags", "visible", "mode", "timeMs", "memoryMb", "discussions", "mine", "latest", "submission", "ac", "submit"} {
 		if _, ok := raw.Problems[0][key]; ok {
 			t.Fatalf("home problem should not include list-only field %q: %+v", key, raw.Problems[0])
 		}

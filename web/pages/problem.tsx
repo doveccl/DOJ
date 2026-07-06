@@ -24,6 +24,7 @@ import {
   Popconfirm,
   Row,
   Select,
+  Skeleton,
   Space,
   Table,
   Tag,
@@ -46,7 +47,7 @@ import {
   problemFileDownloadURL,
   uploadProblemImage
 } from '../client'
-import type { AssetContent, AssetFile, Language as SubmitLang, Problem, ProblemAssets } from '../client'
+import type { AssetContent, AssetFile, Problem, ProblemAssets, ProblemState } from '../client'
 import { CodeEditor } from '../components/code'
 import { JudgeModeSelect } from '../components/judge'
 import { LimitInput } from '../components/limit'
@@ -60,17 +61,6 @@ import { useSession } from '../session'
 import { formatBytes, formatLimit, problemCode } from '../utils/format'
 import { limits } from '../utils/limits'
 import { problemAssetUploadMarkdownURL, problemMarkdownID } from '../utils/markdown'
-
-const sourceTemplate = `#include <bits/stdc++.h>
-using namespace std;
-
-int main() {
-  long long a, b;
-  cin >> a >> b;
-  cout << a + b << '\\n';
-  return 0;
-}
-`
 
 const languageStorageKey = 'doj.language'
 
@@ -91,8 +81,7 @@ export function ProblemDetailPage() {
   const params = useParams()
   const id = Number(params.id)
   const [lang, setLang] = useState('')
-  const [source, setSource] = useState(sourceTemplate)
-  const [sourceDirty, setSourceDirty] = useState(false)
+  const [source, setSource] = useState('')
   const [publicSource, setPublicSource] = useState(false)
   const [publicSourceTouched, setPublicSourceTouched] = useState(false)
   const [problemEditing, setProblemEditing] = useState(false)
@@ -108,6 +97,11 @@ export function ProblemDetailPage() {
   const query = useQuery({
     queryKey: ['problem', id],
     queryFn: () => apiData(api.GET('/api/problems/{id}', { params: { path: { id } } })),
+    enabled: Number.isFinite(id)
+  })
+  const state = useQuery({
+    queryKey: ['problem-state', id],
+    queryFn: () => apiData(api.GET('/api/problem-state', { params: { query: { ids: String(id) } } })),
     enabled: Number.isFinite(id)
   })
   const site = useQuery({ queryKey: ['site'], queryFn: () => apiData(api.GET('/api/site')) })
@@ -135,10 +129,7 @@ export function ProblemDetailPage() {
     const first = items.find((item) => item.id === stored) ?? items[0]
     setLang(first.id)
     storeLanguage(first.id)
-    if (!sourceDirty) {
-      setSource(templateForLang(first))
-    }
-  }, [lang, languages.data, sourceDirty])
+  }, [lang, languages.data])
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
@@ -280,8 +271,8 @@ export function ProblemDetailPage() {
   const rejudge = useMutation({
     mutationFn: () => apiData(api.POST('/api/problems/{id}/rejudge', { params: { path: { id } } })),
     onSuccess: () => {
-      client.setQueryData<Problem>(['problem', id], (current) =>
-        current?.latest ? { ...current, latest: { ...current.latest, status: 'queued', score: 0 } } : current
+      client.setQueryData<ProblemState[]>(['problem-state', id], (current) =>
+        current?.map((item) => (item.submission ? { ...item, submission: { ...item.submission, status: 'queued', score: 0 } } : item))
       )
       void client.invalidateQueries({ queryKey: ['problem', id] })
       void client.invalidateQueries({ queryKey: ['problems'] })
@@ -297,6 +288,9 @@ export function ProblemDetailPage() {
   if (query.isError) {
     return <ErrorBlock error={query.error} />
   }
+  if (state.isError) {
+    return <ErrorBlock error={state.error} />
+  }
 
   const problem = query.data as Problem | undefined
   if (!problem) {
@@ -305,6 +299,10 @@ export function ProblemDetailPage() {
   const langItems = languages.data ?? []
   const langOptions = langItems.map((item) => ({ value: item.id, label: item.name }))
   const selectedLang = langItems.find((item) => item.id === lang)
+  const problemState = state.data?.[0]
+  const stateLoading = state.isLoading
+  const statCount = stateLoading ? 3 : (problemState?.submission ? 1 : 0) + 1 + (problemState?.discussions === undefined ? 0 : 1)
+  const statSpan = Math.floor(24 / statCount)
   const manageActions = (
     <ProblemManageActions
       id={id}
@@ -317,9 +315,6 @@ export function ProblemDetailPage() {
   function changeLang(next: string) {
     setLang(next)
     storeLanguage(next)
-    if (!sourceDirty) {
-      setSource(templateForLang((languages.data ?? []).find((item) => item.id === next)))
-    }
   }
 
   function openEdit() {
@@ -415,21 +410,39 @@ export function ProblemDetailPage() {
                 extra={<TagList tags={problem.tags} />}
               >
                 <Row gutter={[12, 12]}>
-                  {problem.latest ? (
-                    <Col span={8}>
-                      <ProblemStat title={text.problem.record}>{recordNode(problem)}</ProblemStat>
+                  {stateLoading ? (
+                    <Col span={statSpan}>
+                      <ProblemStat title={text.problem.record}>
+                        <Skeleton.Input active size="small" style={{ width: 72 }} />
+                      </ProblemStat>
+                    </Col>
+                  ) : problemState?.submission ? (
+                    <Col span={statSpan}>
+                      <ProblemStat title={text.problem.record}>{recordNode(problemState)}</ProblemStat>
                     </Col>
                   ) : null}
-                  <Col span={problem.latest ? 8 : 12}>
+                  <Col span={statSpan}>
                     <ProblemStat title={text.problem.pass}>
-                      <Link to={`/submissions?problem=${problemCode(problem.id)}`}>{passPercent(problem)}</Link>
+                      {stateLoading || !problemState ? (
+                        <Skeleton.Input active size="small" style={{ width: 72 }} />
+                      ) : (
+                        <Link to={`/submissions?problem=${problemCode(problem.id)}`}>{passPercent(problemState)}</Link>
+                      )}
                     </ProblemStat>
                   </Col>
-                  <Col span={problem.latest ? 8 : 12}>
-                    <ProblemStat title={text.problem.discussion}>
-                      <Link to={`/discussion?tags=${problemCode(problem.id)}`}>{problem.discussions}</Link>
-                    </ProblemStat>
-                  </Col>
+                  {stateLoading ? (
+                    <Col span={statSpan}>
+                      <ProblemStat title={text.problem.discussion}>
+                        <Skeleton.Input active size="small" style={{ width: 56 }} />
+                      </ProblemStat>
+                    </Col>
+                  ) : problemState?.discussions !== undefined ? (
+                    <Col span={statSpan}>
+                      <ProblemStat title={text.problem.discussion}>
+                        <Link to={`/discussion?tags=${problemCode(problem.id)}`}>{problemState.discussions}</Link>
+                      </ProblemStat>
+                    </Col>
+                  ) : null}
                 </Row>
               </Card>
               {session.admin ? (
@@ -461,7 +474,6 @@ export function ProblemDetailPage() {
                 language={lang}
                 minHeight="360px"
                 onChange={(next) => {
-                  setSourceDirty(true)
                   setSource(next)
                 }}
               />
@@ -891,17 +903,17 @@ function ResourceRow({ label, children }: { label: string; children: ReactNode }
   )
 }
 
-function recordNode(problem: Problem) {
-  if (!problem.latest) return null
+function recordNode(record: ProblemState) {
+  if (!record.submission) return null
   return (
-    <Link to={`/submissions/${problem.latest.id}`}>
-      <SubmissionStatus status={problem.latest.status} />
+    <Link to={`/submissions/${record.submission.id}`}>
+      <SubmissionStatus status={record.submission.status} />
     </Link>
   )
 }
 
-function passPercent(problem: Problem) {
-  return `${problem.submit > 0 ? Math.round((problem.ac / problem.submit) * 100) : 0}%`
+function passPercent(stats: Pick<ProblemState, 'ac' | 'submit'>) {
+  return `${stats.submit > 0 ? Math.round((stats.ac / stats.submit) * 100) : 0}%`
 }
 
 function downloadURL(url: string, filename: string) {
@@ -932,56 +944,4 @@ function problemEditKey(problem: Problem) {
     problem.tags.join(','),
     problem.statement || `# ${problem.title}`
   ].join(':')
-}
-
-function templateForLang(lang?: SubmitLang) {
-  const key = `${lang?.id ?? ''} ${lang?.source ?? ''}`.toLowerCase()
-  if (key.includes('python') || key.includes('py')) {
-    return `a, b = map(int, input().split())
-print(a + b)
-`
-  }
-  if (key.includes('go')) {
-    return `package main
-
-import "fmt"
-
-func main() {
-	var a, b int64
-	fmt.Scan(&a, &b)
-	fmt.Println(a + b)
-}
-`
-  }
-  if (key.includes('rust') || key.includes('rs')) {
-    return `use std::io::{self, Read};
-
-fn main() {
-    let mut input = String::new();
-    io::stdin().read_to_string(&mut input).unwrap();
-    let nums: Vec<i64> = input.split_whitespace().map(|s| s.parse().unwrap()).collect();
-    println!("{}", nums[0] + nums[1]);
-}
-`
-  }
-  if (key.includes('java')) {
-    return `import java.util.*;
-
-public class Main {
-  public static void main(String[] args) {
-    Scanner in = new Scanner(System.in);
-    long a = in.nextLong();
-    long b = in.nextLong();
-    System.out.println(a + b);
-  }
-}
-`
-  }
-  if (key.includes('javascript') || key.includes('typescript') || key.includes('main.js') || key.includes('main.ts')) {
-    return `const fs = require('fs');
-const [a, b] = fs.readFileSync(0, 'utf8').trim().split(/\\s+/).map(Number);
-console.log(a + b);
-`
-  }
-  return sourceTemplate
 }

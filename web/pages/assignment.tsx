@@ -8,7 +8,7 @@ import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import { api, apiData } from '../client'
-import type { AssignmentProgress, ProblemListItem, ProblemRef } from '../client'
+import type { AssignmentProgress, ProblemListItem, ProblemRef, ProblemState } from '../client'
 import { ProblemLink, UserLink } from '../components/entity'
 import { IdSelect } from '../components/id-select'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
@@ -41,6 +41,12 @@ export function AssignmentDetailPage() {
     queryFn: () => apiData(api.GET('/api/assignments/{id}', { params: { path: { id } } })),
     enabled: Number.isFinite(id)
   })
+  const problemIds = query.data?.problems.map((item) => item.id).join(',') ?? ''
+  const state = useQuery({
+    queryKey: ['problem-state', 'assignment', id, problemIds],
+    queryFn: () => apiData(api.GET('/api/problem-state', { params: { query: { ids: problemIds, assignment: id } } })),
+    enabled: Number.isFinite(id) && problemIds.length > 0
+  })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
@@ -69,11 +75,15 @@ export function AssignmentDetailPage() {
   if (query.isError) {
     return <ErrorBlock error={query.error} />
   }
+  if (state.isError) {
+    return <ErrorBlock error={state.error} />
+  }
   if (!query.data) {
     return <ErrorBlock error={text.common.emptyResponse} />
   }
 
   const { assignment, problems, progress: assignmentProgress } = query.data
+  const stateByProblem = mapByProblem(state.data ?? [])
   const problemOptions = problems.map((item) => ({
     value: item.id,
     label: problemLabel(item.id, item.title)
@@ -105,7 +115,7 @@ export function AssignmentDetailPage() {
             {
               key: 'problems',
               label: text.assignments.problems,
-              children: <Table<ProblemListItem> rowKey="id" columns={problemColumns(text, session.admin, assignment.id)} dataSource={problems} pagination={false} scroll={{ x: session.admin ? 640 : 560 }} />
+              children: <Table<ProblemListItem> rowKey="id" columns={problemColumns(text, session.admin, assignment.id, stateByProblem)} dataSource={problems} pagination={false} loading={state.isLoading} scroll={{ x: session.admin ? 640 : 560 }} />
             },
             {
               key: 'progress',
@@ -217,7 +227,7 @@ function progressColumns(text: ReturnType<typeof useLocale>['text'], problems: P
   ]
 }
 
-function problemColumns(text: ReturnType<typeof useLocale>['text'], admin: boolean, assignmentID: number): TableProps<ProblemListItem>['columns'] {
+function problemColumns(text: ReturnType<typeof useLocale>['text'], admin: boolean, assignmentID: number, state: Map<number, ProblemState>): TableProps<ProblemListItem>['columns'] {
   const columns: TableProps<ProblemListItem>['columns'] = [
     {
       title: text.common.sort,
@@ -233,8 +243,7 @@ function problemColumns(text: ReturnType<typeof useLocale>['text'], admin: boole
     },
     {
       title: text.assignments.status,
-      dataIndex: 'mine',
-      render: (mine: string) => <AssignmentProblemStatus mine={mine} text={text} />
+      render: (_, row) => <AssignmentProblemStatus status={state.get(row.id)?.status} text={text} />
     }
   ]
   if (admin) {
@@ -250,15 +259,19 @@ function problemColumns(text: ReturnType<typeof useLocale>['text'], admin: boole
   return columns
 }
 
-function AssignmentProblemStatus({ mine, text }: { mine?: string; text: ReturnType<typeof useLocale>['text'] }) {
-  if (mine === 'pending') {
+function AssignmentProblemStatus({ status, text }: { status?: string; text: ReturnType<typeof useLocale>['text'] }) {
+  if (status === 'pending') {
     return <Tag color="processing">{text.submissions.statuses.pending}</Tag>
   }
-  if (mine === 'ac') {
+  if (status === 'ac') {
     return <Tag color="success">{text.assignments.completed}</Tag>
   }
-  if (mine === 'tried') {
+  if (status === 'tried') {
     return <Tag color="warning">{text.assignments.attempted}</Tag>
   }
   return <Tag>{text.assignments.notCompleted}</Tag>
+}
+
+function mapByProblem<T extends { problemId: number }>(items: T[]) {
+  return new Map(items.map((item) => [item.problemId, item]))
 }

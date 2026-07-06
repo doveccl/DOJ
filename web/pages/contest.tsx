@@ -9,7 +9,7 @@ import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { api, apiData } from '../client'
-import type { ProblemListItem, ProblemRef, RankUser } from '../client'
+import type { ProblemListItem, ProblemRef, ProblemState, RankUser } from '../client'
 import { ProblemLink, UserLink } from '../components/entity'
 import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../components/state'
@@ -41,6 +41,12 @@ export function ContestDetailPage() {
     queryFn: () => apiData(api.GET('/api/contests/{id}', { params: { path: { id } } })),
     enabled: Number.isFinite(id)
   })
+  const problemIds = query.data?.problems.map((item) => item.id).join(',') ?? ''
+  const state = useQuery({
+    queryKey: ['problem-state', 'contest', id, problemIds],
+    queryFn: () => apiData(api.GET('/api/problem-state', { params: { query: { ids: problemIds, contest: id } } })),
+    enabled: Number.isFinite(id) && problemIds.length > 0
+  })
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
@@ -70,11 +76,15 @@ export function ContestDetailPage() {
   if (query.isError) {
     return <ErrorBlock error={query.error} />
   }
+  if (state.isError) {
+    return <ErrorBlock error={state.error} />
+  }
   if (!query.data) {
     return <ErrorBlock error={text.common.emptyResponse} />
   }
 
   const { contest, problems, rank } = query.data
+  const stateByProblem = mapByProblem(state.data ?? [])
   const problemOptions = problems.map((item) => ({
     value: item.id,
     label: problemLabel(item.id, item.title)
@@ -114,7 +124,7 @@ export function ContestDetailPage() {
             {
               key: 'problems',
               label: text.contests.problems,
-              children: <Table<ProblemListItem> rowKey="id" columns={problemColumns(text, session.admin, contest.id)} dataSource={problems} pagination={false} scroll={{ x: session.admin ? 640 : 560 }} />
+              children: <Table<ProblemListItem> rowKey="id" columns={problemColumns(text, session.admin, contest.id, stateByProblem)} dataSource={problems} pagination={false} loading={state.isLoading} scroll={{ x: session.admin ? 640 : 560 }} />
             },
             {
               key: 'rank',
@@ -282,7 +292,7 @@ function RankProblemCell({ kind, item }: { kind: string; item?: RankUser['proble
   return <Tag color={item.score > 0 ? 'warning' : 'error'}>{item.score}</Tag>
 }
 
-function problemColumns(text: ReturnType<typeof useLocale>['text'], admin: boolean, contestID: number): TableProps<ProblemListItem>['columns'] {
+function problemColumns(text: ReturnType<typeof useLocale>['text'], admin: boolean, contestID: number, state: Map<number, ProblemState>): TableProps<ProblemListItem>['columns'] {
   const columns: TableProps<ProblemListItem>['columns'] = [
     {
       title: text.common.sort,
@@ -298,8 +308,7 @@ function problemColumns(text: ReturnType<typeof useLocale>['text'], admin: boole
     },
     {
       title: text.contests.status,
-      dataIndex: 'mine',
-      render: (_: string, row) => <ContestProblemStatus row={row} text={text} />
+      render: (_, row) => <ContestProblemStatus record={state.get(row.id)} text={text} />
     }
   ]
   if (admin) {
@@ -315,17 +324,21 @@ function problemColumns(text: ReturnType<typeof useLocale>['text'], admin: boole
   return columns
 }
 
-function ContestProblemStatus({ row, text }: { row: ProblemListItem; text: ReturnType<typeof useLocale>['text'] }) {
-  const mine = row.mine
-  const wrap = (node: ReactNode) => row.latest?.id ? <Link to={`/submissions/${row.latest.id}`}>{node}</Link> : node
-  if (mine === 'pending') {
+function ContestProblemStatus({ record, text }: { record?: ProblemState; text: ReturnType<typeof useLocale>['text'] }) {
+  const status = record?.status
+  const wrap = (node: ReactNode) => record?.submission?.id ? <Link to={`/submissions/${record.submission.id}`}>{node}</Link> : node
+  if (status === 'pending') {
     return wrap(<Tag color="processing">{text.submissions.statuses.pending}</Tag>)
   }
-  if (mine === 'ac') {
+  if (status === 'ac') {
     return wrap(<Tag color="success">{text.contests.completed}</Tag>)
   }
-  if (mine === 'tried') {
+  if (status === 'tried') {
     return wrap(<Tag color="warning">{text.contests.attempted}</Tag>)
   }
   return <Tag>{text.contests.notCompleted}</Tag>
+}
+
+function mapByProblem<T extends { problemId: number }>(items: T[]) {
+  return new Map(items.map((item) => [item.problemId, item]))
 }

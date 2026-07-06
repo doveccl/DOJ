@@ -500,6 +500,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/problem-state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getProblemState"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/problems/{id}": {
         parameters: {
             query?: never;
@@ -1135,12 +1151,6 @@ export interface components {
             mode: string;
             timeMs: number;
             memoryMb: number;
-            ac: number;
-            submit: number;
-            discussions: number;
-            /** @enum {string} */
-            mine: "none" | "tried" | "ac" | "pending";
-            latest?: components["schemas"]["ProblemRecord"];
         };
         ProblemListPage: {
             items: components["schemas"]["ProblemListItem"][];
@@ -1162,12 +1172,15 @@ export interface components {
             cases: number;
             /** Format: int64 */
             dataBytes: number;
+        };
+        ProblemState: {
+            problemId: number;
             ac: number;
             submit: number;
-            discussions: number;
+            discussions?: number;
             /** @enum {string} */
-            mine: "none" | "tried" | "ac" | "pending";
-            latest?: components["schemas"]["ProblemRecord"];
+            status: "none" | "tried" | "ac" | "pending";
+            submission?: components["schemas"]["ProblemRecord"];
         };
         ProblemRecord: {
             id: number;
@@ -2545,6 +2558,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": string[];
+                };
+            };
+        };
+    };
+    getProblemState: {
+        parameters: {
+            query?: {
+                ids?: string;
+                assignment?: number;
+                contest?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Problem state for current user and page context */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemState"][];
                 };
             };
         };
