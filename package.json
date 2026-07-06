@@ -2,7 +2,6 @@
   "name": "doj",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@11.8.0",
   "scripts": {
     "dev": "vite --host",
     "build": "tsc --noEmit && vite build",
