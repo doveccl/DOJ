@@ -68,7 +68,7 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 		_ = os.Remove(filepath.Dir(taskDir))
 	}()
 	logStep(cfg.Logf, task.SubmissionID, task.Attempt, "prepare_task", taskStartedAt)
-	if task.needsProblemPackage() {
+	if taskNeedsProblemPackage(task) {
 		packageStartedAt := time.Now()
 		if err := downloadProblemPackage(ctx, client, cfg, task.Problem.ID, task.Problem.PackageHash, taskDir, task.SubmissionID, task.Attempt); err != nil {
 			logStep(cfg.Logf, task.SubmissionID, task.Attempt, "download_problem_package_error", packageStartedAt)
@@ -91,8 +91,8 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 		Work:             taskDir,
 		CgroupRoot:       cfg.CgroupRoot,
 		ProcRoot:         cfg.ProcRoot,
-		CustomJudgeCache: customJudgeCachePath(cfg.Cache, task.Problem.ID, task.Mode),
-		Task:             task.toTask(),
+		CustomJudgeCache: customJudgeCachePath(cfg.Cache, task.Problem.ID, JudgeMode(task.Mode)),
+		Task:             taskToTask(task),
 		Logf:             cfg.Logf,
 		Progress:         cfg.Progress,
 	})
@@ -114,8 +114,8 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 	return true, nil
 }
 
-func (task leaseTask) needsProblemPackage() bool {
-	if task.Mode == ModeCustom {
+func taskNeedsProblemPackage(task *leaseTask) bool {
+	if JudgeMode(task.Mode) == ModeCustom {
 		return true
 	}
 	for _, item := range task.Cases {
@@ -126,7 +126,7 @@ func (task leaseTask) needsProblemPackage() bool {
 	return false
 }
 
-func (task leaseTask) toTask() Task {
+func taskToTask(task *leaseTask) Task {
 	cases := make([]Case, 0, len(task.Cases))
 	for _, item := range task.Cases {
 		cases = append(cases, Case{
@@ -140,9 +140,21 @@ func (task leaseTask) toTask() Task {
 		SubmissionID: task.SubmissionID,
 		Attempt:      task.Attempt,
 		Source:       task.Source,
-		Lang:         task.Lang,
-		Mode:         task.Mode,
-		Limits:       task.Limits,
-		Cases:        cases,
+		Lang: Lang{
+			ID:      task.Lang.ID,
+			Source:  task.Lang.Source,
+			Image:   task.Lang.Image,
+			Compile: task.Lang.Compile,
+			Run:     task.Lang.Run,
+		},
+		Mode: JudgeMode(task.Mode),
+		Limits: Limits{
+			TimeMS:   task.Limits.TimeMS,
+			MemoryKB: task.Limits.MemoryKB,
+			OutputKB: task.Limits.OutputKB,
+			Pids:     task.Limits.Pids,
+			FileKB:   task.Limits.FileKB,
+		},
+		Cases: cases,
 	}
 }

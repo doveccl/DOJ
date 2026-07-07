@@ -9,6 +9,8 @@ import (
 	"os"
 	"runtime"
 	"time"
+
+	common "github.com/doveccl/doj/common/judger"
 )
 
 const (
@@ -16,67 +18,14 @@ const (
 	defaultPackageHTTPTimeout = 5 * time.Minute
 )
 
-type leaseRequest struct {
-	Version string `json:"version"`
-	Host    string `json:"host"`
-	Arch    string `json:"arch"`
-}
-
-type leaseResponse struct {
-	Task *leaseTask `json:"task"`
-}
-
-type leaseTask struct {
-	ID           uint          `json:"id"`
-	SubmissionID uint          `json:"submissionId"`
-	Attempt      int           `json:"attempt"`
-	Source       string        `json:"source"`
-	Lang         Lang          `json:"lang"`
-	Mode         JudgeMode     `json:"mode"`
-	Limits       Limits        `json:"limits"`
-	Cases        []casePayload `json:"cases"`
-	Problem      taskProblem   `json:"problem"`
-}
-
-type taskProblem struct {
-	ID          uint   `json:"id"`
-	PackageHash string `json:"packageHash"`
-}
-
-type casePayload struct {
-	ID     string `json:"id"`
-	Input  string `json:"input"`
-	Answer string `json:"answer"`
-	Score  int    `json:"score"`
-}
-
-type resultRequest struct {
-	SubmissionID uint         `json:"submissionId"`
-	Attempt      int          `json:"attempt"`
-	Status       string       `json:"status"`
-	Score        int          `json:"score"`
-	Message      string       `json:"message"`
-	TimeMS       *int         `json:"timeMs,omitempty"`
-	MemoryKB     *int         `json:"memoryKb,omitempty"`
-	Cases        []caseResult `json:"cases"`
-}
-
-type heartbeatRequest struct {
-	SubmissionID uint   `json:"submissionId"`
-	Attempt      int    `json:"attempt"`
-	Stage        string `json:"stage,omitempty"`
-	Done         int64  `json:"done,omitempty"`
-	Total        *int64 `json:"total,omitempty"`
-}
-
-type caseResult struct {
-	No       int    `json:"no"`
-	Status   string `json:"status"`
-	Score    int    `json:"score"`
-	TimeMS   *int   `json:"timeMs,omitempty"`
-	MemoryKB *int   `json:"memoryKb,omitempty"`
-	Message  string `json:"message"`
-}
+type leaseRequest = common.LeaseRequest
+type leaseResponse = common.LeaseResponse
+type leaseTask = common.TaskPayload
+type taskProblem = common.ProblemPayload
+type casePayload = common.CasePayload
+type resultRequest = common.ResultRequest
+type heartbeatRequest = common.HeartbeatRequest
+type caseResult = common.CaseResult
 
 func lease(ctx context.Context, client *http.Client, cfg WorkerConfig) (*leaseTask, error) {
 	host, _ := os.Hostname()

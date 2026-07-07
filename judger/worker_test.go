@@ -15,6 +15,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	common "github.com/doveccl/doj/common/judger"
 )
 
 func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
@@ -35,9 +37,9 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 				SubmissionID: 11,
 				Attempt:      2,
 				Source:       "cat\n",
-				Lang:         testShellLang(),
-				Mode:         ModeDefault,
-				Limits:       Limits{TimeMS: 1000, OutputKB: 64},
+				Lang:         testLeaseLang(),
+				Mode:         string(ModeDefault),
+				Limits:       common.LimitsPayload{TimeMS: 1000, OutputKB: 64},
 				Problem:      taskProblem{ID: 1000, PackageHash: "fixture-v1"},
 				Cases: []casePayload{{
 					ID:     "1",
@@ -114,9 +116,9 @@ func TestRunOneDownloadsPackageForRelativeCases(t *testing.T) {
 				SubmissionID: 12,
 				Attempt:      1,
 				Source:       "cat\n",
-				Lang:         testShellLang(),
-				Mode:         ModeDefault,
-				Limits:       Limits{TimeMS: 1000, OutputKB: 64},
+				Lang:         testLeaseLang(),
+				Mode:         string(ModeDefault),
+				Limits:       common.LimitsPayload{TimeMS: 1000, OutputKB: 64},
 				Problem:      taskProblem{ID: 1000, PackageHash: "fixture-v1"},
 				Cases: []casePayload{{
 					ID:     "1",
@@ -183,9 +185,9 @@ func TestRunOneCleansWorkAfterPackageError(t *testing.T) {
 				SubmissionID: 13,
 				Attempt:      1,
 				Source:       "cat\n",
-				Lang:         testShellLang(),
-				Mode:         ModeDefault,
-				Limits:       Limits{TimeMS: 1000, OutputKB: 64},
+				Lang:         testLeaseLang(),
+				Mode:         string(ModeDefault),
+				Limits:       common.LimitsPayload{TimeMS: 1000, OutputKB: 64},
 				Problem:      taskProblem{ID: 1000, PackageHash: "fixture-v1"},
 				Cases: []casePayload{{
 					ID:     "1",
@@ -450,4 +452,15 @@ func testPackageZip(t *testing.T) []byte {
 		t.Fatalf("close zip failed: %v", err)
 	}
 	return body.Bytes()
+}
+
+func testLeaseLang() common.LangPayload {
+	lang := testShellLang()
+	return common.LangPayload{
+		ID:      lang.ID,
+		Source:  lang.Source,
+		Image:   lang.Image,
+		Compile: lang.Compile,
+		Run:     lang.Run,
+	}
 }

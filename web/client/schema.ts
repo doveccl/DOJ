@@ -4,87 +4,43 @@
  */
 
 export interface paths {
-    "/api/health": {
+    "/api/admin/backups": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["health"];
+        /** Backup list */
+        get: operations["getBackups"];
         put?: never;
-        post?: never;
+        /** Created backup */
+        post: operations["createBackup"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/ready": {
+    "/api/admin/backups/settings": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["ready"];
+        /** Backup settings */
+        get: operations["getBackupSettings"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Updated backup settings */
+        patch: operations["updateBackupSettings"];
         trace?: never;
     };
-    "/api/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["watchEvents"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/site": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getSite"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getMe"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["updateMe"];
-        trace?: never;
-    };
-    "/api/me/password": {
+    "/api/admin/backups/{name}": {
         parameters: {
             query?: never;
             header?: never;
@@ -94,166 +50,24 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["updatePassword"];
-        trace?: never;
-    };
-    "/api/auth/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["login"];
-        delete?: never;
+        /** Deleted backup */
+        delete: operations["deleteBackup"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/auth/register": {
+    "/api/admin/backups/{name}/download": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
-        post: operations["register"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/auth/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["logout"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/languages": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getLangs"];
+        /** Backup file */
+        get: operations["downloadBackup"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/uploads/images": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["uploadImage"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/settings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getAdminSettings"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["updateAdminSettings"];
-        trace?: never;
-    };
-    "/api/admin/members": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getAdminMembers"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/users": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getAdminUsers"];
-        put?: never;
-        post: operations["createAdminUser"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/users/{name}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["deleteAdminUser"];
-        options?: never;
-        head?: never;
-        patch: operations["updateAdminUser"];
-        trace?: never;
-    };
-    "/api/admin/users/{name}/password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["resetAdminUserPassword"];
         delete?: never;
         options?: never;
         head?: never;
@@ -267,8 +81,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Admin groups */
         get: operations["getAdminGroups"];
         put?: never;
+        /** Created group */
         post: operations["createAdminGroup"];
         delete?: never;
         options?: never;
@@ -286,38 +102,26 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
+        /** Deleted group */
         delete: operations["deleteAdminGroup"];
         options?: never;
         head?: never;
+        /** Updated group */
         patch: operations["updateAdminGroup"];
         trace?: never;
     };
-    "/api/admin/languages/{id}": {
+    "/api/admin/judgers": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Admin judgers */
+        get: operations["getAdminJudgers"];
         put?: never;
-        post?: never;
-        delete: operations["deleteAdminLang"];
-        options?: never;
-        head?: never;
-        patch: operations["updateAdminLang"];
-        trace?: never;
-    };
-    "/api/admin/languages": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getAdminLangs"];
-        put?: never;
-        post: operations["createAdminLang"];
+        /** Created judger */
+        post: operations["createAdminJudger"];
         delete?: never;
         options?: never;
         head?: never;
@@ -334,77 +138,33 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
+        /** Deleted judger */
         delete: operations["deleteAdminJudger"];
         options?: never;
         head?: never;
+        /** Updated judger */
         patch: operations["updateAdminJudger"];
         trace?: never;
     };
-    "/api/admin/judgers": {
+    "/api/admin/languages": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["getAdminJudgers"];
+        /** Admin languages */
+        get: operations["getAdminLangs"];
         put?: never;
-        post: operations["createAdminJudger"];
+        /** Created language */
+        post: operations["createAdminLang"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admin/backups/settings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getBackupSettings"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["updateBackupSettings"];
-        trace?: never;
-    };
-    "/api/admin/backups": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getBackups"];
-        put?: never;
-        post: operations["createBackup"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/backups/{name}/download": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["downloadBackup"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/backups/{name}": {
+    "/api/admin/languages/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -414,7 +174,327 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete: operations["deleteBackup"];
+        /** Deleted language */
+        delete: operations["deleteAdminLang"];
+        options?: never;
+        head?: never;
+        /** Updated language */
+        patch: operations["updateAdminLang"];
+        trace?: never;
+    };
+    "/api/admin/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin member options */
+        get: operations["getAdminMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin settings */
+        get: operations["getAdminSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Updated admin settings */
+        patch: operations["updateAdminSettings"];
+        trace?: never;
+    };
+    "/api/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin users */
+        get: operations["getAdminUsers"];
+        put?: never;
+        /** Created user */
+        post: operations["createAdminUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Deleted user */
+        delete: operations["deleteAdminUser"];
+        options?: never;
+        head?: never;
+        /** Updated user */
+        patch: operations["updateAdminUser"];
+        trace?: never;
+    };
+    "/api/admin/users/{name}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reset user password */
+        post: operations["resetAdminUserPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Assignment list */
+        get: operations["listAssignments"];
+        put?: never;
+        /** Assignment created */
+        post: operations["createAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assignments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Assignment detail */
+        get: operations["getAssignment"];
+        put?: never;
+        post?: never;
+        /** Assignment deleted */
+        delete: operations["deleteAssignment"];
+        options?: never;
+        head?: never;
+        /** Assignment updated */
+        patch: operations["updateAssignment"];
+        trace?: never;
+    };
+    "/api/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Signed in user */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Signed out */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Registered user */
+        post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/contests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Contest list */
+        get: operations["listContests"];
+        put?: never;
+        /** Contest created */
+        post: operations["createContest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/contests/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Contest detail */
+        get: operations["getContest"];
+        put?: never;
+        post?: never;
+        /** Contest deleted */
+        delete: operations["deleteContest"];
+        options?: never;
+        head?: never;
+        /** Contest updated */
+        patch: operations["updateContest"];
+        trace?: never;
+    };
+    "/api/discussion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Discussion list */
+        get: operations["listDiscussions"];
+        put?: never;
+        /** Discussion created */
+        post: operations["createDiscussion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/discussion/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Discussion detail */
+        get: operations["getDiscussion"];
+        put?: never;
+        post?: never;
+        /** Discussion deleted */
+        delete: operations["deleteDiscussion"];
+        options?: never;
+        head?: never;
+        /** Discussion updated */
+        patch: operations["updateDiscussion"];
+        trace?: never;
+    };
+    "/api/discussion/{id}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Comment created */
+        post: operations["createComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/discussion/{id}/comments/{commentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Comment deleted */
+        delete: operations["deleteComment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Server-sent events for lightweight live updates */
+        get: operations["watchEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Server health */
+        get: operations["health"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -427,6 +507,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Home data */
         get: operations["home"];
         put?: never;
         post?: never;
@@ -449,17 +530,71 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
+        /** Updated notice */
         patch: operations["updateNotice"];
         trace?: never;
     };
-    "/api/users/{id}/{year}/{month}/{day}/{name}": {
+    "/api/languages": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["userMedia"];
+        /** Submit languages */
+        get: operations["getLangs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current user */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Updated current user */
+        patch: operations["updateMe"];
+        trace?: never;
+    };
+    "/api/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Password updated */
+        patch: operations["updatePassword"];
+        trace?: never;
+    };
+    "/api/problem-state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Problem state for current user and page context */
+        get: operations["getProblemState"];
         put?: never;
         post?: never;
         delete?: never;
@@ -475,41 +610,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Problem list */
         get: operations["listProblems"];
         put?: never;
+        /** Problem created */
         post: operations["createProblem"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tags": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listTags"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/problem-state": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getProblemState"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -523,41 +628,29 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Problem detail */
         get: operations["getProblem"];
         put?: never;
         post?: never;
+        /** Problem deleted */
         delete: operations["deleteProblem"];
         options?: never;
         head?: never;
+        /** Problem updated */
         patch: operations["updateProblem"];
         trace?: never;
     };
-    "/api/problems/{id}/visibility": {
+    "/api/problems/{id}.zip": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Problem assets zip */
+        get: operations["downloadProblemAssets"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["updateProblemVisibility"];
-        trace?: never;
-    };
-    "/api/problems/{id}/rejudge": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["rejudgeProblem"];
         delete?: never;
         options?: never;
         head?: never;
@@ -571,6 +664,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Problem assets */
         get: operations["getProblemAssets"];
         put?: never;
         post?: never;
@@ -578,6 +672,59 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/problems/{id}/assets/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Problem case created */
+        post: operations["createProblemCase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/problems/{id}/assets/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Problem asset uploaded */
+        post: operations["uploadProblemAsset"];
+        /** Problem asset deleted */
+        delete: operations["deleteProblemAsset"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/problems/{id}/assets/files/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Text asset content */
+        get: operations["getProblemAssetContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Text asset updated */
+        patch: operations["updateProblemAssetContent"];
         trace?: never;
     };
     "/api/problems/{id}/assets/images": {
@@ -589,7 +736,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Problem image uploaded */
         post: operations["uploadProblemImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/problems/{id}/assets/template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Judge template written */
+        post: operations["fillJudgeTemplate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -603,6 +768,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Public problem asset */
         get: operations["problemPublicAsset"];
         put?: never;
         post?: never;
@@ -619,6 +785,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Private problem data file */
         get: operations["problemPrivateData"];
         put?: never;
         post?: never;
@@ -635,6 +802,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Private problem judge file */
         get: operations["problemPrivateJudge"];
         put?: never;
         post?: never;
@@ -644,7 +812,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/problems/{id}/assets/files": {
+    "/api/problems/{id}/rejudge": {
         parameters: {
             query?: never;
             header?: never;
@@ -653,30 +821,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["uploadProblemAsset"];
-        delete: operations["deleteProblemAsset"];
+        /** Problem submissions requeued */
+        post: operations["rejudgeProblem"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/problems/{id}/assets/files/content": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getProblemAssetContent"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["updateProblemAssetContent"];
-        trace?: never;
-    };
-    "/api/problems/{id}/assets/cases": {
+    "/api/problems/{id}/visibility": {
         parameters: {
             query?: never;
             header?: never;
@@ -685,37 +838,23 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["createProblemCase"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Problem visibility updated */
+        patch: operations["updateProblemVisibility"];
         trace?: never;
     };
-    "/api/problems/{id}/assets/template": {
+    "/api/rank": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
-        post: operations["fillJudgeTemplate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/problems/{id}.zip": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["downloadProblemAssets"];
+        /** Rank list */
+        get: operations["getRank"];
         put?: never;
         post?: never;
         delete?: never;
@@ -724,68 +863,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/assignments": {
+    "/api/ready": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["listAssignments"];
+        /** Server dependencies are ready */
+        get: operations["ready"];
         put?: never;
-        post: operations["createAssignment"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/assignments/{id}": {
+    "/api/site": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["getAssignment"];
+        /** Public site settings */
+        get: operations["getSite"];
         put?: never;
         post?: never;
-        delete: operations["deleteAssignment"];
-        options?: never;
-        head?: never;
-        patch: operations["updateAssignment"];
-        trace?: never;
-    };
-    "/api/contests": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listContests"];
-        put?: never;
-        post: operations["createContest"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
-        trace?: never;
-    };
-    "/api/contests/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getContest"];
-        put?: never;
-        post?: never;
-        delete: operations["deleteContest"];
-        options?: never;
-        head?: never;
-        patch: operations["updateContest"];
         trace?: never;
     };
     "/api/submissions": {
@@ -795,8 +904,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Submission list */
         get: operations["listSubmissions"];
         put?: never;
+        /** Submission created */
         post: operations["createSubmission"];
         delete?: never;
         options?: never;
@@ -811,12 +922,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Submission detail */
         get: operations["getSubmission"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
+        /** Submission updated */
         patch: operations["updateSubmission"];
         trace?: never;
     };
@@ -829,6 +942,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Submission requeued */
         post: operations["rejudgeSubmission"];
         delete?: never;
         options?: never;
@@ -836,16 +950,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/rank": {
+    "/api/tags": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["getRank"];
+        /** Tag suggestions */
+        get: operations["listTags"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/uploads/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Uploaded image */
+        post: operations["uploadImage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -859,7 +991,25 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** User suggestions */
         get: operations["searchUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/{id}/{year}/{month}/{day}/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** User uploaded media */
+        get: operations["userMedia"];
         put?: never;
         post?: never;
         delete?: never;
@@ -875,6 +1025,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** User profile */
         get: operations["getUser"];
         put?: never;
         post?: never;
@@ -884,212 +1035,21 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/discussion": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listDiscussions"];
-        put?: never;
-        post: operations["createDiscussion"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/discussion/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getDiscussion"];
-        put?: never;
-        post?: never;
-        delete: operations["deleteDiscussion"];
-        options?: never;
-        head?: never;
-        patch: operations["updateDiscussion"];
-        trace?: never;
-    };
-    "/api/discussion/{id}/comments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["createComment"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/discussion/{id}/comments/{commentId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["deleteComment"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        Health: {
-            status: string;
-        };
-        Site: {
-            siteName: string;
-            allowRegistration: boolean;
-            allowGuestAccess: boolean;
-            defaultSubmissionPublic: boolean;
-        };
-        HeatCell: {
-            date: string;
-            count: number;
-        };
-        Item: {
-            id: number;
-            title: string;
-        };
-        CreatedID: {
-            id: number;
-        };
-        CountResult: {
-            count: number;
-        };
-        Me: {
-            id: number;
-            name: string;
-            /** Format: email */
-            mail: string;
-            bio: string;
-            avatar: string;
-            admin: boolean;
-        };
-        MeUpdate: {
-            mail?: string;
-            bio?: string;
-            avatar?: string;
-        };
-        LoginRequest: {
-            name: string;
-            password: string;
-        };
-        RegisterRequest: {
-            name: string;
-            /** Format: email */
-            mail: string;
-            password: string;
-        };
-        Lang: {
-            id: string;
-            name: string;
-            source: string;
-        };
-        UploadResult: {
-            url: string;
-        };
-        PasswordUpdate: {
-            oldPassword: string;
-            newPassword: string;
-        };
-        AdminMembers: {
-            users: components["schemas"]["AdminUser"][];
-            groups: components["schemas"]["AdminGroup"][];
-        };
-        AdminSettings: {
-            siteName: string;
-            allowRegistration: boolean;
-            allowGuestAccess: boolean;
-            defaultSubmissionPublic: boolean;
-            notice: string;
-        };
-        AdminSettingsPatch: {
-            siteName?: string;
-            allowRegistration?: boolean;
-            allowGuestAccess?: boolean;
-            defaultSubmissionPublic?: boolean;
-            notice?: string;
-        };
-        BackupSettings: {
-            enabled: boolean;
-            /** @example 0 3 * * * */
-            cron: string;
-            keep: number;
-        };
-        BackupList: {
-            running?: components["schemas"]["BackupRunning"];
-            items: components["schemas"]["BackupItem"][];
-        };
-        BackupRunning: {
-            name: string;
-            /** Format: date-time */
-            startedAt: string;
-            stale: boolean;
-        };
-        BackupItem: {
-            name: string;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: int64 */
-            size: number;
-        };
-        AdminUser: {
-            id: number;
-            name: string;
-            /** Format: email */
-            mail: string;
-            role: string;
-            groups: number[];
-        };
-        AdminUserPage: {
-            items: components["schemas"]["AdminUser"][];
-            page: number;
-            pageSize: number;
-            /** Format: int64 */
-            total: number;
-        };
-        AdminUserUpdate: {
-            role: string;
-            groups: number[];
-        };
-        AdminUserCreate: {
-            name: string;
-            /** Format: email */
-            mail: string;
-            password: string;
-            role: string;
-            groups: number[];
-        };
-        PasswordReset: {
-            password: string;
-        };
         AdminGroup: {
+            /** Format: int64 */
             id: number;
             name: string;
             users: number[];
         };
         AdminGroupPage: {
             items: components["schemas"]["AdminGroup"][];
+            /** Format: int64 */
             page: number;
+            /** Format: int64 */
             pageSize: number;
             /** Format: int64 */
             total: number;
@@ -1098,458 +1058,712 @@ export interface components {
             name: string;
             users: number[];
         };
-        AdminLang: {
-            id: string;
-            name: string;
-            source: string;
-            image: string;
-            compile: string;
-            run: string;
+        AdminJudgeQueue: {
+            /** Format: int64 */
+            done: number;
+            /** Format: int64 */
+            queued: number;
+            /** Format: int64 */
+            running: number;
         };
-        AdminLangUpdate: {
-            id: string;
-            name: string;
-            source: string;
-            image: string;
-            compile: string;
-            run: string;
-        };
-        AdminLangCreate: components["schemas"]["AdminLangUpdate"];
         AdminJudger: {
-            id: number;
-            name: string;
-            token?: string;
-            online: boolean;
-            /** Format: date-time */
-            connectedAt: string | null;
             /** Format: date-time */
             activeAt: string | null;
+            /** Format: date-time */
+            connectedAt: string | null;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            online: boolean;
+            token?: string;
+            /** Format: int64 */
             uptimeSeconds: number;
         };
-        AdminJudgeQueue: {
-            queued: number;
-            running: number;
-            done: number;
+        AdminJudgerCreate: {
+            name: string;
+        };
+        AdminJudgerUpdate: {
+            auth?: string;
+            name: string;
         };
         AdminJudgers: {
             judgers: components["schemas"]["AdminJudger"][];
             queue: components["schemas"]["AdminJudgeQueue"];
         };
-        AdminJudgerUpdate: {
+        AdminLang: {
+            compile: string;
+            id: string;
+            image: string;
             name: string;
-            auth?: string;
+            run: string;
+            source: string;
         };
-        AdminJudgerCreate: {
+        AdminLangCreate: {
+            compile: string;
+            id: string;
+            image: string;
             name: string;
+            run: string;
+            source: string;
         };
-        ProblemListItem: {
+        AdminLangUpdate: {
+            compile: string;
+            id: string;
+            image: string;
+            name: string;
+            run: string;
+            source: string;
+        };
+        AdminMembers: {
+            groups: components["schemas"]["AdminGroup"][];
+            users: components["schemas"]["AdminUser"][];
+        };
+        AdminSettings: {
+            allowGuestAccess: boolean;
+            allowRegistration: boolean;
+            defaultSubmissionPublic: boolean;
+            notice: string;
+            siteName: string;
+        };
+        AdminSettingsPatch: {
+            allowGuestAccess?: boolean;
+            allowRegistration?: boolean;
+            defaultSubmissionPublic?: boolean;
+            notice?: string;
+            siteName?: string;
+        };
+        AdminUser: {
+            groups: number[];
+            /** Format: int64 */
             id: number;
-            sort?: string;
-            title: string;
-            tags: string[];
-            visible: boolean;
-            mode: string;
-            timeMs: number;
-            memoryMb: number;
+            mail: string;
+            name: string;
+            role: string;
         };
-        ProblemListPage: {
-            items: components["schemas"]["ProblemListItem"][];
+        AdminUserCreate: {
+            groups: number[];
+            mail: string;
+            name: string;
+            password: string;
+            role: string;
+        };
+        AdminUserPage: {
+            items: components["schemas"]["AdminUser"][];
+            /** Format: int64 */
             page: number;
+            /** Format: int64 */
             pageSize: number;
             /** Format: int64 */
             total: number;
         };
-        Problem: {
-            id: number;
-            sort?: string;
-            title: string;
-            statement?: string;
-            tags: string[];
-            visible: boolean;
-            mode: string;
-            timeMs: number;
-            memoryMb: number;
-            cases: number;
-            /** Format: int64 */
-            dataBytes: number;
+        AdminUserUpdate: {
+            groups: number[];
+            role: string;
         };
-        ProblemState: {
-            problemId: number;
-            ac: number;
-            submit: number;
-            discussions?: number;
-            /** @enum {string} */
-            status: "none" | "tried" | "ac" | "pending";
-            submission?: components["schemas"]["ProblemRecord"];
+        AssetCaseCreate: {
+            input: string;
+            name: string;
+            output: string;
         };
-        ProblemRecord: {
-            id: number;
-            status: string;
-            score: number;
-            /** Format: date-time */
-            createdAt: string;
+        AssetContent: {
+            content: string;
+            key: string;
+            name: string;
         };
-        ProblemCreate: {
-            title: string;
-            tags: string[];
-            visible: boolean;
-            mode: string;
-            timeMs: number;
-            memoryMb: number;
-        };
-        ProblemUpdate: {
-            title?: string;
-            statement?: string;
-            tags?: string[];
-            visible?: boolean;
-            mode?: string;
-            timeMs?: number;
-            memoryMb?: number;
-        };
-        ProblemVisibilityUpdate: {
-            visible: boolean;
+        AssetContentUpdate: {
+            content: string;
+            key: string;
         };
         AssetFile: {
+            editable: boolean;
             key: string;
             name: string;
             /** Format: int64 */
             size: number;
-            editable: boolean;
-        };
-        ProblemAssets: {
-            data: components["schemas"]["AssetFile"][];
-            judge: components["schemas"]["AssetFile"][];
-            assets: components["schemas"]["AssetFile"][];
-            cases: number;
-            /** Format: int64 */
-            dataBytes: number;
-        };
-        AssetCaseCreate: {
-            name: string;
-            input: string;
-            output: string;
-        };
-        AssetContent: {
-            key: string;
-            name: string;
-            content: string;
-        };
-        AssetContentUpdate: {
-            key: string;
-            content: string;
-        };
-        Home: {
-            notice: string;
-            heatmap: components["schemas"]["HeatCell"][];
-            problems: components["schemas"]["HomeProblem"][];
-            assignments: components["schemas"]["HomeAssignment"][];
-            contests: components["schemas"]["HomeContest"][];
-        };
-        HomeProblem: {
-            id: number;
-            title: string;
-        };
-        HomeAssignment: {
-            id: number;
-            title: string;
-            status: string;
-            total: number;
-            done: number;
-        };
-        HomeContest: {
-            id: number;
-            title: string;
-            status: string;
-        };
-        NoticeUpdate: {
-            content: string;
         };
         Assignment: {
-            id: number;
-            title: string;
+            /** Format: int64 */
+            done: number;
             /** Format: date-time */
             endAt: string;
-            status: string;
-            total: number;
-            done: number;
-            users: number[];
             groups: number[];
-        };
-        AssignmentListItem: {
+            /** Format: int64 */
             id: number;
-            title: string;
-            /** Format: date-time */
-            endAt: string;
             status: string;
-            total: number;
-            done: number;
-        };
-        AssignmentListPage: {
-            items: components["schemas"]["AssignmentListItem"][];
-            page: number;
-            pageSize: number;
+            title: string;
             /** Format: int64 */
             total: number;
+            users: number[];
+        };
+        AssignmentCreate: {
+            endAt: string;
+            groups: number[];
+            problems: components["schemas"]["ProblemRef"][];
+            title: string;
+            users: number[];
         };
         AssignmentDetail: {
             assignment: components["schemas"]["Assignment"];
             problems: components["schemas"]["ProblemListItem"][];
             progress: components["schemas"]["AssignmentProgress"][];
         };
-        AssignmentProgress: {
-            user: string;
-            ac: number;
-            submit: number;
-            problems: components["schemas"]["AssignmentProblemProgress"][];
+        AssignmentListItem: {
+            /** Format: int64 */
+            done: number;
+            /** Format: date-time */
+            endAt: string;
+            /** Format: int64 */
+            id: number;
+            status: string;
+            title: string;
+            /** Format: int64 */
+            total: number;
+        };
+        AssignmentListPage: {
+            items: components["schemas"]["AssignmentListItem"][];
+            /** Format: int64 */
+            page: number;
+            /** Format: int64 */
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
         };
         AssignmentProblemProgress: {
+            /** Format: int64 */
             problemId: number;
-            /** @enum {string} */
-            status: "none" | "tried" | "ac" | "pending";
+            /** Format: int64 */
             score?: number;
+            status: string;
         };
-        AssignmentCreate: {
-            title: string;
-            /** Format: date-time */
-            endAt: string;
-            problems: components["schemas"]["ProblemRef"][];
-            users: number[];
-            groups: number[];
+        AssignmentProgress: {
+            /** Format: int64 */
+            ac: number;
+            problems: components["schemas"]["AssignmentProblemProgress"][];
+            /** Format: int64 */
+            submit: number;
+            user: string;
         };
         AssignmentUpdate: {
-            title: string;
-            /** Format: date-time */
             endAt: string;
-            problems: components["schemas"]["ProblemRef"][];
-            users: number[];
             groups: number[];
+            problems: components["schemas"]["ProblemRef"][];
+            title: string;
+            users: number[];
+        };
+        BackupItem: {
+            /** Format: date-time */
+            createdAt: string;
+            name: string;
+            /** Format: int64 */
+            size: number;
+        };
+        BackupList: {
+            items: components["schemas"]["BackupItem"][];
+            running?: components["schemas"]["BackupRunning"];
+        };
+        BackupRunning: {
+            name: string;
+            stale: boolean;
+            /** Format: date-time */
+            startedAt: string;
+        };
+        BackupSettings: {
+            cron: string;
+            enabled: boolean;
+            /** Format: int64 */
+            keep: number;
+        };
+        Case: {
+            /** Format: int64 */
+            memoryKb?: number;
+            message: string;
+            /** Format: int64 */
+            no: number;
+            status: string;
+            /** Format: int64 */
+            timeMs?: number;
+        };
+        Comment: {
+            author: string;
+            content: string;
+            /** Format: date-time */
+            createdAt: string;
+            deleted: boolean;
+            /** Format: int64 */
+            id: number;
+        };
+        CommentCreate: {
+            content: string;
         };
         Contest: {
-            id: number;
-            title: string;
-            kind: string;
-            /** Format: date-time */
-            startAt: string;
             /** Format: date-time */
             endAt: string;
             /** Format: date-time */
             freezeAt: string | null;
+            /** Format: int64 */
+            id: number;
+            kind: string;
+            /** Format: date-time */
+            startAt: string;
             status: string;
-            total: number;
-        };
-        ContestListPage: {
-            items: components["schemas"]["Contest"][];
-            page: number;
-            pageSize: number;
+            title: string;
             /** Format: int64 */
             total: number;
+        };
+        ContestCreate: {
+            endAt: string;
+            freezeAt: string;
+            kind: string;
+            problems: components["schemas"]["ProblemRef"][];
+            startAt: string;
+            title: string;
         };
         ContestDetail: {
             contest: components["schemas"]["Contest"];
             problems: components["schemas"]["ProblemListItem"][];
             rank: components["schemas"]["RankUser"][];
         };
-        ContestCreate: {
-            title: string;
-            kind: string;
-            /** Format: date-time */
-            startAt: string;
-            /** Format: date-time */
-            endAt: string;
-            freezeAt: string;
-            problems: components["schemas"]["ProblemRef"][];
-        };
-        ContestUpdate: {
-            title: string;
-            kind: string;
-            /** Format: date-time */
-            startAt: string;
-            /** Format: date-time */
-            endAt: string;
-            freezeAt: string;
-            problems: components["schemas"]["ProblemRef"][];
-        };
-        ProblemRef: {
-            id: number;
-            sort: string;
-        };
-        Submission: {
-            id: number;
-            problemId: number;
-            problemTitle: string;
-            user: string;
-            language: string;
-            status: string;
-            score: number;
-            message: string;
-            timeMs?: number;
-            memoryKb?: number;
-            public: boolean;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        SubmissionListItem: {
-            id: number;
-            problemId: number;
-            problemTitle: string;
-            user: string;
-            language: string;
-            status: string;
-            timeMs?: number;
-            memoryKb?: number;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        SubmissionListPage: {
-            items: components["schemas"]["SubmissionListItem"][];
+        ContestListPage: {
+            items: components["schemas"]["Contest"][];
+            /** Format: int64 */
             page: number;
+            /** Format: int64 */
             pageSize: number;
             /** Format: int64 */
             total: number;
         };
-        SubmissionDetail: {
-            submission: components["schemas"]["Submission"];
-            code: string;
-            cases: components["schemas"]["Case"][];
-            progress?: components["schemas"]["SubmissionProgress"];
+        ContestUpdate: {
+            endAt: string;
+            freezeAt: string;
+            kind: string;
+            problems: components["schemas"]["ProblemRef"][];
+            startAt: string;
+            title: string;
         };
-        SubmissionProgress: {
-            /** @enum {string} */
-            stage: "leased" | "download" | "prepare" | "compile" | "judge" | "upload";
+        CountResult: {
+            /** Format: int64 */
+            count: number;
+        };
+        CreatedID: {
+            /** Format: int64 */
+            id: number;
+        };
+        Discussion: {
+            author: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: int64 */
+            id: number;
+            locked: boolean;
+            pinned: boolean;
+            /** Format: int64 */
+            replies: number;
+            tags: string[];
+            title: string;
+        };
+        DiscussionCreate: {
+            content: string;
+            tags: string[];
+            title: string;
+        };
+        DiscussionDetail: {
+            comments: components["schemas"]["Comment"][];
+            content: string;
+            discussion: components["schemas"]["Discussion"];
+        };
+        DiscussionListPage: {
+            items: components["schemas"]["Discussion"][];
+            /** Format: int64 */
+            page: number;
+            /** Format: int64 */
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
+        };
+        DiscussionUpdate: {
+            content?: string;
+            locked?: boolean;
+            pinned?: boolean;
+            tags?: string[];
+            title?: string;
+        };
+        ErrorDetail: {
+            /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
+            location?: string;
+            /** @description Error message text */
+            message?: string;
+            /** @description The value at the given location */
+            value?: unknown;
+        };
+        ErrorModel: {
+            /**
+             * @description A human-readable explanation specific to this occurrence of the problem.
+             * @example Property foo is required but is missing.
+             */
+            detail?: string;
+            /** @description Optional list of individual error details */
+            errors?: components["schemas"]["ErrorDetail"][];
+            /**
+             * Format: uri
+             * @description A URI reference that identifies the specific occurrence of the problem.
+             * @example https://example.com/error-log/abc123
+             */
+            instance?: string;
+            /**
+             * Format: int64
+             * @description HTTP status code
+             * @example 400
+             */
+            status?: number;
+            /**
+             * @description A short, human-readable summary of the problem type. This value should not change between occurrences of the error.
+             * @example Bad Request
+             */
+            title?: string;
+            /**
+             * Format: uri
+             * @description A URI reference to human-readable documentation for the error.
+             * @default about:blank
+             * @example https://example.com/errors/example
+             */
+            type: string;
+        };
+        Health: {
+            status: string;
+        };
+        HeatCell: {
+            /** Format: int64 */
+            count: number;
+            date: string;
+        };
+        Home: {
+            assignments: components["schemas"]["HomeAssignment"][];
+            contests: components["schemas"]["HomeContest"][];
+            heatmap: components["schemas"]["HeatCell"][];
+            notice: string;
+            problems: components["schemas"]["HomeProblem"][];
+        };
+        HomeAssignment: {
             /** Format: int64 */
             done: number;
+            /** Format: int64 */
+            id: number;
+            status: string;
+            title: string;
+            /** Format: int64 */
+            total: number;
+        };
+        HomeContest: {
+            /** Format: int64 */
+            id: number;
+            status: string;
+            title: string;
+        };
+        HomeProblem: {
+            /** Format: int64 */
+            id: number;
+            title: string;
+        };
+        Lang: {
+            id: string;
+            name: string;
+            source: string;
+        };
+        LoginRequest: {
+            name: string;
+            password: string;
+        };
+        Me: {
+            admin: boolean;
+            avatar: string;
+            bio: string;
+            /** Format: int64 */
+            id: number;
+            mail: string;
+            name: string;
+        };
+        MeUpdate: {
+            avatar?: string;
+            bio?: string;
+            mail?: string;
+        };
+        NoticeUpdate: {
+            content: string;
+        };
+        PasswordReset: {
+            password: string;
+        };
+        PasswordUpdate: {
+            newPassword: string;
+            oldPassword: string;
+        };
+        Problem: {
+            /** Format: int64 */
+            cases: number;
+            /** Format: int64 */
+            dataBytes: number;
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            memoryMb: number;
+            mode: string;
+            sort?: string;
+            statement?: string;
+            tags: string[];
+            /** Format: int64 */
+            timeMs: number;
+            title: string;
+            visible: boolean;
+        };
+        ProblemAssets: {
+            assets: components["schemas"]["AssetFile"][];
+            /** Format: int64 */
+            cases: number;
+            data: components["schemas"]["AssetFile"][];
+            /** Format: int64 */
+            dataBytes: number;
+            judge: components["schemas"]["AssetFile"][];
+        };
+        ProblemCreate: {
+            /** Format: int64 */
+            memoryMb: number;
+            mode: string;
+            tags: string[];
+            /** Format: int64 */
+            timeMs: number;
+            title: string;
+            visible: boolean | null;
+        };
+        ProblemListItem: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            memoryMb: number;
+            mode: string;
+            sort?: string;
+            tags: string[];
+            /** Format: int64 */
+            timeMs: number;
+            title: string;
+            visible: boolean;
+        };
+        ProblemListPage: {
+            items: components["schemas"]["ProblemListItem"][];
+            /** Format: int64 */
+            page: number;
+            /** Format: int64 */
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
+        };
+        ProblemRecord: {
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            score: number;
+            status: string;
+        };
+        ProblemRef: {
+            /** Format: int64 */
+            id: number;
+            sort: string;
+        };
+        ProblemState: {
+            /** Format: int64 */
+            ac: number;
+            /** Format: int64 */
+            discussions?: number;
+            /** Format: int64 */
+            problemId: number;
+            /** @enum {string} */
+            status: "none" | "tried" | "ac" | "pending";
+            submission?: components["schemas"]["ProblemRecord"];
+            /** Format: int64 */
+            submit: number;
+        };
+        ProblemUpdate: {
+            /** Format: int64 */
+            memoryMb?: number;
+            mode?: string;
+            statement?: string;
+            tags?: string[];
+            /** Format: int64 */
+            timeMs?: number;
+            title?: string;
+            visible?: boolean;
+        };
+        ProblemVisibilityUpdate: {
+            visible: boolean;
+        };
+        PublicUser: {
+            /** Format: int64 */
+            ac: number;
+            admin: boolean;
+            avatar: string;
+            bio: string;
+            name: string;
+            /** Format: int64 */
+            submit: number;
+        };
+        RankProblem: {
+            /** Format: int64 */
+            penalty: number;
+            /** Format: int64 */
+            problemId: number;
+            /** Format: int64 */
+            score: number;
+            status: string;
+            /** Format: int64 */
+            submit: number;
+        };
+        RankUser: {
+            /** Format: int64 */
+            ac: number;
+            avatar: string;
+            bio: string;
+            /** Format: int64 */
+            penalty: number;
+            problems: components["schemas"]["RankProblem"][];
+            /** Format: int64 */
+            rank: number;
+            /** Format: int64 */
+            score: number;
+            /** Format: int64 */
+            submit: number;
+            user: string;
+        };
+        RankUserPage: {
+            items: components["schemas"]["RankUser"][];
+            /** Format: int64 */
+            page: number;
+            /** Format: int64 */
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
+        };
+        RegisterRequest: {
+            mail: string;
+            name: string;
+            password: string;
+        };
+        Site: {
+            allowGuestAccess: boolean;
+            allowRegistration: boolean;
+            defaultSubmissionPublic: boolean;
+            siteName: string;
+        };
+        SolvedProblem: {
+            /** Format: int64 */
+            id: number;
+            tags: string[];
+            title: string;
+        };
+        SolvedProblemPage: {
+            items: components["schemas"]["SolvedProblem"][];
+            /** Format: int64 */
+            page: number;
+            /** Format: int64 */
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
+        };
+        Submission: {
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: int64 */
+            id: number;
+            language: string;
+            /** Format: int64 */
+            memoryKb?: number;
+            message: string;
+            /** Format: int64 */
+            problemId: number;
+            problemTitle: string;
+            public: boolean;
+            /** Format: int64 */
+            score: number;
+            status: string;
+            /** Format: int64 */
+            timeMs?: number;
+            user: string;
+        };
+        SubmissionDetail: {
+            cases: components["schemas"]["Case"][];
+            code: string;
+            progress?: components["schemas"]["SubmissionProgress"];
+            submission: components["schemas"]["Submission"];
+        };
+        SubmissionListItem: {
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: int64 */
+            id: number;
+            language: string;
+            /** Format: int64 */
+            memoryKb?: number;
+            /** Format: int64 */
+            problemId: number;
+            problemTitle: string;
+            status: string;
+            /** Format: int64 */
+            timeMs?: number;
+            user: string;
+        };
+        SubmissionListPage: {
+            items: components["schemas"]["SubmissionListItem"][];
+            /** Format: int64 */
+            page: number;
+            /** Format: int64 */
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
+        };
+        SubmissionProgress: {
+            /** Format: int64 */
+            done: number;
+            stage: string;
             /** Format: int64 */
             total?: number;
             /** Format: date-time */
             updatedAt: string;
         };
-        SubmitRequest: {
-            problemId: number;
-            language: string;
-            code: string;
-            public: boolean;
-        };
         SubmissionUpdate: {
             public: boolean;
         };
-        Case: {
-            no: number;
-            status: string;
-            timeMs?: number;
-            memoryKb?: number;
-            message: string;
-        };
-        RankProblem: {
-            problemId: number;
-            /** @enum {string} */
-            status: "none" | "tried" | "ac" | "pending";
-            submit: number;
-            score: number;
-            penalty: number;
-        };
-        RankUser: {
-            rank: number;
-            user: string;
-            bio: string;
-            avatar: string;
-            ac: number;
-            submit: number;
-            score: number;
-            penalty: number;
-            problems: components["schemas"]["RankProblem"][];
-        };
-        RankUserPage: {
-            items: components["schemas"]["RankUser"][];
-            page: number;
-            pageSize: number;
-            total: number;
-        };
-        UserProfile: {
-            user: components["schemas"]["PublicUser"];
-            heatmap: components["schemas"]["HeatCell"][];
-            solved: components["schemas"]["SolvedProblemPage"];
-            activities: components["schemas"]["UserActivity"][];
-        };
-        SolvedProblemPage: {
-            items: components["schemas"]["SolvedProblem"][];
-            page: number;
-            pageSize: number;
+        SubmitRequest: {
+            code: string;
+            language: string;
             /** Format: int64 */
-            total: number;
+            problemId: number;
+            public: boolean;
         };
-        SolvedProblem: {
-            id: number;
-            title: string;
-            tags: string[];
+        UploadResult: {
+            url: string;
         };
         UserActivity: {
-            /** @enum {string} */
-            type: "submission" | "discussion";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: int64 */
             id: number;
-            title: string;
-            status?: string;
+            /** Format: int64 */
             problemId?: number;
             problemTitle?: string;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        PublicUser: {
-            name: string;
-            bio: string;
-            avatar: string;
-            admin: boolean;
-            ac: number;
-            submit: number;
+            status?: string;
+            title: string;
+            type: string;
         };
         UserOption: {
+            /** Format: int64 */
             id: number;
             name: string;
         };
-        Discussion: {
-            id: number;
-            title: string;
-            author: string;
-            tags: string[];
-            pinned: boolean;
-            locked: boolean;
-            replies: number;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        DiscussionListPage: {
-            items: components["schemas"]["Discussion"][];
-            page: number;
-            pageSize: number;
-            /** Format: int64 */
-            total: number;
-        };
-        DiscussionCreate: {
-            title: string;
-            content: string;
-            tags: string[];
-        };
-        DiscussionUpdate: {
-            title?: string;
-            content?: string;
-            tags?: string[];
-            pinned?: boolean;
-            locked?: boolean;
-        };
-        DiscussionDetail: {
-            discussion: components["schemas"]["Discussion"];
-            content: string;
-            comments: components["schemas"]["Comment"][];
-        };
-        Comment: {
-            id: number;
-            author: string;
-            content: string;
-            deleted: boolean;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        CommentCreate: {
-            content: string;
+        UserProfile: {
+            activities: components["schemas"]["UserActivity"][];
+            heatmap: components["schemas"]["HeatCell"][];
+            solved: components["schemas"]["SolvedProblemPage"];
+            user: components["schemas"]["PublicUser"];
         };
     };
     responses: never;
@@ -1560,7 +1774,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    health: {
+    getBackups: {
         parameters: {
             query?: never;
             header?: never;
@@ -1569,18 +1783,27 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Server health */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Health"];
+                    "application/json": components["schemas"]["BackupList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
     };
-    ready: {
+    createBackup: {
         parameters: {
             query?: never;
             header?: never;
@@ -1589,27 +1812,27 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Server dependencies are ready */
-            200: {
+            /** @description Created */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Health"];
+                    "application/json": components["schemas"]["BackupItem"];
                 };
             };
-            /** @description Server dependencies are not ready */
-            503: {
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Health"];
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
     };
-    watchEvents: {
+    getBackupSettings: {
         parameters: {
             query?: never;
             header?: never;
@@ -1618,58 +1841,27 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Server-sent events for lightweight live updates */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/event-stream": string;
+                    "application/json": components["schemas"]["BackupSettings"];
                 };
             };
-        };
-    };
-    getSite: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Public site settings */
-            200: {
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Site"];
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
     };
-    getMe: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current user */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Me"];
-                };
-            };
-        };
-    };
-    updateMe: {
+    updateBackupSettings: {
         parameters: {
             query?: never;
             header?: never;
@@ -1678,273 +1870,60 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MeUpdate"];
+                "application/json": components["schemas"]["BackupSettings"];
             };
         };
         responses: {
-            /** @description Updated current user */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Me"];
+                    "application/json": components["schemas"]["BackupSettings"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
     };
-    updatePassword: {
+    deleteBackup: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                name: string;
+            };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PasswordUpdate"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description Password updated */
+            /** @description No Content */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-        };
-    };
-    login: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LoginRequest"];
-            };
-        };
-        responses: {
-            /** @description Signed in user */
-            200: {
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Me"];
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
     };
-    register: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RegisterRequest"];
-            };
-        };
-        responses: {
-            /** @description Registered user */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Me"];
-                };
-            };
-        };
-    };
-    logout: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Signed out */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    getLangs: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Submit languages */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Lang"][];
-                };
-            };
-        };
-    };
-    uploadImage: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": {
-                    /** Format: binary */
-                    file: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Uploaded image */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UploadResult"];
-                };
-            };
-        };
-    };
-    getAdminSettings: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Admin settings */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminSettings"];
-                };
-            };
-        };
-    };
-    updateAdminSettings: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminSettingsPatch"];
-            };
-        };
-        responses: {
-            /** @description Updated admin settings */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminSettings"];
-                };
-            };
-        };
-    };
-    getAdminMembers: {
-        parameters: {
-            query?: {
-                q?: string;
-                users?: string;
-                groups?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Admin member options */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminMembers"];
-                };
-            };
-        };
-    };
-    getAdminUsers: {
-        parameters: {
-            query?: {
-                q?: string;
-                page?: number;
-                pageSize?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Admin users */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminUserPage"];
-                };
-            };
-        };
-    };
-    createAdminUser: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminUserCreate"];
-            };
-        };
-        responses: {
-            /** @description Created user */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminMembers"];
-                };
-            };
-        };
-    };
-    deleteAdminUser: {
+    downloadBackup: {
         parameters: {
             query?: never;
             header?: never;
@@ -1955,61 +1934,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Deleted user */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminMembers"];
+                    "application/gzip": string;
                 };
             };
-        };
-    };
-    updateAdminUser: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminUserUpdate"];
-            };
-        };
-        responses: {
-            /** @description Updated user */
-            200: {
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminMembers"];
-                };
-            };
-        };
-    };
-    resetAdminUserPassword: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Reset user password */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PasswordReset"];
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
@@ -2027,13 +1967,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Admin groups */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AdminGroupPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
@@ -2051,13 +2000,22 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Created group */
+            /** @description Created */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AdminMembers"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
@@ -2073,13 +2031,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Deleted group */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AdminMembers"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
@@ -2099,7 +2066,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Updated group */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2108,57 +2075,18 @@ export interface operations {
                     "application/json": components["schemas"]["AdminMembers"];
                 };
             };
-        };
-    };
-    deleteAdminLang: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted language */
-            200: {
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminLang"][];
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
     };
-    updateAdminLang: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminLangUpdate"];
-            };
-        };
-        responses: {
-            /** @description Updated language */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminLang"][];
-                };
-            };
-        };
-    };
-    getAdminLangs: {
+    getAdminJudgers: {
         parameters: {
             query?: never;
             header?: never;
@@ -2167,18 +2095,27 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Admin languages */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminLang"][];
+                    "application/json": components["schemas"]["AdminJudgers"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
     };
-    createAdminLang: {
+    createAdminJudger: {
         parameters: {
             query?: never;
             header?: never;
@@ -2187,17 +2124,26 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AdminLangCreate"];
+                "application/json": components["schemas"]["AdminJudgerCreate"];
             };
         };
         responses: {
-            /** @description Created language */
+            /** @description Created */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminLang"][];
+                    "application/json": components["schemas"]["AdminJudgers"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
@@ -2213,13 +2159,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Deleted judger */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["AdminJudgers"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
@@ -2239,7 +2194,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Updated judger */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2248,9 +2203,18 @@ export interface operations {
                     "application/json": components["schemas"]["AdminJudgers"];
                 };
             };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
         };
     };
-    getAdminJudgers: {
+    getAdminLangs: {
         parameters: {
             query?: never;
             header?: never;
@@ -2259,18 +2223,27 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Admin judgers */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminJudgers"];
+                    "application/json": components["schemas"]["AdminLang"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
     };
-    createAdminJudger: {
+    createAdminLang: {
         parameters: {
             query?: never;
             header?: never;
@@ -2279,22 +2252,130 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AdminJudgerCreate"];
+                "application/json": components["schemas"]["AdminLangCreate"];
             };
         };
         responses: {
-            /** @description Created judger */
+            /** @description Created */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminJudgers"];
+                    "application/json": components["schemas"]["AdminLang"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
     };
-    getBackupSettings: {
+    deleteAdminLang: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminLang"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    updateAdminLang: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminLangUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminLang"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getAdminMembers: {
+        parameters: {
+            query?: {
+                q?: string;
+                users?: string;
+                groups?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMembers"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getAdminSettings: {
         parameters: {
             query?: never;
             header?: never;
@@ -2303,18 +2384,27 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Backup settings */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BackupSettings"];
+                    "application/json": components["schemas"]["AdminSettings"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
     };
-    updateBackupSettings: {
+    updateAdminSettings: {
         parameters: {
             query?: never;
             header?: never;
@@ -2323,62 +2413,97 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["BackupSettings"];
+                "application/json": components["schemas"]["AdminSettingsPatch"];
             };
         };
         responses: {
-            /** @description Updated backup settings */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BackupSettings"];
+                    "application/json": components["schemas"]["AdminSettings"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
     };
-    getBackups: {
+    getAdminUsers: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: string;
+                page?: number;
+                pageSize?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Backup list */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BackupList"];
+                    "application/json": components["schemas"]["AdminUserPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
     };
-    createBackup: {
+    createAdminUser: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminUserCreate"];
+            };
+        };
         responses: {
-            /** @description Created backup */
+            /** @description Created */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BackupItem"];
+                    "application/json": components["schemas"]["AdminMembers"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
     };
-    downloadBackup: {
+    deleteAdminUser: {
         parameters: {
             query?: never;
             header?: never;
@@ -2389,18 +2514,62 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Backup file */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/gzip": string;
+                    "application/json": components["schemas"]["AdminMembers"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
     };
-    deleteBackup: {
+    updateAdminUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminUserUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMembers"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    resetAdminUserPassword: {
         parameters: {
             query?: never;
             header?: never;
@@ -2411,12 +2580,723 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Deleted backup */
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordReset"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    listAssignments: {
+        parameters: {
+            query?: {
+                q?: string;
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignmentListPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    createAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignmentCreate"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedID"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignmentDetail"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deleteAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    updateAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignmentUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedID"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    listContests: {
+        parameters: {
+            query?: {
+                q?: string;
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContestListPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    createContest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContestCreate"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedID"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getContest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContestDetail"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deleteContest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    updateContest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContestUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedID"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    listDiscussions: {
+        parameters: {
+            query?: {
+                q?: string;
+                tags?: string;
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscussionListPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    createDiscussion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscussionCreate"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedID"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getDiscussion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscussionDetail"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deleteDiscussion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    updateDiscussion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscussionUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedID"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    createComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentCreate"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Comment"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deleteComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                commentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    watchEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    health: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Health"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
             };
         };
     };
@@ -2429,13 +3309,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Home data */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Home"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
@@ -2453,7 +3342,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Updated notice */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2462,30 +3351,168 @@ export interface operations {
                     "application/json": components["schemas"]["Home"];
                 };
             };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
         };
     };
-    userMedia: {
+    getLangs: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                id: number;
-                year: string;
-                month: string;
-                day: string;
-                name: string;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description User uploaded media */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/octet-stream": string;
+                    "application/json": components["schemas"]["Lang"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    updateMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    updatePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordUpdate"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getProblemState: {
+        parameters: {
+            query?: {
+                ids?: string;
+                assignment?: number;
+                contest?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemState"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
@@ -2504,13 +3531,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Problem list */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ProblemListPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
@@ -2528,7 +3564,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Problem created */
+            /** @description Created */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -2537,51 +3573,13 @@ export interface operations {
                     "application/json": components["schemas"]["CreatedID"];
                 };
             };
-        };
-    };
-    listTags: {
-        parameters: {
-            query?: {
-                kind?: "problem" | "discussion";
-                q?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Tag suggestions */
-            200: {
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": string[];
-                };
-            };
-        };
-    };
-    getProblemState: {
-        parameters: {
-            query?: {
-                ids?: string;
-                assignment?: number;
-                contest?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Problem state for current user and page context */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemState"][];
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
@@ -2597,7 +3595,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Problem detail */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2606,12 +3604,14 @@ export interface operations {
                     "application/json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Problem not found */
-            404: {
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
             };
         };
     };
@@ -2626,12 +3626,21 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Problem deleted */
+            /** @description No Content */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
             };
         };
     };
@@ -2650,7 +3659,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Problem updated */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2659,49 +3668,18 @@ export interface operations {
                     "application/json": components["schemas"]["CreatedID"];
                 };
             };
-            /** @description Problem not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    updateProblemVisibility: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProblemVisibilityUpdate"];
-            };
-        };
-        responses: {
-            /** @description Problem visibility updated */
-            200: {
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProblemListItem"];
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
-            };
-            /** @description Problem not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
-    rejudgeProblem: {
+    downloadProblemAssets: {
         parameters: {
             query?: never;
             header?: never;
@@ -2712,28 +3690,23 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Problem submissions requeued */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CountResult"];
+                    "application/zip": string;
                 };
             };
-            /** @description Admin required */
-            403: {
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
-            };
-            /** @description Problem not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
-                content?: never;
             };
         };
     };
@@ -2748,7 +3721,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Problem assets */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2757,207 +3730,13 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemAssets"];
                 };
             };
-        };
-    };
-    uploadProblemImage: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": {
-                    /** Format: binary */
-                    file: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Problem image uploaded */
-            201: {
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UploadResult"];
-                };
-            };
-        };
-    };
-    problemPublicAsset: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Public problem asset */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/octet-stream": string;
-                };
-            };
-        };
-    };
-    problemPrivateData: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Private problem data file */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/octet-stream": string;
-                };
-            };
-        };
-    };
-    problemPrivateJudge: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Private problem judge file */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/octet-stream": string;
-                };
-            };
-        };
-    };
-    uploadProblemAsset: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": {
-                    /** @enum {string} */
-                    section: "data" | "judge" | "assets";
-                    /** Format: binary */
-                    file: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Problem asset uploaded */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemAssets"];
-                };
-            };
-        };
-    };
-    deleteProblemAsset: {
-        parameters: {
-            query: {
-                key: string;
-            };
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Problem asset deleted */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemAssets"];
-                };
-            };
-        };
-    };
-    getProblemAssetContent: {
-        parameters: {
-            query: {
-                key: string;
-            };
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Text asset content */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AssetContent"];
-                };
-            };
-        };
-    };
-    updateProblemAssetContent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AssetContentUpdate"];
-            };
-        };
-        responses: {
-            /** @description Text asset updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemAssets"];
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
@@ -2977,13 +3756,209 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Problem case created */
+            /** @description Created */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ProblemAssets"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    uploadProblemAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description filename of the file being uploaded
+                     */
+                    filename?: string;
+                    /** @description general purpose name for multipart form value */
+                    name?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemAssets"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deleteProblemAsset: {
+        parameters: {
+            query: {
+                key: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemAssets"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getProblemAssetContent: {
+        parameters: {
+            query: {
+                key: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetContent"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    updateProblemAssetContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssetContentUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemAssets"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    uploadProblemImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description filename of the file being uploaded
+                     */
+                    filename?: string;
+                    /** @description general purpose name for multipart form value */
+                    name?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadResult"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
@@ -2999,7 +3974,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Judge template written */
+            /** @description Created */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -3008,9 +3983,114 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemAssets"];
                 };
             };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
         };
     };
-    downloadProblemAssets: {
+    problemPublicAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    problemPrivateData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    problemPrivateJudge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    rejudgeProblem: {
         parameters: {
             query?: never;
             header?: never;
@@ -3021,18 +4101,62 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Problem assets zip */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/zip": string;
+                    "application/json": components["schemas"]["CountResult"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
     };
-    listAssignments: {
+    updateProblemVisibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProblemVisibilityUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemListItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getRank: {
         parameters: {
             query?: {
                 q?: string;
@@ -3045,250 +4169,81 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Assignment list */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AssignmentListPage"];
+                    "application/json": components["schemas"]["RankUserPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
     };
-    createAssignment: {
+    ready: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AssignmentCreate"];
-            };
-        };
-        responses: {
-            /** @description Assignment created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CreatedID"];
-                };
-            };
-        };
-    };
-    getAssignment: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
         requestBody?: never;
         responses: {
-            /** @description Assignment detail */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AssignmentDetail"];
+                    "application/json": components["schemas"]["Health"];
                 };
             };
-            /** @description Assignment not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    deleteAssignment: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Assignment deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    updateAssignment: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AssignmentUpdate"];
-            };
-        };
-        responses: {
-            /** @description Assignment updated */
-            200: {
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CreatedID"];
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
-            };
-            /** @description Assignment not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
-    listContests: {
+    getSite: {
         parameters: {
-            query?: {
-                q?: string;
-                page?: number;
-                pageSize?: number;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Contest list */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ContestListPage"];
+                    "application/json": components["schemas"]["Site"];
                 };
             };
-        };
-    };
-    createContest: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ContestCreate"];
-            };
-        };
-        responses: {
-            /** @description Contest created */
-            201: {
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CreatedID"];
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
-            };
-        };
-    };
-    getContest: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Contest detail */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ContestDetail"];
-                };
-            };
-            /** @description Contest not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    deleteContest: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Contest deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    updateContest: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ContestUpdate"];
-            };
-        };
-        responses: {
-            /** @description Contest updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CreatedID"];
-                };
-            };
-            /** @description Contest not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
@@ -3308,13 +4263,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Submission list */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["SubmissionListPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
@@ -3332,13 +4296,22 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Submission created */
+            /** @description Created */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["CreatedID"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
@@ -3354,7 +4327,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Submission detail */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3363,12 +4336,14 @@ export interface operations {
                     "application/json": components["schemas"]["SubmissionDetail"];
                 };
             };
-            /** @description Submission not found */
-            404: {
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
             };
         };
     };
@@ -3387,7 +4362,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Submission updated */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3396,19 +4371,14 @@ export interface operations {
                     "application/json": components["schemas"]["CreatedID"];
                 };
             };
-            /** @description Owner or admin required */
-            403: {
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
-            };
-            /** @description Submission not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
-                content?: never;
             };
         };
     };
@@ -3423,7 +4393,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Submission requeued */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3432,27 +4402,22 @@ export interface operations {
                     "application/json": components["schemas"]["CreatedID"];
                 };
             };
-            /** @description Admin required */
-            403: {
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
-            };
-            /** @description Submission not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
-                content?: never;
             };
         };
     };
-    getRank: {
+    listTags: {
         parameters: {
             query?: {
-                page?: number;
-                pageSize?: number;
+                kind?: "problem" | "discussion";
+                q?: string;
             };
             header?: never;
             path?: never;
@@ -3460,13 +4425,63 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Rank list */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RankUserPage"];
+                    "application/json": string[];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    uploadImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description filename of the file being uploaded
+                     */
+                    filename?: string;
+                    /** @description general purpose name for multipart form value */
+                    name?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadResult"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
@@ -3482,13 +4497,57 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description User suggestions */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["UserOption"][];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    userMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                year: string;
+                month: string;
+                day: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
         };
@@ -3507,7 +4566,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description User profile */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3516,190 +4575,14 @@ export interface operations {
                     "application/json": components["schemas"]["UserProfile"];
                 };
             };
-            /** @description User not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    listDiscussions: {
-        parameters: {
-            query?: {
-                q?: string;
-                tags?: string;
-                page?: number;
-                pageSize?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Discussion list */
-            200: {
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DiscussionListPage"];
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
-            };
-        };
-    };
-    createDiscussion: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DiscussionCreate"];
-            };
-        };
-        responses: {
-            /** @description Discussion created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CreatedID"];
-                };
-            };
-        };
-    };
-    getDiscussion: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Discussion detail */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DiscussionDetail"];
-                };
-            };
-            /** @description Discussion not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    deleteDiscussion: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Discussion deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    updateDiscussion: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DiscussionUpdate"];
-            };
-        };
-        responses: {
-            /** @description Discussion updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CreatedID"];
-                };
-            };
-            /** @description Discussion not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    createComment: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CommentCreate"];
-            };
-        };
-        responses: {
-            /** @description Comment created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Comment"];
-                };
-            };
-        };
-    };
-    deleteComment: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-                commentId: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Comment deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };

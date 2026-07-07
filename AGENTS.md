@@ -10,7 +10,7 @@
 ## Layout
 
 - `main.go` is the `doj` entrypoint for `server`, `judger`, and `runner` subcommands.
-- `api/` contains OpenAPI contracts.
+- `common/` contains shared contracts and generated contract artifacts.
 - `models/` contains GORM models and database helpers.
 - `middleware/` contains Echo middleware.
 - `server/` contains the server entrypoint and server-side API handlers.
@@ -22,7 +22,8 @@
 ## Project Rules
 
 - Keep the implementation aligned with the latest agreed schema and API. During active development, do not add backward-compatibility branches for old local data.
-- `api/web.yaml` is the web/admin API contract. Update the contract, Go handlers, generated TypeScript schema, UI, and tests together.
+- `server/web/openapi.go` is the Go-first web/admin API contract. Run `pnpm api:gen` to regenerate the ignored `common/web/openapi.yaml` artifact and `web/client/schema.ts`, and update handlers, UI, and tests together.
+- `common/judger` contains the shared server ↔ judger JSON contract types.
 - Prefer short table, field, and file names when the meaning stays clear.
 - Problem IDs start at 1000.
 - Problem memory limits are MB. Submission results, case results, and judger resource usage are KB.

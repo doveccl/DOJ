@@ -5,6 +5,7 @@ go 1.26
 require (
 	github.com/alicebob/miniredis/v2 v2.38.0
 	github.com/containerd/errdefs v1.0.0
+	github.com/danielgtaylor/huma/v2 v2.38.0
 	github.com/labstack/echo/v4 v4.15.4
 	github.com/minio/minio-go/v7 v7.2.1
 	github.com/moby/moby/api v1.55.0

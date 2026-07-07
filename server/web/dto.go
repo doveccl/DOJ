@@ -29,11 +29,6 @@ type HeatCell struct {
 	Count int    `json:"count"`
 }
 
-type Item struct {
-	ID    uint   `json:"id"`
-	Title string `json:"title"`
-}
-
 type HomeProblem struct {
 	ID    uint   `json:"id"`
 	Title string `json:"title"`

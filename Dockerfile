@@ -5,7 +5,6 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile --prefer-offline
 
-COPY api ./api
 COPY web ./web
 COPY index.html ./
 COPY tsconfig.json vite.config.ts ./

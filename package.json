@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "vite --host",
     "build": "tsc --noEmit && vite build",
-    "api:gen": "pnpm dlx openapi-typescript api/web.yaml -o web/client/schema.ts",
+    "api:gen": "go run ./cmd/web-openapi && pnpm dlx openapi-typescript common/web/openapi.yaml -o web/client/schema.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
@@ -13,6 +13,7 @@
     "@ant-design/icons": "^6.3.2",
     "@codemirror/language": "^6.12.4",
     "@codemirror/language-data": "^6.5.2",
+    "@codemirror/state": "^6.7.0",
     "@codemirror/view": "^6.43.5",
     "@highlightjs/cdn-assets": "^11.11.1",
     "@tanstack/react-query": "^5.101.2",
