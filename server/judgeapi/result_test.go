@@ -8,18 +8,19 @@ import (
 	"time"
 
 	"github.com/doveccl/doj/common/authn"
+	common "github.com/doveccl/doj/common/judger"
 	"github.com/doveccl/doj/common/limits"
 	"github.com/doveccl/doj/models"
 	"github.com/labstack/echo/v4"
 )
 
 func TestValidateResult(t *testing.T) {
-	valid := ResultRequest{
+	valid := common.ResultRequest{
 		SubmissionID: 1,
 		Attempt:      1,
 		Status:       "AC",
 		Score:        100,
-		Cases:        []CaseResult{{No: 1, Status: "AC", Score: 100}},
+		Cases:        []common.CaseResult{{No: 1, Status: "AC", Score: 100}},
 	}
 	if err := validateResult(valid); err != nil {
 		t.Fatalf("valid result rejected: %v", err)
@@ -27,18 +28,18 @@ func TestValidateResult(t *testing.T) {
 
 	tests := []struct {
 		name string
-		req  ResultRequest
+		req  common.ResultRequest
 		want int
 	}{
-		{name: "missing target", req: ResultRequest{Status: "AC", Score: 100}, want: http.StatusBadRequest},
-		{name: "missing attempt", req: ResultRequest{SubmissionID: 1, Status: "AC", Score: 100}, want: http.StatusBadRequest},
-		{name: "bad status", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "queued", Score: 0}, want: http.StatusBadRequest},
-		{name: "negative score", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: -1}, want: http.StatusBadRequest},
-		{name: "large score", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 101}, want: http.StatusBadRequest},
-		{name: "large message", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Message: strings.Repeat("x", limits.MaxJudgerMessageBytes+1)}, want: http.StatusRequestEntityTooLarge},
-		{name: "bad case no", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []CaseResult{{No: 0, Status: "WA"}}}, want: http.StatusBadRequest},
-		{name: "bad case status", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []CaseResult{{No: 1, Status: "queued"}}}, want: http.StatusBadRequest},
-		{name: "large case message", req: ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []CaseResult{{No: 1, Status: "WA", Message: strings.Repeat("x", models.CaseMessageMax+1)}}}, want: http.StatusRequestEntityTooLarge},
+		{name: "missing target", req: common.ResultRequest{Status: "AC", Score: 100}, want: http.StatusBadRequest},
+		{name: "missing attempt", req: common.ResultRequest{SubmissionID: 1, Status: "AC", Score: 100}, want: http.StatusBadRequest},
+		{name: "bad status", req: common.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "queued", Score: 0}, want: http.StatusBadRequest},
+		{name: "negative score", req: common.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: -1}, want: http.StatusBadRequest},
+		{name: "large score", req: common.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 101}, want: http.StatusBadRequest},
+		{name: "large message", req: common.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Message: strings.Repeat("x", limits.MaxJudgerMessageBytes+1)}, want: http.StatusRequestEntityTooLarge},
+		{name: "bad case no", req: common.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []common.CaseResult{{No: 0, Status: "WA"}}}, want: http.StatusBadRequest},
+		{name: "bad case status", req: common.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []common.CaseResult{{No: 1, Status: "queued"}}}, want: http.StatusBadRequest},
+		{name: "large case message", req: common.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []common.CaseResult{{No: 1, Status: "WA", Message: strings.Repeat("x", models.CaseMessageMax+1)}}}, want: http.StatusRequestEntityTooLarge},
 	}
 	for _, item := range tests {
 		t.Run(item.name, func(t *testing.T) {

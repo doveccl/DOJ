@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	common "github.com/doveccl/doj/common/judger"
 )
 
 type WorkerConfig struct {
@@ -114,7 +116,7 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 	return true, nil
 }
 
-func taskNeedsProblemPackage(task *leaseTask) bool {
+func taskNeedsProblemPackage(task *common.TaskPayload) bool {
 	if JudgeMode(task.Mode) == ModeCustom {
 		return true
 	}
@@ -126,7 +128,7 @@ func taskNeedsProblemPackage(task *leaseTask) bool {
 	return false
 }
 
-func taskToTask(task *leaseTask) Task {
+func taskToTask(task *common.TaskPayload) Task {
 	cases := make([]Case, 0, len(task.Cases))
 	for _, item := range task.Cases {
 		cases = append(cases, Case{

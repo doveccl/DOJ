@@ -18,23 +18,14 @@ const (
 	defaultPackageHTTPTimeout = 5 * time.Minute
 )
 
-type leaseRequest = common.LeaseRequest
-type leaseResponse = common.LeaseResponse
-type leaseTask = common.TaskPayload
-type taskProblem = common.ProblemPayload
-type casePayload = common.CasePayload
-type resultRequest = common.ResultRequest
-type heartbeatRequest = common.HeartbeatRequest
-type caseResult = common.CaseResult
-
-func lease(ctx context.Context, client *http.Client, cfg WorkerConfig) (*leaseTask, error) {
+func lease(ctx context.Context, client *http.Client, cfg WorkerConfig) (*common.TaskPayload, error) {
 	host, _ := os.Hostname()
-	req := leaseRequest{
+	req := common.LeaseRequest{
 		Version: Version,
 		Host:    host,
 		Arch:    runtime.GOOS + "/" + runtime.GOARCH,
 	}
-	var resp leaseResponse
+	var resp common.LeaseResponse
 	if err := doJSON(ctx, client, cfg, http.MethodPost, "/api/judger/lease", req, &resp); err != nil {
 		return nil, err
 	}
@@ -42,13 +33,13 @@ func lease(ctx context.Context, client *http.Client, cfg WorkerConfig) (*leaseTa
 }
 
 func postResult(ctx context.Context, client *http.Client, cfg WorkerConfig, taskID uint, result TaskResult) error {
-	req := resultRequest{
+	req := common.ResultRequest{
 		SubmissionID: result.SubmissionID,
 		Attempt:      result.Attempt,
 		Status:       string(result.Verdict),
 		Score:        result.Score,
 		Message:      result.Message,
-		Cases:        make([]caseResult, 0, len(result.Cases)),
+		Cases:        make([]common.CaseResult, 0, len(result.Cases)),
 	}
 	if result.TimeMS > 0 {
 		req.TimeMS = &result.TimeMS
@@ -57,7 +48,7 @@ func postResult(ctx context.Context, client *http.Client, cfg WorkerConfig, task
 		req.MemoryKB = &result.MemoryKB
 	}
 	for index, item := range result.Cases {
-		got := caseResult{
+		got := common.CaseResult{
 			No:      index + 1,
 			Status:  string(item.Verdict),
 			Score:   item.Score,
@@ -75,7 +66,7 @@ func postResult(ctx context.Context, client *http.Client, cfg WorkerConfig, task
 }
 
 func postProgressHeartbeat(ctx context.Context, client *http.Client, cfg WorkerConfig, taskID uint, submissionID uint, attempt int, progress taskProgress) error {
-	req := heartbeatRequest{SubmissionID: submissionID, Attempt: attempt, Stage: progress.stage, Done: progress.done, Total: progress.total}
+	req := common.HeartbeatRequest{SubmissionID: submissionID, Attempt: attempt, Stage: progress.stage, Done: progress.done, Total: progress.total}
 	return doJSON(ctx, client, cfg, http.MethodPost, fmt.Sprintf("/api/judger/tasks/%d/heartbeat", taskID), req, nil)
 }
 

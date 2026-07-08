@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/doveccl/doj/common/authn"
+	common "github.com/doveccl/doj/common/judger"
 	"github.com/doveccl/doj/models"
 	"github.com/labstack/echo/v4"
 )
@@ -49,7 +50,7 @@ func TestAuthAndLeaseAuthorization(t *testing.T) {
 	if !isLocalJudger(local) {
 		t.Fatal("loopback request was not marked local")
 	}
-	id, err := api.ensureJudger(local, LeaseRequest{})
+	id, err := api.ensureJudger(local, common.LeaseRequest{})
 	if err != nil || id == 0 {
 		t.Fatalf("local judger ensure failed: id=%d err=%v", id, err)
 	}
@@ -104,7 +105,7 @@ func TestLocalLoopbackConcurrentEnsureReusesJudgerWithoutToken(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, err := api.ensureJudger(localJudgerContext(t, api), LeaseRequest{Host: "local-judger"})
+			_, err := api.ensureJudger(localJudgerContext(t, api), common.LeaseRequest{Host: "local-judger"})
 			errs <- err
 		}()
 	}
@@ -146,10 +147,10 @@ func TestProxyLoopbackDoesNotBypassJudgerAuth(t *testing.T) {
 }
 
 func TestJudgerRequestNameDefault(t *testing.T) {
-	if got := judgerRequestName(LeaseRequest{Host: " linux-a "}); got != "linux-a" {
+	if got := judgerRequestName(common.LeaseRequest{Host: " linux-a "}); got != "linux-a" {
 		t.Fatalf("name = %q", got)
 	}
-	if got := judgerRequestName(LeaseRequest{}); got != "local-judger" {
+	if got := judgerRequestName(common.LeaseRequest{}); got != "local-judger" {
 		t.Fatalf("anonymous name = %q", got)
 	}
 }

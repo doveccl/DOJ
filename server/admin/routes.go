@@ -20,14 +20,11 @@ type API struct {
 
 const maxNameRunes = models.NameMax
 
-func Register(e *echo.Echo, db *gorm.DB, backupScheduler ...*backupsvc.Scheduler) {
+func Register(e *echo.Echo, db *gorm.DB, backupScheduler *backupsvc.Scheduler) {
 	if db == nil {
 		panic("admin API requires a database")
 	}
-	api := &API{db: db}
-	if len(backupScheduler) > 0 {
-		api.backupScheduler = backupScheduler[0]
-	}
+	api := &API{db: db, backupScheduler: backupScheduler}
 	group := e.Group("/api/admin", api.requireAdmin)
 	group.GET("/settings", api.getSettings)
 	group.PATCH("/settings", api.updateSettings, echomw.BodyLimit(limits.BodySettings))

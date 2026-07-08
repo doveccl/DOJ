@@ -61,16 +61,12 @@ type ListResult struct {
 	Items   []Item   `json:"items"`
 }
 
-type Runner interface {
-	Dump(ctx context.Context, dsn string) (string, error)
-}
-
 type Manager struct {
-	DB     *gorm.DB
-	Store  storage.Store
-	Runner Runner
-	Now    func() time.Time
-	DSN    string
+	DB    *gorm.DB
+	Store storage.Store
+	Dump  func(context.Context, string) (string, error)
+	Now   func() time.Time
+	DSN   string
 }
 
 type lockValue struct {
@@ -186,7 +182,7 @@ func (manager Manager) BackupNow(ctx context.Context) (Item, error) {
 		_ = cache.Delete(context.Background(), lockKey)
 	}()
 
-	filePath, err := manager.runner().Dump(ctx, manager.dsn())
+	filePath, err := manager.dump(ctx, manager.dsn())
 	if err != nil {
 		return Item{}, err
 	}
@@ -264,11 +260,11 @@ func (manager Manager) store() (storage.Store, error) {
 	return storage.NewFromEnv()
 }
 
-func (manager Manager) runner() Runner {
-	if manager.Runner != nil {
-		return manager.Runner
+func (manager Manager) dump(ctx context.Context, dsn string) (string, error) {
+	if manager.Dump != nil {
+		return manager.Dump(ctx, dsn)
 	}
-	return PgDumpRunner{}
+	return pgDump(ctx, dsn)
 }
 
 func (manager Manager) now() time.Time {
@@ -380,9 +376,7 @@ var (
 	ErrUnavailable = errors.New("backup unavailable")
 )
 
-type PgDumpRunner struct{}
-
-func (PgDumpRunner) Dump(ctx context.Context, dsn string) (string, error) {
+func pgDump(ctx context.Context, dsn string) (string, error) {
 	if strings.TrimSpace(dsn) == "" {
 		return "", fmt.Errorf("%w: DATABASE is required", ErrUnavailable)
 	}

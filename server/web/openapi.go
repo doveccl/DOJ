@@ -24,46 +24,6 @@ type Site struct {
 	DefaultSubmissionPublic bool   `json:"defaultSubmissionPublic"`
 }
 
-type Home contract.Home
-type CreatedID contract.CreatedID
-type CountResult contract.CountResult
-type NoticeUpdate contract.NoticeUpdate
-type HeatCell contract.HeatCell
-type Lang contract.Language
-type Me contract.Me
-type MeUpdate contract.MeUpdate
-type PasswordUpdate contract.PasswordUpdate
-type LoginRequest contract.LoginRequest
-type RegisterRequest contract.RegisterRequest
-type ProblemRecord contract.ProblemRecord
-type Submission contract.Submission
-type SubmissionProgress contract.SubmissionProgress
-type Case contract.Case
-type PublicUser contract.PublicUser
-type UserActivity contract.UserActivity
-type UserOption contract.UserOption
-type Discussion contract.Discussion
-type Comment contract.Comment
-type ProblemRef contract.ProblemRef
-type AssignmentCreate contract.AssignmentCreate
-type AssignmentUpdate contract.AssignmentUpdate
-type ContestCreate contract.ContestCreate
-type ContestUpdate contract.ContestUpdate
-type SubmitRequest contract.SubmitRequest
-type SubmissionUpdate contract.SubmissionUpdate
-type DiscussionCreate contract.DiscussionCreate
-type DiscussionUpdate contract.DiscussionUpdate
-type CommentCreate contract.CommentCreate
-type ProblemCreate contract.ProblemCreate
-type ProblemUpdate contract.ProblemUpdate
-type ProblemVisibilityUpdate contract.ProblemVisibilityUpdate
-type ProblemAssets contract.ProblemAssets
-type AssetFile contract.AssetFile
-type AssetContent contract.AssetContent
-type AssetContentUpdate contract.AssetContentUpdate
-type AssetCaseCreate contract.AssetCaseCreate
-type UploadResult contract.UploadResult
-
 type ProblemListItem struct {
 	ID       uint     `json:"id"`
 	Sort     string   `json:"sort,omitempty" maxLength:"16"`
@@ -90,12 +50,12 @@ type Problem struct {
 }
 
 type ProblemState struct {
-	ProblemID   uint           `json:"problemId"`
-	AC          int            `json:"ac"`
-	Submit      int            `json:"submit"`
-	Discussions *int           `json:"discussions,omitempty"`
-	Status      string         `json:"status" enum:"none,tried,ac,pending"`
-	Submission  *ProblemRecord `json:"submission,omitempty"`
+	ProblemID   uint                    `json:"problemId"`
+	AC          int                     `json:"ac"`
+	Submit      int                     `json:"submit"`
+	Discussions *int                    `json:"discussions,omitempty"`
+	Status      string                  `json:"status" enum:"none,tried,ac,pending"`
+	Submission  *contract.ProblemRecord `json:"submission,omitempty"`
 }
 
 type Assignment struct {
@@ -119,28 +79,22 @@ type AssignmentListItem struct {
 }
 
 type AssignmentProgress struct {
-	User     string                      `json:"user" maxLength:"32"`
-	AC       int                         `json:"ac"`
-	Submit   int                         `json:"submit"`
-	Problems []AssignmentProblemProgress `json:"problems"`
+	User     string                               `json:"user" maxLength:"32"`
+	AC       int                                  `json:"ac"`
+	Submit   int                                  `json:"submit"`
+	Problems []contract.AssignmentProblemProgress `json:"problems"`
 }
 
-type AssignmentProblemProgress contract.AssignmentProblemProgress
-
-type Contest contract.Contest
-
-type RankProblem contract.RankProblem
-
 type RankUser struct {
-	Rank     int           `json:"rank"`
-	User     string        `json:"user" maxLength:"32"`
-	Bio      string        `json:"bio" maxLength:"256"`
-	Avatar   string        `json:"avatar" maxLength:"512"`
-	AC       int           `json:"ac"`
-	Submit   int           `json:"submit"`
-	Score    int           `json:"score"`
-	Penalty  int           `json:"penalty"`
-	Problems []RankProblem `json:"problems"`
+	Rank     int                    `json:"rank"`
+	User     string                 `json:"user" maxLength:"32"`
+	Bio      string                 `json:"bio" maxLength:"256"`
+	Avatar   string                 `json:"avatar" maxLength:"512"`
+	AC       int                    `json:"ac"`
+	Submit   int                    `json:"submit"`
+	Score    int                    `json:"score"`
+	Penalty  int                    `json:"penalty"`
+	Problems []contract.RankProblem `json:"problems"`
 }
 
 type assignmentDetail struct {
@@ -150,39 +104,38 @@ type assignmentDetail struct {
 }
 
 type contestDetail struct {
-	Contest  Contest           `json:"contest"`
+	Contest  contract.Contest  `json:"contest"`
 	Problems []ProblemListItem `json:"problems"`
 	Rank     []RankUser        `json:"rank"`
 }
 
 type submissionDetail struct {
-	Submission Submission          `json:"submission"`
-	Code       string              `json:"code"`
-	Cases      []Case              `json:"cases"`
-	Progress   *SubmissionProgress `json:"progress,omitempty"`
+	Submission contract.Submission          `json:"submission"`
+	Code       string                       `json:"code"`
+	Cases      []contract.Case              `json:"cases"`
+	Progress   *contract.SubmissionProgress `json:"progress,omitempty"`
 }
 
 type userProfile struct {
-	User       PublicUser          `json:"user"`
-	Heatmap    []contract.HeatCell `json:"heatmap"`
-	Solved     SolvedProblemPage   `json:"solved"`
-	Activities []UserActivity      `json:"activities"`
+	User       contract.PublicUser     `json:"user"`
+	Heatmap    []contract.HeatCell     `json:"heatmap"`
+	Solved     SolvedProblemPage       `json:"solved"`
+	Activities []contract.UserActivity `json:"activities"`
 }
 
 type discussionDetail struct {
-	Discussion Discussion `json:"discussion"`
-	Content    string     `json:"content"`
-	Comments   []Comment  `json:"comments"`
+	Discussion contract.Discussion `json:"discussion"`
+	Content    string              `json:"content"`
+	Comments   []contract.Comment  `json:"comments"`
 }
 
 type ProblemListPage contract.Page[ProblemListItem]
 type AssignmentListPage contract.Page[AssignmentListItem]
-type ContestListPage contract.Page[Contest]
+type ContestListPage contract.Page[contract.Contest]
 type SubmissionListPage contract.Page[contract.SubmissionListItem]
 type RankUserPage contract.Page[RankUser]
-type SolvedProblem contract.SolvedProblem
-type SolvedProblemPage contract.Page[SolvedProblem]
-type DiscussionListPage contract.Page[Discussion]
+type SolvedProblemPage contract.Page[contract.SolvedProblem]
+type DiscussionListPage contract.Page[contract.Discussion]
 
 type AdminMembers struct {
 	Users  []AdminUser  `json:"users"`
@@ -301,7 +254,7 @@ type keyQuery struct {
 
 type assetContentBody struct {
 	ID   uint `path:"id"`
-	Body AssetContentUpdate
+	Body contract.AssetContentUpdate
 }
 
 type assignmentListQuery struct {
@@ -384,14 +337,14 @@ func RegisterOpenAPI(api huma.API) {
 	get[Health](api, "/api/ready", "ready", "Server dependencies are ready")
 	getText(api, "/api/events", "watchEvents", "Server-sent events for lightweight live updates", "text/event-stream")
 	get[Site](api, "/api/site", "getSite", "Public site settings")
-	get[Me](api, "/api/me", "getMe", "Current user")
-	patch[bodyInput[MeUpdate], Me](api, "/api/me", "updateMe", "Updated current user")
-	noContent[bodyInput[PasswordUpdate]](api, http.MethodPatch, "/api/me/password", "updatePassword", "Password updated")
-	post[bodyInput[LoginRequest], Me](api, "/api/auth/login", "login", "Signed in user")
-	postCreated[bodyInput[RegisterRequest], Me](api, "/api/auth/register", "register", "Registered user")
+	get[contract.Me](api, "/api/me", "getMe", "Current user")
+	patch[bodyInput[contract.MeUpdate], contract.Me](api, "/api/me", "updateMe", "Updated current user")
+	noContent[bodyInput[contract.PasswordUpdate]](api, http.MethodPatch, "/api/me/password", "updatePassword", "Password updated")
+	post[bodyInput[contract.LoginRequest], contract.Me](api, "/api/auth/login", "login", "Signed in user")
+	postCreated[bodyInput[contract.RegisterRequest], contract.Me](api, "/api/auth/register", "register", "Registered user")
 	noContent[emptyInput](api, http.MethodPost, "/api/auth/logout", "logout", "Signed out")
-	get[[]Lang](api, "/api/languages", "getLangs", "Submit languages")
-	postCreated[uploadImageInput, UploadResult](api, "/api/uploads/images", "uploadImage", "Uploaded image")
+	get[[]contract.Language](api, "/api/languages", "getLangs", "Submit languages")
+	postCreated[uploadImageInput, contract.UploadResult](api, "/api/uploads/images", "uploadImage", "Uploaded image")
 
 	get[AdminSettings](api, "/api/admin/settings", "getAdminSettings", "Admin settings")
 	patch[bodyInput[AdminSettingsPatch], AdminSettings](api, "/api/admin/settings", "updateAdminSettings", "Updated admin settings")
@@ -420,59 +373,59 @@ func RegisterOpenAPI(api huma.API) {
 	getBinary[namePath](api, "/api/admin/backups/{name}/download", "downloadBackup", "Backup file", "application/gzip")
 	noContent[namePath](api, http.MethodDelete, "/api/admin/backups/{name}", "deleteBackup", "Deleted backup")
 
-	get[Home](api, "/api/home", "home", "Home data")
-	patch[bodyInput[NoticeUpdate], Home](api, "/api/home/notice", "updateNotice", "Updated notice")
+	get[contract.Home](api, "/api/home", "home", "Home data")
+	patch[bodyInput[contract.NoticeUpdate], contract.Home](api, "/api/home/notice", "updateNotice", "Updated notice")
 	getBinary[userMediaPath](api, "/api/users/{id}/{year}/{month}/{day}/{name}", "userMedia", "User uploaded media", "application/octet-stream")
 	getWith[problemListQuery, ProblemListPage](api, "/api/problems", "listProblems", "Problem list")
-	postCreated[bodyInput[ProblemCreate], CreatedID](api, "/api/problems", "createProblem", "Problem created")
+	postCreated[bodyInput[contract.ProblemCreate], contract.CreatedID](api, "/api/problems", "createProblem", "Problem created")
 	getWith[tagQuery, []string](api, "/api/tags", "listTags", "Tag suggestions")
 	getWith[problemStateQuery, []ProblemState](api, "/api/problem-state", "getProblemState", "Problem state for current user and page context")
 	getWith[idPath, Problem](api, "/api/problems/{id}", "getProblem", "Problem detail")
-	patch[idBody[ProblemUpdate], CreatedID](api, "/api/problems/{id}", "updateProblem", "Problem updated")
+	patch[idBody[contract.ProblemUpdate], contract.CreatedID](api, "/api/problems/{id}", "updateProblem", "Problem updated")
 	noContent[idPath](api, http.MethodDelete, "/api/problems/{id}", "deleteProblem", "Problem deleted")
-	patch[idBody[ProblemVisibilityUpdate], ProblemListItem](api, "/api/problems/{id}/visibility", "updateProblemVisibility", "Problem visibility updated")
-	post[idPath, CountResult](api, "/api/problems/{id}/rejudge", "rejudgeProblem", "Problem submissions requeued")
-	getWith[idPath, ProblemAssets](api, "/api/problems/{id}/assets", "getProblemAssets", "Problem assets")
-	postCreated[uploadProblemAssetInput, UploadResult](api, "/api/problems/{id}/assets/images", "uploadProblemImage", "Problem image uploaded")
+	patch[idBody[contract.ProblemVisibilityUpdate], ProblemListItem](api, "/api/problems/{id}/visibility", "updateProblemVisibility", "Problem visibility updated")
+	post[idPath, contract.CountResult](api, "/api/problems/{id}/rejudge", "rejudgeProblem", "Problem submissions requeued")
+	getWith[idPath, contract.ProblemAssets](api, "/api/problems/{id}/assets", "getProblemAssets", "Problem assets")
+	postCreated[uploadProblemAssetInput, contract.UploadResult](api, "/api/problems/{id}/assets/images", "uploadProblemImage", "Problem image uploaded")
 	getBinary[nameAssetPath](api, "/api/problems/{id}/assets/{name}", "problemPublicAsset", "Public problem asset", "application/octet-stream")
 	getBinary[nameAssetPath](api, "/api/problems/{id}/data/{name}", "problemPrivateData", "Private problem data file", "application/octet-stream")
 	getBinary[nameAssetPath](api, "/api/problems/{id}/judge/{name}", "problemPrivateJudge", "Private problem judge file", "application/octet-stream")
-	postCreated[uploadProblemAssetInput, ProblemAssets](api, "/api/problems/{id}/assets/files", "uploadProblemAsset", "Problem asset uploaded")
-	deleteWith[keyQuery, ProblemAssets](api, "/api/problems/{id}/assets/files", "deleteProblemAsset", "Problem asset deleted", http.StatusOK)
-	getWith[keyQuery, AssetContent](api, "/api/problems/{id}/assets/files/content", "getProblemAssetContent", "Text asset content")
-	patch[assetContentBody, ProblemAssets](api, "/api/problems/{id}/assets/files/content", "updateProblemAssetContent", "Text asset updated")
-	postCreated[idBody[AssetCaseCreate], ProblemAssets](api, "/api/problems/{id}/assets/cases", "createProblemCase", "Problem case created")
-	postCreated[idPath, ProblemAssets](api, "/api/problems/{id}/assets/template", "fillJudgeTemplate", "Judge template written")
+	postCreated[uploadProblemAssetInput, contract.ProblemAssets](api, "/api/problems/{id}/assets/files", "uploadProblemAsset", "Problem asset uploaded")
+	deleteWith[keyQuery, contract.ProblemAssets](api, "/api/problems/{id}/assets/files", "deleteProblemAsset", "Problem asset deleted", http.StatusOK)
+	getWith[keyQuery, contract.AssetContent](api, "/api/problems/{id}/assets/files/content", "getProblemAssetContent", "Text asset content")
+	patch[assetContentBody, contract.ProblemAssets](api, "/api/problems/{id}/assets/files/content", "updateProblemAssetContent", "Text asset updated")
+	postCreated[idBody[contract.AssetCaseCreate], contract.ProblemAssets](api, "/api/problems/{id}/assets/cases", "createProblemCase", "Problem case created")
+	postCreated[idPath, contract.ProblemAssets](api, "/api/problems/{id}/assets/template", "fillJudgeTemplate", "Judge template written")
 	getBinary[idPath](api, "/api/problems/{id}/zip", "downloadProblemAssets", "Problem assets zip", "application/zip")
 	renamePath(api, "/api/problems/{id}/zip", "/api/problems/{id}.zip")
 
 	getWith[assignmentListQuery, AssignmentListPage](api, "/api/assignments", "listAssignments", "Assignment list")
-	postCreated[bodyInput[AssignmentCreate], CreatedID](api, "/api/assignments", "createAssignment", "Assignment created")
+	postCreated[bodyInput[contract.AssignmentCreate], contract.CreatedID](api, "/api/assignments", "createAssignment", "Assignment created")
 	getWith[idPath, assignmentDetail](api, "/api/assignments/{id}", "getAssignment", "Assignment detail")
-	patch[idBody[AssignmentUpdate], CreatedID](api, "/api/assignments/{id}", "updateAssignment", "Assignment updated")
+	patch[idBody[contract.AssignmentUpdate], contract.CreatedID](api, "/api/assignments/{id}", "updateAssignment", "Assignment updated")
 	noContent[idPath](api, http.MethodDelete, "/api/assignments/{id}", "deleteAssignment", "Assignment deleted")
 	getWith[assignmentListQuery, ContestListPage](api, "/api/contests", "listContests", "Contest list")
-	postCreated[bodyInput[ContestCreate], CreatedID](api, "/api/contests", "createContest", "Contest created")
+	postCreated[bodyInput[contract.ContestCreate], contract.CreatedID](api, "/api/contests", "createContest", "Contest created")
 	getWith[idPath, contestDetail](api, "/api/contests/{id}", "getContest", "Contest detail")
-	patch[idBody[ContestUpdate], CreatedID](api, "/api/contests/{id}", "updateContest", "Contest updated")
+	patch[idBody[contract.ContestUpdate], contract.CreatedID](api, "/api/contests/{id}", "updateContest", "Contest updated")
 	noContent[idPath](api, http.MethodDelete, "/api/contests/{id}", "deleteContest", "Contest deleted")
 
 	getWith[submissionListQuery, SubmissionListPage](api, "/api/submissions", "listSubmissions", "Submission list")
-	postCreated[bodyInput[SubmitRequest], CreatedID](api, "/api/submissions", "createSubmission", "Submission created")
+	postCreated[bodyInput[contract.SubmitRequest], contract.CreatedID](api, "/api/submissions", "createSubmission", "Submission created")
 	getWith[idPath, submissionDetail](api, "/api/submissions/{id}", "getSubmission", "Submission detail")
-	patch[idBody[SubmissionUpdate], CreatedID](api, "/api/submissions/{id}", "updateSubmission", "Submission updated")
-	post[idPath, CreatedID](api, "/api/submissions/{id}/rejudge", "rejudgeSubmission", "Submission requeued")
+	patch[idBody[contract.SubmissionUpdate], contract.CreatedID](api, "/api/submissions/{id}", "updateSubmission", "Submission updated")
+	post[idPath, contract.CreatedID](api, "/api/submissions/{id}/rejudge", "rejudgeSubmission", "Submission requeued")
 	getWith[pageQuery, RankUserPage](api, "/api/rank", "getRank", "Rank list")
 	getWith[struct {
 		Q string `query:"q"`
-	}, []UserOption](api, "/api/users", "searchUsers", "User suggestions")
+	}, []contract.UserOption](api, "/api/users", "searchUsers", "User suggestions")
 	getWith[userProfilePath, userProfile](api, "/api/users/{name}", "getUser", "User profile")
 	getWith[discussionListQuery, DiscussionListPage](api, "/api/discussion", "listDiscussions", "Discussion list")
-	postCreated[bodyInput[DiscussionCreate], CreatedID](api, "/api/discussion", "createDiscussion", "Discussion created")
+	postCreated[bodyInput[contract.DiscussionCreate], contract.CreatedID](api, "/api/discussion", "createDiscussion", "Discussion created")
 	getWith[idPath, discussionDetail](api, "/api/discussion/{id}", "getDiscussion", "Discussion detail")
-	patch[idBody[DiscussionUpdate], CreatedID](api, "/api/discussion/{id}", "updateDiscussion", "Discussion updated")
+	patch[idBody[contract.DiscussionUpdate], contract.CreatedID](api, "/api/discussion/{id}", "updateDiscussion", "Discussion updated")
 	noContent[idPath](api, http.MethodDelete, "/api/discussion/{id}", "deleteDiscussion", "Discussion deleted")
-	postCreated[idBody[CommentCreate], Comment](api, "/api/discussion/{id}/comments", "createComment", "Comment created")
+	postCreated[idBody[contract.CommentCreate], contract.Comment](api, "/api/discussion/{id}/comments", "createComment", "Comment created")
 	noContent[commentPath](api, http.MethodDelete, "/api/discussion/{id}/comments/{commentId}", "deleteComment", "Comment deleted")
 }
 

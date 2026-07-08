@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	common "github.com/doveccl/doj/common/judger"
 	"github.com/doveccl/doj/common/limits"
 	"github.com/doveccl/doj/models"
 	"github.com/doveccl/doj/server/events"
@@ -13,7 +14,7 @@ import (
 )
 
 func (api *API) heartbeat(c echo.Context) error {
-	var req HeartbeatRequest
+	var req common.HeartbeatRequest
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -76,7 +77,7 @@ func (api *API) heartbeat(c echo.Context) error {
 }
 
 func (api *API) result(c echo.Context) error {
-	var req ResultRequest
+	var req common.ResultRequest
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -155,7 +156,7 @@ func (api *API) result(c echo.Context) error {
 	return c.NoContent(http.StatusAccepted)
 }
 
-func validateResult(req ResultRequest) error {
+func validateResult(req common.ResultRequest) error {
 	if req.SubmissionID == 0 {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid result target")
 	}
@@ -185,7 +186,7 @@ func validateResult(req ResultRequest) error {
 	return nil
 }
 
-func validateHeartbeat(req HeartbeatRequest) error {
+func validateHeartbeat(req common.HeartbeatRequest) error {
 	if req.SubmissionID == 0 {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid heartbeat target")
 	}

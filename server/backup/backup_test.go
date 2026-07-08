@@ -20,28 +20,24 @@ import (
 	"gorm.io/gorm"
 )
 
-type stubRunner struct {
-	dir  string
-	data []byte
-	err  error
-}
-
-func (runner stubRunner) Dump(_ context.Context, _ string) (string, error) {
-	if runner.err != nil {
-		return "", runner.err
+func stubDump(dir string, data []byte, err error) func(context.Context, string) (string, error) {
+	return func(context.Context, string) (string, error) {
+		if err != nil {
+			return "", err
+		}
+		file, err := os.CreateTemp(dir, "stub-*.sql.gz")
+		if err != nil {
+			return "", err
+		}
+		if _, err := file.Write(data); err != nil {
+			_ = file.Close()
+			return "", err
+		}
+		if err := file.Close(); err != nil {
+			return "", err
+		}
+		return file.Name(), nil
 	}
-	file, err := os.CreateTemp(runner.dir, "stub-*.sql.gz")
-	if err != nil {
-		return "", err
-	}
-	if _, err := file.Write(runner.data); err != nil {
-		_ = file.Close()
-		return "", err
-	}
-	if err := file.Close(); err != nil {
-		return "", err
-	}
-	return file.Name(), nil
 }
 
 func TestBackupNowWritesSQLGZToStorage(t *testing.T) {
@@ -51,7 +47,7 @@ func TestBackupNowWritesSQLGZToStorage(t *testing.T) {
 	t.Setenv("DATABASE", "postgres://postgres@localhost/doj_test")
 	now := time.Date(2026, 6, 26, 3, 0, 0, 0, time.Local)
 	data := gzipData(t, "select 1;\n")
-	manager := Manager{DB: db, Runner: stubRunner{dir: t.TempDir(), data: data}, Now: func() time.Time { return now }}
+	manager := Manager{DB: db, Dump: stubDump(t.TempDir(), data, nil), Now: func() time.Time { return now }}
 
 	item, err := manager.BackupNow(t.Context())
 	if err != nil {
@@ -88,7 +84,7 @@ func TestBackupRunningLockBlocksConcurrentBackup(t *testing.T) {
 	if err != nil || !ok {
 		t.Fatalf("set lock ok=%v err=%v", ok, err)
 	}
-	manager := Manager{DB: db, Runner: stubRunner{dir: t.TempDir(), data: gzipData(t, "select 1;\n")}, Now: func() time.Time { return now }}
+	manager := Manager{DB: db, Dump: stubDump(t.TempDir(), gzipData(t, "select 1;\n"), nil), Now: func() time.Time { return now }}
 	if _, err := manager.BackupNow(t.Context()); !errors.Is(err, ErrRunning) {
 		t.Fatalf("backup should be blocked by running lock, err=%v", err)
 	}
@@ -125,9 +121,9 @@ func TestPruneKeepsNewestBackups(t *testing.T) {
 	}
 }
 
-func TestPgDumpRunnerReportsMissingTool(t *testing.T) {
+func TestPgDumpReportsMissingTool(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
-	_, err := PgDumpRunner{}.Dump(t.Context(), "postgres://postgres@localhost/doj")
+	_, err := pgDump(t.Context(), "postgres://postgres@localhost/doj")
 	if !errors.Is(err, ErrUnavailable) || !strings.Contains(err.Error(), "pg_dump is required") {
 		t.Fatalf("missing pg_dump should produce clear error, got %v", err)
 	}
@@ -170,7 +166,7 @@ func TestScheduledBackupDeduplicatesSameMinute(t *testing.T) {
 	t.Setenv("STORAGE", t.TempDir())
 	t.Setenv("DATABASE", "postgres://postgres@localhost/doj")
 	now := time.Date(2026, 6, 26, 3, 30, 0, 0, time.Local)
-	manager := Manager{DB: db, Runner: stubRunner{dir: t.TempDir(), data: gzipData(t, "select 1;\n")}, Now: func() time.Time { return now }}
+	manager := Manager{DB: db, Dump: stubDump(t.TempDir(), gzipData(t, "select 1;\n"), nil), Now: func() time.Time { return now }}
 	scheduler := NewScheduler(t.Context(), manager)
 	scheduler.backup()
 	scheduler.backup()

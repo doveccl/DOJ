@@ -33,18 +33,6 @@ func Register(e *echo.Echo, db *gorm.DB) {
 		panic("web API requires a database")
 	}
 	api := &API{db: db}
-	api.registerPublicRoutes(e)
-	group := e.Group("/api", api.requireGuestAccess)
-	api.registerSystemRoutes(group)
-	api.registerProblemRoutes(group)
-	api.registerAssignmentRoutes(group)
-	api.registerContestRoutes(group)
-	api.registerSubmissionRoutes(group)
-	api.registerUserRoutes(group)
-	api.registerDiscussionRoutes(group)
-}
-
-func (api *API) registerPublicRoutes(e *echo.Echo) {
 	e.GET("/api/health", api.health)
 	e.GET("/api/ready", api.ready)
 	e.GET("/api/site", api.site)
@@ -54,24 +42,19 @@ func (api *API) registerPublicRoutes(e *echo.Echo) {
 	e.GET("/api/me", api.me)
 	e.PATCH("/api/me", api.updateMe, echomw.BodyLimit(limits.BodyShortText))
 	e.PATCH("/api/me/password", api.updatePassword)
-}
 
-func (api *API) registerSystemRoutes(group *echo.Group) {
+	group := e.Group("/api", api.requireGuestAccess)
 	group.GET("/events", api.events)
 	group.GET("/home", api.home)
 	group.GET("/languages", api.languages)
 	group.PATCH("/home/notice", api.updateNotice, echomw.BodyLimit(limits.BodyMarkdown))
 	group.POST("/uploads/images", api.uploadImage, api.rateLimit("upload", 60, time.Minute), echomw.BodyLimit(limits.BodyImage))
 	group.GET("/rank", api.rank)
-}
 
-func (api *API) registerUserRoutes(group *echo.Group) {
 	group.GET("/users/:id/:year/:month/:day/*", api.userMedia)
 	group.GET("/users", api.users)
 	group.GET("/users/:name", api.user)
-}
 
-func (api *API) registerProblemRoutes(group *echo.Group) {
 	group.GET("/problems", api.problems)
 	group.POST("/problems", api.createProblem)
 	group.GET("/tags", api.tags)
@@ -92,33 +75,25 @@ func (api *API) registerProblemRoutes(group *echo.Group) {
 	group.POST("/problems/:id/assets/cases", api.createProblemCase, echomw.BodyLimit(limits.BodyEditAsset))
 	group.POST("/problems/:id/assets/template", api.fillJudgeTemplate, echomw.BodyLimit(limits.BodyEditAsset))
 	group.GET("/problems/:id/assets/*", api.problemPublicAsset)
-}
 
-func (api *API) registerAssignmentRoutes(group *echo.Group) {
 	group.GET("/assignments", api.assignments)
 	group.POST("/assignments", api.createAssignment)
 	group.GET("/assignments/:id", api.assignment)
 	group.PATCH("/assignments/:id", api.updateAssignment)
 	group.DELETE("/assignments/:id", api.deleteAssignment)
-}
 
-func (api *API) registerContestRoutes(group *echo.Group) {
 	group.GET("/contests", api.contests)
 	group.POST("/contests", api.createContest)
 	group.GET("/contests/:id", api.contest)
 	group.PATCH("/contests/:id", api.updateContest)
 	group.DELETE("/contests/:id", api.deleteContest)
-}
 
-func (api *API) registerSubmissionRoutes(group *echo.Group) {
 	group.GET("/submissions", api.submissions)
 	group.POST("/submissions", api.submit, api.rateLimit("submit", 30, time.Minute), echomw.BodyLimit(limits.BodySource))
 	group.GET("/submissions/:id", api.submission)
 	group.PATCH("/submissions/:id", api.updateSubmission)
 	group.POST("/submissions/:id/rejudge", api.rejudgeSubmission)
-}
 
-func (api *API) registerDiscussionRoutes(group *echo.Group) {
 	group.GET("/discussion", api.discussions)
 	group.POST("/discussion", api.createDiscussion, api.rateLimit("discussion", 30, time.Minute), echomw.BodyLimit(limits.BodyMarkdown))
 	group.GET("/discussion/:id", api.discussion)

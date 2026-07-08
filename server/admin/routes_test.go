@@ -30,7 +30,7 @@ func TestDatabaseAdminCrud(t *testing.T) {
 		}
 	}
 	e := echo.New()
-	Register(e, db)
+	Register(e, db, nil)
 	adminCookies := databaseSession(t, admin.ID)
 
 	res := requestWithCookies(e, http.MethodGet, "/api/admin/settings", adminCookies)
@@ -339,7 +339,7 @@ func TestBackupCreateReportsUnavailableWhenPgDumpMissing(t *testing.T) {
 	t.Setenv("STORAGE", t.TempDir())
 	t.Setenv("PATH", t.TempDir())
 	e := echo.New()
-	Register(e, db)
+	Register(e, db, nil)
 
 	res := requestJSONWithCookies(e, http.MethodPost, "/api/admin/backups", databaseSession(t, admin.ID), `{}`)
 	if res.Code != http.StatusServiceUnavailable {

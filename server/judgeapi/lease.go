@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	common "github.com/doveccl/doj/common/judger"
 	"github.com/doveccl/doj/models"
 	"github.com/doveccl/doj/server/events"
 	"github.com/labstack/echo/v4"
@@ -13,7 +14,7 @@ import (
 )
 
 func (api *API) lease(c echo.Context) error {
-	var req LeaseRequest
+	var req common.LeaseRequest
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -37,14 +38,14 @@ func (api *API) lease(c echo.Context) error {
 		}
 		if payload != nil {
 			events.SubmissionChanged()
-			return c.JSON(http.StatusOK, LeaseResponse{Task: payload})
+			return c.JSON(http.StatusOK, common.LeaseResponse{Task: payload})
 		}
 
 		select {
 		case <-c.Request().Context().Done():
 			return nil
 		case <-timer.C:
-			return c.JSON(http.StatusOK, LeaseResponse{})
+			return c.JSON(http.StatusOK, common.LeaseResponse{})
 		case now := <-active.C:
 			TouchStatus(c.Request().Context(), judgerID, now)
 		case <-ch:
@@ -59,9 +60,9 @@ func (api *API) longPollWait() time.Duration {
 	return defaultLeaseWait
 }
 
-func (api *API) tryLease(ctx context.Context, judgerID uint) (*TaskPayload, error) {
+func (api *API) tryLease(ctx context.Context, judgerID uint) (*common.TaskPayload, error) {
 	now := time.Now()
-	var payload *TaskPayload
+	var payload *common.TaskPayload
 	err := api.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var rows []models.Submission
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).

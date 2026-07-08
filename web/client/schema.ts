@@ -1464,7 +1464,7 @@ export interface components {
             id: number;
             title: string;
         };
-        Lang: {
+        Language: {
             id: string;
             name: string;
             source: string;
@@ -3377,7 +3377,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Lang"][];
+                    "application/json": components["schemas"]["Language"][];
                 };
             };
             /** @description Error */

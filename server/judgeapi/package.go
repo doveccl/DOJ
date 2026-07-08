@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/doveccl/doj/common/cache"
+	common "github.com/doveccl/doj/common/judger"
 	"github.com/doveccl/doj/common/storage"
 	"io"
 	"net/http"
@@ -52,7 +53,7 @@ func (api *API) problemPackage(c echo.Context) error {
 	return writeProblemPackageZip(c.Request().Context(), writer, store, problem.ID, files)
 }
 
-func buildPayload(ctx context.Context, tx *gorm.DB, submission models.Submission) (*TaskPayload, error) {
+func buildPayload(ctx context.Context, tx *gorm.DB, submission models.Submission) (*common.TaskPayload, error) {
 	var lang models.Language
 	if err := tx.First(&lang, "id = ?", submission.Language).Error; err != nil {
 		return nil, err
@@ -70,12 +71,12 @@ func buildPayload(ctx context.Context, tx *gorm.DB, submission models.Submission
 		return nil, err
 	}
 	cases := casePayloadsFromObjects(problem.ID, files)
-	return &TaskPayload{
+	return &common.TaskPayload{
 		ID:           submission.ID,
 		SubmissionID: submission.ID,
 		Attempt:      submission.Attempt,
 		Source:       submission.Code,
-		Lang: LangPayload{
+		Lang: common.LangPayload{
 			ID:      lang.ID,
 			Source:  lang.Source,
 			Image:   lang.Image,
@@ -83,7 +84,7 @@ func buildPayload(ctx context.Context, tx *gorm.DB, submission models.Submission
 			Run:     lang.Run,
 		},
 		Mode: problem.Mode,
-		Limits: LimitsPayload{
+		Limits: common.LimitsPayload{
 			TimeMS:   problem.TimeMS,
 			MemoryKB: problem.MemoryMB * 1024,
 			OutputKB: 65536,
@@ -91,7 +92,7 @@ func buildPayload(ctx context.Context, tx *gorm.DB, submission models.Submission
 			FileKB:   65536,
 		},
 		Cases: cases,
-		Problem: ProblemPayload{
+		Problem: common.ProblemPayload{
 			ID:          problem.ID,
 			Mode:        problem.Mode,
 			TimeMS:      problem.TimeMS,
@@ -205,7 +206,7 @@ func problemPackageZipName(problemID uint, key string) (string, string, bool) {
 	return "", "", false
 }
 
-func casePayloadsFromObjects(problemID uint, objects []storage.Info) []CasePayload {
+func casePayloadsFromObjects(problemID uint, objects []storage.Info) []common.CasePayload {
 	type pair struct {
 		id     string
 		input  string
@@ -242,13 +243,13 @@ func casePayloadsFromObjects(problemID uint, objects []storage.Info) []CasePaylo
 	}
 	base := 100 / len(pairs)
 	remainder := 100 % len(pairs)
-	cases := make([]CasePayload, 0, len(pairs))
+	cases := make([]common.CasePayload, 0, len(pairs))
 	for index, item := range pairs {
 		score := base
 		if index == len(pairs)-1 {
 			score += remainder
 		}
-		cases = append(cases, CasePayload{ID: item.id, Input: item.input, Answer: item.answer, Score: score})
+		cases = append(cases, common.CasePayload{ID: item.id, Input: item.input, Answer: item.answer, Score: score})
 	}
 	return cases
 }

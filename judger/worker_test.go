@@ -24,7 +24,7 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 	runner := buildRunner(t)
 	root := t.TempDir()
 
-	gotResult := make(chan resultRequest, 1)
+	gotResult := make(chan common.ResultRequest, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer secret" {
 			http.Error(w, "bad token", http.StatusUnauthorized)
@@ -32,7 +32,7 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 		}
 		switch r.URL.Path {
 		case "/api/judger/lease":
-			_ = json.NewEncoder(w).Encode(leaseResponse{Task: &leaseTask{
+			_ = json.NewEncoder(w).Encode(common.LeaseResponse{Task: &common.TaskPayload{
 				ID:           7,
 				SubmissionID: 11,
 				Attempt:      2,
@@ -40,8 +40,8 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 				Lang:         testLeaseLang(),
 				Mode:         string(ModeDefault),
 				Limits:       common.LimitsPayload{TimeMS: 1000, OutputKB: 64},
-				Problem:      taskProblem{ID: 1000, PackageHash: "fixture-v1"},
-				Cases: []casePayload{{
+				Problem:      common.ProblemPayload{ID: 1000, PackageHash: "fixture-v1"},
+				Cases: []common.CasePayload{{
 					ID:     "1",
 					Input:  "data/1.in",
 					Answer: "data/1.out",
@@ -52,7 +52,7 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 			w.Header().Set("Content-Type", "application/zip")
 			_, _ = w.Write(testPackageZip(t))
 		case "/api/judger/tasks/7/result":
-			var req resultRequest
+			var req common.ResultRequest
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				t.Error(err)
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -103,7 +103,7 @@ func TestRunOneDownloadsPackageForRelativeCases(t *testing.T) {
 	runner := buildRunner(t)
 	root := t.TempDir()
 
-	gotResult := make(chan resultRequest, 1)
+	gotResult := make(chan common.ResultRequest, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer secret" {
 			http.Error(w, "bad token", http.StatusUnauthorized)
@@ -111,7 +111,7 @@ func TestRunOneDownloadsPackageForRelativeCases(t *testing.T) {
 		}
 		switch r.URL.Path {
 		case "/api/judger/lease":
-			_ = json.NewEncoder(w).Encode(leaseResponse{Task: &leaseTask{
+			_ = json.NewEncoder(w).Encode(common.LeaseResponse{Task: &common.TaskPayload{
 				ID:           8,
 				SubmissionID: 12,
 				Attempt:      1,
@@ -119,8 +119,8 @@ func TestRunOneDownloadsPackageForRelativeCases(t *testing.T) {
 				Lang:         testLeaseLang(),
 				Mode:         string(ModeDefault),
 				Limits:       common.LimitsPayload{TimeMS: 1000, OutputKB: 64},
-				Problem:      taskProblem{ID: 1000, PackageHash: "fixture-v1"},
-				Cases: []casePayload{{
+				Problem:      common.ProblemPayload{ID: 1000, PackageHash: "fixture-v1"},
+				Cases: []common.CasePayload{{
 					ID:     "1",
 					Input:  "data/1.in",
 					Answer: "data/1.out",
@@ -131,7 +131,7 @@ func TestRunOneDownloadsPackageForRelativeCases(t *testing.T) {
 			w.Header().Set("Content-Type", "application/zip")
 			_, _ = w.Write(testPackageZip(t))
 		case "/api/judger/tasks/8/result":
-			var req resultRequest
+			var req common.ResultRequest
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				t.Error(err)
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -176,11 +176,11 @@ func TestRunOneDownloadsPackageForRelativeCases(t *testing.T) {
 
 func TestRunOneCleansWorkAfterPackageError(t *testing.T) {
 	root := t.TempDir()
-	gotResult := make(chan resultRequest, 1)
+	gotResult := make(chan common.ResultRequest, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/judger/lease":
-			_ = json.NewEncoder(w).Encode(leaseResponse{Task: &leaseTask{
+			_ = json.NewEncoder(w).Encode(common.LeaseResponse{Task: &common.TaskPayload{
 				ID:           9,
 				SubmissionID: 13,
 				Attempt:      1,
@@ -188,8 +188,8 @@ func TestRunOneCleansWorkAfterPackageError(t *testing.T) {
 				Lang:         testLeaseLang(),
 				Mode:         string(ModeDefault),
 				Limits:       common.LimitsPayload{TimeMS: 1000, OutputKB: 64},
-				Problem:      taskProblem{ID: 1000, PackageHash: "fixture-v1"},
-				Cases: []casePayload{{
+				Problem:      common.ProblemPayload{ID: 1000, PackageHash: "fixture-v1"},
+				Cases: []common.CasePayload{{
 					ID:     "1",
 					Input:  "data/1.in",
 					Answer: "data/1.out",
@@ -199,7 +199,7 @@ func TestRunOneCleansWorkAfterPackageError(t *testing.T) {
 		case "/api/judger/P1000.zip":
 			http.Error(w, "missing", http.StatusNotFound)
 		case "/api/judger/tasks/9/result":
-			var req resultRequest
+			var req common.ResultRequest
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				t.Error(err)
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -388,12 +388,12 @@ func TestDownloadProblemPackageReportsDownloadedBytes(t *testing.T) {
 	if err := os.MkdirAll(work, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	var got []heartbeatRequest
+	var got []common.HeartbeatRequest
 	cfg := WorkerConfig{
 		Server: server.URL,
 		Cache:  filepath.Join(root, "cache"),
 		Progress: func(stage string, done int64, total *int64) {
-			got = append(got, heartbeatRequest{Stage: stage, Done: done, Total: total})
+			got = append(got, common.HeartbeatRequest{Stage: stage, Done: done, Total: total})
 		},
 	}
 	if err := downloadProblemPackage(t.Context(), server.Client(), cfg, 1000, "v1", work, 11, 1); err != nil {

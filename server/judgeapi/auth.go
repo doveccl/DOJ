@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/doveccl/doj/common/authn"
+	common "github.com/doveccl/doj/common/judger"
 	"github.com/doveccl/doj/models"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -36,7 +37,7 @@ func (api *API) auth(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func (api *API) ensureJudger(c echo.Context, req LeaseRequest) (uint, error) {
+func (api *API) ensureJudger(c echo.Context, req common.LeaseRequest) (uint, error) {
 	if id, ok := c.Get(contextJudgerID).(uint); ok && id > 0 {
 		if host := strings.TrimSpace(req.Host); host != "" {
 			if err := api.db.Model(&models.Judger{}).Where("id = ? AND name = ?", id, "").Update("name", host).Error; err != nil {
@@ -138,7 +139,7 @@ func isLocalJudger(c echo.Context) bool {
 	return value
 }
 
-func judgerRequestName(req LeaseRequest) string {
+func judgerRequestName(req common.LeaseRequest) string {
 	name := strings.TrimSpace(req.Host)
 	if name != "" {
 		return name
