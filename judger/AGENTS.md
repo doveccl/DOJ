@@ -1,6 +1,6 @@
 # Judger Rules
 
-`judger/` contains both host-side judger code and container-side runner code. The real judger is Linux-only.
+`judger/` contains host-side judger worker and container orchestration. `judger/runner` contains the container-side runner. The real judger is Linux-only.
 
 ## Boundaries
 

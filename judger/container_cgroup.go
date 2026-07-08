@@ -38,7 +38,7 @@ func watchCgroupMemoryLimit(cgroup *CgroupCase) func() {
 			case <-ticker.C:
 				stats, err := cgroup.Stats()
 				if err == nil && cgroupMemoryLimitReached(stats) {
-					_ = cgroup.killAll()
+					_ = cgroup.KillAll()
 					return
 				}
 			}

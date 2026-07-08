@@ -1,82 +1,65 @@
 package judger
 
-type Verdict string
+import jr "github.com/doveccl/doj/judger/runner"
+
+type Verdict = jr.Verdict
 
 const (
-	VerdictAccepted          Verdict = "AC"
-	VerdictCompileError      Verdict = "CE"
-	VerdictWrongAnswer       Verdict = "WA"
-	VerdictPresentationError Verdict = "PE"
-	VerdictTimeLimit         Verdict = "TLE"
-	VerdictMemoryLimit       Verdict = "MLE"
-	VerdictOutputLimit       Verdict = "OLE"
-	VerdictRuntimeError      Verdict = "RE"
-	VerdictSystemError       Verdict = "SE"
+	VerdictAccepted          = jr.VerdictAccepted
+	VerdictCompileError      = jr.VerdictCompileError
+	VerdictWrongAnswer       = jr.VerdictWrongAnswer
+	VerdictPresentationError = jr.VerdictPresentationError
+	VerdictTimeLimit         = jr.VerdictTimeLimit
+	VerdictMemoryLimit       = jr.VerdictMemoryLimit
+	VerdictOutputLimit       = jr.VerdictOutputLimit
+	VerdictRuntimeError      = jr.VerdictRuntimeError
+	VerdictSystemError       = jr.VerdictSystemError
 )
 
-type JudgeMode string
+type JudgeMode = jr.JudgeMode
 
 const (
-	ModeDefault JudgeMode = "default"
-	ModeStrict  JudgeMode = "strict"
-	ModeCustom  JudgeMode = "custom"
+	ModeDefault = jr.ModeDefault
+	ModeStrict  = jr.ModeStrict
+	ModeCustom  = jr.ModeCustom
 )
 
-type Lang struct {
-	ID      string `json:"id"`
-	Source  string `json:"source"`
-	Image   string `json:"image"`
-	Compile string `json:"compile"`
-	Run     string `json:"run"`
-}
+type Lang = jr.Lang
+type Limits = jr.Limits
+type Case = jr.Case
+type Task = jr.Task
+type CompileResult = jr.CompileResult
+type CaseResult = jr.CaseResult
+type TaskResult = jr.TaskResult
 
-type Limits struct {
-	TimeMS   int
-	MemoryKB int
-	OutputKB int
-	Pids     int
-	FileKB   int
-}
+type MessageKind = jr.MessageKind
 
-type Case struct {
-	ID     string
-	Input  string
-	Answer string
-	Score  int
-}
+const (
+	MsgHello         = jr.MsgHello
+	MsgCompile       = jr.MsgCompile
+	MsgCompileResult = jr.MsgCompileResult
+	MsgRunCase       = jr.MsgRunCase
+	MsgUserPID       = jr.MsgUserPID
+	MsgReleaseUser   = jr.MsgReleaseUser
+	MsgCaseResult    = jr.MsgCaseResult
+	MsgError         = jr.MsgError
+	MsgBye           = jr.MsgBye
+)
 
-type Task struct {
-	SubmissionID uint
-	Attempt      int
-	Source       string
-	Lang         Lang
-	Mode         JudgeMode
-	Limits       Limits
-	Cases        []Case
-}
+type Message = jr.Message
+type Hello = jr.Hello
+type CompileRequest = jr.CompileRequest
+type RunCaseRequest = jr.RunCaseRequest
+type UserPID = jr.UserPID
+type ReleaseUser = jr.ReleaseUser
+type Codec = jr.Codec
+type CgroupConfig = jr.CgroupConfig
+type CgroupStats = jr.CgroupStats
+type CgroupCase = jr.CgroupCase
 
-type CompileResult struct {
-	OK      bool
-	Message string
-	TimeMS  int
-}
+var NewCodec = jr.NewCodec
+var PrepareCgroup = jr.PrepareCgroup
 
-type CaseResult struct {
-	CaseID   string  `json:"caseId"`
-	Verdict  Verdict `json:"verdict"`
-	Score    int     `json:"score"`
-	TimeMS   int     `json:"timeMs"`
-	MemoryKB int     `json:"memoryKb"`
-	Message  string  `json:"message"`
-}
-
-type TaskResult struct {
-	SubmissionID uint
-	Attempt      int
-	Verdict      Verdict
-	Score        int
-	TimeMS       int
-	MemoryKB     int
-	Message      string
-	Cases        []CaseResult
+func DefaultCgroupRoot() string {
+	return jr.DefaultCgroupRoot()
 }

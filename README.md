@@ -95,7 +95,7 @@ pnpm test
 pnpm build
 ```
 
-Regenerate the TypeScript API schema after editing the Go-first web contract in `server/api/openapi/openapi.go`:
+Regenerate the TypeScript API schema after editing the Go-first web contract in `server/api/openapi.go`:
 
 ```bash
 pnpm api:gen
@@ -208,7 +208,7 @@ pnpm test
 pnpm build
 ```
 
-修改 `server/api/openapi/openapi.go` 里的 Go-first Web 契约后重新生成 TypeScript API schema：
+修改 `server/api/openapi.go` 里的 Go-first Web 契约后重新生成 TypeScript API schema：
 
 ```bash
 pnpm api:gen

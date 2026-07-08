@@ -16,14 +16,15 @@
 - `server/api/public` handles guest and signed-in user APIs.
 - `server/api/admin` handles system administration APIs.
 - `server/api/worker` handles APIs consumed by `doj judger`.
-- `judger/` contains all judger and runner implementation.
+- `judger/` contains host-side judger worker and container orchestration.
+- `judger/runner` contains container-side runner implementation.
 - `index.html` is the Vite HTML entry.
 - `web/` contains frontend source.
 
 ## Project Rules
 
 - Keep the implementation aligned with the latest agreed schema and API. During active development, do not add backward-compatibility branches for old local data.
-- `server/api/openapi/openapi.go` is the Go-first web/admin API contract. Run `pnpm api:gen` to regenerate the ignored `contract/web/openapi.yaml` artifact and `web/client/schema.ts`, and update handlers, UI, and tests together.
+- `server/api/openapi.go` is the Go-first web/admin API contract. Run `pnpm api:gen` to regenerate the ignored `contract/web/openapi.yaml` artifact and `web/client/schema.ts`, and update handlers, UI, and tests together.
 - `contract/judger` contains the shared server ↔ judger JSON contract types.
 - Prefer short table, field, and file names when the meaning stays clear.
 - Problem IDs start at 1000.

@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/doveccl/doj/server/api/openapi"
+	"github.com/doveccl/doj/server/api"
 )
 
 func main() {
@@ -13,7 +13,7 @@ func main() {
 	if len(os.Args) > 1 {
 		target = os.Args[1]
 	}
-	data, err := openapi.NewOpenAPI().OpenAPI().YAML()
+	data, err := api.NewOpenAPI().OpenAPI().YAML()
 	if err != nil {
 		fatal(err)
 	}
