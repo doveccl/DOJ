@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import enUS from 'antd/es/locale/en_US'
+import zhCN from 'antd/es/locale/zh_CN'
 import dayjs from 'dayjs'
 import 'dayjs/locale/en'
 import 'dayjs/locale/zh-cn'
@@ -8,10 +10,17 @@ import { en } from './locales/en'
 import { zh } from './locales/zh'
 
 export type Lang = 'zh' | 'en'
+type DurationUnit = 'second' | 'minute' | 'hour' | 'day'
 
 const dicts = { zh, en }
-const htmlLangs: Record<Lang, string> = { zh: 'zh-CN', en: 'en' }
+const localeCodes: Record<Lang, string> = { zh: 'zh-CN', en: 'en-US' }
+const htmlLangs: Record<Lang, string> = { zh: localeCodes.zh, en: 'en' }
 const dayjsLangs: Record<Lang, string> = { zh: 'zh-cn', en: 'en' }
+const antdLocales = { zh: zhCN, en: enUS }
+const durationUnits: Record<Lang, Record<DurationUnit, string> & { tight: boolean }> = {
+  zh: { second: '秒', minute: '分钟', hour: '小时', day: '天', tight: false },
+  en: { second: 's', minute: 'm', hour: 'h', day: 'd', tight: true }
+}
 
 type LocaleState = {
   lang: Lang
@@ -57,4 +66,17 @@ export function useLocale() {
     throw new Error('LocaleProvider is missing')
   }
   return value
+}
+
+export function localeCode(lang: Lang) {
+  return localeCodes[lang]
+}
+
+export function antdLocale(lang: Lang) {
+  return antdLocales[lang]
+}
+
+export function durationText(value: number, unit: DurationUnit, lang: Lang) {
+  const dict = durationUnits[lang]
+  return dict.tight ? `${value}${dict[unit]}` : `${value} ${dict[unit]}`
 }

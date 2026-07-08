@@ -183,7 +183,7 @@ export function DiscussionDetailPage() {
         <Flex vertical gap={16}>
           {pageComments.map((item, index) => (
             <div key={item.id}>
-              {index > 0 ? <Divider className="softDivider" /> : null}
+              {index > 0 ? <Divider style={{ margin: 0 }} /> : null}
               <Flex vertical gap={8} style={{ width: '100%' }}>
                 <Flex align="center" justify="space-between" gap={8}>
                   <Space size={8}>

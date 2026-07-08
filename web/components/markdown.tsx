@@ -1,5 +1,7 @@
 import { lazy, Suspense } from 'react'
 
+import './markdown.css'
+
 type MarkdownEditorProps = {
   id?: string
   value?: string

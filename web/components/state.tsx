@@ -1,6 +1,7 @@
 import { Alert, Empty, Spin } from 'antd'
 
 import { useLocale } from '../locale'
+import './state.css'
 
 export function LoadingBlock() {
   return (

@@ -29,6 +29,7 @@ import { defaultProblemSort, ProblemRefInput } from '../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { contestTarget, ScheduleTag } from '../components/time'
 import { useLocale } from '../locale'
+import type { Lang } from '../locale'
 import { useSession } from '../session'
 import { formatTime, problemLabel } from '../utils/format'
 import { limits } from '../utils/limits'
@@ -271,7 +272,7 @@ function ContestModal({
 
 function contestColumns(
   text: ReturnType<typeof useLocale>['text'],
-  lang: string,
+  lang: Lang,
   actions: {
     edit: (item: Contest) => void
     remove: (id: number) => void

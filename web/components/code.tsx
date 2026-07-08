@@ -1,23 +1,24 @@
-import { EditorView } from '@codemirror/view'
 import { githubDark, githubLight } from '@uiw/codemirror-theme-github'
 import CodeMirror from '@uiw/react-codemirror'
 import { languages } from '@codemirror/language-data'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ComponentProps } from 'react'
 
 import { useColor } from '../color'
+import './code.css'
 
 type CodeEditorProps = {
   value: string
   language?: string
   minHeight?: string
+  maxHeight?: string
   readOnly?: boolean
   onChange?: (value: string) => void
 }
 
 type CodeMirrorExtensions = NonNullable<ComponentProps<typeof CodeMirror>['extensions']>
 
-export function CodeEditor({ value, language, minHeight = '320px', readOnly = false, onChange }: CodeEditorProps) {
+export function CodeEditor({ value, language, minHeight = '320px', maxHeight = '60vh', readOnly = false, onChange }: CodeEditorProps) {
   const { color } = useColor()
   const [langExtensions, setLangExtensions] = useState<CodeMirrorExtensions>([])
   useEffect(() => {
@@ -33,28 +34,27 @@ export function CodeEditor({ value, language, minHeight = '320px', readOnly = fa
       alive = false
     }
   }, [language])
-  const extensions = useMemo(() => [...langExtensions, EditorView.lineWrapping], [langExtensions])
-
   return (
     <div className="codeEditor">
       <CodeMirror
         value={value}
         minHeight={minHeight}
+        maxHeight={maxHeight}
         theme={color === 'dark' ? githubDark : githubLight}
-        extensions={extensions}
+        extensions={langExtensions}
         readOnly={readOnly}
         editable={!readOnly}
         basicSetup={{
           lineNumbers: true,
-          foldGutter: true,
-          dropCursor: true,
-          allowMultipleSelections: true,
+          foldGutter: false,
+          dropCursor: false,
+          allowMultipleSelections: false,
           indentOnInput: true,
           bracketMatching: true,
           closeBrackets: true,
-          autocompletion: true,
-          rectangularSelection: true,
-          highlightSelectionMatches: true
+          autocompletion: false,
+          rectangularSelection: false,
+          highlightSelectionMatches: false
         }}
         onChange={(next) => onChange?.(next)}
       />

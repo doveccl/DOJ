@@ -1,5 +1,5 @@
 import { EditOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, Col, Flex, Form, List, Row, Space, Tag, Typography } from 'antd'
+import { App as AntApp, Button, Card, Col, Flex, Form, Row, Space, Tag, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -119,16 +119,11 @@ function ProblemList({ title, items }: { title: string; items: HomeProblem[] }) 
       {items.length === 0 ? (
         <EmptyBlock />
       ) : (
-        <List<HomeProblem>
-          className="homeProblemList"
-          size="small"
-          dataSource={items}
-          renderItem={(item) => (
-            <List.Item key={item.id}>
-              <ProblemLink id={item.id} title={item.title} strong />
-            </List.Item>
-          )}
-        />
+        <Flex vertical gap={8}>
+          {items.map((item) => (
+            <ProblemLink key={item.id} id={item.id} title={item.title} strong />
+          ))}
+        </Flex>
       )}
     </Card>
   )
@@ -141,18 +136,16 @@ function AssignmentList({ title, items }: { title: string; items: HomeAssignment
       {items.length === 0 ? (
         <EmptyBlock />
       ) : (
-        <List<HomeAssignment>
-          className="homeLinkList"
-          size="small"
-          dataSource={items}
-          renderItem={(item) => (
-            <List.Item key={item.id} extra={<Typography.Text type="secondary" className="nowrap">{text.assignments.done(item.done, item.total)}</Typography.Text>}>
+        <Flex vertical gap={8}>
+          {items.map((item) => (
+            <Flex key={item.id} justify="space-between" align="center" gap={12}>
               <Typography.Text strong ellipsis={{ tooltip: item.title }}>
                 <Link to={`/assignments/${item.id}`}>{item.title}</Link>
               </Typography.Text>
-            </List.Item>
-          )}
-        />
+              <Typography.Text type="secondary" className="nowrap">{text.assignments.done(item.done, item.total)}</Typography.Text>
+            </Flex>
+          ))}
+        </Flex>
       )}
     </Card>
   )
@@ -165,18 +158,16 @@ function ContestList({ title, items }: { title: string; items: HomeContest[] }) 
       {items.length === 0 ? (
         <EmptyBlock />
       ) : (
-        <List<HomeContest>
-          className="homeLinkList"
-          size="small"
-          dataSource={items}
-          renderItem={(item) => (
-            <List.Item key={item.id} extra={<Tag color={contestStatusColor(item.status)}>{contestStatusText(item.status, text)}</Tag>}>
+        <Flex vertical gap={8}>
+          {items.map((item) => (
+            <Flex key={item.id} justify="space-between" align="center" gap={12}>
               <Typography.Text strong ellipsis={{ tooltip: item.title }}>
                 <Link to={`/contests/${item.id}`}>{item.title}</Link>
               </Typography.Text>
-            </List.Item>
-          )}
-        />
+              <Tag color={contestStatusColor(item.status)}>{contestStatusText(item.status, text)}</Tag>
+            </Flex>
+          ))}
+        </Flex>
       )}
     </Card>
   )

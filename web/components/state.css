@@ -1,0 +1,5 @@
+.centerBlock {
+  display: grid;
+  min-height: 320px;
+  place-items: center;
+}

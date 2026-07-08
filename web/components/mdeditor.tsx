@@ -3,7 +3,7 @@ import { useId } from 'react'
 
 import { uploadImage } from '../client'
 import { useColor } from '../color'
-import { useLocale } from '../locale'
+import { localeCode, useLocale } from '../locale'
 import { rewriteAssetURL } from '../utils/markdown'
 import { configureMarkdownRuntime } from './markdown-runtime'
 
@@ -53,7 +53,7 @@ export function MarkdownEditor({
   const { lang } = useLocale()
   const generatedID = `md-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
   const editorID = id ?? generatedID
-  const language = lang === 'zh' ? 'zh-CN' : 'en-US'
+  const language = localeCode(lang)
   const theme = color === 'dark' ? 'dark' : 'light'
   const common = {
     id: editorID,

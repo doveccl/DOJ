@@ -1,3 +1,6 @@
+import { durationText, localeCode } from '../locale'
+import type { Lang } from '../locale'
+
 type ProblemLimit = {
   timeMs: number
   memoryMb: number
@@ -55,12 +58,16 @@ export function memoryText(kb?: number) {
   return kb === undefined ? '-' : formatBytes(kb * 1024)
 }
 
+export function isLiveSubmissionStatus(status?: string) {
+  return status === 'queued' || status === 'judging'
+}
+
 export function progress(row: AssignmentProgressLike) {
   return row.total > 0 ? Math.round((row.done / row.total) * 100) : 0
 }
 
-export function formatTime(value: string, lang: string) {
-  return new Date(value).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {
+export function formatTime(value: string, lang: Lang) {
+  return new Date(value).toLocaleString(localeCode(lang), {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -68,19 +75,19 @@ export function formatTime(value: string, lang: string) {
   })
 }
 
-export function formatDuration(seconds: number, lang: string) {
+export function formatDuration(seconds: number, lang: Lang) {
   const value = Math.max(0, Math.floor(seconds))
   if (value < 60) {
-    return lang === 'zh' ? `${value} 秒` : `${value}s`
+    return durationText(value, 'second', lang)
   }
   const minutes = Math.floor(value / 60)
   if (minutes < 60) {
-    return lang === 'zh' ? `${minutes} 分钟` : `${minutes}m`
+    return durationText(minutes, 'minute', lang)
   }
   const hours = Math.floor(minutes / 60)
   if (hours < 24) {
-    return lang === 'zh' ? `${hours} 小时` : `${hours}h`
+    return durationText(hours, 'hour', lang)
   }
   const days = Math.floor(hours / 24)
-  return lang === 'zh' ? `${days} 天` : `${days}d`
+  return durationText(days, 'day', lang)
 }

@@ -156,6 +156,29 @@ body {
   cursor: pointer;
 }
 
+.tableTitleLine {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.tableTitleLine .ant-space-item:first-child {
+  min-width: 0;
+}
+
+.tableTitleLine > .ant-typography {
+  min-width: 0;
+}
+
+.tableTitleLine .ant-tag {
+  flex: none;
+  margin-inline-end: 0;
+}
+
 .noticeCard .ant-card-body {
   padding: 22px 26px;
 }
@@ -172,9 +195,4 @@ body {
 
 .compactMarkdown p {
   margin: 0;
-}
-
-.submitRow {
-  display: flex;
-  align-items: center;
 }

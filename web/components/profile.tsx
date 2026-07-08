@@ -5,11 +5,13 @@ import { Link } from 'react-router-dom'
 
 import type { SolvedProblem, SolvedProblemPage, UserActivity, UserProfile } from '../client'
 import { useLocale } from '../locale'
+import type { Lang } from '../locale'
 import { formatTime } from '../utils/format'
 import { ProblemLink } from './entity'
 import { YearHeatmap } from './heatmap'
 import { SubmissionStatus } from './status'
 import { TagList } from './tags'
+import '../styles/profile.css'
 
 type ProfileOverviewProps = {
   profile: UserProfile
@@ -110,7 +112,7 @@ function activityIcon(row: UserActivity) {
   return row.status === 'AC' ? <CheckCircleOutlined /> : <CodeOutlined />
 }
 
-function ActivityItem({ activity, lang, submitted, posted }: { activity: UserActivity; lang: string; submitted: string; posted: string }) {
+function ActivityItem({ activity, lang, submitted, posted }: { activity: UserActivity; lang: Lang; submitted: string; posted: string }) {
   if (activity.type === 'discussion') {
     return (
       <Flex vertical gap={4}>

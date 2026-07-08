@@ -11,7 +11,8 @@ import { ErrorBlock, LoadingBlock } from '../components/state'
 import { SubmissionStatus } from '../components/status'
 import { useRemoteSearch } from '../components/use-debounced-value'
 import { useLocale } from '../locale'
-import { formatTime, memoryText, problemCode, problemLabel, submissionCode } from '../utils/format'
+import type { Lang } from '../locale'
+import { formatTime, isLiveSubmissionStatus, memoryText, problemCode, problemLabel, submissionCode } from '../utils/format'
 import { pageFromParams, pageSizeFromParams, setPageParams } from '../utils/pagination'
 
 type SubmissionFilters = {
@@ -191,10 +192,6 @@ function stringParam(value: number | undefined) {
   return value === undefined ? undefined : String(value)
 }
 
-function isLiveSubmissionStatus(status?: string) {
-  return status === 'queued' || status === 'judging'
-}
-
 function numberParam(value: string | null) {
   const normalized = (value ?? '').trim().replace(/^(p|c|#)/i, '')
   if (!/^\d+$/.test(normalized)) {
@@ -203,7 +200,7 @@ function numberParam(value: string | null) {
   return Number(normalized)
 }
 
-function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: string, languageNames: Map<string, string>): TableProps<SubmissionListItem>['columns'] {
+function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: Lang, languageNames: Map<string, string>): TableProps<SubmissionListItem>['columns'] {
   return [
     {
       title: <Typography.Text className="nowrap">{text.submissions.id}</Typography.Text>,

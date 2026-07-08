@@ -1,0 +1,16 @@
+.codeEditor .cm-editor {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.codeEditor .cm-scroller {
+  min-height: inherit;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+.codeEditor .cm-line {
+  min-width: 100%;
+}

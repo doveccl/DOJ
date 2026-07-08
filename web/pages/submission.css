@@ -1,0 +1,22 @@
+.submissionMessagePreview {
+  min-width: 0;
+}
+
+.judgeProgressPanel {
+  padding: 12px 14px;
+  border: 1px solid var(--ant-color-info-border);
+  border-radius: 8px;
+  background: var(--ant-color-info-bg);
+}
+
+.sourceCodeBlock {
+  max-width: 100%;
+  margin: 0;
+  overflow: auto;
+  white-space: pre;
+}
+
+.sourceCodeBlock code {
+  display: block;
+  min-width: max-content;
+}

@@ -89,37 +89,3 @@
   width: 12px;
   height: 12px;
 }
-
-.tableTitleLine {
-  display: inline-flex;
-  align-items: center;
-  max-width: 100%;
-  min-width: 0;
-  width: 100%;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.tableTitleLine .ant-space-item:first-child {
-  min-width: 0;
-}
-
-.tableTitleLine > .ant-typography {
-  min-width: 0;
-}
-
-.tableTitleLine .ant-tag {
-  flex: none;
-  margin-inline-end: 0;
-}
-
-.homeProblemList .ant-list-item,
-.homeLinkList .ant-list-item {
-  min-width: 0;
-}
-
-.homeProblemList .ant-list-item-main,
-.homeLinkList .ant-list-item-main {
-  min-width: 0;
-  overflow: hidden;
-}

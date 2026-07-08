@@ -25,30 +25,8 @@
   align-items: center;
 }
 
-.submissionMessagePreview {
-  min-width: 0;
-}
-
-.judgeProgressPanel {
-  padding: 12px 14px;
-  border: 1px solid var(--ant-color-info-border);
-  border-radius: 8px;
-  background: var(--ant-color-info-bg);
-}
-
-.adminBackupPage {
-  width: 100%;
-}
-
 .modeSelect {
   width: 132px;
-}
-
-.resourceValue {
-  display: inline-flex;
-  justify-content: flex-end;
-  min-width: 0;
-  margin-left: auto;
 }
 
 .okIcon {
@@ -57,88 +35,6 @@
 
 .mutedIcon {
   color: var(--muted);
-}
-
-.codeEditor .cm-editor {
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  font-size: 13px;
-}
-
-.codeEditor .cm-scroller {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-}
-
-.markdownShell {
-  min-width: 0;
-}
-
-.markdownPreviewShell {
-  min-width: 0;
-}
-
-.markdownFallback {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--header-bg);
-  min-height: 260px;
-}
-
-.markdownShell .md-editor {
-  border-color: var(--line);
-  border-radius: 8px;
-}
-
-.markdownPreviewShell .md-editor {
-  background: transparent;
-}
-
-.markdownPreviewShell .md-editor-preview-wrapper,
-.markdownPreviewShell .md-editor-preview {
-  padding: 0;
-  background: transparent;
-}
-
-.markdownPreviewShell .md-editor-preview > :first-child {
-  margin-top: 0;
-}
-
-.markdownPreviewShell .md-editor-preview > :last-child {
-  margin-bottom: 0;
-}
-
-.markdownShell .md-editor-preview .md-editor-code .md-editor-code-head,
-.markdownPreviewShell .md-editor-preview .md-editor-code .md-editor-code-head {
-  z-index: 1;
-}
-
-.sourceCodeBlock {
-  max-width: 100%;
-  margin: 0;
-  overflow: auto;
-  white-space: pre;
-}
-
-.sourceCodeBlock code {
-  display: block;
-  min-width: max-content;
-}
-
-.markdownShell .md-editor-fullscreen,
-.markdownPreviewShell .md-editor-fullscreen,
-.markdownShell .md-editor-modal-container,
-.markdownPreviewShell .md-editor-modal-container,
-.markdownShell .medium-zoom-overlay,
-.markdownShell .medium-zoom-image--opened,
-.markdownPreviewShell .medium-zoom-overlay,
-.markdownPreviewShell .medium-zoom-image--opened {
-  z-index: 900 !important;
-}
-
-.submitRow {
-  justify-content: space-between;
-  width: 100%;
 }
 
 .submitLang {
@@ -167,14 +63,4 @@
 
 .assetDrop .ant-table-wrapper {
   width: 100%;
-}
-
-.centerBlock {
-  display: grid;
-  min-height: 320px;
-  place-items: center;
-}
-
-.softDivider {
-  margin: 0;
 }

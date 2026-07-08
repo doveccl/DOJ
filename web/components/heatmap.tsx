@@ -2,6 +2,7 @@ import { Flex, Tooltip, Typography } from 'antd'
 
 import type { HeatCell } from '../client'
 import { useLocale } from '../locale'
+import './heatmap.css'
 
 export function YearHeatmap({ cells }: { cells: HeatCell[] }) {
   const { text } = useLocale()

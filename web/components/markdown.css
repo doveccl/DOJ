@@ -1,0 +1,53 @@
+.markdownShell {
+  min-width: 0;
+}
+
+.markdownPreviewShell {
+  min-width: 0;
+}
+
+.markdownFallback {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--header-bg);
+  min-height: 260px;
+}
+
+.markdownShell .md-editor {
+  border-color: var(--line);
+  border-radius: 8px;
+}
+
+.markdownPreviewShell .md-editor {
+  background: transparent;
+}
+
+.markdownPreviewShell .md-editor-preview-wrapper,
+.markdownPreviewShell .md-editor-preview {
+  padding: 0;
+  background: transparent;
+}
+
+.markdownPreviewShell .md-editor-preview > :first-child {
+  margin-top: 0;
+}
+
+.markdownPreviewShell .md-editor-preview > :last-child {
+  margin-bottom: 0;
+}
+
+.markdownShell .md-editor-preview .md-editor-code .md-editor-code-head,
+.markdownPreviewShell .md-editor-preview .md-editor-code .md-editor-code-head {
+  z-index: 1;
+}
+
+.markdownShell .md-editor-fullscreen,
+.markdownPreviewShell .md-editor-fullscreen,
+.markdownShell .md-editor-modal-container,
+.markdownPreviewShell .md-editor-modal-container,
+.markdownShell .medium-zoom-overlay,
+.markdownShell .medium-zoom-image--opened,
+.markdownPreviewShell .medium-zoom-overlay,
+.markdownPreviewShell .medium-zoom-image--opened {
+  z-index: 900 !important;
+}

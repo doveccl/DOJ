@@ -13,6 +13,7 @@ import { ErrorBlock, LoadingBlock } from '../components/state'
 import { TagList } from '../components/tags'
 import { TagSelect } from '../components/tag-select'
 import { useLocale } from '../locale'
+import type { Lang } from '../locale'
 import { useSession } from '../session'
 import { formatTime } from '../utils/format'
 import { limits } from '../utils/limits'
@@ -253,7 +254,7 @@ function DiscussionModal({
 
 function discussionColumns(
   text: ReturnType<typeof useLocale>['text'],
-  lang: string,
+  lang: Lang,
   actions: {
     edit: (item: Discussion) => void
     togglePin: (item: Discussion) => void

@@ -89,3 +89,11 @@
   min-width: 0;
   overflow: hidden;
 }
+
+@media (max-width: 900px) {
+  .profileAvatar {
+    width: 128px !important;
+    height: 128px !important;
+    font-size: 52px !important;
+  }
+}

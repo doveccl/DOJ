@@ -393,7 +393,7 @@ export function ProblemDetailPage() {
                   setSource(next)
                 }}
               />
-              <Flex className="submitRow" gap={12} wrap>
+              <Flex align="center" justify="space-between" gap={12} wrap style={{ width: '100%' }}>
                 <Space size={12} wrap>
                   <Select
                     value={lang || undefined}

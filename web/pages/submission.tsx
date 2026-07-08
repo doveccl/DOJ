@@ -13,7 +13,8 @@ import { ErrorBlock, LoadingBlock } from '../components/state'
 import { SubmissionStatus } from '../components/status'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
-import { caseCode, formatBytes, formatTime, memoryText, submissionCode } from '../utils/format'
+import { caseCode, formatBytes, formatTime, isLiveSubmissionStatus, memoryText, submissionCode } from '../utils/format'
+import './submission.css'
 
 export function SubmissionDetailPage() {
   const { message } = AntApp.useApp()
@@ -157,10 +158,6 @@ export function SubmissionDetailPage() {
 
 function ResultCard({ judging, children }: { judging: boolean; children: ReactNode }) {
   return judging ? <BorderBeam>{children}</BorderBeam> : children
-}
-
-function isLiveSubmissionStatus(status?: string) {
-  return status === 'queued' || status === 'judging'
 }
 
 function JudgeProgressPanel({ status, progress }: { status: string; progress?: SubmissionDetail['progress'] }) {

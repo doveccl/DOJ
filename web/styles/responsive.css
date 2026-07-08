@@ -32,13 +32,4 @@
     padding-top: 16px;
   }
 
-  .profileAvatar {
-    width: 128px !important;
-    height: 128px !important;
-    font-size: 52px !important;
-  }
-
-}
-
-@media (max-width: 560px) {
 }

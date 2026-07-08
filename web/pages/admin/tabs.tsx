@@ -6,7 +6,8 @@ import type { ReactNode } from 'react'
 import type { AdminGroupPage, AdminJudgers, AdminLang, AdminMembers, AdminSettings, AdminUserPage, BackupItem, BackupList, BackupSettings } from '../../client'
 import { UserLink } from '../../components/entity'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
-import { useLocale } from '../../locale'
+import { localeCode, useLocale } from '../../locale'
+import type { Lang } from '../../locale'
 import { formatBytes, formatDuration } from '../../utils/format'
 import { limits } from '../../utils/limits'
 import type { BackupSettingsForm, GroupRow, JudgerRow, LanguageRow, SettingsForm, UserRow } from './types'
@@ -285,7 +286,7 @@ export function JudgersTab({
 }: {
   block: ReactNode
   data?: AdminJudgers
-  lang: string
+  lang: Lang
   onAdd: () => void
   onEdit: (row: JudgerRow) => void
   onDelete: (id: number) => void
@@ -354,7 +355,7 @@ export function BackupsTab({
   onCreate: () => void
   onDownload: (name: string) => void
   onDelete: (name: string) => void
-  lang: string
+  lang: Lang
 }) {
   const text = useAdminText()
   const [form] = Form.useForm<BackupSettingsForm>()
@@ -369,7 +370,7 @@ export function BackupsTab({
     onSaveSettings(next)
   }
   return (
-    <Flex vertical gap={16} className="adminBackupPage">
+    <Flex vertical gap={16}>
       <Flex className="tableToolbar" justify="space-between" align="center" gap={12} wrap>
         {settings.isLoading ? <LoadingBlock /> : settings.isError ? <ErrorBlock error={settings.error} /> : settings.data ? (
           <Form<BackupSettingsForm>
@@ -402,7 +403,7 @@ export function BackupsTab({
           dataSource={backups.data?.items ?? []}
           columns={[
             { title: text.admin.backupFile, dataIndex: 'name', width: 360, render: (name: string) => <Typography.Text ellipsis={{ tooltip: name }}>{name}</Typography.Text> },
-            { title: text.admin.createdAt, dataIndex: 'createdAt', render: (value: string) => new Date(value).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US') },
+            { title: text.admin.createdAt, dataIndex: 'createdAt', render: (value: string) => new Date(value).toLocaleString(localeCode(lang)) },
             { title: text.admin.backupSize, dataIndex: 'size', render: (value: number) => formatBytes(value) },
             {
               align: 'right',
