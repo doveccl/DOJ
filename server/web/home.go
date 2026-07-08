@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/doveccl/doj/server/web/contract"
+
 	"github.com/doveccl/doj/models"
 	adminsvc "github.com/doveccl/doj/server/admin"
 	"github.com/doveccl/doj/utils"
@@ -28,7 +30,7 @@ func (api *API) home(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, Home{
+	return c.JSON(http.StatusOK, contract.Home{
 		Notice:      api.notice(),
 		Heatmap:     heatmap,
 		Problems:    problems,
@@ -37,7 +39,7 @@ func (api *API) home(c echo.Context) error {
 	})
 }
 
-func (api *API) homeProblems(c echo.Context) ([]HomeProblem, error) {
+func (api *API) homeProblems(c echo.Context) ([]contract.HomeProblem, error) {
 	var rows []models.Problem
 	query := api.db.Select("id", "title").Order("id desc").Limit(homeListLimit)
 	if !api.isAdmin(c) {
@@ -58,9 +60,9 @@ func (api *API) homeProblems(c echo.Context) ([]HomeProblem, error) {
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	items := make([]HomeProblem, 0, len(rows))
+	items := make([]contract.HomeProblem, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, HomeProblem{
+		items = append(items, contract.HomeProblem{
 			ID:    row.ID,
 			Title: row.Title,
 		})
@@ -68,9 +70,9 @@ func (api *API) homeProblems(c echo.Context) ([]HomeProblem, error) {
 	return items, nil
 }
 
-func (api *API) homeHeatmap(c echo.Context) ([]HeatCell, error) {
+func (api *API) homeHeatmap(c echo.Context) ([]contract.HeatCell, error) {
 	if api.role(c) == "guest" {
-		return []HeatCell{}, nil
+		return []contract.HeatCell{}, nil
 	}
 
 	user, err := api.currentUser(c)
@@ -80,9 +82,9 @@ func (api *API) homeHeatmap(c echo.Context) ([]HeatCell, error) {
 	return api.userHeatmap(user.ID)
 }
 
-func (api *API) homeAssignments(c echo.Context) ([]HomeAssignment, error) {
+func (api *API) homeAssignments(c echo.Context) ([]contract.HomeAssignment, error) {
 	if api.role(c) == "guest" {
-		return []HomeAssignment{}, nil
+		return []contract.HomeAssignment{}, nil
 	}
 	user, err := api.currentUser(c)
 	if err != nil {
@@ -120,13 +122,13 @@ func (api *API) homeAssignments(c echo.Context) ([]HomeAssignment, error) {
 	if err != nil {
 		return nil, err
 	}
-	items := make([]HomeAssignment, 0, len(rows))
+	items := make([]contract.HomeAssignment, 0, len(rows))
 	for _, row := range rows {
 		total := totals[row.ID]
 		if total == 0 {
 			continue
 		}
-		items = append(items, HomeAssignment{
+		items = append(items, contract.HomeAssignment{
 			ID:     row.ID,
 			Title:  row.Title,
 			Status: assignmentStatus(row),
@@ -137,7 +139,7 @@ func (api *API) homeAssignments(c echo.Context) ([]HomeAssignment, error) {
 	return items, nil
 }
 
-func (api *API) homeContests(c echo.Context) ([]HomeContest, error) {
+func (api *API) homeContests(c echo.Context) ([]contract.HomeContest, error) {
 	var rows []models.Contest
 	query := api.db.Model(&models.Contest{}).
 		Select("contests.id", "contests.title", "contests.kind", "contests.start_at", "contests.end_at", "contests.freeze_at").
@@ -157,9 +159,9 @@ func (api *API) homeContests(c echo.Context) ([]HomeContest, error) {
 	if err := query.Order("start_at desc").Limit(homeListLimit).Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	items := make([]HomeContest, 0, len(rows))
+	items := make([]contract.HomeContest, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, HomeContest{ID: row.ID, Title: row.Title, Status: contestStatus(row)})
+		items = append(items, contract.HomeContest{ID: row.ID, Title: row.Title, Status: contestStatus(row)})
 	}
 	return items, nil
 }
@@ -168,7 +170,7 @@ func (api *API) updateNotice(c echo.Context) error {
 	if err := api.requireAdmin(c); err != nil {
 		return err
 	}
-	var req NoticeUpdate
+	var req contract.NoticeUpdate
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -199,13 +201,13 @@ func (api *API) notice() string {
 	return settings.Notice
 }
 
-func heatmapFromCounts(counts map[string]int) []HeatCell {
+func heatmapFromCounts(counts map[string]int) []contract.HeatCell {
 	today := time.Now()
-	cells := make([]HeatCell, 0, 365)
+	cells := make([]contract.HeatCell, 0, 365)
 	for i := 364; i >= 0; i-- {
 		day := today.AddDate(0, 0, -i)
 		date := day.Format("2006-01-02")
-		cells = append(cells, HeatCell{Date: date, Count: counts[date]})
+		cells = append(cells, contract.HeatCell{Date: date, Count: counts[date]})
 	}
 	return cells
 }

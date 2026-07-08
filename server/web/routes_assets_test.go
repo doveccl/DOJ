@@ -4,10 +4,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"github.com/doveccl/doj/models"
-	"github.com/doveccl/doj/utils"
-	"github.com/labstack/echo/v4"
-	"gorm.io/datatypes"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,6 +12,11 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/doveccl/doj/models"
+	"github.com/doveccl/doj/utils"
+	"github.com/labstack/echo/v4"
+	"gorm.io/datatypes"
 )
 
 func TestImageUploadUsesRelativeMediaPathsAndHeaders(t *testing.T) {

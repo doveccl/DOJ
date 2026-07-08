@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/doveccl/doj/server/web/contract"
+
 	"github.com/doveccl/doj/models"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -40,10 +42,10 @@ func (api *API) problemState(c echo.Context) error {
 	return c.JSON(http.StatusOK, items)
 }
 
-func (api *API) problemStateItems(c echo.Context, ids []uint, assignmentID *uint, contestID *uint) ([]ProblemStateDTO, error) {
+func (api *API) problemStateItems(c echo.Context, ids []uint, assignmentID *uint, contestID *uint) ([]contract.ProblemState, error) {
 	ids = uniqueUint(ids)
 	if len(ids) == 0 {
-		return []ProblemStateDTO{}, nil
+		return []contract.ProblemState{}, nil
 	}
 	items := defaultProblemStateItems(ids)
 	if err := api.fillProblemSummaryState(c, items); err != nil {
@@ -52,7 +54,7 @@ func (api *API) problemStateItems(c echo.Context, ids []uint, assignmentID *uint
 	return api.fillProblemUserState(c, items, assignmentID, contestID)
 }
 
-func (api *API) fillProblemSummaryState(c echo.Context, items []ProblemStateDTO) error {
+func (api *API) fillProblemSummaryState(c echo.Context, items []contract.ProblemState) error {
 	ids := make([]uint, 0, len(items))
 	for _, item := range items {
 		ids = append(ids, item.ProblemID)
@@ -118,7 +120,7 @@ func (api *API) problemSubmissionStats(ids []uint) (map[uint]int, map[uint]int, 
 	return submitByProblem, acByProblem, nil
 }
 
-func (api *API) fillProblemUserState(c echo.Context, items []ProblemStateDTO, assignmentID *uint, contestID *uint) ([]ProblemStateDTO, error) {
+func (api *API) fillProblemUserState(c echo.Context, items []contract.ProblemState, assignmentID *uint, contestID *uint) ([]contract.ProblemState, error) {
 	if contestID != nil {
 		var contest models.Contest
 		if err := api.db.First(&contest, *contestID).Error; err != nil {
@@ -157,7 +159,7 @@ func (api *API) fillProblemUserState(c echo.Context, items []ProblemStateDTO, as
 		return nil, err
 	}
 	status := map[uint]string{}
-	submission := map[uint]RecordDTO{}
+	submission := map[uint]contract.ProblemRecord{}
 	for _, row := range rows {
 		resultVisible := true
 		if row.ID != 0 {
@@ -169,7 +171,7 @@ func (api *API) fillProblemUserState(c echo.Context, items []ProblemStateDTO, as
 		}
 		submissionSet := false
 		if _, ok := submission[row.ProblemID]; !ok {
-			submission[row.ProblemID] = RecordDTO{ID: row.ID, Status: row.Status, Score: row.Score, CreatedAt: row.CreatedAt}
+			submission[row.ProblemID] = contract.ProblemRecord{ID: row.ID, Status: row.Status, Score: row.Score, CreatedAt: row.CreatedAt}
 			submissionSet = true
 		}
 		if !resultVisible {
@@ -201,7 +203,7 @@ func (api *API) fillProblemUserState(c echo.Context, items []ProblemStateDTO, as
 	return items, nil
 }
 
-func (api *API) fillProblemUserStateInContest(c echo.Context, items []ProblemStateDTO, contest models.Contest) ([]ProblemStateDTO, error) {
+func (api *API) fillProblemUserStateInContest(c echo.Context, items []contract.ProblemState, contest models.Contest) ([]contract.ProblemState, error) {
 	if api.role(c) == "guest" {
 		return items, nil
 	}
@@ -226,7 +228,7 @@ func (api *API) fillProblemUserStateInContest(c echo.Context, items []ProblemSta
 		return nil, err
 	}
 	status := map[uint]string{}
-	submission := map[uint]RecordDTO{}
+	submission := map[uint]contract.ProblemRecord{}
 	for _, row := range rows {
 		resultVisible := true
 		if row.ID != 0 {
@@ -238,7 +240,7 @@ func (api *API) fillProblemUserStateInContest(c echo.Context, items []ProblemSta
 		}
 		submissionSet := false
 		if _, ok := submission[row.ProblemID]; !ok {
-			submission[row.ProblemID] = RecordDTO{ID: row.ID, Status: row.Status, Score: row.Score, CreatedAt: row.CreatedAt}
+			submission[row.ProblemID] = contract.ProblemRecord{ID: row.ID, Status: row.Status, Score: row.Score, CreatedAt: row.CreatedAt}
 			submissionSet = true
 		}
 		if !resultVisible {
@@ -265,7 +267,7 @@ func (api *API) fillProblemUserStateInContest(c echo.Context, items []ProblemSta
 		}
 		if row.Status == "AC" {
 			status[row.ProblemID] = "ac"
-			submission[row.ProblemID] = RecordDTO{ID: row.ID, Status: row.Status, Score: row.Score, CreatedAt: row.CreatedAt}
+			submission[row.ProblemID] = contract.ProblemRecord{ID: row.ID, Status: row.Status, Score: row.Score, CreatedAt: row.CreatedAt}
 			continue
 		}
 		if status[row.ProblemID] == "" {
@@ -284,15 +286,15 @@ func (api *API) fillProblemUserStateInContest(c echo.Context, items []ProblemSta
 	return items, nil
 }
 
-func defaultProblemStateItems(ids []uint) []ProblemStateDTO {
-	items := make([]ProblemStateDTO, 0, len(ids))
+func defaultProblemStateItems(ids []uint) []contract.ProblemState {
+	items := make([]contract.ProblemState, 0, len(ids))
 	for _, id := range ids {
-		items = append(items, ProblemStateDTO{ProblemID: id, Status: "none"})
+		items = append(items, contract.ProblemState{ProblemID: id, Status: "none"})
 	}
 	return items
 }
 
-func problemStateIDs(items []ProblemStateDTO) []uint {
+func problemStateIDs(items []contract.ProblemState) []uint {
 	ids := make([]uint, 0, len(items))
 	for _, item := range items {
 		ids = append(ids, item.ProblemID)

@@ -1,14 +1,16 @@
 package web
 
 import (
-	"github.com/doveccl/doj/models"
-	"github.com/labstack/echo/v4"
-	"gorm.io/datatypes"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/doveccl/doj/models"
+	"github.com/doveccl/doj/server/web/contract"
+	"github.com/labstack/echo/v4"
+	"gorm.io/datatypes"
 )
 
 func TestDatabaseSubmitStoresAndValidatesContext(t *testing.T) {
@@ -38,7 +40,7 @@ func TestDatabaseSubmitStoresAndValidatesContext(t *testing.T) {
 	e := echo.New()
 	Register(e, db)
 	cookies := databaseSession(t, db, student.ID)
-	list := decodePageItems[ProblemDTO](t, requestWithCookies(e, http.MethodGet, "/api/problems", cookies, nil))
+	list := decodePageItems[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems", cookies, nil))
 	if hasProblem(list, included.ID) {
 		t.Fatalf("assignment-only hidden problem should not appear in problem list: %+v", list)
 	}
@@ -50,7 +52,7 @@ func TestDatabaseSubmitStoresAndValidatesContext(t *testing.T) {
 	if res.Code != http.StatusCreated {
 		t.Fatalf("assignment submission got %d body=%s", res.Code, res.Body.String())
 	}
-	created := decodeJSON[CreatedID](t, res)
+	created := decodeJSON[contract.CreatedID](t, res)
 	var row models.Submission
 	if err := db.First(&row, "problem_id = ?", included.ID).Error; err != nil {
 		t.Fatalf("read created submission: %v", err)
@@ -67,7 +69,7 @@ func TestDatabaseSubmitStoresAndValidatesContext(t *testing.T) {
 	if res.Code != http.StatusCreated {
 		t.Fatalf("normal submission got %d body=%s", res.Code, res.Body.String())
 	}
-	created = decodeJSON[CreatedID](t, res)
+	created = decodeJSON[contract.CreatedID](t, res)
 	if created.ID == 0 {
 		t.Fatalf("normal submission should return created id: %+v", created)
 	}
@@ -124,40 +126,40 @@ func TestRunningOIContestHidesSubmissionResults(t *testing.T) {
 	e := echo.New()
 	Register(e, db)
 	target := "/api/submissions/" + strconv.FormatUint(uint64(submission.ID), 10)
-	ownerView := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, owner.ID), nil))
+	ownerView := decodeJSON[contract.SubmissionDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, owner.ID), nil))
 	if ownerView.Submission.Status != "pending" || ownerView.Submission.Score != 0 || ownerView.Submission.Message != "" || ownerView.Submission.TimeMS != nil || ownerView.Submission.MemoryKB != nil || len(ownerView.Cases) != 0 || ownerView.Code != "secret" {
 		t.Fatalf("running OI owner should see source but pending result: %+v", ownerView)
 	}
-	otherView := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, other.ID), nil))
+	otherView := decodeJSON[contract.SubmissionDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, other.ID), nil))
 	if otherView.Submission.Status != "pending" || otherView.Code != "" || len(otherView.Cases) != 0 {
 		t.Fatalf("running OI other user should see pending detail without source: %+v", otherView)
 	}
-	adminView := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, admin.ID), nil))
+	adminView := decodeJSON[contract.SubmissionDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, admin.ID), nil))
 	if adminView.Submission.Status != "AC" || adminView.Submission.Score != 100 || len(adminView.Cases) != 1 || adminView.Code != "secret" {
 		t.Fatalf("admin should see running OI result and source: %+v", adminView)
 	}
-	records := decodeJSON[[]ProblemStateDTO](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?contest="+strconv.FormatUint(uint64(contest.ID), 10)+"&ids=1000", databaseSession(t, db, owner.ID), nil))
+	records := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?contest="+strconv.FormatUint(uint64(contest.ID), 10)+"&ids=1000", databaseSession(t, db, owner.ID), nil))
 	if len(records) != 1 || records[0].Status != "pending" || records[0].Submission == nil || records[0].Submission.Status != "pending" || records[0].Submission.Score != 0 {
 		t.Fatalf("running OI contest problem should not expose record result: %+v", records)
 	}
-	allRecords := decodeJSON[[]ProblemStateDTO](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?ids=1000", databaseSession(t, db, owner.ID), nil))
+	allRecords := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?ids=1000", databaseSession(t, db, owner.ID), nil))
 	if len(allRecords) != 1 || allRecords[0].Status != "pending" || allRecords[0].Submission == nil || allRecords[0].Submission.ID != submission.ID || allRecords[0].Submission.Status != "pending" {
 		t.Fatalf("global problem state should use the current user's submission with visibility applied: %+v", allRecords)
 	}
-	assignmentDetail := decodeJSON[AssignmentDetail](t, requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(assignment.ID), 10), databaseSession(t, db, owner.ID), nil))
+	assignmentDetail := decodeJSON[contract.AssignmentDetail](t, requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(assignment.ID), 10), databaseSession(t, db, owner.ID), nil))
 	progress := assignmentDetail.Progress[0].Problems[0]
 	if assignmentDetail.Assignment.Done != 0 || progress.Status != "pending" || progress.Score != nil {
 		t.Fatalf("assignment completion should not expose hidden contest result: detail=%+v progress=%+v", assignmentDetail.Assignment, progress)
 	}
-	assignmentList := decodeJSON[PageResult[AssignmentDTO]](t, requestWithCookies(e, http.MethodGet, "/api/assignments", databaseSession(t, db, owner.ID), nil))
+	assignmentList := decodeJSON[contract.Page[contract.Assignment]](t, requestWithCookies(e, http.MethodGet, "/api/assignments", databaseSession(t, db, owner.ID), nil))
 	if len(assignmentList.Items) != 1 || assignmentList.Items[0].Done != 0 {
 		t.Fatalf("assignment list done should not count hidden contest result: %+v", assignmentList)
 	}
-	ownerProfile := decodeJSON[UserProfile](t, requestWithCookies(e, http.MethodGet, "/api/users/owner", databaseSession(t, db, owner.ID), nil))
+	ownerProfile := decodeJSON[contract.UserProfile](t, requestWithCookies(e, http.MethodGet, "/api/users/owner", databaseSession(t, db, owner.ID), nil))
 	if _, ok := activityBySubmission(ownerProfile.Activities, submission.ID); ok {
 		t.Fatalf("profile activity should not expose unfinished contest submission: %+v", ownerProfile.Activities)
 	}
-	submissionList := decodeJSON[PageResult[SubmissionListItem]](t, requestWithCookies(e, http.MethodGet, "/api/submissions", databaseSession(t, db, owner.ID), nil))
+	submissionList := decodeJSON[contract.Page[contract.SubmissionListItem]](t, requestWithCookies(e, http.MethodGet, "/api/submissions", databaseSession(t, db, owner.ID), nil))
 	if len(submissionList.Items) != 2 || submissionList.Items[0].ID != submission.ID || submissionList.Items[0].Status != "pending" || submissionList.Items[0].TimeMS != nil || submissionList.Items[0].MemoryKB != nil || submissionList.Items[1].ID != tried.ID || submissionList.Items[1].Status != "WA" {
 		t.Fatalf("submission endpoint list should include running OI submission as pending: %+v", submissionList)
 	}

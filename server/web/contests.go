@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/doveccl/doj/server/web/contract"
+
 	"github.com/doveccl/doj/models"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -35,18 +37,18 @@ func (api *API) contests(c echo.Context) error {
 	if err := query.Session(&gorm.Session{}).Order("start_at desc").Limit(pageSize).Offset(offset).Find(&rows).Error; err != nil {
 		return err
 	}
-	items, err := api.contestDTOs(rows, api.isAdmin(c))
+	items, err := api.contestViews(rows, api.isAdmin(c))
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, PageResult[ContestDTO]{Items: items, Page: page, PageSize: pageSize, Total: total})
+	return c.JSON(http.StatusOK, contract.Page[contract.Contest]{Items: items, Page: page, PageSize: pageSize, Total: total})
 }
 
 func (api *API) createContest(c echo.Context) error {
 	if err := api.requireAdmin(c); err != nil {
 		return err
 	}
-	var req ContestCreate
+	var req contract.ContestCreate
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -103,7 +105,7 @@ func (api *API) createContest(c echo.Context) error {
 	}); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusCreated, CreatedID{ID: row.ID})
+	return c.JSON(http.StatusCreated, contract.CreatedID{ID: row.ID})
 }
 
 func (api *API) updateContest(c echo.Context) error {
@@ -114,7 +116,7 @@ func (api *API) updateContest(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	var req ContestUpdate
+	var req contract.ContestUpdate
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -185,7 +187,7 @@ func (api *API) updateContest(c echo.Context) error {
 	}); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, CreatedID{ID: row.ID})
+	return c.JSON(http.StatusOK, contract.CreatedID{ID: row.ID})
 }
 
 func (api *API) deleteContest(c echo.Context) error {
@@ -225,7 +227,7 @@ func (api *API) contest(c echo.Context) error {
 		return err
 	}
 	admin := api.isAdmin(c)
-	rank := []RankUserDTO{}
+	rank := []contract.RankUser{}
 	if row.Kind != "OI" || !contestRunning(row) || admin {
 		freezeAt := api.contestFreezeCutoff(c, row)
 		contestIncludeHidden := admin || contestRunning(row)
@@ -234,7 +236,7 @@ func (api *API) contest(c echo.Context) error {
 			return err
 		}
 	}
-	return c.JSON(http.StatusOK, ContestDetail{Contest: contestDTO(row, len(problems)), Problems: problems, Rank: rank})
+	return c.JSON(http.StatusOK, contract.ContestDetail{Contest: contestView(row, len(problems)), Problems: problems, Rank: rank})
 }
 
 func (api *API) activeContestFor(problemID uint, now time.Time) (*uint, error) {
@@ -270,12 +272,12 @@ func (api *API) rank(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	items := make([]RankUserDTO, 0, len(users))
+	items := make([]contract.RankUser, 0, len(users))
 	for _, user := range users {
 		got := stats[user.ID]
 		ac := got.AC
 		submit := got.Submit
-		items = append(items, RankUserDTO{User: user.Name, Bio: user.Bio, Avatar: user.Avatar, AC: ac, Submit: submit})
+		items = append(items, contract.RankUser{User: user.Name, Bio: user.Bio, Avatar: user.Avatar, AC: ac, Submit: submit})
 	}
 	sort.Slice(items, func(i, j int) bool {
 		if items[i].AC != items[j].AC {
@@ -291,7 +293,7 @@ func (api *API) rank(c echo.Context) error {
 	}
 	total := int64(len(items))
 	if offset >= len(items) {
-		items = []RankUserDTO{}
+		items = []contract.RankUser{}
 	} else {
 		end := offset + pageSize
 		if end > len(items) {
@@ -299,15 +301,15 @@ func (api *API) rank(c echo.Context) error {
 		}
 		items = items[offset:end]
 	}
-	return c.JSON(http.StatusOK, PageResult[RankUserDTO]{Items: items, Page: page, PageSize: pageSize, Total: total})
+	return c.JSON(http.StatusOK, contract.Page[contract.RankUser]{Items: items, Page: page, PageSize: pageSize, Total: total})
 }
 
-func contestDTO(row models.Contest, total int) ContestDTO {
+func contestView(row models.Contest, total int) contract.Contest {
 	freezeAt := row.FreezeAt
 	if row.Kind == "OI" {
 		freezeAt = nil
 	}
-	return ContestDTO{
+	return contract.Contest{
 		ID:       row.ID,
 		Title:    row.Title,
 		Kind:     row.Kind,
@@ -319,17 +321,17 @@ func contestDTO(row models.Contest, total int) ContestDTO {
 	}
 }
 
-func (api *API) contestDTOs(rows []models.Contest, admin bool) ([]ContestDTO, error) {
+func (api *API) contestViews(rows []models.Contest, admin bool) ([]contract.Contest, error) {
 	if len(rows) == 0 {
-		return []ContestDTO{}, nil
+		return []contract.Contest{}, nil
 	}
 	totals, err := api.contestTotalMap(contestIDs(rows), admin)
 	if err != nil {
 		return nil, err
 	}
-	items := make([]ContestDTO, 0, len(rows))
+	items := make([]contract.Contest, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, contestDTO(row, totals[row.ID]))
+		items = append(items, contestView(row, totals[row.ID]))
 	}
 	return items, nil
 }
@@ -370,13 +372,13 @@ func (api *API) contestTotalMap(ids []uint, admin bool) (map[uint]int, error) {
 	return totals, nil
 }
 
-func (api *API) contestProblems(c echo.Context, contest models.Contest, links []models.ContestProblem) ([]ProblemDTO, error) {
+func (api *API) contestProblems(c echo.Context, contest models.Contest, links []models.ContestProblem) ([]contract.Problem, error) {
 	if len(links) == 0 {
-		return []ProblemDTO{}, nil
+		return []contract.Problem{}, nil
 	}
 	admin := api.isAdmin(c)
 	if !admin && !contestRunning(contest) && !contestEnded(contest) {
-		return []ProblemDTO{}, nil
+		return []contract.Problem{}, nil
 	}
 	ids := make([]uint, 0, len(links))
 	for _, link := range links {
@@ -391,13 +393,13 @@ func (api *API) contestProblems(c echo.Context, contest models.Contest, links []
 		return nil, err
 	}
 	byID := problemRowsByID(rows)
-	items := make([]ProblemDTO, 0, len(links))
+	items := make([]contract.Problem, 0, len(links))
 	for _, link := range links {
 		problem, ok := byID[link.ProblemID]
 		if !ok {
 			continue
 		}
-		item := problemDTO(problem)
+		item := problemView(problem)
 		if !admin && !contestEnded(contest) {
 			item.Tags = []string{}
 		}

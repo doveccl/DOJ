@@ -144,7 +144,7 @@ func (api *API) searchGroups(q string, includeIDs []uint, limit int) ([]Group, e
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	return api.groupDTOs(rows)
+	return api.groupViews(rows)
 }
 
 func (api *API) searchGroupsPage(q string, limit int, offset int) ([]Group, int64, error) {
@@ -170,14 +170,14 @@ func (api *API) searchGroupsPage(q string, limit int, offset int) ([]Group, int6
 	if err := query.Order("groups.id asc").Limit(limit).Offset(offset).Find(&rows).Error; err != nil {
 		return nil, 0, err
 	}
-	items, err := api.groupDTOs(rows)
+	items, err := api.groupViews(rows)
 	if err != nil {
 		return nil, 0, err
 	}
 	return items, total, nil
 }
 
-func (api *API) groupDTOs(rows []models.Group) ([]Group, error) {
+func (api *API) groupViews(rows []models.Group) ([]Group, error) {
 	groupIDs := make([]uint, 0, len(rows))
 	for _, row := range rows {
 		groupIDs = append(groupIDs, row.ID)

@@ -4,13 +4,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
-	"github.com/alicebob/miniredis/v2"
-	"github.com/doveccl/doj/models"
-	adminsvc "github.com/doveccl/doj/server/admin"
-	"github.com/doveccl/doj/utils"
-	"github.com/labstack/echo/v4"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -19,6 +12,15 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/alicebob/miniredis/v2"
+	"github.com/doveccl/doj/models"
+	adminsvc "github.com/doveccl/doj/server/admin"
+	"github.com/doveccl/doj/server/web/contract"
+	"github.com/doveccl/doj/utils"
+	"github.com/labstack/echo/v4"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 func readZipFile(file *zip.File) ([]byte, error) {
@@ -30,7 +32,7 @@ func readZipFile(file *zip.File) ([]byte, error) {
 	return io.ReadAll(reader)
 }
 
-func uploadAssetForTest(t *testing.T, e *echo.Echo, target string, cookies []*http.Cookie, section string, name string, content string) ProblemAssets {
+func uploadAssetForTest(t *testing.T, e *echo.Echo, target string, cookies []*http.Cookie, section string, name string, content string) contract.ProblemAssets {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -58,10 +60,10 @@ func uploadAssetForTest(t *testing.T, e *echo.Echo, target string, cookies []*ht
 	if res.Code != http.StatusCreated {
 		t.Fatalf("upload asset got %d body=%s", res.Code, res.Body.String())
 	}
-	return decodeJSON[ProblemAssets](t, res)
+	return decodeJSON[contract.ProblemAssets](t, res)
 }
 
-func uploadImageForTest(t *testing.T, e *echo.Echo, target string, cookies []*http.Cookie, name string, content []byte) UploadResult {
+func uploadImageForTest(t *testing.T, e *echo.Echo, target string, cookies []*http.Cookie, name string, content []byte) contract.UploadResult {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -86,7 +88,7 @@ func uploadImageForTest(t *testing.T, e *echo.Echo, target string, cookies []*ht
 	if res.Code != http.StatusCreated {
 		t.Fatalf("upload image got %d body=%s", res.Code, res.Body.String())
 	}
-	return decodeJSON[UploadResult](t, res)
+	return decodeJSON[contract.UploadResult](t, res)
 }
 
 func requestOK(t *testing.T, e *echo.Echo, method string, target string, role string) *httptest.ResponseRecorder {
@@ -249,10 +251,10 @@ func decodeJSON[T any](t *testing.T, res *httptest.ResponseRecorder) T {
 
 func decodePageItems[T any](t *testing.T, res *httptest.ResponseRecorder) []T {
 	t.Helper()
-	return decodeJSON[PageResult[T]](t, res).Items
+	return decodeJSON[contract.Page[T]](t, res).Items
 }
 
-func hasProblem(items []ProblemDTO, id uint) bool {
+func hasProblem(items []contract.Problem, id uint) bool {
 	for _, item := range items {
 		if item.ID == id {
 			return true
@@ -261,7 +263,7 @@ func hasProblem(items []ProblemDTO, id uint) bool {
 	return false
 }
 
-func hasSolvedProblem(items []SolvedProblem, id uint) bool {
+func hasSolvedProblem(items []contract.SolvedProblem, id uint) bool {
 	for _, item := range items {
 		if item.ID == id {
 			return true
@@ -270,16 +272,16 @@ func hasSolvedProblem(items []SolvedProblem, id uint) bool {
 	return false
 }
 
-func problemByID(items []ProblemDTO, id uint) (ProblemDTO, bool) {
+func problemByID(items []contract.Problem, id uint) (contract.Problem, bool) {
 	for _, item := range items {
 		if item.ID == id {
 			return item, true
 		}
 	}
-	return ProblemDTO{}, false
+	return contract.Problem{}, false
 }
 
-func hasSubmissionProblem(items []SubmissionDTO, id uint) bool {
+func hasSubmissionProblem(items []contract.Submission, id uint) bool {
 	for _, item := range items {
 		if item.ProblemID == id {
 			return true
@@ -288,7 +290,7 @@ func hasSubmissionProblem(items []SubmissionDTO, id uint) bool {
 	return false
 }
 
-func hasActivityProblem(items []UserActivityDTO, id uint) bool {
+func hasActivityProblem(items []contract.UserActivity, id uint) bool {
 	for _, item := range items {
 		if item.ProblemID == id {
 			return true
@@ -297,7 +299,7 @@ func hasActivityProblem(items []UserActivityDTO, id uint) bool {
 	return false
 }
 
-func hasActivity(items []UserActivityDTO, kind string, title string) bool {
+func hasActivity(items []contract.UserActivity, kind string, title string) bool {
 	for _, item := range items {
 		if item.Type == kind && item.Title == title {
 			return true
@@ -306,16 +308,16 @@ func hasActivity(items []UserActivityDTO, kind string, title string) bool {
 	return false
 }
 
-func activityBySubmission(items []UserActivityDTO, id uint) (UserActivityDTO, bool) {
+func activityBySubmission(items []contract.UserActivity, id uint) (contract.UserActivity, bool) {
 	for _, item := range items {
 		if item.Type == "submission" && item.ID == id {
 			return item, true
 		}
 	}
-	return UserActivityDTO{}, false
+	return contract.UserActivity{}, false
 }
 
-func hasSubmission(items []SubmissionDTO, id uint) bool {
+func hasSubmission(items []contract.Submission, id uint) bool {
 	for _, item := range items {
 		if item.ID == id {
 			return true
@@ -324,30 +326,30 @@ func hasSubmission(items []SubmissionDTO, id uint) bool {
 	return false
 }
 
-func userInRank(items []RankUserDTO, user string) bool {
+func userInRank(items []contract.RankUser, user string) bool {
 	_, ok := rankByUser(items, user)
 	return ok
 }
 
-func rankByUser(items []RankUserDTO, user string) (RankUserDTO, bool) {
+func rankByUser(items []contract.RankUser, user string) (contract.RankUser, bool) {
 	for _, item := range items {
 		if item.User == user {
 			return item, true
 		}
 	}
-	return RankUserDTO{}, false
+	return contract.RankUser{}, false
 }
 
-func rankProblemByID(items []RankProblemDTO, id uint) (RankProblemDTO, bool) {
+func rankProblemByID(items []contract.RankProblem, id uint) (contract.RankProblem, bool) {
 	for _, item := range items {
 		if item.ProblemID == id {
 			return item, true
 		}
 	}
-	return RankProblemDTO{}, false
+	return contract.RankProblem{}, false
 }
 
-func countForDate(items []HeatCell, date string) int {
+func countForDate(items []contract.HeatCell, date string) int {
 	for _, item := range items {
 		if item.Date == date {
 			return item.Count
@@ -356,7 +358,7 @@ func countForDate(items []HeatCell, date string) int {
 	return 0
 }
 
-func nonzeroHeatmapDays(items []HeatCell) int {
+func nonzeroHeatmapDays(items []contract.HeatCell) int {
 	count := 0
 	for _, item := range items {
 		if item.Count > 0 {

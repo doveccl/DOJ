@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/doveccl/doj/server/web/contract"
+
 	"github.com/doveccl/doj/models"
 	adminsvc "github.com/doveccl/doj/server/admin"
 	"github.com/doveccl/doj/utils"
@@ -14,7 +16,7 @@ import (
 )
 
 func (api *API) login(c echo.Context) error {
-	var req LoginRequest
+	var req contract.LoginRequest
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -39,14 +41,14 @@ func (api *API) login(c echo.Context) error {
 	if err := api.createSession(c, user, now); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, meDTO(user))
+	return c.JSON(http.StatusOK, meView(user))
 }
 
 func (api *API) register(c echo.Context) error {
 	if !adminsvc.RegistrationAllowed(api.db) {
 		return echo.NewHTTPError(http.StatusForbidden, "registration is disabled")
 	}
-	var req RegisterRequest
+	var req contract.RegisterRequest
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -81,7 +83,7 @@ func (api *API) register(c echo.Context) error {
 	if err := api.createSession(c, user, now); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusCreated, meDTO(user))
+	return c.JSON(http.StatusCreated, meView(user))
 }
 
 func (api *API) createSession(c echo.Context, user models.User, now time.Time) error {
@@ -104,7 +106,7 @@ func (api *API) me(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusOK, guestMe())
 	}
-	return c.JSON(http.StatusOK, meDTO(user))
+	return c.JSON(http.StatusOK, meView(user))
 }
 
 func refreshCSRFCookie(c echo.Context) {
@@ -119,7 +121,7 @@ func (api *API) updateMe(c echo.Context) error {
 	if err := api.requireSignedIn(c); err != nil {
 		return err
 	}
-	var req MeUpdate
+	var req contract.MeUpdate
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -158,7 +160,7 @@ func (api *API) updateMe(c echo.Context) error {
 	if err := api.db.Save(&user).Error; err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, meDTO(user))
+	return c.JSON(http.StatusOK, meView(user))
 }
 
 func (api *API) ensureMailAvailable(mail string, currentUserID uint) error {
@@ -178,7 +180,7 @@ func (api *API) updatePassword(c echo.Context) error {
 	if err := api.requireSignedIn(c); err != nil {
 		return err
 	}
-	var req PasswordUpdate
+	var req contract.PasswordUpdate
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -228,8 +230,8 @@ func (api *API) viewerID(c echo.Context) (uint, error) {
 	return user.ID, nil
 }
 
-func meDTO(user models.User) MeDTO {
-	return MeDTO{
+func meView(user models.User) contract.Me {
+	return contract.Me{
 		ID:     user.ID,
 		Name:   user.Name,
 		Mail:   user.Mail,
@@ -239,7 +241,7 @@ func meDTO(user models.User) MeDTO {
 	}
 }
 
-func validateRegister(req RegisterRequest) error {
+func validateRegister(req contract.RegisterRequest) error {
 	if len(req.Name) < models.UserNameMin || len(req.Name) > models.UserNameMax || !utils.ValidName(req.Name) {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid username")
 	}
@@ -259,6 +261,6 @@ func validateMail(value string) error {
 	return nil
 }
 
-func guestMe() MeDTO {
-	return MeDTO{ID: 0, Name: "", Mail: "", Bio: "", Avatar: "", Admin: false}
+func guestMe() contract.Me {
+	return contract.Me{ID: 0, Name: "", Mail: "", Bio: "", Avatar: "", Admin: false}
 }

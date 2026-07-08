@@ -4,17 +4,19 @@ import (
 	"sort"
 	"time"
 
+	"github.com/doveccl/doj/server/web/contract"
+
 	"github.com/doveccl/doj/models"
 	"github.com/labstack/echo/v4"
 )
 
-func (api *API) assignmentProgress(c echo.Context, id uint, problems []ProblemDTO) ([]AssignmentProgressDTO, error) {
+func (api *API) assignmentProgress(c echo.Context, id uint, problems []contract.Problem) ([]contract.AssignmentProgress, error) {
 	userIDs, err := api.assignmentProgressUserIDs(id)
 	if err != nil {
 		return nil, err
 	}
 	if len(userIDs) == 0 {
-		return []AssignmentProgressDTO{}, nil
+		return []contract.AssignmentProgress{}, nil
 	}
 
 	var users []models.User
@@ -28,18 +30,18 @@ func (api *API) assignmentProgress(c echo.Context, id uint, problems []ProblemDT
 	}
 
 	type state struct {
-		item      AssignmentProgressDTO
-		byProblem map[uint]*AssignmentProblemProgressDTO
+		item      contract.AssignmentProgress
+		byProblem map[uint]*contract.AssignmentProblemProgress
 	}
 	states := map[uint]*state{}
 	for _, user := range users {
-		item := AssignmentProgressDTO{
+		item := contract.AssignmentProgress{
 			User:     user.Name,
-			Problems: make([]AssignmentProblemProgressDTO, 0, len(problems)),
+			Problems: make([]contract.AssignmentProblemProgress, 0, len(problems)),
 		}
-		byProblem := map[uint]*AssignmentProblemProgressDTO{}
+		byProblem := map[uint]*contract.AssignmentProblemProgress{}
 		for _, problem := range problems {
-			item.Problems = append(item.Problems, AssignmentProblemProgressDTO{ProblemID: problem.ID, Status: "none"})
+			item.Problems = append(item.Problems, contract.AssignmentProblemProgress{ProblemID: problem.ID, Status: "none"})
 			byProblem[problem.ID] = &item.Problems[len(item.Problems)-1]
 		}
 		states[user.ID] = &state{item: item, byProblem: byProblem}
@@ -119,7 +121,7 @@ func (api *API) assignmentProgress(c echo.Context, id uint, problems []ProblemDT
 		}
 	}
 
-	items := make([]AssignmentProgressDTO, 0, len(states))
+	items := make([]contract.AssignmentProgress, 0, len(states))
 	for _, got := range states {
 		for _, problem := range got.item.Problems {
 			if problem.Status == "ac" {

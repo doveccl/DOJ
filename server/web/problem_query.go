@@ -6,20 +6,22 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/doveccl/doj/server/web/contract"
+
 	"github.com/doveccl/doj/models"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
 
-func (api *API) listProblems(c echo.Context, limit int) ([]ProblemDTO, error) {
+func (api *API) listProblems(c echo.Context, limit int) ([]contract.Problem, error) {
 	return api.findProblems(c, "", "", limit, "id desc")
 }
 
-func (api *API) searchProblems(c echo.Context, q string, tag string, limit int) ([]ProblemDTO, error) {
+func (api *API) searchProblems(c echo.Context, q string, tag string, limit int) ([]contract.Problem, error) {
 	return api.findProblems(c, q, tag, limit, "id asc")
 }
 
-func (api *API) searchProblemPage(c echo.Context, q string, tag string, limit int, offset int) ([]ProblemDTO, int64, error) {
+func (api *API) searchProblemPage(c echo.Context, q string, tag string, limit int, offset int) ([]contract.Problem, int64, error) {
 	var rows []models.Problem
 	query := api.db.Model(&models.Problem{})
 	if !api.isAdmin(c) {
@@ -37,14 +39,14 @@ func (api *API) searchProblemPage(c echo.Context, q string, tag string, limit in
 	if err := query.Session(&gorm.Session{}).Order("id asc").Limit(limit).Offset(offset).Find(&rows).Error; err != nil {
 		return nil, 0, err
 	}
-	items := make([]ProblemDTO, 0, len(rows))
+	items := make([]contract.Problem, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, problemDTO(row))
+		items = append(items, problemView(row))
 	}
 	return items, total, nil
 }
 
-func (api *API) findProblems(c echo.Context, q string, tag string, limit int, order string) ([]ProblemDTO, error) {
+func (api *API) findProblems(c echo.Context, q string, tag string, limit int, order string) ([]contract.Problem, error) {
 	var rows []models.Problem
 	query := api.db.Order(order).Limit(limit)
 	if !api.isAdmin(c) {
@@ -58,9 +60,9 @@ func (api *API) findProblems(c echo.Context, q string, tag string, limit int, or
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	items := make([]ProblemDTO, 0, len(rows))
+	items := make([]contract.Problem, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, problemDTO(row))
+		items = append(items, problemView(row))
 	}
 	return items, nil
 }
@@ -78,8 +80,8 @@ func applyProblemSearch(query *gorm.DB, q string) *gorm.DB {
 	return query.Where("LOWER(title) LIKE LOWER(?)", like)
 }
 
-func problemDTO(row models.Problem) ProblemDTO {
-	return ProblemDTO{
+func problemView(row models.Problem) contract.Problem {
+	return contract.Problem{
 		ID:       row.ID,
 		Title:    row.Title,
 		Tags:     readTags([]byte(row.Tags)),
@@ -90,8 +92,8 @@ func problemDTO(row models.Problem) ProblemDTO {
 	}
 }
 
-func (api *API) problemDTOWithStatement(ctx context.Context, row models.Problem) (ProblemDTO, error) {
-	item := problemDTO(row)
+func (api *API) problemViewWithStatement(ctx context.Context, row models.Problem) (contract.Problem, error) {
+	item := problemView(row)
 	statement, err := api.problemStatement(ctx, row.ID, row.Title)
 	if err != nil {
 		return item, err

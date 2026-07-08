@@ -2,13 +2,15 @@ package web
 
 import (
 	"fmt"
-	"github.com/doveccl/doj/models"
-	"github.com/labstack/echo/v4"
-	"gorm.io/datatypes"
 	"net/http"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/doveccl/doj/models"
+	"github.com/doveccl/doj/server/web/contract"
+	"github.com/labstack/echo/v4"
+	"gorm.io/datatypes"
 )
 
 func TestDatabaseRankUsesVisibleSubmissionStatsAndActiveUsers(t *testing.T) {
@@ -62,7 +64,7 @@ func TestDatabaseRankUsesVisibleSubmissionStatsAndActiveUsers(t *testing.T) {
 	e := echo.New()
 	Register(e, db)
 
-	guestRank := decodeJSON[PageResult[RankUserDTO]](t, requestOK(t, e, http.MethodGet, "/api/rank", ""))
+	guestRank := decodeJSON[contract.Page[contract.RankUser]](t, requestOK(t, e, http.MethodGet, "/api/rank", ""))
 	if len(guestRank.Items) != 3 || guestRank.Total != 3 {
 		t.Fatalf("rank should include three active users, got %+v", guestRank)
 	}
@@ -79,17 +81,17 @@ func TestDatabaseRankUsesVisibleSubmissionStatsAndActiveUsers(t *testing.T) {
 	if !ok || aliceGuest.AC != 2 || aliceGuest.Submit != 4 {
 		t.Fatalf("alice guest stats should include hidden problem but not running OI AC: %+v", guestRank)
 	}
-	aliceProfile := decodeJSON[UserProfile](t, requestOK(t, e, http.MethodGet, "/api/users/alice", ""))
+	aliceProfile := decodeJSON[contract.UserProfile](t, requestOK(t, e, http.MethodGet, "/api/users/alice", ""))
 	if aliceProfile.User.AC != 2 || aliceProfile.User.Submit != 4 {
 		t.Fatalf("alice profile should not expose running OI AC: %+v", aliceProfile.User)
 	}
 
-	adminRank := decodeJSON[PageResult[RankUserDTO]](t, requestWithCookies(e, http.MethodGet, "/api/rank", databaseSession(t, db, admin.ID), nil))
+	adminRank := decodeJSON[contract.Page[contract.RankUser]](t, requestWithCookies(e, http.MethodGet, "/api/rank", databaseSession(t, db, admin.ID), nil))
 	aliceAdmin, ok := rankByUser(adminRank.Items, "alice")
 	if !ok || aliceAdmin.AC != 3 || aliceAdmin.Submit != 4 {
 		t.Fatalf("alice admin stats should include hidden problem: %+v", adminRank)
 	}
-	adminProfile := decodeJSON[UserProfile](t, requestWithCookies(e, http.MethodGet, "/api/users/alice", databaseSession(t, db, admin.ID), nil))
+	adminProfile := decodeJSON[contract.UserProfile](t, requestWithCookies(e, http.MethodGet, "/api/users/alice", databaseSession(t, db, admin.ID), nil))
 	if adminProfile.User.AC != 3 || adminProfile.User.Submit != 4 {
 		t.Fatalf("admin profile should include running OI AC: %+v", adminProfile.User)
 	}
@@ -116,11 +118,11 @@ func TestDatabaseRankPaginatesAfterRankingAllUsers(t *testing.T) {
 	e := echo.New()
 	Register(e, db)
 
-	first := decodeJSON[PageResult[RankUserDTO]](t, requestOK(t, e, http.MethodGet, "/api/rank?page=1&pageSize=20", ""))
+	first := decodeJSON[contract.Page[contract.RankUser]](t, requestOK(t, e, http.MethodGet, "/api/rank?page=1&pageSize=20", ""))
 	if first.Total != 105 || len(first.Items) != 20 || first.Items[0].User != "u104" || first.Items[0].Rank != 1 {
 		t.Fatalf("rank should sort all users before paging: %+v", first)
 	}
-	last := decodeJSON[PageResult[RankUserDTO]](t, requestOK(t, e, http.MethodGet, "/api/rank?page=6&pageSize=20", ""))
+	last := decodeJSON[contract.Page[contract.RankUser]](t, requestOK(t, e, http.MethodGet, "/api/rank?page=6&pageSize=20", ""))
 	if len(last.Items) != 5 || last.Items[0].Rank != 101 {
 		t.Fatalf("last rank page = %+v", last)
 	}
@@ -156,7 +158,7 @@ func TestUserSolvedProblemsArePagedByLatestAC(t *testing.T) {
 
 	e := echo.New()
 	Register(e, db)
-	profile := decodeJSON[UserProfile](t, requestOK(t, e, http.MethodGet, "/api/users/alice?solvedPage=2&solvedPageSize=5", ""))
+	profile := decodeJSON[contract.UserProfile](t, requestOK(t, e, http.MethodGet, "/api/users/alice?solvedPage=2&solvedPageSize=5", ""))
 	if profile.Solved.Page != 2 || profile.Solved.PageSize != 5 || profile.Solved.Total != 15 {
 		t.Fatalf("unexpected solved page metadata: %+v", profile.Solved)
 	}

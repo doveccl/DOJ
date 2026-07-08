@@ -1,4 +1,4 @@
-package web
+package contract
 
 import (
 	"time"
@@ -48,14 +48,14 @@ type HomeContest struct {
 	Status string `json:"status"`
 }
 
-type PageResult[T any] struct {
+type Page[T any] struct {
 	Items    []T   `json:"items"`
 	Page     int   `json:"page"`
 	PageSize int   `json:"pageSize"`
 	Total    int64 `json:"total"`
 }
 
-type MeDTO struct {
+type Me struct {
 	ID     uint   `json:"id"`
 	Name   string `json:"name"`
 	Mail   string `json:"mail"`
@@ -64,7 +64,7 @@ type MeDTO struct {
 	Admin  bool   `json:"admin"`
 }
 
-type LanguageDTO struct {
+type Language struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
 	Source string `json:"source"`
@@ -92,7 +92,7 @@ type RegisterRequest struct {
 	Password string `json:"password"`
 }
 
-type AssignmentDTO struct {
+type Assignment struct {
 	ID     uint      `json:"id"`
 	Title  string    `json:"title"`
 	EndAt  time.Time `json:"endAt"`
@@ -125,25 +125,25 @@ type ProblemRef struct {
 }
 
 type AssignmentDetail struct {
-	Assignment AssignmentDTO           `json:"assignment"`
-	Problems   []ProblemDTO            `json:"problems"`
-	Progress   []AssignmentProgressDTO `json:"progress"`
+	Assignment Assignment           `json:"assignment"`
+	Problems   []Problem            `json:"problems"`
+	Progress   []AssignmentProgress `json:"progress"`
 }
 
-type AssignmentProgressDTO struct {
-	User     string                         `json:"user"`
-	AC       int                            `json:"ac"`
-	Submit   int                            `json:"submit"`
-	Problems []AssignmentProblemProgressDTO `json:"problems"`
+type AssignmentProgress struct {
+	User     string                      `json:"user"`
+	AC       int                         `json:"ac"`
+	Submit   int                         `json:"submit"`
+	Problems []AssignmentProblemProgress `json:"problems"`
 }
 
-type AssignmentProblemProgressDTO struct {
+type AssignmentProblemProgress struct {
 	ProblemID uint   `json:"problemId"`
 	Status    string `json:"status"`
 	Score     *int   `json:"score,omitempty"`
 }
 
-type ContestDTO struct {
+type Contest struct {
 	ID       uint       `json:"id"`
 	Title    string     `json:"title"`
 	Kind     string     `json:"kind"`
@@ -173,9 +173,9 @@ type ContestUpdate struct {
 }
 
 type ContestDetail struct {
-	Contest  ContestDTO    `json:"contest"`
-	Problems []ProblemDTO  `json:"problems"`
-	Rank     []RankUserDTO `json:"rank"`
+	Contest  Contest    `json:"contest"`
+	Problems []Problem  `json:"problems"`
+	Rank     []RankUser `json:"rank"`
 }
 
 type SubmissionListItem struct {
@@ -190,7 +190,7 @@ type SubmissionListItem struct {
 	CreatedAt    time.Time `json:"createdAt"`
 }
 
-type SubmissionDTO struct {
+type Submission struct {
 	ID           uint      `json:"id"`
 	ProblemID    uint      `json:"problemId"`
 	ProblemTitle string    `json:"problemTitle"`
@@ -206,13 +206,13 @@ type SubmissionDTO struct {
 }
 
 type SubmissionDetail struct {
-	Submission SubmissionDTO `json:"submission"`
-	Code       string        `json:"code"`
-	Cases      []CaseDTO     `json:"cases"`
-	Progress   *ProgressDTO  `json:"progress,omitempty"`
+	Submission Submission          `json:"submission"`
+	Code       string              `json:"code"`
+	Cases      []Case              `json:"cases"`
+	Progress   *SubmissionProgress `json:"progress,omitempty"`
 }
 
-type ProgressDTO struct {
+type SubmissionProgress struct {
 	Stage     string    `json:"stage"`
 	Done      int64     `json:"done"`
 	Total     *int64    `json:"total,omitempty"`
@@ -230,7 +230,7 @@ type SubmissionUpdate struct {
 	Public bool `json:"public"`
 }
 
-type CaseDTO struct {
+type Case struct {
 	No       int    `json:"no"`
 	Status   string `json:"status"`
 	TimeMS   *int   `json:"timeMs,omitempty"`
@@ -238,19 +238,19 @@ type CaseDTO struct {
 	Message  string `json:"message"`
 }
 
-type RankUserDTO struct {
-	Rank     int              `json:"rank"`
-	User     string           `json:"user"`
-	Bio      string           `json:"bio"`
-	Avatar   string           `json:"avatar"`
-	AC       int              `json:"ac"`
-	Submit   int              `json:"submit"`
-	Score    int              `json:"score"`
-	Penalty  int              `json:"penalty"`
-	Problems []RankProblemDTO `json:"problems"`
+type RankUser struct {
+	Rank     int           `json:"rank"`
+	User     string        `json:"user"`
+	Bio      string        `json:"bio"`
+	Avatar   string        `json:"avatar"`
+	AC       int           `json:"ac"`
+	Submit   int           `json:"submit"`
+	Score    int           `json:"score"`
+	Penalty  int           `json:"penalty"`
+	Problems []RankProblem `json:"problems"`
 }
 
-type RankProblemDTO struct {
+type RankProblem struct {
 	ProblemID uint   `json:"problemId"`
 	Status    string `json:"status"`
 	Submit    int    `json:"submit"`
@@ -258,7 +258,7 @@ type RankProblemDTO struct {
 	Penalty   int    `json:"penalty"`
 }
 
-type PublicUserDTO struct {
+type PublicUser struct {
 	Name   string `json:"name"`
 	Bio    string `json:"bio"`
 	Avatar string `json:"avatar"`
@@ -267,16 +267,16 @@ type PublicUserDTO struct {
 	Submit int    `json:"submit"`
 }
 
-type UserOptionDTO struct {
+type UserOption struct {
 	ID   uint   `json:"id"`
 	Name string `json:"name"`
 }
 
 type UserProfile struct {
-	User       PublicUserDTO             `json:"user"`
-	Heatmap    []HeatCell                `json:"heatmap"`
-	Solved     PageResult[SolvedProblem] `json:"solved"`
-	Activities []UserActivityDTO         `json:"activities"`
+	User       PublicUser          `json:"user"`
+	Heatmap    []HeatCell          `json:"heatmap"`
+	Solved     Page[SolvedProblem] `json:"solved"`
+	Activities []UserActivity      `json:"activities"`
 }
 
 type SolvedProblem struct {
@@ -285,7 +285,7 @@ type SolvedProblem struct {
 	Tags  []string `json:"tags"`
 }
 
-type UserActivityDTO struct {
+type UserActivity struct {
 	Type         string    `json:"type"`
 	ID           uint      `json:"id"`
 	Title        string    `json:"title"`
@@ -295,7 +295,7 @@ type UserActivityDTO struct {
 	CreatedAt    time.Time `json:"createdAt"`
 }
 
-type DiscussionDTO struct {
+type Discussion struct {
 	ID        uint      `json:"id"`
 	Title     string    `json:"title"`
 	Author    string    `json:"author"`
@@ -321,12 +321,12 @@ type DiscussionUpdate struct {
 }
 
 type DiscussionDetail struct {
-	Discussion DiscussionDTO `json:"discussion"`
-	Content    string        `json:"content"`
-	Comments   []CommentDTO  `json:"comments"`
+	Discussion Discussion `json:"discussion"`
+	Content    string     `json:"content"`
+	Comments   []Comment  `json:"comments"`
 }
 
-type CommentDTO struct {
+type Comment struct {
 	ID        uint      `json:"id"`
 	Author    string    `json:"author"`
 	Content   string    `json:"content"`
@@ -338,7 +338,7 @@ type CommentCreate struct {
 	Content string `json:"content"`
 }
 
-type ProblemDTO struct {
+type Problem struct {
 	ID        uint     `json:"id"`
 	Sort      string   `json:"sort,omitempty"`
 	Title     string   `json:"title"`
@@ -352,16 +352,16 @@ type ProblemDTO struct {
 	DataBytes *int64   `json:"dataBytes,omitempty"`
 }
 
-type ProblemStateDTO struct {
-	ProblemID   uint       `json:"problemId"`
-	AC          int        `json:"ac"`
-	Submit      int        `json:"submit"`
-	Discussions *int       `json:"discussions,omitempty"`
-	Status      string     `json:"status"`
-	Submission  *RecordDTO `json:"submission,omitempty"`
+type ProblemState struct {
+	ProblemID   uint           `json:"problemId"`
+	AC          int            `json:"ac"`
+	Submit      int            `json:"submit"`
+	Discussions *int           `json:"discussions,omitempty"`
+	Status      string         `json:"status"`
+	Submission  *ProblemRecord `json:"submission,omitempty"`
 }
 
-type RecordDTO struct {
+type ProblemRecord struct {
 	ID        uint      `json:"id"`
 	Status    string    `json:"status"`
 	Score     int       `json:"score"`

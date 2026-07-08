@@ -2,12 +2,14 @@ package web
 
 import (
 	"encoding/json"
-	"github.com/doveccl/doj/models"
-	"github.com/labstack/echo/v4"
-	"gorm.io/datatypes"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/doveccl/doj/models"
+	"github.com/doveccl/doj/server/web/contract"
+	"github.com/labstack/echo/v4"
+	"gorm.io/datatypes"
 )
 
 func TestHomeProblemsUseCompactPayload(t *testing.T) {
@@ -30,7 +32,7 @@ func TestHomeProblemsUseCompactPayload(t *testing.T) {
 	Register(e, db)
 
 	res := requestWithCookies(e, http.MethodGet, "/api/home", databaseSession(t, db, user.ID), nil)
-	home := decodeJSON[Home](t, res)
+	home := decodeJSON[contract.Home](t, res)
 	if len(home.Problems) != 1 || home.Problems[0].ID != unsolved.ID || home.Problems[0].Title != unsolved.Title {
 		t.Fatalf("home problems should include unsolved compact identity fields only: %+v", home.Problems)
 	}
@@ -114,7 +116,7 @@ func TestHomeFiltersAssignmentsAndContestsForCurrentUser(t *testing.T) {
 
 	e := echo.New()
 	Register(e, db)
-	home := decodeJSON[Home](t, requestWithCookies(e, http.MethodGet, "/api/home", databaseSession(t, db, user.ID), nil))
+	home := decodeJSON[contract.Home](t, requestWithCookies(e, http.MethodGet, "/api/home", databaseSession(t, db, user.ID), nil))
 	if len(home.Assignments) != 1 || home.Assignments[0].ID != assigned.ID || home.Assignments[0].Done != 1 || home.Assignments[0].Total != 2 {
 		t.Fatalf("home assignments should include assigned progress only: %+v", home.Assignments)
 	}

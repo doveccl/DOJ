@@ -2,13 +2,15 @@ package web
 
 import (
 	"encoding/json"
-	"github.com/doveccl/doj/models"
-	"github.com/labstack/echo/v4"
-	"gorm.io/datatypes"
 	"net/http"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/doveccl/doj/models"
+	"github.com/doveccl/doj/server/web/contract"
+	"github.com/labstack/echo/v4"
+	"gorm.io/datatypes"
 )
 
 func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *testing.T) {
@@ -81,7 +83,7 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 	Register(e, db)
 
 	profileRes := requestOK(t, e, http.MethodGet, "/api/users/student", "")
-	profile := decodeJSON[UserProfile](t, profileRes)
+	profile := decodeJSON[contract.UserProfile](t, profileRes)
 	if hasSolvedProblem(profile.Solved.Items, hidden.ID) || hasActivityProblem(profile.Activities, hidden.ID) {
 		t.Fatalf("guest profile leaked hidden problem: %+v", profile)
 	}
@@ -111,20 +113,20 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 		}
 	}
 
-	if res := requestOK(t, e, http.MethodGet, "/api/assignments", ""); len(decodeJSON[PageResult[AssignmentDTO]](t, res).Items) != 0 {
+	if res := requestOK(t, e, http.MethodGet, "/api/assignments", ""); len(decodeJSON[contract.Page[contract.Assignment]](t, res).Items) != 0 {
 		t.Fatalf("guest assignment list should be empty, body=%s", res.Body.String())
 	}
 	if res := requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(assignment.ID), 10), nil, nil); res.Code != http.StatusNotFound {
 		t.Fatalf("guest assignment detail should be hidden, got %d body=%s", res.Code, res.Body.String())
 	}
 	outsiderCookies := databaseSession(t, db, outsider.ID)
-	if res := requestWithCookies(e, http.MethodGet, "/api/assignments", outsiderCookies, nil); len(decodeJSON[PageResult[AssignmentDTO]](t, res).Items) != 0 {
+	if res := requestWithCookies(e, http.MethodGet, "/api/assignments", outsiderCookies, nil); len(decodeJSON[contract.Page[contract.Assignment]](t, res).Items) != 0 {
 		t.Fatalf("unassigned assignment list should be empty, body=%s", res.Body.String())
 	}
 	if res := requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(assignment.ID), 10), outsiderCookies, nil); res.Code != http.StatusNotFound {
 		t.Fatalf("unassigned assignment detail should be hidden, got %d body=%s", res.Code, res.Body.String())
 	}
-	studentAssignment := decodeJSON[AssignmentDetail](t, requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(assignment.ID), 10), databaseSession(t, db, student.ID), nil))
+	studentAssignment := decodeJSON[contract.AssignmentDetail](t, requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(assignment.ID), 10), databaseSession(t, db, student.ID), nil))
 	if !hasProblem(studentAssignment.Problems, hidden.ID) {
 		t.Fatalf("student assignment should include assigned hidden problem: %+v", studentAssignment)
 	}
@@ -141,7 +143,7 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 		t.Fatalf("student assignment completion should expose assigned problem statuses: %+v", studentAssignment.Progress[0].Problems)
 	}
 
-	contestDetail := decodeJSON[ContestDetail](t, requestOK(t, e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), ""))
+	contestDetail := decodeJSON[contract.ContestDetail](t, requestOK(t, e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), ""))
 	if !hasProblem(contestDetail.Problems, hidden.ID) {
 		t.Fatalf("running contest should include linked hidden problem: %+v", contestDetail)
 	}
@@ -153,7 +155,7 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 	if adminProfileRes.Code != http.StatusOK {
 		t.Fatalf("admin profile got %d body=%s", adminProfileRes.Code, adminProfileRes.Body.String())
 	}
-	adminProfile := decodeJSON[UserProfile](t, adminProfileRes)
+	adminProfile := decodeJSON[contract.UserProfile](t, adminProfileRes)
 	if !hasSolvedProblem(adminProfile.Solved.Items, hidden.ID) || !hasActivityProblem(adminProfile.Activities, hidden.ID) {
 		t.Fatalf("admin profile should include hidden problem: %+v", adminProfile)
 	}

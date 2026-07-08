@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/doveccl/doj/server/web/contract"
+
 	"github.com/doveccl/doj/models"
 	"github.com/doveccl/doj/server/events"
 	judgersvc "github.com/doveccl/doj/server/judger"
@@ -68,14 +70,14 @@ func (api *API) submissions(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, PageResult[SubmissionListItem]{Items: items, Page: page, PageSize: pageSize, Total: total})
+	return c.JSON(http.StatusOK, contract.Page[contract.SubmissionListItem]{Items: items, Page: page, PageSize: pageSize, Total: total})
 }
 
 func (api *API) submit(c echo.Context) error {
 	if err := api.requireSignedIn(c); err != nil {
 		return err
 	}
-	var req SubmitRequest
+	var req contract.SubmitRequest
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -133,7 +135,7 @@ func (api *API) submit(c echo.Context) error {
 		return err
 	}
 	events.SubmissionChanged()
-	return c.JSON(http.StatusCreated, CreatedID{ID: row.ID})
+	return c.JSON(http.StatusCreated, contract.CreatedID{ID: row.ID})
 }
 
 func (api *API) inferSubmitScopes(userID uint, problemID uint, now time.Time) (*uint, *uint, error) {
@@ -180,23 +182,23 @@ func (api *API) submission(c echo.Context) error {
 			return err
 		}
 	}
-	items := make([]CaseDTO, 0, len(cases))
+	items := make([]contract.Case, 0, len(cases))
 	for _, item := range cases {
-		items = append(items, CaseDTO{No: item.No, Status: item.Status, TimeMS: item.TimeMS, MemoryKB: item.MemoryKB, Message: item.Message})
+		items = append(items, contract.Case{No: item.No, Status: item.Status, TimeMS: item.TimeMS, MemoryKB: item.MemoryKB, Message: item.Message})
 	}
 	code := ""
 	if view.Code {
 		code = row.Code
 	}
-	var progress *ProgressDTO
+	var progress *contract.SubmissionProgress
 	if view.Result {
 		progress = api.submissionProgress(c.Request().Context(), row)
 	}
-	submission, err := api.submissionDTO(c, row)
+	submission, err := api.submissionPayload(c, row)
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, SubmissionDetail{Submission: submission, Code: code, Cases: items, Progress: progress})
+	return c.JSON(http.StatusOK, contract.SubmissionDetail{Submission: submission, Code: code, Cases: items, Progress: progress})
 }
 
 func (api *API) updateSubmission(c echo.Context) error {
@@ -207,7 +209,7 @@ func (api *API) updateSubmission(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid submission id")
 	}
-	var req SubmissionUpdate
+	var req contract.SubmissionUpdate
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -230,7 +232,7 @@ func (api *API) updateSubmission(c echo.Context) error {
 		return err
 	}
 	events.SubmissionChanged()
-	return c.JSON(http.StatusOK, CreatedID{ID: row.ID})
+	return c.JSON(http.StatusOK, contract.CreatedID{ID: row.ID})
 }
 
 func (api *API) rejudgeSubmission(c echo.Context) error {
@@ -262,7 +264,7 @@ func (api *API) rejudgeSubmission(c echo.Context) error {
 	}
 	judgersvc.DeleteProgress(c.Request().Context(), row.ID)
 	events.SubmissionChanged()
-	return c.JSON(http.StatusOK, CreatedID{ID: row.ID})
+	return c.JSON(http.StatusOK, contract.CreatedID{ID: row.ID})
 }
 
 func (api *API) rejudgeProblem(c echo.Context) error {
@@ -292,10 +294,10 @@ func (api *API) rejudgeProblem(c echo.Context) error {
 		judgersvc.DeleteProgress(c.Request().Context(), id)
 	}
 	events.SubmissionChanged()
-	return c.JSON(http.StatusOK, CountResult{Count: count})
+	return c.JSON(http.StatusOK, contract.CountResult{Count: count})
 }
 
-func (api *API) submissionProgress(ctx context.Context, row models.Submission) *ProgressDTO {
+func (api *API) submissionProgress(ctx context.Context, row models.Submission) *contract.SubmissionProgress {
 	if row.Status != "queued" && row.Status != "judging" {
 		return nil
 	}
@@ -303,7 +305,7 @@ func (api *API) submissionProgress(ctx context.Context, row models.Submission) *
 	if err != nil || progress == nil {
 		return nil
 	}
-	return &ProgressDTO{Stage: progress.Stage, Done: progress.Done, Total: progress.Total, UpdatedAt: progress.UpdatedAt}
+	return &contract.SubmissionProgress{Stage: progress.Stage, Done: progress.Done, Total: progress.Total, UpdatedAt: progress.UpdatedAt}
 }
 
 func rejudgeUpdates() map[string]any {
@@ -319,32 +321,32 @@ func rejudgeUpdates() map[string]any {
 	}
 }
 
-func (api *API) submissionDTO(c echo.Context, row models.Submission) (SubmissionDTO, error) {
-	items, err := api.submissionDTOs(c, []models.Submission{row})
+func (api *API) submissionPayload(c echo.Context, row models.Submission) (contract.Submission, error) {
+	items, err := api.submissionPayloads(c, []models.Submission{row})
 	if err != nil {
-		return SubmissionDTO{}, err
+		return contract.Submission{}, err
 	}
 	if len(items) > 0 {
 		return items[0], nil
 	}
-	return submissionDTOFromRefs(row, nil, nil), nil
+	return submissionPayloadFromRefs(row, nil, nil), nil
 }
 
-func (api *API) submissionListItems(c echo.Context, rows []models.Submission) ([]SubmissionListItem, error) {
-	items, err := api.submissionDTOs(c, rows)
+func (api *API) submissionListItems(c echo.Context, rows []models.Submission) ([]contract.SubmissionListItem, error) {
+	items, err := api.submissionPayloads(c, rows)
 	if err != nil {
 		return nil, err
 	}
-	list := make([]SubmissionListItem, 0, len(items))
+	list := make([]contract.SubmissionListItem, 0, len(items))
 	for _, item := range items {
-		list = append(list, submissionListItemFromDTO(item))
+		list = append(list, submissionListItemFromPayload(item))
 	}
 	return list, nil
 }
 
-func (api *API) submissionDTOs(c echo.Context, rows []models.Submission) ([]SubmissionDTO, error) {
+func (api *API) submissionPayloads(c echo.Context, rows []models.Submission) ([]contract.Submission, error) {
 	if len(rows) == 0 {
-		return []SubmissionDTO{}, nil
+		return []contract.Submission{}, nil
 	}
 	problemIDs := make([]uint, 0, len(rows))
 	userIDs := make([]uint, 0, len(rows))
@@ -360,23 +362,23 @@ func (api *API) submissionDTOs(c echo.Context, rows []models.Submission) ([]Subm
 	if err != nil {
 		return nil, err
 	}
-	items := make([]SubmissionDTO, 0, len(rows))
+	items := make([]contract.Submission, 0, len(rows))
 	for _, row := range rows {
-		dto := submissionDTOFromRefs(row, titles, users)
+		item := submissionPayloadFromRefs(row, titles, users)
 		view, err := api.submissionView(c, row)
 		if err != nil {
 			return nil, err
 		}
 		if !view.Result {
-			hideSubmissionResult(&dto)
+			hideSubmissionResult(&item)
 		}
-		items = append(items, dto)
+		items = append(items, item)
 	}
 	return items, nil
 }
 
-func submissionListItemFromDTO(row SubmissionDTO) SubmissionListItem {
-	return SubmissionListItem{
+func submissionListItemFromPayload(row contract.Submission) contract.SubmissionListItem {
+	return contract.SubmissionListItem{
 		ID:           row.ID,
 		ProblemID:    row.ProblemID,
 		ProblemTitle: row.ProblemTitle,
@@ -389,7 +391,7 @@ func submissionListItemFromDTO(row SubmissionDTO) SubmissionListItem {
 	}
 }
 
-func submissionDTOFromRefs(row models.Submission, titles map[uint]string, users map[uint]string) SubmissionDTO {
+func submissionPayloadFromRefs(row models.Submission, titles map[uint]string, users map[uint]string) contract.Submission {
 	title := titles[row.ProblemID]
 	userName := users[row.UserID]
 	if title == "" {
@@ -398,7 +400,7 @@ func submissionDTOFromRefs(row models.Submission, titles map[uint]string, users 
 	if userName == "" {
 		userName = strconv.Itoa(int(row.UserID))
 	}
-	return SubmissionDTO{
+	return contract.Submission{
 		ID:           row.ID,
 		ProblemID:    row.ProblemID,
 		ProblemTitle: title,
@@ -414,7 +416,7 @@ func submissionDTOFromRefs(row models.Submission, titles map[uint]string, users 
 	}
 }
 
-func hideSubmissionResult(row *SubmissionDTO) {
+func hideSubmissionResult(row *contract.Submission) {
 	row.Status = "pending"
 	row.Score = 0
 	row.Message = ""
@@ -422,7 +424,7 @@ func hideSubmissionResult(row *SubmissionDTO) {
 	row.MemoryKB = nil
 }
 
-func pendingRecord(row RecordDTO) RecordDTO {
+func pendingRecord(row contract.ProblemRecord) contract.ProblemRecord {
 	row.Status = "pending"
 	row.Score = 0
 	return row

@@ -2,12 +2,14 @@ package web
 
 import (
 	"bytes"
-	"github.com/doveccl/doj/models"
-	"github.com/labstack/echo/v4"
-	"gorm.io/datatypes"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/doveccl/doj/models"
+	"github.com/doveccl/doj/server/web/contract"
+	"github.com/labstack/echo/v4"
+	"gorm.io/datatypes"
 )
 
 func TestProblemDiscussionCountsUseTagsWithoutProblemVisibilityCoupling(t *testing.T) {
@@ -41,14 +43,14 @@ func TestProblemDiscussionCountsUseTagsWithoutProblemVisibilityCoupling(t *testi
 	e := echo.New()
 	Register(e, db)
 
-	guestState := decodeJSON[[]ProblemStateDTO](t, requestOK(t, e, http.MethodGet, "/api/problem-state?ids=1000,1001", ""))
+	guestState := decodeJSON[[]contract.ProblemState](t, requestOK(t, e, http.MethodGet, "/api/problem-state?ids=1000,1001", ""))
 	if len(guestState) != 2 || guestState[0].AC != 1 || guestState[0].Submit != 1 || guestState[1].AC != 0 || guestState[1].Submit != 0 {
 		t.Fatalf("guest stats should hide invisible problems: %+v", guestState)
 	}
 	if guestState[0].Discussions == nil || *guestState[0].Discussions != 2 || guestState[1].Discussions != nil {
 		t.Fatalf("guest discussion count should use soft tags and hide invisible problems: %+v", guestState)
 	}
-	adminState := decodeJSON[[]ProblemStateDTO](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?ids=1000,1001", databaseSession(t, db, admin.ID), nil))
+	adminState := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?ids=1000,1001", databaseSession(t, db, admin.ID), nil))
 	if len(adminState) != 2 || adminState[0].AC != 1 || adminState[0].Submit != 1 || adminState[1].AC != 1 || adminState[1].Submit != 1 {
 		t.Fatalf("admin stats should include hidden problems: %+v", adminState)
 	}
@@ -111,15 +113,15 @@ func TestDynamicSelectSuggestionEndpoints(t *testing.T) {
 	if len(discussionTags) != 1 || discussionTags[0] != "general" {
 		t.Fatalf("discussion tag suggestions = %+v", discussionTags)
 	}
-	userOptions := decodeJSON[[]UserOptionDTO](t, requestOK(t, e, http.MethodGet, "/api/users?q=ali", ""))
+	userOptions := decodeJSON[[]contract.UserOption](t, requestOK(t, e, http.MethodGet, "/api/users?q=ali", ""))
 	if len(userOptions) != 1 || userOptions[0].Name != "alice" {
 		t.Fatalf("user suggestions = %+v", userOptions)
 	}
-	assignments := decodePageItems[AssignmentDTO](t, requestWithCookies(e, http.MethodGet, "/api/assignments?q=Summer", cookies, nil))
+	assignments := decodePageItems[contract.Assignment](t, requestWithCookies(e, http.MethodGet, "/api/assignments?q=Summer", cookies, nil))
 	if len(assignments) != 1 || assignments[0].Title != "Summer Homework" {
 		t.Fatalf("assignment suggestions = %+v", assignments)
 	}
-	contests := decodePageItems[ContestDTO](t, requestWithCookies(e, http.MethodGet, "/api/contests?q=Winter", cookies, nil))
+	contests := decodePageItems[contract.Contest](t, requestWithCookies(e, http.MethodGet, "/api/contests?q=Winter", cookies, nil))
 	if len(contests) != 1 || contests[0].Title != "Winter Cup" {
 		t.Fatalf("contest suggestions = %+v", contests)
 	}

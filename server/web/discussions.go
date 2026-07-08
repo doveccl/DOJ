@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/doveccl/doj/server/web/contract"
+
 	"github.com/doveccl/doj/models"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
@@ -55,18 +57,18 @@ func (api *API) discussions(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	items := make([]DiscussionDTO, 0, len(rows))
+	items := make([]contract.Discussion, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, discussionDTOFromRefs(row, authors, replies))
+		items = append(items, discussionViewFromRefs(row, authors, replies))
 	}
-	return c.JSON(http.StatusOK, PageResult[DiscussionDTO]{Items: items, Page: page, PageSize: pageSize, Total: total})
+	return c.JSON(http.StatusOK, contract.Page[contract.Discussion]{Items: items, Page: page, PageSize: pageSize, Total: total})
 }
 
 func (api *API) createDiscussion(c echo.Context) error {
 	if err := api.requireSignedIn(c); err != nil {
 		return err
 	}
-	var req DiscussionCreate
+	var req contract.DiscussionCreate
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -96,7 +98,7 @@ func (api *API) createDiscussion(c echo.Context) error {
 	if err := api.db.Create(&row).Error; err != nil {
 		return err
 	}
-	return c.JSON(http.StatusCreated, CreatedID{ID: row.ID})
+	return c.JSON(http.StatusCreated, contract.CreatedID{ID: row.ID})
 }
 
 func (api *API) discussion(c echo.Context) error {
@@ -124,7 +126,7 @@ func (api *API) discussion(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	items := make([]CommentDTO, 0, len(comments))
+	items := make([]contract.Comment, 0, len(comments))
 	replies := 0
 	for _, item := range comments {
 		deleted := item.DeletedAt.Valid
@@ -134,7 +136,7 @@ func (api *API) discussion(c echo.Context) error {
 		} else {
 			content = ""
 		}
-		items = append(items, CommentDTO{
+		items = append(items, contract.Comment{
 			ID:        item.ID,
 			Author:    authorName(item.UserID, authors),
 			Content:   content,
@@ -142,7 +144,7 @@ func (api *API) discussion(c echo.Context) error {
 			CreatedAt: item.CreatedAt,
 		})
 	}
-	dto := DiscussionDTO{
+	item := contract.Discussion{
 		ID:        row.ID,
 		Title:     row.Title,
 		Author:    authorName(row.UserID, authors),
@@ -152,8 +154,8 @@ func (api *API) discussion(c echo.Context) error {
 		Replies:   replies,
 		CreatedAt: row.CreatedAt,
 	}
-	return c.JSON(http.StatusOK, DiscussionDetail{
-		Discussion: dto,
+	return c.JSON(http.StatusOK, contract.DiscussionDetail{
+		Discussion: item,
 		Content:    row.Content,
 		Comments:   items,
 	})
@@ -167,7 +169,7 @@ func (api *API) updateDiscussion(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	var req DiscussionUpdate
+	var req contract.DiscussionUpdate
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -215,7 +217,7 @@ func (api *API) updateDiscussion(c echo.Context) error {
 	if err := api.db.Save(&row).Error; err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, CreatedID{ID: row.ID})
+	return c.JSON(http.StatusOK, contract.CreatedID{ID: row.ID})
 }
 
 func (api *API) deleteDiscussion(c echo.Context) error {
@@ -252,7 +254,7 @@ func (api *API) createComment(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid discussion id")
 	}
-	var req CommentCreate
+	var req contract.CommentCreate
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -282,7 +284,7 @@ func (api *API) createComment(c echo.Context) error {
 	if err := api.db.Create(&row).Error; err != nil {
 		return err
 	}
-	return c.JSON(http.StatusCreated, CommentDTO{ID: row.ID, Author: user.Name, Content: row.Content, CreatedAt: row.CreatedAt})
+	return c.JSON(http.StatusCreated, contract.Comment{ID: row.ID, Author: user.Name, Content: row.Content, CreatedAt: row.CreatedAt})
 }
 
 func (api *API) deleteComment(c echo.Context) error {
@@ -314,8 +316,8 @@ func (api *API) deleteComment(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func discussionDTOFromRefs(row models.Discussion, authors map[uint]string, replies map[uint]int) DiscussionDTO {
-	return DiscussionDTO{
+func discussionViewFromRefs(row models.Discussion, authors map[uint]string, replies map[uint]int) contract.Discussion {
+	return contract.Discussion{
 		ID:        row.ID,
 		Title:     row.Title,
 		Author:    authorName(row.UserID, authors),
@@ -350,7 +352,7 @@ func (api *API) discussionReplyCounts(ids []uint) (map[uint]int, error) {
 	return counts, nil
 }
 
-func discussionProblemIDs(item DiscussionDTO) []uint {
+func discussionProblemIDs(item contract.Discussion) []uint {
 	ids := []uint{}
 	for _, tag := range item.Tags {
 		upper := strings.ToUpper(strings.TrimSpace(tag))
@@ -365,32 +367,32 @@ func discussionProblemIDs(item DiscussionDTO) []uint {
 	return ids
 }
 
-func baseDiscussionDetails(now time.Time) []DiscussionDetail {
-	return []DiscussionDetail{
+func baseDiscussionDetails(now time.Time) []contract.DiscussionDetail {
+	return []contract.DiscussionDetail{
 		{
-			Discussion: DiscussionDTO{ID: 1, Title: "A+B Problem 有哪些边界情况？", Author: "admin", Tags: []string{"P1000", "beginner"}, Pinned: true, CreatedAt: now.Add(-3 * time.Hour)},
+			Discussion: contract.Discussion{ID: 1, Title: "A+B Problem 有哪些边界情况？", Author: "admin", Tags: []string{"P1000", "beginner"}, Pinned: true, CreatedAt: now.Add(-3 * time.Hour)},
 			Content:    "这题主要覆盖输入输出链路，也用来做第一批评测 smoke。\n\n```cpp\nlong long a, b;\ncin >> a >> b;\ncout << a + b << '\\n';\n```",
-			Comments: []CommentDTO{
+			Comments: []contract.Comment{
 				{ID: 1, Author: "student", Content: "需要考虑负数吗？", CreatedAt: now.Add(-2 * time.Hour)},
 				{ID: 2, Author: "admin", Content: "需要，数据范围会包含负数。", CreatedAt: now.Add(-90 * time.Minute)},
 			},
 		},
 		{
-			Discussion: DiscussionDTO{ID: 2, Title: "Limits Hash 的数据范围讨论", Author: "student", Tags: []string{"P1001"}, CreatedAt: now.Add(-24 * time.Hour)},
+			Discussion: contract.Discussion{ID: 2, Title: "Limits Hash 的数据范围讨论", Author: "student", Tags: []string{"P1001"}, CreatedAt: now.Add(-24 * time.Hour)},
 			Content:    "这题重点是哈希边界和时间限制，建议先用朴素实现确认结果，再优化。",
-			Comments: []CommentDTO{
+			Comments: []contract.Comment{
 				{ID: 3, Author: "student", Content: "严格模式下空格不一致会怎样？", CreatedAt: now.Add(-22 * time.Hour)},
 			},
 		},
 		{
-			Discussion: DiscussionDTO{ID: 3, Title: "交互题提交时需要注意什么？", Author: "admin", Tags: []string{"P1002", "interactive"}, Locked: true, CreatedAt: now.Add(-48 * time.Hour)},
+			Discussion: contract.Discussion{ID: 3, Title: "交互题提交时需要注意什么？", Author: "admin", Tags: []string{"P1002", "interactive"}, Locked: true, CreatedAt: now.Add(-48 * time.Hour)},
 			Content:    "交互题会使用同一套 JudgeProgram/UserProgram pipe 模型。提交时要及时 flush 输出。",
-			Comments:   []CommentDTO{},
+			Comments:   []contract.Comment{},
 		},
 	}
 }
 
-func updatedDiscussion(item DiscussionDetail, req DiscussionUpdate) DiscussionDetail {
+func updatedDiscussion(item contract.DiscussionDetail, req contract.DiscussionUpdate) contract.DiscussionDetail {
 	if req.Title != nil {
 		item.Discussion.Title = *req.Title
 	}
@@ -409,11 +411,11 @@ func updatedDiscussion(item DiscussionDetail, req DiscussionUpdate) DiscussionDe
 	return item
 }
 
-func filterDiscussions(items []DiscussionDTO, tag string) []DiscussionDTO {
+func filterDiscussions(items []contract.Discussion, tag string) []contract.Discussion {
 	if tag == "" {
 		return items
 	}
-	filtered := make([]DiscussionDTO, 0, len(items))
+	filtered := make([]contract.Discussion, 0, len(items))
 	for _, item := range items {
 		if hasTag(item.Tags, tag) {
 			filtered = append(filtered, item)

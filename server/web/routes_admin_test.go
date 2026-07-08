@@ -1,12 +1,13 @@
 package web
 
 import (
-	"github.com/doveccl/doj/models"
-	"github.com/labstack/echo/v4"
-	"gorm.io/datatypes"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/doveccl/doj/models"
+	"github.com/labstack/echo/v4"
+	"gorm.io/datatypes"
 )
 
 func TestDatabaseAdminInputValidation(t *testing.T) {

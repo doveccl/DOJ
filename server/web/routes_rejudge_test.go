@@ -1,14 +1,16 @@
 package web
 
 import (
-	"github.com/doveccl/doj/models"
-	judgersvc "github.com/doveccl/doj/server/judger"
-	"github.com/labstack/echo/v4"
-	"gorm.io/datatypes"
 	"net/http"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/doveccl/doj/models"
+	judgersvc "github.com/doveccl/doj/server/judger"
+	"github.com/doveccl/doj/server/web/contract"
+	"github.com/labstack/echo/v4"
+	"gorm.io/datatypes"
 )
 
 func TestSubmissionCanBeRejudgedByAdmin(t *testing.T) {
@@ -67,7 +69,7 @@ func TestSubmissionCanBeRejudgedByAdmin(t *testing.T) {
 	if adminRes.Code != http.StatusOK {
 		t.Fatalf("admin should rejudge submission, got %d body=%s", adminRes.Code, adminRes.Body.String())
 	}
-	gotID := decodeJSON[CreatedID](t, adminRes)
+	gotID := decodeJSON[contract.CreatedID](t, adminRes)
 	if gotID.ID != submission.ID {
 		t.Fatalf("rejudge should return submission id: %+v", gotID)
 	}
@@ -136,7 +138,7 @@ func TestProblemSubmissionsCanBeRejudgedByAdmin(t *testing.T) {
 	if adminRes.Code != http.StatusOK {
 		t.Fatalf("admin should rejudge problem, got %d body=%s", adminRes.Code, adminRes.Body.String())
 	}
-	if got := decodeJSON[CountResult](t, adminRes); got.Count != 2 {
+	if got := decodeJSON[contract.CountResult](t, adminRes); got.Count != 2 {
 		t.Fatalf("rejudge count = %+v", got)
 	}
 	var got []models.Submission

@@ -1,12 +1,14 @@
 package web
 
 import (
-	"github.com/doveccl/doj/models"
-	adminsvc "github.com/doveccl/doj/server/admin"
-	"github.com/labstack/echo/v4"
-	"gorm.io/datatypes"
 	"net/http"
 	"testing"
+
+	"github.com/doveccl/doj/models"
+	adminsvc "github.com/doveccl/doj/server/admin"
+	"github.com/doveccl/doj/server/web/contract"
+	"github.com/labstack/echo/v4"
+	"gorm.io/datatypes"
 )
 
 func TestUsernamePreservesCaseAndMatchesCaseInsensitively(t *testing.T) {
@@ -27,7 +29,7 @@ func TestUsernamePreservesCaseAndMatchesCaseInsensitively(t *testing.T) {
 	if registerRes.Code != http.StatusCreated {
 		t.Fatalf("register mixed case user got %d body=%s", registerRes.Code, registerRes.Body.String())
 	}
-	registered := decodeJSON[MeDTO](t, registerRes)
+	registered := decodeJSON[contract.Me](t, registerRes)
 	if registered.Name != "Alice_One" || registered.Mail != "alice@example.com" {
 		t.Fatalf("registered user should preserve username case and lowercase mail: %+v", registered)
 	}
@@ -41,12 +43,12 @@ func TestUsernamePreservesCaseAndMatchesCaseInsensitively(t *testing.T) {
 	if loginRes.Code != http.StatusOK {
 		t.Fatalf("case folded login got %d body=%s", loginRes.Code, loginRes.Body.String())
 	}
-	loggedIn := decodeJSON[MeDTO](t, loginRes)
+	loggedIn := decodeJSON[contract.Me](t, loginRes)
 	if loggedIn.Name != "Alice_One" {
 		t.Fatalf("login should return stored username case: %+v", loggedIn)
 	}
 
-	profile := decodeJSON[UserProfile](t, requestOK(t, e, http.MethodGet, "/api/users/alice_one", ""))
+	profile := decodeJSON[contract.UserProfile](t, requestOK(t, e, http.MethodGet, "/api/users/alice_one", ""))
 	if profile.User.Name != "Alice_One" {
 		t.Fatalf("profile lookup should be case-insensitive and return stored name: %+v", profile.User)
 	}
@@ -63,11 +65,11 @@ func TestUsernamePreservesCaseAndMatchesCaseInsensitively(t *testing.T) {
 		t.Fatalf("create submission: %v", err)
 	}
 	submissionRes := requestOK(t, e, http.MethodGet, "/api/submissions?user=ALICE_ONE", "")
-	submissions := decodePageItems[SubmissionListItem](t, submissionRes)
+	submissions := decodePageItems[contract.SubmissionListItem](t, submissionRes)
 	if len(submissions) != 1 || submissions[0].User != "Alice_One" {
 		t.Fatalf("submission user filter should be case-insensitive: %+v", submissions)
 	}
-	rawSubmissions := decodeJSON[PageResult[map[string]any]](t, submissionRes).Items
+	rawSubmissions := decodeJSON[contract.Page[map[string]any]](t, submissionRes).Items
 	for _, key := range []string{"score", "message", "public"} {
 		if _, ok := rawSubmissions[0][key]; ok {
 			t.Fatalf("submission list should not include detail field %q: %+v", key, rawSubmissions[0])
@@ -89,7 +91,7 @@ func TestMePatchOnlyUpdatesProvidedFields(t *testing.T) {
 	if avatarRes.Code != http.StatusOK {
 		t.Fatalf("avatar patch got %d body=%s", avatarRes.Code, avatarRes.Body.String())
 	}
-	avatar := decodeJSON[MeDTO](t, avatarRes)
+	avatar := decodeJSON[contract.Me](t, avatarRes)
 	if avatar.Mail != "student@example.com" || avatar.Bio != "old bio" || avatar.Avatar != "/new.png" {
 		t.Fatalf("avatar patch should preserve mail and bio: %+v", avatar)
 	}
@@ -98,7 +100,7 @@ func TestMePatchOnlyUpdatesProvidedFields(t *testing.T) {
 	if mailRes.Code != http.StatusOK {
 		t.Fatalf("mail patch got %d body=%s", mailRes.Code, mailRes.Body.String())
 	}
-	mail := decodeJSON[MeDTO](t, mailRes)
+	mail := decodeJSON[contract.Me](t, mailRes)
 	if mail.Mail != "next@example.com" || mail.Bio != "old bio" || mail.Avatar != "/new.png" {
 		t.Fatalf("mail patch should preserve bio and avatar: %+v", mail)
 	}
@@ -106,7 +108,7 @@ func TestMePatchOnlyUpdatesProvidedFields(t *testing.T) {
 	if clearRes.Code != http.StatusOK {
 		t.Fatalf("clear profile fields got %d body=%s", clearRes.Code, clearRes.Body.String())
 	}
-	cleared := decodeJSON[MeDTO](t, clearRes)
+	cleared := decodeJSON[contract.Me](t, clearRes)
 	if cleared.Mail != "next@example.com" || cleared.Bio != "" || cleared.Avatar != "" {
 		t.Fatalf("empty string patch should clear provided profile fields only: %+v", cleared)
 	}

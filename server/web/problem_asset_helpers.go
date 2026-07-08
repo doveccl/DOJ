@@ -13,38 +13,40 @@ import (
 	"strings"
 	"time"
 
+	"github.com/doveccl/doj/server/web/contract"
+
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 )
 
-func (api *API) syncProblemAssets(c echo.Context, id uint) (ProblemAssets, error) {
+func (api *API) syncProblemAssets(c echo.Context, id uint) (contract.ProblemAssets, error) {
 	store, err := utils.NewObjectStoreFromEnv()
 	if err != nil {
-		return ProblemAssets{}, err
+		return contract.ProblemAssets{}, err
 	}
 	assets, err := problemAssetsFromStore(c.Request().Context(), id, store)
 	if err != nil {
-		return ProblemAssets{}, err
+		return contract.ProblemAssets{}, err
 	}
 	api.cacheProblemAssets(c.Request().Context(), id, assets)
 	return assets, nil
 }
 
-func (api *API) problemAssetsCached(ctx context.Context, id uint, store utils.ObjectStore) (ProblemAssets, error) {
-	var cached ProblemAssets
+func (api *API) problemAssetsCached(ctx context.Context, id uint, store utils.ObjectStore) (contract.ProblemAssets, error) {
+	var cached contract.ProblemAssets
 	found, err := utils.CacheGet(ctx, problemAssetsCacheKey(id), &cached)
 	if err == nil && found {
 		return cached, nil
 	}
 	assets, err := problemAssetsFromStore(ctx, id, store)
 	if err != nil {
-		return ProblemAssets{}, err
+		return contract.ProblemAssets{}, err
 	}
 	api.cacheProblemAssets(ctx, id, assets)
 	return assets, nil
 }
 
-func (api *API) cacheProblemAssets(ctx context.Context, id uint, assets ProblemAssets) {
+func (api *API) cacheProblemAssets(ctx context.Context, id uint, assets contract.ProblemAssets) {
 	_ = utils.CacheSet(ctx, problemAssetsCacheKey(id), assets, time.Minute)
 }
 
@@ -75,21 +77,21 @@ func cleanEditableAssetKey(id uint, raw string) (string, error) {
 	return key, nil
 }
 
-func problemAssetsFromStore(ctx context.Context, id uint, store utils.ObjectStore) (ProblemAssets, error) {
+func problemAssetsFromStore(ctx context.Context, id uint, store utils.ObjectStore) (contract.ProblemAssets, error) {
 	data, err := assetFiles(ctx, store, problemAssetPrefix(id, "data"))
 	if err != nil {
-		return ProblemAssets{}, err
+		return contract.ProblemAssets{}, err
 	}
 	judge, err := assetFiles(ctx, store, problemAssetPrefix(id, "judge"))
 	if err != nil {
-		return ProblemAssets{}, err
+		return contract.ProblemAssets{}, err
 	}
 	assets, err := assetFiles(ctx, store, problemAssetPrefix(id, "assets"))
 	if err != nil {
-		return ProblemAssets{}, err
+		return contract.ProblemAssets{}, err
 	}
 	cases, dataBytes := dataStats(data)
-	return ProblemAssets{Data: data, Judge: judge, Assets: assets, Cases: cases, DataBytes: dataBytes}, nil
+	return contract.ProblemAssets{Data: data, Judge: judge, Assets: assets, Cases: cases, DataBytes: dataBytes}, nil
 }
 
 func writeProblemStatementZipFile(writer *zip.Writer, statement string) error {
@@ -101,7 +103,7 @@ func writeProblemStatementZipFile(writer *zip.Writer, statement string) error {
 	return err
 }
 
-func writeAssetZipFiles(ctx context.Context, writer *zip.Writer, store utils.ObjectStore, section string, files []AssetFile) error {
+func writeAssetZipFiles(ctx context.Context, writer *zip.Writer, store utils.ObjectStore, section string, files []contract.AssetFile) error {
 	for _, item := range files {
 		zipName, ok := safeAssetZipName(section, item.Name)
 		if !ok {
@@ -137,13 +139,13 @@ func safeAssetZipName(section string, name string) (string, bool) {
 	return path.Join(section, clean), true
 }
 
-func assetFiles(ctx context.Context, store utils.ObjectStore, prefix string) ([]AssetFile, error) {
+func assetFiles(ctx context.Context, store utils.ObjectStore, prefix string) ([]contract.AssetFile, error) {
 	objects, err := store.List(ctx, prefix)
 	if err != nil {
 		return nil, err
 	}
 	fullPrefix := strings.TrimSuffix(prefix, "/") + "/"
-	items := make([]AssetFile, 0, len(objects))
+	items := make([]contract.AssetFile, 0, len(objects))
 	for _, object := range objects {
 		if !strings.HasPrefix(object.Key, fullPrefix) {
 			continue
@@ -152,7 +154,7 @@ func assetFiles(ctx context.Context, store utils.ObjectStore, prefix string) ([]
 		if name == "" {
 			continue
 		}
-		items = append(items, AssetFile{
+		items = append(items, contract.AssetFile{
 			Key:      object.Key,
 			Name:     name,
 			Size:     object.Size,
@@ -163,7 +165,7 @@ func assetFiles(ctx context.Context, store utils.ObjectStore, prefix string) ([]
 	return items, nil
 }
 
-func dataStats(files []AssetFile) (int, int64) {
+func dataStats(files []contract.AssetFile) (int, int64) {
 	inputs := map[string]bool{}
 	outputs := map[string]bool{}
 	var bytes int64
@@ -237,7 +239,7 @@ func cleanAssetName(raw string) (string, error) {
 	return name, nil
 }
 
-func caseName(raw string, assets ProblemAssets) (string, error) {
+func caseName(raw string, assets contract.ProblemAssets) (string, error) {
 	name := strings.TrimSpace(raw)
 	if name == "" {
 		name = nextCaseName(assets)
@@ -255,7 +257,7 @@ func caseName(raw string, assets ProblemAssets) (string, error) {
 	return string(out), nil
 }
 
-func nextCaseName(assets ProblemAssets) string {
+func nextCaseName(assets contract.ProblemAssets) string {
 	used := map[string]bool{}
 	for _, file := range assets.Data {
 		stem, kind := utils.DataCaseStem(file.Name)

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/doveccl/doj/server/web/contract"
+
 	"github.com/doveccl/doj/models"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
@@ -69,7 +71,7 @@ func (api *API) problemDiscussionCounts(ctx context.Context) (map[uint]int, erro
 		return nil, err
 	}
 	for _, row := range rows {
-		item := DiscussionDTO{ID: row.ID, Tags: readTags([]byte(row.Tags)), Pinned: row.Pinned, Locked: row.Locked}
+		item := contract.Discussion{ID: row.ID, Tags: readTags([]byte(row.Tags)), Pinned: row.Pinned, Locked: row.Locked}
 		for _, problemID := range discussionProblemIDs(item) {
 			counts[problemID]++
 		}

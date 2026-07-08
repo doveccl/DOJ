@@ -10,6 +10,7 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 	adminsvc "github.com/doveccl/doj/server/admin"
 	backupsvc "github.com/doveccl/doj/server/backup"
+	"github.com/doveccl/doj/server/web/contract"
 )
 
 type Health struct {
@@ -23,17 +24,45 @@ type Site struct {
 	DefaultSubmissionPublic bool   `json:"defaultSubmissionPublic"`
 }
 
-type Lang LanguageDTO
-type Me MeDTO
-type ProblemRecord RecordDTO
-type Submission SubmissionDTO
-type SubmissionProgress ProgressDTO
-type Case CaseDTO
-type PublicUser PublicUserDTO
-type UserActivity UserActivityDTO
-type UserOption UserOptionDTO
-type Discussion DiscussionDTO
-type Comment CommentDTO
+type Home contract.Home
+type CreatedID contract.CreatedID
+type CountResult contract.CountResult
+type NoticeUpdate contract.NoticeUpdate
+type HeatCell contract.HeatCell
+type Lang contract.Language
+type Me contract.Me
+type MeUpdate contract.MeUpdate
+type PasswordUpdate contract.PasswordUpdate
+type LoginRequest contract.LoginRequest
+type RegisterRequest contract.RegisterRequest
+type ProblemRecord contract.ProblemRecord
+type Submission contract.Submission
+type SubmissionProgress contract.SubmissionProgress
+type Case contract.Case
+type PublicUser contract.PublicUser
+type UserActivity contract.UserActivity
+type UserOption contract.UserOption
+type Discussion contract.Discussion
+type Comment contract.Comment
+type ProblemRef contract.ProblemRef
+type AssignmentCreate contract.AssignmentCreate
+type AssignmentUpdate contract.AssignmentUpdate
+type ContestCreate contract.ContestCreate
+type ContestUpdate contract.ContestUpdate
+type SubmitRequest contract.SubmitRequest
+type SubmissionUpdate contract.SubmissionUpdate
+type DiscussionCreate contract.DiscussionCreate
+type DiscussionUpdate contract.DiscussionUpdate
+type CommentCreate contract.CommentCreate
+type ProblemCreate contract.ProblemCreate
+type ProblemUpdate contract.ProblemUpdate
+type ProblemVisibilityUpdate contract.ProblemVisibilityUpdate
+type ProblemAssets contract.ProblemAssets
+type AssetFile contract.AssetFile
+type AssetContent contract.AssetContent
+type AssetContentUpdate contract.AssetContentUpdate
+type AssetCaseCreate contract.AssetCaseCreate
+type UploadResult contract.UploadResult
 
 type ProblemListItem struct {
 	ID       uint     `json:"id"`
@@ -96,11 +125,11 @@ type AssignmentProgress struct {
 	Problems []AssignmentProblemProgress `json:"problems"`
 }
 
-type AssignmentProblemProgress AssignmentProblemProgressDTO
+type AssignmentProblemProgress contract.AssignmentProblemProgress
 
-type Contest ContestDTO
+type Contest contract.Contest
 
-type RankProblem RankProblemDTO
+type RankProblem contract.RankProblem
 
 type RankUser struct {
 	Rank     int           `json:"rank"`
@@ -134,10 +163,10 @@ type submissionDetail struct {
 }
 
 type userProfile struct {
-	User       PublicUser        `json:"user"`
-	Heatmap    []HeatCell        `json:"heatmap"`
-	Solved     SolvedProblemPage `json:"solved"`
-	Activities []UserActivity    `json:"activities"`
+	User       PublicUser          `json:"user"`
+	Heatmap    []contract.HeatCell `json:"heatmap"`
+	Solved     SolvedProblemPage   `json:"solved"`
+	Activities []UserActivity      `json:"activities"`
 }
 
 type discussionDetail struct {
@@ -146,13 +175,14 @@ type discussionDetail struct {
 	Comments   []Comment  `json:"comments"`
 }
 
-type ProblemListPage PageResult[ProblemListItem]
-type AssignmentListPage PageResult[AssignmentListItem]
-type ContestListPage PageResult[Contest]
-type SubmissionListPage PageResult[SubmissionListItem]
-type RankUserPage PageResult[RankUser]
-type SolvedProblemPage PageResult[SolvedProblem]
-type DiscussionListPage PageResult[Discussion]
+type ProblemListPage contract.Page[ProblemListItem]
+type AssignmentListPage contract.Page[AssignmentListItem]
+type ContestListPage contract.Page[Contest]
+type SubmissionListPage contract.Page[contract.SubmissionListItem]
+type RankUserPage contract.Page[RankUser]
+type SolvedProblem contract.SolvedProblem
+type SolvedProblemPage contract.Page[SolvedProblem]
+type DiscussionListPage contract.Page[Discussion]
 
 type AdminMembers struct {
 	Users  []AdminUser  `json:"users"`

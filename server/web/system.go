@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/doveccl/doj/server/web/contract"
+
 	"github.com/doveccl/doj/models"
 	adminsvc "github.com/doveccl/doj/server/admin"
 	"github.com/doveccl/doj/server/events"
@@ -118,9 +120,9 @@ func (api *API) languages(c echo.Context) error {
 	if err := api.db.Order("id asc").Limit(100).Find(&rows).Error; err != nil {
 		return err
 	}
-	items := make([]LanguageDTO, 0, len(rows))
+	items := make([]contract.Language, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, langDTO(row))
+		items = append(items, langView(row))
 	}
 	return c.JSON(http.StatusOK, items)
 }
@@ -150,7 +152,7 @@ func (api *API) uploadImage(c echo.Context) error {
 	if err := store.Put(c.Request().Context(), key, bytes.NewReader(data), int64(len(data)), mime); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusCreated, UploadResult{URL: "/" + path.Join("api", key)})
+	return c.JSON(http.StatusCreated, contract.UploadResult{URL: "/" + path.Join("api", key)})
 }
 
 func readUploadedImage(file *multipart.FileHeader) ([]byte, string, string, string, error) {
@@ -246,8 +248,8 @@ func requestHostname(host string) string {
 	return strings.Trim(host, "[]")
 }
 
-func langDTO(row models.Language) LanguageDTO {
-	return LanguageDTO{ID: row.ID, Name: row.Name, Source: row.Source}
+func langView(row models.Language) contract.Language {
+	return contract.Language{ID: row.ID, Name: row.Name, Source: row.Source}
 }
 
 func uploadExt(_ string, mime string) string {

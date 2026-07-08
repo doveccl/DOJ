@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/doveccl/doj/server/web/contract"
+
 	"github.com/doveccl/doj/models"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
@@ -21,7 +23,7 @@ func (api *API) problems(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, PageResult[ProblemDTO]{Items: problems, Page: page, PageSize: pageSize, Total: total})
+	return c.JSON(http.StatusOK, contract.Page[contract.Problem]{Items: problems, Page: page, PageSize: pageSize, Total: total})
 }
 
 func (api *API) tags(c echo.Context) error {
@@ -57,14 +59,14 @@ func (api *API) problem(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusNotFound, "problem not found")
 		}
 	}
-	item, err := api.problemDTOWithStatement(c.Request().Context(), problem)
+	item, err := api.problemViewWithStatement(c.Request().Context(), problem)
 	if err != nil {
 		return err
 	}
 	if !api.isAdmin(c) && api.problemInUnfinishedContest(problem.ID) {
 		item.Tags = []string{}
 	}
-	items := []ProblemDTO{item}
+	items := []contract.Problem{item}
 	if err := api.decorateProblemAssetStats(c.Request().Context(), items); err != nil {
 		return err
 	}
@@ -76,7 +78,7 @@ func (api *API) createProblem(c echo.Context) error {
 	if err := api.requireAdmin(c); err != nil {
 		return err
 	}
-	var req ProblemCreate
+	var req contract.ProblemCreate
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -119,7 +121,7 @@ func (api *API) createProblem(c echo.Context) error {
 	if err := api.db.Create(&row).Error; err != nil {
 		return err
 	}
-	return c.JSON(http.StatusCreated, CreatedID{ID: row.ID})
+	return c.JSON(http.StatusCreated, contract.CreatedID{ID: row.ID})
 }
 
 func (api *API) updateProblem(c echo.Context) error {
@@ -130,7 +132,7 @@ func (api *API) updateProblem(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	var req ProblemUpdate
+	var req contract.ProblemUpdate
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -205,7 +207,7 @@ func (api *API) updateProblem(c echo.Context) error {
 			return err
 		}
 	}
-	return c.JSON(http.StatusOK, CreatedID{ID: row.ID})
+	return c.JSON(http.StatusOK, contract.CreatedID{ID: row.ID})
 }
 
 func (api *API) updateProblemVisibility(c echo.Context) error {
@@ -216,7 +218,7 @@ func (api *API) updateProblemVisibility(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	var req ProblemVisibilityUpdate
+	var req contract.ProblemVisibilityUpdate
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -232,7 +234,7 @@ func (api *API) updateProblemVisibility(c echo.Context) error {
 	if err := api.db.Save(&row).Error; err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, problemDTO(row))
+	return c.JSON(http.StatusOK, problemView(row))
 }
 
 func (api *API) deleteProblem(c echo.Context) error {
@@ -280,7 +282,7 @@ func problemSort(index int) string {
 	return strconv.Itoa(index + 1)
 }
 
-func normalizeProblemRefs(items []ProblemRef) []ProblemRef {
+func normalizeProblemRefs(items []contract.ProblemRef) []contract.ProblemRef {
 	for index := range items {
 		items[index].Sort = strings.TrimSpace(items[index].Sort)
 		if items[index].Sort == "" {
@@ -290,7 +292,7 @@ func normalizeProblemRefs(items []ProblemRef) []ProblemRef {
 	return items
 }
 
-func (api *API) validateProblemRefs(items []ProblemRef) error {
+func (api *API) validateProblemRefs(items []contract.ProblemRef) error {
 	if len(items) == 0 {
 		return nil
 	}

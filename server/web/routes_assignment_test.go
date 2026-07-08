@@ -1,13 +1,15 @@
 package web
 
 import (
-	"github.com/doveccl/doj/models"
-	"github.com/labstack/echo/v4"
-	"gorm.io/datatypes"
 	"net/http"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/doveccl/doj/models"
+	"github.com/doveccl/doj/server/web/contract"
+	"github.com/labstack/echo/v4"
+	"gorm.io/datatypes"
 )
 
 func TestAssignmentMembershipCreateUpdateAndVisibility(t *testing.T) {
@@ -41,12 +43,12 @@ func TestAssignmentMembershipCreateUpdateAndVisibility(t *testing.T) {
 	if createRes.Code != http.StatusCreated {
 		t.Fatalf("create assignment got %d body=%s", createRes.Code, createRes.Body.String())
 	}
-	created := decodeJSON[CreatedID](t, createRes)
-	createdDetail := decodeJSON[AssignmentDetail](t, requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(created.ID), 10), adminCookies, nil))
+	created := decodeJSON[contract.CreatedID](t, createRes)
+	createdDetail := decodeJSON[contract.AssignmentDetail](t, requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(created.ID), 10), adminCookies, nil))
 	if len(createdDetail.Assignment.Groups) != 1 || createdDetail.Assignment.Groups[0] != group.ID || len(createdDetail.Assignment.Users) != 0 {
 		t.Fatalf("created assignment members not persisted: %+v", createdDetail.Assignment)
 	}
-	adminList := decodeJSON[PageResult[map[string]any]](t, requestWithCookies(e, http.MethodGet, "/api/assignments", adminCookies, nil)).Items
+	adminList := decodeJSON[contract.Page[map[string]any]](t, requestWithCookies(e, http.MethodGet, "/api/assignments", adminCookies, nil)).Items
 	if len(adminList) != 1 {
 		t.Fatalf("admin assignment list got %+v", adminList)
 	}
@@ -71,11 +73,11 @@ func TestAssignmentMembershipCreateUpdateAndVisibility(t *testing.T) {
 	if updateRes.Code != http.StatusOK {
 		t.Fatalf("update assignment got %d body=%s", updateRes.Code, updateRes.Body.String())
 	}
-	updated := decodeJSON[CreatedID](t, updateRes)
+	updated := decodeJSON[contract.CreatedID](t, updateRes)
 	if updated.ID != created.ID {
 		t.Fatalf("updated assignment should return id: %+v", updated)
 	}
-	updatedDetail := decodeJSON[AssignmentDetail](t, requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(created.ID), 10), adminCookies, nil))
+	updatedDetail := decodeJSON[contract.AssignmentDetail](t, requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(created.ID), 10), adminCookies, nil))
 	if len(updatedDetail.Assignment.Users) != 1 || updatedDetail.Assignment.Users[0] != bob.ID || len(updatedDetail.Assignment.Groups) != 0 {
 		t.Fatalf("updated assignment members not persisted: %+v", updatedDetail.Assignment)
 	}

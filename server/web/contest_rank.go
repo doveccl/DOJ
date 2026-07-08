@@ -4,10 +4,12 @@ import (
 	"sort"
 	"time"
 
+	"github.com/doveccl/doj/server/web/contract"
+
 	"github.com/doveccl/doj/models"
 )
 
-func (api *API) contestRank(contest models.Contest, problems []ProblemDTO, includeHidden bool, until *time.Time) ([]RankUserDTO, error) {
+func (api *API) contestRank(contest models.Contest, problems []contract.Problem, includeHidden bool, until *time.Time) ([]contract.RankUser, error) {
 	var rows []models.Submission
 	query := api.db.
 		Joins("JOIN users ON users.id = submissions.user_id AND users.deleted_at IS NULL").
@@ -53,7 +55,7 @@ func (api *API) rankUsers(submissions []models.Submission) (map[uint]models.User
 	return users, nil
 }
 
-func oiRank(submissions []models.Submission, users map[uint]models.User, problems []ProblemDTO) []RankUserDTO {
+func oiRank(submissions []models.Submission, users map[uint]models.User, problems []contract.Problem) []contract.RankUser {
 	type state struct {
 		user    models.User
 		submit  int
@@ -79,11 +81,11 @@ func oiRank(submissions []models.Submission, users map[uint]models.User, problem
 		got.attempt[row.ProblemID]++
 		got.score[row.ProblemID] = row.Score
 	}
-	items := make([]RankUserDTO, 0, len(states))
+	items := make([]contract.RankUser, 0, len(states))
 	for _, got := range states {
 		score := 0
 		ac := 0
-		problemItems := make([]RankProblemDTO, 0, len(problems))
+		problemItems := make([]contract.RankProblem, 0, len(problems))
 		for _, problem := range problems {
 			value := got.score[problem.ID]
 			submit := got.attempt[problem.ID]
@@ -96,9 +98,9 @@ func oiRank(submissions []models.Submission, users map[uint]models.User, problem
 				ac++
 			}
 			score += value
-			problemItems = append(problemItems, RankProblemDTO{ProblemID: problem.ID, Status: status, Submit: submit, Score: value})
+			problemItems = append(problemItems, contract.RankProblem{ProblemID: problem.ID, Status: status, Submit: submit, Score: value})
 		}
-		items = append(items, RankUserDTO{User: got.user.Name, Bio: got.user.Bio, Avatar: got.user.Avatar, AC: ac, Submit: got.submit, Score: score, Problems: problemItems})
+		items = append(items, contract.RankUser{User: got.user.Name, Bio: got.user.Bio, Avatar: got.user.Avatar, AC: ac, Submit: got.submit, Score: score, Problems: problemItems})
 	}
 	sort.Slice(items, func(i, j int) bool {
 		if items[i].Score != items[j].Score {
@@ -112,7 +114,7 @@ func oiRank(submissions []models.Submission, users map[uint]models.User, problem
 	return items
 }
 
-func icpcRank(contest models.Contest, submissions []models.Submission, users map[uint]models.User, problems []ProblemDTO, freezeAt *time.Time) []RankUserDTO {
+func icpcRank(contest models.Contest, submissions []models.Submission, users map[uint]models.User, problems []contract.Problem, freezeAt *time.Time) []contract.RankUser {
 	type problemState struct {
 		wrong   int
 		submit  int
@@ -167,11 +169,11 @@ func icpcRank(contest models.Contest, submissions []models.Submission, users map
 			problem.wrong++
 		}
 	}
-	items := make([]RankUserDTO, 0, len(states))
+	items := make([]contract.RankUser, 0, len(states))
 	for _, got := range states {
 		ac := 0
 		penalty := 0
-		problemItems := make([]RankProblemDTO, 0, len(problems))
+		problemItems := make([]contract.RankProblem, 0, len(problems))
 		for _, contestProblem := range problems {
 			problem := got.problems[contestProblem.ID]
 			status := "none"
@@ -192,9 +194,9 @@ func icpcRank(contest models.Contest, submissions []models.Submission, users map
 					status = "tried"
 				}
 			}
-			problemItems = append(problemItems, RankProblemDTO{ProblemID: contestProblem.ID, Status: status, Submit: submit, Score: boolScore(status == "ac"), Penalty: problemPenalty})
+			problemItems = append(problemItems, contract.RankProblem{ProblemID: contestProblem.ID, Status: status, Submit: submit, Score: boolScore(status == "ac"), Penalty: problemPenalty})
 		}
-		items = append(items, RankUserDTO{User: got.user.Name, Bio: got.user.Bio, Avatar: got.user.Avatar, AC: ac, Submit: got.submit, Score: ac, Penalty: penalty, Problems: problemItems})
+		items = append(items, contract.RankUser{User: got.user.Name, Bio: got.user.Bio, Avatar: got.user.Avatar, AC: ac, Submit: got.submit, Score: ac, Penalty: penalty, Problems: problemItems})
 	}
 	sort.Slice(items, func(i, j int) bool {
 		if items[i].AC != items[j].AC {
@@ -214,7 +216,7 @@ func icpcRank(contest models.Contest, submissions []models.Submission, users map
 	return items
 }
 
-func rankProblemSet(problems []ProblemDTO) map[uint]bool {
+func rankProblemSet(problems []contract.Problem) map[uint]bool {
 	items := make(map[uint]bool, len(problems))
 	for _, problem := range problems {
 		items[problem.ID] = true

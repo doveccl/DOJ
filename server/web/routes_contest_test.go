@@ -1,13 +1,15 @@
 package web
 
 import (
-	"github.com/doveccl/doj/models"
-	"github.com/labstack/echo/v4"
-	"gorm.io/datatypes"
 	"net/http"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/doveccl/doj/models"
+	"github.com/doveccl/doj/server/web/contract"
+	"github.com/labstack/echo/v4"
+	"gorm.io/datatypes"
 )
 
 func TestDatabaseContestRankUsesContextSubmissions(t *testing.T) {
@@ -64,19 +66,19 @@ func TestDatabaseContestRankUsesContextSubmissions(t *testing.T) {
 	e := echo.New()
 	Register(e, db)
 
-	guest := decodeJSON[ContestDetail](t, requestOK(t, e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), ""))
+	guest := decodeJSON[contract.ContestDetail](t, requestOK(t, e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), ""))
 	if len(guest.Rank) != 0 {
 		t.Fatalf("OI running contest should hide rank from non-admin users: %+v", guest.Rank)
 	}
 	if !hasProblem(guest.Problems, hidden.ID) {
 		t.Fatalf("OI running contest should still expose linked problems: %+v", guest.Problems)
 	}
-	aliceDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), databaseSession(t, db, alice.ID), nil))
+	aliceDetail := decodeJSON[contract.ContestDetail](t, requestWithCookies(e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), databaseSession(t, db, alice.ID), nil))
 	if len(aliceDetail.Rank) != 0 {
 		t.Fatalf("OI running contest should hide rank from signed-in users: %+v", aliceDetail.Rank)
 	}
 
-	adminDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), databaseSession(t, db, admin.ID), nil))
+	adminDetail := decodeJSON[contract.ContestDetail](t, requestWithCookies(e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), databaseSession(t, db, admin.ID), nil))
 	aliceAdmin, ok := rankByUser(adminDetail.Rank, "alice")
 	if !ok || aliceAdmin.AC != 1 || aliceAdmin.Score != 100 || aliceAdmin.Submit != 3 {
 		t.Fatalf("admin OI rank should use last score and include hidden contest submissions: %+v", adminDetail.Rank)
@@ -115,7 +117,7 @@ func TestContestProblemVisibilityIsDerivedFromContestTime(t *testing.T) {
 	e := echo.New()
 	Register(e, db)
 
-	guestList := decodePageItems[ProblemDTO](t, requestOK(t, e, http.MethodGet, "/api/problems", ""))
+	guestList := decodePageItems[contract.Problem](t, requestOK(t, e, http.MethodGet, "/api/problems", ""))
 	if hasProblem(guestList, problem.ID) {
 		t.Fatalf("upcoming contest problem leaked in problem list: %+v", guestList)
 	}
@@ -134,23 +136,23 @@ func TestContestProblemVisibilityIsDerivedFromContestTime(t *testing.T) {
 	if err := db.Model(&problem).Update("visible", false).Error; err != nil {
 		t.Fatalf("hide problem: %v", err)
 	}
-	guestList = decodePageItems[ProblemDTO](t, requestOK(t, e, http.MethodGet, "/api/problems", ""))
+	guestList = decodePageItems[contract.Problem](t, requestOK(t, e, http.MethodGet, "/api/problems", ""))
 	if hasProblem(guestList, problem.ID) {
 		t.Fatalf("running contest problem leaked in problem list: %+v", guestList)
 	}
 	if res := request(e, http.MethodGet, "/api/problems/1000", "", nil); res.Code != http.StatusOK {
 		t.Fatalf("running contest problem detail should be visible, got %d body=%s", res.Code, res.Body.String())
 	} else {
-		got := decodeJSON[ProblemDTO](t, res)
+		got := decodeJSON[contract.Problem](t, res)
 		if len(got.Tags) != 0 {
 			t.Fatalf("running contest problem detail should hide tags: %+v", got)
 		}
 	}
-	state := decodeJSON[[]ProblemStateDTO](t, requestOK(t, e, http.MethodGet, "/api/problem-state?ids=1000", ""))
+	state := decodeJSON[[]contract.ProblemState](t, requestOK(t, e, http.MethodGet, "/api/problem-state?ids=1000", ""))
 	if len(state) != 1 || state[0].AC != 0 || state[0].Submit != 0 || state[0].Discussions != nil {
 		t.Fatalf("running contest problem state should hide stats and discussions: %+v", state)
 	}
-	contestDetail := decodeJSON[ContestDetail](t, requestOK(t, e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), ""))
+	contestDetail := decodeJSON[contract.ContestDetail](t, requestOK(t, e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), ""))
 	if !hasProblem(contestDetail.Problems, problem.ID) {
 		t.Fatalf("running contest detail should include linked problem: %+v", contestDetail.Problems)
 	}
@@ -214,7 +216,7 @@ func TestContestFreezeHidesLateResultsFromNonAdmin(t *testing.T) {
 	e := echo.New()
 	Register(e, db)
 	target := "/api/contests/" + strconv.FormatUint(uint64(contest.ID), 10)
-	guest := decodeJSON[ContestDetail](t, requestOK(t, e, http.MethodGet, target, ""))
+	guest := decodeJSON[contract.ContestDetail](t, requestOK(t, e, http.MethodGet, target, ""))
 	if guest.Contest.Status != "frozen" {
 		t.Fatalf("contest status should be frozen: %+v", guest.Contest)
 	}
@@ -230,37 +232,37 @@ func TestContestFreezeHidesLateResultsFromNonAdmin(t *testing.T) {
 		t.Fatalf("guest rank should show bob post-freeze submit as pending: %+v", bobGuest.Problems)
 	}
 
-	aliceDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, alice.ID), nil))
+	aliceDetail := decodeJSON[contract.ContestDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, alice.ID), nil))
 	if len(aliceDetail.Rank) != 2 || aliceDetail.Rank[0].User != "alice" || aliceDetail.Rank[0].AC != 1 {
 		t.Fatalf("alice rank should score pre-freeze submissions and keep pending rows: %+v", aliceDetail.Rank)
 	}
-	aliceRecords := decodeJSON[[]ProblemStateDTO](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?contest="+strconv.FormatUint(uint64(contest.ID), 10)+"&ids=1000", databaseSession(t, db, alice.ID), nil))
+	aliceRecords := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?contest="+strconv.FormatUint(uint64(contest.ID), 10)+"&ids=1000", databaseSession(t, db, alice.ID), nil))
 	if len(aliceRecords) != 1 || aliceRecords[0].Status != "ac" || aliceRecords[0].Submission == nil || aliceRecords[0].Submission.ID != before.ID {
 		t.Fatalf("ICPC problem status should link first AC, not later WA: %+v", aliceRecords)
 	}
 
-	bobDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, bob.ID), nil))
+	bobDetail := decodeJSON[contract.ContestDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, bob.ID), nil))
 	if len(bobDetail.Rank) != 2 || bobDetail.Rank[0].User != "alice" {
 		t.Fatalf("bob rank should not score his post-freeze accepted submission: %+v", bobDetail.Rank)
 	}
 
-	adminDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, admin.ID), nil))
+	adminDetail := decodeJSON[contract.ContestDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, admin.ID), nil))
 	if _, ok := rankByUser(adminDetail.Rank, "bob"); !ok {
 		t.Fatalf("admin rank should include post-freeze submitter: %+v", adminDetail.Rank)
 	}
-	otherView := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, "/api/submissions/"+strconv.FormatUint(uint64(bobAfter.ID), 10), databaseSession(t, db, alice.ID), nil))
+	otherView := decodeJSON[contract.SubmissionDetail](t, requestWithCookies(e, http.MethodGet, "/api/submissions/"+strconv.FormatUint(uint64(bobAfter.ID), 10), databaseSession(t, db, alice.ID), nil))
 	if otherView.Submission.Status != "pending" || otherView.Submission.Score != 0 || otherView.Code != "" || len(otherView.Cases) != 0 || otherView.Progress != nil {
 		t.Fatalf("post-freeze result should be hidden from other users: %+v", otherView)
 	}
-	ownerView := decodeJSON[SubmissionDetail](t, requestWithCookies(e, http.MethodGet, "/api/submissions/"+strconv.FormatUint(uint64(bobAfter.ID), 10), databaseSession(t, db, bob.ID), nil))
+	ownerView := decodeJSON[contract.SubmissionDetail](t, requestWithCookies(e, http.MethodGet, "/api/submissions/"+strconv.FormatUint(uint64(bobAfter.ID), 10), databaseSession(t, db, bob.ID), nil))
 	if ownerView.Submission.Status != "AC" || ownerView.Submission.Score != 100 || ownerView.Code != "bob after" {
 		t.Fatalf("post-freeze result should be visible to owner: %+v", ownerView)
 	}
-	aliceList := decodeJSON[PageResult[SubmissionListItem]](t, requestWithCookies(e, http.MethodGet, "/api/submissions?contest="+strconv.FormatUint(uint64(contest.ID), 10), databaseSession(t, db, alice.ID), nil))
+	aliceList := decodeJSON[contract.Page[contract.SubmissionListItem]](t, requestWithCookies(e, http.MethodGet, "/api/submissions?contest="+strconv.FormatUint(uint64(contest.ID), 10), databaseSession(t, db, alice.ID), nil))
 	if len(aliceList.Items) != 3 || aliceList.Items[0].ID != bobAfter.ID || aliceList.Items[0].Status != "pending" || aliceList.Items[1].ID != aliceAfter.ID || aliceList.Items[1].Status != "WA" {
 		t.Fatalf("contest submission list should keep rows but hide only non-owner post-freeze results: %+v", aliceList.Items)
 	}
-	bobList := decodeJSON[PageResult[SubmissionListItem]](t, requestWithCookies(e, http.MethodGet, "/api/submissions?contest="+strconv.FormatUint(uint64(contest.ID), 10), databaseSession(t, db, bob.ID), nil))
+	bobList := decodeJSON[contract.Page[contract.SubmissionListItem]](t, requestWithCookies(e, http.MethodGet, "/api/submissions?contest="+strconv.FormatUint(uint64(contest.ID), 10), databaseSession(t, db, bob.ID), nil))
 	if len(bobList.Items) != 3 || bobList.Items[0].ID != bobAfter.ID || bobList.Items[0].Status != "AC" || bobList.Items[1].ID != aliceAfter.ID || bobList.Items[1].Status != "pending" {
 		t.Fatalf("contest submission list should expose owner post-freeze result only to owner: %+v", bobList.Items)
 	}
@@ -303,7 +305,7 @@ func TestContestOIIgnoresFreezeAndUsesLastScoreAfterEnd(t *testing.T) {
 	e := echo.New()
 	Register(e, db)
 	target := "/api/contests/" + strconv.FormatUint(uint64(contest.ID), 10)
-	guest := decodeJSON[ContestDetail](t, requestOK(t, e, http.MethodGet, target, ""))
+	guest := decodeJSON[contract.ContestDetail](t, requestOK(t, e, http.MethodGet, target, ""))
 	if guest.Contest.Status == "frozen" {
 		t.Fatalf("OI should ignore freeze status: %+v", guest.Contest)
 	}
@@ -324,8 +326,8 @@ func TestContestOIIgnoresFreezeAndUsesLastScoreAfterEnd(t *testing.T) {
 	if res.Code != http.StatusCreated {
 		t.Fatalf("create OI with freeze got %d body=%s", res.Code, res.Body.String())
 	}
-	created := decodeJSON[CreatedID](t, res)
-	createdDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(created.ID), 10), databaseSession(t, db, admin.ID), nil))
+	created := decodeJSON[contract.CreatedID](t, res)
+	createdDetail := decodeJSON[contract.ContestDetail](t, requestWithCookies(e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(created.ID), 10), databaseSession(t, db, admin.ID), nil))
 	if createdDetail.Contest.FreezeAt != nil {
 		t.Fatalf("OI create should ignore freezeAt: %+v", createdDetail.Contest)
 	}
@@ -378,7 +380,7 @@ func TestContestICPCRankUsesPenalty(t *testing.T) {
 
 	e := echo.New()
 	Register(e, db)
-	detail := decodeJSON[ContestDetail](t, requestOK(t, e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), ""))
+	detail := decodeJSON[contract.ContestDetail](t, requestOK(t, e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), ""))
 	if len(detail.Rank) != 2 {
 		t.Fatalf("rank size = %+v", detail.Rank)
 	}
@@ -396,11 +398,11 @@ func TestContestICPCRankUsesPenalty(t *testing.T) {
 	if !ok || aliceProblem.Status != "ac" || aliceProblem.Penalty != 30 || aliceProblem.Submit != 2 {
 		t.Fatalf("alice ICPC rank should expose wrong-before-AC count: %+v", detail.Rank[1].Problems)
 	}
-	aliceDetail := decodeJSON[ContestDetail](t, requestWithCookies(e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), databaseSession(t, db, alice.ID), nil))
+	aliceDetail := decodeJSON[contract.ContestDetail](t, requestWithCookies(e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), databaseSession(t, db, alice.ID), nil))
 	if len(aliceDetail.Problems) != 2 {
 		t.Fatalf("contest problems = %+v", aliceDetail.Problems)
 	}
-	records := decodeJSON[[]ProblemStateDTO](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?contest="+strconv.FormatUint(uint64(contest.ID), 10)+"&ids=1000,1001", databaseSession(t, db, alice.ID), nil))
+	records := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?contest="+strconv.FormatUint(uint64(contest.ID), 10)+"&ids=1000,1001", databaseSession(t, db, alice.ID), nil))
 	if len(records) != 2 || records[0].Status != "ac" || records[1].Status != "none" {
 		t.Fatalf("contest problem state should use contest submissions only: %+v", records)
 	}

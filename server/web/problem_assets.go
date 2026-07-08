@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/doveccl/doj/server/web/contract"
+
 	"github.com/doveccl/doj/models"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
@@ -51,7 +53,7 @@ func (api *API) uploadProblemImage(c echo.Context) error {
 	if err := store.Put(c.Request().Context(), key, bytes.NewReader(data), int64(len(data)), mime); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusCreated, UploadResult{URL: fmt.Sprintf("/api/problems/%d/assets/%s", id, rel)})
+	return c.JSON(http.StatusCreated, contract.UploadResult{URL: fmt.Sprintf("/api/problems/%d/assets/%s", id, rel)})
 }
 
 func (api *API) problemPrivateData(c echo.Context) error {
@@ -188,7 +190,7 @@ func (api *API) problemAssetContent(c echo.Context) error {
 	if len(data) > maxEditableAssetBytes {
 		return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "asset is too large to edit")
 	}
-	return c.JSON(http.StatusOK, AssetContent{Key: key, Name: path.Base(key), Content: string(data)})
+	return c.JSON(http.StatusOK, contract.AssetContent{Key: key, Name: path.Base(key), Content: string(data)})
 }
 
 func (api *API) updateProblemAssetContent(c echo.Context) error {
@@ -196,7 +198,7 @@ func (api *API) updateProblemAssetContent(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	var req AssetContentUpdate
+	var req contract.AssetContentUpdate
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -227,7 +229,7 @@ func (api *API) createProblemCase(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	var req AssetCaseCreate
+	var req contract.AssetCaseCreate
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -332,7 +334,7 @@ func (api *API) downloadProblemAssets(c echo.Context) error {
 	return nil
 }
 
-func (api *API) decorateProblemAssetStats(ctx context.Context, items []ProblemDTO) error {
+func (api *API) decorateProblemAssetStats(ctx context.Context, items []contract.Problem) error {
 	if len(items) == 0 {
 		return nil
 	}

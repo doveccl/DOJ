@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/doveccl/doj/server/web/contract"
+
 	"github.com/doveccl/doj/models"
 	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
@@ -24,9 +26,9 @@ func (api *API) users(c echo.Context) error {
 	if err := query.Find(&rows).Error; err != nil {
 		return err
 	}
-	items := make([]UserOptionDTO, 0, len(rows))
+	items := make([]contract.UserOption, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, UserOptionDTO{ID: row.ID, Name: row.Name})
+		items = append(items, contract.UserOption{ID: row.ID, Name: row.Name})
 	}
 	return c.JSON(http.StatusOK, items)
 }
@@ -66,8 +68,8 @@ func (api *API) user(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, UserProfile{
-		User:       PublicUserDTO{Name: row.Name, Bio: row.Bio, Avatar: row.Avatar, Admin: row.Admin, AC: ac, Submit: submit},
+	return c.JSON(http.StatusOK, contract.UserProfile{
+		User:       contract.PublicUser{Name: row.Name, Bio: row.Bio, Avatar: row.Avatar, Admin: row.Admin, AC: ac, Submit: submit},
 		Heatmap:    heatmap,
 		Solved:     solved,
 		Activities: activities,
@@ -163,12 +165,12 @@ func (api *API) userSubmissions(userID uint, includeHidden bool) ([]models.Submi
 	return rows, nil
 }
 
-func (api *API) userActivities(c echo.Context, userID uint, includeHidden bool) ([]UserActivityDTO, error) {
+func (api *API) userActivities(c echo.Context, userID uint, includeHidden bool) ([]contract.UserActivity, error) {
 	submissions, err := api.userSubmissions(userID, includeHidden)
 	if err != nil {
 		return nil, err
 	}
-	items := make([]UserActivityDTO, 0, len(submissions)+userActivityLimit)
+	items := make([]contract.UserActivity, 0, len(submissions)+userActivityLimit)
 	problemIDs := make([]uint, 0, len(submissions))
 	for _, submission := range submissions {
 		problemIDs = append(problemIDs, submission.ProblemID)
@@ -190,7 +192,7 @@ func (api *API) userActivities(c echo.Context, userID uint, includeHidden bool) 
 		if !view.Result {
 			status = "pending"
 		}
-		items = append(items, UserActivityDTO{
+		items = append(items, contract.UserActivity{
 			Type:         "submission",
 			ID:           submission.ID,
 			Title:        title,
@@ -206,7 +208,7 @@ func (api *API) userActivities(c echo.Context, userID uint, includeHidden bool) 
 		return nil, err
 	}
 	for _, row := range discussions {
-		items = append(items, UserActivityDTO{
+		items = append(items, contract.UserActivity{
 			Type:      "discussion",
 			ID:        row.ID,
 			Title:     row.Title,
@@ -222,7 +224,7 @@ func (api *API) userActivities(c echo.Context, userID uint, includeHidden bool) 
 	return items, nil
 }
 
-func (api *API) solvedProblems(userID uint, includeHidden bool, page int, pageSize int, offset int) (PageResult[SolvedProblem], error) {
+func (api *API) solvedProblems(userID uint, includeHidden bool, page int, pageSize int, offset int) (contract.Page[contract.SolvedProblem], error) {
 	base := api.db.Model(&models.Submission{}).
 		Where("submissions.user_id = ? AND submissions.status = ?", userID, "AC").
 		Distinct("submissions.problem_id")
@@ -232,10 +234,10 @@ func (api *API) solvedProblems(userID uint, includeHidden bool, page int, pageSi
 	}
 	var total int64
 	if err := base.Session(&gorm.Session{}).Count(&total).Error; err != nil {
-		return PageResult[SolvedProblem]{}, err
+		return contract.Page[contract.SolvedProblem]{}, err
 	}
 	if total == 0 {
-		return PageResult[SolvedProblem]{Items: []SolvedProblem{}, Page: page, PageSize: pageSize, Total: 0}, nil
+		return contract.Page[contract.SolvedProblem]{Items: []contract.SolvedProblem{}, Page: page, PageSize: pageSize, Total: 0}, nil
 	}
 
 	var rows []struct {
@@ -253,14 +255,14 @@ func (api *API) solvedProblems(userID uint, includeHidden bool, page int, pageSi
 		query = api.applyProblemListVisibility(query)
 	}
 	if err := query.Find(&rows).Error; err != nil {
-		return PageResult[SolvedProblem]{}, err
+		return contract.Page[contract.SolvedProblem]{}, err
 	}
 	problemIDs := make([]uint, 0, len(rows))
 	for _, row := range rows {
 		problemIDs = append(problemIDs, row.ProblemID)
 	}
 	if len(problemIDs) == 0 {
-		return PageResult[SolvedProblem]{Items: []SolvedProblem{}, Page: page, PageSize: pageSize, Total: total}, nil
+		return contract.Page[contract.SolvedProblem]{Items: []contract.SolvedProblem{}, Page: page, PageSize: pageSize, Total: total}, nil
 	}
 	problemQuery := api.db.Model(&models.Problem{}).Select("id", "title", "tags").Where("id IN ?", problemIDs)
 	if !includeHidden {
@@ -268,25 +270,25 @@ func (api *API) solvedProblems(userID uint, includeHidden bool, page int, pageSi
 	}
 	var problems []models.Problem
 	if err := problemQuery.Find(&problems).Error; err != nil {
-		return PageResult[SolvedProblem]{}, err
+		return contract.Page[contract.SolvedProblem]{}, err
 	}
 	byID := problemRowsByID(problems)
-	items := make([]SolvedProblem, 0, len(problemIDs))
+	items := make([]contract.SolvedProblem, 0, len(problemIDs))
 	for _, id := range problemIDs {
 		problem, ok := byID[id]
 		if !ok {
 			continue
 		}
-		items = append(items, SolvedProblem{
+		items = append(items, contract.SolvedProblem{
 			ID:    problem.ID,
 			Title: problem.Title,
 			Tags:  readTags([]byte(problem.Tags)),
 		})
 	}
-	return PageResult[SolvedProblem]{Items: items, Page: page, PageSize: pageSize, Total: total}, nil
+	return contract.Page[contract.SolvedProblem]{Items: items, Page: page, PageSize: pageSize, Total: total}, nil
 }
 
-func (api *API) userHeatmap(userID uint) ([]HeatCell, error) {
+func (api *API) userHeatmap(userID uint) ([]contract.HeatCell, error) {
 	since := time.Now().AddDate(-1, 0, 0)
 	var rows []models.Submission
 	query := api.db.Select("created_at").Where("submissions.user_id = ? AND submissions.created_at >= ?", userID, since)

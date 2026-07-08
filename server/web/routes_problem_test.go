@@ -2,15 +2,17 @@ package web
 
 import (
 	"encoding/json"
-	"github.com/doveccl/doj/models"
-	"github.com/labstack/echo/v4"
-	"gorm.io/datatypes"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"testing"
+
+	"github.com/doveccl/doj/models"
+	"github.com/doveccl/doj/server/web/contract"
+	"github.com/labstack/echo/v4"
+	"gorm.io/datatypes"
 )
 
 func TestProblemVisibilityUpdateDoesNotTouchStatementStorage(t *testing.T) {
@@ -43,7 +45,7 @@ func TestProblemVisibilityUpdateDoesNotTouchStatementStorage(t *testing.T) {
 	if res.Code != http.StatusOK {
 		t.Fatalf("visibility update got %d body=%s", res.Code, res.Body.String())
 	}
-	updated := decodeJSON[ProblemDTO](t, res)
+	updated := decodeJSON[contract.Problem](t, res)
 	if updated.Visible {
 		t.Fatalf("problem should be hidden after visibility update: %+v", updated)
 	}
@@ -71,17 +73,17 @@ func TestProblemPatchOnlyUpdatesProvidedFields(t *testing.T) {
 	statementBody := `{"statement":` + strconv.Quote(statement) + `}`
 	if res := requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000", cookies, statementBody); res.Code != http.StatusOK {
 		t.Fatalf("statement patch got %d body=%s", res.Code, res.Body.String())
-	} else if got := decodeJSON[CreatedID](t, res); got.ID != problem.ID {
+	} else if got := decodeJSON[contract.CreatedID](t, res); got.ID != problem.ID {
 		t.Fatalf("statement patch should return problem id: %+v", got)
 	}
 	res := requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000", cookies, `{"mode":"strict"}`)
 	if res.Code != http.StatusOK {
 		t.Fatalf("mode patch got %d body=%s", res.Code, res.Body.String())
 	}
-	if got := decodeJSON[CreatedID](t, res); got.ID != problem.ID {
+	if got := decodeJSON[contract.CreatedID](t, res); got.ID != problem.ID {
 		t.Fatalf("mode patch should return problem id: %+v", got)
 	}
-	updated := decodeJSON[ProblemDTO](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil))
+	updated := decodeJSON[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil))
 	if updated.Mode != "strict" || updated.Title != "Original" || updated.Statement != statement || !updated.Visible || updated.TimeMS != 2000 || updated.MemoryMB != 512 {
 		t.Fatalf("mode patch should preserve unrelated problem fields: %+v", updated)
 	}
@@ -89,10 +91,10 @@ func TestProblemPatchOnlyUpdatesProvidedFields(t *testing.T) {
 	if res.Code != http.StatusOK {
 		t.Fatalf("visible false patch got %d body=%s", res.Code, res.Body.String())
 	}
-	if got := decodeJSON[CreatedID](t, res); got.ID != problem.ID {
+	if got := decodeJSON[contract.CreatedID](t, res); got.ID != problem.ID {
 		t.Fatalf("visible patch should return problem id: %+v", got)
 	}
-	updated = decodeJSON[ProblemDTO](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil))
+	updated = decodeJSON[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil))
 	if updated.Visible || updated.Mode != "strict" || updated.Title != "Original" || updated.Statement != statement {
 		t.Fatalf("visible false patch should apply false and preserve unrelated fields: %+v", updated)
 	}
@@ -100,10 +102,10 @@ func TestProblemPatchOnlyUpdatesProvidedFields(t *testing.T) {
 	if res.Code != http.StatusOK {
 		t.Fatalf("empty tags patch got %d body=%s", res.Code, res.Body.String())
 	}
-	if got := decodeJSON[CreatedID](t, res); got.ID != problem.ID {
+	if got := decodeJSON[contract.CreatedID](t, res); got.ID != problem.ID {
 		t.Fatalf("tags patch should return problem id: %+v", got)
 	}
-	updated = decodeJSON[ProblemDTO](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil))
+	updated = decodeJSON[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil))
 	if len(updated.Tags) != 0 || updated.Visible || updated.Mode != "strict" || updated.Statement != statement {
 		t.Fatalf("empty tags patch should clear tags and preserve unrelated fields: %+v", updated)
 	}
@@ -111,10 +113,10 @@ func TestProblemPatchOnlyUpdatesProvidedFields(t *testing.T) {
 	if res.Code != http.StatusOK {
 		t.Fatalf("zero limit patch got %d body=%s", res.Code, res.Body.String())
 	}
-	if got := decodeJSON[CreatedID](t, res); got.ID != problem.ID {
+	if got := decodeJSON[contract.CreatedID](t, res); got.ID != problem.ID {
 		t.Fatalf("limit patch should return problem id: %+v", got)
 	}
-	updated = decodeJSON[ProblemDTO](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil))
+	updated = decodeJSON[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil))
 	if updated.TimeMS != 1000 || updated.MemoryMB != 256 || updated.Mode != "strict" || updated.Statement != statement {
 		t.Fatalf("zero limit patch should use defaults and preserve unrelated fields: %+v", updated)
 	}
@@ -139,12 +141,12 @@ func TestProblemCreateDefaultsVisibleAndListSortsByID(t *testing.T) {
 	e := echo.New()
 	Register(e, db)
 	cookies := databaseSession(t, db, admin.ID)
-	created := decodeJSON[CreatedID](t, requestJSONWithCookies(e, http.MethodPost, "/api/problems", cookies, `{"title":"Created","tags":[],"mode":"default","timeMs":1000,"memoryMb":256}`))
-	createdDetail := decodeJSON[ProblemDTO](t, requestWithCookies(e, http.MethodGet, "/api/problems/"+strconv.FormatUint(uint64(created.ID), 10), cookies, nil))
+	created := decodeJSON[contract.CreatedID](t, requestJSONWithCookies(e, http.MethodPost, "/api/problems", cookies, `{"title":"Created","tags":[],"mode":"default","timeMs":1000,"memoryMb":256}`))
+	createdDetail := decodeJSON[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems/"+strconv.FormatUint(uint64(created.ID), 10), cookies, nil))
 	if !createdDetail.Visible {
 		t.Fatalf("created problem should default to visible: %+v", createdDetail)
 	}
-	items := decodePageItems[ProblemDTO](t, requestWithCookies(e, http.MethodGet, "/api/problems", cookies, nil))
+	items := decodePageItems[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems", cookies, nil))
 	if len(items) < 3 {
 		t.Fatalf("problem list too short: %+v", items)
 	}
@@ -170,7 +172,7 @@ func TestProblemListDoesNotTouchAssetStorage(t *testing.T) {
 	e := echo.New()
 	Register(e, db)
 	res := requestOK(t, e, http.MethodGet, "/api/problems", "")
-	items := decodePageItems[ProblemDTO](t, res)
+	items := decodePageItems[contract.Problem](t, res)
 	if len(items) != 1 || items[0].ID != problem.ID {
 		t.Fatalf("problem list got %+v, want P%d", items, problem.ID)
 	}
@@ -196,7 +198,7 @@ func TestProblemListSearchesByCode(t *testing.T) {
 	Register(e, db)
 
 	for _, q := range []string{"1289", "P1289"} {
-		got := decodePageItems[ProblemDTO](t, requestOK(t, e, http.MethodGet, "/api/problems?q="+url.QueryEscape(q), ""))
+		got := decodePageItems[contract.Problem](t, requestOK(t, e, http.MethodGet, "/api/problems?q="+url.QueryEscape(q), ""))
 		if len(got) != 1 || got[0].ID != 1289 {
 			t.Fatalf("problem search %q got %+v, want P1289", q, got)
 		}

@@ -3,31 +3,33 @@ package web
 import (
 	"time"
 
+	"github.com/doveccl/doj/server/web/contract"
+
 	"github.com/doveccl/doj/models"
 	"github.com/labstack/echo/v4"
 )
 
-func (api *API) assignmentDTO(c echo.Context, row models.Assignment, total int, done int) (AssignmentDTO, error) {
-	members := assignmentMembersDTO{}
+func (api *API) assignmentView(c echo.Context, row models.Assignment, total int, done int) (contract.Assignment, error) {
+	members := assignmentMembers{}
 	admin := api.isAdmin(c)
 	if admin {
 		users, groups, err := api.assignmentMembers(row.ID)
 		if err != nil {
-			return AssignmentDTO{}, err
+			return contract.Assignment{}, err
 		}
-		members = assignmentMembersDTO{Users: users, Groups: groups}
+		members = assignmentMembers{Users: users, Groups: groups}
 	}
-	return assignmentDTOFromParts(row, total, done, members, admin), nil
+	return assignmentViewFromParts(row, total, done, members, admin), nil
 }
 
-type assignmentMembersDTO struct {
+type assignmentMembers struct {
 	Users  []uint
 	Groups []uint
 }
 
-func (api *API) assignmentDTOs(c echo.Context, rows []models.Assignment, includeMembers bool) ([]AssignmentDTO, error) {
+func (api *API) assignmentViews(c echo.Context, rows []models.Assignment, includeMembers bool) ([]contract.Assignment, error) {
 	if len(rows) == 0 {
-		return []AssignmentDTO{}, nil
+		return []contract.Assignment{}, nil
 	}
 	ids := assignmentIDs(rows)
 	visible, err := api.assignmentVisibleMap(c, ids)
@@ -44,14 +46,14 @@ func (api *API) assignmentDTOs(c echo.Context, rows []models.Assignment, include
 	}
 	admin := api.isAdmin(c)
 	includeMemberFields := includeMembers && admin
-	members := map[uint]assignmentMembersDTO{}
+	members := map[uint]assignmentMembers{}
 	if includeMemberFields {
 		members, err = api.assignmentMembersMap(ids)
 		if err != nil {
 			return nil, err
 		}
 	}
-	items := make([]AssignmentDTO, 0, len(rows))
+	items := make([]contract.Assignment, 0, len(rows))
 	for _, row := range rows {
 		if !visible[row.ID] {
 			continue
@@ -60,13 +62,13 @@ func (api *API) assignmentDTOs(c echo.Context, rows []models.Assignment, include
 		if total == 0 {
 			continue
 		}
-		items = append(items, assignmentDTOFromParts(row, total, done[row.ID], members[row.ID], includeMemberFields))
+		items = append(items, assignmentViewFromParts(row, total, done[row.ID], members[row.ID], includeMemberFields))
 	}
 	return items, nil
 }
 
-func assignmentDTOFromParts(row models.Assignment, total int, done int, members assignmentMembersDTO, includeMembers bool) AssignmentDTO {
-	dto := AssignmentDTO{
+func assignmentViewFromParts(row models.Assignment, total int, done int, members assignmentMembers, includeMembers bool) contract.Assignment {
+	item := contract.Assignment{
 		ID:     row.ID,
 		Title:  row.Title,
 		EndAt:  row.EndAt,
@@ -75,16 +77,16 @@ func assignmentDTOFromParts(row models.Assignment, total int, done int, members 
 		Done:   done,
 	}
 	if includeMembers {
-		dto.Users = cleanUintList(members.Users)
-		if dto.Users == nil {
-			dto.Users = []uint{}
+		item.Users = cleanUintList(members.Users)
+		if item.Users == nil {
+			item.Users = []uint{}
 		}
-		dto.Groups = cleanUintList(members.Groups)
-		if dto.Groups == nil {
-			dto.Groups = []uint{}
+		item.Groups = cleanUintList(members.Groups)
+		if item.Groups == nil {
+			item.Groups = []uint{}
 		}
 	}
-	return dto
+	return item
 }
 
 func assignmentStatus(row models.Assignment) string {
@@ -164,9 +166,9 @@ func (api *API) assignmentMembers(id uint) ([]uint, []uint, error) {
 	return userIDs, groupIDs, nil
 }
 
-func (api *API) assignmentMembersMap(ids []uint) (map[uint]assignmentMembersDTO, error) {
+func (api *API) assignmentMembersMap(ids []uint) (map[uint]assignmentMembers, error) {
 	ids = uniqueUint(ids)
-	members := map[uint]assignmentMembersDTO{}
+	members := map[uint]assignmentMembers{}
 	if len(ids) == 0 {
 		return members, nil
 	}
@@ -280,9 +282,9 @@ func (api *API) assignmentDoneMap(c echo.Context, ids []uint) (map[uint]int, err
 	return done, nil
 }
 
-func (api *API) assignmentProblems(c echo.Context, assignment models.Assignment, links []models.AssignmentProblem) ([]ProblemDTO, error) {
+func (api *API) assignmentProblems(c echo.Context, assignment models.Assignment, links []models.AssignmentProblem) ([]contract.Problem, error) {
 	if len(links) == 0 {
-		return []ProblemDTO{}, nil
+		return []contract.Problem{}, nil
 	}
 	ids := make([]uint, 0, len(links))
 	for _, link := range links {
@@ -294,7 +296,7 @@ func (api *API) assignmentProblems(c echo.Context, assignment models.Assignment,
 		return nil, err
 	}
 	byID := problemRowsByID(rows)
-	items := make([]ProblemDTO, 0, len(links))
+	items := make([]contract.Problem, 0, len(links))
 	for _, link := range links {
 		problem, ok := byID[link.ProblemID]
 		if !ok {
@@ -303,7 +305,7 @@ func (api *API) assignmentProblems(c echo.Context, assignment models.Assignment,
 		if !api.assignmentShouldIncludeHiddenProblem(c, assignment) && !api.problemVisibleInList(problem) {
 			continue
 		}
-		item := problemDTO(problem)
+		item := problemView(problem)
 		item.Sort = link.Sort
 		items = append(items, item)
 	}

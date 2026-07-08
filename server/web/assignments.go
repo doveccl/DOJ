@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/doveccl/doj/server/web/contract"
+
 	"github.com/doveccl/doj/models"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -22,7 +24,7 @@ func (api *API) assignments(c echo.Context) error {
 	if !api.isAdmin(c) {
 		user, err := api.currentUser(c)
 		if err != nil {
-			return c.JSON(http.StatusOK, PageResult[AssignmentDTO]{Items: []AssignmentDTO{}, Page: page, PageSize: pageSize, Total: 0})
+			return c.JSON(http.StatusOK, contract.Page[contract.Assignment]{Items: []contract.Assignment{}, Page: page, PageSize: pageSize, Total: 0})
 		}
 		query = query.Where(`
 			EXISTS (
@@ -53,18 +55,18 @@ func (api *API) assignments(c echo.Context) error {
 	if err := query.Session(&gorm.Session{}).Order("end_at desc").Limit(pageSize).Offset(offset).Find(&rows).Error; err != nil {
 		return err
 	}
-	items, err := api.assignmentDTOs(c, rows, false)
+	items, err := api.assignmentViews(c, rows, false)
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, PageResult[AssignmentDTO]{Items: items, Page: page, PageSize: pageSize, Total: total})
+	return c.JSON(http.StatusOK, contract.Page[contract.Assignment]{Items: items, Page: page, PageSize: pageSize, Total: total})
 }
 
 func (api *API) createAssignment(c echo.Context) error {
 	if err := api.requireAdmin(c); err != nil {
 		return err
 	}
-	var req AssignmentCreate
+	var req contract.AssignmentCreate
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -110,7 +112,7 @@ func (api *API) createAssignment(c echo.Context) error {
 	}); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusCreated, CreatedID{ID: row.ID})
+	return c.JSON(http.StatusCreated, contract.CreatedID{ID: row.ID})
 }
 
 func (api *API) updateAssignment(c echo.Context) error {
@@ -121,7 +123,7 @@ func (api *API) updateAssignment(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	var req AssignmentUpdate
+	var req contract.AssignmentUpdate
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -178,7 +180,7 @@ func (api *API) updateAssignment(c echo.Context) error {
 	}); err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, CreatedID{ID: row.ID})
+	return c.JSON(http.StatusOK, contract.CreatedID{ID: row.ID})
 }
 
 func (api *API) deleteAssignment(c echo.Context) error {
@@ -236,11 +238,11 @@ func (api *API) assignment(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	dto, err := api.assignmentDTO(c, row, total, done)
+	assignment, err := api.assignmentView(c, row, total, done)
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, AssignmentDetail{Assignment: dto, Problems: problems, Progress: progressRows})
+	return c.JSON(http.StatusOK, contract.AssignmentDetail{Assignment: assignment, Problems: problems, Progress: progressRows})
 }
 
 func (api *API) activeAssignmentFor(userID uint, problemID uint, now time.Time) (*uint, error) {

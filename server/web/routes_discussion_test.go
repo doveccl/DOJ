@@ -1,13 +1,15 @@
 package web
 
 import (
-	"github.com/doveccl/doj/models"
-	"github.com/labstack/echo/v4"
-	"gorm.io/datatypes"
 	"net/http"
 	"net/url"
 	"strconv"
 	"testing"
+
+	"github.com/doveccl/doj/models"
+	"github.com/doveccl/doj/server/web/contract"
+	"github.com/labstack/echo/v4"
+	"gorm.io/datatypes"
 )
 
 func TestDiscussionProblemTagsAreSoftAssociations(t *testing.T) {
@@ -99,18 +101,18 @@ func TestDatabaseDiscussionAuthorsUseNames(t *testing.T) {
 	e := echo.New()
 	Register(e, db)
 
-	list := decodePageItems[DiscussionDTO](t, requestOK(t, e, http.MethodGet, "/api/discussion", ""))
+	list := decodePageItems[contract.Discussion](t, requestOK(t, e, http.MethodGet, "/api/discussion", ""))
 	if len(list) != 1 || list[0].Author != "admin" || list[0].Replies != 1 {
 		t.Fatalf("discussion list should include author and reply count: %+v", list)
 	}
 	listRes := requestOK(t, e, http.MethodGet, "/api/discussion", "")
-	rawList := decodeJSON[PageResult[map[string]any]](t, listRes).Items
+	rawList := decodeJSON[contract.Page[map[string]any]](t, listRes).Items
 	if _, ok := rawList[0]["content"]; ok {
 		t.Fatalf("discussion list should not include content: %+v", rawList[0])
 	}
 
 	target := "/api/discussion/" + strconv.FormatUint(uint64(discussion.ID), 10)
-	detail := decodeJSON[DiscussionDetail](t, requestOK(t, e, http.MethodGet, target, ""))
+	detail := decodeJSON[contract.DiscussionDetail](t, requestOK(t, e, http.MethodGet, target, ""))
 	if detail.Discussion.Author != "admin" || len(detail.Comments) != 1 || detail.Comments[0].Author != "student" {
 		t.Fatalf("discussion detail authors should be usernames: %+v", detail)
 	}
@@ -119,11 +121,11 @@ func TestDatabaseDiscussionAuthorsUseNames(t *testing.T) {
 	if updated.Code != http.StatusOK {
 		t.Fatalf("update discussion got %d body=%s", updated.Code, updated.Body.String())
 	}
-	updatedID := decodeJSON[CreatedID](t, updated)
+	updatedID := decodeJSON[contract.CreatedID](t, updated)
 	if updatedID.ID != discussion.ID {
 		t.Fatalf("partial discussion update should return updated id: %+v", updatedID)
 	}
-	detail = decodeJSON[DiscussionDetail](t, requestOK(t, e, http.MethodGet, target, ""))
+	detail = decodeJSON[contract.DiscussionDetail](t, requestOK(t, e, http.MethodGet, target, ""))
 	if !detail.Discussion.Pinned || detail.Discussion.Locked || detail.Discussion.Title != "Named discussion" || detail.Discussion.Replies != 1 || detail.Content != "body" || len(detail.Discussion.Tags) != 1 || detail.Discussion.Tags[0] != "general" {
 		t.Fatalf("partial discussion update should preserve content and tags: %+v", detail)
 	}
@@ -131,11 +133,11 @@ func TestDatabaseDiscussionAuthorsUseNames(t *testing.T) {
 	if updated.Code != http.StatusOK {
 		t.Fatalf("false/true discussion patch got %d body=%s", updated.Code, updated.Body.String())
 	}
-	updatedID = decodeJSON[CreatedID](t, updated)
+	updatedID = decodeJSON[contract.CreatedID](t, updated)
 	if updatedID.ID != discussion.ID {
 		t.Fatalf("false/true discussion patch should return updated id: %+v", updatedID)
 	}
-	detail = decodeJSON[DiscussionDetail](t, requestOK(t, e, http.MethodGet, target, ""))
+	detail = decodeJSON[contract.DiscussionDetail](t, requestOK(t, e, http.MethodGet, target, ""))
 	if detail.Discussion.Pinned || !detail.Discussion.Locked || detail.Discussion.Title != "Named discussion" || detail.Discussion.Replies != 1 {
 		t.Fatalf("discussion patch should apply false/true flags and preserve unrelated fields: %+v", detail)
 	}
@@ -143,11 +145,11 @@ func TestDatabaseDiscussionAuthorsUseNames(t *testing.T) {
 	if updated.Code != http.StatusOK {
 		t.Fatalf("false/empty tags discussion patch got %d body=%s", updated.Code, updated.Body.String())
 	}
-	updatedID = decodeJSON[CreatedID](t, updated)
+	updatedID = decodeJSON[contract.CreatedID](t, updated)
 	if updatedID.ID != discussion.ID {
 		t.Fatalf("false/empty tags discussion patch should return updated id: %+v", updatedID)
 	}
-	detail = decodeJSON[DiscussionDetail](t, requestOK(t, e, http.MethodGet, target, ""))
+	detail = decodeJSON[contract.DiscussionDetail](t, requestOK(t, e, http.MethodGet, target, ""))
 	if detail.Discussion.Locked || len(detail.Discussion.Tags) != 0 || detail.Discussion.Title != "Named discussion" || detail.Discussion.Replies != 1 || detail.Content != "body" {
 		t.Fatalf("discussion false/empty tags patch should preserve content: %+v", detail)
 	}
@@ -242,7 +244,7 @@ func TestCommentDeleteKeepsFloorSlots(t *testing.T) {
 		t.Fatalf("admin delete comment got %d body=%s", res.Code, res.Body.String())
 	}
 
-	detail := decodeJSON[DiscussionDetail](t, requestOK(t, e, http.MethodGet, "/api/discussion/"+strconv.FormatUint(uint64(discussion.ID), 10), ""))
+	detail := decodeJSON[contract.DiscussionDetail](t, requestOK(t, e, http.MethodGet, "/api/discussion/"+strconv.FormatUint(uint64(discussion.ID), 10), ""))
 	if detail.Discussion.Replies != 1 || len(detail.Comments) != 3 {
 		t.Fatalf("deleted comments should stay as floor slots but not active replies: %+v", detail)
 	}
@@ -279,7 +281,7 @@ func TestDiscussionListSearchesTitleContentAndTags(t *testing.T) {
 		{q: "fenwick", want: "Other topic"},
 		{q: "p1289", want: "Tagged topic"},
 	} {
-		got := decodePageItems[DiscussionDTO](t, requestOK(t, e, http.MethodGet, "/api/discussion?q="+url.QueryEscape(item.q), ""))
+		got := decodePageItems[contract.Discussion](t, requestOK(t, e, http.MethodGet, "/api/discussion?q="+url.QueryEscape(item.q), ""))
 		if len(got) != 1 || got[0].Title != item.want {
 			t.Fatalf("search %q got %+v, want %q", item.q, got, item.want)
 		}

@@ -211,7 +211,7 @@ func (api *API) searchUsers(q string, includeIDs []uint, limit int) ([]User, err
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	return api.userDTOs(rows)
+	return api.userViews(rows)
 }
 
 func (api *API) searchUsersPage(q string, limit int, offset int) ([]User, int64, error) {
@@ -238,14 +238,14 @@ func (api *API) searchUsersPage(q string, limit int, offset int) ([]User, int64,
 	if err := query.Order("users.id asc").Limit(limit).Offset(offset).Find(&rows).Error; err != nil {
 		return nil, 0, err
 	}
-	items, err := api.userDTOs(rows)
+	items, err := api.userViews(rows)
 	if err != nil {
 		return nil, 0, err
 	}
 	return items, total, nil
 }
 
-func (api *API) userDTOs(rows []models.User) ([]User, error) {
+func (api *API) userViews(rows []models.User) ([]User, error) {
 	userIDs := make([]uint, 0, len(rows))
 	for _, row := range rows {
 		userIDs = append(userIDs, row.ID)

@@ -8,16 +8,16 @@ import {
   apiData,
   apiEmpty,
   downloadBackup
-} from '../client'
-import type { AdminGroupUpdate, AdminJudgers, AdminLang, AdminLangCreate, AdminMembers } from '../client'
-import { ErrorBlock, LoadingBlock } from '../components/state'
-import { MarkdownPreview } from '../components/markdown'
-import { useDebouncedValue } from '../components/use-debounced-value'
-import { useLocale } from '../locale'
-import { useSession } from '../session'
-import { GroupModal, JudgerModal, LangModal, UserEditModal, UserModal } from './admin/modals'
-import { BackupsTab, GroupsTab, JudgersTab, LanguagesTab, SettingsTab, UsersTab } from './admin/tabs'
-import type { BackupSettingsForm, GroupRow, JudgerForm, JudgerRow, LanguageRow, SettingsForm, UserForm, UserRow } from './admin/types'
+} from '../../client'
+import type { AdminGroupUpdate, AdminJudgers, AdminLang, AdminLangCreate, AdminMembers } from '../../client'
+import { ErrorBlock, LoadingBlock } from '../../components/state'
+import { MarkdownPreview } from '../../components/markdown'
+import { useDebouncedValue } from '../../components/use-debounced-value'
+import { useLocale } from '../../locale'
+import { useSession } from '../../session'
+import { GroupModal, JudgerModal, LangModal, UserEditModal, UserModal } from './modals'
+import { BackupsTab, GroupsTab, JudgersTab, LanguagesTab, SettingsTab, UsersTab } from './tabs'
+import type { BackupSettingsForm, GroupRow, JudgerForm, JudgerRow, LanguageRow, SettingsForm, UserForm, UserRow } from './types'
 
 const defaultAdminTab = 'settings'
 const adminTabs = new Set(['settings', 'users', 'groups', 'languages', 'judgers', 'backups'])
