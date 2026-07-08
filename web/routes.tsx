@@ -6,17 +6,17 @@ import { AppLayout } from './components/app-layout'
 import { LoadingBlock } from './components/state'
 
 const AdminPage = lazy(() => import('./pages/admin').then((mod) => ({ default: mod.AdminPage })))
-const AssignmentDetailPage = lazy(() => import('./pages/assignment').then((mod) => ({ default: mod.AssignmentDetailPage })))
+const AssignmentDetailPage = lazy(() => import('./pages/assignments/detail').then((mod) => ({ default: mod.AssignmentDetailPage })))
 const AssignmentsPage = lazy(() => import('./pages/assignments').then((mod) => ({ default: mod.AssignmentsPage })))
-const ContestDetailPage = lazy(() => import('./pages/contest').then((mod) => ({ default: mod.ContestDetailPage })))
+const ContestDetailPage = lazy(() => import('./pages/contests/detail').then((mod) => ({ default: mod.ContestDetailPage })))
 const ContestsPage = lazy(() => import('./pages/contests').then((mod) => ({ default: mod.ContestsPage })))
-const DiscussionDetailPage = lazy(() => import('./pages/discussion').then((mod) => ({ default: mod.DiscussionDetailPage })))
+const DiscussionDetailPage = lazy(() => import('./pages/discussions/detail').then((mod) => ({ default: mod.DiscussionDetailPage })))
 const DiscussionsPage = lazy(() => import('./pages/discussions').then((mod) => ({ default: mod.DiscussionsPage })))
 const HomePage = lazy(() => import('./pages/home').then((mod) => ({ default: mod.HomePage })))
-const ProblemDetailPage = lazy(() => import('./pages/problem').then((mod) => ({ default: mod.ProblemDetailPage })))
+const ProblemDetailPage = lazy(() => import('./pages/problems/detail').then((mod) => ({ default: mod.ProblemDetailPage })))
 const ProblemsPage = lazy(() => import('./pages/problems').then((mod) => ({ default: mod.ProblemsPage })))
 const RankPage = lazy(() => import('./pages/rank').then((mod) => ({ default: mod.RankPage })))
-const SubmissionDetailPage = lazy(() => import('./pages/submission').then((mod) => ({ default: mod.SubmissionDetailPage })))
+const SubmissionDetailPage = lazy(() => import('./pages/submissions/detail').then((mod) => ({ default: mod.SubmissionDetailPage })))
 const SubmissionsPage = lazy(() => import('./pages/submissions').then((mod) => ({ default: mod.SubmissionsPage })))
 const UserPage = lazy(() => import('./pages/user').then((mod) => ({ default: mod.UserPage })))
 

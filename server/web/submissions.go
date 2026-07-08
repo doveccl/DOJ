@@ -2,17 +2,18 @@ package web
 
 import (
 	"context"
+	"github.com/doveccl/doj/common/limits"
+	"github.com/doveccl/doj/common/validate"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/doveccl/doj/server/web/contract"
+	contract "github.com/doveccl/doj/common/web"
 
 	"github.com/doveccl/doj/models"
 	"github.com/doveccl/doj/server/events"
-	judgersvc "github.com/doveccl/doj/server/judger"
-	"github.com/doveccl/doj/utils"
+	judgeapi "github.com/doveccl/doj/server/judgeapi"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
@@ -38,7 +39,7 @@ func (api *API) submissions(c echo.Context) error {
 	}
 	if user := strings.TrimSpace(c.QueryParam("user")); user != "" {
 		query = query.Joins("JOIN users submission_users ON submission_users.id = submissions.user_id AND submission_users.deleted_at IS NULL").
-			Where("LOWER(submission_users.name) = ?", utils.NameKey(user))
+			Where("LOWER(submission_users.name) = ?", validate.NameKey(user))
 	}
 	if assignment := c.QueryParam("assignment"); assignment != "" {
 		id, err := parseQueryID(assignment, "invalid assignment id")
@@ -86,7 +87,7 @@ func (api *API) submit(c echo.Context) error {
 	if req.ProblemID == 0 || req.Language == "" || req.Code == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "problem, language and code are required")
 	}
-	if err := validateTextBytes(req.Code, utils.MaxSourceBytes, "source code is too large"); err != nil {
+	if err := validateTextBytes(req.Code, limits.MaxSourceBytes, "source code is too large"); err != nil {
 		return err
 	}
 
@@ -262,7 +263,7 @@ func (api *API) rejudgeSubmission(c echo.Context) error {
 		}
 		return err
 	}
-	judgersvc.DeleteProgress(c.Request().Context(), row.ID)
+	judgeapi.DeleteProgress(c.Request().Context(), row.ID)
 	events.SubmissionChanged()
 	return c.JSON(http.StatusOK, contract.CreatedID{ID: row.ID})
 }
@@ -291,7 +292,7 @@ func (api *API) rejudgeProblem(c echo.Context) error {
 		return err
 	}
 	for _, id := range ids {
-		judgersvc.DeleteProgress(c.Request().Context(), id)
+		judgeapi.DeleteProgress(c.Request().Context(), id)
 	}
 	events.SubmissionChanged()
 	return c.JSON(http.StatusOK, contract.CountResult{Count: count})
@@ -301,7 +302,7 @@ func (api *API) submissionProgress(ctx context.Context, row models.Submission) *
 	if row.Status != "queued" && row.Status != "judging" {
 		return nil
 	}
-	progress, err := judgersvc.ReadProgress(ctx, row.ID, row.Attempt)
+	progress, err := judgeapi.ReadProgress(ctx, row.ID, row.Attempt)
 	if err != nil || progress == nil {
 		return nil
 	}

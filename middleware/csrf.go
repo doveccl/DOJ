@@ -4,7 +4,7 @@ import (
 	"crypto/subtle"
 	"net/http"
 
-	"github.com/doveccl/doj/utils"
+	"github.com/doveccl/doj/common/authn"
 	"github.com/labstack/echo/v4"
 )
 
@@ -14,14 +14,14 @@ func CSRF() echo.MiddlewareFunc {
 			if safeMethod(c.Request().Method) {
 				return next(c)
 			}
-			if _, ok := utils.SessionToken(c); !ok {
+			if _, ok := authn.SessionToken(c); !ok {
 				return next(c)
 			}
-			cookie, err := c.Cookie(utils.CSRFCookie)
+			cookie, err := c.Cookie(authn.CSRFCookie)
 			if err != nil || cookie.Value == "" {
 				return echo.NewHTTPError(http.StatusForbidden, "missing csrf token")
 			}
-			header := c.Request().Header.Get(utils.CSRFHeader)
+			header := c.Request().Header.Get(authn.CSRFHeader)
 			if header == "" || subtle.ConstantTimeCompare([]byte(header), []byte(cookie.Value)) != 1 {
 				return echo.NewHTTPError(http.StatusForbidden, "invalid csrf token")
 			}

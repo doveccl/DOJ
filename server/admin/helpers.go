@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/doveccl/doj/utils"
+	"github.com/doveccl/doj/common/authn"
 	"github.com/labstack/echo/v4"
 )
 
@@ -81,7 +81,7 @@ func positiveIntQuery(c echo.Context, name string, fallback int) (int, error) {
 }
 
 func randomPassword() (string, error) {
-	token, err := utils.NewToken()
+	token, err := authn.NewToken()
 	if err != nil {
 		return "", err
 	}

@@ -4,7 +4,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/doveccl/doj/server/web/contract"
+	contract "github.com/doveccl/doj/common/web"
 
 	"github.com/doveccl/doj/models"
 )

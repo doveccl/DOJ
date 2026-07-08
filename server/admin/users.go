@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/doveccl/doj/common/validate"
 	"github.com/doveccl/doj/models"
-	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -37,7 +37,7 @@ func (api *API) createUser(c echo.Context) error {
 	}
 
 	var count int64
-	if err := api.db.Model(&models.User{}).Where("LOWER(name) = ? OR LOWER(mail) = ?", utils.NameKey(req.Name), req.Mail).Count(&count).Error; err != nil {
+	if err := api.db.Model(&models.User{}).Where("LOWER(name) = ? OR LOWER(mail) = ?", validate.NameKey(req.Name), req.Mail).Count(&count).Error; err != nil {
 		return err
 	}
 	if count > 0 {
@@ -180,7 +180,7 @@ func (api *API) ensureOtherAdmin(userID uint) error {
 
 func (api *API) userByName(name string) (models.User, error) {
 	var row models.User
-	nameKey := utils.NameKey(name)
+	nameKey := validate.NameKey(name)
 	if nameKey == "" {
 		return row, echo.NewHTTPError(http.StatusBadRequest, "user name is required")
 	}
@@ -284,10 +284,10 @@ func cleanUserCreate(req *UserCreate) {
 }
 
 func validateUserCreate(req UserCreate) error {
-	if len(req.Name) < models.UserNameMin || len(req.Name) > models.UserNameMax || !utils.ValidName(req.Name) {
+	if len(req.Name) < models.UserNameMin || len(req.Name) > models.UserNameMax || !validate.Name(req.Name) {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid username")
 	}
-	if !utils.ValidMail(req.Mail, models.MailMax, false) {
+	if !validate.Mail(req.Mail, models.MailMax, false) {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid mail")
 	}
 	if len(req.Password) < 8 {

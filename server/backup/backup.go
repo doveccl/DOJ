@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/doveccl/doj/common/cache"
+	"github.com/doveccl/doj/common/storage"
 	"io"
 	"net/url"
 	"os"
@@ -18,7 +20,6 @@ import (
 	"time"
 
 	"github.com/doveccl/doj/models"
-	"github.com/doveccl/doj/utils"
 	"github.com/robfig/cron/v3"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -66,7 +67,7 @@ type Runner interface {
 
 type Manager struct {
 	DB     *gorm.DB
-	Store  utils.ObjectStore
+	Store  storage.Store
 	Runner Runner
 	Now    func() time.Time
 	DSN    string
@@ -174,7 +175,7 @@ func (manager Manager) BackupNow(ctx context.Context) (Item, error) {
 	now := manager.now()
 	name := BuildName(DatabaseName(manager.dsn()), now)
 	lock := lockValue{Name: name, StartedAt: now}
-	ok, err := utils.CacheSetNX(ctx, lockKey, lock, lockTTL)
+	ok, err := cache.SetNX(ctx, lockKey, lock, lockTTL)
 	if err != nil {
 		return Item{}, err
 	}
@@ -182,7 +183,7 @@ func (manager Manager) BackupNow(ctx context.Context) (Item, error) {
 		return Item{}, ErrRunning
 	}
 	defer func() {
-		_ = utils.CacheDelete(context.Background(), lockKey)
+		_ = cache.Delete(context.Background(), lockKey)
 	}()
 
 	filePath, err := manager.runner().Dump(ctx, manager.dsn())
@@ -256,11 +257,11 @@ func (manager Manager) Prune(ctx context.Context, keep int) error {
 	return nil
 }
 
-func (manager Manager) store() (utils.ObjectStore, error) {
+func (manager Manager) store() (storage.Store, error) {
 	if manager.Store != nil {
 		return manager.Store, nil
 	}
-	return utils.NewObjectStoreFromEnv()
+	return storage.NewFromEnv()
 }
 
 func (manager Manager) runner() Runner {
@@ -284,7 +285,7 @@ func (manager Manager) dsn() string {
 	return os.Getenv("DATABASE")
 }
 
-func itemFromObject(object utils.ObjectInfo) (Item, bool) {
+func itemFromObject(object storage.Info) (Item, bool) {
 	base := path.Base(object.Key)
 	_, createdAt, ok := ParseName(base)
 	if !ok {
@@ -359,7 +360,7 @@ func sortItems(items []Item) {
 
 func runningLock(ctx context.Context, now time.Time) (*Running, error) {
 	var lock lockValue
-	found, err := utils.CacheGet(ctx, lockKey, &lock)
+	found, err := cache.Get(ctx, lockKey, &lock)
 	if err != nil || !found {
 		return nil, err
 	}

@@ -3,6 +3,7 @@ package web
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/doveccl/doj/common/authn"
 	"net/http"
 	"sort"
 	"strconv"
@@ -10,7 +11,6 @@ import (
 	"time"
 
 	"github.com/doveccl/doj/models"
-	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 )
 
@@ -340,7 +340,7 @@ func (api *API) isAdmin(c echo.Context) bool {
 
 func (api *API) role(c echo.Context) string {
 
-	user, err := utils.UserFromCookie(api.db, c, time.Now())
+	user, err := authn.UserFromCookie(api.db, c, time.Now())
 	if err != nil {
 		return "guest"
 	}

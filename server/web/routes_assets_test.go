@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"github.com/doveccl/doj/common/storage"
 	"net/http"
 	"net/url"
 	"os"
@@ -14,7 +15,6 @@ import (
 	"testing"
 
 	"github.com/doveccl/doj/models"
-	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	"gorm.io/datatypes"
 )
@@ -64,7 +64,7 @@ func TestImageUploadUsesRelativeMediaPathsAndHeaders(t *testing.T) {
 	if strings.Contains(rel, "/") {
 		t.Fatalf("problem image should not include date folders, got %q", problemImage.URL)
 	}
-	if _, err := os.Stat(filepath.Join(utils.UploadRoot(), "problems", "1000", "assets", filepath.FromSlash(rel))); err != nil {
+	if _, err := os.Stat(filepath.Join(storage.Root(), "problems", "1000", "assets", filepath.FromSlash(rel))); err != nil {
 		t.Fatalf("problem image should keep the existing object key convention: %v", err)
 	}
 	res = requestWithCookies(e, http.MethodGet, problemImage.URL, adminCookies, nil)
@@ -88,7 +88,7 @@ func TestProblemAssetDownloadsSupportNestedPathsAndExistingProblems(t *testing.T
 	e := echo.New()
 	Register(e, db)
 	adminCookies := databaseSession(t, db, admin.ID)
-	nestedPath := filepath.Join(utils.UploadRoot(), "problems", "1000", "data", "cases", "1.in")
+	nestedPath := filepath.Join(storage.Root(), "problems", "1000", "data", "cases", "1.in")
 	if err := os.MkdirAll(filepath.Dir(nestedPath), 0o755); err != nil {
 		t.Fatalf("create nested data dir: %v", err)
 	}
@@ -96,10 +96,10 @@ func TestProblemAssetDownloadsSupportNestedPathsAndExistingProblems(t *testing.T
 		t.Fatalf("write nested data file: %v", err)
 	}
 	for key, body := range map[string]string{
-		filepath.Join(utils.UploadRoot(), "problems", "1000", "statement.md"):           "# Visible\n\n![img](./assets/note.png)",
-		filepath.Join(utils.UploadRoot(), "problems", "1000", "data", "cases", "1.out"): "nested output",
-		filepath.Join(utils.UploadRoot(), "problems", "1000", "judge", "main.cc"):       "int main(){}",
-		filepath.Join(utils.UploadRoot(), "problems", "1000", "assets", "note.txt"):     "asset note",
+		filepath.Join(storage.Root(), "problems", "1000", "statement.md"):           "# Visible\n\n![img](./assets/note.png)",
+		filepath.Join(storage.Root(), "problems", "1000", "data", "cases", "1.out"): "nested output",
+		filepath.Join(storage.Root(), "problems", "1000", "judge", "main.cc"):       "int main(){}",
+		filepath.Join(storage.Root(), "problems", "1000", "assets", "note.txt"):     "asset note",
 	} {
 		if err := os.MkdirAll(filepath.Dir(key), 0o755); err != nil {
 			t.Fatalf("create asset dir: %v", err)
@@ -150,7 +150,7 @@ func TestProblemAssetDownloadsSupportNestedPathsAndExistingProblems(t *testing.T
 
 func TestProblemAssetsUseCaseFileOrder(t *testing.T) {
 	t.Setenv("STORAGE", t.TempDir())
-	store, err := utils.NewObjectStoreFromEnv()
+	store, err := storage.NewFromEnv()
 	if err != nil {
 		t.Fatalf("object store: %v", err)
 	}

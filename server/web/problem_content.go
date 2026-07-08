@@ -3,23 +3,25 @@ package web
 import (
 	"context"
 	"fmt"
+	"github.com/doveccl/doj/common/cache"
+	"github.com/doveccl/doj/common/limits"
+	"github.com/doveccl/doj/common/storage"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/doveccl/doj/server/web/contract"
+	contract "github.com/doveccl/doj/common/web"
 
 	"github.com/doveccl/doj/models"
-	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 )
 
 const problemDiscussionsCacheKey = "doj:problem:discussions"
 
 func (api *API) problemStatement(ctx context.Context, id uint, title string) (string, error) {
-	store, err := utils.NewObjectStoreFromEnv()
+	store, err := storage.NewFromEnv()
 	if err != nil {
 		return "", err
 	}
@@ -28,11 +30,11 @@ func (api *API) problemStatement(ctx context.Context, id uint, title string) (st
 		return "# " + title, nil
 	}
 	defer reader.Close()
-	data, err := io.ReadAll(io.LimitReader(reader, utils.MaxMarkdownBytes+1))
+	data, err := io.ReadAll(io.LimitReader(reader, limits.MaxMarkdownBytes+1))
 	if err != nil {
 		return "", err
 	}
-	if len(data) > utils.MaxMarkdownBytes {
+	if len(data) > limits.MaxMarkdownBytes {
 		return "", echo.NewHTTPError(http.StatusRequestEntityTooLarge, "statement is too large")
 	}
 	if strings.TrimSpace(string(data)) == "" {
@@ -42,11 +44,11 @@ func (api *API) problemStatement(ctx context.Context, id uint, title string) (st
 }
 
 func (api *API) writeProblemStatement(ctx context.Context, id uint, statement string) error {
-	store, err := utils.NewObjectStoreFromEnv()
+	store, err := storage.NewFromEnv()
 	if err != nil {
 		return err
 	}
-	if err := validateTextBytes(statement, utils.MaxMarkdownBytes, "statement is too large"); err != nil {
+	if err := validateTextBytes(statement, limits.MaxMarkdownBytes, "statement is too large"); err != nil {
 		return err
 	}
 	body := strings.TrimSpace(statement)
@@ -62,7 +64,7 @@ func problemStatementKey(id uint) string {
 
 func (api *API) problemDiscussionCounts(ctx context.Context) (map[uint]int, error) {
 	counts := map[uint]int{}
-	found, err := utils.CacheGet(ctx, problemDiscussionsCacheKey, &counts)
+	found, err := cache.Get(ctx, problemDiscussionsCacheKey, &counts)
 	if err == nil && found {
 		return counts, nil
 	}
@@ -76,6 +78,6 @@ func (api *API) problemDiscussionCounts(ctx context.Context) (map[uint]int, erro
 			counts[problemID]++
 		}
 	}
-	_ = utils.CacheSet(ctx, problemDiscussionsCacheKey, counts, 10*time.Second)
+	_ = cache.Set(ctx, problemDiscussionsCacheKey, counts, 10*time.Second)
 	return counts, nil
 }

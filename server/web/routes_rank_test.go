@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	contract "github.com/doveccl/doj/common/web"
 	"github.com/doveccl/doj/models"
-	"github.com/doveccl/doj/server/web/contract"
 	"github.com/labstack/echo/v4"
 	"gorm.io/datatypes"
 )

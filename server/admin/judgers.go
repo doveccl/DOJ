@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/doveccl/doj/common/authn"
 	"github.com/doveccl/doj/models"
-	judgersvc "github.com/doveccl/doj/server/judger"
-	"github.com/doveccl/doj/utils"
+	judgeapi "github.com/doveccl/doj/server/judgeapi"
 	"github.com/labstack/echo/v4"
 )
 
@@ -64,7 +64,7 @@ func (api *API) createJudger(c echo.Context) error {
 		return err
 	}
 
-	token, err := utils.NewToken()
+	token, err := authn.NewToken()
 	if err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func (api *API) judgers(ctx context.Context) ([]Judger, error) {
 	now := time.Now()
 	items := make([]Judger, 0, len(rows))
 	for _, row := range rows {
-		status := judgersvc.ReadStatus(ctx, row.ID, now)
+		status := judgeapi.ReadStatus(ctx, row.ID, now)
 		items = append(items, Judger{ID: row.ID, Name: row.Name, Online: status.Online, ConnectedAt: status.ConnectedAt, ActiveAt: status.ActiveAt, UptimeSeconds: status.UptimeSeconds})
 	}
 	return items, nil

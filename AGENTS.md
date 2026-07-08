@@ -10,12 +10,11 @@
 ## Layout
 
 - `main.go` is the `doj` entrypoint for `server`, `judger`, and `runner` subcommands.
-- `common/` contains shared contracts and generated contract artifacts.
+- `common/` contains shared contracts, generated contract artifacts, and shared helper packages.
 - `models/` contains GORM models and database helpers.
 - `middleware/` contains Echo middleware.
 - `server/` contains the server entrypoint and server-side API handlers.
 - `judger/` contains all judger and runner implementation.
-- `utils/` contains small shared helpers.
 - `index.html` is the Vite HTML entry.
 - `web/` contains frontend source.
 

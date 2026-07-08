@@ -7,10 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/doveccl/doj/server/web/contract"
-
+	"github.com/doveccl/doj/common/validate"
+	contract "github.com/doveccl/doj/common/web"
 	"github.com/doveccl/doj/models"
-	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
@@ -34,7 +33,7 @@ func (api *API) users(c echo.Context) error {
 }
 
 func (api *API) user(c echo.Context) error {
-	nameKey := utils.NameKey(c.Param("name"))
+	nameKey := validate.NameKey(c.Param("name"))
 	if nameKey == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "user name is required")
 	}

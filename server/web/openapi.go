@@ -8,9 +8,9 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
+	contract "github.com/doveccl/doj/common/web"
 	adminsvc "github.com/doveccl/doj/server/admin"
 	backupsvc "github.com/doveccl/doj/server/backup"
-	"github.com/doveccl/doj/server/web/contract"
 )
 
 type Health struct {

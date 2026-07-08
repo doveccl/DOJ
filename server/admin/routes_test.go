@@ -2,6 +2,8 @@ package admin
 
 import (
 	"encoding/json"
+	"github.com/doveccl/doj/common/authn"
+	"github.com/doveccl/doj/common/cache"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -11,7 +13,6 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/doveccl/doj/models"
-	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/sqlite"
@@ -363,8 +364,8 @@ func requestJSONWithCookies(e *echo.Echo, method string, target string, cookies 
 	req.Header.Set("Content-Type", "application/json")
 	for _, cookie := range cookies {
 		req.AddCookie(cookie)
-		if cookie.Name == utils.CSRFCookie {
-			req.Header.Set(utils.CSRFHeader, cookie.Value)
+		if cookie.Name == authn.CSRFCookie {
+			req.Header.Set(authn.CSRFHeader, cookie.Value)
 		}
 	}
 	res := httptest.NewRecorder()
@@ -457,8 +458,8 @@ func findJudger(judgers Judgers, name string) (Judger, bool) {
 func testAdminDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	startRedis(t)
-	utils.ResetCacheForTest()
-	t.Cleanup(utils.ResetCacheForTest)
+	cache.ResetForTest()
+	t.Cleanup(cache.ResetForTest)
 	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "admin.db")), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open db: %v", err)
@@ -481,7 +482,7 @@ func databaseSession(t *testing.T, userID uint) []*http.Cookie {
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	ctx := e.NewContext(req, res)
-	if err := utils.CreateUserSession(ctx, userID, time.Now()); err != nil {
+	if err := authn.CreateUserSession(ctx, userID, time.Now()); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
 	return res.Result().Cookies()

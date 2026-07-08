@@ -5,6 +5,8 @@ import (
 	"compress/gzip"
 	"context"
 	"errors"
+	"github.com/doveccl/doj/common/cache"
+	"github.com/doveccl/doj/common/storage"
 	"io"
 	"os"
 	"path/filepath"
@@ -14,7 +16,6 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/doveccl/doj/models"
-	"github.com/doveccl/doj/utils"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -83,7 +84,7 @@ func TestBackupRunningLockBlocksConcurrentBackup(t *testing.T) {
 	t.Setenv("STORAGE", t.TempDir())
 	t.Setenv("DATABASE", "postgres://postgres@localhost/doj")
 	now := time.Date(2026, 6, 26, 3, 0, 0, 0, time.Local)
-	ok, err := utils.CacheSetNX(t.Context(), lockKey, lockValue{Name: "doj_2026-06-26_03-00-00.sql.gz", StartedAt: now}, time.Hour)
+	ok, err := cache.SetNX(t.Context(), lockKey, lockValue{Name: "doj_2026-06-26_03-00-00.sql.gz", StartedAt: now}, time.Hour)
 	if err != nil || !ok {
 		t.Fatalf("set lock ok=%v err=%v", ok, err)
 	}
@@ -98,7 +99,7 @@ func TestPruneKeepsNewestBackups(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("STORAGE", root)
 	manager := Manager{DB: db}
-	store, err := utils.NewObjectStoreFromEnv()
+	store, err := storage.NewFromEnv()
 	if err != nil {
 		t.Fatalf("store: %v", err)
 	}
@@ -213,8 +214,8 @@ func testDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	server := miniredis.RunT(t)
 	t.Setenv("REDIS", "redis://"+server.Addr()+"/0")
-	utils.ResetCacheForTest()
-	t.Cleanup(utils.ResetCacheForTest)
+	cache.ResetForTest()
+	t.Cleanup(cache.ResetForTest)
 	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "backup.db")), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open db: %v", err)

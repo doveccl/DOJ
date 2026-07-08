@@ -4,13 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/doveccl/doj/common/cache"
+	"github.com/robfig/cron/v3"
+	"gorm.io/gorm"
 	"log/slog"
 	"sync"
 	"time"
-
-	"github.com/doveccl/doj/utils"
-	"github.com/robfig/cron/v3"
-	"gorm.io/gorm"
 )
 
 const scheduleLockTTL = 2 * time.Minute
@@ -98,5 +97,5 @@ func (scheduler *Scheduler) backup() {
 
 func (scheduler *Scheduler) acquireScheduleLock(now time.Time) (bool, error) {
 	key := fmt.Sprintf("%s:schedule:%s", lockKey, now.In(time.Local).Format("200601021504"))
-	return utils.CacheSetNX(scheduler.ctx, key, true, scheduleLockTTL)
+	return cache.SetNX(scheduler.ctx, key, true, scheduleLockTTL)
 }

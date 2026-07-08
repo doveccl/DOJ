@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"testing"
 
+	contract "github.com/doveccl/doj/common/web"
 	"github.com/doveccl/doj/models"
 	adminsvc "github.com/doveccl/doj/server/admin"
-	"github.com/doveccl/doj/server/web/contract"
 	"github.com/labstack/echo/v4"
 	"gorm.io/datatypes"
 )

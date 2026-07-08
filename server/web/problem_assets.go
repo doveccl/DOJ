@@ -5,16 +5,16 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/doveccl/doj/common/storage"
 	"io"
 	"net/http"
 	"path"
 	"strconv"
 	"strings"
 
-	"github.com/doveccl/doj/server/web/contract"
+	contract "github.com/doveccl/doj/common/web"
 
 	"github.com/doveccl/doj/models"
-	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
@@ -46,7 +46,7 @@ func (api *API) uploadProblemImage(c echo.Context) error {
 	}
 	rel := sha + ext
 	key := path.Join("problems", strconv.Itoa(int(id)), "assets", rel)
-	store, err := utils.NewObjectStoreFromEnv()
+	store, err := storage.NewFromEnv()
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func (api *API) problemPrivateAsset(c echo.Context, section string) error {
 	if err != nil {
 		return err
 	}
-	rel, err := utils.CleanObjectKey(c.Param("*"))
+	rel, err := storage.CleanKey(c.Param("*"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "asset not found")
 	}
@@ -85,7 +85,7 @@ func (api *API) problemPublicAsset(c echo.Context) error {
 	if err := api.requireProblemVisible(c, id); err != nil {
 		return err
 	}
-	rel, err := utils.CleanObjectKey(c.Param("*"))
+	rel, err := storage.CleanKey(c.Param("*"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "media not found")
 	}
@@ -125,7 +125,7 @@ func (api *API) uploadProblemAsset(c echo.Context) error {
 	}
 	contentType := http.DetectContentType(buffer[:n])
 	reader := io.MultiReader(bytes.NewReader(buffer[:n]), src)
-	store, err := utils.NewObjectStoreFromEnv()
+	store, err := storage.NewFromEnv()
 	if err != nil {
 		return err
 	}
@@ -146,11 +146,11 @@ func (api *API) deleteProblemAsset(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	key, err := utils.CleanObjectKey(c.QueryParam("key"))
+	key, err := storage.CleanKey(c.QueryParam("key"))
 	if err != nil || !problemAssetKeyAllowed(id, key) {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid asset key")
 	}
-	store, err := utils.NewObjectStoreFromEnv()
+	store, err := storage.NewFromEnv()
 	if err != nil {
 		return err
 	}
@@ -174,7 +174,7 @@ func (api *API) problemAssetContent(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	store, err := utils.NewObjectStoreFromEnv()
+	store, err := storage.NewFromEnv()
 	if err != nil {
 		return err
 	}
@@ -209,7 +209,7 @@ func (api *API) updateProblemAssetContent(c echo.Context) error {
 	if len(req.Content) > maxEditableAssetBytes {
 		return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "asset is too large to edit")
 	}
-	store, err := utils.NewObjectStoreFromEnv()
+	store, err := storage.NewFromEnv()
 	if err != nil {
 		return err
 	}
@@ -233,7 +233,7 @@ func (api *API) createProblemCase(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
-	store, err := utils.NewObjectStoreFromEnv()
+	store, err := storage.NewFromEnv()
 	if err != nil {
 		return err
 	}
@@ -266,7 +266,7 @@ func (api *API) fillJudgeTemplate(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	store, err := utils.NewObjectStoreFromEnv()
+	store, err := storage.NewFromEnv()
 	if err != nil {
 		return err
 	}
@@ -301,7 +301,7 @@ func (api *API) downloadProblemAssets(c echo.Context) error {
 		}
 		return err
 	}
-	store, err := utils.NewObjectStoreFromEnv()
+	store, err := storage.NewFromEnv()
 	if err != nil {
 		return err
 	}
@@ -338,7 +338,7 @@ func (api *API) decorateProblemAssetStats(ctx context.Context, items []contract.
 	if len(items) == 0 {
 		return nil
 	}
-	store, err := utils.NewObjectStoreFromEnv()
+	store, err := storage.NewFromEnv()
 	if err != nil {
 		return err
 	}

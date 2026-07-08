@@ -12,13 +12,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/doveccl/doj/common/cache"
 	dojmw "github.com/doveccl/doj/middleware"
 	"github.com/doveccl/doj/models"
 	adminsvc "github.com/doveccl/doj/server/admin"
 	backupsvc "github.com/doveccl/doj/server/backup"
-	judgersvc "github.com/doveccl/doj/server/judger"
+	judgeapi "github.com/doveccl/doj/server/judgeapi"
 	websvc "github.com/doveccl/doj/server/web"
-	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"gorm.io/gorm"
@@ -42,7 +42,7 @@ func Main() {
 	e.Use(securityHeaders())
 	e.Use(dojmw.CSRF())
 
-	if err := utils.CachePing(context.Background()); err != nil {
+	if err := cache.Ping(context.Background()); err != nil {
 		e.Logger.Fatal(err)
 	}
 
@@ -53,7 +53,7 @@ func Main() {
 	backupScheduler := backupsvc.StartScheduler(ctx, db)
 	websvc.Register(e, db)
 	adminsvc.Register(e, db, backupScheduler)
-	judgersvc.Register(e, db)
+	judgeapi.Register(e, db)
 	if err := registerWebApp(e, defaultWebDir); err != nil {
 		e.Logger.Fatal(err)
 	}

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/doveccl/doj/common/storage"
 	"io"
 	"mime/multipart"
 	"net"
@@ -15,12 +16,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/doveccl/doj/server/web/contract"
+	contract "github.com/doveccl/doj/common/web"
 
 	"github.com/doveccl/doj/models"
 	adminsvc "github.com/doveccl/doj/server/admin"
 	"github.com/doveccl/doj/server/events"
-	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 )
 
@@ -145,7 +145,7 @@ func (api *API) uploadImage(c echo.Context) error {
 	}
 	year, month, day := uploadDateParts(time.Now())
 	key := path.Join("users", strconv.Itoa(int(user.ID)), year, month, day, sha+ext)
-	store, err := utils.NewObjectStoreFromEnv()
+	store, err := storage.NewFromEnv()
 	if err != nil {
 		return err
 	}
@@ -189,7 +189,7 @@ func (api *API) userMedia(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	rel, err := utils.CleanObjectKey(path.Join(
+	rel, err := storage.CleanKey(path.Join(
 		strconv.Itoa(int(userID)),
 		c.Param("year"),
 		c.Param("month"),
@@ -210,7 +210,7 @@ func streamMedia(c echo.Context, key string, notFound string) error {
 	if !sameSiteMediaRequest(c) {
 		return echo.NewHTTPError(http.StatusForbidden, "media hotlink is not allowed")
 	}
-	store, err := utils.NewObjectStoreFromEnv()
+	store, err := storage.NewFromEnv()
 	if err != nil {
 		return err
 	}

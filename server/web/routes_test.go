@@ -4,6 +4,8 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"github.com/doveccl/doj/common/authn"
+	"github.com/doveccl/doj/common/cache"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -14,10 +16,9 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
+	contract "github.com/doveccl/doj/common/web"
 	"github.com/doveccl/doj/models"
 	adminsvc "github.com/doveccl/doj/server/admin"
-	"github.com/doveccl/doj/server/web/contract"
-	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -174,8 +175,8 @@ func addCSRFHeader(req *http.Request, cookies []*http.Cookie) {
 		return
 	}
 	for _, cookie := range cookies {
-		if cookie.Name == utils.CSRFCookie {
-			req.Header.Set(utils.CSRFHeader, cookie.Value)
+		if cookie.Name == authn.CSRFCookie {
+			req.Header.Set(authn.CSRFHeader, cookie.Value)
 			return
 		}
 	}
@@ -193,8 +194,8 @@ func findCookie(cookies []*http.Cookie, name string) *http.Cookie {
 func testWebDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	startRedis(t)
-	utils.ResetCacheForTest()
-	t.Cleanup(utils.ResetCacheForTest)
+	cache.ResetForTest()
+	t.Cleanup(cache.ResetForTest)
 	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "web.db")), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite db: %v", err)
@@ -220,7 +221,7 @@ func databaseSession(t *testing.T, db *gorm.DB, userID uint) []*http.Cookie {
 	e := echo.New()
 	res := httptest.NewRecorder()
 	ctx := e.NewContext(httptest.NewRequest(http.MethodGet, "/", nil), res)
-	if err := utils.CreateUserSession(ctx, userID, time.Now()); err != nil {
+	if err := authn.CreateUserSession(ctx, userID, time.Now()); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
 	return res.Result().Cookies()

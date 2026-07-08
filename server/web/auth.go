@@ -5,11 +5,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/doveccl/doj/server/web/contract"
-
+	"github.com/doveccl/doj/common/authn"
+	"github.com/doveccl/doj/common/validate"
+	contract "github.com/doveccl/doj/common/web"
 	"github.com/doveccl/doj/models"
 	adminsvc "github.com/doveccl/doj/server/admin"
-	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -20,7 +20,7 @@ func (api *API) login(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
-	nameKey := utils.NameKey(req.Name)
+	nameKey := validate.NameKey(req.Name)
 	if nameKey == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "username is required")
 	}
@@ -60,7 +60,7 @@ func (api *API) register(c echo.Context) error {
 
 	now := time.Now()
 
-	nameKey := utils.NameKey(req.Name)
+	nameKey := validate.NameKey(req.Name)
 	var count int64
 	if err := api.db.Model(&models.User{}).Where("LOWER(name) = ? OR LOWER(mail) = ?", nameKey, req.Mail).Count(&count).Error; err != nil {
 		return err
@@ -87,15 +87,15 @@ func (api *API) register(c echo.Context) error {
 }
 
 func (api *API) createSession(c echo.Context, user models.User, now time.Time) error {
-	return utils.CreateUserSession(c, user.ID, now)
+	return authn.CreateUserSession(c, user.ID, now)
 }
 
 func (api *API) logout(c echo.Context) error {
 
-	if err := utils.DeleteSession(c); err != nil {
+	if err := authn.DeleteSession(c); err != nil {
 		return err
 	}
-	utils.ClearSessionCookie(c)
+	authn.ClearSessionCookie(c)
 	return c.NoContent(http.StatusNoContent)
 }
 
@@ -110,11 +110,11 @@ func (api *API) me(c echo.Context) error {
 }
 
 func refreshCSRFCookie(c echo.Context) {
-	token, ok := utils.SessionToken(c)
+	token, ok := authn.SessionToken(c)
 	if !ok {
 		return
 	}
-	utils.SetCSRFCookie(c, token, utils.SessionExpiresAt(time.Now()))
+	authn.SetCSRFCookie(c, token, authn.SessionExpiresAt(time.Now()))
 }
 
 func (api *API) updateMe(c echo.Context) error {
@@ -209,7 +209,7 @@ func (api *API) updatePassword(c echo.Context) error {
 func (api *API) currentUser(c echo.Context) (models.User, error) {
 	var user models.User
 
-	user, err := utils.UserFromCookie(api.db, c, time.Now())
+	user, err := authn.UserFromCookie(api.db, c, time.Now())
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return user, echo.NewHTTPError(http.StatusUnauthorized, "sign in required")
@@ -242,7 +242,7 @@ func meView(user models.User) contract.Me {
 }
 
 func validateRegister(req contract.RegisterRequest) error {
-	if len(req.Name) < models.UserNameMin || len(req.Name) > models.UserNameMax || !utils.ValidName(req.Name) {
+	if len(req.Name) < models.UserNameMin || len(req.Name) > models.UserNameMax || !validate.Name(req.Name) {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid username")
 	}
 	if err := validateMail(req.Mail); err != nil {
@@ -255,7 +255,7 @@ func validateRegister(req contract.RegisterRequest) error {
 }
 
 func validateMail(value string) error {
-	if !utils.ValidMail(value, models.MailMax, false) {
+	if !validate.Mail(value, models.MailMax, false) {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid mail")
 	}
 	return nil

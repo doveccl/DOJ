@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	contract "github.com/doveccl/doj/common/web"
 	"github.com/doveccl/doj/models"
-	judgersvc "github.com/doveccl/doj/server/judger"
-	"github.com/doveccl/doj/server/web/contract"
+	judgeapi "github.com/doveccl/doj/server/judgeapi"
 	"github.com/labstack/echo/v4"
 	"gorm.io/datatypes"
 )
@@ -124,7 +124,7 @@ func TestSubmissionDetailIncludesProgressButListDoesNot(t *testing.T) {
 	if err := db.Create(&submission).Error; err != nil {
 		t.Fatalf("create submission: %v", err)
 	}
-	if err := judgersvc.SaveProgress(t.Context(), submission.ID, judgersvc.Progress{Attempt: 4, Stage: "judge", Done: 3, Total: &total, UpdatedAt: time.Now()}); err != nil {
+	if err := judgeapi.SaveProgress(t.Context(), submission.ID, judgeapi.Progress{Attempt: 4, Stage: "judge", Done: 3, Total: &total, UpdatedAt: time.Now()}); err != nil {
 		t.Fatalf("save progress: %v", err)
 	}
 

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/doveccl/doj/utils"
+	"github.com/doveccl/doj/common/authn"
 	"github.com/labstack/echo/v4"
 )
 
@@ -19,7 +19,7 @@ func TestCSRFRequiresHeaderForSessionMutation(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	c := e.NewContext(httptest.NewRequest(http.MethodGet, "/", nil), rec)
-	utils.SetSessionCookie(c, "session-token", time.Now().Add(time.Hour))
+	authn.SetSessionCookie(c, "session-token", time.Now().Add(time.Hour))
 	cookies := rec.Result().Cookies()
 
 	req := httptest.NewRequest(http.MethodPost, "/write", nil)
@@ -35,8 +35,8 @@ func TestCSRFRequiresHeaderForSessionMutation(t *testing.T) {
 	req = httptest.NewRequest(http.MethodPost, "/write", nil)
 	for _, cookie := range cookies {
 		req.AddCookie(cookie)
-		if cookie.Name == utils.CSRFCookie {
-			req.Header.Set(utils.CSRFHeader, cookie.Value)
+		if cookie.Name == authn.CSRFCookie {
+			req.Header.Set(authn.CSRFHeader, cookie.Value)
 		}
 	}
 	res = httptest.NewRecorder()

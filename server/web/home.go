@@ -5,11 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/doveccl/doj/server/web/contract"
-
+	"github.com/doveccl/doj/common/limits"
+	contract "github.com/doveccl/doj/common/web"
 	"github.com/doveccl/doj/models"
 	adminsvc "github.com/doveccl/doj/server/admin"
-	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 )
 
@@ -177,7 +176,7 @@ func (api *API) updateNotice(c echo.Context) error {
 	if strings.TrimSpace(req.Content) == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "notice content is required")
 	}
-	if err := validateTextBytes(req.Content, utils.MaxMarkdownBytes, "notice content is too large"); err != nil {
+	if err := validateTextBytes(req.Content, limits.MaxMarkdownBytes, "notice content is too large"); err != nil {
 		return err
 	}
 

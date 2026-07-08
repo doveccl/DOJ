@@ -2,14 +2,14 @@ package web
 
 import (
 	"encoding/json"
+	"github.com/doveccl/doj/common/limits"
 	"net/http"
 	"strconv"
 	"strings"
 
-	"github.com/doveccl/doj/server/web/contract"
+	contract "github.com/doveccl/doj/common/web"
 
 	"github.com/doveccl/doj/models"
-	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
@@ -194,7 +194,7 @@ func (api *API) updateProblem(c echo.Context) error {
 		if value == "" && row.Title != "" {
 			value = "# " + row.Title
 		}
-		if err := validateTextBytes(value, utils.MaxMarkdownBytes, "statement is too large"); err != nil {
+		if err := validateTextBytes(value, limits.MaxMarkdownBytes, "statement is too large"); err != nil {
 			return err
 		}
 		statement = &value

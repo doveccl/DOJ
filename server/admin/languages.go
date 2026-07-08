@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/doveccl/doj/common/limits"
 	"github.com/doveccl/doj/models"
-	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
@@ -139,7 +139,7 @@ func validateLanguage(req LanguageUpdate) error {
 	if req.Run == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "language run command is required")
 	}
-	if len([]byte(req.Compile)) > utils.MaxLanguageCommandBytes || len([]byte(req.Run)) > utils.MaxLanguageCommandBytes {
+	if len([]byte(req.Compile)) > limits.MaxLanguageCommandBytes || len([]byte(req.Run)) > limits.MaxLanguageCommandBytes {
 		return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "language command is too large")
 	}
 	return nil

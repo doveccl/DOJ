@@ -2,15 +2,15 @@ package web
 
 import (
 	"encoding/json"
+	"github.com/doveccl/doj/common/limits"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/doveccl/doj/server/web/contract"
+	contract "github.com/doveccl/doj/common/web"
 
 	"github.com/doveccl/doj/models"
-	"github.com/doveccl/doj/utils"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
@@ -81,7 +81,7 @@ func (api *API) createDiscussion(c echo.Context) error {
 	if err := validateTitle(req.Title); err != nil {
 		return err
 	}
-	if err := validateTextBytes(req.Content, utils.MaxMarkdownBytes, "discussion content is too large"); err != nil {
+	if err := validateTextBytes(req.Content, limits.MaxMarkdownBytes, "discussion content is too large"); err != nil {
 		return err
 	}
 	user, err := api.currentUser(c)
@@ -199,7 +199,7 @@ func (api *API) updateDiscussion(c echo.Context) error {
 		if content == "" {
 			return echo.NewHTTPError(http.StatusBadRequest, "content is required")
 		}
-		if err := validateTextBytes(content, utils.MaxMarkdownBytes, "discussion content is too large"); err != nil {
+		if err := validateTextBytes(content, limits.MaxMarkdownBytes, "discussion content is too large"); err != nil {
 			return err
 		}
 		row.Content = content
@@ -262,7 +262,7 @@ func (api *API) createComment(c echo.Context) error {
 	if req.Content == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "content is required")
 	}
-	if err := validateTextBytes(req.Content, utils.MaxShortTextBytes, "comment content is too large"); err != nil {
+	if err := validateTextBytes(req.Content, limits.MaxShortTextBytes, "comment content is too large"); err != nil {
 		return err
 	}
 
