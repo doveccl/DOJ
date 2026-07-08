@@ -4,4 +4,4 @@ node_modules/
 
 /dist/
 /storage/
-/common/web/openapi.yaml
+/contract/web/openapi.yaml

@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "vite --host",
     "build": "tsc --noEmit && vite build",
-    "api:gen": "go run ./cmd/web-openapi && pnpm dlx openapi-typescript common/web/openapi.yaml -o web/client/schema.ts",
+    "api:gen": "go run ./cmd/web-openapi && pnpm dlx openapi-typescript contract/web/openapi.yaml -o web/client/schema.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

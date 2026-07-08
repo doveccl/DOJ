@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/doveccl/doj/common/cache"
+	"github.com/doveccl/doj/server/cache"
 	"github.com/robfig/cron/v3"
 	"gorm.io/gorm"
 	"log/slog"

@@ -33,4 +33,4 @@
 
 - Keep tests for normal judging, custom interactor judging, Quine-style interaction, output flood, timeout, compile limits, case isolation, fd inheritance, Docker, and cgroup behavior.
 - Docker and cgroup tests may skip when prerequisites are missing, but Linux validation must run them on a real Linux host before treating the judger as accepted.
-- Non-Linux stubs are only for compiling server/web development on non-Linux hosts; they are not judger support.
+- Non-Linux stubs are only for compiling server/API development on non-Linux hosts; they are not judger support.

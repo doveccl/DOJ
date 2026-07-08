@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"time"
 
-	common "github.com/doveccl/doj/common/judger"
+	common "github.com/doveccl/doj/contract/judger"
 )
 
 const (

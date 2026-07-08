@@ -1,0 +1,6 @@
+export { BackupsTab } from './backups'
+export { GroupsTab } from './groups'
+export { JudgersTab } from './judgers'
+export { LanguagesTab } from './languages'
+export { SettingsTab } from './settings'
+export { UsersTab } from './users'

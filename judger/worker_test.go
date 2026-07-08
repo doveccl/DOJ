@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	common "github.com/doveccl/doj/common/judger"
+	common "github.com/doveccl/doj/contract/judger"
 )
 
 func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {

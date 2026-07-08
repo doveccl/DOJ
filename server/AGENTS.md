@@ -1,8 +1,9 @@
 # Server API Rules
 
-- `server/web` handles guest and signed-in user APIs.
-- `server/admin` handles system administration APIs.
-- `server/judgeapi` handles APIs consumed by `doj judger`.
+- `server/api/public` handles guest and signed-in user APIs.
+- `server/api/admin` handles system administration APIs.
+- `server/api/worker` handles APIs consumed by `doj judger`.
+- `server/{auth,cache,storage,validate,settings,judge,backup,events,middleware}` contains server runtime helpers shared by API packages.
 - Handlers may call GORM and small helpers directly until the logic is large enough to justify another layer.
 
 ## Product Invariants

@@ -95,13 +95,13 @@ pnpm test
 pnpm build
 ```
 
-Regenerate the TypeScript API schema after editing the Go-first web contract in `server/web/openapi.go`:
+Regenerate the TypeScript API schema after editing the Go-first web contract in `server/api/openapi/openapi.go`:
 
 ```bash
 pnpm api:gen
 ```
 
-This writes the ignored OpenAPI artifact to `common/web/openapi.yaml`, then updates `web/client/schema.ts`.
+This writes the ignored OpenAPI artifact to `contract/web/openapi.yaml`, then updates `web/client/schema.ts`.
 
 Linux judger validation should also run on a Linux host with Docker and cgroup v2 available:
 
@@ -208,13 +208,13 @@ pnpm test
 pnpm build
 ```
 
-修改 `server/web/openapi.go` 里的 Go-first Web 契约后重新生成 TypeScript API schema：
+修改 `server/api/openapi/openapi.go` 里的 Go-first Web 契约后重新生成 TypeScript API schema：
 
 ```bash
 pnpm api:gen
 ```
 
-该命令会把忽略的 OpenAPI 产物写到 `common/web/openapi.yaml`，再更新 `web/client/schema.ts`。
+该命令会把忽略的 OpenAPI 产物写到 `contract/web/openapi.yaml`，再更新 `web/client/schema.ts`。
 
 Linux 评测链路需要在具备 Docker 和 cgroup v2 的 Linux 主机上验证：
 

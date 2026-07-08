@@ -1,0 +1,206 @@
+package public
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strconv"
+	"testing"
+
+	contract "github.com/doveccl/doj/contract/web"
+	"github.com/doveccl/doj/models"
+	"github.com/labstack/echo/v4"
+	"gorm.io/datatypes"
+)
+
+func TestProblemVisibilityUpdateDoesNotTouchStatementStorage(t *testing.T) {
+	db := testWebDB(t)
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	problem := models.Problem{ID: 1000, Title: "Visible", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	if err := db.Create(&models.Submission{ProblemID: problem.ID, UserID: admin.ID, Language: "cpp", Code: "int main(){}", Status: "AC", Score: 100, Public: true}).Error; err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+	discussionTags, _ := json.Marshal([]string{"P1000"})
+	if err := db.Create(&models.Discussion{Title: "Visible discussion", Content: "body", UserID: admin.ID, Tags: discussionTags}).Error; err != nil {
+		t.Fatalf("create discussion: %v", err)
+	}
+	blockedStorage := filepath.Join(t.TempDir(), "storage-file")
+	if err := os.WriteFile(blockedStorage, []byte("not a directory"), 0o644); err != nil {
+		t.Fatalf("create blocked storage marker: %v", err)
+	}
+	t.Setenv("STORAGE", blockedStorage)
+
+	e := echo.New()
+	Register(e, db)
+	cookies := databaseSession(t, db, admin.ID)
+	res := requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000/visibility", cookies, `{"visible":false}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("visibility update got %d body=%s", res.Code, res.Body.String())
+	}
+	updated := decodeJSON[contract.Problem](t, res)
+	if updated.Visible {
+		t.Fatalf("problem should be hidden after visibility update: %+v", updated)
+	}
+	if updated.Cases != nil || updated.DataBytes != nil || updated.Statement != "" {
+		t.Fatalf("visibility response should stay a list item without storage/detail fields: %+v", updated)
+	}
+}
+
+func TestProblemPatchOnlyUpdatesProvidedFields(t *testing.T) {
+	db := testWebDB(t)
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	problem := models.Problem{ID: 1000, Title: "Original", Tags: datatypes.JSON([]byte(`["old"]`)), Visible: true, Mode: "default", TimeMS: 2000, MemoryMB: 512}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	t.Setenv("STORAGE", t.TempDir())
+
+	e := echo.New()
+	Register(e, db)
+	cookies := databaseSession(t, db, admin.ID)
+	statement := "# Original\n\nBody"
+	statementBody := `{"statement":` + strconv.Quote(statement) + `}`
+	if res := requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000", cookies, statementBody); res.Code != http.StatusOK {
+		t.Fatalf("statement patch got %d body=%s", res.Code, res.Body.String())
+	} else if got := decodeJSON[contract.CreatedID](t, res); got.ID != problem.ID {
+		t.Fatalf("statement patch should return problem id: %+v", got)
+	}
+	res := requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000", cookies, `{"mode":"strict"}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("mode patch got %d body=%s", res.Code, res.Body.String())
+	}
+	if got := decodeJSON[contract.CreatedID](t, res); got.ID != problem.ID {
+		t.Fatalf("mode patch should return problem id: %+v", got)
+	}
+	updated := decodeJSON[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil))
+	if updated.Mode != "strict" || updated.Title != "Original" || updated.Statement != statement || !updated.Visible || updated.TimeMS != 2000 || updated.MemoryMB != 512 {
+		t.Fatalf("mode patch should preserve unrelated problem fields: %+v", updated)
+	}
+	res = requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000", cookies, `{"visible":false}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("visible false patch got %d body=%s", res.Code, res.Body.String())
+	}
+	if got := decodeJSON[contract.CreatedID](t, res); got.ID != problem.ID {
+		t.Fatalf("visible patch should return problem id: %+v", got)
+	}
+	updated = decodeJSON[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil))
+	if updated.Visible || updated.Mode != "strict" || updated.Title != "Original" || updated.Statement != statement {
+		t.Fatalf("visible false patch should apply false and preserve unrelated fields: %+v", updated)
+	}
+	res = requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000", cookies, `{"tags":[]}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("empty tags patch got %d body=%s", res.Code, res.Body.String())
+	}
+	if got := decodeJSON[contract.CreatedID](t, res); got.ID != problem.ID {
+		t.Fatalf("tags patch should return problem id: %+v", got)
+	}
+	updated = decodeJSON[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil))
+	if len(updated.Tags) != 0 || updated.Visible || updated.Mode != "strict" || updated.Statement != statement {
+		t.Fatalf("empty tags patch should clear tags and preserve unrelated fields: %+v", updated)
+	}
+	res = requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000", cookies, `{"timeMs":0,"memoryMb":0}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("zero limit patch got %d body=%s", res.Code, res.Body.String())
+	}
+	if got := decodeJSON[contract.CreatedID](t, res); got.ID != problem.ID {
+		t.Fatalf("limit patch should return problem id: %+v", got)
+	}
+	updated = decodeJSON[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil))
+	if updated.TimeMS != 1000 || updated.MemoryMB != 256 || updated.Mode != "strict" || updated.Statement != statement {
+		t.Fatalf("zero limit patch should use defaults and preserve unrelated fields: %+v", updated)
+	}
+}
+
+func TestProblemCreateDefaultsVisibleAndListSortsByID(t *testing.T) {
+	db := testWebDB(t)
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	rows := []models.Problem{
+		{ID: 1002, Title: "B", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256},
+		{ID: 1000, Title: "A", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256},
+	}
+	for _, row := range rows {
+		if err := db.Create(&row).Error; err != nil {
+			t.Fatalf("create problem %d: %v", row.ID, err)
+		}
+	}
+
+	e := echo.New()
+	Register(e, db)
+	cookies := databaseSession(t, db, admin.ID)
+	created := decodeJSON[contract.CreatedID](t, requestJSONWithCookies(e, http.MethodPost, "/api/problems", cookies, `{"title":"Created","tags":[],"mode":"default","timeMs":1000,"memoryMb":256}`))
+	createdDetail := decodeJSON[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems/"+strconv.FormatUint(uint64(created.ID), 10), cookies, nil))
+	if !createdDetail.Visible {
+		t.Fatalf("created problem should default to visible: %+v", createdDetail)
+	}
+	items := decodePageItems[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems", cookies, nil))
+	if len(items) < 3 {
+		t.Fatalf("problem list too short: %+v", items)
+	}
+	ids := []uint{items[0].ID, items[1].ID, items[2].ID}
+	if ids[0] != 1000 || ids[1] != 1002 || ids[2] != created.ID {
+		t.Fatalf("problem list should sort by id asc, got %+v", ids)
+	}
+}
+
+func TestProblemListDoesNotTouchAssetStorage(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	problem := models.Problem{ID: 1000, Title: "Visible", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	blockedStorage := filepath.Join(t.TempDir(), "storage-file")
+	if err := os.WriteFile(blockedStorage, []byte("not a directory"), 0o644); err != nil {
+		t.Fatalf("create blocked storage marker: %v", err)
+	}
+	t.Setenv("STORAGE", blockedStorage)
+
+	e := echo.New()
+	Register(e, db)
+	res := requestOK(t, e, http.MethodGet, "/api/problems", "")
+	items := decodePageItems[contract.Problem](t, res)
+	if len(items) != 1 || items[0].ID != problem.ID {
+		t.Fatalf("problem list got %+v, want P%d", items, problem.ID)
+	}
+	if items[0].Cases != nil || items[0].DataBytes != nil {
+		t.Fatalf("problem list should not compute storage-derived stats: %+v", items[0])
+	}
+}
+
+func TestProblemListSearchesByCode(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	rows := []models.Problem{
+		{ID: 1288, Title: "Window Median", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256},
+		{ID: 1289, Title: "Deer Tower", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256},
+	}
+	for _, row := range rows {
+		if err := db.Create(&row).Error; err != nil {
+			t.Fatalf("create problem %d: %v", row.ID, err)
+		}
+	}
+
+	e := echo.New()
+	Register(e, db)
+
+	for _, q := range []string{"1289", "P1289"} {
+		got := decodePageItems[contract.Problem](t, requestOK(t, e, http.MethodGet, "/api/problems?q="+url.QueryEscape(q), ""))
+		if len(got) != 1 || got[0].ID != 1289 {
+			t.Fatalf("problem search %q got %+v, want P1289", q, got)
+		}
+	}
+}

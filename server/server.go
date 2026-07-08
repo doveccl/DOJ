@@ -12,13 +12,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/doveccl/doj/common/cache"
-	dojmw "github.com/doveccl/doj/middleware"
 	"github.com/doveccl/doj/models"
-	adminsvc "github.com/doveccl/doj/server/admin"
-	backupsvc "github.com/doveccl/doj/server/backup"
-	judgeapi "github.com/doveccl/doj/server/judgeapi"
-	websvc "github.com/doveccl/doj/server/web"
+	"github.com/doveccl/doj/server/api/admin"
+	"github.com/doveccl/doj/server/api/public"
+	"github.com/doveccl/doj/server/api/worker"
+	"github.com/doveccl/doj/server/backup"
+	"github.com/doveccl/doj/server/cache"
+	dojmw "github.com/doveccl/doj/server/middleware"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"gorm.io/gorm"
@@ -50,10 +50,10 @@ func Main() {
 	if err != nil {
 		e.Logger.Fatal(err)
 	}
-	backupScheduler := backupsvc.StartScheduler(ctx, db)
-	websvc.Register(e, db)
-	adminsvc.Register(e, db, backupScheduler)
-	judgeapi.Register(e, db)
+	backupScheduler := backup.StartScheduler(ctx, db)
+	public.Register(e, db)
+	admin.Register(e, db, backupScheduler)
+	worker.Register(e, db)
 	if err := registerWebApp(e, defaultWebDir); err != nil {
 		e.Logger.Fatal(err)
 	}

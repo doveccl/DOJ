@@ -5,15 +5,15 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/doveccl/doj/server/web"
+	"github.com/doveccl/doj/server/api/openapi"
 )
 
 func main() {
-	target := "common/web/openapi.yaml"
+	target := "contract/web/openapi.yaml"
 	if len(os.Args) > 1 {
 		target = os.Args[1]
 	}
-	data, err := web.NewOpenAPI().OpenAPI().YAML()
+	data, err := openapi.NewOpenAPI().OpenAPI().YAML()
 	if err != nil {
 		fatal(err)
 	}
