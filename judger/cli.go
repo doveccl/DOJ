@@ -64,10 +64,6 @@ func JudgerCLI(ctx context.Context, args []string) int {
 	return 0
 }
 
-func RunnerCLI(ctx context.Context, args []string) int {
-	return runner.CLI(ctx, args)
-}
-
 func judgerUsage(w io.Writer) {
 	fmt.Fprintln(w, "usage: doj judger")
 	fmt.Fprintln(w, "       doj judger version")

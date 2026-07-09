@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/doveccl/doj/judger"
+	"github.com/doveccl/doj/judger/runner"
 	"github.com/doveccl/doj/server"
 )
 
@@ -20,7 +21,7 @@ func main() {
 	case "judger":
 		os.Exit(judger.JudgerCLI(context.Background(), os.Args[2:]))
 	case "runner":
-		os.Exit(judger.RunnerCLI(context.Background(), os.Args[2:]))
+		os.Exit(runner.CLI(context.Background(), os.Args[2:]))
 	default:
 		usage()
 		os.Exit(2)

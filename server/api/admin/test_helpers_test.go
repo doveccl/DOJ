@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -148,19 +149,5 @@ func databaseSession(t *testing.T, userID uint) []*http.Cookie {
 }
 
 func itoa(id uint) string {
-	return strconvFormatUint(uint64(id))
-}
-
-func strconvFormatUint(value uint64) string {
-	if value == 0 {
-		return "0"
-	}
-	var digits [20]byte
-	index := len(digits)
-	for value > 0 {
-		index--
-		digits[index] = byte('0' + value%10)
-		value /= 10
-	}
-	return string(digits[index:])
+	return strconv.FormatUint(uint64(id), 10)
 }
