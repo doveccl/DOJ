@@ -6,6 +6,7 @@ COPY package.json pnpm-lock.yaml ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile --prefer-offline
 
 COPY web ./web
+COPY public ./public
 COPY index.html ./
 COPY tsconfig.json vite.config.ts ./
 RUN pnpm build
