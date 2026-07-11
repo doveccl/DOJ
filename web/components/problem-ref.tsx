@@ -65,11 +65,11 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading, d
   const columns: TableProps<ProblemRef>['columns'] = [
     {
       title: text.common.sort,
+      width: 160,
       render: (_, row) => <Input value={row.sort} disabled={disabled} maxLength={limits.sort} onChange={(event) => setSort(row.id, event.target.value)} />
     },
     {
       title: text.submissions.problem,
-      width: 300,
       ellipsis: { showTitle: false },
       render: (_, row) => (
         <Typography.Text ellipsis={{ tooltip: optionMap.get(row.id) || String(row.id) }}>

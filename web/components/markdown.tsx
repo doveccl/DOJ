@@ -5,6 +5,7 @@ import './markdown.css'
 type MarkdownEditorProps = {
   id?: string
   value?: string
+  height?: number
   readOnly?: boolean
   upload?: (file: File) => Promise<string>
   variant?: 'editor' | 'preview'

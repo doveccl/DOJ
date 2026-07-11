@@ -1,5 +1,5 @@
 import { EditOutlined, UnorderedListOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, DatePicker, Flex, Form, Input, Modal, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
+import { App as AntApp, Button, Card, DatePicker, Flex, Form, Input, Modal, Space, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
@@ -13,6 +13,7 @@ import type { AssignmentProgress, ProblemListItem, ProblemRef, ProblemState } fr
 import { DescriptionCard } from '../../components/description'
 import { ProblemLink, UserLink } from '../../components/entity'
 import { IdSelect } from '../../components/id-select'
+import { MarkdownEditor } from '../../components/markdown'
 import { defaultProblemSort, ProblemRefInput } from '../../components/problem-ref'
 import { ScoreTag } from '../../components/score'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
@@ -24,6 +25,7 @@ import { limits } from '../../utils/limits'
 
 type AssignmentForm = {
   title: string
+  description: string
   endAt: Dayjs
   problems?: ProblemRef[]
   users?: number[]
@@ -56,6 +58,7 @@ export function AssignmentDetailPage() {
     mutationFn: (values: AssignmentForm) =>
       apiData(api.PATCH('/api/assignments/{id}', { params: { path: { id } }, body: {
         title: values.title,
+        description: values.description,
         endAt: values.endAt.toISOString(),
         problems: values.problems ?? [],
         users: values.users ?? [],
@@ -85,7 +88,7 @@ export function AssignmentDetailPage() {
   }
 
   const { assignment, problems, progress: assignmentProgress } = query.data
-  const scopeLocked = assignment.status === 'ended' || assignmentProgress.some((item) => item.submit > 0)
+  const scopeRisk = assignment.status === 'ended' || assignmentProgress.some((item) => item.submit > 0)
   const recordsUser = session.signedIn && !session.admin ? session.name : ''
   const stateByProblem = new Map((state.data ?? []).map((item) => [item.problemId, item]))
   const problemOptions = problems.map((item) => ({
@@ -96,43 +99,26 @@ export function AssignmentDetailPage() {
     setEditOpen(true)
   }
 
-  async function saveDescription(description: string) {
-    try {
-      const next = await apiData(api.PATCH('/api/assignments/{id}/description', { params: { path: { id } }, body: { description } }))
-      client.setQueryData<typeof query.data>(['assignment', id], (current) => current ? { ...current, description: next.description } : current)
-      message.success(text.common.saved)
-    } catch (error) {
-      showError(error)
-      throw error
-    }
-  }
-
   return (
     <Flex vertical gap={16}>
       <DescriptionCard
         id={`assignment-${assignment.id}-description`}
         value={query.data.description}
-        editable={session.admin}
-        onSave={saveDescription}
         header={
-        <Flex justify="space-between" align="center" gap={20} wrap>
           <Flex align="center" gap={10}>
             <Typography.Title level={3} style={{ margin: 0 }}>
               {assignment.title}
             </Typography.Title>
-            {session.admin ? (
-              <Tooltip title={text.common.edit}>
-                <Button aria-label={`${text.common.edit} #${assignment.id}`} type="text" size="small" icon={<EditOutlined />} onClick={openEdit} />
-              </Tooltip>
-            ) : null}
           </Flex>
-          <Flex align="center" gap={12} wrap>
+        }
+        extra={
+          <Space size={12} wrap>
             <Button icon={<UnorderedListOutlined />} href={`/submissions?assignment=${assignment.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`}>
               {recordsUser ? text.submissions.myRecords : text.submissions.allRecords}
             </Button>
             <DeadlineTimer kind="assignment" status={assignment.status} target={assignment.endAt} onFinish={() => void query.refetch()} />
-          </Flex>
-        </Flex>
+            {session.admin ? <Button icon={<EditOutlined />} onClick={openEdit}>{text.common.edit}</Button> : null}
+          </Space>
         }
       />
       <Card>
@@ -154,12 +140,13 @@ export function AssignmentDetailPage() {
       {editOpen ? (
         <AssignmentEditModal
           assignment={assignment}
+          description={query.data.description}
           problems={problems}
           problemOptions={problemOptions}
           loading={update.isPending}
           onCancel={() => setEditOpen(false)}
           onSave={(values) => {
-            if (!scopeLocked) {
+            if (!scopeRisk) {
               update.mutate(values)
               return
             }
@@ -179,13 +166,15 @@ export function AssignmentDetailPage() {
 
 function AssignmentEditModal({
   assignment,
+  description,
   problems,
   problemOptions,
   loading,
   onCancel,
   onSave
 }: {
-  assignment: { title: string; endAt: string; users: number[]; groups: number[] }
+  assignment: { id: number; title: string; endAt: string; users: number[]; groups: number[] }
+  description: string
   problems: ProblemListItem[]
   problemOptions: { value: number; label: string }[]
   loading: boolean
@@ -196,6 +185,7 @@ function AssignmentEditModal({
   const [form] = Form.useForm<AssignmentForm>()
   const initialValues = {
     title: assignment.title,
+    description,
     endAt: dayjs(assignment.endAt),
     problems: problems.map((problem, index) => ({ id: problem.id, sort: problem.sort || defaultProblemSort(index) })),
     users: assignment.users,
@@ -217,6 +207,9 @@ function AssignmentEditModal({
       <Form<AssignmentForm> form={form} preserve={false} layout="vertical" initialValues={initialValues} onFinish={onSave}>
         <Form.Item name="title" label={text.assignments.name} rules={[{ required: true, whitespace: true }]}>
           <Input maxLength={limits.title} showCount />
+        </Form.Item>
+        <Form.Item name="description" label={text.assignments.instructions}>
+          <MarkdownEditor id={`assignment-${assignment.id}-description-edit`} height={220} />
         </Form.Item>
         <Form.Item name="endAt" label={text.assignments.deadline} rules={[{ required: true }]}>
           <DatePicker showTime style={{ width: '100%' }} />
@@ -270,6 +263,7 @@ function problemColumns(text: ReturnType<typeof useLocale>['text'], assignmentID
     {
       title: text.common.sort,
       dataIndex: 'sort',
+      width: 120,
       render: (sort: string | undefined, row) => <Typography.Text>{sort || problemCode(row.id)}</Typography.Text>
     },
     {

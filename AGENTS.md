@@ -30,6 +30,10 @@
 - Problem IDs start at 1000.
 - Problem memory limits are MB. Submission results, case results, and judger resource usage are KB.
 - Problem tags are stored on the problem row, not in a separate tag table.
+- Discussions are intentionally soft-linked to problems only through tags such as `P1000`. Do not add a problem foreign key or derive discussion authorization/visibility from those tags; contest spoiler control is moderation and entry-point UX.
+- Administrators are trusted operators. For edits to started/used assignments and contests, use a confirmation warning rather than server-side lifecycle locks; retain only trust-boundary validation and data-integrity checks.
+- A fresh database intentionally seeds `admin/admin`. The API derives the default-password warning from the password hash, and the UI keeps it visible until the password changes.
+- Assignment and contest descriptions live on their database rows and are edited with the rest of the object through one edit action. Their detail header and optional description share one Card; omit the Card body when the description is empty.
 - Do not store S3/object keys in the database when the key can be derived from a business id.
 - Deleted rows are not visible to administrators in the product UI; DBA recovery is outside the app.
 

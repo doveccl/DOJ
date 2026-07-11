@@ -307,23 +307,6 @@ export interface paths {
         patch: operations["updateAssignment"];
         trace?: never;
     };
-    "/api/assignments/{id}/description": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Assignment description updated */
-        patch: operations["updateAssignmentDescription"];
-        trace?: never;
-    };
     "/api/auth/login": {
         parameters: {
             query?: never;
@@ -410,23 +393,6 @@ export interface paths {
         head?: never;
         /** Contest updated */
         patch: operations["updateContest"];
-        trace?: never;
-    };
-    "/api/contests/{id}/description": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Contest description updated */
-        patch: operations["updateContestDescription"];
         trace?: never;
     };
     "/api/discussion": {
@@ -1230,6 +1196,7 @@ export interface components {
             users: number[];
         };
         AssignmentCreate: {
+            description: string;
             endAt: string;
             groups: number[];
             problems: components["schemas"]["ProblemRef"][];
@@ -1279,6 +1246,7 @@ export interface components {
             user: string;
         };
         AssignmentUpdate: {
+            description: string;
             endAt: string;
             groups: number[];
             problems: components["schemas"]["ProblemRef"][];
@@ -1355,6 +1323,7 @@ export interface components {
             total: number;
         };
         ContestCreate: {
+            description: string;
             endAt: string;
             freezeAt: string;
             kind: string;
@@ -1378,6 +1347,7 @@ export interface components {
             total: number;
         };
         ContestUpdate: {
+            description: string;
             endAt: string;
             freezeAt: string;
             kind: string;
@@ -1392,9 +1362,6 @@ export interface components {
         CreatedID: {
             /** Format: int64 */
             id: number;
-        };
-        DescriptionUpdate: {
-            description: string;
         };
         Discussion: {
             author: string;
@@ -2822,41 +2789,6 @@ export interface operations {
             };
         };
     };
-    updateAssignmentDescription: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DescriptionUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DescriptionUpdate"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
     login: {
         parameters: {
             query?: never;
@@ -3098,41 +3030,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CreatedID"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    updateContestDescription: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DescriptionUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DescriptionUpdate"];
                 };
             };
             /** @description Error */

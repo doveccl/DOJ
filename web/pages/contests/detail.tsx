@@ -12,6 +12,7 @@ import { api, apiData } from '../../client'
 import type { ProblemListItem, ProblemRef, ProblemState, RankUser } from '../../client'
 import { DescriptionCard } from '../../components/description'
 import { ProblemLink, UserLink } from '../../components/entity'
+import { MarkdownEditor } from '../../components/markdown'
 import { defaultProblemSort, ProblemRefInput } from '../../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
 import { contestTarget, DeadlineTimer } from '../../components/time'
@@ -22,6 +23,7 @@ import { limits } from '../../utils/limits'
 
 type ContestForm = {
   title: string
+  description: string
   kind: string
   startAt: Dayjs
   endAt: Dayjs
@@ -55,6 +57,7 @@ export function ContestDetailPage() {
     mutationFn: (values: ContestForm) =>
       apiData(api.PATCH('/api/contests/{id}', { params: { path: { id } }, body: {
         title: values.title,
+        description: values.description,
         kind: values.kind,
         startAt: values.startAt.toISOString(),
         endAt: values.endAt.toISOString(),
@@ -97,38 +100,21 @@ export function ContestDetailPage() {
     setEditOpen(true)
   }
 
-  async function saveDescription(description: string) {
-    try {
-      const next = await apiData(api.PATCH('/api/contests/{id}/description', { params: { path: { id } }, body: { description } }))
-      client.setQueryData<typeof query.data>(['contest', id], (current) => current ? { ...current, description: next.description } : current)
-      message.success(text.common.saved)
-    } catch (error) {
-      showError(error)
-      throw error
-    }
-  }
-
   return (
     <Flex vertical gap={16}>
       <DescriptionCard
         id={`contest-${contest.id}-description`}
         value={query.data.description}
-        editable={session.admin}
-        onSave={saveDescription}
         header={
-        <Flex justify="space-between" align="center" gap={20} wrap>
           <Flex align="center" gap={10}>
             <Typography.Title level={3} style={{ margin: 0 }}>
               {contest.title}
             </Typography.Title>
             <Tag>{contest.kind}</Tag>
-            {session.admin ? (
-              <Tooltip title={text.common.edit}>
-                <Button aria-label={`${text.common.edit} #${contest.id}`} type="text" size="small" icon={<EditOutlined />} onClick={openEdit} />
-              </Tooltip>
-            ) : null}
           </Flex>
-          <Flex align="center" gap={12} wrap>
+        }
+        extra={
+          <Space size={12} wrap>
             <Button icon={<UnorderedListOutlined />} href={`/submissions?contest=${contest.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`}>
               {recordsUser ? text.submissions.myRecords : text.submissions.allRecords}
             </Button>
@@ -139,8 +125,8 @@ export function ContestDetailPage() {
               range={`${formatTime(contest.startAt, lang)} - ${formatTime(contest.endAt, lang)}`}
               onFinish={() => void query.refetch()}
             />
-          </Flex>
-        </Flex>
+            {session.admin ? <Button icon={<EditOutlined />} onClick={openEdit}>{text.common.edit}</Button> : null}
+          </Space>
         }
       />
       <Card>
@@ -178,6 +164,7 @@ export function ContestDetailPage() {
       {editOpen ? (
         <ContestEditModal
           contest={contest}
+          description={query.data.description}
           problems={problems}
           problemOptions={problemOptions}
           loading={update.isPending}
@@ -203,13 +190,15 @@ export function ContestDetailPage() {
 
 function ContestEditModal({
   contest,
+  description,
   problems,
   problemOptions,
   loading,
   onCancel,
   onSave
 }: {
-  contest: { title: string; kind: string; startAt: string; endAt: string; freezeAt: string | null }
+  contest: { id: number; title: string; kind: string; startAt: string; endAt: string; freezeAt: string | null }
+  description: string
   problems: ProblemListItem[]
   problemOptions: { value: number; label: string }[]
   loading: boolean
@@ -220,6 +209,7 @@ function ContestEditModal({
   const [form] = Form.useForm<ContestForm>()
   const initialValues = {
     title: contest.title,
+    description,
     kind: contest.kind,
     startAt: dayjs(contest.startAt),
     endAt: dayjs(contest.endAt),
@@ -231,6 +221,7 @@ function ContestEditModal({
     <Modal
       open
       destroyOnHidden
+      width={780}
       title={text.common.edit}
       okText={text.common.save}
       cancelText={text.common.cancel}
@@ -241,6 +232,9 @@ function ContestEditModal({
       <Form<ContestForm> form={form} preserve={false} layout="vertical" initialValues={initialValues} onFinish={onSave}>
         <Form.Item name="title" label={text.contests.name} rules={[{ required: true, whitespace: true }]}>
           <Input maxLength={limits.title} showCount />
+        </Form.Item>
+        <Form.Item name="description" label={text.contests.description}>
+          <MarkdownEditor id={`contest-${contest.id}-description-edit`} height={220} />
         </Form.Item>
         <Form.Item name="kind" label={text.contests.kind}>
           <Select
@@ -348,6 +342,7 @@ function problemColumns(text: ReturnType<typeof useLocale>['text'], contestID: n
     {
       title: text.common.sort,
       dataIndex: 'sort',
+      width: 120,
       render: (sort: string | undefined, row) => <Typography.Text>{sort || problemCode(row.id)}</Typography.Text>
     },
     {

@@ -25,6 +25,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api, apiData, apiEmpty } from '../../client'
 import type { AssignmentListItem, ProblemRef } from '../../client'
 import { IdSelect } from '../../components/id-select'
+import { MarkdownEditor } from '../../components/markdown'
 import { defaultProblemSort, ProblemRefInput } from '../../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
 import { ScheduleTag } from '../../components/time'
@@ -36,6 +37,7 @@ import { pageFromParams, pageSizeFromParams, setPageParams } from '../../utils/p
 
 type AssignmentForm = {
   title: string
+  description: string
   endAt: Dayjs
   problems?: ProblemRef[]
   users?: number[]
@@ -61,6 +63,7 @@ export function AssignmentsPage() {
     mutationFn: (values: AssignmentForm) =>
       apiData(api.POST('/api/assignments', { body: {
         title: values.title,
+        description: values.description,
         endAt: values.endAt.toISOString(),
         problems: values.problems ?? [],
         users: values.users ?? [],
@@ -82,6 +85,7 @@ export function AssignmentsPage() {
       }
       return apiData(api.PATCH('/api/assignments/{id}', { params: { path: { id: editingId } }, body: {
         title: values.title,
+        description: values.description,
         endAt: values.endAt.toISOString(),
         problems: values.problems ?? [],
         users: values.users ?? [],
@@ -186,6 +190,7 @@ function AssignmentModal({
   onSave: (values: AssignmentForm) => void
 }) {
   const { text } = useLocale()
+  const { modal } = AntApp.useApp()
   const [form] = Form.useForm<AssignmentForm>()
   const isEdit = editingId !== null
   const detail = useQuery({
@@ -198,16 +203,31 @@ function AssignmentModal({
     isEdit && detail.data
       ? {
           title: detail.data.assignment.title,
+          description: detail.data.description,
           endAt: dayjs(detail.data.assignment.endAt),
           problems: detail.data.problems.map((problem, index) => ({ id: problem.id, sort: problem.sort || defaultProblemSort(index) })),
           users: detail.data.assignment.users,
           groups: detail.data.assignment.groups
         }
-      : { title: '', problems: [], users: [], groups: [] }
+      : { title: '', description: '', problems: [], users: [], groups: [] }
   const problemOptions = (detail.data?.problems ?? []).map((item) => ({
     value: item.id,
     label: problemLabel(item.id, item.title)
   }))
+  function submit(values: AssignmentForm) {
+    const risky = isEdit && detail.data && (detail.data.assignment.status === 'ended' || detail.data.progress.some((item) => item.submit > 0))
+    if (!risky) {
+      onSave(values)
+      return
+    }
+    modal.confirm({
+      title: text.assignments.changeWarning,
+      content: text.assignments.changeWarningDescription,
+      okText: text.common.save,
+      cancelText: text.common.cancel,
+      onOk: () => onSave(values)
+    })
+  }
 
   const body =
     isEdit && detail.isLoading ? (
@@ -221,10 +241,13 @@ function AssignmentModal({
         preserve={false}
         layout="vertical"
         initialValues={initialValues}
-        onFinish={onSave}
+        onFinish={submit}
       >
         <Form.Item name="title" label={text.assignments.name} rules={[{ required: true, whitespace: true }]}>
           <Input maxLength={limits.title} showCount />
+        </Form.Item>
+        <Form.Item name="description" label={text.assignments.instructions}>
+          <MarkdownEditor id={isEdit ? `assignment-${editingId}-description-edit` : 'assignment-new-description'} height={220} />
         </Form.Item>
         <Form.Item name="endAt" label={text.assignments.deadline} rules={[{ required: true }]}>
           <DatePicker showTime style={{ width: '100%' }} />

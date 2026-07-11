@@ -12,6 +12,12 @@
   background: var(--page-bg);
 }
 
+/* Keep centered page geometry stable when a vertical scrollbar appears. */
+html,
+body {
+  overflow-x: clip;
+}
+
 :root[data-theme='dark'] {
   --page-bg: var(--ant-color-bg-layout, #000);
   --header-bg: var(--ant-color-bg-container, #141414);
@@ -32,7 +38,7 @@ body {
 }
 
 .appLayout {
-  width: 100%;
+  width: 100vw;
   min-height: 100vh;
   background: var(--page-bg);
 }

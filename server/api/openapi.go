@@ -414,13 +414,11 @@ func RegisterOpenAPI(api huma.API) {
 	postCreated[bodyInput[contract.AssignmentCreate], contract.CreatedID](api, "/api/assignments", "createAssignment", "Assignment created")
 	getWith[idPath, assignmentDetail](api, "/api/assignments/{id}", "getAssignment", "Assignment detail")
 	patch[idBody[contract.AssignmentUpdate], contract.CreatedID](api, "/api/assignments/{id}", "updateAssignment", "Assignment updated")
-	patch[idBody[contract.DescriptionUpdate], contract.DescriptionUpdate](api, "/api/assignments/{id}/description", "updateAssignmentDescription", "Assignment description updated")
 	noContent[idPath](api, http.MethodDelete, "/api/assignments/{id}", "deleteAssignment", "Assignment deleted")
 	getWith[assignmentListQuery, ContestListPage](api, "/api/contests", "listContests", "Contest list")
 	postCreated[bodyInput[contract.ContestCreate], contract.CreatedID](api, "/api/contests", "createContest", "Contest created")
 	getWith[idPath, contestDetail](api, "/api/contests/{id}", "getContest", "Contest detail")
 	patch[idBody[contract.ContestUpdate], contract.CreatedID](api, "/api/contests/{id}", "updateContest", "Contest updated")
-	patch[idBody[contract.DescriptionUpdate], contract.DescriptionUpdate](api, "/api/contests/{id}/description", "updateContestDescription", "Contest description updated")
 	noContent[idPath](api, http.MethodDelete, "/api/contests/{id}", "deleteContest", "Contest deleted")
 
 	getWith[submissionListQuery, SubmissionListPage](api, "/api/submissions", "listSubmissions", "Submission list")

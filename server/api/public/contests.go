@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/doveccl/doj/contract/limits"
 	contract "github.com/doveccl/doj/contract/web"
 
 	"github.com/doveccl/doj/models"
@@ -53,11 +54,15 @@ func (api *API) createContest(c echo.Context) error {
 		return err
 	}
 	req.Title = strings.TrimSpace(req.Title)
+	req.Description = strings.TrimSpace(req.Description)
 	req.Kind = strings.TrimSpace(strings.ToUpper(req.Kind))
 	if req.Title == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "title is required")
 	}
 	if err := validateTitle(req.Title); err != nil {
+		return err
+	}
+	if err := validateTextBytes(req.Description, limits.MaxMarkdownBytes, "description is too large"); err != nil {
 		return err
 	}
 	if req.Kind == "" {
@@ -93,7 +98,7 @@ func (api *API) createContest(c echo.Context) error {
 	if err := api.validateProblemRefs(req.Problems); err != nil {
 		return err
 	}
-	row := models.Contest{Title: req.Title, Kind: req.Kind, StartAt: startAt, EndAt: endAt, FreezeAt: freezeAt}
+	row := models.Contest{Title: req.Title, Description: req.Description, Kind: req.Kind, StartAt: startAt, EndAt: endAt, FreezeAt: freezeAt}
 	if err := api.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&row).Error; err != nil {
 			return err
@@ -124,11 +129,15 @@ func (api *API) updateContest(c echo.Context) error {
 		return err
 	}
 	req.Title = strings.TrimSpace(req.Title)
+	req.Description = strings.TrimSpace(req.Description)
 	req.Kind = strings.TrimSpace(strings.ToUpper(req.Kind))
 	if req.Title == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "title is required")
 	}
 	if err := validateTitle(req.Title); err != nil {
+		return err
+	}
+	if err := validateTextBytes(req.Description, limits.MaxMarkdownBytes, "description is too large"); err != nil {
 		return err
 	}
 	if req.Kind == "" {
@@ -169,6 +178,7 @@ func (api *API) updateContest(c echo.Context) error {
 		return err
 	}
 	row.Title = req.Title
+	row.Description = req.Description
 	row.Kind = req.Kind
 	row.StartAt = startAt
 	row.EndAt = endAt

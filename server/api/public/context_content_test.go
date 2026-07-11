@@ -1,6 +1,7 @@
 package public
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,7 +15,6 @@ import (
 )
 
 func TestContextDescriptionsAreSeparateAndAdminManaged(t *testing.T) {
-	t.Setenv("STORAGE", t.TempDir())
 	db := testWebDB(t)
 	allowGuest(t, db)
 	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
@@ -42,14 +42,22 @@ func TestContextDescriptionsAreSeparateAndAdminManaged(t *testing.T) {
 	contestPath := "/api/contests/" + strconv.FormatUint(uint64(contest.ID), 10)
 	studentCookies := databaseSession(t, db, student.ID)
 	adminCookies := databaseSession(t, db, admin.ID)
-	if res := requestJSONWithCookies(e, http.MethodPatch, assignmentPath+"/description", studentCookies, `{"description":"leak"}`); res.Code != http.StatusForbidden {
+	if res := requestJSONWithCookies(e, http.MethodPatch, assignmentPath, studentCookies, `{}`); res.Code != http.StatusForbidden {
 		t.Fatalf("student updated description: %d body=%s", res.Code, res.Body.String())
 	}
+	assignmentBody := func(description string) string {
+		return fmt.Sprintf(`{"title":"Homework","description":%q,"endAt":%q,"problems":[],"users":[%d],"groups":[]}`,
+			description, assignment.EndAt.Format(time.RFC3339), student.ID)
+	}
+	contestBody := func(description string) string {
+		return fmt.Sprintf(`{"title":"Round","description":%q,"kind":"OI","startAt":%q,"endAt":%q,"freezeAt":"","problems":[]}`,
+			description, contest.StartAt.Format(time.RFC3339), contest.EndAt.Format(time.RFC3339))
+	}
 	for path, body := range map[string]string{
-		assignmentPath: `{"description":"# Assignment rules"}`,
-		contestPath:    `{"description":"# Contest rules"}`,
+		assignmentPath: assignmentBody("# Assignment rules"),
+		contestPath:    contestBody("# Contest rules"),
 	} {
-		if res := requestJSONWithCookies(e, http.MethodPatch, path+"/description", adminCookies, body); res.Code != http.StatusOK {
+		if res := requestJSONWithCookies(e, http.MethodPatch, path, adminCookies, body); res.Code != http.StatusOK {
 			t.Fatalf("update %s: %d body=%s", path, res.Code, res.Body.String())
 		}
 	}
@@ -61,11 +69,11 @@ func TestContextDescriptionsAreSeparateAndAdminManaged(t *testing.T) {
 	if contestDetail.Description != "# Contest rules" {
 		t.Fatalf("contest description = %q", contestDetail.Description)
 	}
-	tooLarge := `{"description":"` + strings.Repeat("x", limits.MaxMarkdownBytes+1) + `"}`
-	if res := requestJSONWithCookies(e, http.MethodPatch, contestPath+"/description", adminCookies, tooLarge); res.Code != http.StatusRequestEntityTooLarge {
+	tooLarge := contestBody(strings.Repeat("x", limits.MaxMarkdownBytes+1))
+	if res := requestJSONWithCookies(e, http.MethodPatch, contestPath, adminCookies, tooLarge); res.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("large description got %d body=%s", res.Code, res.Body.String())
 	}
-	if res := requestJSONWithCookies(e, http.MethodPatch, assignmentPath+"/description", adminCookies, `{"description":""}`); res.Code != http.StatusOK {
+	if res := requestJSONWithCookies(e, http.MethodPatch, assignmentPath, adminCookies, assignmentBody("")); res.Code != http.StatusOK {
 		t.Fatalf("clear description: %d body=%s", res.Code, res.Body.String())
 	}
 	assignmentDetail = decodeJSON[contract.AssignmentDetail](t, requestWithCookies(e, http.MethodGet, assignmentPath, studentCookies, nil))

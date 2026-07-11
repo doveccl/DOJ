@@ -10,6 +10,7 @@ import { configureMarkdownRuntime } from './markdown-runtime'
 type MarkdownEditorProps = {
   id?: string
   value?: string
+  height?: number
   readOnly?: boolean
   upload?: (file: File) => Promise<string>
   variant?: 'editor' | 'preview'
@@ -44,6 +45,7 @@ configureMarkdownRuntime()
 export function MarkdownEditor({
   id,
   value = '',
+  height = 500,
   readOnly = false,
   upload: uploadFile = uploadImage,
   variant = 'editor',
@@ -88,7 +90,7 @@ export function MarkdownEditor({
         }}
         toolbars={[...toolbars]}
         noPrettier
-        style={{ height: 500 }}
+        style={{ height }}
       />
     </div>
   )

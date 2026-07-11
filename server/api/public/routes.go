@@ -84,17 +84,15 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.GET("/problems/:id/assets/*", api.problemPublicAsset)
 
 	group.GET("/assignments", api.assignments)
-	group.POST("/assignments", api.createAssignment, echomw.BodyLimit(limits.BodyShortText))
+	group.POST("/assignments", api.createAssignment, echomw.BodyLimit(limits.BodyMarkdown))
 	group.GET("/assignments/:id", api.assignment)
-	group.PATCH("/assignments/:id", api.updateAssignment, echomw.BodyLimit(limits.BodyShortText))
-	group.PATCH("/assignments/:id/description", api.updateAssignmentDescription, echomw.BodyLimit(limits.BodyMarkdown))
+	group.PATCH("/assignments/:id", api.updateAssignment, echomw.BodyLimit(limits.BodyMarkdown))
 	group.DELETE("/assignments/:id", api.deleteAssignment)
 
 	group.GET("/contests", api.contests)
-	group.POST("/contests", api.createContest, echomw.BodyLimit(limits.BodyShortText))
+	group.POST("/contests", api.createContest, echomw.BodyLimit(limits.BodyMarkdown))
 	group.GET("/contests/:id", api.contest)
-	group.PATCH("/contests/:id", api.updateContest, echomw.BodyLimit(limits.BodyShortText))
-	group.PATCH("/contests/:id/description", api.updateContestDescription, echomw.BodyLimit(limits.BodyMarkdown))
+	group.PATCH("/contests/:id", api.updateContest, echomw.BodyLimit(limits.BodyMarkdown))
 	group.DELETE("/contests/:id", api.deleteContest)
 
 	group.GET("/submissions", api.submissions)

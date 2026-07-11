@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/doveccl/doj/contract/limits"
 	contract "github.com/doveccl/doj/contract/web"
 
 	"github.com/doveccl/doj/models"
@@ -71,10 +72,14 @@ func (api *API) createAssignment(c echo.Context) error {
 		return err
 	}
 	req.Title = strings.TrimSpace(req.Title)
+	req.Description = strings.TrimSpace(req.Description)
 	if req.Title == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "title is required")
 	}
 	if err := validateTitle(req.Title); err != nil {
+		return err
+	}
+	if err := validateTextBytes(req.Description, limits.MaxMarkdownBytes, "description is too large"); err != nil {
 		return err
 	}
 	endAt, err := time.Parse(time.RFC3339, req.EndAt)
@@ -97,7 +102,7 @@ func (api *API) createAssignment(c echo.Context) error {
 	if err := api.validateGroupIDs(req.Groups); err != nil {
 		return err
 	}
-	row := models.Assignment{Title: req.Title, EndAt: endAt}
+	row := models.Assignment{Title: req.Title, Description: req.Description, EndAt: endAt}
 	if err := api.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&row).Error; err != nil {
 			return err
@@ -131,10 +136,14 @@ func (api *API) updateAssignment(c echo.Context) error {
 		return err
 	}
 	req.Title = strings.TrimSpace(req.Title)
+	req.Description = strings.TrimSpace(req.Description)
 	if req.Title == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "title is required")
 	}
 	if err := validateTitle(req.Title); err != nil {
+		return err
+	}
+	if err := validateTextBytes(req.Description, limits.MaxMarkdownBytes, "description is too large"); err != nil {
 		return err
 	}
 	endAt, err := time.Parse(time.RFC3339, req.EndAt)
@@ -162,6 +171,7 @@ func (api *API) updateAssignment(c echo.Context) error {
 		return err
 	}
 	row.Title = req.Title
+	row.Description = req.Description
 	row.EndAt = endAt
 	if err := api.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Save(&row).Error; err != nil {

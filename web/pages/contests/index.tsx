@@ -26,6 +26,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api, apiData, apiEmpty } from '../../client'
 import type { Contest, ProblemRef } from '../../client'
 import { defaultProblemSort, ProblemRefInput } from '../../components/problem-ref'
+import { MarkdownEditor } from '../../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
 import { contestTarget, ScheduleTag } from '../../components/time'
 import { useLocale } from '../../locale'
@@ -37,6 +38,7 @@ import { pageFromParams, pageSizeFromParams, setPageParams } from '../../utils/p
 
 type ContestForm = {
   title: string
+  description: string
   kind: string
   startAt: Dayjs
   endAt: Dayjs
@@ -61,6 +63,7 @@ export function ContestsPage() {
   }
   const payload = (values: ContestForm) => ({
     title: values.title,
+    description: values.description,
     kind: values.kind,
     startAt: values.startAt.toISOString(),
     endAt: values.endAt.toISOString(),
@@ -184,6 +187,7 @@ function ContestModal({
   onSave: (values: ContestForm) => void
 }) {
   const { text } = useLocale()
+  const { modal } = AntApp.useApp()
   const [form] = Form.useForm<ContestForm>()
   const isEdit = editingId !== null
   const detail = useQuery({
@@ -196,18 +200,32 @@ function ContestModal({
     isEdit && detail.data
       ? {
           title: detail.data.contest.title,
+          description: detail.data.description,
           kind: detail.data.contest.kind,
           startAt: dayjs(detail.data.contest.startAt),
           endAt: dayjs(detail.data.contest.endAt),
           freezeAt: detail.data.contest.freezeAt ? dayjs(detail.data.contest.freezeAt) : null,
           problems: detail.data.problems.map((problem, index) => ({ id: problem.id, sort: problem.sort || defaultProblemSort(index) }))
         }
-      : { title: '', kind: 'OI', freezeAt: null, problems: [] }
+      : { title: '', description: '', kind: 'OI', freezeAt: null, problems: [] }
   const problemOptions = (detail.data?.problems ?? []).map((item) => ({
     value: item.id,
     label: problemLabel(item.id, item.title)
   }))
   const kind = Form.useWatch('kind', form) ?? initialValues.kind ?? 'OI'
+  function submit(values: ContestForm) {
+    if (!isEdit || detail.data?.contest.status === 'pending') {
+      onSave(values)
+      return
+    }
+    modal.confirm({
+      title: text.contests.changeWarning,
+      content: text.contests.changeWarningDescription,
+      okText: text.common.save,
+      cancelText: text.common.cancel,
+      onOk: () => onSave(values)
+    })
+  }
 
   const body =
     isEdit && detail.isLoading ? (
@@ -221,10 +239,13 @@ function ContestModal({
         preserve={false}
         layout="vertical"
         initialValues={initialValues}
-        onFinish={onSave}
+        onFinish={submit}
       >
         <Form.Item name="title" label={text.contests.name} rules={[{ required: true, whitespace: true }]}>
           <Input maxLength={limits.title} showCount />
+        </Form.Item>
+        <Form.Item name="description" label={text.contests.description}>
+          <MarkdownEditor id={isEdit ? `contest-${editingId}-description-edit` : 'contest-new-description'} height={220} />
         </Form.Item>
         <Form.Item name="kind" label={text.contests.kind}>
           <Select
@@ -257,6 +278,7 @@ function ContestModal({
     <Modal
       open
       destroyOnHidden
+      width={780}
       title={isEdit ? text.common.edit : text.contests.create}
       okText={isEdit ? text.common.save : text.common.create}
       cancelText={text.common.cancel}

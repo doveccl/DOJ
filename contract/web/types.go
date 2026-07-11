@@ -105,19 +105,21 @@ type Assignment struct {
 }
 
 type AssignmentCreate struct {
-	Title    string       `json:"title"`
-	EndAt    string       `json:"endAt"`
-	Problems []ProblemRef `json:"problems"`
-	Users    []uint       `json:"users"`
-	Groups   []uint       `json:"groups"`
+	Title       string       `json:"title"`
+	Description string       `json:"description"`
+	EndAt       string       `json:"endAt"`
+	Problems    []ProblemRef `json:"problems"`
+	Users       []uint       `json:"users"`
+	Groups      []uint       `json:"groups"`
 }
 
 type AssignmentUpdate struct {
-	Title    string       `json:"title"`
-	EndAt    string       `json:"endAt"`
-	Problems []ProblemRef `json:"problems"`
-	Users    []uint       `json:"users"`
-	Groups   []uint       `json:"groups"`
+	Title       string       `json:"title"`
+	Description string       `json:"description"`
+	EndAt       string       `json:"endAt"`
+	Problems    []ProblemRef `json:"problems"`
+	Users       []uint       `json:"users"`
+	Groups      []uint       `json:"groups"`
 }
 
 type ProblemRef struct {
@@ -157,21 +159,23 @@ type Contest struct {
 }
 
 type ContestCreate struct {
-	Title    string       `json:"title"`
-	Kind     string       `json:"kind"`
-	StartAt  string       `json:"startAt"`
-	EndAt    string       `json:"endAt"`
-	FreezeAt string       `json:"freezeAt"`
-	Problems []ProblemRef `json:"problems"`
+	Title       string       `json:"title"`
+	Description string       `json:"description"`
+	Kind        string       `json:"kind"`
+	StartAt     string       `json:"startAt"`
+	EndAt       string       `json:"endAt"`
+	FreezeAt    string       `json:"freezeAt"`
+	Problems    []ProblemRef `json:"problems"`
 }
 
 type ContestUpdate struct {
-	Title    string       `json:"title"`
-	Kind     string       `json:"kind"`
-	StartAt  string       `json:"startAt"`
-	EndAt    string       `json:"endAt"`
-	FreezeAt string       `json:"freezeAt"`
-	Problems []ProblemRef `json:"problems"`
+	Title       string       `json:"title"`
+	Description string       `json:"description"`
+	Kind        string       `json:"kind"`
+	StartAt     string       `json:"startAt"`
+	EndAt       string       `json:"endAt"`
+	FreezeAt    string       `json:"freezeAt"`
+	Problems    []ProblemRef `json:"problems"`
 }
 
 type ContestDetail struct {
@@ -179,10 +183,6 @@ type ContestDetail struct {
 	Description string     `json:"description"`
 	Problems    []Problem  `json:"problems"`
 	Rank        []RankUser `json:"rank"`
-}
-
-type DescriptionUpdate struct {
-	Description string `json:"description"`
 }
 
 type SubmissionListItem struct {
