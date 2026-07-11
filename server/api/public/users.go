@@ -225,10 +225,6 @@ func (api *API) userActivities(c echo.Context, userID uint, includeHidden bool) 
 
 	var discussions []models.Discussion
 	discussionQuery := api.db.Model(&models.Discussion{}).Select("id", "title", "created_at").Where("user_id = ?", userID).Order("created_at desc").Limit(userActivityLimit)
-	discussionQuery, err = api.applyDiscussionVisibility(c, discussionQuery)
-	if err != nil {
-		return nil, err
-	}
 	if err := discussionQuery.Find(&discussions).Error; err != nil {
 		return nil, err
 	}

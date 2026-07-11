@@ -43,7 +43,6 @@ export function CodeEditor({ value, language, minHeight = '320px', maxHeight = '
         theme={color === 'dark' ? githubDark : githubLight}
         extensions={langExtensions}
         readOnly={readOnly}
-        editable={!readOnly}
         basicSetup={{
           lineNumbers: true,
           foldGutter: false,

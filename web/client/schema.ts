@@ -1405,8 +1405,6 @@ export interface components {
             locked: boolean;
             pinned: boolean;
             /** Format: int64 */
-            problemId?: number;
-            /** Format: int64 */
             replies: number;
             tags: string[];
             title: string;
@@ -1530,6 +1528,7 @@ export interface components {
             /** Format: int64 */
             id: number;
             mail: string;
+            mustChangePassword: boolean;
             name: string;
         };
         MeUpdate: {

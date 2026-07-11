@@ -14,6 +14,7 @@ type SessionState = {
   signedIn: boolean
   name: string
   avatar?: string
+  mustChangePassword: boolean
   refresh: () => Promise<void>
   login: (name: string, password: string) => Promise<void>
   register: (values: { name: string; mail: string; password: string }) => Promise<void>
@@ -33,7 +34,8 @@ const guest: Me = {
   mail: '',
   bio: '',
   avatar: '',
-  admin: false
+  admin: false,
+  mustChangePassword: false
 }
 
 export function setViewer(client: QueryClient, next: Me) {
@@ -104,6 +106,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       signedIn,
       name: me.name,
       avatar: me.avatar,
+      mustChangePassword: me.mustChangePassword,
       refresh,
       login,
       register,

@@ -29,9 +29,9 @@ func TestProblemDiscussionCountsUseExplicitProblemReference(t *testing.T) {
 		t.Fatalf("create hidden problem: %v", err)
 	}
 	discussions := []models.Discussion{
-		{Title: "Visible only", Content: "body", UserID: admin.ID, ProblemID: &visible.ID, Tags: datatypes.JSON([]byte(`["P1000"]`))},
-		{Title: "Visible again", Content: "body", UserID: admin.ID, ProblemID: &visible.ID, Tags: datatypes.JSON([]byte(`["P1000","general"]`))},
-		{Title: "Hidden", Content: "body", UserID: admin.ID, ProblemID: &hidden.ID, Tags: datatypes.JSON([]byte(`["P1001"]`))},
+		{Title: "Visible only", Content: "body", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["P1000"]`))},
+		{Title: "Visible again", Content: "body", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["P1000","general"]`))},
+		{Title: "Hidden", Content: "body", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["P1001"]`))},
 	}
 	if err := db.Create(&discussions).Error; err != nil {
 		t.Fatalf("create discussions: %v", err)
@@ -219,7 +219,7 @@ func TestDynamicSelectSuggestionEndpoints(t *testing.T) {
 	if err := db.Create(&[]models.Problem{problem, otherProblem}).Error; err != nil {
 		t.Fatalf("create problems: %v", err)
 	}
-	if err := db.Create(&models.Discussion{Title: "General", Content: "body", UserID: admin.ID, ProblemID: &problem.ID, Tags: datatypes.JSON([]byte(`["general","P1000"]`))}).Error; err != nil {
+	if err := db.Create(&models.Discussion{Title: "General", Content: "body", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["general","P1000"]`))}).Error; err != nil {
 		t.Fatalf("create discussion: %v", err)
 	}
 	assignment := models.Assignment{Title: "Summer Homework", EndAt: time.Now().Add(time.Hour)}

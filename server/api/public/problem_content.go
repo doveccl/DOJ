@@ -61,19 +61,21 @@ func problemStatementKey(id uint) string {
 
 func (api *API) problemDiscussionCounts(ctx context.Context) (map[uint]int, error) {
 	counts := map[uint]int{}
-	var rows []struct {
-		ProblemID uint
-		Count     int64
-	}
-	if err := api.db.WithContext(ctx).Model(&models.Discussion{}).
-		Select("problem_id, count(*) AS count").
-		Where("problem_id IS NOT NULL").
-		Group("problem_id").
-		Find(&rows).Error; err != nil {
+	var rows []models.Discussion
+	if err := api.db.WithContext(ctx).Select("tags").Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	for _, row := range rows {
-		counts[row.ProblemID] = int(row.Count)
+		seen := map[uint]bool{}
+		for _, tag := range readTags([]byte(row.Tags)) {
+			upper := strings.ToUpper(strings.TrimSpace(tag))
+			id, err := strconv.ParseUint(strings.TrimPrefix(upper, "P"), 10, 64)
+			if !strings.HasPrefix(upper, "P") || err != nil || id == 0 || seen[uint(id)] {
+				continue
+			}
+			seen[uint(id)] = true
+			counts[uint(id)]++
+		}
 	}
 	return counts, nil
 }

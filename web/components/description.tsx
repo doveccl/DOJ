@@ -1,14 +1,14 @@
 import { EditOutlined } from '@ant-design/icons'
 import { Button, Card, Space } from 'antd'
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 
 import { useLocale } from '../locale'
 import { MarkdownEditor, MarkdownPreview } from './markdown'
-import { EmptyBlock } from './state'
 
-export function DescriptionCard({ id, title, value, editable, onSave }: {
+export function DescriptionCard({ id, header, value, editable, onSave }: {
   id: string
-  title: string
+  header: ReactNode
   value: string
   editable: boolean
   onSave: (value: string) => Promise<void>
@@ -32,7 +32,8 @@ export function DescriptionCard({ id, title, value, editable, onSave }: {
 
   return (
     <Card
-      title={title}
+      title={header}
+      styles={!editing && !value.trim() ? { body: { display: 'none' } } : undefined}
       extra={editable ? (
         editing ? (
           <Space size={8}>
@@ -44,7 +45,7 @@ export function DescriptionCard({ id, title, value, editable, onSave }: {
         )
       ) : null}
     >
-      {editing ? <MarkdownEditor id={id} value={draft} onChange={setDraft} /> : value.trim() ? <MarkdownPreview id={id} value={value} /> : <EmptyBlock />}
+      {editing ? <MarkdownEditor id={id} value={draft} onChange={setDraft} /> : value.trim() ? <MarkdownPreview id={id} value={value} /> : null}
     </Card>
   )
 }

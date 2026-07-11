@@ -13,6 +13,36 @@ import (
 	"gorm.io/datatypes"
 )
 
+func TestDefaultAdminPasswordWarningIsDerivedFromHash(t *testing.T) {
+	db := testWebDB(t)
+	hash, err := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: string(hash), Admin: true}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatal(err)
+	}
+	e := echo.New()
+	Register(e, db)
+	cookies := databaseSession(t, db, admin.ID)
+	me := decodeJSON[contract.Me](t, requestWithCookies(e, http.MethodGet, "/api/me", cookies, nil))
+	if !me.MustChangePassword {
+		t.Fatal("default admin password warning was not derived")
+	}
+	res := requestJSONWithCookies(e, http.MethodPatch, "/api/me/password", cookies, `{"oldPassword":"admin","newPassword":"new-admin-password"}`)
+	if res.Code != http.StatusNoContent {
+		t.Fatalf("change password got %d body=%s", res.Code, res.Body.String())
+	}
+	login := requestJSON(e, http.MethodPost, "/api/auth/login", "", `{"name":"admin","password":"new-admin-password"}`)
+	if login.Code != http.StatusOK {
+		t.Fatalf("new password login got %d body=%s", login.Code, login.Body.String())
+	}
+	if next := decodeJSON[contract.Me](t, login); next.MustChangePassword {
+		t.Fatal("default password warning remained after password change")
+	}
+}
+
 func TestPasswordChangeInvalidatesAllSessions(t *testing.T) {
 	db := testWebDB(t)
 	hash, err := bcrypt.GenerateFromPassword([]byte("old-password"), bcrypt.DefaultCost)

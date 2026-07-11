@@ -12,3 +12,30 @@
   border-radius: 8px;
   background: var(--ant-color-info-bg);
 }
+
+.sourceCodeBlock {
+  max-height: 60vh;
+  margin: 0;
+  padding: 14px 16px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--ant-color-fill-quaternary);
+  font: 13px/1.6 "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  white-space: pre;
+}
+
+@media (max-width: 575px) {
+  .submissionResultCard .ant-card-head-wrapper {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .submissionResultCard .ant-card-head-title {
+    flex: 1 0 auto;
+  }
+
+  .submissionResultCard .ant-card-extra {
+    margin-inline-start: 0;
+  }
+}

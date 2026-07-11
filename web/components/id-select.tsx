@@ -41,7 +41,7 @@ export function IdSelect({
           }
         })
       ),
-    enabled: !disabled && Boolean(kind) && (search.active || selected.length > 0)
+    enabled: Boolean(kind) && (selected.length > 0 || (!disabled && search.active))
   })
   const remoteOptions = useMemo(() => {
     if (!kind) {

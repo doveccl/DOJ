@@ -247,8 +247,8 @@ function ContestModal({
             </Form.Item>
           ) : null}
         </Space>
-        <Form.Item name="problems" label={text.contests.problems} extra={text.contests.secretProblemsHint}>
-          <ProblemRefInput options={problemOptions} loading={detail.isLoading} hiddenOnly />
+        <Form.Item name="problems" label={text.contests.problems}>
+          <ProblemRefInput options={problemOptions} loading={detail.isLoading} />
         </Form.Item>
       </Form>
     )

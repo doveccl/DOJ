@@ -18,13 +18,7 @@ The compose file starts PostgreSQL, Valkey, the DOJ server, and a local judger. 
 docker compose up -d
 ```
 
-Open `http://localhost:7974`. If the database has no administrator, DOJ creates the `admin` account with a random password and prints it once in the server log:
-
-```bash
-docker compose logs server
-```
-
-Set `ADMIN_PASSWORD` before the first start if you prefer to supply the initial password yourself.
+Open `http://localhost:7974`. If the database has no administrator, DOJ creates the `admin` account with password `admin`. The web UI shows a prominent warning until that password is changed.
 
 Uploaded files, problem packages, and backups are stored in `./storage` by default.
 
@@ -38,7 +32,6 @@ The server reads these environment variables:
 | `REDIS` | `redis://localhost:6379/0` | Redis or Valkey connection string. |
 | `STORAGE` | current user home, or `storage` | Local storage path, or an S3-compatible `http(s)` URL. |
 | `LISTEN` | `:7974` | Server listen address. |
-| `ADMIN_PASSWORD` | random | Initial `admin` password, used only when no administrator exists. |
 
 Storage examples:
 
@@ -131,13 +124,7 @@ compose 会启动 PostgreSQL、Valkey、DOJ server 和本地评测机。server �
 docker compose up -d
 ```
 
-打开 `http://localhost:7974`。如果数据库里还没有管理员，DOJ 会创建 `admin` 账号，并在 server 日志里一次性输出随机密码：
-
-```bash
-docker compose logs server
-```
-
-如需自行指定初始密码，请在首次启动前设置 `ADMIN_PASSWORD`。
+打开 `http://localhost:7974`。如果数据库里还没有管理员，DOJ 会创建密码同为 `admin` 的 `admin` 账号；修改默认密码前，前端会持续给出醒目提示。
 
 上传文件、题目数据和备份默认存放在 `./storage`。
 
@@ -151,7 +138,6 @@ server 读取这些环境变量：
 | `REDIS` | `redis://localhost:6379/0` | Redis 或 Valkey 连接串。 |
 | `STORAGE` | 当前用户 home，或 `storage` | 本地存储路径，或 S3 兼容 `http(s)` URL。 |
 | `LISTEN` | `:7974` | server 监听地址。 |
-| `ADMIN_PASSWORD` | 随机 | 初始 `admin` 密码，仅在数据库没有管理员时使用。 |
 
 存储配置示例：
 

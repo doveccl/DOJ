@@ -3,7 +3,6 @@ package public
 import (
 	"net/http"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -13,7 +12,7 @@ import (
 	"gorm.io/datatypes"
 )
 
-func TestStartedContestRulesCannotBeRewrittenOrDeleted(t *testing.T) {
+func TestAdminCanRewriteOrDeleteStartedContest(t *testing.T) {
 	db := testWebDB(t)
 	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
 	problem := models.Problem{ID: 1000, Title: "A", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
@@ -38,25 +37,25 @@ func TestStartedContestRulesCannotBeRewrittenOrDeleted(t *testing.T) {
 	body := func(kind string, start time.Time, end time.Time, sort string) string {
 		return `{"title":"Round","kind":"` + kind + `","startAt":"` + start.Format(time.RFC3339) + `","endAt":"` + end.Format(time.RFC3339) + `","freezeAt":"","problems":[{"id":1000,"sort":"` + sort + `"}]}`
 	}
-	if res := requestJSONWithCookies(e, http.MethodPatch, path, cookies, body("ICPC", contest.StartAt, contest.EndAt, "A")); res.Code != http.StatusConflict {
+	if res := requestJSONWithCookies(e, http.MethodPatch, path, cookies, body("ICPC", contest.StartAt, contest.EndAt, "A")); res.Code != http.StatusOK {
 		t.Fatalf("kind rewrite got %d body=%s", res.Code, res.Body.String())
 	}
-	if res := requestJSONWithCookies(e, http.MethodPatch, path, cookies, body("OI", contest.StartAt, contest.EndAt, "B")); res.Code != http.StatusConflict {
+	if res := requestJSONWithCookies(e, http.MethodPatch, path, cookies, body("OI", contest.StartAt, contest.EndAt, "B")); res.Code != http.StatusOK {
 		t.Fatalf("problem rewrite got %d body=%s", res.Code, res.Body.String())
 	}
 	extended := contest.EndAt.Add(time.Hour)
 	if res := requestJSONWithCookies(e, http.MethodPatch, path, cookies, body("OI", contest.StartAt, extended, "A")); res.Code != http.StatusOK {
 		t.Fatalf("end extension got %d body=%s", res.Code, res.Body.String())
 	}
-	if res := requestJSONWithCookies(e, http.MethodPatch, path, cookies, body("OI", contest.StartAt, contest.EndAt, "A")); res.Code != http.StatusConflict {
+	if res := requestJSONWithCookies(e, http.MethodPatch, path, cookies, body("OI", contest.StartAt, contest.EndAt, "A")); res.Code != http.StatusOK {
 		t.Fatalf("end shortening got %d body=%s", res.Code, res.Body.String())
 	}
-	if res := requestWithCookies(e, http.MethodDelete, path, cookies, nil); res.Code != http.StatusConflict {
+	if res := requestWithCookies(e, http.MethodDelete, path, cookies, nil); res.Code != http.StatusNoContent {
 		t.Fatalf("started delete got %d body=%s", res.Code, res.Body.String())
 	}
 }
 
-func TestSecretContestOnlyAcceptsUnexposedProblems(t *testing.T) {
+func TestContestAcceptsExistingAndDraftProblems(t *testing.T) {
 	db := testWebDB(t)
 	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
 	if err := db.Create(&admin).Error; err != nil {
@@ -92,8 +91,7 @@ func TestSecretContestOnlyAcceptsUnexposedProblems(t *testing.T) {
 	if err := db.Create(&models.Submission{UserID: admin.ID, ProblemID: 1003, Language: "cpp", Code: "int main(){}", Status: "AC", Score: 100}).Error; err != nil {
 		t.Fatal(err)
 	}
-	discussionProblemID := uint(1004)
-	if err := db.Create(&models.Discussion{ProblemID: &discussionProblemID, Title: "Discussion", Content: "body", UserID: admin.ID, Tags: datatypes.JSON([]byte(`[]`))}).Error; err != nil {
+	if err := db.Create(&models.Discussion{Title: "Discussion", Content: "body", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["P1004"]`))}).Error; err != nil {
 		t.Fatal(err)
 	}
 
@@ -111,13 +109,13 @@ func TestSecretContestOnlyAcceptsUnexposedProblems(t *testing.T) {
 	}
 	for id := uint(1000); id <= 1004; id++ {
 		res := requestJSONWithCookies(e, http.MethodPost, "/api/contests", cookies, body("Secret", id))
-		if res.Code != http.StatusConflict {
+		if res.Code != http.StatusCreated {
 			t.Fatalf("create contest with P%d got %d body=%s", id, res.Code, res.Body.String())
 		}
 	}
 	root := t.TempDir()
 	t.Setenv("STORAGE", root)
-	if res := requestJSONWithCookies(e, http.MethodPost, "/api/contests", cookies, body("Unready", 1006)); res.Code != http.StatusConflict {
+	if res := requestJSONWithCookies(e, http.MethodPost, "/api/contests", cookies, body("Unready", 1006)); res.Code != http.StatusCreated {
 		t.Fatalf("create contest with unready draft got %d body=%s", res.Code, res.Body.String())
 	}
 	writeReadyProblemFiles(t, root, 1005, "Fresh draft")
@@ -135,13 +133,13 @@ func TestSecretContestOnlyAcceptsUnexposedProblems(t *testing.T) {
 		t.Fatalf("created contest link missing: count=%d err=%v", unfinished, err)
 	}
 	publish := requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1005/visibility", cookies, `{"visible":true}`)
-	if publish.Code != http.StatusConflict || !strings.Contains(publish.Body.String(), "unfinished contest") {
+	if publish.Code != http.StatusOK {
 		t.Fatalf("publish unfinished contest problem got %d body=%s", publish.Code, publish.Body.String())
 	}
 	if res := requestJSONWithCookies(e, http.MethodPatch, target, cookies, body("Renamed", 1005)); res.Code != http.StatusOK {
 		t.Fatalf("update contest with its own draft got %d body=%s", res.Code, res.Body.String())
 	}
-	if res := requestJSONWithCookies(e, http.MethodPatch, target, cookies, body("Leaked", 1000)); res.Code != http.StatusConflict {
+	if res := requestJSONWithCookies(e, http.MethodPatch, target, cookies, body("Leaked", 1000)); res.Code != http.StatusOK {
 		t.Fatalf("update contest with published problem got %d body=%s", res.Code, res.Body.String())
 	}
 	if res := requestWithCookies(e, http.MethodDelete, target, cookies, nil); res.Code != http.StatusNoContent {
@@ -255,7 +253,7 @@ func TestContestProblemVisibilityIsDerivedFromContestTime(t *testing.T) {
 	if err := db.Create(&models.ContestProblem{ContestID: contest.ID, ProblemID: problem.ID, Sort: "A"}).Error; err != nil {
 		t.Fatalf("create contest problem: %v", err)
 	}
-	if err := db.Create(&models.Discussion{Title: "Problem discussion", Content: "body", UserID: admin.ID, ProblemID: &problem.ID, Tags: datatypes.JSON([]byte(`["P1000"]`))}).Error; err != nil {
+	if err := db.Create(&models.Discussion{Title: "Problem discussion", Content: "body", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["P1000"]`))}).Error; err != nil {
 		t.Fatalf("create discussion: %v", err)
 	}
 	e := echo.New()

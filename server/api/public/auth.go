@@ -251,12 +251,13 @@ func (api *API) requestViewer(c echo.Context) requestViewer {
 
 func meView(user models.User) contract.Me {
 	return contract.Me{
-		ID:     user.ID,
-		Name:   user.Name,
-		Mail:   user.Mail,
-		Bio:    user.Bio,
-		Avatar: user.Avatar,
-		Admin:  user.Admin,
+		ID:                 user.ID,
+		Name:               user.Name,
+		Mail:               user.Mail,
+		Bio:                user.Bio,
+		Avatar:             user.Avatar,
+		Admin:              user.Admin,
+		MustChangePassword: user.Admin && bcrypt.CompareHashAndPassword([]byte(user.Auth), []byte("admin")) == nil,
 	}
 }
 
@@ -281,5 +282,5 @@ func validateMail(value string) error {
 }
 
 func guestMe() contract.Me {
-	return contract.Me{ID: 0, Name: "", Mail: "", Bio: "", Avatar: "", Admin: false}
+	return contract.Me{ID: 0, Name: "", Mail: "", Bio: "", Avatar: "", Admin: false, MustChangePassword: false}
 }

@@ -22,20 +22,19 @@ type ProblemRefInputProps = {
   options?: Option[]
   loading?: boolean
   disabled?: boolean
-  hiddenOnly?: boolean
 }
 
-export function ProblemRefInput({ value = [], onChange, options = [], loading, disabled, hiddenOnly = false }: ProblemRefInputProps) {
+export function ProblemRefInput({ value = [], onChange, options = [], loading, disabled }: ProblemRefInputProps) {
   const { text } = useLocale()
   const search = useRemoteSearch()
   const remote = useQuery({
     queryKey: ['problems', 'select', search.searchText],
     queryFn: () => apiData(api.GET('/api/problems', { params: { query: { q: search.searchText, page: 1, pageSize: 50 } } })).then((page) => page.items),
-    enabled: !disabled && (search.active || value.length > 0)
+    enabled: value.length > 0 || (!disabled && search.active)
   })
   const remoteOptions = useMemo(
-    () => (remote.data ?? []).filter((item) => !hiddenOnly || !item.visible).map(problemOption),
-    [hiddenOnly, remote.data]
+    () => (remote.data ?? []).map(problemOption),
+    [remote.data]
   )
   const [knownOptions, setKnownOptions] = useState<Option[]>([])
 

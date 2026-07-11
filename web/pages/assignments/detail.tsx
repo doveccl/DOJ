@@ -1,5 +1,5 @@
 import { EditOutlined, UnorderedListOutlined } from '@ant-design/icons'
-import { Alert, App as AntApp, Button, Card, DatePicker, Flex, Form, Input, Modal, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
+import { App as AntApp, Button, Card, DatePicker, Flex, Form, Input, Modal, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
@@ -33,7 +33,7 @@ type AssignmentForm = {
 export function AssignmentDetailPage() {
   const { text } = useLocale()
   const session = useSession()
-  const { message } = AntApp.useApp()
+  const { message, modal } = AntApp.useApp()
   const client = useQueryClient()
   const params = useParams()
   const id = Number(params.id)
@@ -109,7 +109,12 @@ export function AssignmentDetailPage() {
 
   return (
     <Flex vertical gap={16}>
-      <Card>
+      <DescriptionCard
+        id={`assignment-${assignment.id}-description`}
+        value={query.data.description}
+        editable={session.admin}
+        onSave={saveDescription}
+        header={
         <Flex justify="space-between" align="center" gap={20} wrap>
           <Flex align="center" gap={10}>
             <Typography.Title level={3} style={{ margin: 0 }}>
@@ -128,9 +133,8 @@ export function AssignmentDetailPage() {
             <DeadlineTimer kind="assignment" status={assignment.status} target={assignment.endAt} onFinish={() => void query.refetch()} />
           </Flex>
         </Flex>
-      </Card>
-      <DescriptionCard id={`assignment-${assignment.id}-description`} title={text.assignments.instructions} value={query.data.description} editable={session.admin} onSave={saveDescription} />
-      <Alert type="info" showIcon title={text.assignments.practiceRule} />
+        }
+      />
       <Card>
         <Tabs
           items={[
@@ -152,11 +156,21 @@ export function AssignmentDetailPage() {
           assignment={assignment}
           problems={problems}
           problemOptions={problemOptions}
-          scopeLocked={scopeLocked}
-          ended={assignment.status === 'ended'}
           loading={update.isPending}
           onCancel={() => setEditOpen(false)}
-          onSave={(values) => update.mutate(values)}
+          onSave={(values) => {
+            if (!scopeLocked) {
+              update.mutate(values)
+              return
+            }
+            modal.confirm({
+              title: text.assignments.changeWarning,
+              content: text.assignments.changeWarningDescription,
+              okText: text.common.save,
+              cancelText: text.common.cancel,
+              onOk: () => update.mutate(values)
+            })
+          }}
         />
       ) : null}
     </Flex>
@@ -167,8 +181,6 @@ function AssignmentEditModal({
   assignment,
   problems,
   problemOptions,
-  scopeLocked,
-  ended,
   loading,
   onCancel,
   onSave
@@ -176,8 +188,6 @@ function AssignmentEditModal({
   assignment: { title: string; endAt: string; users: number[]; groups: number[] }
   problems: ProblemListItem[]
   problemOptions: { value: number; label: string }[]
-  scopeLocked: boolean
-  ended: boolean
   loading: boolean
   onCancel: () => void
   onSave: (values: AssignmentForm) => void
@@ -205,21 +215,20 @@ function AssignmentEditModal({
       onOk={() => form.submit()}
     >
       <Form<AssignmentForm> form={form} preserve={false} layout="vertical" initialValues={initialValues} onFinish={onSave}>
-        {scopeLocked ? <Alert type="info" showIcon title={text.assignments.locked} /> : null}
         <Form.Item name="title" label={text.assignments.name} rules={[{ required: true, whitespace: true }]}>
           <Input maxLength={limits.title} showCount />
         </Form.Item>
         <Form.Item name="endAt" label={text.assignments.deadline} rules={[{ required: true }]}>
-          <DatePicker showTime disabled={ended} minDate={scopeLocked && !ended ? dayjs(assignment.endAt) : undefined} style={{ width: '100%' }} />
+          <DatePicker showTime style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item name="problems" label={text.assignments.problems}>
-          <ProblemRefInput options={problemOptions} disabled={scopeLocked} />
+          <ProblemRefInput options={problemOptions} />
         </Form.Item>
         <Form.Item name="users" label={text.assignments.users}>
-          <IdSelect kind="users" disabled={scopeLocked} />
+          <IdSelect kind="users" />
         </Form.Item>
         <Form.Item name="groups" label={text.assignments.groups}>
-          <IdSelect kind="groups" disabled={scopeLocked} />
+          <IdSelect kind="groups" />
         </Form.Item>
       </Form>
     </Modal>

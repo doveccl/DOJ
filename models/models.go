@@ -96,12 +96,13 @@ type Judger struct {
 }
 
 type Assignment struct {
-	ID        uint           `gorm:"primaryKey" json:"id"`
-	Title     string         `gorm:"size:256;not null" json:"title"`
-	EndAt     time.Time      `gorm:"index;not null" json:"endAt"`
-	CreatedAt time.Time      `json:"createdAt"`
-	UpdatedAt time.Time      `json:"updatedAt"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	ID          uint           `gorm:"primaryKey" json:"id"`
+	Title       string         `gorm:"size:256;not null" json:"title"`
+	Description string         `gorm:"type:text;not null;default:''" json:"description"`
+	EndAt       time.Time      `gorm:"index;not null" json:"endAt"`
+	CreatedAt   time.Time      `json:"createdAt"`
+	UpdatedAt   time.Time      `json:"updatedAt"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 type AssignmentProblem struct {
@@ -121,15 +122,16 @@ type AssignmentGroup struct {
 }
 
 type Contest struct {
-	ID        uint           `gorm:"primaryKey" json:"id"`
-	Title     string         `gorm:"size:256;not null" json:"title"`
-	Kind      string         `gorm:"size:8;not null;default:'OI'" json:"kind"`
-	StartAt   time.Time      `gorm:"index;not null" json:"startAt"`
-	EndAt     time.Time      `gorm:"index;not null" json:"endAt"`
-	FreezeAt  *time.Time     `json:"freezeAt"`
-	CreatedAt time.Time      `json:"createdAt"`
-	UpdatedAt time.Time      `json:"updatedAt"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	ID          uint           `gorm:"primaryKey" json:"id"`
+	Title       string         `gorm:"size:256;not null" json:"title"`
+	Description string         `gorm:"type:text;not null;default:''" json:"description"`
+	Kind        string         `gorm:"size:8;not null;default:'OI'" json:"kind"`
+	StartAt     time.Time      `gorm:"index;not null" json:"startAt"`
+	EndAt       time.Time      `gorm:"index;not null" json:"endAt"`
+	FreezeAt    *time.Time     `json:"freezeAt"`
+	CreatedAt   time.Time      `json:"createdAt"`
+	UpdatedAt   time.Time      `json:"updatedAt"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 type ContestProblem struct {
@@ -140,7 +142,6 @@ type ContestProblem struct {
 
 type Discussion struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
-	ProblemID *uint          `gorm:"index" json:"problemId"`
 	Title     string         `gorm:"size:256;not null" json:"title"`
 	Content   string         `gorm:"type:text;not null" json:"content"`
 	UserID    uint           `gorm:"index;not null" json:"userId"`

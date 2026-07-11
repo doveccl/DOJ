@@ -1,4 +1,4 @@
-import { ReloadOutlined } from '@ant-design/icons'
+import { CopyOutlined, ReloadOutlined } from '@ant-design/icons'
 import { Alert, App as AntApp, BorderBeam, Button, Card, Col, Flex, Popconfirm, Progress, Row, Space, Spin, Switch, Table, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -77,6 +77,14 @@ export function SubmissionDetailPage() {
   const languageName = (languages.data ?? []).find((item) => item.id === submission.language)?.name ?? submission.language
   const canUpdatePublic = session.admin || session.name === submission.user
   const judging = isLiveSubmissionStatus(submission.status)
+  async function copySource() {
+    try {
+      await navigator.clipboard.writeText(code)
+      message.success(text.submissions.copied)
+    } catch {
+      message.error(text.submissions.copyFailed)
+    }
+  }
 
   return (
     <Flex vertical gap={20}>
@@ -84,6 +92,7 @@ export function SubmissionDetailPage() {
         <Col xs={24} lg={16}>
           <ResultCard judging={judging}>
             <Card
+              className="submissionResultCard"
               style={{ position: 'relative' }}
               title={
                 <Space size={10}>
@@ -145,8 +154,9 @@ export function SubmissionDetailPage() {
       <Card
         title={text.submissions.source}
         extra={
-          canUpdatePublic ? (
-            <Space size={8}>
+          <Space size={8}>
+            {code.trim() ? <Button size="small" icon={<CopyOutlined />} onClick={() => void copySource()}>{text.submissions.copy}</Button> : null}
+            {canUpdatePublic ? <>
               <Typography.Text type="secondary">{text.problem.publicSource}</Typography.Text>
               <Switch
                 checked={submission.public}
@@ -154,14 +164,19 @@ export function SubmissionDetailPage() {
                 disabled={updatePublic.isPending}
                 onChange={(checked) => updatePublic.mutate(checked)}
               />
-            </Space>
-          ) : null
+            </> : null}
+          </Space>
         }
       >
-        {code.trim() ? <CodeEditor value={code} language={submission.language} readOnly /> : <Alert type="info" showIcon title={text.submissions.sourceHidden} />}
+        {code.trim() ? <SourceBlock code={code} language={submission.language} /> : <Alert type="info" showIcon title={text.submissions.sourceHidden} />}
       </Card>
     </Flex>
   )
+}
+
+function SourceBlock({ code, language }: { code: string; language: string }) {
+  const oversized = code.length > 256 * 1024 || code.split('\n').some((line) => line.length > 20_000)
+  return oversized ? <pre className="sourceCodeBlock"><code>{code}</code></pre> : <CodeEditor value={code} language={language} readOnly />
 }
 
 function ResultCard({ judging, children }: { judging: boolean; children: ReactNode }) {

@@ -16,7 +16,7 @@ import {
   TranslationOutlined,
   UserOutlined
 } from '@ant-design/icons'
-import { App as AntApp, Avatar, Button, Dropdown, Flex, Form, Input, Layout, Menu, Modal, Result, Space, Tabs, Typography } from 'antd'
+import { Alert, App as AntApp, Avatar, Button, Dropdown, Flex, Form, Input, Layout, Menu, Modal, Result, Space, Tabs, Typography } from 'antd'
 import type { MenuProps } from 'antd'
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -167,6 +167,15 @@ export function AppLayout() {
           </Flex>
         </Layout.Header>
         <Layout.Content ref={contentRef} id="main-content" tabIndex={-1} className="appContent">
+          {session.mustChangePassword ? (
+            <Alert
+              className="defaultPasswordAlert"
+              type="warning"
+              showIcon
+              title={text.prefs.defaultPasswordWarning}
+              action={<Link to={`/users/${session.name}`}><Button size="small" type="primary" ghost>{text.prefs.changePassword}</Button></Link>}
+            />
+          ) : null}
           {guestBlocked ? (
             <Result
               status="403"

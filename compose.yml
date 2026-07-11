@@ -34,7 +34,6 @@ services:
       DATABASE: "postgres://doj:doj@postgres/doj"
       REDIS: "redis://valkey/0"
       STORAGE: "/storage"
-      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-}"
     ports:
       - "7974:7974"
     volumes:

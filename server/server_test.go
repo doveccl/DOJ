@@ -47,24 +47,6 @@ func TestHTTPServerBoundsRequestReadsWithoutTimingOutSSEWrites(t *testing.T) {
 	}
 }
 
-func TestInitialAdminPasswordUsesSecretOrRandomValue(t *testing.T) {
-	t.Setenv("ADMIN_PASSWORD", "configured-secret")
-	password, generated, err := initialAdminPassword()
-	if err != nil || generated || password != "configured-secret" {
-		t.Fatalf("configured password = %q generated=%v err=%v", password, generated, err)
-	}
-	t.Setenv("ADMIN_PASSWORD", "short")
-	if _, _, err := initialAdminPassword(); err == nil {
-		t.Fatal("short bootstrap password was accepted")
-	}
-
-	t.Setenv("ADMIN_PASSWORD", "")
-	password, generated, err = initialAdminPassword()
-	if err != nil || !generated || password == "" || password == "admin" {
-		t.Fatalf("random password = %q generated=%v err=%v", password, generated, err)
-	}
-}
-
 func TestTrustedProxyIPExtractorRejectsClientXFF(t *testing.T) {
 	extract := trustedProxyIPExtractor()
 	direct := httptest.NewRequest(http.MethodGet, "/", nil)

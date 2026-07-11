@@ -26,5 +26,5 @@ describe('viewer cache boundary', () => {
 })
 
 function me(id: number, name: string): Me {
-  return { id, name, mail: '', bio: '', avatar: '', admin: false }
+  return { id, name, mail: '', bio: '', avatar: '', admin: false, mustChangePassword: false }
 }

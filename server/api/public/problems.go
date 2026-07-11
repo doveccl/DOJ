@@ -1,18 +1,15 @@
 package public
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/doveccl/doj/contract/limits"
 	contract "github.com/doveccl/doj/contract/web"
 
 	"github.com/doveccl/doj/models"
-	"github.com/doveccl/doj/server/storage"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
@@ -249,76 +246,11 @@ func (api *API) updateProblemVisibility(c echo.Context) error {
 		}
 		return err
 	}
-	if row.Visible && !req.Visible {
-		return echo.NewHTTPError(http.StatusConflict, "published problem cannot be hidden")
-	}
-	if req.Visible && !row.Visible {
-		var unfinished int64
-		if err := api.db.Model(&models.ContestProblem{}).
-			Joins("JOIN contests ON contests.id = contest_problems.contest_id").
-			Where("contest_problems.problem_id = ? AND contests.deleted_at IS NULL AND contests.end_at > ?", row.ID, time.Now()).
-			Count(&unfinished).Error; err != nil {
-			return err
-		}
-		if unfinished > 0 {
-			return echo.NewHTTPError(http.StatusConflict, "unfinished contest problem cannot be published")
-		}
-		if err := api.ensureProblemReady(c.Request().Context(), row); err != nil {
-			return err
-		}
-	}
 	row.Visible = req.Visible
 	if err := api.db.Save(&row).Error; err != nil {
 		return err
 	}
 	return c.JSON(http.StatusOK, problemView(row))
-}
-
-func (api *API) ensureProblemReady(ctx context.Context, row models.Problem) error {
-	statement, err := api.problemStatement(ctx, row.ID, row.Title)
-	if err != nil {
-		return err
-	}
-	statement = strings.TrimSpace(statement)
-	if statement == "" || statement == "# "+row.Title || statement == "# P"+strconv.Itoa(int(row.ID)) {
-		return echo.NewHTTPError(http.StatusConflict, "problem statement is not ready")
-	}
-	store, err := storage.NewFromEnv()
-	if err != nil {
-		return err
-	}
-	assets, err := problemAssetsFromStore(ctx, row.ID, store)
-	if err != nil {
-		return err
-	}
-	if assets.Cases == 0 {
-		return echo.NewHTTPError(http.StatusConflict, "problem requires at least one complete case")
-	}
-	if row.Mode != "custom" {
-		return nil
-	}
-	for _, file := range assets.Judge {
-		if file.Name == "Dockerfile" {
-			return nil
-		}
-	}
-	return echo.NewHTTPError(http.StatusConflict, "custom judge requires judge/Dockerfile")
-}
-
-func (api *API) ensureProblemRefsReady(ctx context.Context, refs []contract.ProblemRef) error {
-	for _, ref := range refs {
-		var row models.Problem
-		if err := api.db.First(&row, ref.ID).Error; err != nil {
-			return err
-		}
-		if row.Visible {
-			continue
-		}
-		if err := api.ensureProblemReady(ctx, row); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (api *API) deleteProblem(c echo.Context) error {
@@ -337,41 +269,10 @@ func (api *API) deleteProblem(c echo.Context) error {
 		}
 		return err
 	}
-	if row.Visible {
-		return echo.NewHTTPError(http.StatusConflict, "published problem cannot be deleted")
-	}
-	if reference, err := api.problemReference(id); err != nil {
-		return err
-	} else if reference != "" {
-		return echo.NewHTTPError(http.StatusConflict, "problem is referenced by "+reference+" and cannot be deleted")
-	}
 	if err := api.db.Delete(&row).Error; err != nil {
 		return err
 	}
 	return c.NoContent(http.StatusNoContent)
-}
-
-func (api *API) problemReference(id uint) (string, error) {
-	checks := []struct {
-		model any
-		where string
-		name  string
-	}{
-		{&models.ContestProblem{}, "problem_id = ?", "a contest"},
-		{&models.AssignmentProblem{}, "problem_id = ?", "an assignment"},
-		{&models.Submission{}, "problem_id = ?", "a submission"},
-		{&models.Discussion{}, "problem_id = ?", "a discussion"},
-	}
-	for _, check := range checks {
-		var count int64
-		if err := api.db.Unscoped().Model(check.model).Where(check.where, id).Count(&count).Error; err != nil {
-			return "", err
-		}
-		if count > 0 {
-			return check.name, nil
-		}
-	}
-	return "", nil
 }
 
 func (api *API) requireProblemAdmin(c echo.Context) (uint, error) {

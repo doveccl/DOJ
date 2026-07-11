@@ -178,7 +178,7 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 			t.Fatalf("create submission: %v", err)
 		}
 	}
-	if err := db.Create(&models.Discussion{Title: "Student note", Content: "body", UserID: student.ID, ProblemID: &visible.ID, Tags: datatypes.JSON([]byte(`["P1000"]`))}).Error; err != nil {
+	if err := db.Create(&models.Discussion{Title: "Student note", Content: "body", UserID: student.ID, Tags: datatypes.JSON([]byte(`["P1000"]`))}).Error; err != nil {
 		t.Fatalf("create discussion: %v", err)
 	}
 
@@ -190,8 +190,8 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 	if hasSolvedProblem(profile.Solved.Items, hidden.ID) || hasActivityProblem(profile.Activities, hidden.ID) {
 		t.Fatalf("guest profile leaked hidden problem: %+v", profile)
 	}
-	if hasActivity(profile.Activities, "discussion", "Student note") {
-		t.Fatalf("guest profile leaked a running contest discussion: %+v", profile.Activities)
+	if !hasActivity(profile.Activities, "discussion", "Student note") {
+		t.Fatalf("soft-linked discussion should remain visible on profile: %+v", profile.Activities)
 	}
 	if profile.User.AC != 2 || profile.User.Submit != 2 {
 		t.Fatalf("guest profile stats should exclude private assignment and hidden contest rows: %+v", profile.User)

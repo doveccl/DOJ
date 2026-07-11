@@ -243,10 +243,8 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: Lan
       width: 360,
       ellipsis: { showTitle: false },
       render: (_, row) => (
-        <Flex vertical align="flex-start" gap={2} className="tableTitleLine">
+        <Flex align="center" className="tableTitleLine">
           <ProblemLink id={row.problemId} title={row.problemTitle} search={row.assignmentId ? `?assignment=${row.assignmentId}` : row.contestId ? `?contest=${row.contestId}` : ''} />
-          {row.assignmentId ? <Link to={`/assignments/${row.assignmentId}`}>{`${text.assignments.title} #${row.assignmentId}`}</Link> : null}
-          {row.contestId ? <Link to={`/contests/${row.contestId}`}>{`${text.contests.title} #${row.contestId}`}</Link> : null}
         </Flex>
       )
     },

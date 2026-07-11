@@ -13,7 +13,7 @@ import (
 	"gorm.io/datatypes"
 )
 
-func TestHiddenProblemDiscussionFollowsProblemVisibility(t *testing.T) {
+func TestDiscussionTagsDoNotImposeProblemVisibility(t *testing.T) {
 	db := testWebDB(t)
 	student := models.User{Name: "student", Mail: "student@example.com", Auth: "hash"}
 	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
@@ -36,12 +36,11 @@ func TestHiddenProblemDiscussionFollowsProblemVisibility(t *testing.T) {
 		t.Fatalf("create problem: %v", err)
 	}
 	discussion := models.Discussion{
-		ProblemID: &problem.ID,
-		Title:     "Hidden discussion",
-		Content:   "secret",
-		UserID:    admin.ID,
-		Tags:      datatypes.JSON([]byte(`["P1000"]`)),
-		Locked:    false,
+		Title:   "Hidden discussion",
+		Content: "secret",
+		UserID:  admin.ID,
+		Tags:    datatypes.JSON([]byte(`["P1000"]`)),
+		Locked:  false,
 	}
 	if err := db.Create(&discussion).Error; err != nil {
 		t.Fatalf("create discussion: %v", err)
@@ -54,7 +53,7 @@ func TestHiddenProblemDiscussionFollowsProblemVisibility(t *testing.T) {
 	adminCookies := databaseSession(t, db, admin.ID)
 	discussionBody := `{"title":"Hidden tagged discussion","content":"secret","tags":["P1000"]}`
 	res := requestJSONWithCookies(e, http.MethodPost, "/api/discussion", studentCookies, discussionBody)
-	if res.Code != http.StatusNotFound {
+	if res.Code != http.StatusCreated {
 		t.Fatalf("student created hidden discussion: %d %s", res.Code, res.Body.String())
 	}
 	res = requestJSONWithCookies(e, http.MethodPost, "/api/discussion", adminCookies, discussionBody)
@@ -62,30 +61,30 @@ func TestHiddenProblemDiscussionFollowsProblemVisibility(t *testing.T) {
 		t.Fatalf("admin create hidden discussion got %d body=%s", res.Code, res.Body.String())
 	}
 	res = requestJSONWithCookies(e, http.MethodPost, "/api/discussion", adminCookies, `{"title":"Missing problem","content":"secret","tags":["P9999"]}`)
-	if res.Code != http.StatusNotFound {
+	if res.Code != http.StatusCreated {
 		t.Fatalf("admin linked a missing problem: %d %s", res.Code, res.Body.String())
 	}
 	res = requestJSONWithCookies(e, http.MethodPost, "/api/discussion", adminCookies, `{"title":"Ambiguous problem","content":"secret","tags":["P1000","P1001"]}`)
-	if res.Code != http.StatusBadRequest {
+	if res.Code != http.StatusCreated {
 		t.Fatalf("discussion linked multiple problems: %d %s", res.Code, res.Body.String())
 	}
 	res = requestJSONWithCookies(e, http.MethodPatch, "/api/discussion/"+strconv.FormatUint(uint64(discussion.ID), 10), adminCookies, `{"tags":["P9999"]}`)
-	if res.Code != http.StatusNotFound {
+	if res.Code != http.StatusOK {
 		t.Fatalf("admin updated discussion to a missing problem: %d %s", res.Code, res.Body.String())
 	}
 	list := decodeJSON[contract.Page[contract.Discussion]](t, requestWithCookies(e, http.MethodGet, "/api/discussion", studentCookies, nil))
-	if list.Total != 0 || len(list.Items) != 0 {
-		t.Fatalf("hidden discussion leaked through list: %+v", list)
+	if list.Total != 5 || len(list.Items) != 5 {
+		t.Fatalf("tagged discussions should remain visible: %+v", list)
 	}
-	if res := requestWithCookies(e, http.MethodGet, "/api/discussion/"+strconv.FormatUint(uint64(discussion.ID), 10), studentCookies, nil); res.Code != http.StatusNotFound {
-		t.Fatalf("hidden discussion detail got %d body=%s", res.Code, res.Body.String())
+	if res := requestWithCookies(e, http.MethodGet, "/api/discussion/"+strconv.FormatUint(uint64(discussion.ID), 10), studentCookies, nil); res.Code != http.StatusOK {
+		t.Fatalf("tagged discussion detail got %d body=%s", res.Code, res.Body.String())
 	}
 
 	body := `{"content":"I should not see this"}`
 	target := "/api/discussion/" + strconv.FormatUint(uint64(discussion.ID), 10) + "/comments"
 	res = requestJSONWithCookies(e, http.MethodPost, target, studentCookies, body)
-	if res.Code != http.StatusNotFound {
-		t.Fatalf("student commented on hidden discussion: %d %s", res.Code, res.Body.String())
+	if res.Code != http.StatusCreated {
+		t.Fatalf("student commented on tagged discussion: %d %s", res.Code, res.Body.String())
 	}
 
 	res = requestJSONWithCookies(e, http.MethodPost, target, adminCookies, body)
@@ -94,7 +93,7 @@ func TestHiddenProblemDiscussionFollowsProblemVisibility(t *testing.T) {
 	}
 }
 
-func TestProblemDiscussionsDoNotLeakAcrossReadSurfaces(t *testing.T) {
+func TestDiscussionTagsRemainSoftAcrossReadSurfaces(t *testing.T) {
 	db := testWebDB(t)
 	allowGuest(t, db)
 	users := []models.User{
@@ -123,9 +122,9 @@ func TestProblemDiscussionsDoNotLeakAcrossReadSurfaces(t *testing.T) {
 	}
 	discussions := []models.Discussion{
 		{Title: "General", Content: "public", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["general-secret"]`))},
-		{ProblemID: &problems[0].ID, Title: "Hidden topic", Content: "hidden", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["P1000","hidden-secret"]`))},
-		{ProblemID: &problems[1].ID, Title: "Upcoming topic", Content: "upcoming", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["P1001","upcoming-secret"]`))},
-		{ProblemID: &problems[2].ID, Title: "Visible topic", Content: "visible", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["P1002","visible-secret"]`))},
+		{Title: "Hidden topic", Content: "hidden", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["P1000","hidden-secret"]`))},
+		{Title: "Upcoming topic", Content: "upcoming", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["P1001","upcoming-secret"]`))},
+		{Title: "Visible topic", Content: "visible", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["P1002","visible-secret"]`))},
 	}
 	if err := db.Create(&discussions).Error; err != nil {
 		t.Fatal(err)
@@ -143,38 +142,38 @@ func TestProblemDiscussionsDoNotLeakAcrossReadSurfaces(t *testing.T) {
 		cookies []*http.Cookie
 	}{{name: "guest"}, {name: "student", cookies: studentCookies}} {
 		list := decodeJSON[contract.Page[contract.Discussion]](t, requestWithCookies(e, http.MethodGet, "/api/discussion", viewer.cookies, nil))
-		if list.Total != 2 || len(list.Items) != 2 || discussionByTitle(list.Items, "Hidden topic") != nil || discussionByTitle(list.Items, "Upcoming topic") != nil {
-			t.Fatalf("%s discussion list leaked hidden context: %+v", viewer.name, list)
+		if list.Total != 4 || len(list.Items) != 4 || discussionByTitle(list.Items, "Hidden topic") == nil || discussionByTitle(list.Items, "Upcoming topic") == nil {
+			t.Fatalf("%s should see soft-linked discussions: %+v", viewer.name, list)
 		}
 		search := decodeJSON[contract.Page[contract.Discussion]](t, requestWithCookies(e, http.MethodGet, "/api/discussion?q=hidden-secret", viewer.cookies, nil))
-		if search.Total != 0 || len(search.Items) != 0 {
-			t.Fatalf("%s discussion search bypassed visibility: %+v", viewer.name, search)
+		if search.Total != 1 || len(search.Items) != 1 {
+			t.Fatalf("%s discussion search lost tagged result: %+v", viewer.name, search)
 		}
 		visible := discussionByTitle(list.Items, "Visible topic")
-		if visible == nil || visible.ProblemID == nil || *visible.ProblemID != problems[2].ID {
-			t.Fatalf("%s visible discussion lost problem reference: %+v", viewer.name, list.Items)
+		if visible == nil || !hasTag(visible.Tags, "P1002") {
+			t.Fatalf("%s visible discussion lost problem tag: %+v", viewer.name, list.Items)
 		}
 		for _, row := range discussions[1:3] {
 			path := "/api/discussion/" + strconv.FormatUint(uint64(row.ID), 10)
-			if res := requestWithCookies(e, http.MethodGet, path, viewer.cookies, nil); res.Code != http.StatusNotFound {
+			if res := requestWithCookies(e, http.MethodGet, path, viewer.cookies, nil); res.Code != http.StatusOK {
 				t.Fatalf("%s read %q: %d %s", viewer.name, row.Title, res.Code, res.Body.String())
 			}
 		}
 		tags := decodeJSON[[]string](t, requestWithCookies(e, http.MethodGet, "/api/tags?kind=discussion&q=secret", viewer.cookies, nil))
-		if hasTag(tags, "hidden-secret") || hasTag(tags, "upcoming-secret") || !hasTag(tags, "general-secret") || !hasTag(tags, "visible-secret") {
-			t.Fatalf("%s discussion tags leaked hidden context: %+v", viewer.name, tags)
+		if !hasTag(tags, "hidden-secret") || !hasTag(tags, "upcoming-secret") || !hasTag(tags, "general-secret") || !hasTag(tags, "visible-secret") {
+			t.Fatalf("%s discussion tags should remain searchable: %+v", viewer.name, tags)
 		}
 		profile := decodeJSON[contract.UserProfile](t, requestWithCookies(e, http.MethodGet, "/api/users/admin", viewer.cookies, nil))
-		if hasActivity(profile.Activities, "discussion", "Hidden topic") || hasActivity(profile.Activities, "discussion", "Upcoming topic") || !hasActivity(profile.Activities, "discussion", "General") || !hasActivity(profile.Activities, "discussion", "Visible topic") {
-			t.Fatalf("%s profile activities leaked hidden context: %+v", viewer.name, profile.Activities)
+		if !hasActivity(profile.Activities, "discussion", "Hidden topic") || !hasActivity(profile.Activities, "discussion", "Upcoming topic") || !hasActivity(profile.Activities, "discussion", "General") || !hasActivity(profile.Activities, "discussion", "Visible topic") {
+			t.Fatalf("%s profile should retain soft-linked discussions: %+v", viewer.name, profile.Activities)
 		}
 	}
 
 	hiddenPath := "/api/discussion/" + strconv.FormatUint(uint64(discussions[1].ID), 10)
-	if res := requestJSONWithCookies(e, http.MethodPost, hiddenPath+"/comments", studentCookies, `{"content":"new reply"}`); res.Code != http.StatusNotFound {
+	if res := requestJSONWithCookies(e, http.MethodPost, hiddenPath+"/comments", studentCookies, `{"content":"new reply"}`); res.Code != http.StatusCreated {
 		t.Fatalf("student commented on hidden discussion: %d %s", res.Code, res.Body.String())
 	}
-	if res := requestWithCookies(e, http.MethodDelete, hiddenPath+"/comments/"+strconv.FormatUint(uint64(hiddenComment.ID), 10), studentCookies, nil); res.Code != http.StatusNotFound {
+	if res := requestWithCookies(e, http.MethodDelete, hiddenPath+"/comments/"+strconv.FormatUint(uint64(hiddenComment.ID), 10), studentCookies, nil); res.Code != http.StatusNoContent {
 		t.Fatalf("student deleted comment through hidden discussion: %d %s", res.Code, res.Body.String())
 	}
 	state := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?ids=1000,1001,1002", studentCookies, nil))
@@ -190,16 +189,16 @@ func TestProblemDiscussionsDoNotLeakAcrossReadSurfaces(t *testing.T) {
 	if err := db.Delete(&problems[0]).Error; err != nil {
 		t.Fatal(err)
 	}
-	if res := requestWithCookies(e, http.MethodGet, hiddenPath, adminCookies, nil); res.Code != http.StatusNotFound {
-		t.Fatalf("deleted problem discussion remained visible to admin: %d %s", res.Code, res.Body.String())
+	if res := requestWithCookies(e, http.MethodGet, hiddenPath, adminCookies, nil); res.Code != http.StatusOK {
+		t.Fatalf("soft-linked discussion disappeared with deleted problem: %d %s", res.Code, res.Body.String())
 	}
 	adminTags := decodeJSON[[]string](t, requestWithCookies(e, http.MethodGet, "/api/tags?kind=discussion&q=hidden-secret", adminCookies, nil))
-	if len(adminTags) != 0 {
-		t.Fatalf("deleted problem discussion tag remained visible to admin: %+v", adminTags)
+	if !hasTag(adminTags, "hidden-secret") {
+		t.Fatalf("soft discussion tag disappeared with deleted problem: %+v", adminTags)
 	}
 }
 
-func TestProblemDiscussionsStayHiddenUntilContestEnds(t *testing.T) {
+func TestContestDoesNotControlSoftLinkedDiscussionVisibility(t *testing.T) {
 	db := testWebDB(t)
 	allowGuest(t, db)
 	student := models.User{Name: "student", Mail: "student@example.com", Auth: "hash"}
@@ -225,7 +224,7 @@ func TestProblemDiscussionsStayHiddenUntilContestEnds(t *testing.T) {
 	if err := db.Create(&models.ContestProblem{ContestID: contest.ID, ProblemID: problem.ID, Sort: "A"}).Error; err != nil {
 		t.Fatal(err)
 	}
-	discussion := models.Discussion{ProblemID: &problem.ID, Title: "Solution", Content: "secret", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["P1000"]`))}
+	discussion := models.Discussion{Title: "Solution", Content: "secret", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["P1000"]`))}
 	if err := db.Create(&discussion).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -234,14 +233,14 @@ func TestProblemDiscussionsStayHiddenUntilContestEnds(t *testing.T) {
 	studentCookies := databaseSession(t, db, student.ID)
 	adminCookies := databaseSession(t, db, admin.ID)
 	path := "/api/discussion/" + strconv.FormatUint(uint64(discussion.ID), 10)
-	if got := decodeJSON[contract.Page[contract.Discussion]](t, requestWithCookies(e, http.MethodGet, "/api/discussion", studentCookies, nil)); got.Total != 0 {
-		t.Fatalf("running contest discussion leaked in list: %+v", got)
+	if got := decodeJSON[contract.Page[contract.Discussion]](t, requestWithCookies(e, http.MethodGet, "/api/discussion", studentCookies, nil)); got.Total != 1 {
+		t.Fatalf("soft-linked discussion missing from list: %+v", got)
 	}
-	if res := requestWithCookies(e, http.MethodGet, path, studentCookies, nil); res.Code != http.StatusNotFound {
+	if res := requestWithCookies(e, http.MethodGet, path, studentCookies, nil); res.Code != http.StatusOK {
 		t.Fatalf("running contest discussion detail got %d", res.Code)
 	}
 	body := `{"title":"Spoiler","content":"secret","tags":["P1000"]}`
-	if res := requestJSONWithCookies(e, http.MethodPost, "/api/discussion", studentCookies, body); res.Code != http.StatusNotFound {
+	if res := requestJSONWithCookies(e, http.MethodPost, "/api/discussion", studentCookies, body); res.Code != http.StatusCreated {
 		t.Fatalf("contestant created running contest discussion: %d %s", res.Code, res.Body.String())
 	}
 	if res := requestWithCookies(e, http.MethodGet, path, adminCookies, nil); res.Code != http.StatusOK {
@@ -467,7 +466,7 @@ func TestDiscussionListSearchesTitleContentAndTags(t *testing.T) {
 	rows := []models.Discussion{
 		{Title: "Segment tree notes", Content: "body", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["general"]`))},
 		{Title: "Other topic", Content: "Fenwick tree detail", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["general"]`))},
-		{ProblemID: &problem.ID, Title: "Tagged topic", Content: "body", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["P1289"]`))},
+		{Title: "Tagged topic", Content: "body", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["P1289"]`))},
 		{Title: "Unrelated", Content: "body", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["misc"]`))},
 	}
 	if err := db.Create(&rows).Error; err != nil {

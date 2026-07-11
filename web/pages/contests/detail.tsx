@@ -32,7 +32,7 @@ type ContestForm = {
 export function ContestDetailPage() {
   const { lang, text } = useLocale()
   const session = useSession()
-  const { message } = AntApp.useApp()
+  const { message, modal } = AntApp.useApp()
   const client = useQueryClient()
   const params = useParams()
   const id = Number(params.id)
@@ -110,7 +110,12 @@ export function ContestDetailPage() {
 
   return (
     <Flex vertical gap={16}>
-      <Card>
+      <DescriptionCard
+        id={`contest-${contest.id}-description`}
+        value={query.data.description}
+        editable={session.admin}
+        onSave={saveDescription}
+        header={
         <Flex justify="space-between" align="center" gap={20} wrap>
           <Flex align="center" gap={10}>
             <Typography.Title level={3} style={{ margin: 0 }}>
@@ -136,9 +141,8 @@ export function ContestDetailPage() {
             />
           </Flex>
         </Flex>
-      </Card>
-      <DescriptionCard id={`contest-${contest.id}-description`} title={text.contests.description} value={query.data.description} editable={session.admin} onSave={saveDescription} />
-      <Alert type="info" showIcon title={text.contests.rules} description={contest.kind === 'ICPC' ? text.contests.icpcRules : text.contests.oiRules} />
+        }
+      />
       <Card>
         <Tabs
           items={[
@@ -176,11 +180,21 @@ export function ContestDetailPage() {
           contest={contest}
           problems={problems}
           problemOptions={problemOptions}
-          scopeLocked={contest.status !== 'pending'}
-          ended={contest.status === 'ended'}
           loading={update.isPending}
           onCancel={() => setEditOpen(false)}
-          onSave={(values) => update.mutate(values)}
+          onSave={(values) => {
+            if (contest.status === 'pending') {
+              update.mutate(values)
+              return
+            }
+            modal.confirm({
+              title: text.contests.changeWarning,
+              content: text.contests.changeWarningDescription,
+              okText: text.common.save,
+              cancelText: text.common.cancel,
+              onOk: () => update.mutate(values)
+            })
+          }}
         />
       ) : null}
     </Flex>
@@ -191,8 +205,6 @@ function ContestEditModal({
   contest,
   problems,
   problemOptions,
-  scopeLocked,
-  ended,
   loading,
   onCancel,
   onSave
@@ -200,8 +212,6 @@ function ContestEditModal({
   contest: { title: string; kind: string; startAt: string; endAt: string; freezeAt: string | null }
   problems: ProblemListItem[]
   problemOptions: { value: number; label: string }[]
-  scopeLocked: boolean
-  ended: boolean
   loading: boolean
   onCancel: () => void
   onSave: (values: ContestForm) => void
@@ -229,13 +239,11 @@ function ContestEditModal({
       onOk={() => form.submit()}
     >
       <Form<ContestForm> form={form} preserve={false} layout="vertical" initialValues={initialValues} onFinish={onSave}>
-        {scopeLocked ? <Alert type="info" showIcon title={text.contests.locked} /> : null}
         <Form.Item name="title" label={text.contests.name} rules={[{ required: true, whitespace: true }]}>
           <Input maxLength={limits.title} showCount />
         </Form.Item>
         <Form.Item name="kind" label={text.contests.kind}>
           <Select
-            disabled={scopeLocked}
             options={[
               { value: 'OI', label: 'OI' },
               { value: 'ICPC', label: 'ICPC' }
@@ -244,17 +252,17 @@ function ContestEditModal({
         </Form.Item>
         <Space size={12} style={{ width: '100%' }} align="start">
           <Form.Item name="startAt" label={text.contests.start} rules={[{ required: true }]}>
-            <DatePicker showTime disabled={scopeLocked} />
+            <DatePicker showTime />
           </Form.Item>
           <Form.Item name="endAt" label={text.contests.end} rules={[{ required: true }]}>
-            <DatePicker showTime disabled={ended} minDate={scopeLocked && !ended ? dayjs(contest.endAt) : undefined} />
+            <DatePicker showTime />
           </Form.Item>
           <Form.Item name="freezeAt" label={text.contests.freeze}>
-            <DatePicker showTime disabled={scopeLocked} />
+            <DatePicker showTime />
           </Form.Item>
         </Space>
-        <Form.Item name="problems" label={text.contests.problems} extra={scopeLocked ? undefined : text.contests.secretProblemsHint}>
-          <ProblemRefInput options={problemOptions} disabled={scopeLocked} hiddenOnly />
+        <Form.Item name="problems" label={text.contests.problems}>
+          <ProblemRefInput options={problemOptions} />
         </Form.Item>
       </Form>
     </Modal>

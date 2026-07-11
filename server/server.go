@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -17,11 +16,9 @@ import (
 	"github.com/doveccl/doj/server/api/admin"
 	"github.com/doveccl/doj/server/api/public"
 	"github.com/doveccl/doj/server/api/worker"
-	"github.com/doveccl/doj/server/auth"
 	"github.com/doveccl/doj/server/backup"
 	"github.com/doveccl/doj/server/cache"
 	dojmw "github.com/doveccl/doj/server/middleware"
-	"github.com/doveccl/doj/server/validate"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"gorm.io/gorm"
@@ -125,34 +122,17 @@ func openDB() (*gorm.DB, error) {
 	if err := models.EnsureProblemIDBase(db); err != nil {
 		return nil, err
 	}
-	password, generated, err := initialAdminPassword()
+	created, err := models.EnsureAdmin(db, "admin", "admin@localhost", "admin")
 	if err != nil {
 		return nil, err
 	}
-	created, err := models.EnsureAdmin(db, "admin", "admin@localhost", password)
-	if err != nil {
-		return nil, err
-	}
-	if created && generated {
-		slog.Warn("bootstrap administrator created; sign in and change this password", "username", "admin", "password", password)
-	} else if created {
-		slog.Info("bootstrap administrator created from ADMIN_PASSWORD", "username", "admin")
+	if created {
+		slog.Warn("bootstrap administrator created; change the default password", "username", "admin")
 	}
 	if err := models.EnsureDefaultLanguage(db); err != nil {
 		return nil, err
 	}
 	return db, nil
-}
-
-func initialAdminPassword() (string, bool, error) {
-	if password := os.Getenv("ADMIN_PASSWORD"); password != "" {
-		if !validate.Password(password) {
-			return "", false, fmt.Errorf("ADMIN_PASSWORD must be between 8 and 72 bytes")
-		}
-		return password, false, nil
-	}
-	password, err := auth.NewToken()
-	return password, true, err
 }
 
 func trustedProxyIPExtractor() echo.IPExtractor {

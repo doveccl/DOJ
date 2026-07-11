@@ -56,12 +56,13 @@ type Page[T any] struct {
 }
 
 type Me struct {
-	ID     uint   `json:"id"`
-	Name   string `json:"name"`
-	Mail   string `json:"mail"`
-	Bio    string `json:"bio"`
-	Avatar string `json:"avatar"`
-	Admin  bool   `json:"admin"`
+	ID                 uint   `json:"id"`
+	Name               string `json:"name"`
+	Mail               string `json:"mail"`
+	Bio                string `json:"bio"`
+	Avatar             string `json:"avatar"`
+	Admin              bool   `json:"admin"`
+	MustChangePassword bool   `json:"mustChangePassword"`
 }
 
 type Language struct {
@@ -310,7 +311,6 @@ type UserActivity struct {
 
 type Discussion struct {
 	ID        uint      `json:"id"`
-	ProblemID *uint     `json:"problemId,omitempty"`
 	Title     string    `json:"title"`
 	Author    string    `json:"author"`
 	Tags      []string  `json:"tags"`

@@ -168,13 +168,13 @@ export function ProblemDetailPage() {
     onError: showError
   })
   const visibility = useMutation({
-    mutationFn: () =>
-      apiData(api.PATCH('/api/problems/{id}/visibility', { params: { path: { id } }, body: { visible: true } })),
-    onSuccess: (next) => {
+    mutationFn: (visible: boolean) =>
+      apiData(api.PATCH('/api/problems/{id}/visibility', { params: { path: { id } }, body: { visible } })),
+    onSuccess: (next, visible) => {
       client.setQueryData(['problem', id], (current: Problem | undefined) => ({ ...next, statement: current?.statement }))
       void client.invalidateQueries({ queryKey: ['problems'] })
       void client.invalidateQueries({ queryKey: ['home'] })
-      message.success(text.problems.shown)
+      message.success(visible ? text.problems.shown : text.problems.hiddenDone)
     },
     onError: showError
   })
@@ -278,24 +278,17 @@ export function ProblemDetailPage() {
               title={
                 <Flex align="center" gap={10} wrap={false} className="problemHeadTitle">
                   {session.admin ? (
-                    problem.visible ? (
-                      <Tooltip title={text.problems.currentVisible}>
-                        <EyeOutlined className="okIcon" aria-label={`${text.problems.currentVisible} ${problemCode(problem.id)}`} />
-                      </Tooltip>
-                    ) : (
-                      <Tooltip title={text.problems.currentHidden}>
-                        <Popconfirm title={text.problems.publishConfirm} okText={text.problems.show} cancelText={text.common.cancel} onConfirm={() => visibility.mutate()}>
-                          <Button
-                            aria-label={`${text.problems.show} ${problemCode(problem.id)}`}
-                            type="text"
-                            size="small"
-                            icon={<EyeInvisibleOutlined className="mutedIcon" />}
-                            loading={visibility.isPending}
-                            disabled={visibility.isPending}
-                          />
-                        </Popconfirm>
-                      </Tooltip>
-                    )
+                    <Tooltip title={problem.visible ? text.problems.hide : text.problems.show}>
+                      <Button
+                        aria-label={`${problem.visible ? text.problems.hide : text.problems.show} ${problemCode(problem.id)}`}
+                        type="text"
+                        size="small"
+                        icon={problem.visible ? <EyeOutlined className="okIcon" /> : <EyeInvisibleOutlined className="mutedIcon" />}
+                        loading={visibility.isPending}
+                        disabled={visibility.isPending}
+                        onClick={() => visibility.mutate(!problem.visible)}
+                      />
+                    </Tooltip>
                   ) : null}
                   <Typography.Text strong ellipsis={{ tooltip: `${problemCode(problem.id)} ${problem.title}` }} className="problemTitleText">
                     {`${problemCode(problem.id)} ${problem.title}`}

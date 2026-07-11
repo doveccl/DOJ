@@ -12,7 +12,7 @@ import (
 	"gorm.io/datatypes"
 )
 
-func TestUsedAssignmentScopeCannotBeRewrittenOrDeleted(t *testing.T) {
+func TestAdminCanRewriteOrDeleteUsedAssignment(t *testing.T) {
 	db := testWebDB(t)
 	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
 	student := models.User{Name: "student", Mail: "student@example.com", Auth: "hash"}
@@ -60,16 +60,16 @@ func TestUsedAssignmentScopeCannotBeRewrittenOrDeleted(t *testing.T) {
 		"member":   body(extended, problems[0].ID, other.ID),
 		"deadline": body(assignment.EndAt, problems[0].ID, student.ID),
 	} {
-		if res := requestJSONWithCookies(e, http.MethodPatch, path, cookies, payload); res.Code != http.StatusConflict {
+		if res := requestJSONWithCookies(e, http.MethodPatch, path, cookies, payload); res.Code != http.StatusOK {
 			t.Fatalf("%s rewrite got %d body=%s", name, res.Code, res.Body.String())
 		}
 	}
-	if res := requestWithCookies(e, http.MethodDelete, path, cookies, nil); res.Code != http.StatusConflict {
+	if res := requestWithCookies(e, http.MethodDelete, path, cookies, nil); res.Code != http.StatusNoContent {
 		t.Fatalf("used assignment delete got %d body=%s", res.Code, res.Body.String())
 	}
 }
 
-func TestAssignmentRequiresReadyHiddenProblems(t *testing.T) {
+func TestAssignmentAcceptsDraftProblems(t *testing.T) {
 	db := testWebDB(t)
 	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
 	problem := models.Problem{ID: 1000, Title: "Private draft", Tags: datatypes.JSON([]byte(`[]`)), Visible: false, Mode: "default", TimeMS: 1000, MemoryMB: 256}
@@ -89,12 +89,8 @@ func TestAssignmentRequiresReadyHiddenProblems(t *testing.T) {
 		t.Fatalf("create past assignment got %d body=%s", res.Code, res.Body.String())
 	}
 	body := `{"title":"Private","endAt":"` + time.Now().Add(time.Hour).Format(time.RFC3339) + `","problems":[{"id":1000,"sort":"A"}],"users":[],"groups":[]}`
-	if res := requestJSONWithCookies(e, http.MethodPost, "/api/assignments", cookies, body); res.Code != http.StatusConflict {
-		t.Fatalf("create assignment with unready draft got %d body=%s", res.Code, res.Body.String())
-	}
-	writeReadyProblemFiles(t, root, problem.ID, problem.Title)
 	if res := requestJSONWithCookies(e, http.MethodPost, "/api/assignments", cookies, body); res.Code != http.StatusCreated {
-		t.Fatalf("create assignment with ready draft got %d body=%s", res.Code, res.Body.String())
+		t.Fatalf("create assignment with draft got %d body=%s", res.Code, res.Body.String())
 	}
 }
 

@@ -141,6 +141,10 @@ body {
   padding: 28px 24px 48px;
 }
 
+.defaultPasswordAlert {
+  margin-bottom: 16px;
+}
+
 .pageStack {
   width: 100%;
 }

@@ -127,14 +127,6 @@ func (api *API) searchJSONTags(c echo.Context, table string, q string, limit int
 			sql += " AND " + problemListVisibilitySQL
 			args = append(args, true, time.Now())
 		}
-		if table == "discussions" {
-			visibility, visibilityArgs, err := api.discussionVisibility(c)
-			if err != nil {
-				return nil, err
-			}
-			sql += " AND (" + visibility + ")"
-			args = append(args, visibilityArgs...)
-		}
 		if q != "" {
 			sql += " AND LOWER(tag.value) LIKE LOWER(?)"
 			args = append(args, "%"+q+"%")
@@ -176,10 +168,6 @@ func (api *API) searchJSONTags(c echo.Context, table string, q string, limit int
 	case "discussions":
 		var rows []models.Discussion
 		query := api.db.Select("tags").Order("id asc").Limit(500)
-		query, err := api.applyDiscussionVisibility(c, query)
-		if err != nil {
-			return nil, err
-		}
 		if err := query.Find(&rows).Error; err != nil {
 			return nil, err
 		}
