@@ -29,6 +29,9 @@ func dropIdentity(identity ProcessIdentity) error {
 	if !identity.Enabled {
 		return nil
 	}
+	if err := syscall.Setgroups([]int{}); err != nil {
+		return err
+	}
 	if err := syscall.Setgid(int(identity.GID)); err != nil {
 		return err
 	}
@@ -58,4 +61,11 @@ func killProcessGroup(cmd *exec.Cmd) {
 		return
 	}
 	_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+}
+
+func cancelProcessGroup(cmd *exec.Cmd) error {
+	if cmd == nil || cmd.Process == nil {
+		return os.ErrProcessDone
+	}
+	return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 }

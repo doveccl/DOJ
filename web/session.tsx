@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { QueryClient } from '@tanstack/react-query'
 
 import { api, apiData, apiEmpty } from './client'
 import type { Me } from './client'
@@ -35,33 +36,47 @@ const guest: Me = {
   admin: false
 }
 
+export function setViewer(client: QueryClient, next: Me) {
+  const current = client.getQueryData<Me>(['me'])
+  if ((current?.id ?? 0) !== next.id || (current?.admin ?? false) !== next.admin) {
+    const other = (query: { queryKey: readonly unknown[] }) => query.queryKey[0] !== 'me'
+    client.removeQueries({ type: 'inactive', predicate: other })
+    void client.resetQueries({ type: 'active', predicate: other })
+  }
+  client.setQueryData(['me'], next)
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const client = useQueryClient()
-  const query = useQuery({ queryKey: ['me'], queryFn: getMe, retry: false })
+  const loadMe = useCallback(async () => {
+    const next = await getMe()
+    setViewer(client, next)
+    return next
+  }, [client])
+  const query = useQuery({ queryKey: ['me'], queryFn: loadMe, retry: false })
   const me = query.data ?? guest
 
   const refresh = useCallback(async () => {
     try {
-      const next = await client.fetchQuery({ queryKey: ['me'], queryFn: getMe })
-      client.setQueryData(['me'], next)
+      await client.fetchQuery({ queryKey: ['me'], queryFn: loadMe })
     } catch {
-      client.setQueryData(['me'], guest)
+      setViewer(client, guest)
     }
-  }, [client])
+  }, [client, loadMe])
 
   const loginMutation = useMutation({
     mutationFn: (body: { name: string; password: string }) => apiData(api.POST('/api/auth/login', { body })),
-    onSuccess: (next) => client.setQueryData(['me'], next)
+    onSuccess: (next) => setViewer(client, next)
   })
 
   const registerMutation = useMutation({
     mutationFn: (body: { name: string; mail: string; password: string }) => apiData(api.POST('/api/auth/register', { body })),
-    onSuccess: (next) => client.setQueryData(['me'], next)
+    onSuccess: (next) => setViewer(client, next)
   })
 
   const logoutMutation = useMutation({
     mutationFn: () => apiEmpty(api.POST('/api/auth/logout')),
-    onSettled: () => client.setQueryData(['me'], guest)
+    onSuccess: () => setViewer(client, guest)
   })
 
   const login = useCallback(async (name: string, password: string) => {

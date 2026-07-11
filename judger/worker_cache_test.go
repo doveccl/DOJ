@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -39,22 +40,30 @@ func TestExtractProblemPackageRejectsZipSlip(t *testing.T) {
 	}
 }
 
+func TestProblemPackageRejectsOversizedExpansion(t *testing.T) {
+	file := &zip.File{FileHeader: zip.FileHeader{Name: "data/huge.in", UncompressedSize64: maxProblemPackageFileBytes + 1}}
+	if err := validateProblemPackageFiles([]*zip.File{file}); err == nil {
+		t.Fatal("oversized expanded file was accepted")
+	}
+}
+
 func TestDownloadProblemPackageUsesLeasePackageHashCache(t *testing.T) {
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/judger/P1000.zip" {
+		if !validTestPackageRequest(r) {
 			http.NotFound(w, r)
 			return
 		}
 		requests++
-		switch requests {
-		case 1:
-			w.Header().Set("Content-Type", "application/zip")
-			_, _ = w.Write(testPackageZip(t))
-		default:
-			t.Errorf("unexpected package request %d", requests)
-			http.Error(w, "too many requests", http.StatusInternalServerError)
+		if r.Header.Get("If-None-Match") != "" {
+			w.WriteHeader(http.StatusNotModified)
+			return
 		}
+		if requests != 1 {
+			t.Errorf("unexpected package download %d", requests)
+		}
+		w.Header().Set("Content-Type", "application/zip")
+		_, _ = w.Write(testPackageZip(t))
 	}))
 	defer server.Close()
 
@@ -64,7 +73,7 @@ func TestDownloadProblemPackageUsesLeasePackageHashCache(t *testing.T) {
 	if err := os.MkdirAll(work1, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := downloadProblemPackage(t.Context(), server.Client(), cfg, 1000, "v1", work1, 11, 1); err != nil {
+	if err := downloadProblemPackage(t.Context(), server.Client(), cfg, 1000, "v1", work1, 11, 11, 1); err != nil {
 		t.Fatalf("first download: %v", err)
 	}
 	if got, err := os.ReadFile(filepath.Join(work1, "data", "1.in")); err != nil || string(got) != "42\n" {
@@ -84,34 +93,41 @@ func TestDownloadProblemPackageUsesLeasePackageHashCache(t *testing.T) {
 	if err := os.MkdirAll(work2, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := downloadProblemPackage(t.Context(), server.Client(), cfg, 1000, "v1", work2, 12, 1); err != nil {
+	if err := downloadProblemPackage(t.Context(), server.Client(), cfg, 1000, "v1", work2, 12, 12, 1); err != nil {
 		t.Fatalf("cached download: %v", err)
 	}
 	if got, err := os.ReadFile(filepath.Join(work2, "data", "1.out")); err != nil || string(got) != "42\n" {
 		t.Fatalf("cached work package file = %q, %v", got, err)
 	}
-	if requests != 1 {
-		t.Fatalf("package requests = %d", requests)
+	if requests != 2 {
+		t.Fatalf("package authorization requests = %d", requests)
 	}
 }
 
 func TestDownloadProblemPackageSharesConcurrentDownload(t *testing.T) {
 	var mu sync.Mutex
 	requests := 0
+	downloads := 0
 	entered := make(chan struct{}, 2)
 	release := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/judger/P1000.zip" {
+		if !validTestPackageRequest(r) {
 			http.NotFound(w, r)
 			return
 		}
 		mu.Lock()
 		requests++
-		got := requests
+		if r.Header.Get("If-None-Match") != "" {
+			mu.Unlock()
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+		downloads++
+		got := downloads
 		mu.Unlock()
 		entered <- struct{}{}
 		if got > 1 {
-			t.Errorf("unexpected concurrent package request %d", got)
+			t.Errorf("unexpected concurrent package download %d", got)
 			http.Error(w, "too many requests", http.StatusInternalServerError)
 			return
 		}
@@ -131,7 +147,7 @@ func TestDownloadProblemPackageSharesConcurrentDownload(t *testing.T) {
 				errCh <- err
 				return
 			}
-			errCh <- downloadProblemPackage(t.Context(), server.Client(), cfg, 1000, "v1", work, uint(index+1), 1)
+			errCh <- downloadProblemPackage(t.Context(), server.Client(), cfg, 1000, "v1", work, uint(index+1), uint(index+1), 1)
 		}(index)
 	}
 	<-entered
@@ -143,9 +159,10 @@ func TestDownloadProblemPackageSharesConcurrentDownload(t *testing.T) {
 	}
 	mu.Lock()
 	gotRequests := requests
+	gotDownloads := downloads
 	mu.Unlock()
-	if gotRequests != 1 {
-		t.Fatalf("package requests = %d", gotRequests)
+	if gotRequests != 2 || gotDownloads != 1 {
+		t.Fatalf("package requests = %d downloads = %d", gotRequests, gotDownloads)
 	}
 	for index := 0; index < 2; index++ {
 		got, err := os.ReadFile(filepath.Join(root, "work", strconv.Itoa(index), "data", "1.in"))
@@ -158,7 +175,7 @@ func TestDownloadProblemPackageSharesConcurrentDownload(t *testing.T) {
 func TestDownloadProblemPackageReportsDownloadedBytes(t *testing.T) {
 	body := testPackageZip(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/judger/P1000.zip" {
+		if !validTestPackageRequest(r) {
 			http.NotFound(w, r)
 			return
 		}
@@ -180,7 +197,7 @@ func TestDownloadProblemPackageReportsDownloadedBytes(t *testing.T) {
 			got = append(got, common.HeartbeatRequest{Stage: stage, Done: done, Total: total})
 		},
 	}
-	if err := downloadProblemPackage(t.Context(), server.Client(), cfg, 1000, "v1", work, 11, 1); err != nil {
+	if err := downloadProblemPackage(t.Context(), server.Client(), cfg, 1000, "v1", work, 11, 11, 1); err != nil {
 		t.Fatalf("download: %v", err)
 	}
 	if len(got) == 0 {
@@ -194,7 +211,7 @@ func TestDownloadProblemPackageReportsDownloadedBytes(t *testing.T) {
 
 func TestDownloadProblemPackageUsesLongerTimeoutThanAPIClient(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/judger/P1000.zip" {
+		if !validTestPackageRequest(r) {
 			http.NotFound(w, r)
 			return
 		}
@@ -211,9 +228,13 @@ func TestDownloadProblemPackageUsesLongerTimeoutThanAPIClient(t *testing.T) {
 	}
 	client := &http.Client{Timeout: time.Nanosecond}
 	cfg := WorkerConfig{Server: server.URL, Cache: filepath.Join(root, "cache")}
-	if err := downloadProblemPackage(t.Context(), client, cfg, 1000, "v1", work, 11, 1); err != nil {
+	if err := downloadProblemPackage(t.Context(), client, cfg, 1000, "v1", work, 11, 11, 1); err != nil {
 		t.Fatalf("download should not use short API timeout: %v", err)
 	}
+}
+
+func validTestPackageRequest(r *http.Request) bool {
+	return strings.HasPrefix(r.URL.Path, "/api/judger/tasks/") && strings.HasSuffix(r.URL.Path, "/package") && r.URL.Query().Get("attempt") == "1" && r.URL.Query().Get("hash") == "v1"
 }
 
 func testPackageZip(t *testing.T) []byte {

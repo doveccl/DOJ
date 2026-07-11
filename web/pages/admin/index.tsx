@@ -95,7 +95,10 @@ export function AdminPage() {
       client.setQueryData(['site'], data)
       message.success(text.common.saved)
     },
-    onError: showError
+    onError: (error) => {
+      settingsForm.resetFields()
+      showError(error)
+    }
   })
   const userSave = useMutation({
     mutationFn: ({ name, role, groups }: { name: string; role: string; groups: number[] }) => apiData(api.PATCH('/api/admin/users/{name}', { params: { path: { name } }, body: { role, groups } })),
@@ -174,17 +177,22 @@ export function AdminPage() {
         const composeExample = `services:
   judger:
     image: doveccl/doj:4
-    command: doj judger
+    command: ["doj", "judger"]
     restart: unless-stopped
-    privileged: true
-    network_mode: host
     pid: host
     cgroup: host
+    cap_drop:
+      - ALL
+    cap_add:
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
     environment:
       SERVER: ${server}
       TOKEN: ${created.token}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
       - /var/lib/doj:/var/lib/doj`
         modal.info({
           title: text.admin.judgerTokenCreated,

@@ -1,6 +1,7 @@
 export const limits = {
   usernameMin: 3,
   username: 32,
+  password: 72,
   languageId: 32,
   sort: 16,
   name: 64,

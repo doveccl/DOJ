@@ -4,11 +4,11 @@ import type { ReactNode } from 'react'
 
 import { problemLabel } from '../utils/format'
 
-export function ProblemLink({ id, title, strong, maxWidth }: { id: number; title?: string; strong?: boolean; maxWidth?: number }) {
+export function ProblemLink({ id, title, search = '', strong, maxWidth }: { id: number; title?: string; search?: string; strong?: boolean; maxWidth?: number }) {
   const label = problemLabel(id, title)
   return (
     <Typography.Text strong={strong} ellipsis={{ tooltip: label }} style={maxWidth ? { maxWidth } : undefined}>
-      <Link to={`/problems/${id}`}>{label}</Link>
+      <Link to={`/problems/${id}${search}`}>{label}</Link>
     </Typography.Text>
   )
 }

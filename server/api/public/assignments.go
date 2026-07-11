@@ -81,9 +81,15 @@ func (api *API) createAssignment(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid deadline")
 	}
+	if !endAt.After(time.Now()) {
+		return echo.NewHTTPError(http.StatusBadRequest, "deadline must be in the future")
+	}
 
 	req.Problems = normalizeProblemRefs(req.Problems)
 	if err := api.validateProblemRefs(req.Problems); err != nil {
+		return err
+	}
+	if err := api.ensureProblemRefsReady(c.Request().Context(), req.Problems); err != nil {
 		return err
 	}
 	req.Users = cleanUintList(req.Users)
@@ -158,6 +164,32 @@ func (api *API) updateAssignment(c echo.Context) error {
 	if err := api.validateGroupIDs(req.Groups); err != nil {
 		return err
 	}
+	locked, err := api.assignmentRulesLocked(row)
+	if err != nil {
+		return err
+	}
+	if locked {
+		var links []models.AssignmentProblem
+		if err := api.db.Where("assignment_id = ?", row.ID).Find(&links).Error; err != nil {
+			return err
+		}
+		users, groups, err := api.assignmentMembers(row.ID)
+		if err != nil {
+			return err
+		}
+		refs := make([]contract.ProblemRef, 0, len(links))
+		for _, link := range links {
+			refs = append(refs, contract.ProblemRef{ID: link.ProblemID, Sort: link.Sort})
+		}
+		if !sameProblemRefs(req.Problems, refs) || !sameUintSet(req.Users, users) || !sameUintSet(req.Groups, groups) {
+			return echo.NewHTTPError(http.StatusConflict, "assignment scope is locked after the deadline or first submission")
+		}
+		if endAt.Before(row.EndAt) || (!time.Now().Before(row.EndAt) && !endAt.Equal(row.EndAt)) {
+			return echo.NewHTTPError(http.StatusConflict, "assignment deadline can only be extended while active")
+		}
+	} else if err := api.ensureProblemRefsReady(c.Request().Context(), req.Problems); err != nil {
+		return err
+	}
 	row.Title = req.Title
 	row.EndAt = endAt
 	if err := api.db.Transaction(func(tx *gorm.DB) error {
@@ -192,10 +224,58 @@ func (api *API) deleteAssignment(c echo.Context) error {
 		return err
 	}
 
-	if err := api.db.Delete(&models.Assignment{}, id).Error; err != nil {
+	var row models.Assignment
+	if err := api.db.First(&row, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return echo.NewHTTPError(http.StatusNotFound, "assignment not found")
+		}
+		return err
+	}
+	locked, err := api.assignmentRulesLocked(row)
+	if err != nil {
+		return err
+	}
+	if locked {
+		return echo.NewHTTPError(http.StatusConflict, "used assignment cannot be deleted")
+	}
+	if err := api.db.Transaction(func(tx *gorm.DB) error {
+		for _, model := range []any{&models.AssignmentProblem{}, &models.AssignmentUser{}, &models.AssignmentGroup{}} {
+			if err := tx.Where("assignment_id = ?", row.ID).Delete(model).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Delete(&row).Error
+	}); err != nil {
 		return err
 	}
 	return c.NoContent(http.StatusNoContent)
+}
+
+func (api *API) assignmentRulesLocked(row models.Assignment) (bool, error) {
+	if !time.Now().Before(row.EndAt) {
+		return true, nil
+	}
+	var submissions int64
+	if err := api.db.Model(&models.Submission{}).Where("assignment_id = ?", row.ID).Count(&submissions).Error; err != nil {
+		return false, err
+	}
+	return submissions > 0, nil
+}
+
+func sameUintSet(left []uint, right []uint) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	values := make(map[uint]struct{}, len(right))
+	for _, value := range right {
+		values[value] = struct{}{}
+	}
+	for _, value := range left {
+		if _, ok := values[value]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func (api *API) assignment(c echo.Context) error {
@@ -222,7 +302,7 @@ func (api *API) assignment(c echo.Context) error {
 	if err := api.db.Where("assignment_id = ?", row.ID).Order("sort asc").Find(&links).Error; err != nil {
 		return err
 	}
-	problems, err := api.assignmentProblems(c, row, links)
+	problems, err := api.assignmentProblems(links)
 	if err != nil {
 		return err
 	}
@@ -242,29 +322,11 @@ func (api *API) assignment(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, contract.AssignmentDetail{Assignment: assignment, Problems: problems, Progress: progressRows})
-}
-
-func (api *API) activeAssignmentFor(userID uint, problemID uint, now time.Time) (*uint, error) {
-	var rows []models.Assignment
-	if err := api.db.
-		Joins("JOIN assignment_problems ON assignment_problems.assignment_id = assignments.id").
-		Where("assignment_problems.problem_id = ? AND assignments.end_at >= ?", problemID, now).
-		Order("assignments.end_at asc").
-		Find(&rows).Error; err != nil {
-		return nil, err
+	description, err := api.assignmentDescription(c.Request().Context(), row.ID)
+	if err != nil {
+		return err
 	}
-	for _, row := range rows {
-		ok, err := api.userAssignedTo(row.ID, userID)
-		if err != nil {
-			return nil, err
-		}
-		if ok {
-			id := row.ID
-			return &id, nil
-		}
-	}
-	return nil, nil
+	return c.JSON(http.StatusOK, contract.AssignmentDetail{Assignment: assignment, Description: description, Problems: problems, Progress: progressRows})
 }
 
 func (api *API) userAssignedTo(assignmentID uint, userID uint) (bool, error) {

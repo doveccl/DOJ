@@ -9,16 +9,12 @@ import (
 	"github.com/doveccl/doj/models"
 )
 
-func (api *API) contestRank(contest models.Contest, problems []contract.Problem, includeHidden bool, until *time.Time) ([]contract.RankUser, error) {
+func (api *API) contestRank(contest models.Contest, problems []contract.Problem, until *time.Time) ([]contract.RankUser, error) {
 	var rows []models.Submission
 	query := api.db.
 		Joins("JOIN users ON users.id = submissions.user_id AND users.deleted_at IS NULL").
 		Where("submissions.contest_id = ?", contest.ID).
 		Order("submissions.created_at asc")
-	if !includeHidden {
-		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
-		query = api.applyProblemListVisibility(query)
-	}
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
 	}
@@ -61,6 +57,8 @@ func oiRank(submissions []models.Submission, users map[uint]models.User, problem
 		submit  int
 		score   map[uint]int
 		attempt map[uint]int
+		done    map[uint]int
+		pending map[uint]int
 	}
 	problemSet := rankProblemSet(problems)
 	states := map[uint]*state{}
@@ -74,12 +72,19 @@ func oiRank(submissions []models.Submission, users map[uint]models.User, problem
 		}
 		got := states[row.UserID]
 		if got == nil {
-			got = &state{user: user, score: map[uint]int{}, attempt: map[uint]int{}}
+			got = &state{user: user, score: map[uint]int{}, attempt: map[uint]int{}, done: map[uint]int{}, pending: map[uint]int{}}
 			states[row.UserID] = got
 		}
 		got.submit++
 		got.attempt[row.ProblemID]++
-		got.score[row.ProblemID] = row.Score
+		if submissionLive(row.Status) {
+			got.pending[row.ProblemID]++
+			continue
+		}
+		if got.done[row.ProblemID] == 0 || row.Score > got.score[row.ProblemID] {
+			got.score[row.ProblemID] = row.Score
+		}
+		got.done[row.ProblemID]++
 	}
 	items := make([]contract.RankUser, 0, len(states))
 	for _, got := range states {
@@ -90,7 +95,9 @@ func oiRank(submissions []models.Submission, users map[uint]models.User, problem
 			value := got.score[problem.ID]
 			submit := got.attempt[problem.ID]
 			status := "none"
-			if submit > 0 {
+			if got.done[problem.ID] == 0 && got.pending[problem.ID] > 0 {
+				status = "pending"
+			} else if submit > 0 {
 				status = "tried"
 			}
 			if value >= 100 {
@@ -148,6 +155,10 @@ func icpcRank(contest models.Contest, submissions []models.Submission, users map
 			got.problems[row.ProblemID] = problem
 		}
 		if freezeAt != nil && !row.CreatedAt.Before(*freezeAt) {
+			problem.pending++
+			continue
+		}
+		if submissionLive(row.Status) {
 			problem.pending++
 			continue
 		}

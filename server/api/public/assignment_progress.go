@@ -11,9 +11,22 @@ import (
 )
 
 func (api *API) assignmentProgress(c echo.Context, id uint, problems []contract.Problem) ([]contract.AssignmentProgress, error) {
-	userIDs, err := api.assignmentProgressUserIDs(id)
-	if err != nil {
-		return nil, err
+	admin := api.isAdmin(c)
+	viewerID := uint(0)
+	var userIDs []uint
+	if admin {
+		var err error
+		userIDs, err = api.assignmentProgressUserIDs(id)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		var err error
+		viewerID, err = api.viewerID(c)
+		if err != nil {
+			return nil, err
+		}
+		userIDs = []uint{viewerID}
 	}
 	if len(userIDs) == 0 {
 		return []contract.AssignmentProgress{}, nil
@@ -78,15 +91,6 @@ func (api *API) assignmentProgress(c echo.Context, id uint, problems []contract.
 				contests[row.ID] = row
 			}
 		}
-		admin := api.isAdmin(c)
-		viewerID := uint(0)
-		if !admin {
-			id, err := api.viewerID(c)
-			if err != nil {
-				return nil, err
-			}
-			viewerID = id
-		}
 		for _, submission := range submissions {
 			got := states[submission.UserID]
 			if got == nil {
@@ -101,6 +105,12 @@ func (api *API) assignmentProgress(c echo.Context, id uint, problems []contract.
 				if problem.Status != "ac" {
 					problem.Status = "pending"
 					problem.Score = nil
+				}
+				continue
+			}
+			if submissionLive(submission.Status) {
+				if problem.Status != "ac" {
+					problem.Status = "pending"
 				}
 				continue
 			}

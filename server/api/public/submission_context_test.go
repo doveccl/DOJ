@@ -47,7 +47,11 @@ func TestDatabaseSubmitStoresAndValidatesContext(t *testing.T) {
 	if res := requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil); res.Code != http.StatusOK {
 		t.Fatalf("assigned active assignment problem detail got %d body=%s", res.Code, res.Body.String())
 	}
-	okBody := `{"problemId":1000,"language":"cpp","code":"int main(){}","public":true}`
+	withoutContext := `{"problemId":1000,"language":"cpp","code":"int main(){}","public":true}`
+	if res := requestJSONWithCookies(e, http.MethodPost, "/api/submissions", cookies, withoutContext); res.Code != http.StatusNotFound {
+		t.Fatalf("hidden assignment problem must require explicit context: got %d body=%s", res.Code, res.Body.String())
+	}
+	okBody := `{"problemId":1000,"assignmentId":` + strconv.FormatUint(uint64(assignment.ID), 10) + `,"language":"cpp","code":"int main(){}","public":true}`
 	res := requestJSONWithCookies(e, http.MethodPost, "/api/submissions", cookies, okBody)
 	if res.Code != http.StatusCreated {
 		t.Fatalf("assignment submission got %d body=%s", res.Code, res.Body.String())
@@ -60,8 +64,8 @@ func TestDatabaseSubmitStoresAndValidatesContext(t *testing.T) {
 	if created.ID != row.ID {
 		t.Fatalf("assignment submission should return created id: got %d row %d", created.ID, row.ID)
 	}
-	if row.AssignmentID == nil || *row.AssignmentID != assignment.ID {
-		t.Fatalf("assignment id not inferred: %+v", row)
+	if row.AssignmentID == nil || *row.AssignmentID != assignment.ID || row.ContestID != nil {
+		t.Fatalf("assignment context not stored exclusively: %+v", row)
 	}
 
 	normalBody := `{"problemId":1001,"language":"cpp","code":"int main(){}","public":true}`
@@ -72,6 +76,51 @@ func TestDatabaseSubmitStoresAndValidatesContext(t *testing.T) {
 	created = decodeJSON[contract.CreatedID](t, res)
 	if created.ID == 0 {
 		t.Fatalf("normal submission should return created id: %+v", created)
+	}
+	row = models.Submission{}
+	if err := db.First(&row, created.ID).Error; err != nil {
+		t.Fatalf("read practice submission: %v", err)
+	}
+	if row.AssignmentID != nil || row.ContestID != nil {
+		t.Fatalf("practice submission unexpectedly gained context: %+v", row)
+	}
+
+	contest := models.Contest{Title: "Round", Kind: "OI", StartAt: time.Now().Add(-time.Hour), EndAt: time.Now().Add(time.Hour)}
+	if err := db.Create(&contest).Error; err != nil {
+		t.Fatalf("create contest: %v", err)
+	}
+	if err := db.Create(&models.ContestProblem{ContestID: contest.ID, ProblemID: included.ID, Sort: "A"}).Error; err != nil {
+		t.Fatalf("create contest link: %v", err)
+	}
+	contestBody := `{"problemId":1000,"contestId":` + strconv.FormatUint(uint64(contest.ID), 10) + `,"language":"cpp","code":"int main(){}","public":true}`
+	res = requestJSONWithCookies(e, http.MethodPost, "/api/submissions", cookies, contestBody)
+	if res.Code != http.StatusCreated {
+		t.Fatalf("contest submission got %d body=%s", res.Code, res.Body.String())
+	}
+	created = decodeJSON[contract.CreatedID](t, res)
+	row = models.Submission{}
+	if err := db.First(&row, created.ID).Error; err != nil {
+		t.Fatalf("read contest submission: %v", err)
+	}
+	if row.ContestID == nil || *row.ContestID != contest.ID || row.AssignmentID != nil {
+		t.Fatalf("contest context not stored exclusively: %+v", row)
+	}
+
+	bothBody := `{"problemId":1000,"assignmentId":` + strconv.FormatUint(uint64(assignment.ID), 10) + `,"contestId":` + strconv.FormatUint(uint64(contest.ID), 10) + `,"language":"cpp","code":"int main(){}","public":true}`
+	if res := requestJSONWithCookies(e, http.MethodPost, "/api/submissions", cookies, bothBody); res.Code != http.StatusBadRequest {
+		t.Fatalf("mixed assignment and contest context got %d body=%s", res.Code, res.Body.String())
+	}
+
+	unassigned := models.Assignment{Title: "Other HW", EndAt: time.Now().Add(time.Hour)}
+	if err := db.Create(&unassigned).Error; err != nil {
+		t.Fatalf("create unassigned assignment: %v", err)
+	}
+	if err := db.Create(&models.AssignmentProblem{AssignmentID: unassigned.ID, ProblemID: included.ID}).Error; err != nil {
+		t.Fatalf("create unassigned link: %v", err)
+	}
+	unassignedBody := `{"problemId":1000,"assignmentId":` + strconv.FormatUint(uint64(unassigned.ID), 10) + `,"language":"cpp","code":"int main(){}","public":true}`
+	if res := requestJSONWithCookies(e, http.MethodPost, "/api/submissions", cookies, unassignedBody); res.Code != http.StatusNotFound {
+		t.Fatalf("unassigned context got %d body=%s", res.Code, res.Body.String())
 	}
 }
 
@@ -115,7 +164,7 @@ func TestRunningOIContestHidesSubmissionResults(t *testing.T) {
 	if err := db.Create(&tried).Error; err != nil {
 		t.Fatalf("create tried submission: %v", err)
 	}
-	submission := models.Submission{UserID: owner.ID, ProblemID: problem.ID, AssignmentID: &assignmentID, ContestID: &contestID, Language: "cpp", Code: "secret", Status: "AC", Score: 100, Message: "accepted", TimeMS: &timeMS, MemoryKB: &memoryKB, Public: true}
+	submission := models.Submission{UserID: owner.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "secret", Status: "AC", Score: 100, Message: "accepted", TimeMS: &timeMS, MemoryKB: &memoryKB, Public: true}
 	if err := db.Create(&submission).Error; err != nil {
 		t.Fatalf("create submission: %v", err)
 	}
@@ -131,25 +180,38 @@ func TestRunningOIContestHidesSubmissionResults(t *testing.T) {
 		t.Fatalf("running OI owner should see source but pending result: %+v", ownerView)
 	}
 	otherView := decodeJSON[contract.SubmissionDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, other.ID), nil))
-	if otherView.Submission.Status != "pending" || otherView.Code != "" || len(otherView.Cases) != 0 {
-		t.Fatalf("running OI other user should see pending detail without source: %+v", otherView)
+	if otherView.Submission.Status != "pending" || otherView.Code != "" {
+		t.Fatalf("running OI result and source leaked to another user: %+v", otherView)
 	}
 	adminView := decodeJSON[contract.SubmissionDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, admin.ID), nil))
 	if adminView.Submission.Status != "AC" || adminView.Submission.Score != 100 || len(adminView.Cases) != 1 || adminView.Code != "secret" {
 		t.Fatalf("admin should see running OI result and source: %+v", adminView)
 	}
 	records := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?contest="+strconv.FormatUint(uint64(contest.ID), 10)+"&ids=1000", databaseSession(t, db, owner.ID), nil))
-	if len(records) != 1 || records[0].Status != "pending" || records[0].Submission == nil || records[0].Submission.Status != "pending" || records[0].Submission.Score != 0 {
+	if len(records) != 1 || records[0].Submit != 1 || records[0].AC != 0 || records[0].Status != "pending" || records[0].Submission == nil || records[0].Submission.Status != "pending" || records[0].Submission.Score != 0 {
 		t.Fatalf("running OI contest problem should not expose record result: %+v", records)
 	}
+	contestStatePath := "/api/problem-state?contest=" + strconv.FormatUint(uint64(contest.ID), 10) + "&ids=1000"
+	guestRecord := decodeJSON[[]contract.ProblemState](t, requestOK(t, e, http.MethodGet, contestStatePath, ""))[0]
+	if guestRecord.Submit != 1 || guestRecord.AC != 0 || guestRecord.Status != "none" || guestRecord.Submission != nil {
+		t.Fatalf("guest contest aggregate exposed hidden OI result: %+v", guestRecord)
+	}
+	otherRecord := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, contestStatePath, databaseSession(t, db, other.ID), nil))[0]
+	if otherRecord.Submit != 1 || otherRecord.AC != 0 || otherRecord.Status != "none" || otherRecord.Submission != nil {
+		t.Fatalf("outsider contest aggregate exposed hidden OI result: %+v", otherRecord)
+	}
+	adminRecord := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, contestStatePath, databaseSession(t, db, admin.ID), nil))[0]
+	if adminRecord.Submit != 1 || adminRecord.AC != 1 {
+		t.Fatalf("admin should see complete contest aggregate: %+v", adminRecord)
+	}
 	allRecords := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?ids=1000", databaseSession(t, db, owner.ID), nil))
-	if len(allRecords) != 1 || allRecords[0].Status != "pending" || allRecords[0].Submission == nil || allRecords[0].Submission.ID != submission.ID || allRecords[0].Submission.Status != "pending" {
-		t.Fatalf("global problem state should use the current user's submission with visibility applied: %+v", allRecords)
+	if len(allRecords) != 1 || allRecords[0].Submit != 0 || allRecords[0].AC != 0 || allRecords[0].Status != "none" || allRecords[0].Submission != nil {
+		t.Fatalf("practice problem state must not mix in contextual submissions: %+v", allRecords)
 	}
 	assignmentDetail := decodeJSON[contract.AssignmentDetail](t, requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(assignment.ID), 10), databaseSession(t, db, owner.ID), nil))
 	progress := assignmentDetail.Progress[0].Problems[0]
-	if assignmentDetail.Assignment.Done != 0 || progress.Status != "pending" || progress.Score != nil {
-		t.Fatalf("assignment completion should not expose hidden contest result: detail=%+v progress=%+v", assignmentDetail.Assignment, progress)
+	if assignmentDetail.Assignment.Done != 0 || progress.Status != "tried" || progress.Score == nil || *progress.Score != tried.Score {
+		t.Fatalf("assignment completion must ignore the separate contest submission: detail=%+v progress=%+v", assignmentDetail.Assignment, progress)
 	}
 	assignmentList := decodeJSON[contract.Page[contract.Assignment]](t, requestWithCookies(e, http.MethodGet, "/api/assignments", databaseSession(t, db, owner.ID), nil))
 	if len(assignmentList.Items) != 1 || assignmentList.Items[0].Done != 0 {
@@ -162,6 +224,14 @@ func TestRunningOIContestHidesSubmissionResults(t *testing.T) {
 	submissionList := decodeJSON[contract.Page[contract.SubmissionListItem]](t, requestWithCookies(e, http.MethodGet, "/api/submissions", databaseSession(t, db, owner.ID), nil))
 	if len(submissionList.Items) != 2 || submissionList.Items[0].ID != submission.ID || submissionList.Items[0].Status != "pending" || submissionList.Items[0].TimeMS != nil || submissionList.Items[0].MemoryKB != nil || submissionList.Items[1].ID != tried.ID || submissionList.Items[1].Status != "WA" {
 		t.Fatalf("submission endpoint list should include running OI submission as pending: %+v", submissionList)
+	}
+	hiddenAC := decodeJSON[contract.Page[contract.SubmissionListItem]](t, requestWithCookies(e, http.MethodGet, "/api/submissions?contest="+strconv.FormatUint(uint64(contest.ID), 10)+"&status=AC", databaseSession(t, db, owner.ID), nil))
+	if hiddenAC.Total != 0 || len(hiddenAC.Items) != 0 {
+		t.Fatalf("status filter must not reveal hidden OI verdict: %+v", hiddenAC)
+	}
+	adminAC := decodeJSON[contract.Page[contract.SubmissionListItem]](t, requestWithCookies(e, http.MethodGet, "/api/submissions?contest="+strconv.FormatUint(uint64(contest.ID), 10)+"&status=AC", databaseSession(t, db, admin.ID), nil))
+	if adminAC.Total != 1 || len(adminAC.Items) != 1 || adminAC.Items[0].ID != submission.ID {
+		t.Fatalf("admin status filter should see OI verdict: %+v", adminAC)
 	}
 	api := &API{db: db}
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

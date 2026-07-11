@@ -76,3 +76,10 @@ func copyFile(src string, dst string, mode os.FileMode) error {
 	}
 	return os.Chmod(dst, mode)
 }
+
+func privateDir(path string) error {
+	if err := os.MkdirAll(path, 0o700); err != nil {
+		return err
+	}
+	return os.Chmod(path, 0o700)
+}

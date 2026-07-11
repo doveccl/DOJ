@@ -21,17 +21,22 @@ type ProblemRefInputProps = {
   onChange?: (value: ProblemRef[]) => void
   options?: Option[]
   loading?: boolean
+  disabled?: boolean
+  hiddenOnly?: boolean
 }
 
-export function ProblemRefInput({ value = [], onChange, options = [], loading }: ProblemRefInputProps) {
+export function ProblemRefInput({ value = [], onChange, options = [], loading, disabled, hiddenOnly = false }: ProblemRefInputProps) {
   const { text } = useLocale()
   const search = useRemoteSearch()
   const remote = useQuery({
     queryKey: ['problems', 'select', search.searchText],
     queryFn: () => apiData(api.GET('/api/problems', { params: { query: { q: search.searchText, page: 1, pageSize: 50 } } })).then((page) => page.items),
-    enabled: search.active || value.length > 0
+    enabled: !disabled && (search.active || value.length > 0)
   })
-  const remoteOptions = useMemo(() => (remote.data ?? []).map(problemOption), [remote.data])
+  const remoteOptions = useMemo(
+    () => (remote.data ?? []).filter((item) => !hiddenOnly || !item.visible).map(problemOption),
+    [hiddenOnly, remote.data]
+  )
   const [knownOptions, setKnownOptions] = useState<Option[]>([])
 
   useEffect(() => {
@@ -61,7 +66,7 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading }:
   const columns: TableProps<ProblemRef>['columns'] = [
     {
       title: text.common.sort,
-      render: (_, row) => <Input value={row.sort} maxLength={limits.sort} onChange={(event) => setSort(row.id, event.target.value)} />
+      render: (_, row) => <Input value={row.sort} disabled={disabled} maxLength={limits.sort} onChange={(event) => setSort(row.id, event.target.value)} />
     },
     {
       title: text.submissions.problem,
@@ -79,6 +84,7 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading }:
     <>
       <Select
         allowClear
+        disabled={disabled}
         loading={loading || remote.isFetching}
         maxTagCount="responsive"
         mode="multiple"

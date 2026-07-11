@@ -18,14 +18,13 @@ The compose file starts PostgreSQL, Valkey, the DOJ server, and a local judger. 
 docker compose up -d
 ```
 
-Open `http://localhost:7974`. If the database has no administrator, DOJ creates:
+Open `http://localhost:7974`. If the database has no administrator, DOJ creates the `admin` account with a random password and prints it once in the server log:
 
-```text
-username: admin
-password: admin
+```bash
+docker compose logs server
 ```
 
-Change the default password before exposing the service.
+Set `ADMIN_PASSWORD` before the first start if you prefer to supply the initial password yourself.
 
 Uploaded files, problem packages, and backups are stored in `./storage` by default.
 
@@ -39,6 +38,7 @@ The server reads these environment variables:
 | `REDIS` | `redis://localhost:6379/0` | Redis or Valkey connection string. |
 | `STORAGE` | current user home, or `storage` | Local storage path, or an S3-compatible `http(s)` URL. |
 | `LISTEN` | `:7974` | Server listen address. |
+| `ADMIN_PASSWORD` | random | Initial `admin` password, used only when no administrator exists. |
 
 Storage examples:
 
@@ -65,7 +65,7 @@ The judger is Linux-only. It reads:
 
 The default compose judger shares the server container's network namespace, so it connects to `127.0.0.1` and is treated as a local judger. No token is needed for the default compose deployment.
 
-The judger uses the same DOJ image with a different command. It is privileged, uses the host PID and cgroup namespaces, uses the host Docker socket, and mounts `/var/lib/doj:/var/lib/doj`. It keeps runner binaries in `/var/lib/doj/bin`, active work under `/var/lib/doj/tasks`, and problem cache under `/var/lib/doj/cache/P{id}`.
+The judger uses the same DOJ image with a different command. It uses the host PID and cgroup namespaces, mounts cgroup v2 read-write, and keeps only `DAC_OVERRIDE` instead of privileged mode. It also uses the host Docker socket, which remains a host-root trust boundary, so run judgers on dedicated, disposable machines. It keeps runner binaries in `/var/lib/doj/bin`, active work under `/var/lib/doj/tasks`, and problem cache under `/var/lib/doj/cache/P{id}`.
 
 ## Development
 
@@ -131,14 +131,13 @@ compose 会启动 PostgreSQL、Valkey、DOJ server 和本地评测机。server �
 docker compose up -d
 ```
 
-打开 `http://localhost:7974`。如果数据库里还没有管理员，DOJ 会创建：
+打开 `http://localhost:7974`。如果数据库里还没有管理员，DOJ 会创建 `admin` 账号，并在 server 日志里一次性输出随机密码：
 
-```text
-用户名：admin
-密码：admin
+```bash
+docker compose logs server
 ```
 
-正式暴露服务前请先修改默认密码。
+如需自行指定初始密码，请在首次启动前设置 `ADMIN_PASSWORD`。
 
 上传文件、题目数据和备份默认存放在 `./storage`。
 
@@ -152,6 +151,7 @@ server 读取这些环境变量：
 | `REDIS` | `redis://localhost:6379/0` | Redis 或 Valkey 连接串。 |
 | `STORAGE` | 当前用户 home，或 `storage` | 本地存储路径，或 S3 兼容 `http(s)` URL。 |
 | `LISTEN` | `:7974` | server 监听地址。 |
+| `ADMIN_PASSWORD` | 随机 | 初始 `admin` 密码，仅在数据库没有管理员时使用。 |
 
 存储配置示例：
 
@@ -178,7 +178,7 @@ STORAGE=https://access:secret@s3.example.com/bucket?lookup=dns
 
 默认 compose 里的评测机会共享 server 容器的网络命名空间，因此它连接 `127.0.0.1`，会被 server 视为本地评测机。默认 compose 部署不需要 token。
 
-评测机使用同一个 DOJ 镜像，但用不同 command 启动。它使用 privileged 模式和宿主机 PID/cgroup namespace，挂载宿主机 Docker socket，并挂载 `/var/lib/doj:/var/lib/doj`。runner 二进制放在 `/var/lib/doj/bin`，当前评测工作目录放在 `/var/lib/doj/tasks`，题目缓存放在 `/var/lib/doj/cache/P{id}`。
+评测机使用同一个 DOJ 镜像，但用不同 command 启动。它使用宿主机 PID/cgroup namespace，以读写方式挂载 cgroup v2，并只保留 `DAC_OVERRIDE` capability，不再使用 privileged 模式。宿主机 Docker socket 仍然属于 host-root 信任边界，因此评测机应运行在专用、可随时重建的机器上。runner 二进制放在 `/var/lib/doj/bin`，当前评测工作目录放在 `/var/lib/doj/tasks`，题目缓存放在 `/var/lib/doj/cache/P{id}`。
 
 ## 本地开发
 

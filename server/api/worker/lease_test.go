@@ -3,11 +3,14 @@ package worker
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/doveccl/doj/contract/judger"
 	"github.com/doveccl/doj/models"
 	"github.com/doveccl/doj/server/auth"
 	"github.com/labstack/echo/v4"
@@ -17,7 +20,7 @@ func TestLeaseLongPollsWhenNoTask(t *testing.T) {
 	db := newJudgerTestDB(t)
 	api := &API{db: db, leaseWait: 30 * time.Millisecond}
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodPost, "/api/judger/lease", strings.NewReader("{}"))
+	req := httptest.NewRequest(http.MethodPost, "/api/judger/lease", strings.NewReader(`{"version":"`+judger.Version+`"}`))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.RemoteAddr = "127.0.0.1:1234"
 	rec := httptest.NewRecorder()
@@ -36,6 +39,16 @@ func TestLeaseLongPollsWhenNoTask(t *testing.T) {
 	if got := strings.TrimSpace(rec.Body.String()); got != `{"task":null}` {
 		t.Fatalf("response = %s", got)
 	}
+}
+
+func TestLeaseRejectsVersionMismatch(t *testing.T) {
+	api := &API{db: newJudgerTestDB(t)}
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/api/judger/lease", strings.NewReader(`{"version":"old"}`))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.RemoteAddr = "127.0.0.1:1234"
+	err := api.auth(api.lease)(e.NewContext(req, httptest.NewRecorder()))
+	expectHTTPStatus(t, err, http.StatusUpgradeRequired)
 }
 
 func TestTryLeaseStoresDatabaseLease(t *testing.T) {
@@ -67,6 +80,34 @@ func TestTryLeaseStoresDatabaseLease(t *testing.T) {
 	}
 	if got.Status != "judging" || got.Attempt != 1 || got.JudgerID == nil || *got.JudgerID != remote.ID || got.LeaseUntil == nil {
 		t.Fatalf("submission lease not stored in db: %+v", got)
+	}
+}
+
+func TestTryLeaseRequeuesWhenPayloadBuildFails(t *testing.T) {
+	db := newJudgerTestDB(t)
+	seedTaskData(t, db)
+	judgerRow := models.Judger{Name: "linux-a", Auth: auth.TokenHash("token-a")}
+	if err := db.Create(&judgerRow).Error; err != nil {
+		t.Fatal(err)
+	}
+	submission := models.Submission{UserID: 1, ProblemID: 1000, Language: "cpp", Code: "int main(){}", Status: "queued"}
+	if err := db.Create(&submission).Error; err != nil {
+		t.Fatal(err)
+	}
+	blocked := filepath.Join(t.TempDir(), "storage-file")
+	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("STORAGE", blocked)
+	if payload, err := (&API{db: db}).tryLease(t.Context(), judgerRow.ID); err == nil || payload != nil {
+		t.Fatalf("payload = %+v, err = %v", payload, err)
+	}
+	var got models.Submission
+	if err := db.First(&got, submission.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != "queued" || got.JudgerID != nil || got.LeaseUntil != nil {
+		t.Fatalf("failed payload left active lease: %+v", got)
 	}
 }
 

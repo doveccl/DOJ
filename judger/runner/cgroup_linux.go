@@ -57,10 +57,17 @@ func PrepareCgroup(cfg CgroupConfig) (*CgroupCase, error) {
 	if err := os.MkdirAll(userPath, 0o755); err != nil {
 		return nil, err
 	}
+	cpuMax := strconv.FormatInt(CgroupCPUQuotaUS, 10) + " " + strconv.FormatInt(CgroupCPUPeriodUS, 10)
+	if err := os.WriteFile(filepath.Join(userPath, "cpu.max"), []byte(cpuMax), 0o644); err != nil {
+		return nil, err
+	}
 	if cfg.MemoryMax > 0 {
 		if err := os.WriteFile(filepath.Join(userPath, "memory.max"), []byte(strconv.FormatInt(cfg.MemoryMax, 10)), 0o644); err != nil {
 			return nil, err
 		}
+	}
+	if err := os.WriteFile(filepath.Join(userPath, "memory.swap.max"), []byte("0"), 0o644); err != nil {
+		return nil, err
 	}
 	if cfg.PidsMax > 0 {
 		if err := os.WriteFile(filepath.Join(userPath, "pids.max"), []byte(strconv.Itoa(cfg.PidsMax)), 0o644); err != nil {
@@ -121,7 +128,9 @@ func (cg *CgroupCase) Stats() (CgroupStats, error) {
 }
 
 func (cg *CgroupCase) Cleanup() error {
-	_ = cg.killAll()
+	if err := cg.killAll(); err != nil {
+		return err
+	}
 	err := os.Remove(cg.Path)
 	_ = os.Remove(filepath.Dir(cg.Path))
 	_ = os.Remove(filepath.Dir(filepath.Dir(cg.Path)))
@@ -129,6 +138,12 @@ func (cg *CgroupCase) Cleanup() error {
 }
 
 func (cg *CgroupCase) killAll() error {
+	killPath := filepath.Join(cg.Path, "cgroup.kill")
+	if _, err := os.Stat(killPath); err == nil {
+		if err := os.WriteFile(killPath, []byte("1"), 0o644); err != nil {
+			return err
+		}
+	}
 	procsPath := filepath.Join(cg.Path, "cgroup.procs")
 	for attempt := 0; attempt < 20; attempt++ {
 		raw, err := os.ReadFile(procsPath)
@@ -148,7 +163,7 @@ func (cg *CgroupCase) killAll() error {
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
-	return nil
+	return fmt.Errorf("cgroup %s still has processes", cg.Path)
 }
 
 func (cg *CgroupCase) KillAll() error {

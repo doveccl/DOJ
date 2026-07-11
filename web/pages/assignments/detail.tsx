@@ -1,14 +1,16 @@
 import { EditOutlined, UnorderedListOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, DatePicker, Flex, Form, Input, Modal, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
+import { Alert, App as AntApp, Button, Card, DatePicker, Flex, Form, Input, Modal, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import type { ReactNode } from 'react'
+import { Link, useParams } from 'react-router-dom'
 
 import { api, apiData } from '../../client'
 import type { AssignmentProgress, ProblemListItem, ProblemRef, ProblemState } from '../../client'
+import { DescriptionCard } from '../../components/description'
 import { ProblemLink, UserLink } from '../../components/entity'
 import { IdSelect } from '../../components/id-select'
 import { defaultProblemSort, ProblemRefInput } from '../../components/problem-ref'
@@ -83,13 +85,26 @@ export function AssignmentDetailPage() {
   }
 
   const { assignment, problems, progress: assignmentProgress } = query.data
-  const stateByProblem = mapByProblem(state.data ?? [])
+  const scopeLocked = assignment.status === 'ended' || assignmentProgress.some((item) => item.submit > 0)
+  const recordsUser = session.signedIn && !session.admin ? session.name : ''
+  const stateByProblem = new Map((state.data ?? []).map((item) => [item.problemId, item]))
   const problemOptions = problems.map((item) => ({
     value: item.id,
     label: problemLabel(item.id, item.title)
   }))
   function openEdit() {
     setEditOpen(true)
+  }
+
+  async function saveDescription(description: string) {
+    try {
+      const next = await apiData(api.PATCH('/api/assignments/{id}/description', { params: { path: { id } }, body: { description } }))
+      client.setQueryData<typeof query.data>(['assignment', id], (current) => current ? { ...current, description: next.description } : current)
+      message.success(text.common.saved)
+    } catch (error) {
+      showError(error)
+      throw error
+    }
   }
 
   return (
@@ -106,16 +121,23 @@ export function AssignmentDetailPage() {
               </Tooltip>
             ) : null}
           </Flex>
-          <DeadlineTimer kind="assignment" status={assignment.status} target={assignment.endAt} onFinish={() => void query.refetch()} />
+          <Flex align="center" gap={12} wrap>
+            <Button icon={<UnorderedListOutlined />} href={`/submissions?assignment=${assignment.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`}>
+              {recordsUser ? text.submissions.myRecords : text.submissions.allRecords}
+            </Button>
+            <DeadlineTimer kind="assignment" status={assignment.status} target={assignment.endAt} onFinish={() => void query.refetch()} />
+          </Flex>
         </Flex>
       </Card>
+      <DescriptionCard id={`assignment-${assignment.id}-description`} title={text.assignments.instructions} value={query.data.description} editable={session.admin} onSave={saveDescription} />
+      <Alert type="info" showIcon title={text.assignments.practiceRule} />
       <Card>
         <Tabs
           items={[
             {
               key: 'problems',
               label: text.assignments.problems,
-              children: <Table<ProblemListItem> rowKey="id" columns={problemColumns(text, session.admin, assignment.id, stateByProblem)} dataSource={problems} pagination={false} loading={state.isLoading} scroll={{ x: session.admin ? 640 : 560 }} />
+              children: <Table<ProblemListItem> rowKey="id" columns={problemColumns(text, assignment.id, assignment.status === 'ended', recordsUser, stateByProblem)} dataSource={problems} pagination={false} loading={state.isLoading} scroll={{ x: 640 }} />
             },
             {
               key: 'progress',
@@ -130,6 +152,8 @@ export function AssignmentDetailPage() {
           assignment={assignment}
           problems={problems}
           problemOptions={problemOptions}
+          scopeLocked={scopeLocked}
+          ended={assignment.status === 'ended'}
           loading={update.isPending}
           onCancel={() => setEditOpen(false)}
           onSave={(values) => update.mutate(values)}
@@ -143,6 +167,8 @@ function AssignmentEditModal({
   assignment,
   problems,
   problemOptions,
+  scopeLocked,
+  ended,
   loading,
   onCancel,
   onSave
@@ -150,6 +176,8 @@ function AssignmentEditModal({
   assignment: { title: string; endAt: string; users: number[]; groups: number[] }
   problems: ProblemListItem[]
   problemOptions: { value: number; label: string }[]
+  scopeLocked: boolean
+  ended: boolean
   loading: boolean
   onCancel: () => void
   onSave: (values: AssignmentForm) => void
@@ -177,20 +205,21 @@ function AssignmentEditModal({
       onOk={() => form.submit()}
     >
       <Form<AssignmentForm> form={form} preserve={false} layout="vertical" initialValues={initialValues} onFinish={onSave}>
+        {scopeLocked ? <Alert type="info" showIcon title={text.assignments.locked} /> : null}
         <Form.Item name="title" label={text.assignments.name} rules={[{ required: true, whitespace: true }]}>
           <Input maxLength={limits.title} showCount />
         </Form.Item>
         <Form.Item name="endAt" label={text.assignments.deadline} rules={[{ required: true }]}>
-          <DatePicker showTime style={{ width: '100%' }} />
+          <DatePicker showTime disabled={ended} minDate={scopeLocked && !ended ? dayjs(assignment.endAt) : undefined} style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item name="problems" label={text.assignments.problems}>
-          <ProblemRefInput options={problemOptions} />
+          <ProblemRefInput options={problemOptions} disabled={scopeLocked} />
         </Form.Item>
         <Form.Item name="users" label={text.assignments.users}>
-          <IdSelect kind="users" />
+          <IdSelect kind="users" disabled={scopeLocked} />
         </Form.Item>
         <Form.Item name="groups" label={text.assignments.groups}>
-          <IdSelect kind="groups" />
+          <IdSelect kind="groups" disabled={scopeLocked} />
         </Form.Item>
       </Form>
     </Modal>
@@ -227,7 +256,7 @@ function progressColumns(text: ReturnType<typeof useLocale>['text'], problems: P
   ]
 }
 
-function problemColumns(text: ReturnType<typeof useLocale>['text'], admin: boolean, assignmentID: number, state: Map<number, ProblemState>): TableProps<ProblemListItem>['columns'] {
+function problemColumns(text: ReturnType<typeof useLocale>['text'], assignmentID: number, assignmentEnded: boolean, recordsUser: string, state: Map<number, ProblemState>): TableProps<ProblemListItem>['columns'] {
   const columns: TableProps<ProblemListItem>['columns'] = [
     {
       title: text.common.sort,
@@ -239,39 +268,35 @@ function problemColumns(text: ReturnType<typeof useLocale>['text'], admin: boole
       dataIndex: 'title',
       width: 320,
       ellipsis: { showTitle: false },
-      render: (title: string, row) => <ProblemLink id={row.id} title={title} />
+      render: (title: string, row) => <ProblemLink id={row.id} title={title} search={assignmentEnded ? '' : `?assignment=${assignmentID}`} />
     },
     {
       title: text.assignments.status,
-      render: (_, row) => <AssignmentProblemStatus status={state.get(row.id)?.status} text={text} />
-    }
-  ]
-  if (admin) {
-    columns.push({
+      render: (_, row) => <AssignmentProblemStatus record={state.get(row.id)} text={text} />
+    },
+    {
       align: 'right',
       render: (_, row) => (
         <Tooltip title={text.submissions.viewProblemRecords}>
-          <Button aria-label={`${text.submissions.viewProblemRecords} ${problemCode(row.id)}`} type="text" icon={<UnorderedListOutlined />} href={`/submissions?assignment=${assignmentID}&problem=${row.id}`} />
+          <Button aria-label={`${text.submissions.viewProblemRecords} ${problemCode(row.id)}`} type="text" icon={<UnorderedListOutlined />} href={`/submissions?assignment=${assignmentID}&problem=${row.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`} />
         </Tooltip>
       )
-    })
-  }
+    }
+  ]
   return columns
 }
 
-function AssignmentProblemStatus({ status, text }: { status?: string; text: ReturnType<typeof useLocale>['text'] }) {
+function AssignmentProblemStatus({ record, text }: { record?: ProblemState; text: ReturnType<typeof useLocale>['text'] }) {
+  const status = record?.status
+  const wrap = (node: ReactNode) => record?.submission?.id ? <Link to={`/submissions/${record.submission.id}`}>{node}</Link> : node
   if (status === 'pending') {
-    return <Tag color="processing">{text.submissions.statuses.pending}</Tag>
+    return wrap(<Tag color="processing">{text.submissions.statuses.pending}</Tag>)
   }
   if (status === 'ac') {
-    return <Tag color="success">{text.assignments.completed}</Tag>
+    return wrap(<Tag color="success">{text.assignments.completed}</Tag>)
   }
   if (status === 'tried') {
-    return <Tag color="warning">{text.assignments.attempted}</Tag>
+    return wrap(<Tag color="warning">{text.assignments.attempted}</Tag>)
   }
   return <Tag>{text.assignments.notCompleted}</Tag>
-}
-
-function mapByProblem<T extends { problemId: number }>(items: T[]) {
-  return new Map(items.map((item) => [item.problemId, item]))
 }

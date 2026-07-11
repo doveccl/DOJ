@@ -2,13 +2,17 @@ package admin
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/doveccl/doj/models"
+	"github.com/doveccl/doj/server/auth"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 func TestDatabaseAdminCrud(t *testing.T) {
@@ -23,7 +27,7 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	}
 	e := echo.New()
 	Register(e, db, nil)
-	adminCookies := databaseSession(t, admin.ID)
+	adminCookies := databaseSession(t, db, admin.ID)
 
 	res := requestWithCookies(e, http.MethodGet, "/api/admin/settings", adminCookies)
 	if res.Code != http.StatusOK {
@@ -133,6 +137,7 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	if res.Code != http.StatusBadRequest {
 		t.Fatalf("demote last admin got %d body=%s", res.Code, res.Body.String())
 	}
+	studentCookies := databaseSession(t, db, student.ID)
 	res = requestJSONWithCookies(e, http.MethodPost, "/api/admin/users/student/password", adminCookies, `{}`)
 	if res.Code != http.StatusOK {
 		t.Fatalf("reset password got %d body=%s", res.Code, res.Body.String())
@@ -140,6 +145,14 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	var reset PasswordReset
 	if err := json.Unmarshal(res.Body.Bytes(), &reset); err != nil || reset.Password == "" {
 		t.Fatalf("bad reset response: %+v err=%v", reset, err)
+	}
+	studentRequest := httptest.NewRequest(http.MethodGet, "/", nil)
+	for _, cookie := range studentCookies {
+		studentRequest.AddCookie(cookie)
+	}
+	studentContext := echo.New().NewContext(studentRequest, httptest.NewRecorder())
+	if _, err := auth.UserFromCookie(db, studentContext, time.Now()); !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("student session survived admin password reset: %v", err)
 	}
 
 	res = requestJSONWithCookies(e, http.MethodPost, "/api/admin/groups", adminCookies, `{"name":"team-a"}`)

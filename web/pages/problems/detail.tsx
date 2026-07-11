@@ -13,6 +13,7 @@ import {
   Flex,
   Form,
   Input,
+  Popconfirm,
   Row,
   Select,
   Skeleton,
@@ -23,7 +24,7 @@ import {
 } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import {
   api,
@@ -41,6 +42,7 @@ import { TagList } from '../../components/tags'
 import { TagSelect } from '../../components/tag-select'
 import { useLocale } from '../../locale'
 import { useSession } from '../../session'
+import { submissionDraftKey } from '../../utils/draft'
 import { formatBytes, formatLimit, problemCode } from '../../utils/format'
 import { limits } from '../../utils/limits'
 import { problemAssetUploadMarkdownURL, problemMarkdownID } from '../../utils/markdown'
@@ -63,7 +65,13 @@ export function ProblemDetailPage() {
   const client = useQueryClient()
   const navigate = useNavigate()
   const params = useParams()
+  const [searchParams] = useSearchParams()
   const id = Number(params.id)
+  const assignmentParam = searchParams.get('assignment')
+  const contestParam = searchParams.get('contest')
+  const assignmentID = positiveID(assignmentParam)
+  const contestID = positiveID(contestParam)
+  const invalidContext = (assignmentParam !== null && assignmentID === undefined) || (contestParam !== null && contestID === undefined) || (assignmentID !== undefined && contestID !== undefined)
   const [lang, setLang] = useState('')
   const [source, setSource] = useState('')
   const [publicSource, setPublicSource] = useState(false)
@@ -81,12 +89,18 @@ export function ProblemDetailPage() {
     enabled: Number.isFinite(id)
   })
   const state = useQuery({
-    queryKey: ['problem-state', id],
-    queryFn: () => apiData(api.GET('/api/problem-state', { params: { query: { ids: String(id) } } })),
-    enabled: Number.isFinite(id)
+    queryKey: ['problem-state', id, assignmentID, contestID],
+    queryFn: () => apiData(api.GET('/api/problem-state', { params: { query: { ids: String(id), assignment: assignmentID, contest: contestID } } })),
+    enabled: Number.isFinite(id) && !invalidContext
   })
   const site = useQuery({ queryKey: ['site'], queryFn: () => apiData(api.GET('/api/site')) })
   const languages = useQuery({ queryKey: ['languages'], queryFn: () => apiData(api.GET('/api/languages')) })
+  const draftKey = session.signedIn && Number.isFinite(id) && lang
+    ? submissionDraftKey(session.name, id, lang, assignmentID, contestID)
+    : ''
+  useEffect(() => {
+    setSource(draftKey ? window.localStorage.getItem(draftKey) ?? '' : '')
+  }, [draftKey])
   useEffect(() => {
     if (!publicSourceTouched) {
       setPublicSource(site.data?.defaultSubmissionPublic ?? false)
@@ -116,7 +130,14 @@ export function ProblemDetailPage() {
       if (!query.data) {
         throw new Error(text.common.emptyResponse)
       }
-      return apiData(api.POST('/api/submissions', { body: { problemId: query.data.id, language: lang, code: source, public: publicSource } }))
+      return apiData(api.POST('/api/submissions', { body: {
+        problemId: query.data.id,
+        assignmentId: assignmentID,
+        contestId: contestID,
+        language: lang,
+        code: source,
+        public: publicSource
+      } }))
     },
     onSuccess: (item) => {
       message.success(text.problem.queued)
@@ -147,13 +168,13 @@ export function ProblemDetailPage() {
     onError: showError
   })
   const visibility = useMutation({
-    mutationFn: (target: Problem) =>
-      apiData(api.PATCH('/api/problems/{id}/visibility', { params: { path: { id } }, body: { visible: !target.visible } })),
+    mutationFn: () =>
+      apiData(api.PATCH('/api/problems/{id}/visibility', { params: { path: { id } }, body: { visible: true } })),
     onSuccess: (next) => {
       client.setQueryData(['problem', id], (current: Problem | undefined) => ({ ...next, statement: current?.statement }))
       void client.invalidateQueries({ queryKey: ['problems'] })
       void client.invalidateQueries({ queryKey: ['home'] })
-      message.success(next.visible ? text.problems.shown : text.problems.hiddenDone)
+      message.success(text.problems.shown)
     },
     onError: showError
   })
@@ -186,6 +207,9 @@ export function ProblemDetailPage() {
     onError: showError
   })
 
+  if (invalidContext) {
+    return <ErrorBlock error={text.problem.invalidContext} />
+  }
   if (query.isLoading) {
     return <LoadingBlock />
   }
@@ -254,17 +278,24 @@ export function ProblemDetailPage() {
               title={
                 <Flex align="center" gap={10} wrap={false} className="problemHeadTitle">
                   {session.admin ? (
-                    <Tooltip title={problem.visible ? text.problems.currentVisible : text.problems.currentHidden}>
-                      <Button
-                        aria-label={`${problem.visible ? text.problems.hide : text.problems.show} ${problemCode(problem.id)}`}
-                        type="text"
-                        size="small"
-                        icon={problem.visible ? <EyeOutlined className="okIcon" /> : <EyeInvisibleOutlined className="mutedIcon" />}
-                        loading={visibility.isPending}
-                        disabled={visibility.isPending}
-                        onClick={() => visibility.mutate(problem)}
-                      />
-                    </Tooltip>
+                    problem.visible ? (
+                      <Tooltip title={text.problems.currentVisible}>
+                        <EyeOutlined className="okIcon" aria-label={`${text.problems.currentVisible} ${problemCode(problem.id)}`} />
+                      </Tooltip>
+                    ) : (
+                      <Tooltip title={text.problems.currentHidden}>
+                        <Popconfirm title={text.problems.publishConfirm} okText={text.problems.show} cancelText={text.common.cancel} onConfirm={() => visibility.mutate()}>
+                          <Button
+                            aria-label={`${text.problems.show} ${problemCode(problem.id)}`}
+                            type="text"
+                            size="small"
+                            icon={<EyeInvisibleOutlined className="mutedIcon" />}
+                            loading={visibility.isPending}
+                            disabled={visibility.isPending}
+                          />
+                        </Popconfirm>
+                      </Tooltip>
+                    )
                   ) : null}
                   <Typography.Text strong ellipsis={{ tooltip: `${problemCode(problem.id)} ${problem.title}` }} className="problemTitleText">
                     {`${problemCode(problem.id)} ${problem.title}`}
@@ -383,7 +414,15 @@ export function ProblemDetailPage() {
           </Col>
         </Row>
         {session.signedIn ? (
-          <Card title={text.problem.submit}>
+          <Card
+            title={
+              <Space size={8}>
+                {text.problem.submit}
+                {assignmentID !== undefined ? <Tag color="blue"><Link to={`/assignments/${assignmentID}`}>{`${text.assignments.title} #${assignmentID}`}</Link></Tag> : null}
+                {contestID !== undefined ? <Tag color="purple"><Link to={`/contests/${contestID}`}>{`${text.contests.title} #${contestID}`}</Link></Tag> : null}
+              </Space>
+            }
+          >
             <Flex vertical gap={12}>
               <CodeEditor
                 value={source}
@@ -391,6 +430,14 @@ export function ProblemDetailPage() {
                 minHeight="360px"
                 onChange={(next) => {
                   setSource(next)
+                  if (!draftKey) {
+                    return
+                  }
+                  if (next) {
+                    window.localStorage.setItem(draftKey, next)
+                  } else {
+                    window.localStorage.removeItem(draftKey)
+                  }
                 }}
               />
               <Flex align="center" justify="space-between" gap={12} wrap style={{ width: '100%' }}>
@@ -438,4 +485,12 @@ export function ProblemDetailPage() {
       ) : null}
     </>
   )
+}
+
+function positiveID(value: string | null) {
+  if (value === null || !/^\d+$/.test(value)) {
+    return undefined
+  }
+  const id = Number(value)
+  return Number.isSafeInteger(id) && id > 0 ? id : undefined
 }

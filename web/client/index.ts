@@ -149,25 +149,36 @@ function readCookie(name: string) {
 }
 
 export async function apiData<T>(response: PromiseLike<{ data?: T; error?: unknown }>) {
-  const { data, error } = await response
-  return assertData(data, error)
+  const { data, error, response: rawResponse } = await response as { data?: T; error?: unknown; response?: Response }
+	return assertData(data, error, rawResponse)
 }
 
-export async function apiEmpty(response: PromiseLike<{ error?: unknown }>) {
-  const { error } = await response
-  if (error) {
-    throw new Error(errorMessage(error))
-  }
+export async function apiEmpty(response: PromiseLike<{ error?: unknown; response?: Response }>) {
+	const { error, response: rawResponse } = await response
+	if (error) {
+		throw new APIError(errorMessage(error), rawResponse?.status)
+	}
 }
 
-function assertData<T>(data: T | undefined, error: unknown): T {
-  if (error) {
-    throw new Error(errorMessage(error))
+function assertData<T>(data: T | undefined, error: unknown, response?: Response): T {
+	if (error) {
+		throw new APIError(errorMessage(error), response?.status)
   }
   if (data === undefined) {
     throw new Error('Empty response')
   }
   return data
+}
+
+export class APIError extends Error {
+  constructor(message: string, readonly status?: number) {
+    super(message)
+    this.name = 'APIError'
+  }
+}
+
+export function shouldRetryQuery(failureCount: number, error: unknown) {
+  return failureCount < 1 && (!(error instanceof APIError) || error.status === undefined || error.status >= 500)
 }
 
 function errorMessage(error: unknown) {
@@ -190,8 +201,8 @@ export async function uploadImage(file: File) {
   const body = new FormData()
   body.set('file', file)
   const response = await apiFetch('/api/uploads/images', { method: 'POST', body })
-  if (!response.ok) {
-    throw new Error(await response.text())
+	if (!response.ok) {
+		throw new APIError(await response.text(), response.status)
   }
   const data = (await response.json()) as UploadResult
   return data.url
@@ -201,8 +212,8 @@ export async function uploadProblemImage(id: number, file: File) {
   const body = new FormData()
   body.set('file', file)
   const response = await apiFetch(`/api/problems/${id}/assets/images`, { method: 'POST', body })
-  if (!response.ok) {
-    throw new Error(await response.text())
+	if (!response.ok) {
+		throw new APIError(await response.text(), response.status)
   }
   const data = (await response.json()) as UploadResult
   return data.url
@@ -210,8 +221,8 @@ export async function uploadProblemImage(id: number, file: File) {
 
 export async function downloadBackup(name: string) {
   const response = await apiFetch(`/api/admin/backups/${encodeURIComponent(name)}/download`)
-  if (!response.ok) {
-    throw new Error(await response.text())
+	if (!response.ok) {
+		throw new APIError(await response.text(), response.status)
   }
   return response.blob()
 }

@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"testing"
@@ -20,6 +21,19 @@ func TestCleanKey(t *testing.T) {
 	}
 	if _, err := CleanKey(""); err == nil {
 		t.Fatal("empty key should be invalid")
+	}
+	prefix, err := cleanListPrefix("users/1/")
+	if err != nil || prefix != "users/1/" {
+		t.Fatalf("list prefix = %q, %v", prefix, err)
+	}
+}
+
+func TestIsNotFound(t *testing.T) {
+	if !IsNotFound(os.ErrNotExist) || !IsNotFound(minio.ErrorResponse{Code: "NoSuchKey"}) {
+		t.Fatal("missing storage objects were not recognized")
+	}
+	if IsNotFound(errors.New("storage offline")) {
+		t.Fatal("storage failure was treated as a missing object")
 	}
 }
 
@@ -67,10 +81,22 @@ func TestParseS3Storage(t *testing.T) {
 }
 
 func TestLocalStore(t *testing.T) {
-	store := localStore{root: t.TempDir()}
+	root := t.TempDir()
+	store := localStore{root: root}
 	ctx := context.Background()
+	if err := os.MkdirAll(root+"/users/uploads", 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if err := store.Put(ctx, "users/uploads/dot.txt", bytes.NewBufferString("hello"), 5, "text/plain"); err != nil {
 		t.Fatalf("put failed: %v", err)
+	}
+	dirInfo, err := os.Stat(root + "/users/uploads")
+	if err != nil || dirInfo.Mode().Perm() != 0o700 {
+		t.Fatalf("object directory mode = %v, %v", dirInfo, err)
+	}
+	fileInfo, err := os.Stat(root + "/users/uploads/dot.txt")
+	if err != nil || fileInfo.Mode().Perm() != 0o600 {
+		t.Fatalf("object file mode = %v, %v", fileInfo, err)
 	}
 	reader, contentType, err := store.Open(ctx, "users/uploads/dot.txt")
 	if err != nil {

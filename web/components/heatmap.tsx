@@ -31,7 +31,13 @@ export function YearHeatmap({ cells }: { cells: HeatCell[] }) {
               <div className="heatWeek" key={week[0].date}>
                 {week.map((day) => (
                   <Tooltip key={day.date} title={`${day.date}: ${text.home.count(day.count)}`}>
-                    <span className={`heatCell heatLevel${heatLevel(day.count)}${day.active ? '' : ' heatInactive'}`} />
+                    <span
+                      className={`heatCell heatLevel${heatLevel(day.count)}${day.active ? '' : ' heatInactive'}`}
+                      role={day.active ? 'img' : undefined}
+                      aria-label={day.active ? `${day.date}: ${text.home.count(day.count)}` : undefined}
+                      aria-hidden={day.active ? undefined : true}
+                      tabIndex={day.active ? 0 : undefined}
+                    />
                   </Tooltip>
                 ))}
               </div>
@@ -44,7 +50,7 @@ export function YearHeatmap({ cells }: { cells: HeatCell[] }) {
         <Flex align="center" gap={6}>
           <Typography.Text type="secondary">{text.home.less}</Typography.Text>
           {[0, 1, 2, 3, 4].map((level) => (
-            <span key={level} className={`heatCell legendCell heatLevel${level}`} />
+            <span key={level} aria-hidden className={`heatCell legendCell heatLevel${level}`} />
           ))}
           <Typography.Text type="secondary">{text.home.more}</Typography.Text>
         </Flex>

@@ -1,6 +1,10 @@
 package runner
 
-import "context"
+import (
+	"context"
+
+	contractlimits "github.com/doveccl/doj/contract/limits"
+)
 
 type LocalRun struct {
 	Runner       string
@@ -33,8 +37,23 @@ type waitResult struct {
 }
 
 func RunLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
+	var result CaseResult
+	var err error
 	if req.JudgeCommand == "" {
-		return runBuiltinLocalCase(ctx, req)
+		result, err = runBuiltinLocalCase(ctx, req)
+	} else {
+		result, err = runCustomLocalCase(ctx, req)
 	}
-	return runCustomLocalCase(ctx, req)
+	if err == nil {
+		result.Message = truncateRunes(result.Message, contractlimits.MaxCaseMessageRunes)
+	}
+	return result, err
+}
+
+func truncateRunes(value string, limit int) string {
+	runes := []rune(value)
+	if len(runes) <= limit {
+		return value
+	}
+	return string(runes[:limit])
 }

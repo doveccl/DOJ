@@ -1,25 +1,17 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { configureMarkdownHTML, configurePlainCodeBlocks } from './markdown-runtime'
+import { disableMarkdownHTML, configurePlainCodeBlocks } from './markdown-runtime'
 
 describe('markdown runtime', () => {
   afterEach(() => {
     globalThis.hljs = undefined
   })
 
-  it('disables raw html for untrusted markdown ids', () => {
+  it('disables raw html for every markdown document', () => {
     const options: { html?: boolean } = {}
-    configureMarkdownHTML({ set: (next) => Object.assign(options, next) }, 'md-1')
+    disableMarkdownHTML({ set: (next) => Object.assign(options, next) })
 
     expect(options).toEqual({ html: false })
-  })
-
-  it('keeps raw html enabled for trusted markdown ids', () => {
-    const options: { html?: boolean } = {}
-    configureMarkdownHTML({ set: (next) => Object.assign(options, next) }, 'P1000')
-    configureMarkdownHTML({ set: (next) => Object.assign(options, next) }, 'home-notice')
-
-    expect(options).toEqual({})
   })
 
   it('renders unlabeled code blocks as plain text', () => {

@@ -53,6 +53,55 @@ func TestCgroupLinuxSmoke(t *testing.T) {
 	}
 }
 
+func TestPrepareCgroupSetsResourceLimits(t *testing.T) {
+	root := t.TempDir()
+	for _, path := range []string{root, filepath.Join(root, "submission"), filepath.Join(root, "submission", "case")} {
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(path, "cgroup.controllers"), []byte("cpu memory pids"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(path, "cgroup.subtree_control"), []byte("cpu memory pids"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	cg, err := PrepareCgroup(CgroupConfig{
+		Root:         root,
+		SubmissionID: "submission",
+		CaseID:       "case",
+		MemoryMax:    1024,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(cg.Path, "memory.swap.max"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != "0" {
+		t.Fatalf("memory.swap.max = %q, want 0", raw)
+	}
+	raw, err = os.ReadFile(filepath.Join(cg.Path, "cpu.max"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != "200000 100000" {
+		t.Fatalf("cpu.max = %q, want 200000 100000", raw)
+	}
+}
+
+func TestCgroupKillAllReportsStuckProcesses(t *testing.T) {
+	path := t.TempDir()
+	if err := os.WriteFile(filepath.Join(path, "cgroup.procs"), []byte("999999"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := (&CgroupCase{Path: path}).KillAll(); err == nil {
+		t.Fatal("stuck cgroup processes were ignored")
+	}
+}
+
 func TestCgroupLinuxMemoryBomb(t *testing.T) {
 	root := testCgroupRoot(t)
 	cg := prepareTestCgroup(t, root, "memory", "case-1", 32<<20, 32)

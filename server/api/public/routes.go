@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/doveccl/doj/contract/limits"
@@ -16,16 +17,22 @@ import (
 )
 
 type API struct {
-	db *gorm.DB
+	db              *gorm.DB
+	eventMu         sync.Mutex
+	eventTotal      int
+	eventByIdentity map[string]int
 }
 
 const (
-	maxAssetBytes         = 128 << 20
-	maxEditableAssetBytes = 1 << 20
-	maxTitleRunes         = models.TitleMax
-	homeListLimit         = 5
-	userActivityLimit     = 10
-	userSolvedPageSize    = 12
+	maxAssetBytes            = 128 << 20
+	maxEditableAssetBytes    = 1 << 20
+	maxTitleRunes            = models.TitleMax
+	homeListLimit            = 5
+	userActivityLimit        = 10
+	userSolvedPageSize       = 12
+	maxEventConnections      = 512
+	maxUserEventConnections  = 4
+	maxGuestEventConnections = 16
 )
 
 func Register(e *echo.Echo, db *gorm.DB) {
@@ -41,14 +48,14 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	e.POST("/api/auth/logout", api.logout)
 	e.GET("/api/me", api.me)
 	e.PATCH("/api/me", api.updateMe, echomw.BodyLimit(limits.BodyShortText))
-	e.PATCH("/api/me/password", api.updatePassword)
+	e.PATCH("/api/me/password", api.updatePassword, echomw.BodyLimit(limits.BodyShortText))
 
 	group := e.Group("/api", api.requireGuestAccess)
 	group.GET("/events", api.events)
 	group.GET("/home", api.home)
 	group.GET("/languages", api.languages)
 	group.PATCH("/home/notice", api.updateNotice, echomw.BodyLimit(limits.BodyMarkdown))
-	group.POST("/uploads/images", api.uploadImage, api.rateLimit("upload", 60, time.Minute), echomw.BodyLimit(limits.BodyImage))
+	group.POST("/uploads/images", api.uploadImage, api.rateLimit("upload", 20, time.Minute), echomw.BodyLimit(limits.BodyImage))
 	group.GET("/rank", api.rank)
 
 	group.GET("/users/:id/:year/:month/:day/*", api.userMedia)
@@ -56,7 +63,7 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.GET("/users/:name", api.user)
 
 	group.GET("/problems", api.problems)
-	group.POST("/problems", api.createProblem)
+	group.POST("/problems", api.createProblem, echomw.BodyLimit(limits.BodyShortText))
 	group.GET("/tags", api.tags)
 	group.GET("/problem-state", api.problemState)
 	group.GET("/problems/:id", api.problem)
@@ -77,21 +84,23 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.GET("/problems/:id/assets/*", api.problemPublicAsset)
 
 	group.GET("/assignments", api.assignments)
-	group.POST("/assignments", api.createAssignment)
+	group.POST("/assignments", api.createAssignment, echomw.BodyLimit(limits.BodyShortText))
 	group.GET("/assignments/:id", api.assignment)
-	group.PATCH("/assignments/:id", api.updateAssignment)
+	group.PATCH("/assignments/:id", api.updateAssignment, echomw.BodyLimit(limits.BodyShortText))
+	group.PATCH("/assignments/:id/description", api.updateAssignmentDescription, echomw.BodyLimit(limits.BodyMarkdown))
 	group.DELETE("/assignments/:id", api.deleteAssignment)
 
 	group.GET("/contests", api.contests)
-	group.POST("/contests", api.createContest)
+	group.POST("/contests", api.createContest, echomw.BodyLimit(limits.BodyShortText))
 	group.GET("/contests/:id", api.contest)
-	group.PATCH("/contests/:id", api.updateContest)
+	group.PATCH("/contests/:id", api.updateContest, echomw.BodyLimit(limits.BodyShortText))
+	group.PATCH("/contests/:id/description", api.updateContestDescription, echomw.BodyLimit(limits.BodyMarkdown))
 	group.DELETE("/contests/:id", api.deleteContest)
 
 	group.GET("/submissions", api.submissions)
 	group.POST("/submissions", api.submit, api.rateLimit("submit", 30, time.Minute), echomw.BodyLimit(limits.BodySource))
 	group.GET("/submissions/:id", api.submission)
-	group.PATCH("/submissions/:id", api.updateSubmission)
+	group.PATCH("/submissions/:id", api.updateSubmission, echomw.BodyLimit(limits.BodyShortText))
 	group.POST("/submissions/:id/rejudge", api.rejudgeSubmission)
 
 	group.GET("/discussion", api.discussions)

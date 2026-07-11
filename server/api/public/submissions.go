@@ -2,20 +2,20 @@ package public
 
 import (
 	"context"
-	"github.com/doveccl/doj/contract/limits"
-	"github.com/doveccl/doj/server/validate"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/doveccl/doj/contract/limits"
 	contract "github.com/doveccl/doj/contract/web"
-
 	"github.com/doveccl/doj/models"
 	"github.com/doveccl/doj/server/events"
 	"github.com/doveccl/doj/server/judge"
+	"github.com/doveccl/doj/server/validate"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func (api *API) submissions(c echo.Context) error {
@@ -26,6 +26,10 @@ func (api *API) submissions(c echo.Context) error {
 	}
 	var rows []models.Submission
 	query := api.db.Model(&models.Submission{})
+	query, err = api.applySubmissionAccess(c, query)
+	if err != nil {
+		return err
+	}
 	if !api.isAdmin(c) {
 		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
 		query = query.Where("problems.deleted_at IS NULL")
@@ -40,6 +44,21 @@ func (api *API) submissions(c echo.Context) error {
 	if user := strings.TrimSpace(c.QueryParam("user")); user != "" {
 		query = query.Joins("JOIN users submission_users ON submission_users.id = submissions.user_id AND submission_users.deleted_at IS NULL").
 			Where("LOWER(submission_users.name) = ?", validate.NameKey(user))
+	}
+	if language := strings.TrimSpace(c.QueryParam("language")); language != "" {
+		query = query.Where("submissions.language = ?", language)
+	}
+	if status := strings.TrimSpace(c.QueryParam("status")); status != "" {
+		if !validSubmissionListStatus(status) {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid submission status")
+		}
+		query = query.Where("submissions.status = ?", status)
+		if !submissionLive(status) {
+			query, err = api.filterHiddenResultAC(c, query)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	if assignment := c.QueryParam("assignment"); assignment != "" {
 		id, err := parseQueryID(assignment, "invalid assignment id")
@@ -74,6 +93,19 @@ func (api *API) submissions(c echo.Context) error {
 	return c.JSON(http.StatusOK, contract.Page[contract.SubmissionListItem]{Items: items, Page: page, PageSize: pageSize, Total: total})
 }
 
+func validSubmissionListStatus(status string) bool {
+	switch status {
+	case "queued", "judging", "AC", "CE", "WA", "PE", "TLE", "MLE", "OLE", "RE", "SE":
+		return true
+	default:
+		return false
+	}
+}
+
+func submissionLive(status string) bool {
+	return status == "queued" || status == "judging"
+}
+
 func (api *API) submit(c echo.Context) error {
 	if err := api.requireSignedIn(c); err != nil {
 		return err
@@ -98,15 +130,6 @@ func (api *API) submit(c echo.Context) error {
 		}
 		return err
 	}
-	if !api.isAdmin(c) {
-		visible, err := api.problemVisibleInDetail(c, problem)
-		if err != nil {
-			return err
-		}
-		if !visible {
-			return echo.NewHTTPError(http.StatusNotFound, "problem not found")
-		}
-	}
 	var language models.Language
 	if err := api.db.First(&language, "id = ?", req.Language).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -118,9 +141,21 @@ func (api *API) submit(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	assignmentID, contestID, err := api.inferSubmitScopes(user.ID, req.ProblemID, time.Now())
+	assignmentID, contestID, err := api.submitContext(user.ID, req.ProblemID, req.AssignmentID, req.ContestID, time.Now())
 	if err != nil {
 		return err
+	}
+	if assignmentID == nil && contestID == nil && !user.Admin && !api.problemVisibleInList(problem) {
+		allowed := api.problemInEndedContest(problem.ID)
+		if !allowed {
+			allowed, err = api.problemInAssignmentForUser(problem.ID, user.ID, true)
+			if err != nil {
+				return err
+			}
+		}
+		if !allowed {
+			return echo.NewHTTPError(http.StatusNotFound, "problem not found")
+		}
 	}
 	row := models.Submission{
 		UserID:       user.ID,
@@ -132,23 +167,84 @@ func (api *API) submit(c echo.Context) error {
 		Status:       "queued",
 		Public:       req.Public,
 	}
-	if err := api.db.Create(&row).Error; err != nil {
+	if err := api.db.Transaction(func(tx *gorm.DB) error {
+		var locked models.User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").First(&locked, user.ID).Error; err != nil {
+			return err
+		}
+		var outstanding int64
+		if err := tx.Model(&models.Submission{}).Where("user_id = ? AND status IN ?", user.ID, []string{"queued", "judging"}).Count(&outstanding).Error; err != nil {
+			return err
+		}
+		if outstanding >= limits.MaxOutstandingSubmissions {
+			return echo.NewHTTPError(http.StatusTooManyRequests, "too many outstanding submissions")
+		}
+		return tx.Create(&row).Error
+	}); err != nil {
 		return err
 	}
 	events.SubmissionChanged()
 	return c.JSON(http.StatusCreated, contract.CreatedID{ID: row.ID})
 }
 
-func (api *API) inferSubmitScopes(userID uint, problemID uint, now time.Time) (*uint, *uint, error) {
-	assignmentID, err := api.activeAssignmentFor(userID, problemID, now)
-	if err != nil {
-		return nil, nil, err
+func (api *API) submitContext(userID uint, problemID uint, assignmentID *uint, contestID *uint, now time.Time) (*uint, *uint, error) {
+	if assignmentID != nil && contestID != nil {
+		return nil, nil, echo.NewHTTPError(http.StatusBadRequest, "assignment and contest are mutually exclusive")
 	}
-	contestID, err := api.activeContestFor(problemID, now)
-	if err != nil {
-		return nil, nil, err
+	if assignmentID != nil {
+		if *assignmentID == 0 {
+			return nil, nil, echo.NewHTTPError(http.StatusBadRequest, "invalid assignment id")
+		}
+		var assignment models.Assignment
+		if err := api.db.First(&assignment, *assignmentID).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return nil, nil, echo.NewHTTPError(http.StatusNotFound, "assignment not found")
+			}
+			return nil, nil, err
+		}
+		assigned, err := api.userAssignedTo(assignment.ID, userID)
+		if err != nil {
+			return nil, nil, err
+		}
+		if !assigned {
+			return nil, nil, echo.NewHTTPError(http.StatusNotFound, "assignment not found")
+		}
+		if !now.Before(assignment.EndAt) {
+			return nil, nil, echo.NewHTTPError(http.StatusForbidden, "assignment has ended")
+		}
+		var count int64
+		if err := api.db.Model(&models.AssignmentProblem{}).Where("assignment_id = ? AND problem_id = ?", assignment.ID, problemID).Count(&count).Error; err != nil {
+			return nil, nil, err
+		}
+		if count == 0 {
+			return nil, nil, echo.NewHTTPError(http.StatusBadRequest, "problem is not in assignment")
+		}
+		return assignmentID, nil, nil
 	}
-	return assignmentID, contestID, nil
+	if contestID != nil {
+		if *contestID == 0 {
+			return nil, nil, echo.NewHTTPError(http.StatusBadRequest, "invalid contest id")
+		}
+		var contest models.Contest
+		if err := api.db.First(&contest, *contestID).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return nil, nil, echo.NewHTTPError(http.StatusNotFound, "contest not found")
+			}
+			return nil, nil, err
+		}
+		if now.Before(contest.StartAt) || !now.Before(contest.EndAt) {
+			return nil, nil, echo.NewHTTPError(http.StatusForbidden, "contest is not running")
+		}
+		var count int64
+		if err := api.db.Model(&models.ContestProblem{}).Where("contest_id = ? AND problem_id = ?", contest.ID, problemID).Count(&count).Error; err != nil {
+			return nil, nil, err
+		}
+		if count == 0 {
+			return nil, nil, echo.NewHTTPError(http.StatusBadRequest, "problem is not in contest")
+		}
+		return nil, contestID, nil
+	}
+	return nil, nil, nil
 }
 
 func (api *API) submission(c echo.Context) error {
@@ -163,6 +259,13 @@ func (api *API) submission(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusNotFound, "submission not found")
 		}
 		return err
+	}
+	accessible, err := api.submissionAccessible(c, row)
+	if err != nil {
+		return err
+	}
+	if !accessible {
+		return echo.NewHTTPError(http.StatusNotFound, "submission not found")
 	}
 	if !api.isAdmin(c) {
 		var count int64
@@ -299,7 +402,7 @@ func (api *API) rejudgeProblem(c echo.Context) error {
 }
 
 func (api *API) submissionProgress(ctx context.Context, row models.Submission) *contract.SubmissionProgress {
-	if row.Status != "queued" && row.Status != "judging" {
+	if !submissionLive(row.Status) {
 		return nil
 	}
 	progress, err := judge.ReadProgress(ctx, row.ID, row.Attempt)
@@ -363,14 +466,14 @@ func (api *API) submissionPayloads(c echo.Context, rows []models.Submission) ([]
 	if err != nil {
 		return nil, err
 	}
+	views, err := api.submissionViews(c, rows)
+	if err != nil {
+		return nil, err
+	}
 	items := make([]contract.Submission, 0, len(rows))
-	for _, row := range rows {
+	for index, row := range rows {
 		item := submissionPayloadFromRefs(row, titles, users)
-		view, err := api.submissionView(c, row)
-		if err != nil {
-			return nil, err
-		}
-		if !view.Result {
+		if !views[index].Result {
 			hideSubmissionResult(&item)
 		}
 		items = append(items, item)
@@ -383,9 +486,12 @@ func submissionListItemFromPayload(row contract.Submission) contract.SubmissionL
 		ID:           row.ID,
 		ProblemID:    row.ProblemID,
 		ProblemTitle: row.ProblemTitle,
+		AssignmentID: row.AssignmentID,
+		ContestID:    row.ContestID,
 		User:         row.User,
 		Language:     row.Language,
 		Status:       row.Status,
+		Score:        row.Score,
 		TimeMS:       row.TimeMS,
 		MemoryKB:     row.MemoryKB,
 		CreatedAt:    row.CreatedAt,
@@ -405,6 +511,8 @@ func submissionPayloadFromRefs(row models.Submission, titles map[uint]string, us
 		ID:           row.ID,
 		ProblemID:    row.ProblemID,
 		ProblemTitle: title,
+		AssignmentID: row.AssignmentID,
+		ContestID:    row.ContestID,
 		User:         userName,
 		Language:     row.Language,
 		Status:       row.Status,

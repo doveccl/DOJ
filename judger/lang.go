@@ -38,10 +38,10 @@ func prepareLanguageRuntime(work string, lang Lang, source string) (preparedLang
 		return preparedLang{}, err
 	}
 	sourcePath := filepath.Join(sourceRoot, sourceName)
-	if err := os.MkdirAll(filepath.Dir(sourcePath), 0o755); err != nil {
+	if err := privateDir(filepath.Dir(sourcePath)); err != nil {
 		return preparedLang{}, err
 	}
-	if err := os.WriteFile(sourcePath, []byte(source), 0o644); err != nil {
+	if err := os.WriteFile(sourcePath, []byte(source), 0o600); err != nil {
 		return preparedLang{}, err
 	}
 	return preparedLang{

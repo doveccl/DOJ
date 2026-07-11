@@ -3,7 +3,6 @@ package judger
 import (
 	"archive/tar"
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -21,16 +20,26 @@ import (
 )
 
 type dockerHostConfig struct {
-	Binds       []string
-	NetworkMode string
-	SecurityOpt []string
-	CapDrop     []string
-	CapAdd      []string
+	Binds          []string
+	NetworkMode    string
+	SecurityOpt    []string
+	CapDrop        []string
+	CapAdd         []string
+	Memory         int64
+	NanoCPUs       int64
+	PidsLimit      int64
+	FileSize       int64
+	ReadonlyRootfs bool
+	Tmpfs          map[string]string
+	ShmSize        int64
+	Init           bool
 }
 
 type dockerCreateRequest struct {
 	Image      string
+	Entrypoint []string
 	Cmd        []string
+	Env        []string
 	WorkingDir string
 	HostConfig dockerHostConfig
 }
@@ -54,22 +63,19 @@ func dockerBuildImageTimed(ctx context.Context, dir string, dockerfile string, o
 	}
 	defer cli.Close()
 
-	tarStartedAt := time.Now()
-	body, err := tarDirectory(dir)
-	logTask(timing.Logf, timing.SubmissionID, timing.Attempt, "docker_build_context_tar=%s bytes=%d", formatDuration(time.Since(tarStartedAt)), len(body))
-	if err != nil {
-		return "", "", err
-	}
+	body := tarDirectory(dir)
+	defer body.Close()
+	countedBody := &byteCountingReader{reader: body}
 	tag := tempDockerTag()
 	requestStartedAt := time.Now()
-	resp, err := cli.ImageBuild(ctx, bytes.NewReader(body), client.ImageBuildOptions{
+	resp, err := cli.ImageBuild(ctx, countedBody, client.ImageBuildOptions{
 		Tags:        []string{tag},
 		Dockerfile:  dockerfile,
 		NetworkMode: "none",
 		Remove:      true,
 		ForceRemove: true,
 	})
-	logStep(timing.Logf, timing.SubmissionID, timing.Attempt, "docker_build_request", requestStartedAt)
+	logTask(timing.Logf, timing.SubmissionID, timing.Attempt, "docker_build_request=%s context_bytes=%d", formatDuration(time.Since(requestStartedAt)), countedBody.read)
 	if err != nil {
 		return "", "", err
 	}
@@ -91,18 +97,36 @@ func dockerCreateContainer(ctx context.Context, req dockerCreateRequest) (string
 	}
 	defer cli.Close()
 
+	resources := dockercontainer.Resources{
+		Memory:     req.HostConfig.Memory,
+		MemorySwap: req.HostConfig.Memory,
+		NanoCPUs:   req.HostConfig.NanoCPUs,
+	}
+	if req.HostConfig.PidsLimit > 0 {
+		resources.PidsLimit = &req.HostConfig.PidsLimit
+	}
+	if req.HostConfig.FileSize > 0 {
+		resources.Ulimits = []*dockercontainer.Ulimit{{Name: "fsize", Soft: req.HostConfig.FileSize, Hard: req.HostConfig.FileSize}}
+	}
 	got, err := cli.ContainerCreate(ctx, client.ContainerCreateOptions{
 		Config: &dockercontainer.Config{
 			Image:      req.Image,
+			Entrypoint: strslice.StrSlice(req.Entrypoint),
 			Cmd:        strslice.StrSlice(req.Cmd),
+			Env:        req.Env,
 			WorkingDir: req.WorkingDir,
 		},
 		HostConfig: &dockercontainer.HostConfig{
-			Binds:       req.HostConfig.Binds,
-			NetworkMode: dockercontainer.NetworkMode(req.HostConfig.NetworkMode),
-			SecurityOpt: req.HostConfig.SecurityOpt,
-			CapDrop:     strslice.StrSlice(req.HostConfig.CapDrop),
-			CapAdd:      strslice.StrSlice(req.HostConfig.CapAdd),
+			Binds:          req.HostConfig.Binds,
+			NetworkMode:    dockercontainer.NetworkMode(req.HostConfig.NetworkMode),
+			SecurityOpt:    req.HostConfig.SecurityOpt,
+			CapDrop:        strslice.StrSlice(req.HostConfig.CapDrop),
+			CapAdd:         strslice.StrSlice(req.HostConfig.CapAdd),
+			ReadonlyRootfs: req.HostConfig.ReadonlyRootfs,
+			Tmpfs:          req.HostConfig.Tmpfs,
+			ShmSize:        req.HostConfig.ShmSize,
+			Init:           &req.HostConfig.Init,
+			Resources:      resources,
 		},
 	})
 	if err != nil {
@@ -341,9 +365,27 @@ func readDockerErrorStream(reader io.Reader) error {
 	return scanner.Err()
 }
 
-func tarDirectory(dir string) ([]byte, error) {
-	var buffer bytes.Buffer
-	writer := tar.NewWriter(&buffer)
+type byteCountingReader struct {
+	reader io.Reader
+	read   int64
+}
+
+func (reader *byteCountingReader) Read(p []byte) (int, error) {
+	n, err := reader.reader.Read(p)
+	reader.read += int64(n)
+	return n, err
+}
+
+func tarDirectory(dir string) io.ReadCloser {
+	reader, pipe := io.Pipe()
+	go func() {
+		pipe.CloseWithError(writeTarDirectory(pipe, dir))
+	}()
+	return reader
+}
+
+func writeTarDirectory(output io.Writer, dir string) error {
+	writer := tar.NewWriter(output)
 	err := filepath.WalkDir(dir, func(file string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -383,12 +425,9 @@ func tarDirectory(dir string) ([]byte, error) {
 	})
 	if err != nil {
 		_ = writer.Close()
-		return nil, err
+		return err
 	}
-	if err := writer.Close(); err != nil {
-		return nil, err
-	}
-	return buffer.Bytes(), nil
+	return writer.Close()
 }
 
 func extractSingleFile(reader io.Reader, target string, source string) error {

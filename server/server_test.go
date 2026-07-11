@@ -33,6 +33,61 @@ func TestListenAddrDefaultAndOverride(t *testing.T) {
 	}
 }
 
+func TestHTTPServerBoundsRequestReadsWithoutTimingOutSSEWrites(t *testing.T) {
+	e := echo.New()
+	configureHTTPServer(e)
+	if e.Server.ReadHeaderTimeout != readHeaderTimeout || e.Server.ReadTimeout != readTimeout || e.Server.IdleTimeout != idleTimeout {
+		t.Fatalf("unexpected HTTP timeouts: %+v", e.Server)
+	}
+	if e.Server.MaxHeaderBytes != maxHeaderBytes {
+		t.Fatalf("max header bytes = %d, want %d", e.Server.MaxHeaderBytes, maxHeaderBytes)
+	}
+	if e.Server.WriteTimeout != 0 {
+		t.Fatalf("write timeout = %v, SSE requires no global write deadline", e.Server.WriteTimeout)
+	}
+}
+
+func TestInitialAdminPasswordUsesSecretOrRandomValue(t *testing.T) {
+	t.Setenv("ADMIN_PASSWORD", "configured-secret")
+	password, generated, err := initialAdminPassword()
+	if err != nil || generated || password != "configured-secret" {
+		t.Fatalf("configured password = %q generated=%v err=%v", password, generated, err)
+	}
+	t.Setenv("ADMIN_PASSWORD", "short")
+	if _, _, err := initialAdminPassword(); err == nil {
+		t.Fatal("short bootstrap password was accepted")
+	}
+
+	t.Setenv("ADMIN_PASSWORD", "")
+	password, generated, err = initialAdminPassword()
+	if err != nil || !generated || password == "" || password == "admin" {
+		t.Fatalf("random password = %q generated=%v err=%v", password, generated, err)
+	}
+}
+
+func TestTrustedProxyIPExtractorRejectsClientXFF(t *testing.T) {
+	extract := trustedProxyIPExtractor()
+	direct := httptest.NewRequest(http.MethodGet, "/", nil)
+	direct.RemoteAddr = "198.51.100.10:1234"
+	direct.Header.Set(echo.HeaderXForwardedFor, "203.0.113.99")
+	if got := extract(direct); got != "198.51.100.10" {
+		t.Fatalf("public client spoofed XFF: got %q", got)
+	}
+	private := httptest.NewRequest(http.MethodGet, "/", nil)
+	private.RemoteAddr = "172.20.0.9:1234"
+	private.Header.Set(echo.HeaderXForwardedFor, "203.0.113.99")
+	if got := extract(private); got != "172.20.0.9" {
+		t.Fatalf("private client spoofed XFF: got %q", got)
+	}
+
+	proxied := httptest.NewRequest(http.MethodGet, "/", nil)
+	proxied.RemoteAddr = "127.0.0.1:1234"
+	proxied.Header.Set(echo.HeaderXForwardedFor, "198.51.100.10")
+	if got := extract(proxied); got != "198.51.100.10" {
+		t.Fatalf("trusted proxy client IP = %q", got)
+	}
+}
+
 func TestRegisterWebAppSkipsMissingDist(t *testing.T) {
 	e := echo.New()
 	if err := registerWebApp(e, filepath.Join(t.TempDir(), "missing")); err != nil {

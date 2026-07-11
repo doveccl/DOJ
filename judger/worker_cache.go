@@ -16,7 +16,14 @@ import (
 
 var problemPackageLocks sync.Map
 
-func downloadProblemPackage(ctx context.Context, client *http.Client, cfg WorkerConfig, problemID uint, packageHash string, taskDir string, submissionID uint, attempt int) error {
+const (
+	maxProblemPackageBytes         = 512 << 20
+	maxProblemPackageEntries       = 10_000
+	maxProblemPackageFileBytes     = 256 << 20
+	maxProblemPackageExpandedBytes = 2 << 30
+)
+
+func downloadProblemPackage(ctx context.Context, client *http.Client, cfg WorkerConfig, problemID uint, packageHash string, taskDir string, taskID uint, submissionID uint, attempt int) error {
 	packageHash = strings.TrimSpace(packageHash)
 	if packageHash == "" {
 		return fmt.Errorf("problem package hash is required")
@@ -24,6 +31,9 @@ func downloadProblemPackage(ctx context.Context, client *http.Client, cfg Worker
 	cacheRoot := strings.TrimSpace(cfg.Cache)
 	if cacheRoot == "" {
 		return fmt.Errorf("cache directory is required")
+	}
+	if err := privateDir(cacheRoot); err != nil {
+		return err
 	}
 	cacheDir := problemCacheDir(cacheRoot, problemID)
 	lockValue, _ := problemPackageLocks.LoadOrStore(cacheDir, &sync.Mutex{})
@@ -34,21 +44,17 @@ func downloadProblemPackage(ctx context.Context, client *http.Client, cfg Worker
 	cacheHash := readProblemCacheHash(cacheDir)
 	cacheReady := cacheHash != "" && cacheHash == packageHash && dirExists(cacheDir)
 	logTask(cfg.Logf, submissionID, attempt, "cache ready=%t hash=%s dir=%s", cacheReady, shortHash(cacheHash), cacheDir)
-	if cacheReady {
-		copyStartedAt := time.Now()
-		if err := copyProblemCache(cacheDir, taskDir); err != nil {
-			return err
-		}
-		logTask(cfg.Logf, submissionID, attempt, "cache_copy=%s source=hit", formatDuration(time.Since(copyStartedAt)))
-		return nil
-	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, cfg.Server+fmt.Sprintf("/api/judger/P%d.zip", problemID), nil)
+	path := fmt.Sprintf("/api/judger/tasks/%d/package?attempt=%d&hash=%s", taskID, attempt, packageHash)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, cfg.Server+path, nil)
 	if err != nil {
 		return err
 	}
 	if cfg.Token != "" {
 		httpReq.Header.Set("Authorization", "Bearer "+cfg.Token)
+	}
+	if cacheReady {
+		httpReq.Header.Set("If-None-Match", `"`+packageHash+`"`)
 	}
 	downloadClient := client
 	if cfg.HTTPClient == nil {
@@ -61,10 +67,20 @@ func downloadProblemPackage(ctx context.Context, client *http.Client, cfg Worker
 		return err
 	}
 	defer httpResp.Body.Close()
-	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
-		return fmt.Errorf("GET problem package returned %s", httpResp.Status)
+	if httpResp.StatusCode == http.StatusNotModified {
+		if !cacheReady {
+			return fmt.Errorf("GET problem package returned unexpected %s", httpResp.Status)
+		}
+		copyStartedAt := time.Now()
+		if err := copyProblemCache(cacheDir, taskDir); err != nil {
+			return err
+		}
+		logTask(cfg.Logf, submissionID, attempt, "cache_copy=%s source=hit", formatDuration(time.Since(copyStartedAt)))
+		return nil
 	}
-	const maxProblemPackageBytes = 512 << 20
+	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
+		return fmt.Errorf("GET %s returned %s", path, httpResp.Status)
+	}
 	readStartedAt := time.Now()
 	if cfg.Progress != nil {
 		cfg.Progress("download", 0, nil)
@@ -74,16 +90,26 @@ func downloadProblemPackage(ctx context.Context, client *http.Client, cfg Worker
 			cfg.Progress("download", done, nil)
 		}
 	}}
-	data, err := io.ReadAll(io.LimitReader(reader, maxProblemPackageBytes+1))
+	packageFile, err := os.CreateTemp(cacheRoot, ".package-")
 	if err != nil {
 		return err
 	}
-	if len(data) > maxProblemPackageBytes {
+	packagePath := packageFile.Name()
+	defer os.Remove(packagePath)
+	written, copyErr := io.Copy(packageFile, io.LimitReader(reader, maxProblemPackageBytes+1))
+	closeErr := packageFile.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if written > maxProblemPackageBytes {
 		return fmt.Errorf("problem package exceed %d bytes", maxProblemPackageBytes)
 	}
-	logTask(cfg.Logf, submissionID, attempt, "problem_package_read=%s bytes=%d hash=%s", formatDuration(time.Since(readStartedAt)), len(data), shortHash(packageHash))
+	logTask(cfg.Logf, submissionID, attempt, "problem_package_read=%s bytes=%d hash=%s", formatDuration(time.Since(readStartedAt)), written, shortHash(packageHash))
 	cacheStartedAt := time.Now()
-	if err := replaceProblemCache(cacheDir, data, packageHash); err != nil {
+	if err := replaceProblemCache(cacheDir, packagePath, packageHash); err != nil {
 		return err
 	}
 	logTask(cfg.Logf, submissionID, attempt, "cache_write=%s", formatDuration(time.Since(cacheStartedAt)))
@@ -131,7 +157,7 @@ func readProblemCacheHash(cacheDir string) string {
 	return strings.TrimSpace(string(raw))
 }
 
-func replaceProblemCache(cacheDir string, data []byte, hash string) error {
+func replaceProblemCache(cacheDir string, packagePath string, hash string) error {
 	hash = strings.TrimSpace(hash)
 	if hash == "" {
 		return fmt.Errorf("problem package hash is required")
@@ -150,7 +176,7 @@ func replaceProblemCache(cacheDir string, data []byte, hash string) error {
 			_ = os.RemoveAll(tmp)
 		}
 	}()
-	if err := extractProblemPackage(data, tmp); err != nil {
+	if err := extractProblemPackageFile(packagePath, tmp); err != nil {
 		return err
 	}
 	if err := os.WriteFile(filepath.Join(tmp, "hash"), []byte(hash+"\n"), 0o644); err != nil {
@@ -249,7 +275,24 @@ func extractProblemPackage(data []byte, work string) error {
 	if err != nil {
 		return err
 	}
-	for _, file := range reader.File {
+	return extractProblemPackageFiles(reader.File, work)
+}
+
+func extractProblemPackageFile(path string, work string) error {
+	reader, err := zip.OpenReader(path)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	return extractProblemPackageFiles(reader.File, work)
+}
+
+func extractProblemPackageFiles(files []*zip.File, work string) error {
+	if err := validateProblemPackageFiles(files); err != nil {
+		return err
+	}
+	var expanded int64
+	for _, file := range files {
 		name := filepath.Clean(strings.ReplaceAll(file.Name, "\\", "/"))
 		if name == "." || name == ".." || filepath.IsAbs(name) || strings.HasPrefix(name, ".."+string(filepath.Separator)) {
 			return fmt.Errorf("invalid package path %q", file.Name)
@@ -273,10 +316,15 @@ func extractProblemPackage(data []byte, work string) error {
 			_ = src.Close()
 			return err
 		}
-		if _, err := io.Copy(dst, src); err != nil {
+		written, copyErr := io.Copy(dst, io.LimitReader(src, maxProblemPackageFileBytes+1))
+		expanded += written
+		if copyErr != nil || written > maxProblemPackageFileBytes || expanded > maxProblemPackageExpandedBytes {
 			_ = src.Close()
 			_ = dst.Close()
-			return err
+			if copyErr != nil {
+				return copyErr
+			}
+			return fmt.Errorf("problem package expands beyond limit")
 		}
 		if err := src.Close(); err != nil {
 			_ = dst.Close()
@@ -285,6 +333,23 @@ func extractProblemPackage(data []byte, work string) error {
 		if err := dst.Close(); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func validateProblemPackageFiles(files []*zip.File) error {
+	if len(files) > maxProblemPackageEntries {
+		return fmt.Errorf("problem package has too many entries")
+	}
+	var total uint64
+	for _, file := range files {
+		if file.FileInfo().IsDir() {
+			continue
+		}
+		if file.UncompressedSize64 > maxProblemPackageFileBytes || total > maxProblemPackageExpandedBytes-file.UncompressedSize64 {
+			return fmt.Errorf("problem package expands beyond limit")
+		}
+		total += file.UncompressedSize64
 	}
 	return nil
 }

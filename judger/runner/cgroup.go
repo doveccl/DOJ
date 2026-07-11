@@ -4,6 +4,11 @@ import "errors"
 
 var ErrCgroupUnsupported = errors.New("doj judger requires linux cgroup v2")
 
+const (
+	CgroupCPUPeriodUS = int64(100_000)
+	CgroupCPUQuotaUS  = 2 * CgroupCPUPeriodUS
+)
+
 type CgroupConfig struct {
 	Root         string
 	SubmissionID string

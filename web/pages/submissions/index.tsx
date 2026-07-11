@@ -12,12 +12,14 @@ import { SubmissionStatus } from '../../components/status'
 import { useRemoteSearch } from '../../components/use-debounced-value'
 import { useLocale } from '../../locale'
 import type { Lang } from '../../locale'
-import { formatTime, isLiveSubmissionStatus, memoryText, problemCode, problemLabel, submissionCode } from '../../utils/format'
+import { formatTime, memoryText, problemCode, problemLabel, submissionCode } from '../../utils/format'
 import { pageFromParams, pageSizeFromParams, setPageParams } from '../../utils/pagination'
 
 type SubmissionFilters = {
   problem?: number
   user?: string
+  language?: string
+  status?: string
   assignment?: number
   contest?: number
 }
@@ -28,6 +30,8 @@ export function SubmissionsPage() {
   const [params, setParams] = useSearchParams()
   const problem = numberParam(params.get('problem'))
   const user = params.get('user') ?? ''
+  const language = params.get('language') ?? ''
+  const status = params.get('status') ?? ''
   const assignment = numberParam(params.get('assignment'))
   const contest = numberParam(params.get('contest'))
   const page = pageFromParams(params)
@@ -40,9 +44,8 @@ export function SubmissionsPage() {
   const assignmentQuery = assignmentSearch.searchText || stringParam(assignment) || ''
   const contestQuery = contestSearch.searchText || stringParam(contest) || ''
   const query = useQuery({
-    queryKey: ['submissions', problem, user, assignment, contest, page, pageSize],
-    queryFn: () => apiData(api.GET('/api/submissions', { params: { query: cleanFilters({ problem: stringParam(problem), user, assignment: stringParam(assignment), contest: stringParam(contest), page, pageSize }) } })),
-    refetchInterval: (query) => (query.state.data?.items.some((item) => isLiveSubmissionStatus(item.status)) ? 3000 : false)
+    queryKey: ['submissions', problem, user, language, status, assignment, contest, page, pageSize],
+    queryFn: () => apiData(api.GET('/api/submissions', { params: { query: cleanFilters({ problem: stringParam(problem), user, language, status, assignment: stringParam(assignment), contest: stringParam(contest), page, pageSize }) } }))
   })
   const languages = useQuery({ queryKey: ['languages'], queryFn: () => apiData(api.GET('/api/languages')) })
   const problems = useQuery({
@@ -66,6 +69,7 @@ export function SubmissionsPage() {
     enabled: contestSearch.active || contest !== undefined
   })
   const languageNames = new Map((languages.data ?? []).map((item) => [item.id, item.name]))
+  const languageOptions = (languages.data ?? []).map((item) => ({ value: item.id, label: item.name }))
   const problemOptions = (problems.data ?? []).map((item) => ({ value: item.id, label: problemLabel(item.id, item.title) }))
   const userOptions = (users.data ?? []).map((item) => ({ value: item.name, label: item.name }))
   const assignmentOptions = (assignments.data ?? []).map((item) => ({ value: item.id, label: item.title }))
@@ -78,6 +82,12 @@ export function SubmissionsPage() {
     }
     if (values.user) {
       next.set('user', values.user)
+    }
+    if (values.language) {
+      next.set('language', values.language)
+    }
+    if (values.status) {
+      next.set('status', values.status)
     }
     if (values.assignment !== undefined) {
       next.set('assignment', String(values.assignment))
@@ -96,7 +106,7 @@ export function SubmissionsPage() {
     <Card>
       <Flex vertical gap={16}>
         <Flex className="tableToolbar" justify="space-between" align="center" gap={12} wrap>
-          <Form className="tableToolbarForm" layout="inline" initialValues={{ problem, user: user || undefined, assignment, contest }} onFinish={submit} key={`${problem ?? ''}:${user}:${assignment ?? ''}:${contest ?? ''}`}>
+          <Form className="tableToolbarForm" layout="inline" initialValues={{ problem, user: user || undefined, language: language || undefined, status: status || undefined, assignment, contest }} onFinish={submit} key={`${problem ?? ''}:${user}:${language}:${status}:${assignment ?? ''}:${contest ?? ''}`}>
             <Form.Item name="problem">
               <Select
                 allowClear
@@ -120,6 +130,12 @@ export function SubmissionsPage() {
                 showSearch={{ filterOption: false }}
                 style={{ width: 160 }}
               />
+            </Form.Item>
+            <Form.Item name="language">
+              <Select allowClear placeholder={text.submissions.language} options={languageOptions} style={{ width: 160 }} />
+            </Form.Item>
+            <Form.Item name="status">
+              <Select allowClear placeholder={text.submissions.allStatus} options={submissionStatusValues.map((value) => ({ value, label: text.submissions.statuses[value] }))} style={{ width: 180 }} />
             </Form.Item>
             <Form.Item name="assignment">
               <Select
@@ -165,12 +181,25 @@ export function SubmissionsPage() {
             scroll={{ x: 1040 }}
             rowClassName="clickableRow"
             onRow={(row) => ({
+              role: 'link',
+              tabIndex: 0,
+              'aria-label': submissionCode(row.id),
               onClick: (event) => {
                 const target = event.target as HTMLElement
                 if (target.closest('a, button, input, textarea, [role="button"], [role="combobox"]')) {
                   return
                 }
                 navigate(`/submissions/${row.id}`)
+              },
+              onKeyDown: (event) => {
+                const target = event.target as HTMLElement
+                if (target.closest('a, button, input, textarea, [role="button"], [role="combobox"]')) {
+                  return
+                }
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  navigate(`/submissions/${row.id}`)
+                }
               }
             })}
             columns={submissionColumns(text, lang, languageNames)}
@@ -183,6 +212,8 @@ export function SubmissionsPage() {
     </Card>
   )
 }
+
+const submissionStatusValues = ['queued', 'judging', 'AC', 'CE', 'WA', 'PE', 'TLE', 'MLE', 'OLE', 'RE', 'SE'] as const
 
 function cleanFilters<T extends Record<string, string | number | undefined>>(filters: T) {
   return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== undefined && value !== '')) as T
@@ -212,8 +243,10 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: Lan
       width: 360,
       ellipsis: { showTitle: false },
       render: (_, row) => (
-        <Flex align="center" gap={8} className="tableTitleLine">
-          <ProblemLink id={row.problemId} title={row.problemTitle} />
+        <Flex vertical align="flex-start" gap={2} className="tableTitleLine">
+          <ProblemLink id={row.problemId} title={row.problemTitle} search={row.assignmentId ? `?assignment=${row.assignmentId}` : row.contestId ? `?contest=${row.contestId}` : ''} />
+          {row.assignmentId ? <Link to={`/assignments/${row.assignmentId}`}>{`${text.assignments.title} #${row.assignmentId}`}</Link> : null}
+          {row.contestId ? <Link to={`/contests/${row.contestId}`}>{`${text.contests.title} #${row.contestId}`}</Link> : null}
         </Flex>
       )
     },
@@ -226,6 +259,10 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: Lan
       title: text.submissions.status,
       dataIndex: 'status',
       render: (status: string) => <SubmissionStatus status={status} />
+    },
+    {
+      title: text.submissions.score,
+      dataIndex: 'score'
     },
     {
       title: text.submissions.time,

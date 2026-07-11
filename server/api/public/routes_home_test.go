@@ -127,4 +127,7 @@ func TestHomeFiltersAssignmentsAndContestsForCurrentUser(t *testing.T) {
 	if len(contestStatuses) != 2 || contestStatuses["Running"] != "running" || contestStatuses["Pending"] != "pending" {
 		t.Fatalf("home contests should include active contests with status only: %+v", home.Contests)
 	}
+	if home.Contests[0].Title != "Running" || home.Contests[1].Title != "Pending" {
+		t.Fatalf("home contests should prioritize running then nearest pending: %+v", home.Contests)
+	}
 }

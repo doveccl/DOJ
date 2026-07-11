@@ -31,6 +31,13 @@ func TestServeRunnerCompileAndRunCase(t *testing.T) {
 		errCh <- ServeRunner(ctx, RunnerServe{Socket: socket, Work: work, Runner: runner})
 	}()
 	waitSocket(t, socket)
+	info, err := os.Stat(socket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("runner socket mode = %v, want 0600", info.Mode().Perm())
+	}
 
 	conn, err := net.Dial("unix", socket)
 	if err != nil {
@@ -153,6 +160,12 @@ func TestServeRunnerRunCaseTimesOutWithoutRelease(t *testing.T) {
 	}
 	defer conn.Close()
 	codec := NewCodec(conn)
+	if err := codec.Send(Message{Kind: MsgHello, Hello: &Hello{Role: "judger", Version: Version}}); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := codec.Recv(); err != nil || got.Kind != MsgHello {
+		t.Fatalf("hello = %#v, %v", got, err)
+	}
 	if err := codec.Send(Message{Kind: MsgCompile, Compile: &CompileRequest{
 		TaskID:      "task-1",
 		UserCommand: "cat",
@@ -203,4 +216,21 @@ func waitSocket(t *testing.T, socket string) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("socket %s was not created", socket)
+}
+
+func TestRunnerRejectsCommandsBeforeHello(t *testing.T) {
+	server, client := net.Pipe()
+	defer client.Close()
+	go func() {
+		defer server.Close()
+		handleRunnerConn(context.Background(), server, RunnerServe{})
+	}()
+	codec := NewCodec(client)
+	if err := codec.Send(Message{Kind: MsgCompile, Compile: &CompileRequest{UserCommand: "true"}}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := codec.Recv()
+	if err != nil || got.Kind != MsgError {
+		t.Fatalf("pre-hello response = %#v, %v", got, err)
+	}
 }

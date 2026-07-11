@@ -19,7 +19,7 @@ import {
 import { App as AntApp, Avatar, Button, Dropdown, Flex, Form, Input, Layout, Menu, Modal, Result, Space, Tabs, Typography } from 'antd'
 import type { MenuProps } from 'antd'
 import { useEffect, useRef, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { api, apiData } from '../client'
@@ -60,14 +60,18 @@ export function AppLayout() {
   const { lang, setLang, text } = useLocale()
   const { mode, color, setMode } = useColor()
   const session = useSession()
-  const queryClient = useQueryClient()
-  const previousRole = useRef(session.role)
   const [loginOpen, setLoginOpen] = useState(false)
   const site = useQuery({ queryKey: ['site'], queryFn: () => apiData(api.GET('/api/site')) })
   const items = navItems(text, session.admin)
   const siteName = site.data?.siteName || 'DOJ'
   const registrationOpen = site.data?.allowRegistration ?? false
   const guestBlocked = site.data?.allowGuestAccess === false && !session.signedIn
+  const contentRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    contentRef.current?.focus()
+    document.title = pageTitle(location.pathname, text, siteName)
+  }, [location.pathname, siteName, text])
 
   const languageItems: MenuProps['items'] = [
     { key: 'zh', label: text.prefs.chinese },
@@ -83,22 +87,13 @@ export function AppLayout() {
     { key: 'logout', icon: <LogoutOutlined />, label: text.prefs.logout }
   ]
 
-  useEffect(() => {
-    if (previousRole.current === session.role) {
-      return
-    }
-    previousRole.current = session.role
-    const keepSession = (query: { queryKey: readonly unknown[] }) => query.queryKey[0] !== 'me'
-    void queryClient.invalidateQueries({ predicate: keepSession })
-    queryClient.removeQueries({ type: 'inactive', predicate: keepSession })
-  }, [queryClient, session.role])
-
   return (
     <>
+      <a href="#main-content" className="skipLink">{text.common.skipContent}</a>
       <Layout className="appLayout">
         <Layout.Header className="appHeader">
           <Flex align="center" gap={12} className="appHeaderInner">
-            <Link to="/" className="appBrand" aria-label="DOJ home">
+            <Link to="/" className="appBrand" aria-label={`${siteName} ${text.common.backHome}`}>
               <span className="brandMark">
                 <CodeOutlined />
               </span>
@@ -171,7 +166,7 @@ export function AppLayout() {
             </Space>
           </Flex>
         </Layout.Header>
-        <Layout.Content className="appContent">
+        <Layout.Content ref={contentRef} id="main-content" tabIndex={-1} className="appContent">
           {guestBlocked ? (
             <Result
               status="403"
@@ -191,6 +186,19 @@ export function AppLayout() {
       {loginOpen ? <AuthModal registrationOpen={registrationOpen} onClose={() => setLoginOpen(false)} /> : null}
     </>
   )
+}
+
+function pageTitle(pathname: string, text: ReturnType<typeof useLocale>['text'], siteName: string) {
+  const section = pathname.split('/')[1]
+  const title = section === 'problems' ? text.nav.problems
+    : section === 'assignments' ? text.nav.assignments
+      : section === 'contests' ? text.nav.contests
+        : section === 'discussion' ? text.nav.discussion
+          : section === 'rank' ? text.nav.rank
+            : section === 'submissions' ? text.nav.submissions
+              : section === 'admin' ? text.nav.admin
+                : ''
+  return title ? `${title} · ${siteName}` : siteName
 }
 
 function AuthModal({ registrationOpen, onClose }: { registrationOpen: boolean; onClose: () => void }) {
@@ -269,7 +277,7 @@ function LoginPane({ onCancel }: { onCancel: () => void }) {
         <Input autoComplete="username" maxLength={limits.mail} />
       </Form.Item>
       <Form.Item name="password" label={text.prefs.password} rules={[{ required: true, whitespace: true }]}>
-        <Input.Password autoComplete="current-password" />
+        <Input.Password autoComplete="current-password" maxLength={limits.password} />
       </Form.Item>
       <Flex justify="flex-end" gap={8}>
         <Button onClick={onCancel}>{text.common.cancel}</Button>
@@ -286,7 +294,7 @@ function RegisterPane({ onCancel }: { onCancel: () => void }) {
   const session = useSession()
   const { message } = AntApp.useApp()
   const [pending, setPending] = useState(false)
-  const [form] = Form.useForm<{ name: string; mail: string; password: string }>()
+  const [form] = Form.useForm<{ name: string; mail: string; password: string; confirmPassword: string }>()
 
   return (
     <Form
@@ -321,7 +329,24 @@ function RegisterPane({ onCancel }: { onCancel: () => void }) {
         <Input autoComplete="email" maxLength={limits.mail} />
       </Form.Item>
       <Form.Item name="password" label={text.prefs.password} rules={[{ required: true, min: 8 }]}>
-        <Input.Password autoComplete="new-password" />
+        <Input.Password autoComplete="new-password" maxLength={limits.password} />
+      </Form.Item>
+      <Form.Item
+        name="confirmPassword"
+        label={text.prefs.confirmPassword}
+        dependencies={['password']}
+        rules={[
+          { required: true },
+          ({ getFieldValue }) => ({
+            validator(_, value) {
+              return !value || getFieldValue('password') === value
+                ? Promise.resolve()
+                : Promise.reject(new Error(text.prefs.passwordMismatch))
+            }
+          })
+        ]}
+      >
+        <Input.Password autoComplete="new-password" maxLength={limits.password} />
       </Form.Item>
       <Flex justify="flex-end" gap={8}>
         <Button onClick={onCancel}>{text.common.cancel}</Button>

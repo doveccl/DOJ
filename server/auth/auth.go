@@ -23,6 +23,7 @@ const sessionDays = 30
 
 type Session struct {
 	UserID    uint
+	AuthHash  string
 	ExpiresAt time.Time
 }
 
@@ -113,16 +114,21 @@ func UserFromCookie(db *gorm.DB, c echo.Context, now time.Time) (models.User, er
 	if err := db.First(&user, "id = ?", session.UserID).Error; err != nil {
 		return user, err
 	}
+	if session.AuthHash != TokenHash(user.Auth) {
+		_ = DeleteSession(c)
+		ClearSessionCookie(c)
+		return models.User{}, gorm.ErrRecordNotFound
+	}
 	return user, nil
 }
 
-func CreateUserSession(c echo.Context, userID uint, now time.Time) error {
+func CreateUserSession(c echo.Context, user models.User, now time.Time) error {
 	token, err := NewToken()
 	if err != nil {
 		return err
 	}
 	expiresAt := SessionExpiresAt(now)
-	if err := saveSession(c.Request().Context(), token, Session{UserID: userID, ExpiresAt: expiresAt}); err != nil {
+	if err := saveSession(c.Request().Context(), token, Session{UserID: user.ID, AuthHash: TokenHash(user.Auth), ExpiresAt: expiresAt}); err != nil {
 		return err
 	}
 	SetSessionCookie(c, token, expiresAt)

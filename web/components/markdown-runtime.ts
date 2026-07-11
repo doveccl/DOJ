@@ -1,6 +1,6 @@
 import { config, prefix as mdEditorPrefix } from 'md-editor-rt'
 
-import { configureMarkdownAssetRenderer, trustedMarkdownID } from '../utils/markdown'
+import { configureMarkdownAssetRenderer } from '../utils/markdown'
 import { markdownEditorExtensions } from './markdown-assets'
 
 type MarkdownRuntime = {
@@ -26,7 +26,7 @@ export function configureMarkdownRuntime() {
   config({
     editorExtensions: markdownEditorExtensions,
     markdownItConfig: (md, options) => {
-      configureMarkdownHTML(md, options.editorId)
+      disableMarkdownHTML(md)
       configureMarkdownAssetRenderer(md, options.editorId)
       configurePlainCodeBlocks(md)
     }
@@ -34,10 +34,8 @@ export function configureMarkdownRuntime() {
   markdownRuntimeConfigured = true
 }
 
-export function configureMarkdownHTML(md: Pick<MarkdownRuntime, 'set'>, editorID: string) {
-  if (!trustedMarkdownID(editorID)) {
-    md.set({ html: false })
-  }
+export function disableMarkdownHTML(md: Pick<MarkdownRuntime, 'set'>) {
+  md.set({ html: false })
 }
 
 export function configurePlainCodeBlocks(md: MarkdownRuntime) {

@@ -19,6 +19,20 @@ import (
 	"gorm.io/datatypes"
 )
 
+func TestUserUploadQuotaCountsUniqueObjects(t *testing.T) {
+	objects := []storage.Info{{Key: "users/1/old.png", Size: maxUserUploadBytes - 10}}
+	if !userUploadWithinQuota(objects, "users/1/new.png", 10) {
+		t.Fatal("upload at quota boundary was rejected")
+	}
+	if userUploadWithinQuota(objects, "users/1/new.png", 11) {
+		t.Fatal("upload beyond quota was accepted")
+	}
+	objects = []storage.Info{{Key: "users/1/same.png", Size: maxUserUploadBytes}}
+	if !userUploadWithinQuota(objects, "users/1/same.png", 10) {
+		t.Fatal("content-addressed replacement counted twice")
+	}
+}
+
 func TestImageUploadUsesRelativeMediaPathsAndHeaders(t *testing.T) {
 	t.Setenv("STORAGE", t.TempDir())
 	db := testWebDB(t)
@@ -113,12 +127,18 @@ func TestProblemAssetDownloadsSupportNestedPathsAndExistingProblems(t *testing.T
 	if res.Code != http.StatusOK || res.Body.String() != "nested input" {
 		t.Fatalf("nested asset download got %d body=%q", res.Code, res.Body.String())
 	}
+	if cache := res.Header().Get(echo.HeaderCacheControl); cache != "private, no-store" {
+		t.Fatalf("private problem asset cache header = %q", cache)
+	}
 	res = requestWithCookies(e, http.MethodGet, "/api/problems/1000.zip", adminCookies, nil)
 	if res.Code != http.StatusOK {
 		t.Fatalf("problem zip got %d body=%s", res.Code, res.Body.String())
 	}
 	if disposition := res.Header().Get(echo.HeaderContentDisposition); !strings.Contains(disposition, `filename="P1000.zip"`) {
 		t.Fatalf("problem zip content disposition = %q", disposition)
+	}
+	if cache := res.Header().Get(echo.HeaderCacheControl); cache != "private, no-store" {
+		t.Fatalf("problem zip cache header = %q", cache)
 	}
 	reader, err := zip.NewReader(bytes.NewReader(res.Body.Bytes()), int64(res.Body.Len()))
 	if err != nil {

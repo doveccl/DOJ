@@ -4,8 +4,7 @@ import {
   configureMarkdownAssetRenderer,
   problemAssetUploadMarkdownURL,
   problemMarkdownID,
-  rewriteAssetURL,
-  trustedMarkdownID
+  rewriteAssetURL
 } from './markdown'
 
 describe('markdown assets', () => {
@@ -24,11 +23,8 @@ describe('markdown assets', () => {
     expect(problemAssetUploadMarkdownURL('/api/problems/1001/assets/a.png', 1000)).toBe('/api/problems/1001/assets/a.png')
   })
 
-  it('trusts only static internal markdown ids and problem statements', () => {
+  it('builds problem markdown ids', () => {
     expect(problemMarkdownID(1000)).toBe('P1000')
-    expect(trustedMarkdownID('P1000')).toBe(true)
-    expect(trustedMarkdownID('home-notice')).toBe(true)
-    expect(trustedMarkdownID('md-1')).toBe(false)
   })
 
   it('rewrites image and link tokens during markdown rendering', () => {

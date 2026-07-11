@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	contractlimits "github.com/doveccl/doj/contract/limits"
 )
 
 func TestRunLocalCaseEvilPrograms(t *testing.T) {
@@ -33,6 +35,12 @@ func TestRunLocalCaseEvilPrograms(t *testing.T) {
 			limits:  Limits{TimeMS: 1000, OutputKB: 64},
 			want:    VerdictRuntimeError,
 			message: "exit status 7",
+		},
+		{
+			name:    "stderr-flood",
+			command: "sh stderr-flood.sh",
+			limits:  Limits{TimeMS: 3000, OutputKB: 64},
+			want:    VerdictRuntimeError,
 		},
 		{
 			name:    "strict-presentation-error",
@@ -69,6 +77,8 @@ func TestRunLocalCaseEvilPrograms(t *testing.T) {
 				tt.command = "sh flood.sh"
 			case "runtime-error":
 				writeScript(t, work, "runtime-error.sh", "cat >/dev/null; exit 7\n")
+			case "stderr-flood":
+				writeScript(t, work, "stderr-flood.sh", "cat >/dev/null; yes x | head -c 1048576 >&2; exit 7\n")
 			case "strict-presentation-error":
 				writeScript(t, work, "strict-presentation-error.sh", "cat >/dev/null; printf 'hello  \\n\\n'\n")
 			}
@@ -89,7 +99,11 @@ func TestRunLocalCaseEvilPrograms(t *testing.T) {
 			if result.Verdict != tt.want {
 				t.Fatalf("verdict = %s, want %s; result = %#v", result.Verdict, tt.want, result)
 			}
-			if result.Message != tt.message {
+			if tt.name == "stderr-flood" {
+				if len([]rune(result.Message)) != contractlimits.MaxCaseMessageRunes {
+					t.Fatalf("stderr message runes = %d, want %d", len([]rune(result.Message)), contractlimits.MaxCaseMessageRunes)
+				}
+			} else if result.Message != tt.message {
 				t.Fatalf("message = %q, want %q; result = %#v", result.Message, tt.message, result)
 			}
 		})

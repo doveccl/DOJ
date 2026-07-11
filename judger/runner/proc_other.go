@@ -4,6 +4,7 @@ package runner
 
 import (
 	"context"
+	"os"
 	"os/exec"
 )
 
@@ -27,4 +28,11 @@ func killProcessGroup(cmd *exec.Cmd) {
 	if cmd != nil && cmd.Process != nil {
 		_ = cmd.Process.Kill()
 	}
+}
+
+func cancelProcessGroup(cmd *exec.Cmd) error {
+	if cmd == nil || cmd.Process == nil {
+		return os.ErrProcessDone
+	}
+	return cmd.Process.Kill()
 }

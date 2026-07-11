@@ -27,7 +27,7 @@ func TestRunContainerTaskUserCannotReadJobArtifacts(t *testing.T) {
 	source := `#!/bin/sh
 read _
 bad=""
-for p in /work/secret.out /work/judge-program /work/judge-result-secret-probe.txt /work/runner.sock; do
+for p in /work/secret.out /work/judge-program /work/judge-result-secret-probe.txt /runner/runner.sock /work/.rs/runner.sock; do
   if [ -r "$p" ]; then
     if [ -S "$p" ] || cat "$p" >/dev/null 2>&1; then
       bad="$p"
@@ -108,6 +108,42 @@ int main(){ return 0; }
 	}
 	if !strings.Contains(result.Message, "/work/secret.out") {
 		t.Fatalf("compile error did not mention missing answer include: %q", result.Message)
+	}
+}
+
+func TestRunContainerTaskCompilerIsNotRoot(t *testing.T) {
+	requireDocker(t)
+	runner := buildRunner(t)
+	work := t.TempDir()
+	writeCase(t, work, "1", "ok\n", "ok\n")
+	source := `#!/bin/sh
+if [ "$1" = compile ]; then
+  [ "$(id -u)" != 0 ] || exit 42
+  cp main.sh program.sh
+  exit
+fi
+cat
+`
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	result, err := RunContainerTask(ctx, ContainerTask{
+		Runner: runner,
+		Work:   work,
+		Task: Task{
+			SubmissionID: 87,
+			Attempt:      1,
+			Source:       source,
+			Lang:         Lang{ID: "sh-compile", Source: "main.sh", Image: "alpine:3.20", Compile: "sh main.sh compile", Run: "sh program.sh run"},
+			Mode:         ModeDefault,
+			Limits:       Limits{TimeMS: 1000, MemoryKB: 64 << 10, OutputKB: 64, Pids: 32, FileKB: 64 << 10},
+			Cases:        []Case{{ID: "1", Input: "1.in", Answer: "1.out", Score: 100}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Verdict != VerdictAccepted {
+		t.Fatalf("compiler was root or compiled program failed: %#v", result)
 	}
 }
 

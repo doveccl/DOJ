@@ -282,7 +282,7 @@ func (api *API) assignmentDoneMap(c echo.Context, ids []uint) (map[uint]int, err
 	return done, nil
 }
 
-func (api *API) assignmentProblems(c echo.Context, assignment models.Assignment, links []models.AssignmentProblem) ([]contract.Problem, error) {
+func (api *API) assignmentProblems(links []models.AssignmentProblem) ([]contract.Problem, error) {
 	if len(links) == 0 {
 		return []contract.Problem{}, nil
 	}
@@ -302,16 +302,9 @@ func (api *API) assignmentProblems(c echo.Context, assignment models.Assignment,
 		if !ok {
 			continue
 		}
-		if !api.assignmentShouldIncludeHiddenProblem(c, assignment) && !api.problemVisibleInList(problem) {
-			continue
-		}
 		item := problemView(problem)
 		item.Sort = link.Sort
 		items = append(items, item)
 	}
 	return items, nil
-}
-
-func (api *API) assignmentShouldIncludeHiddenProblem(c echo.Context, assignment models.Assignment) bool {
-	return api.isAdmin(c) || !assignment.EndAt.Before(time.Now())
 }

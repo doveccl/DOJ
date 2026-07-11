@@ -62,7 +62,7 @@ func (api *API) register(c echo.Context) error {
 
 	nameKey := validate.NameKey(req.Name)
 	var count int64
-	if err := api.db.Model(&models.User{}).Where("LOWER(name) = ? OR LOWER(mail) = ?", nameKey, req.Mail).Count(&count).Error; err != nil {
+	if err := api.db.Unscoped().Model(&models.User{}).Where("LOWER(name) = ? OR LOWER(mail) = ?", nameKey, req.Mail).Count(&count).Error; err != nil {
 		return err
 	}
 	if count > 0 {
@@ -87,7 +87,7 @@ func (api *API) register(c echo.Context) error {
 }
 
 func (api *API) createSession(c echo.Context, user models.User, now time.Time) error {
-	return auth.CreateUserSession(c, user.ID, now)
+	return auth.CreateUserSession(c, user, now)
 }
 
 func (api *API) logout(c echo.Context) error {
@@ -165,7 +165,7 @@ func (api *API) updateMe(c echo.Context) error {
 
 func (api *API) ensureMailAvailable(mail string, currentUserID uint) error {
 	var count int64
-	if err := api.db.Model(&models.User{}).
+	if err := api.db.Unscoped().Model(&models.User{}).
 		Where("LOWER(mail) = ? AND id <> ?", strings.ToLower(mail), currentUserID).
 		Count(&count).Error; err != nil {
 		return err
@@ -184,8 +184,11 @@ func (api *API) updatePassword(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
-	if req.OldPassword == "" || req.NewPassword == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "old and new password are required")
+	if req.OldPassword == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "old password is required")
+	}
+	if !validate.Password(req.NewPassword) {
+		return echo.NewHTTPError(http.StatusBadRequest, "new password must be between 8 and 72 bytes")
 	}
 
 	user, err := api.currentUser(c)
@@ -207,9 +210,8 @@ func (api *API) updatePassword(c echo.Context) error {
 }
 
 func (api *API) currentUser(c echo.Context) (models.User, error) {
-	var user models.User
-
-	user, err := auth.UserFromCookie(api.db, c, time.Now())
+	viewer := api.requestViewer(c)
+	user, err := viewer.user, viewer.err
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return user, echo.NewHTTPError(http.StatusUnauthorized, "sign in required")
@@ -220,14 +222,31 @@ func (api *API) currentUser(c echo.Context) (models.User, error) {
 }
 
 func (api *API) viewerID(c echo.Context) (uint, error) {
-	if api.role(c) == "guest" {
+	viewer := api.requestViewer(c)
+	if viewer.err == gorm.ErrRecordNotFound {
 		return 0, nil
 	}
-	user, err := api.currentUser(c)
-	if err != nil {
-		return 0, err
+	if viewer.err != nil {
+		return 0, viewer.err
 	}
-	return user.ID, nil
+	return viewer.user.ID, nil
+}
+
+type requestViewer struct {
+	user models.User
+	err  error
+}
+
+const requestViewerKey = "doj.public.viewer"
+
+func (api *API) requestViewer(c echo.Context) requestViewer {
+	if viewer, ok := c.Get(requestViewerKey).(requestViewer); ok {
+		return viewer
+	}
+	user, err := auth.UserFromCookie(api.db, c, time.Now())
+	viewer := requestViewer{user: user, err: err}
+	c.Set(requestViewerKey, viewer)
+	return viewer
 }
 
 func meView(user models.User) contract.Me {
@@ -248,8 +267,8 @@ func validateRegister(req contract.RegisterRequest) error {
 	if err := validateMail(req.Mail); err != nil {
 		return err
 	}
-	if len(req.Password) < 8 {
-		return echo.NewHTTPError(http.StatusBadRequest, "password is too short")
+	if !validate.Password(req.Password) {
+		return echo.NewHTTPError(http.StatusBadRequest, "password must be between 8 and 72 bytes")
 	}
 	return nil
 }

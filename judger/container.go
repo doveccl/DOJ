@@ -36,7 +36,7 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error
 	if err != nil {
 		return TaskResult{}, err
 	}
-	if err := os.MkdirAll(work, 0o755); err != nil {
+	if err := privateDir(work); err != nil {
 		return TaskResult{}, err
 	}
 
@@ -58,7 +58,7 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error
 	}
 	if lang.CompileCommand == "" {
 		source := filepath.Join(work, languageSourceDir, lang.SourceName)
-		if err := copyFile(source, filepath.Join(work, lang.SourceName), 0o644); err != nil {
+		if err := copyFile(source, filepath.Join(work, lang.SourceName), 0o600); err != nil {
 			return TaskResult{}, err
 		}
 	}
@@ -74,15 +74,15 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error
 	}
 	defer restoreAssets()
 
-	socketDir := filepath.Join(work, ".rs")
-	if err := os.MkdirAll(socketDir, 0o755); err != nil {
+	socketDir, err := os.MkdirTemp(filepath.Dir(work), ".doj-runner-")
+	if err != nil {
 		return TaskResult{}, err
 	}
 	defer os.RemoveAll(socketDir)
 	socket := filepath.Join(socketDir, "runner.sock")
 	_ = os.Remove(socket)
 	startContainerStartedAt := time.Now()
-	containerID, err := startRunnerContainer(ctx, lang.Image, req.Runner, work, socket, runtimeRoot, skipRuntime)
+	containerID, err := startRunnerContainer(ctx, lang.Image, req.Runner, work, socket, runtimeRoot, skipRuntime, task.Limits)
 	logStep(req.Logf, task.SubmissionID, task.Attempt, "start_runner_container", startContainerStartedAt)
 	if err != nil {
 		return TaskResult{}, err
@@ -110,6 +110,8 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (TaskResult, error
 		return TaskResult{}, err
 	}
 	defer conn.Close()
+	stopClose := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	defer stopClose()
 	codec := NewCodec(conn)
 	client := runnerClient{
 		codec:      codec,

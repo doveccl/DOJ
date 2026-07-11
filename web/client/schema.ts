@@ -307,6 +307,23 @@ export interface paths {
         patch: operations["updateAssignment"];
         trace?: never;
     };
+    "/api/assignments/{id}/description": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Assignment description updated */
+        patch: operations["updateAssignmentDescription"];
+        trace?: never;
+    };
     "/api/auth/login": {
         parameters: {
             query?: never;
@@ -393,6 +410,23 @@ export interface paths {
         head?: never;
         /** Contest updated */
         patch: operations["updateContest"];
+        trace?: never;
+    };
+    "/api/contests/{id}/description": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Contest description updated */
+        patch: operations["updateContestDescription"];
         trace?: never;
     };
     "/api/discussion": {
@@ -1204,6 +1238,7 @@ export interface components {
         };
         AssignmentDetail: {
             assignment: components["schemas"]["Assignment"];
+            description: string;
             problems: components["schemas"]["ProblemListItem"][];
             progress: components["schemas"]["AssignmentProgress"][];
         };
@@ -1295,6 +1330,15 @@ export interface components {
         CommentCreate: {
             content: string;
         };
+        CommentPage: {
+            items: components["schemas"]["Comment"][];
+            /** Format: int64 */
+            page: number;
+            /** Format: int64 */
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
+        };
         Contest: {
             /** Format: date-time */
             endAt: string;
@@ -1320,6 +1364,7 @@ export interface components {
         };
         ContestDetail: {
             contest: components["schemas"]["Contest"];
+            description: string;
             problems: components["schemas"]["ProblemListItem"][];
             rank: components["schemas"]["RankUser"][];
         };
@@ -1348,6 +1393,9 @@ export interface components {
             /** Format: int64 */
             id: number;
         };
+        DescriptionUpdate: {
+            description: string;
+        };
         Discussion: {
             author: string;
             /** Format: date-time */
@@ -1356,6 +1404,8 @@ export interface components {
             id: number;
             locked: boolean;
             pinned: boolean;
+            /** Format: int64 */
+            problemId?: number;
             /** Format: int64 */
             replies: number;
             tags: string[];
@@ -1367,7 +1417,7 @@ export interface components {
             title: string;
         };
         DiscussionDetail: {
-            comments: components["schemas"]["Comment"][];
+            comments: components["schemas"]["CommentPage"];
             content: string;
             discussion: components["schemas"]["Discussion"];
         };
@@ -1532,7 +1582,6 @@ export interface components {
             /** Format: int64 */
             timeMs: number;
             title: string;
-            visible: boolean | null;
         };
         ProblemListItem: {
             /** Format: int64 */
@@ -1592,7 +1641,6 @@ export interface components {
             /** Format: int64 */
             timeMs?: number;
             title?: string;
-            visible?: boolean;
         };
         ProblemVisibilityUpdate: {
             visible: boolean;
@@ -1670,6 +1718,10 @@ export interface components {
             total: number;
         };
         Submission: {
+            /** Format: int64 */
+            assignmentId?: number;
+            /** Format: int64 */
+            contestId?: number;
             /** Format: date-time */
             createdAt: string;
             /** Format: int64 */
@@ -1696,6 +1748,10 @@ export interface components {
             submission: components["schemas"]["Submission"];
         };
         SubmissionListItem: {
+            /** Format: int64 */
+            assignmentId?: number;
+            /** Format: int64 */
+            contestId?: number;
             /** Format: date-time */
             createdAt: string;
             /** Format: int64 */
@@ -1706,6 +1762,8 @@ export interface components {
             /** Format: int64 */
             problemId: number;
             problemTitle: string;
+            /** Format: int64 */
+            score: number;
             status: string;
             /** Format: int64 */
             timeMs?: number;
@@ -1733,7 +1791,11 @@ export interface components {
             public: boolean;
         };
         SubmitRequest: {
+            /** Format: int64 */
+            assignmentId?: number;
             code: string;
+            /** Format: int64 */
+            contestId?: number;
             language: string;
             /** Format: int64 */
             problemId: number;
@@ -2761,6 +2823,41 @@ export interface operations {
             };
         };
     };
+    updateAssignmentDescription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DescriptionUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DescriptionUpdate"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     login: {
         parameters: {
             query?: never;
@@ -3015,6 +3112,41 @@ export interface operations {
             };
         };
     };
+    updateContestDescription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DescriptionUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DescriptionUpdate"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     listDiscussions: {
         parameters: {
             query?: {
@@ -3084,7 +3216,10 @@ export interface operations {
     };
     getDiscussion: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: number;
+                pageSize?: number;
+            };
             header?: never;
             path: {
                 id: number;
@@ -4252,6 +4387,8 @@ export interface operations {
             query?: {
                 problem?: string;
                 user?: string;
+                language?: string;
+                status?: string;
                 assignment?: string;
                 contest?: string;
                 page?: number;

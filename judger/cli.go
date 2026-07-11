@@ -26,19 +26,23 @@ func JudgerCLI(ctx context.Context, args []string) int {
 		judgerUsage(os.Stderr)
 		return 2
 	}
+	root := JudgerRoot
+	if err := privateDir(root); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
 	runner, err := installRunner()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	root := JudgerRoot
 	tasks := filepath.Join(root, "tasks")
 	cache := filepath.Join(root, "cache")
-	if err := os.MkdirAll(tasks, 0o755); err != nil {
+	if err := privateDir(tasks); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	if err := os.MkdirAll(cache, 0o755); err != nil {
+	if err := privateDir(cache); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
@@ -97,26 +101,43 @@ func installRunner() (string, error) {
 	if sameFile(src, target) {
 		return target, nil
 	}
-	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-		return "", err
-	}
-	input, err := os.Open(src)
-	if err != nil {
-		return "", err
-	}
-	defer input.Close()
-	output, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
-	if err != nil {
-		return "", err
-	}
-	if _, err := io.Copy(output, input); err != nil {
-		_ = output.Close()
-		return "", err
-	}
-	if err := output.Close(); err != nil {
+	if err := installRunnerFile(src, target); err != nil {
 		return "", err
 	}
 	return target, nil
+}
+
+func installRunnerFile(src string, target string) error {
+	if err := privateDir(filepath.Dir(target)); err != nil {
+		return err
+	}
+	input, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer input.Close()
+	output, err := os.CreateTemp(filepath.Dir(target), ".doj-")
+	if err != nil {
+		return err
+	}
+	tmp := output.Name()
+	defer os.Remove(tmp)
+	if _, err := io.Copy(output, input); err != nil {
+		_ = output.Close()
+		return err
+	}
+	if err := output.Chmod(0o755); err != nil {
+		_ = output.Close()
+		return err
+	}
+	if err := output.Sync(); err != nil {
+		_ = output.Close()
+		return err
+	}
+	if err := output.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp, target)
 }
 
 func findRunner() (string, error) {

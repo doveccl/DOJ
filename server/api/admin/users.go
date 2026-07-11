@@ -37,7 +37,7 @@ func (api *API) createUser(c echo.Context) error {
 	}
 
 	var count int64
-	if err := api.db.Model(&models.User{}).Where("LOWER(name) = ? OR LOWER(mail) = ?", validate.NameKey(req.Name), req.Mail).Count(&count).Error; err != nil {
+	if err := api.db.Unscoped().Model(&models.User{}).Where("LOWER(name) = ? OR LOWER(mail) = ?", validate.NameKey(req.Name), req.Mail).Count(&count).Error; err != nil {
 		return err
 	}
 	if count > 0 {
@@ -290,8 +290,8 @@ func validateUserCreate(req UserCreate) error {
 	if !validate.Mail(req.Mail, models.MailMax, false) {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid mail")
 	}
-	if len(req.Password) < 8 {
-		return echo.NewHTTPError(http.StatusBadRequest, "password is too short")
+	if !validate.Password(req.Password) {
+		return echo.NewHTTPError(http.StatusBadRequest, "password must be between 8 and 72 bytes")
 	}
 	if req.Role != "admin" && req.Role != "user" {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid role")

@@ -107,5 +107,5 @@ type JudgerUpdate struct {
 }
 
 type JudgerCreate struct {
-	JudgerUpdate
+	Name string `json:"name"`
 }

@@ -38,6 +38,12 @@ func TestServeRunnerUserProgramDoesNotInheritInternalFDs(t *testing.T) {
 	}
 	defer conn.Close()
 	codec := NewCodec(conn)
+	if err := codec.Send(Message{Kind: MsgHello, Hello: &Hello{Role: "judger", Version: Version}}); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := codec.Recv(); err != nil || got.Kind != MsgHello {
+		t.Fatalf("hello = %#v, %v", got, err)
+	}
 	source := `#!/bin/sh
 read ignored
 bad=""

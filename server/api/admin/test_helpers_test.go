@@ -136,13 +136,17 @@ func startRedis(t *testing.T) {
 	t.Setenv("REDIS", "redis://"+server.Addr()+"/0")
 }
 
-func databaseSession(t *testing.T, userID uint) []*http.Cookie {
+func databaseSession(t *testing.T, db *gorm.DB, userID uint) []*http.Cookie {
 	t.Helper()
+	var user models.User
+	if err := db.First(&user, userID).Error; err != nil {
+		t.Fatalf("read session user: %v", err)
+	}
 	e := echo.New()
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	ctx := e.NewContext(req, res)
-	if err := auth.CreateUserSession(ctx, userID, time.Now()); err != nil {
+	if err := auth.CreateUserSession(ctx, user, time.Now()); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
 	return res.Result().Cookies()

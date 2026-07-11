@@ -12,11 +12,6 @@
   background: var(--page-bg);
 }
 
-html,
-body {
-  overflow-x: clip;
-}
-
 :root[data-theme='dark'] {
   --page-bg: var(--ant-color-bg-layout, #000);
   --header-bg: var(--ant-color-bg-container, #141414);
@@ -37,7 +32,7 @@ body {
 }
 
 .appLayout {
-  width: 100vw;
+  width: 100%;
   min-height: 100vh;
   background: var(--page-bg);
 }
@@ -50,7 +45,21 @@ body {
   padding: 0 28px;
   background: var(--header-bg);
   border-bottom: 1px solid var(--header-border);
-  backdrop-filter: blur(12px);
+}
+
+.skipLink {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--header-bg);
+  transform: translateY(-150%);
+}
+
+.skipLink:focus {
+  transform: none;
 }
 
 .appHeaderInner {

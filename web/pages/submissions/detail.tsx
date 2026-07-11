@@ -1,14 +1,14 @@
 import { ReloadOutlined } from '@ant-design/icons'
-import { App as AntApp, BorderBeam, Button, Card, Col, Flex, Popconfirm, Progress, Row, Space, Spin, Switch, Table, Typography } from 'antd'
+import { Alert, App as AntApp, BorderBeam, Button, Card, Col, Flex, Popconfirm, Progress, Row, Space, Spin, Switch, Table, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 
 import { api, apiData } from '../../client'
 import type { Case, SubmissionDetail } from '../../client'
+import { CodeEditor } from '../../components/code'
 import { ProblemLink, UserLink } from '../../components/entity'
-import { MarkdownPreview } from '../../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
 import { SubmissionStatus } from '../../components/status'
 import { useLocale } from '../../locale'
@@ -26,8 +26,7 @@ export function SubmissionDetailPage() {
   const query = useQuery({
     queryKey: ['submission', id],
     queryFn: () => apiData(api.GET('/api/submissions/{id}', { params: { path: { id } } })),
-    enabled: Number.isFinite(id),
-    refetchInterval: (query) => (isLiveSubmissionStatus(query.state.data?.submission.status) ? 3000 : false)
+    enabled: Number.isFinite(id)
   })
   const languages = useQuery({ queryKey: ['languages'], queryFn: () => apiData(api.GET('/api/languages')) })
   const updatePublic = useMutation({
@@ -107,12 +106,16 @@ export function SubmissionDetailPage() {
             >
               <Flex vertical gap={24}>
                 {judging ? <JudgeProgressPanel status={submission.status} progress={query.data.progress} /> : null}
-                {submission.message ? (
-                  <div className="submissionMessagePreview">
-                    <MarkdownPreview value={codeMarkdown(submission.message, 'text')} />
-                  </div>
-                ) : null}
-                <Table<Case> rowKey="no" columns={caseColumns(text)} dataSource={cases} pagination={false} size="small" scroll={{ x: 620 }} />
+                {submission.status === 'pending' ? (
+                  <Alert type="info" showIcon title={text.submissions.resultHidden} />
+                ) : (
+                  <>
+                    {submission.message ? (
+                      <pre className="submissionMessagePreview">{submission.message}</pre>
+                    ) : null}
+                    <Table<Case> rowKey="no" columns={caseColumns(text)} dataSource={cases} pagination={false} size="small" scroll={{ x: 620 }} />
+                  </>
+                )}
               </Flex>
             </Card>
           </ResultCard>
@@ -121,8 +124,15 @@ export function SubmissionDetailPage() {
           <Card>
             <Flex vertical gap={12}>
               <Meta label={text.submissions.problem}>
-                <ProblemLink id={submission.problemId} title={submission.problemTitle} maxWidth={220} />
+                <ProblemLink
+                  id={submission.problemId}
+                  title={submission.problemTitle}
+                  search={submission.assignmentId ? `?assignment=${submission.assignmentId}` : submission.contestId ? `?contest=${submission.contestId}` : ''}
+                  maxWidth={220}
+                />
               </Meta>
+              {submission.assignmentId ? <Meta label={text.assignments.title}><Link to={`/assignments/${submission.assignmentId}`}>#{submission.assignmentId}</Link></Meta> : null}
+              {submission.contestId ? <Meta label={text.contests.title}><Link to={`/contests/${submission.contestId}`}>#{submission.contestId}</Link></Meta> : null}
               <Meta label={text.submissions.user}>
                 <UserLink name={submission.user} />
               </Meta>
@@ -132,26 +142,24 @@ export function SubmissionDetailPage() {
           </Card>
         </Col>
       </Row>
-      {code.trim() ? (
-        <Card
-          title={text.submissions.source}
-          extra={
-            canUpdatePublic ? (
-              <Space size={8}>
-                <Typography.Text type="secondary">{text.problem.publicSource}</Typography.Text>
-                <Switch
-                  checked={submission.public}
-                  loading={updatePublic.isPending}
-                  disabled={updatePublic.isPending}
-                  onChange={(checked) => updatePublic.mutate(checked)}
-                />
-              </Space>
-            ) : null
-          }
-        >
-          <SourceBlock code={code} language={submission.language} />
-        </Card>
-      ) : null}
+      <Card
+        title={text.submissions.source}
+        extra={
+          canUpdatePublic ? (
+            <Space size={8}>
+              <Typography.Text type="secondary">{text.problem.publicSource}</Typography.Text>
+              <Switch
+                checked={submission.public}
+                loading={updatePublic.isPending}
+                disabled={updatePublic.isPending}
+                onChange={(checked) => updatePublic.mutate(checked)}
+              />
+            </Space>
+          ) : null
+        }
+      >
+        {code.trim() ? <CodeEditor value={code} language={submission.language} readOnly /> : <Alert type="info" showIcon title={text.submissions.sourceHidden} />}
+      </Card>
     </Flex>
   )
 }
@@ -211,36 +219,6 @@ function clampPercent(done: number, total: number) {
     return 0
   }
   return Math.max(0, Math.min(99, Math.floor((done / total) * 100)))
-}
-
-function codeMarkdown(source: string, syntax: string) {
-  return `\`\`\`${fenceLanguage(syntax)}\n${source.replaceAll('```', '`\\`\\`')}\n\`\`\``
-}
-
-const maxHighlightedLineLength = 20000
-
-function SourceBlock({ code, language }: { code: string; language: string }) {
-  if (!hasLongLine(code, maxHighlightedLineLength)) {
-    return <MarkdownPreview value={codeMarkdown(code, language)} />
-  }
-  return <pre className="sourceCodeBlock"><code>{code}</code></pre>
-}
-
-function hasLongLine(value: string, max: number) {
-  let line = 0
-  for (const char of value) {
-    if (char === '\n') {
-      line = 0
-    } else if (++line > max) {
-      return true
-    }
-  }
-  return false
-}
-
-function fenceLanguage(syntax: string) {
-  const first = syntax.trim().split(/[\s,;|]+/)[0] ?? ''
-  return first.replace(/[^a-zA-Z0-9_+#.-]/g, '')
 }
 
 function Meta({ label, children }: { label: string; children: ReactNode }) {

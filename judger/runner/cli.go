@@ -9,9 +9,11 @@ import (
 	"os"
 	"strconv"
 	"time"
+
+	common "github.com/doveccl/doj/contract/judger"
 )
 
-const Version = "v4"
+const Version = common.Version
 
 const (
 	runnerUID = 20001

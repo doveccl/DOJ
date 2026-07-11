@@ -49,7 +49,7 @@ func ServeRunner(ctx context.Context, req RunnerServe) error {
 	if err != nil {
 		return err
 	}
-	if err := os.Chmod(req.Socket, 0o666); err != nil {
+	if err := os.Chmod(req.Socket, 0o600); err != nil {
 		_ = listener.Close()
 		return err
 	}
@@ -66,23 +66,18 @@ func ServeRunner(ctx context.Context, req RunnerServe) error {
 	}()
 	defer close(done)
 
-	var wg sync.WaitGroup
-	defer wg.Wait()
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			if errors.Is(err, net.ErrClosed) || ctx.Err() != nil {
-				return ctx.Err()
-			}
-			return err
+	conn, err := listener.Accept()
+	if err != nil {
+		if errors.Is(err, net.ErrClosed) || ctx.Err() != nil {
+			return ctx.Err()
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			defer conn.Close()
-			handleRunnerConn(ctx, conn, req)
-		}()
+		return err
 	}
+	defer conn.Close()
+	stopClose := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	defer stopClose()
+	handleRunnerConn(ctx, conn, req)
+	return ctx.Err()
 }
 
 func handleRunnerConn(ctx context.Context, conn net.Conn, req RunnerServe) {
@@ -100,6 +95,7 @@ func handleRunnerConn(ctx context.Context, conn net.Conn, req RunnerServe) {
 	commands := map[string]string{}
 	pending := map[string]chan struct{}{}
 	var pendingMu sync.Mutex
+	hello := false
 	for {
 		msg, err := codec.Recv()
 		if err != nil {
@@ -107,8 +103,17 @@ func handleRunnerConn(ctx context.Context, conn net.Conn, req RunnerServe) {
 		}
 		switch msg.Kind {
 		case MsgHello:
+			if hello || msg.Hello == nil || msg.Hello.Role != "judger" || msg.Hello.Version != Version {
+				_ = codec.Send(Message{Kind: MsgError, Error: "invalid judger hello"})
+				return
+			}
+			hello = true
 			_ = codec.Send(Message{Kind: MsgHello, Hello: &Hello{Role: "runner", Version: Version}})
 		case MsgCompile:
+			if !hello {
+				_ = codec.Send(Message{Kind: MsgError, Error: "judger hello required"})
+				return
+			}
 			if msg.Compile == nil {
 				_ = codec.Send(Message{Kind: MsgError, Error: "compile request is empty"})
 				continue
@@ -117,7 +122,7 @@ func handleRunnerConn(ctx context.Context, conn net.Conn, req RunnerServe) {
 				_ = codec.Send(Message{Kind: MsgError, Error: "user command is required"})
 				continue
 			}
-			result, err := compileUserProgram(ctx, req.Work, *msg.Compile)
+			result, err := compileUserProgram(ctx, req.Work, req.Runner, req.UserIdentity, *msg.Compile)
 			if err != nil {
 				_ = codec.Send(Message{Kind: MsgError, Error: err.Error()})
 				continue
@@ -125,6 +130,10 @@ func handleRunnerConn(ctx context.Context, conn net.Conn, req RunnerServe) {
 			commands[msg.Compile.TaskID] = msg.Compile.UserCommand
 			_ = codec.Send(Message{Kind: MsgCompileResult, CompileResult: &result})
 		case MsgRunCase:
+			if !hello {
+				_ = codec.Send(Message{Kind: MsgError, Error: "judger hello required"})
+				return
+			}
 			if msg.RunCase == nil {
 				_ = codec.Send(Message{Kind: MsgError, Error: "run_case request is empty"})
 				continue
@@ -182,6 +191,10 @@ func handleRunnerConn(ctx context.Context, conn net.Conn, req RunnerServe) {
 				_ = codec.Send(Message{Kind: MsgCaseResult, CaseResult: &result})
 			}(*msg.RunCase, userCommand, key, release)
 		case MsgReleaseUser:
+			if !hello {
+				_ = codec.Send(Message{Kind: MsgError, Error: "judger hello required"})
+				return
+			}
 			if msg.ReleaseUser == nil {
 				_ = codec.Send(Message{Kind: MsgError, Error: "release_user request is empty"})
 				continue

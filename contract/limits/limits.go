@@ -13,9 +13,19 @@ const (
 )
 
 const (
-	MaxMarkdownBytes        = 2 << 20
-	MaxSourceBytes          = 1 << 20
-	MaxShortTextBytes       = 256 << 10
-	MaxLanguageCommandBytes = 128 << 10
-	MaxJudgerMessageBytes   = 256 << 10
+	MaxMarkdownBytes          = 2 << 20
+	MaxSourceBytes            = 1 << 20
+	MaxShortTextBytes         = 256 << 10
+	MaxLanguageCommandBytes   = 128 << 10
+	MaxJudgerMessageBytes     = 256 << 10
+	MaxCaseMessageRunes       = 1024
+	MaxProblemTimeMS          = 60_000
+	MaxProblemMemoryMB        = 4096
+	MaxOutstandingSubmissions = 5
+	MaxJudgerCases            = 10_000
+	MaxJudgerLeaseBytes       = 32 << 20
+	MaxJudgerOutputKB         = 64 << 10
+	MaxJudgerPids             = 256
+	MaxJudgerFileKB           = 1 << 20
+	MaxPasswordBytes          = 72
 )

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"time"
 )
 
@@ -126,7 +125,7 @@ func (client runnerClient) hello() error {
 	if err != nil {
 		return err
 	}
-	if msg.Kind != MsgHello {
+	if msg.Kind != MsgHello || msg.Hello == nil || msg.Hello.Role != "runner" || msg.Hello.Version != Version {
 		return fmt.Errorf("runner hello got %s", msg.Kind)
 	}
 	return nil
@@ -154,7 +153,7 @@ func (client runnerClient) compile(task Task, compileCommand string, userCommand
 	return *msg.CompileResult, nil
 }
 
-func (client runnerClient) runCase(ctx context.Context, req RunCaseRequest) (CaseResult, error) {
+func (client runnerClient) runCase(ctx context.Context, req RunCaseRequest) (result CaseResult, err error) {
 	startedAt := time.Now()
 	if err := client.codec.Send(Message{Kind: MsgRunCase, RunCase: &req}); err != nil {
 		return CaseResult{}, err
@@ -164,7 +163,9 @@ func (client runnerClient) runCase(ctx context.Context, req RunCaseRequest) (Cas
 	defer func() {
 		stopCgroupWatch()
 		if cgroup != nil {
-			_ = cgroup.Cleanup()
+			if cleanupErr := cgroup.Cleanup(); cleanupErr != nil && err == nil {
+				err = fmt.Errorf("cleanup user cgroup: %w", cleanupErr)
+			}
 		}
 	}()
 	for {
@@ -180,13 +181,10 @@ func (client runnerClient) runCase(ctx context.Context, req RunCaseRequest) (Cas
 			if cgroup == nil && client.cgroupRoot != "" {
 				cg, err := client.prepareUserCgroup(msg.UserPID)
 				if err != nil {
-					if !errors.Is(err, os.ErrNotExist) {
-						return CaseResult{}, err
-					}
-				} else {
-					cgroup = cg
-					stopCgroupWatch = watchCgroupMemoryLimit(cgroup)
+					return CaseResult{}, err
 				}
+				cgroup = cg
+				stopCgroupWatch = watchCgroupMemoryLimit(cgroup)
 			}
 			if err := client.codec.Send(Message{Kind: MsgReleaseUser, ReleaseUser: &ReleaseUser{
 				TaskID: msg.UserPID.TaskID,

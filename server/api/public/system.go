@@ -45,6 +45,11 @@ func (api *API) events(c echo.Context) error {
 	if !ok {
 		return echo.NewHTTPError(http.StatusInternalServerError, "streaming is not supported")
 	}
+	release, ok := api.acquireEventConnection(c)
+	if !ok {
+		return echo.NewHTTPError(http.StatusTooManyRequests, "too many event connections")
+	}
+	defer release()
 
 	response := c.Response()
 	response.Header().Set(echo.HeaderContentType, "text/event-stream")
@@ -82,6 +87,45 @@ func (api *API) events(c echo.Context) error {
 			flusher.Flush()
 		}
 	}
+}
+
+func (api *API) acquireEventConnection(c echo.Context) (func(), bool) {
+	identity, limit := api.eventConnectionIdentity(c)
+
+	api.eventMu.Lock()
+	defer api.eventMu.Unlock()
+	if api.eventTotal >= maxEventConnections || api.eventByIdentity[identity] >= limit {
+		return nil, false
+	}
+	if api.eventByIdentity == nil {
+		api.eventByIdentity = map[string]int{}
+	}
+	api.eventTotal++
+	api.eventByIdentity[identity]++
+	return func() {
+		api.eventMu.Lock()
+		defer api.eventMu.Unlock()
+		api.eventTotal--
+		api.eventByIdentity[identity]--
+		if api.eventByIdentity[identity] == 0 {
+			delete(api.eventByIdentity, identity)
+		}
+	}, true
+}
+
+func (api *API) eventConnectionIdentity(c echo.Context) (string, int) {
+	viewer := api.requestViewer(c)
+	if viewer.err == nil && viewer.user.ID > 0 {
+		return "user:" + strconv.FormatUint(uint64(viewer.user.ID), 10), maxUserEventConnections
+	}
+	address := strings.TrimSpace(c.RealIP())
+	if address == "" {
+		address = requestHostname(c.Request().RemoteAddr)
+	}
+	if address == "" {
+		address = "unknown"
+	}
+	return "ip:" + address, maxGuestEventConnections
 }
 
 func writeSSE(writer io.Writer, event string, data []byte) error {
@@ -149,10 +193,35 @@ func (api *API) uploadImage(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	objects, err := store.List(c.Request().Context(), path.Join("users", strconv.Itoa(int(user.ID)))+"/")
+	if err != nil {
+		return err
+	}
+	if !userUploadWithinQuota(objects, key, int64(len(data))) {
+		return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "user upload quota exceeded")
+	}
 	if err := store.Put(c.Request().Context(), key, bytes.NewReader(data), int64(len(data)), mime); err != nil {
 		return err
 	}
 	return c.JSON(http.StatusCreated, contract.UploadResult{URL: "/" + path.Join("api", key)})
+}
+
+const maxUserUploadBytes = 256 << 20
+
+func userUploadWithinQuota(objects []storage.Info, key string, size int64) bool {
+	if size < 0 || size > maxUserUploadBytes {
+		return false
+	}
+	total := size
+	for _, object := range objects {
+		if object.Key != key {
+			if object.Size < 0 || object.Size > maxUserUploadBytes-total {
+				return false
+			}
+			total += object.Size
+		}
+	}
+	return true
 }
 
 func readUploadedImage(file *multipart.FileHeader) ([]byte, string, string, string, error) {
@@ -203,10 +272,10 @@ func (api *API) userMedia(c echo.Context) error {
 	if !userUploadKeyAllowed(key) {
 		return echo.NewHTTPError(http.StatusNotFound, "media not found")
 	}
-	return streamMedia(c, key, "media not found")
+	return streamMedia(c, key, "media not found", true)
 }
 
-func streamMedia(c echo.Context, key string, notFound string) error {
+func streamMedia(c echo.Context, key string, notFound string, immutable bool) error {
 	if !sameSiteMediaRequest(c) {
 		return echo.NewHTTPError(http.StatusForbidden, "media hotlink is not allowed")
 	}
@@ -219,7 +288,11 @@ func streamMedia(c echo.Context, key string, notFound string) error {
 		return echo.NewHTTPError(http.StatusNotFound, notFound)
 	}
 	defer reader.Close()
-	c.Response().Header().Set(echo.HeaderCacheControl, "public, max-age=31536000, immutable")
+	cacheControl := "private, no-store"
+	if immutable {
+		cacheControl = "public, max-age=31536000, immutable"
+	}
+	c.Response().Header().Set(echo.HeaderCacheControl, cacheControl)
 	c.Response().Header().Set(echo.HeaderXContentTypeOptions, "nosniff")
 	return c.Stream(http.StatusOK, contentType, reader)
 }

@@ -2,27 +2,29 @@ package public
 
 import (
 	"encoding/json"
-	"github.com/doveccl/doj/contract/limits"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/doveccl/doj/contract/limits"
 	contract "github.com/doveccl/doj/contract/web"
-
 	"github.com/doveccl/doj/models"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
 
 func (api *API) discussions(c echo.Context) error {
-
 	page, pageSize, offset, err := parsePage(c)
 	if err != nil {
 		return err
 	}
 	var rows []models.Discussion
 	query := api.db.Model(&models.Discussion{})
+	query, err = api.applyDiscussionVisibility(c, query)
+	if err != nil {
+		return err
+	}
 	if q := strings.TrimSpace(c.QueryParam("q")); q != "" {
 		like := "%" + q + "%"
 		query = query.Where("LOWER(title) LIKE LOWER(?) OR LOWER(content) LIKE LOWER(?) OR LOWER(CAST(tags AS TEXT)) LIKE LOWER(?)", like, like, like)
@@ -36,7 +38,7 @@ func (api *API) discussions(c echo.Context) error {
 		return err
 	}
 	if err := query.Session(&gorm.Session{}).
-		Select("id", "title", "user_id", "tags", "pinned", "locked", "created_at").
+		Select("id", "problem_id", "title", "user_id", "tags", "pinned", "locked", "created_at").
 		Order("pinned desc, updated_at desc").
 		Limit(pageSize).
 		Offset(offset).
@@ -88,12 +90,22 @@ func (api *API) createDiscussion(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	problemID, err := discussionProblemID(req.Tags)
+	if err != nil {
+		return err
+	}
+	if problemID != nil {
+		if err := api.requireDiscussionProblem(c, problemID); err != nil {
+			return err
+		}
+	}
 	rawTags, _ := json.Marshal(req.Tags)
 	row := models.Discussion{
-		Title:   req.Title,
-		Content: req.Content,
-		UserID:  user.ID,
-		Tags:    rawTags,
+		ProblemID: problemID,
+		Title:     req.Title,
+		Content:   req.Content,
+		UserID:    user.ID,
+		Tags:      rawTags,
 	}
 	if err := api.db.Create(&row).Error; err != nil {
 		return err
@@ -106,16 +118,27 @@ func (api *API) discussion(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid discussion id")
 	}
+	page, pageSize, offset, err := parsePage(c)
+	if err != nil {
+		return err
+	}
 
-	var row models.Discussion
-	if err := api.db.First(&row, id).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return echo.NewHTTPError(http.StatusNotFound, "discussion not found")
-		}
+	row, err := api.discussionByID(c, uint(id))
+	if err != nil {
+		return err
+	}
+	commentsQuery := api.db.Unscoped().Model(&models.Comment{}).Where("discussion_id = ?", row.ID)
+	var total int64
+	if err := commentsQuery.Session(&gorm.Session{}).Count(&total).Error; err != nil {
 		return err
 	}
 	var comments []models.Comment
-	if err := api.db.Unscoped().Select("id", "user_id", "content", "created_at", "deleted_at").Where("discussion_id = ?", row.ID).Order("created_at asc").Find(&comments).Error; err != nil {
+	if err := commentsQuery.Session(&gorm.Session{}).
+		Select("id", "user_id", "content", "created_at", "deleted_at").
+		Order("created_at asc, id asc").
+		Limit(pageSize).
+		Offset(offset).
+		Find(&comments).Error; err != nil {
 		return err
 	}
 	authorIDs := []uint{row.UserID}
@@ -127,13 +150,10 @@ func (api *API) discussion(c echo.Context) error {
 		return err
 	}
 	items := make([]contract.Comment, 0, len(comments))
-	replies := 0
 	for _, item := range comments {
 		deleted := item.DeletedAt.Valid
 		content := item.Content
-		if !deleted {
-			replies++
-		} else {
+		if deleted {
 			content = ""
 		}
 		items = append(items, contract.Comment{
@@ -144,20 +164,25 @@ func (api *API) discussion(c echo.Context) error {
 			CreatedAt: item.CreatedAt,
 		})
 	}
+	replies, err := api.discussionReplyCounts([]uint{row.ID})
+	if err != nil {
+		return err
+	}
 	item := contract.Discussion{
 		ID:        row.ID,
+		ProblemID: row.ProblemID,
 		Title:     row.Title,
 		Author:    authorName(row.UserID, authors),
 		Tags:      readTags([]byte(row.Tags)),
 		Pinned:    row.Pinned,
 		Locked:    row.Locked,
-		Replies:   replies,
+		Replies:   replies[row.ID],
 		CreatedAt: row.CreatedAt,
 	}
 	return c.JSON(http.StatusOK, contract.DiscussionDetail{
 		Discussion: item,
 		Content:    row.Content,
-		Comments:   items,
+		Comments:   contract.Page[contract.Comment]{Items: items, Page: page, PageSize: pageSize, Total: total},
 	})
 }
 
@@ -177,11 +202,8 @@ func (api *API) updateDiscussion(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "no fields to update")
 	}
 
-	var row models.Discussion
-	if err := api.db.First(&row, id).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return echo.NewHTTPError(http.StatusNotFound, "discussion not found")
-		}
+	row, err := api.discussionByID(c, id)
+	if err != nil {
 		return err
 	}
 	if req.Title != nil {
@@ -205,8 +227,17 @@ func (api *API) updateDiscussion(c echo.Context) error {
 		row.Content = content
 	}
 	if req.Tags != nil {
-		rawTags, _ := json.Marshal(normalizeTags(*req.Tags))
+		tags := normalizeTags(*req.Tags)
+		problemID, err := discussionProblemID(tags)
+		if err != nil {
+			return err
+		}
+		if err := api.requireDiscussionProblem(c, problemID); err != nil {
+			return err
+		}
+		rawTags, _ := json.Marshal(tags)
 		row.Tags = rawTags
+		row.ProblemID = problemID
 	}
 	if req.Pinned != nil {
 		row.Pinned = *req.Pinned
@@ -230,11 +261,8 @@ func (api *API) deleteDiscussion(c echo.Context) error {
 		return err
 	}
 
-	var row models.Discussion
-	if err := api.db.First(&row, id).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return echo.NewHTTPError(http.StatusNotFound, "discussion not found")
-		}
+	row, err := api.discussionByID(c, id)
+	if err != nil {
 		return err
 	}
 	if !user.Admin && row.UserID != user.ID {
@@ -270,11 +298,8 @@ func (api *API) createComment(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	var discussion models.Discussion
-	if err := api.db.First(&discussion, id).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return echo.NewHTTPError(http.StatusNotFound, "discussion not found")
-		}
+	discussion, err := api.discussionByID(c, uint(id))
+	if err != nil {
 		return err
 	}
 	if discussion.Locked {
@@ -300,6 +325,9 @@ func (api *API) deleteComment(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	if _, err := api.discussionByID(c, discussionID); err != nil {
+		return err
+	}
 	var comment models.Comment
 	if err := api.db.First(&comment, "id = ? AND discussion_id = ?", commentID, discussionID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -319,6 +347,7 @@ func (api *API) deleteComment(c echo.Context) error {
 func discussionViewFromRefs(row models.Discussion, authors map[uint]string, replies map[uint]int) contract.Discussion {
 	return contract.Discussion{
 		ID:        row.ID,
+		ProblemID: row.ProblemID,
 		Title:     row.Title,
 		Author:    authorName(row.UserID, authors),
 		Tags:      readTags([]byte(row.Tags)),
@@ -327,6 +356,120 @@ func discussionViewFromRefs(row models.Discussion, authors map[uint]string, repl
 		Replies:   replies[row.ID],
 		CreatedAt: row.CreatedAt,
 	}
+}
+
+func (api *API) applyDiscussionVisibility(c echo.Context, query *gorm.DB) (*gorm.DB, error) {
+	clause, args, err := api.discussionVisibility(c)
+	if err != nil {
+		return nil, err
+	}
+	return query.Where(clause, args...), nil
+}
+
+func (api *API) discussionVisibility(c echo.Context) (string, []any, error) {
+	if api.isAdmin(c) {
+		return `discussions.problem_id IS NULL OR EXISTS (
+			SELECT 1 FROM problems
+			WHERE problems.id = discussions.problem_id AND problems.deleted_at IS NULL
+		)`, nil, nil
+	}
+	viewerID, err := api.viewerID(c)
+	if err != nil {
+		return "", nil, err
+	}
+	now := time.Now()
+	clause := `discussions.problem_id IS NULL OR EXISTS (
+		SELECT 1 FROM problems
+		WHERE problems.id = discussions.problem_id
+			AND problems.deleted_at IS NULL
+			AND NOT EXISTS (
+				SELECT 1 FROM contest_problems
+				JOIN contests ON contests.id = contest_problems.contest_id
+				WHERE contest_problems.problem_id = problems.id
+					AND contests.deleted_at IS NULL
+					AND contests.end_at > ?
+			)
+			AND (
+				problems.visible = ?
+				OR EXISTS (
+					SELECT 1 FROM contest_problems ended_links
+					JOIN contests ended_contests ON ended_contests.id = ended_links.contest_id
+					WHERE ended_links.problem_id = problems.id
+						AND ended_contests.deleted_at IS NULL
+						AND ended_contests.end_at <= ?
+				)
+				OR (? <> 0 AND EXISTS (
+					SELECT 1 FROM assignment_problems
+					JOIN assignments ON assignments.id = assignment_problems.assignment_id
+					WHERE assignment_problems.problem_id = problems.id
+						AND assignments.deleted_at IS NULL
+						AND (
+							EXISTS (SELECT 1 FROM assignment_users WHERE assignment_users.assignment_id = assignments.id AND assignment_users.user_id = ?)
+							OR EXISTS (
+								SELECT 1 FROM assignment_groups
+								JOIN group_users ON group_users.group_id = assignment_groups.group_id
+								WHERE assignment_groups.assignment_id = assignments.id AND group_users.user_id = ?
+							)
+						)
+				))
+			)
+	)`
+	return clause, []any{now, true, now, viewerID, viewerID, viewerID}, nil
+}
+
+func (api *API) discussionByID(c echo.Context, id uint) (models.Discussion, error) {
+	query, err := api.applyDiscussionVisibility(c, api.db.Model(&models.Discussion{}))
+	if err != nil {
+		return models.Discussion{}, err
+	}
+	var row models.Discussion
+	if err := query.First(&row, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return row, echo.NewHTTPError(http.StatusNotFound, "discussion not found")
+		}
+		return row, err
+	}
+	return row, nil
+}
+
+func (api *API) requireDiscussionProblem(c echo.Context, problemID *uint) error {
+	if problemID == nil {
+		return nil
+	}
+	if !api.isAdmin(c) {
+		if api.problemInUnfinishedContest(*problemID) {
+			return echo.NewHTTPError(http.StatusNotFound, "problem not found")
+		}
+		return api.requireProblemVisible(c, *problemID)
+	}
+	var count int64
+	if err := api.db.Model(&models.Problem{}).Where("id = ?", *problemID).Count(&count).Error; err != nil {
+		return err
+	}
+	if count == 0 {
+		return echo.NewHTTPError(http.StatusNotFound, "problem not found")
+	}
+	return nil
+}
+
+func discussionProblemID(tags []string) (*uint, error) {
+	var problemID *uint
+	for _, tag := range tags {
+		upper := strings.ToUpper(strings.TrimSpace(tag))
+		if !strings.HasPrefix(upper, "P") {
+			continue
+		}
+		id, err := strconv.ParseUint(strings.TrimPrefix(upper, "P"), 10, 64)
+		if err != nil || id == 0 {
+			continue
+		}
+		value := uint(id)
+		if problemID != nil && *problemID != value {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "discussion can reference only one problem")
+		}
+		problemID = &value
+	}
+	return problemID, nil
 }
 
 func (api *API) discussionReplyCounts(ids []uint) (map[uint]int, error) {
@@ -350,76 +493,4 @@ func (api *API) discussionReplyCounts(ids []uint) (map[uint]int, error) {
 		counts[row.DiscussionID] = int(row.Count)
 	}
 	return counts, nil
-}
-
-func discussionProblemIDs(item contract.Discussion) []uint {
-	ids := []uint{}
-	for _, tag := range item.Tags {
-		upper := strings.ToUpper(strings.TrimSpace(tag))
-		if !strings.HasPrefix(upper, "P") {
-			continue
-		}
-		id, err := strconv.ParseUint(strings.TrimPrefix(upper, "P"), 10, 64)
-		if err == nil {
-			ids = append(ids, uint(id))
-		}
-	}
-	return ids
-}
-
-func baseDiscussionDetails(now time.Time) []contract.DiscussionDetail {
-	return []contract.DiscussionDetail{
-		{
-			Discussion: contract.Discussion{ID: 1, Title: "A+B Problem 有哪些边界情况？", Author: "admin", Tags: []string{"P1000", "beginner"}, Pinned: true, CreatedAt: now.Add(-3 * time.Hour)},
-			Content:    "这题主要覆盖输入输出链路，也用来做第一批评测 smoke。\n\n```cpp\nlong long a, b;\ncin >> a >> b;\ncout << a + b << '\\n';\n```",
-			Comments: []contract.Comment{
-				{ID: 1, Author: "student", Content: "需要考虑负数吗？", CreatedAt: now.Add(-2 * time.Hour)},
-				{ID: 2, Author: "admin", Content: "需要，数据范围会包含负数。", CreatedAt: now.Add(-90 * time.Minute)},
-			},
-		},
-		{
-			Discussion: contract.Discussion{ID: 2, Title: "Limits Hash 的数据范围讨论", Author: "student", Tags: []string{"P1001"}, CreatedAt: now.Add(-24 * time.Hour)},
-			Content:    "这题重点是哈希边界和时间限制，建议先用朴素实现确认结果，再优化。",
-			Comments: []contract.Comment{
-				{ID: 3, Author: "student", Content: "严格模式下空格不一致会怎样？", CreatedAt: now.Add(-22 * time.Hour)},
-			},
-		},
-		{
-			Discussion: contract.Discussion{ID: 3, Title: "交互题提交时需要注意什么？", Author: "admin", Tags: []string{"P1002", "interactive"}, Locked: true, CreatedAt: now.Add(-48 * time.Hour)},
-			Content:    "交互题会使用同一套 JudgeProgram/UserProgram pipe 模型。提交时要及时 flush 输出。",
-			Comments:   []contract.Comment{},
-		},
-	}
-}
-
-func updatedDiscussion(item contract.DiscussionDetail, req contract.DiscussionUpdate) contract.DiscussionDetail {
-	if req.Title != nil {
-		item.Discussion.Title = *req.Title
-	}
-	if req.Tags != nil {
-		item.Discussion.Tags = *req.Tags
-	}
-	if req.Pinned != nil {
-		item.Discussion.Pinned = *req.Pinned
-	}
-	if req.Locked != nil {
-		item.Discussion.Locked = *req.Locked
-	}
-	if req.Content != nil {
-		item.Content = *req.Content
-	}
-	return item
-}
-
-func filterDiscussions(items []contract.Discussion, tag string) []contract.Discussion {
-	if tag == "" {
-		return items
-	}
-	filtered := make([]contract.Discussion, 0, len(items))
-	for _, item := range items {
-		if hasTag(item.Tags, tag) {
-			filtered = append(filtered, item)
-		}
-	}
-	return filtered
 }

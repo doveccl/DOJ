@@ -10,7 +10,9 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -23,6 +25,24 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
+
+func writeReadyProblemFiles(t *testing.T, root string, id uint, title string) {
+	t.Helper()
+	base := filepath.Join(root, "problems", strconv.FormatUint(uint64(id), 10))
+	for name, content := range map[string]string{
+		"statement.md": "# " + title + "\n\nReady for judging.",
+		"data/1.in":    "1 2\n",
+		"data/1.out":   "3\n",
+	} {
+		file := filepath.Join(base, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(file, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
 
 func readZipFile(file *zip.File) ([]byte, error) {
 	reader, err := file.Open()
@@ -217,11 +237,14 @@ func startRedis(t *testing.T) {
 
 func databaseSession(t *testing.T, db *gorm.DB, userID uint) []*http.Cookie {
 	t.Helper()
-	_ = db
+	var user models.User
+	if err := db.First(&user, userID).Error; err != nil {
+		t.Fatalf("read session user: %v", err)
+	}
 	e := echo.New()
 	res := httptest.NewRecorder()
 	ctx := e.NewContext(httptest.NewRequest(http.MethodGet, "/", nil), res)
-	if err := auth.CreateUserSession(ctx, userID, time.Now()); err != nil {
+	if err := auth.CreateUserSession(ctx, user, time.Now()); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
 	return res.Result().Cookies()

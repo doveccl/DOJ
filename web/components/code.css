@@ -1,3 +1,8 @@
+.codeEditor {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .codeEditor .cm-editor {
   width: 100%;
   overflow: hidden;

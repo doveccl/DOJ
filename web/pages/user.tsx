@@ -188,13 +188,16 @@ function AccountPane({ me, saving, onSave }: { me: Me; saving: boolean; onSave: 
 
 function PasswordPane({ onSaved }: { onSaved: () => void }) {
   const { text } = useLocale()
+  const session = useSession()
   const { message } = AntApp.useApp()
-  const [form] = Form.useForm<PasswordUpdate>()
+  const [form] = Form.useForm<PasswordUpdate & { confirmPassword: string }>()
   const password = useMutation({
-    mutationFn: (body: PasswordUpdate) => apiEmpty(api.PATCH('/api/me/password', { body })),
-    onSuccess: () => {
+    mutationFn: ({ oldPassword, newPassword }: PasswordUpdate & { confirmPassword: string }) =>
+      apiEmpty(api.PATCH('/api/me/password', { body: { oldPassword, newPassword } })),
+    onSuccess: async () => {
       form.resetFields()
-      message.success(text.common.saved)
+      await session.refresh()
+      message.success(text.profile.passwordChanged)
       onSaved()
     },
     onError: (error) => {
@@ -203,12 +206,34 @@ function PasswordPane({ onSaved }: { onSaved: () => void }) {
   })
 
   return (
-    <Form<PasswordUpdate> form={form} preserve={false} layout="vertical" onFinish={(values) => password.mutate(values)}>
-      <Form.Item name="oldPassword" label={text.profile.oldPassword}>
-        <Input.Password />
+    <Form<PasswordUpdate & { confirmPassword: string }>
+      form={form}
+      preserve={false}
+      layout="vertical"
+      onFinish={(values) => password.mutate(values)}
+    >
+      <Form.Item name="oldPassword" label={text.profile.oldPassword} rules={[{ required: true }]}>
+        <Input.Password autoComplete="current-password" maxLength={limits.password} />
       </Form.Item>
-      <Form.Item name="newPassword" label={text.profile.newPassword}>
-        <Input.Password />
+      <Form.Item name="newPassword" label={text.profile.newPassword} rules={[{ required: true, min: 8 }]}>
+        <Input.Password autoComplete="new-password" maxLength={limits.password} />
+      </Form.Item>
+      <Form.Item
+        name="confirmPassword"
+        label={text.prefs.confirmPassword}
+        dependencies={['newPassword']}
+        rules={[
+          { required: true },
+          ({ getFieldValue }) => ({
+            validator(_, value) {
+              return !value || getFieldValue('newPassword') === value
+                ? Promise.resolve()
+                : Promise.reject(new Error(text.prefs.passwordMismatch))
+            }
+          })
+        ]}
+      >
+        <Input.Password autoComplete="new-password" maxLength={limits.password} />
       </Form.Item>
       <Button type="primary" htmlType="submit" loading={password.isPending}>
         {text.profile.save}

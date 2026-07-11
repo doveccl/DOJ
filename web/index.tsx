@@ -10,6 +10,7 @@ import { LiveEvents } from './components/live'
 import { antdLocale, LocaleProvider, useLocale } from './locale'
 import { AppRoutes } from './routes'
 import { SessionProvider } from './session'
+import { shouldRetryQuery } from './client'
 
 declare global {
   interface Window {
@@ -20,7 +21,7 @@ declare global {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: false
+		retry: shouldRetryQuery
     },
     mutations: {
       retry: false

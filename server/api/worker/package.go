@@ -4,11 +4,8 @@ import (
 	"archive/zip"
 	"context"
 	"crypto/sha256"
-	"encoding/json"
+	"encoding/hex"
 	"fmt"
-	"github.com/doveccl/doj/contract/judger"
-	"github.com/doveccl/doj/server/cache"
-	"github.com/doveccl/doj/server/storage"
 	"io"
 	"net/http"
 	"path"
@@ -18,39 +15,67 @@ import (
 	"time"
 
 	"github.com/doveccl/doj/contract/cases"
+	"github.com/doveccl/doj/contract/judger"
 	"github.com/doveccl/doj/models"
+	"github.com/doveccl/doj/server/storage"
 	"github.com/labstack/echo/v4"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
-func (api *API) problemPackage(c echo.Context) error {
-	problemID, err := parseProblemCode(c.Param("problem"))
+func (api *API) taskPackage(c echo.Context) error {
+	taskID, err := parseTaskID(c)
 	if err != nil {
 		return err
 	}
-	var problem models.Problem
-	if err := api.db.First(&problem, problemID).Error; err != nil {
+	attempt, err := strconv.Atoi(strings.TrimSpace(c.QueryParam("attempt")))
+	if err != nil || attempt <= 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid task attempt")
+	}
+	expectedHash := strings.TrimSpace(c.QueryParam("hash"))
+	if len(expectedHash) != sha256.Size*2 {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid package hash")
+	}
+	if _, err := hex.DecodeString(expectedHash); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid package hash")
+	}
+
+	var submission models.Submission
+	if err := api.db.First(&submission, taskID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return echo.NewHTTPError(http.StatusNotFound, "problem not found")
+			return echo.NewHTTPError(http.StatusNotFound, "task not found")
 		}
 		return err
+	}
+	if err := api.requireTaskOwner(c, submission); err != nil {
+		return err
+	}
+	if submission.Status != "judging" || submission.Attempt != attempt || submission.LeaseUntil == nil || !submission.LeaseUntil.After(time.Now()) {
+		return echo.NewHTTPError(http.StatusConflict, "stale task lease")
 	}
 	store, err := storage.NewFromEnv()
 	if err != nil {
 		return err
 	}
-	files, err := listProblemObjectsCached(c.Request().Context(), store, problem.ID)
+	files, err := listProblemObjects(c.Request().Context(), store, submission.ProblemID)
 	if err != nil {
 		return err
 	}
-	c.Response().Header().Set(echo.HeaderCacheControl, "private, max-age=0")
+	currentHash := problemPackageHash(submission.ProblemID, files)
+	if currentHash != expectedHash {
+		return echo.NewHTTPError(http.StatusConflict, "problem package changed")
+	}
+	etag := `"` + currentHash + `"`
+	c.Response().Header().Set(echo.HeaderCacheControl, "private, no-store")
+	c.Response().Header().Set("ETag", etag)
+	if c.Request().Header.Get("If-None-Match") == etag {
+		return c.NoContent(http.StatusNotModified)
+	}
 	c.Response().Header().Set(echo.HeaderContentType, "application/zip")
-	c.Response().Header().Set(echo.HeaderContentDisposition, fmt.Sprintf(`attachment; filename="P%d.zip"`, problem.ID))
+	c.Response().Header().Set(echo.HeaderContentDisposition, fmt.Sprintf(`attachment; filename="P%d.zip"`, submission.ProblemID))
 	c.Response().WriteHeader(http.StatusOK)
 	writer := zip.NewWriter(c.Response().Writer)
 	defer writer.Close()
-	return writeProblemPackageZip(c.Request().Context(), writer, store, problem.ID, files)
+	return writeProblemPackageZip(c.Request().Context(), writer, store, submission.ProblemID, files)
 }
 
 func buildPayload(ctx context.Context, tx *gorm.DB, submission models.Submission) (*judger.TaskPayload, error) {
@@ -66,7 +91,7 @@ func buildPayload(ctx context.Context, tx *gorm.DB, submission models.Submission
 	if err != nil {
 		return nil, err
 	}
-	files, err := listProblemObjectsCached(ctx, store, problem.ID)
+	files, err := listProblemObjects(ctx, store, problem.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -94,10 +119,6 @@ func buildPayload(ctx context.Context, tx *gorm.DB, submission models.Submission
 		Cases: cases,
 		Problem: judger.ProblemPayload{
 			ID:          problem.ID,
-			Mode:        problem.Mode,
-			TimeMS:      problem.TimeMS,
-			MemoryMB:    problem.MemoryMB,
-			Tags:        readTags(problem.Tags),
 			PackageHash: problemPackageHash(problem.ID, files),
 		},
 	}, nil
@@ -112,20 +133,6 @@ func listProblemObjects(ctx context.Context, store storage.Store, problemID uint
 		}
 		files = append(files, got...)
 	}
-	return files, nil
-}
-
-func listProblemObjectsCached(ctx context.Context, store storage.Store, problemID uint) ([]storage.Info, error) {
-	var cached []storage.Info
-	found, err := cache.Get(ctx, cache.ProblemPackageKey(problemID), &cached)
-	if err == nil && found {
-		return cached, nil
-	}
-	files, err := listProblemObjects(ctx, store, problemID)
-	if err != nil {
-		return nil, err
-	}
-	_ = cache.Set(ctx, cache.ProblemPackageKey(problemID), files, time.Minute)
 	return files, nil
 }
 
@@ -172,18 +179,6 @@ func writeProblemPackageZip(ctx context.Context, writer *zip.Writer, store stora
 		}
 	}
 	return nil
-}
-
-func parseProblemCode(raw string) (uint, error) {
-	code := strings.TrimPrefix(strings.TrimSpace(raw), "P")
-	if code == raw {
-		code = strings.TrimPrefix(strings.TrimSpace(raw), "p")
-	}
-	value, err := strconv.ParseUint(strings.TrimSuffix(code, ".zip"), 10, 64)
-	if err != nil || value == 0 {
-		return 0, echo.NewHTTPError(http.StatusBadRequest, "invalid problem code")
-	}
-	return uint(value), nil
 }
 
 func safeProblemPackageZipName(section string, name string) (string, bool) {
@@ -256,10 +251,4 @@ func casePayloadsFromObjects(problemID uint, objects []storage.Info) []judger.Ca
 
 func problemAssetPrefix(id uint, section string) string {
 	return fmt.Sprintf("problems/%d/%s", id, section)
-}
-
-func readTags(raw datatypes.JSON) []string {
-	var tags []string
-	_ = json.Unmarshal(raw, &tags)
-	return tags
 }

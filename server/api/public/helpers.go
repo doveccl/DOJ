@@ -3,7 +3,6 @@ package public
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/doveccl/doj/server/auth"
 	"net/http"
 	"sort"
 	"strconv"
@@ -124,6 +123,18 @@ func (api *API) searchJSONTags(c echo.Context, table string, q string, limit int
 	if api.db.Dialector.Name() == "postgres" {
 		sql := fmt.Sprintf("SELECT DISTINCT tag.value AS tag FROM %s CROSS JOIN LATERAL jsonb_array_elements_text(tags) AS tag(value) WHERE %s.deleted_at IS NULL", table, table)
 		args := []any{}
+		if table == "problems" && !api.isAdmin(c) {
+			sql += " AND " + problemListVisibilitySQL
+			args = append(args, true, time.Now())
+		}
+		if table == "discussions" {
+			visibility, visibilityArgs, err := api.discussionVisibility(c)
+			if err != nil {
+				return nil, err
+			}
+			sql += " AND (" + visibility + ")"
+			args = append(args, visibilityArgs...)
+		}
 		if q != "" {
 			sql += " AND LOWER(tag.value) LIKE LOWER(?)"
 			args = append(args, "%"+q+"%")
@@ -149,7 +160,11 @@ func (api *API) searchJSONTags(c echo.Context, table string, q string, limit int
 	switch table {
 	case "problems":
 		var rows []models.Problem
-		if err := api.db.Select("tags").Order("id asc").Limit(500).Find(&rows).Error; err != nil {
+		query := api.db.Select("tags").Order("id asc").Limit(500)
+		if !api.isAdmin(c) {
+			query = api.applyProblemListVisibility(query)
+		}
+		if err := query.Find(&rows).Error; err != nil {
 			return nil, err
 		}
 		for _, row := range rows {
@@ -160,7 +175,12 @@ func (api *API) searchJSONTags(c echo.Context, table string, q string, limit int
 		}
 	case "discussions":
 		var rows []models.Discussion
-		if err := api.db.Select("tags").Order("id asc").Limit(500).Find(&rows).Error; err != nil {
+		query := api.db.Select("tags").Order("id asc").Limit(500)
+		query, err := api.applyDiscussionVisibility(c, query)
+		if err != nil {
+			return nil, err
+		}
+		if err := query.Find(&rows).Error; err != nil {
 			return nil, err
 		}
 		for _, row := range rows {
@@ -339,12 +359,11 @@ func (api *API) isAdmin(c echo.Context) bool {
 }
 
 func (api *API) role(c echo.Context) string {
-
-	user, err := auth.UserFromCookie(api.db, c, time.Now())
-	if err != nil {
+	viewer := api.requestViewer(c)
+	if viewer.err != nil {
 		return "guest"
 	}
-	if user.Admin {
+	if viewer.user.Admin {
 		return "admin"
 	}
 	return "user"

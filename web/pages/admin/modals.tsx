@@ -33,8 +33,8 @@ export function UserModal({
         <Form.Item name="mail" label={text.profile.email} rules={[{ required: true }, { type: 'email' }]}>
           <Input autoComplete="off" maxLength={limits.mail} />
         </Form.Item>
-        <Form.Item name="password" label={text.admin.initialPassword} rules={[{ required: true }, { min: 8 }]}>
-          <Input.Password autoComplete="new-password" />
+        <Form.Item name="password" label={text.admin.initialPassword} rules={[{ required: true }, { min: 8 }, { max: limits.password }]}>
+          <Input.Password autoComplete="new-password" maxLength={limits.password} />
         </Form.Item>
         <Form.Item name="role" label={text.admin.role} rules={[{ required: true }]}>
           <Select options={roleOptions} />

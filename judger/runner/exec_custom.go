@@ -1,13 +1,13 @@
 package runner
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -66,7 +66,8 @@ func runCustomLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 		return result
 	}
 
-	judge := commandContext(ctx, req.JudgeCommand, req.Case.Input, transcriptPath, req.Case.Answer, resultPath)
+	judgeArgs := []string{req.Case.Input, transcriptPath, req.Case.Answer, resultPath}
+	judge := commandContext(ctx, req.JudgeCommand, judgeArgs...)
 	bin, args, err := parseCommand(req.UserCommand)
 	if err != nil {
 		return CaseResult{}, err
@@ -83,6 +84,21 @@ func runCustomLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 	}
 	if err := prepareUserWorkIdentity(req.UserWork, req.UserIdentity); err != nil {
 		return CaseResult{}, err
+	}
+	if req.UserIdentity.Enabled {
+		identity := ProcessIdentity{UID: req.UserIdentity.UID + 1, GID: req.UserIdentity.GID + 1, Enabled: true}
+		if err := prepareJudgeIdentity(req.Work, identity, map[string]os.FileMode{
+			req.JudgeCommand: 0o550,
+			req.Case.Input:   0o440,
+			req.Case.Answer:  0o440,
+			resultPath:       0o660,
+			transcriptPath:   0o660,
+		}); err != nil {
+			return CaseResult{}, err
+		}
+		wrapperArgs := []string{"runner", "wait-exec", "/dev/null", strconv.FormatUint(uint64(identity.UID), 10), strconv.FormatUint(uint64(identity.GID), 10), req.JudgeCommand}
+		judge = commandContext(ctx, req.Runner, append(wrapperArgs, judgeArgs...)...)
+		judge.Dir = req.Work
 	}
 	configureProcess(judge)
 	configureProcess(user)
@@ -102,15 +118,15 @@ func runCustomLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 	}
 	defer closePipeFiles(judgeToUserR, judgeToUserW, userToJudgeR, userToJudgeW)
 
-	var judgeErr bytes.Buffer
-	var userErr bytes.Buffer
+	judgeErr := &limitBuffer{limit: defaultCompileOutputLimit}
+	userErr := &limitBuffer{limit: defaultCompileOutputLimit}
 	userOutput := &limitFileWriter{file: userToJudgeW, limit: outputLimit}
 	judge.Stdin = userToJudgeR
 	judge.Stdout = judgeToUserW
-	judge.Stderr = &judgeErr
+	judge.Stderr = judgeErr
 	user.Stdin = judgeToUserR
 	user.Stdout = userOutput
-	user.Stderr = &userErr
+	user.Stderr = userErr
 
 	startedAt := time.Now()
 	if err := judge.Start(); err != nil {
@@ -215,4 +231,39 @@ func runCustomLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) {
 		result.Message = compactErrors("judge program failed", judgeWait, nil, judgeErr.String(), "")
 	}
 	return applyStats(result), nil
+}
+
+func prepareJudgeIdentity(work string, identity ProcessIdentity, files map[string]os.FileMode) error {
+	if err := os.Chmod(work, 0o701); err != nil {
+		return err
+	}
+	for path, mode := range files {
+		rel, err := filepath.Rel(work, path)
+		if err != nil || rel == "." || rel == ".." || filepath.IsAbs(rel) || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return fmt.Errorf("judge file is outside work directory: %s", path)
+		}
+		for dir := filepath.Dir(path); dir != work; dir = filepath.Dir(dir) {
+			if err := chmodIfNeeded(dir, 0o550); err != nil {
+				return err
+			}
+			if err := os.Chown(dir, int(identity.UID), 0); err != nil {
+				return err
+			}
+		}
+		if err := chmodIfNeeded(path, mode); err != nil {
+			return err
+		}
+		if err := os.Chown(path, int(identity.UID), 0); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func chmodIfNeeded(path string, mode os.FileMode) error {
+	info, err := os.Stat(path)
+	if err != nil || info.Mode().Perm() == mode {
+		return err
+	}
+	return os.Chmod(path, mode)
 }

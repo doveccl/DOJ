@@ -2,14 +2,72 @@ package public
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	contract "github.com/doveccl/doj/contract/web"
 	"github.com/doveccl/doj/models"
 	"github.com/doveccl/doj/server/settings"
 	"github.com/labstack/echo/v4"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/datatypes"
 )
+
+func TestPasswordChangeInvalidatesAllSessions(t *testing.T) {
+	db := testWebDB(t)
+	hash, err := bcrypt.GenerateFromPassword([]byte("old-password"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+	user := models.User{Name: "student", Mail: "student@example.com", Auth: string(hash)}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	e := echo.New()
+	Register(e, db)
+	first := databaseSession(t, db, user.ID)
+	second := databaseSession(t, db, user.ID)
+
+	res := requestJSONWithCookies(e, http.MethodPatch, "/api/me/password", first, `{"oldPassword":"old-password","newPassword":"new-password"}`)
+	if res.Code != http.StatusNoContent {
+		t.Fatalf("change password got %d body=%s", res.Code, res.Body.String())
+	}
+	for index, cookies := range [][]*http.Cookie{first, second} {
+		me := decodeJSON[contract.Me](t, requestWithCookies(e, http.MethodGet, "/api/me", cookies, nil))
+		if me.ID != 0 {
+			t.Fatalf("session %d survived password change: %+v", index+1, me)
+		}
+	}
+	if res := requestJSON(e, http.MethodPost, "/api/auth/login", "", `{"name":"student","password":"old-password"}`); res.Code != http.StatusUnauthorized {
+		t.Fatalf("old password login got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSON(e, http.MethodPost, "/api/auth/login", "", `{"name":"student","password":"new-password"}`); res.Code != http.StatusOK {
+		t.Fatalf("new password login got %d body=%s", res.Code, res.Body.String())
+	}
+}
+
+func TestRequestViewerIsLoadedOncePerRequest(t *testing.T) {
+	db := testWebDB(t)
+	user := models.User{Name: "student", Mail: "student@example.com", Auth: "hash"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	for _, cookie := range databaseSession(t, db, user.ID) {
+		req.AddCookie(cookie)
+	}
+	c := echo.New().NewContext(req, httptest.NewRecorder())
+	api := &API{db: db}
+	if got, err := api.currentUser(c); err != nil || got.ID != user.ID {
+		t.Fatalf("first viewer = %+v, %v", got, err)
+	}
+	if err := db.Delete(&user).Error; err != nil {
+		t.Fatal(err)
+	}
+	if got, err := api.currentUser(c); err != nil || got.ID != user.ID {
+		t.Fatalf("cached viewer = %+v, %v", got, err)
+	}
+}
 
 func TestUsernamePreservesCaseAndMatchesCaseInsensitively(t *testing.T) {
 	db := testWebDB(t)
@@ -70,10 +128,17 @@ func TestUsernamePreservesCaseAndMatchesCaseInsensitively(t *testing.T) {
 		t.Fatalf("submission user filter should be case-insensitive: %+v", submissions)
 	}
 	rawSubmissions := decodeJSON[contract.Page[map[string]any]](t, submissionRes).Items
-	for _, key := range []string{"score", "message", "public"} {
+	for _, key := range []string{"message", "public"} {
 		if _, ok := rawSubmissions[0][key]; ok {
 			t.Fatalf("submission list should not include detail field %q: %+v", key, rawSubmissions[0])
 		}
+	}
+	if err := db.Delete(&user).Error; err != nil {
+		t.Fatalf("delete user: %v", err)
+	}
+	reserved := requestJSON(e, http.MethodPost, "/api/auth/register", "", `{"name":"ALICE_ONE","mail":"new@example.com","password":"password123"}`)
+	if reserved.Code != http.StatusConflict {
+		t.Fatalf("deleted identity was reused: %d body=%s", reserved.Code, reserved.Body.String())
 	}
 }
 

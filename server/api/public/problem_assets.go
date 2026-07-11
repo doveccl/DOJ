@@ -74,7 +74,7 @@ func (api *API) problemPrivateAsset(c echo.Context, section string) error {
 		return echo.NewHTTPError(http.StatusNotFound, "asset not found")
 	}
 	key := path.Join("problems", strconv.Itoa(int(id)), section, rel)
-	return streamMedia(c, key, "asset not found")
+	return streamMedia(c, key, "asset not found", false)
 }
 
 func (api *API) problemPublicAsset(c echo.Context) error {
@@ -90,7 +90,7 @@ func (api *API) problemPublicAsset(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "media not found")
 	}
 	key := path.Join("problems", strconv.Itoa(int(id)), "assets", rel)
-	return streamMedia(c, key, "media not found")
+	return streamMedia(c, key, "media not found", true)
 }
 
 func (api *API) uploadProblemAsset(c echo.Context) error {
@@ -133,7 +133,6 @@ func (api *API) uploadProblemAsset(c echo.Context) error {
 	if err := store.Put(c.Request().Context(), key, reader, file.Size, contentType); err != nil {
 		return err
 	}
-	clearProblemPackageCacheIfNeeded(c.Request().Context(), id, key)
 	assets, err := api.syncProblemAssets(c, id)
 	if err != nil {
 		return err
@@ -157,7 +156,6 @@ func (api *API) deleteProblemAsset(c echo.Context) error {
 	if err := store.Delete(c.Request().Context(), key); err != nil {
 		return err
 	}
-	clearProblemPackageCacheIfNeeded(c.Request().Context(), id, key)
 	assets, err := api.syncProblemAssets(c, id)
 	if err != nil {
 		return err
@@ -216,7 +214,6 @@ func (api *API) updateProblemAssetContent(c echo.Context) error {
 	if err := store.Put(c.Request().Context(), key, strings.NewReader(req.Content), int64(len(req.Content)), "text/plain; charset=utf-8"); err != nil {
 		return err
 	}
-	clearProblemPackageCacheIfNeeded(c.Request().Context(), id, key)
 	assets, err := api.syncProblemAssets(c, id)
 	if err != nil {
 		return err
@@ -253,7 +250,6 @@ func (api *API) createProblemCase(c echo.Context) error {
 	if err := store.Put(c.Request().Context(), outputKey, strings.NewReader(req.Output), int64(len(req.Output)), "text/plain; charset=utf-8"); err != nil {
 		return err
 	}
-	clearProblemPackageCache(c.Request().Context(), id)
 	assets, err = api.syncProblemAssets(c, id)
 	if err != nil {
 		return err
@@ -276,7 +272,6 @@ func (api *API) fillJudgeTemplate(c echo.Context) error {
 			return err
 		}
 	}
-	clearProblemPackageCache(c.Request().Context(), id)
 	assets, err := api.syncProblemAssets(c, id)
 	if err != nil {
 		return err
@@ -314,6 +309,7 @@ func (api *API) downloadProblemAssets(c echo.Context) error {
 		return err
 	}
 	filename := fmt.Sprintf("P%d.zip", id)
+	c.Response().Header().Set(echo.HeaderCacheControl, "private, no-store")
 	c.Response().Header().Set(echo.HeaderContentType, "application/zip")
 	c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="`+filename+`"`)
 	c.Response().WriteHeader(http.StatusOK)

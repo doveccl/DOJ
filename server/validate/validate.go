@@ -3,6 +3,8 @@ package validate
 import (
 	"net/mail"
 	"strings"
+
+	"github.com/doveccl/doj/contract/limits"
 )
 
 func Name(name string) bool {
@@ -13,6 +15,10 @@ func Name(name string) bool {
 		return false
 	}
 	return true
+}
+
+func Password(value string) bool {
+	return len(value) >= 8 && len(value) <= limits.MaxPasswordBytes
 }
 
 func NameKey(name string) string {

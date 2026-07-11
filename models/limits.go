@@ -1,5 +1,7 @@
 package models
 
+import "github.com/doveccl/doj/contract/limits"
+
 const (
 	UserNameMin = 3
 	UserNameMax = 32
@@ -22,5 +24,5 @@ const (
 	BioMax   = 256
 
 	AvatarMax      = 512
-	CaseMessageMax = 1024
+	CaseMessageMax = limits.MaxCaseMessageRunes
 )

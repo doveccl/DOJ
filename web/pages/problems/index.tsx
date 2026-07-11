@@ -69,7 +69,6 @@ export function ProblemsPage() {
       apiData(api.POST('/api/problems', { body: {
         title: values.title,
         tags: values.tags ?? [],
-        visible: true,
         mode: values.mode,
         timeMs: values.timeMs,
         memoryMb: values.memoryMb
@@ -94,12 +93,12 @@ export function ProblemsPage() {
   })
   const visibility = useMutation({
     mutationFn: (item: ProblemListItem) =>
-      apiData(api.PATCH('/api/problems/{id}/visibility', { params: { path: { id: item.id } }, body: { visible: !item.visible } })),
+      apiData(api.PATCH('/api/problems/{id}/visibility', { params: { path: { id: item.id } }, body: { visible: true } })),
     onSuccess: (item) => {
       replaceProblemInCaches(client, item)
       void client.invalidateQueries({ queryKey: ['problems'] })
       void client.invalidateQueries({ queryKey: ['home'] })
-      message.success(item.visible ? text.problems.shown : text.problems.hiddenDone)
+      message.success(text.problems.shown)
     },
     onError: showError
   })
@@ -280,22 +279,34 @@ function problemColumns(
       align: 'right',
       render: (_, row) => (
         <Space size={4}>
-          <Tooltip title={row.visible ? text.problems.currentVisible : text.problems.currentHidden}>
-            <Button
-              aria-label={`${row.visible ? text.problems.hide : text.problems.show} ${problemCode(row.id)}`}
-              type="text"
-              icon={row.visible ? <EyeOutlined className="okIcon" /> : <EyeInvisibleOutlined className="mutedIcon" />}
-              loading={actions.toggling(row)}
-              disabled={actions.toggling(row)}
-              onClick={(event) => {
-                event.stopPropagation()
-                actions.toggle(row)
-              }}
-            />
-          </Tooltip>
-          <Popconfirm title={text.common.confirmDelete} okText={text.common.delete} cancelText={text.common.cancel} onConfirm={() => actions.remove(row.id)}>
-            <Button aria-label={`${text.common.delete} ${problemCode(row.id)}`} type="text" danger icon={<DeleteOutlined />} />
-          </Popconfirm>
+          {row.visible ? (
+            <Tooltip title={text.problems.currentVisible}>
+              <EyeOutlined className="okIcon" aria-label={`${text.problems.currentVisible} ${problemCode(row.id)}`} />
+            </Tooltip>
+          ) : (
+            <>
+              <Tooltip title={text.problems.currentHidden}>
+                <Popconfirm
+                  title={text.problems.publishConfirm}
+                  okText={text.problems.show}
+                  cancelText={text.common.cancel}
+                  onConfirm={() => actions.toggle(row)}
+                >
+                  <Button
+                    aria-label={`${text.problems.show} ${problemCode(row.id)}`}
+                    type="text"
+                    icon={<EyeInvisibleOutlined className="mutedIcon" />}
+                    loading={actions.toggling(row)}
+                    disabled={actions.toggling(row)}
+                    onClick={(event) => event.stopPropagation()}
+                  />
+                </Popconfirm>
+              </Tooltip>
+              <Popconfirm title={text.common.confirmDelete} okText={text.common.delete} cancelText={text.common.cancel} onConfirm={() => actions.remove(row.id)}>
+                <Button aria-label={`${text.common.delete} ${problemCode(row.id)}`} type="text" danger icon={<DeleteOutlined />} />
+              </Popconfirm>
+            </>
+          )}
         </Space>
       )
     })

@@ -25,6 +25,18 @@ func TestPrepareLanguageRuntimeWritesSourceAndCommands(t *testing.T) {
 	if err != nil || string(got) != "int main(){}\n" {
 		t.Fatalf("source = %q, %v", got, err)
 	}
+	for path, want := range map[string]os.FileMode{
+		filepath.Join(work, "src"):            0o700,
+		filepath.Join(work, "src", "main.cc"): 0o600,
+	} {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := info.Mode().Perm(); got != want {
+			t.Fatalf("%s mode = %o, want %o", path, got, want)
+		}
+	}
 }
 
 func TestPrepareLanguageRuntimeRejectsUnsafeSource(t *testing.T) {

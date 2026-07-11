@@ -40,6 +40,12 @@ func TestValidateResult(t *testing.T) {
 		{name: "large message", req: judger.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Message: strings.Repeat("x", limits.MaxJudgerMessageBytes+1)}, want: http.StatusRequestEntityTooLarge},
 		{name: "bad case no", req: judger.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []judger.CaseResult{{No: 0, Status: "WA"}}}, want: http.StatusBadRequest},
 		{name: "bad case status", req: judger.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []judger.CaseResult{{No: 1, Status: "queued"}}}, want: http.StatusBadRequest},
+		{name: "bad case score", req: judger.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []judger.CaseResult{{No: 1, Status: "WA", Score: 101}}}, want: http.StatusBadRequest},
+		{name: "duplicate case", req: judger.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []judger.CaseResult{{No: 1, Status: "WA"}, {No: 1, Status: "WA"}}}, want: http.StatusBadRequest},
+		{name: "negative usage", req: func() judger.ResultRequest {
+			value := -1
+			return judger.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", TimeMS: &value}
+		}(), want: http.StatusBadRequest},
 		{name: "large case message", req: judger.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []judger.CaseResult{{No: 1, Status: "WA", Message: strings.Repeat("x", models.CaseMessageMax+1)}}}, want: http.StatusRequestEntityTooLarge},
 	}
 	for _, item := range tests {

@@ -1,5 +1,7 @@
 package judger
 
+const Version = "v4"
+
 type LeaseRequest struct {
 	Version string `json:"version"`
 	Host    string `json:"host"`
@@ -31,12 +33,8 @@ type LangPayload struct {
 }
 
 type ProblemPayload struct {
-	ID          uint     `json:"id"`
-	Mode        string   `json:"mode"`
-	TimeMS      int      `json:"timeMs"`
-	MemoryMB    int      `json:"memoryMb"`
-	Tags        []string `json:"tags"`
-	PackageHash string   `json:"packageHash"`
+	ID          uint   `json:"id"`
+	PackageHash string `json:"packageHash"`
 }
 
 type LimitsPayload struct {

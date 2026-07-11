@@ -2,8 +2,6 @@ package admin
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"net/http"
 	"strings"
 	"time"
@@ -36,13 +34,13 @@ func (api *API) updateJudger(c echo.Context) error {
 		return err
 	}
 	cleanJudgerUpdate(&req)
-	if err := validateJudger(req, false); err != nil {
+	if err := validateJudger(req); err != nil {
 		return err
 	}
 
 	updates := map[string]any{"name": req.Name}
 	if req.Auth != "" {
-		updates["auth"] = tokenHash(req.Auth)
+		updates["auth"] = auth.TokenHash(req.Auth)
 	}
 	updated := api.db.Model(&models.Judger{}).Where("id = ?", id).Updates(updates)
 	if updated.Error != nil {
@@ -59,8 +57,8 @@ func (api *API) createJudger(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
-	cleanJudgerUpdate(&req.JudgerUpdate)
-	if err := validateJudger(req.JudgerUpdate, false); err != nil {
+	req.Name = strings.TrimSpace(req.Name)
+	if err := validateJudgerName(req.Name); err != nil {
 		return err
 	}
 
@@ -68,7 +66,7 @@ func (api *API) createJudger(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	row := models.Judger{Name: req.Name, Auth: tokenHash(token)}
+	row := models.Judger{Name: req.Name, Auth: auth.TokenHash(token)}
 	if err := api.db.Create(&row).Error; err != nil {
 		return err
 	}
@@ -140,20 +138,16 @@ func cleanJudgerUpdate(req *JudgerUpdate) {
 	req.Auth = strings.TrimSpace(req.Auth)
 }
 
-func validateJudger(req JudgerUpdate, requireAuth bool) error {
-	if req.Name == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "judger name is required")
-	}
-	if len([]rune(req.Name)) > maxNameRunes {
-		return echo.NewHTTPError(http.StatusBadRequest, "judger name is too long")
-	}
-	if requireAuth && req.Auth == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "judger auth is required")
-	}
-	return nil
+func validateJudger(req JudgerUpdate) error {
+	return validateJudgerName(req.Name)
 }
 
-func tokenHash(token string) string {
-	sum := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(sum[:])
+func validateJudgerName(name string) error {
+	if name == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "judger name is required")
+	}
+	if len([]rune(name)) > maxNameRunes {
+		return echo.NewHTTPError(http.StatusBadRequest, "judger name is too long")
+	}
+	return nil
 }

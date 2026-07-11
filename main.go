@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/doveccl/doj/judger"
 	"github.com/doveccl/doj/judger/runner"
@@ -19,9 +21,15 @@ func main() {
 	case "server":
 		server.Main()
 	case "judger":
-		os.Exit(judger.JudgerCLI(context.Background(), os.Args[2:]))
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		code := judger.JudgerCLI(ctx, os.Args[2:])
+		stop()
+		os.Exit(code)
 	case "runner":
-		os.Exit(runner.CLI(context.Background(), os.Args[2:]))
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		code := runner.CLI(ctx, os.Args[2:])
+		stop()
+		os.Exit(code)
 	default:
 		usage()
 		os.Exit(2)

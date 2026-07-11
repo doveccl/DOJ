@@ -22,14 +22,8 @@ type MarkdownItLike = {
   }
 }
 
-export const trustedMarkdownIDs = new Set(['home-notice'])
-
 export function problemMarkdownID(problemID: number) {
   return `P${problemID}`
-}
-
-export function trustedMarkdownID(editorID: string) {
-  return trustedMarkdownIDs.has(editorID) || /^P\d+$/.test(editorID)
 }
 
 export function rewriteAssetURL(value: string, editorID?: string) {

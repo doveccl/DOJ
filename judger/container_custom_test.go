@@ -24,6 +24,10 @@ func TestRunContainerTaskCustomInteractorFromDockerfileCMD(t *testing.T) {
 		t.Fatal(err)
 	}
 	interactor := `#!/bin/sh
+if [ "$(id -u)" = 0 ]; then
+  printf 'judge ran as root' > "$4"
+  exit 3
+fi
 printf '3\n'
 read a
 printf '4\n'

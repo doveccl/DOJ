@@ -3,6 +3,7 @@ package public
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +12,145 @@ import (
 	"github.com/labstack/echo/v4"
 	"gorm.io/datatypes"
 )
+
+func TestStartedContestRulesCannotBeRewrittenOrDeleted(t *testing.T) {
+	db := testWebDB(t)
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	problem := models.Problem{ID: 1000, Title: "A", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().Truncate(time.Second)
+	contest := models.Contest{Title: "Round", Kind: "OI", StartAt: now.Add(-time.Hour), EndAt: now.Add(time.Hour)}
+	if err := db.Create(&contest).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&models.ContestProblem{ContestID: contest.ID, ProblemID: problem.ID, Sort: "A"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	e := echo.New()
+	Register(e, db)
+	cookies := databaseSession(t, db, admin.ID)
+	path := "/api/contests/" + strconv.FormatUint(uint64(contest.ID), 10)
+	body := func(kind string, start time.Time, end time.Time, sort string) string {
+		return `{"title":"Round","kind":"` + kind + `","startAt":"` + start.Format(time.RFC3339) + `","endAt":"` + end.Format(time.RFC3339) + `","freezeAt":"","problems":[{"id":1000,"sort":"` + sort + `"}]}`
+	}
+	if res := requestJSONWithCookies(e, http.MethodPatch, path, cookies, body("ICPC", contest.StartAt, contest.EndAt, "A")); res.Code != http.StatusConflict {
+		t.Fatalf("kind rewrite got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSONWithCookies(e, http.MethodPatch, path, cookies, body("OI", contest.StartAt, contest.EndAt, "B")); res.Code != http.StatusConflict {
+		t.Fatalf("problem rewrite got %d body=%s", res.Code, res.Body.String())
+	}
+	extended := contest.EndAt.Add(time.Hour)
+	if res := requestJSONWithCookies(e, http.MethodPatch, path, cookies, body("OI", contest.StartAt, extended, "A")); res.Code != http.StatusOK {
+		t.Fatalf("end extension got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSONWithCookies(e, http.MethodPatch, path, cookies, body("OI", contest.StartAt, contest.EndAt, "A")); res.Code != http.StatusConflict {
+		t.Fatalf("end shortening got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestWithCookies(e, http.MethodDelete, path, cookies, nil); res.Code != http.StatusConflict {
+		t.Fatalf("started delete got %d body=%s", res.Code, res.Body.String())
+	}
+}
+
+func TestSecretContestOnlyAcceptsUnexposedProblems(t *testing.T) {
+	db := testWebDB(t)
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatal(err)
+	}
+	problems := []models.Problem{
+		{ID: 1000, Title: "Published", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256},
+		{ID: 1001, Title: "Prior contest", Tags: datatypes.JSON([]byte(`[]`)), Mode: "default", TimeMS: 1000, MemoryMB: 256},
+		{ID: 1002, Title: "Assignment", Tags: datatypes.JSON([]byte(`[]`)), Mode: "default", TimeMS: 1000, MemoryMB: 256},
+		{ID: 1003, Title: "Submission", Tags: datatypes.JSON([]byte(`[]`)), Mode: "default", TimeMS: 1000, MemoryMB: 256},
+		{ID: 1004, Title: "Discussion", Tags: datatypes.JSON([]byte(`[]`)), Mode: "default", TimeMS: 1000, MemoryMB: 256},
+		{ID: 1005, Title: "Fresh draft", Tags: datatypes.JSON([]byte(`[]`)), Mode: "default", TimeMS: 1000, MemoryMB: 256},
+		{ID: 1006, Title: "Unready draft", Tags: datatypes.JSON([]byte(`[]`)), Mode: "default", TimeMS: 1000, MemoryMB: 256},
+	}
+	if err := db.Create(&problems).Error; err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().Truncate(time.Second)
+	prior := models.Contest{Title: "Prior", Kind: "OI", StartAt: now.Add(-2 * time.Hour), EndAt: now.Add(-time.Hour)}
+	assignment := models.Assignment{Title: "Homework", EndAt: now.Add(time.Hour)}
+	if err := db.Create(&prior).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&assignment).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&models.ContestProblem{ContestID: prior.ID, ProblemID: 1001, Sort: "A"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&models.AssignmentProblem{AssignmentID: assignment.ID, ProblemID: 1002, Sort: "A"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&models.Submission{UserID: admin.ID, ProblemID: 1003, Language: "cpp", Code: "int main(){}", Status: "AC", Score: 100}).Error; err != nil {
+		t.Fatal(err)
+	}
+	discussionProblemID := uint(1004)
+	if err := db.Create(&models.Discussion{ProblemID: &discussionProblemID, Title: "Discussion", Content: "body", UserID: admin.ID, Tags: datatypes.JSON([]byte(`[]`))}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+	cookies := databaseSession(t, db, admin.ID)
+	startAt := now.Add(time.Hour)
+	endAt := now.Add(2 * time.Hour)
+	body := func(title string, problemID uint) string {
+		return `{"title":"` + title + `","kind":"OI","startAt":"` + startAt.Format(time.RFC3339) + `","endAt":"` + endAt.Format(time.RFC3339) + `","freezeAt":"","problems":[{"id":` + strconv.FormatUint(uint64(problemID), 10) + `,"sort":"A"}]}`
+	}
+	pastBody := `{"title":"Past","kind":"OI","startAt":"` + now.Add(-2*time.Hour).Format(time.RFC3339) + `","endAt":"` + now.Add(-time.Hour).Format(time.RFC3339) + `","freezeAt":"","problems":[]}`
+	if res := requestJSONWithCookies(e, http.MethodPost, "/api/contests", cookies, pastBody); res.Code != http.StatusBadRequest {
+		t.Fatalf("create past contest got %d body=%s", res.Code, res.Body.String())
+	}
+	for id := uint(1000); id <= 1004; id++ {
+		res := requestJSONWithCookies(e, http.MethodPost, "/api/contests", cookies, body("Secret", id))
+		if res.Code != http.StatusConflict {
+			t.Fatalf("create contest with P%d got %d body=%s", id, res.Code, res.Body.String())
+		}
+	}
+	root := t.TempDir()
+	t.Setenv("STORAGE", root)
+	if res := requestJSONWithCookies(e, http.MethodPost, "/api/contests", cookies, body("Unready", 1006)); res.Code != http.StatusConflict {
+		t.Fatalf("create contest with unready draft got %d body=%s", res.Code, res.Body.String())
+	}
+	writeReadyProblemFiles(t, root, 1005, "Fresh draft")
+	createdResponse := requestJSONWithCookies(e, http.MethodPost, "/api/contests", cookies, body("Secret", 1005))
+	if createdResponse.Code != http.StatusCreated {
+		t.Fatalf("create contest with fresh draft got %d body=%s", createdResponse.Code, createdResponse.Body.String())
+	}
+	created := decodeJSON[contract.CreatedID](t, createdResponse)
+	target := "/api/contests/" + strconv.FormatUint(uint64(created.ID), 10)
+	var unfinished int64
+	if err := db.Model(&models.ContestProblem{}).
+		Joins("JOIN contests ON contests.id = contest_problems.contest_id").
+		Where("contest_problems.problem_id = ? AND contests.deleted_at IS NULL AND contests.end_at > ?", 1005, time.Now()).
+		Count(&unfinished).Error; err != nil || unfinished != 1 {
+		t.Fatalf("created contest link missing: count=%d err=%v", unfinished, err)
+	}
+	publish := requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1005/visibility", cookies, `{"visible":true}`)
+	if publish.Code != http.StatusConflict || !strings.Contains(publish.Body.String(), "unfinished contest") {
+		t.Fatalf("publish unfinished contest problem got %d body=%s", publish.Code, publish.Body.String())
+	}
+	if res := requestJSONWithCookies(e, http.MethodPatch, target, cookies, body("Renamed", 1005)); res.Code != http.StatusOK {
+		t.Fatalf("update contest with its own draft got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSONWithCookies(e, http.MethodPatch, target, cookies, body("Leaked", 1000)); res.Code != http.StatusConflict {
+		t.Fatalf("update contest with published problem got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestWithCookies(e, http.MethodDelete, target, cookies, nil); res.Code != http.StatusNoContent {
+		t.Fatalf("delete pending contest got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestWithCookies(e, http.MethodDelete, "/api/problems/1005", cookies, nil); res.Code != http.StatusNoContent {
+		t.Fatalf("deleted contest left draft referenced: %d body=%s", res.Code, res.Body.String())
+	}
+}
 
 func TestDatabaseContestRankUsesContextSubmissions(t *testing.T) {
 	db := testWebDB(t)
@@ -80,8 +220,8 @@ func TestDatabaseContestRankUsesContextSubmissions(t *testing.T) {
 
 	adminDetail := decodeJSON[contract.ContestDetail](t, requestWithCookies(e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), databaseSession(t, db, admin.ID), nil))
 	aliceAdmin, ok := rankByUser(adminDetail.Rank, "alice")
-	if !ok || aliceAdmin.AC != 1 || aliceAdmin.Score != 100 || aliceAdmin.Submit != 3 {
-		t.Fatalf("admin OI rank should use last score and include hidden contest submissions: %+v", adminDetail.Rank)
+	if !ok || aliceAdmin.AC != 2 || aliceAdmin.Score != 200 || aliceAdmin.Submit != 3 {
+		t.Fatalf("admin OI rank should use best scores and include hidden contest submissions: %+v", adminDetail.Rank)
 	}
 	bobAdmin, ok := rankByUser(adminDetail.Rank, "bob")
 	if !ok || bobAdmin.AC != 2 || bobAdmin.Score != 200 {
@@ -96,8 +236,12 @@ func TestContestProblemVisibilityIsDerivedFromContestTime(t *testing.T) {
 	db := testWebDB(t)
 	allowGuest(t, db)
 	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	student := models.User{Name: "student", Mail: "student@example.com", Auth: "hash"}
 	if err := db.Create(&admin).Error; err != nil {
 		t.Fatalf("create admin: %v", err)
+	}
+	if err := db.Create(&student).Error; err != nil {
+		t.Fatalf("create student: %v", err)
 	}
 	problem := models.Problem{ID: 1000, Title: "Contest Only", Tags: datatypes.JSON([]byte(`["math"]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
 	if err := db.Create(&problem).Error; err != nil {
@@ -111,7 +255,7 @@ func TestContestProblemVisibilityIsDerivedFromContestTime(t *testing.T) {
 	if err := db.Create(&models.ContestProblem{ContestID: contest.ID, ProblemID: problem.ID, Sort: "A"}).Error; err != nil {
 		t.Fatalf("create contest problem: %v", err)
 	}
-	if err := db.Create(&models.Discussion{Title: "Problem discussion", Content: "body", UserID: admin.ID, Tags: datatypes.JSON([]byte(`["P1000"]`))}).Error; err != nil {
+	if err := db.Create(&models.Discussion{Title: "Problem discussion", Content: "body", UserID: admin.ID, ProblemID: &problem.ID, Tags: datatypes.JSON([]byte(`["P1000"]`))}).Error; err != nil {
 		t.Fatalf("create discussion: %v", err)
 	}
 	e := echo.New()
@@ -164,8 +308,38 @@ func TestContestProblemVisibilityIsDerivedFromContestTime(t *testing.T) {
 	if err := db.Save(&contest).Error; err != nil {
 		t.Fatalf("end contest: %v", err)
 	}
+	if res := request(e, http.MethodGet, "/api/problems/1000", "", nil); res.Code != http.StatusOK {
+		t.Fatalf("ended contest problem should remain available for review, got %d body=%s", res.Code, res.Body.String())
+	}
+	guestList = decodePageItems[contract.Problem](t, requestOK(t, e, http.MethodGet, "/api/problems", ""))
+	if hasProblem(guestList, problem.ID) {
+		t.Fatalf("ended hidden contest problem leaked into the global list: %+v", guestList)
+	}
+	contestDetail = decodeJSON[contract.ContestDetail](t, requestOK(t, e, http.MethodGet, "/api/contests/"+strconv.FormatUint(uint64(contest.ID), 10), ""))
+	if !hasProblem(contestDetail.Problems, problem.ID) {
+		t.Fatalf("ended contest detail hid its problem: %+v", contestDetail.Problems)
+	}
+	practice := requestJSONWithCookies(e, http.MethodPost, "/api/submissions", databaseSession(t, db, student.ID), `{"problemId":1000,"language":"cpp","code":"int main(){}","public":false}`)
+	if practice.Code != http.StatusCreated {
+		t.Fatalf("post-contest practice got %d body=%s", practice.Code, practice.Body.String())
+	}
+	created := decodeJSON[contract.CreatedID](t, practice)
+	var submission models.Submission
+	if err := db.First(&submission, created.ID).Error; err != nil || submission.ContestID != nil || submission.AssignmentID != nil {
+		t.Fatalf("post-contest practice kept contest context: %+v err=%v", submission, err)
+	}
+	future := models.Contest{Title: "Reuse", Kind: "OI", StartAt: now.Add(time.Hour), EndAt: now.Add(2 * time.Hour)}
+	if err := db.Create(&future).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&models.ContestProblem{ContestID: future.ID, ProblemID: problem.ID, Sort: "A"}).Error; err != nil {
+		t.Fatal(err)
+	}
 	if res := request(e, http.MethodGet, "/api/problems/1000", "", nil); res.Code != http.StatusNotFound {
-		t.Fatalf("ended hidden contest problem detail got %d body=%s", res.Code, res.Body.String())
+		t.Fatalf("future contest reuse leaked through ended contest access: %d body=%s", res.Code, res.Body.String())
+	}
+	if err := db.Delete(&future).Error; err != nil {
+		t.Fatal(err)
 	}
 	if err := db.Model(&problem).Update("visible", true).Error; err != nil {
 		t.Fatalf("show problem: %v", err)
@@ -268,7 +442,7 @@ func TestContestFreezeHidesLateResultsFromNonAdmin(t *testing.T) {
 	}
 }
 
-func TestContestOIIgnoresFreezeAndUsesLastScoreAfterEnd(t *testing.T) {
+func TestContestOIIgnoresFreezeAndUsesBestScoreAfterEnd(t *testing.T) {
 	db := testWebDB(t)
 	allowGuest(t, db)
 	alice := models.User{Name: "alice", Mail: "alice@example.com", Auth: "hash"}
@@ -278,7 +452,7 @@ func TestContestOIIgnoresFreezeAndUsesLastScoreAfterEnd(t *testing.T) {
 			t.Fatalf("create user %s: %v", user.Name, err)
 		}
 	}
-	problem := models.Problem{ID: 1000, Title: "OI", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	problem := models.Problem{ID: 1000, Title: "OI", Tags: datatypes.JSON([]byte(`[]`)), Visible: false, Mode: "default", TimeMS: 1000, MemoryMB: 256}
 	if err := db.Create(&problem).Error; err != nil {
 		t.Fatalf("create problem: %v", err)
 	}
@@ -313,15 +487,26 @@ func TestContestOIIgnoresFreezeAndUsesLastScoreAfterEnd(t *testing.T) {
 		t.Fatalf("OI detail should not expose freezeAt: %+v", guest.Contest)
 	}
 	aliceRank, ok := rankByUser(guest.Rank, "alice")
-	if !ok || aliceRank.Score != 30 || aliceRank.AC != 0 {
-		t.Fatalf("OI score should use the last submission score after contest ends: %+v", guest.Rank)
+	if !ok || aliceRank.Score != 100 || aliceRank.AC != 1 {
+		t.Fatalf("OI score should use the best submission score after contest ends: %+v", guest.Rank)
 	}
 	aliceProblem, ok := rankProblemByID(aliceRank.Problems, problem.ID)
-	if !ok || aliceProblem.Status != "tried" || aliceProblem.Score != 30 || aliceProblem.Submit != 2 {
+	if !ok || aliceProblem.Status != "ac" || aliceProblem.Score != 100 || aliceProblem.Submit != 2 {
 		t.Fatalf("OI rank should expose per-problem score: %+v", aliceRank.Problems)
 	}
+	aliceState := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?contest="+strconv.FormatUint(uint64(contest.ID), 10)+"&ids=1000", databaseSession(t, db, alice.ID), nil))
+	if len(aliceState) != 1 || aliceState[0].Status != "ac" || aliceState[0].Submission == nil || aliceState[0].Submission.ID != submissions[0].ID || aliceState[0].Submission.Score != 100 {
+		t.Fatalf("OI problem state should keep the best completed submission: %+v", aliceState)
+	}
 
-	createBody := `{"title":"New OI","kind":"OI","startAt":"` + now.Add(time.Hour).UTC().Format(time.RFC3339) + `","endAt":"` + now.Add(2*time.Hour).UTC().Format(time.RFC3339) + `","freezeAt":"` + now.Add(90*time.Minute).UTC().Format(time.RFC3339) + `","problems":[{"id":1000,"sort":"A"}]}`
+	fresh := models.Problem{ID: 1001, Title: "Fresh OI", Tags: datatypes.JSON([]byte(`[]`)), Visible: false, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&fresh).Error; err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	t.Setenv("STORAGE", root)
+	writeReadyProblemFiles(t, root, fresh.ID, fresh.Title)
+	createBody := `{"title":"New OI","kind":"OI","startAt":"` + now.Add(time.Hour).UTC().Format(time.RFC3339) + `","endAt":"` + now.Add(2*time.Hour).UTC().Format(time.RFC3339) + `","freezeAt":"` + now.Add(90*time.Minute).UTC().Format(time.RFC3339) + `","problems":[{"id":1001,"sort":"A"}]}`
 	res := requestJSONWithCookies(e, http.MethodPost, "/api/contests", databaseSession(t, db, admin.ID), createBody)
 	if res.Code != http.StatusCreated {
 		t.Fatalf("create OI with freeze got %d body=%s", res.Code, res.Body.String())

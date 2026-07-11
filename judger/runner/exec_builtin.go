@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -93,10 +92,10 @@ func runBuiltinLocalCase(ctx context.Context, req LocalRun) (CaseResult, error) 
 		return CaseResult{}, err
 	}
 	limitedOutput := &limitFileWriter{file: output, limit: outputLimit}
-	var userErr bytes.Buffer
+	userErr := &limitBuffer{limit: defaultCompileOutputLimit}
 	user.Stdin = input
 	user.Stdout = limitedOutput
-	user.Stderr = &userErr
+	user.Stderr = userErr
 
 	startedAt := time.Now()
 	if err := user.Start(); err != nil {

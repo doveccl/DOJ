@@ -55,18 +55,6 @@ func problemAssetsCacheKey(id uint) string {
 	return "doj:problem:" + strconv.FormatUint(uint64(id), 10) + ":assets"
 }
 
-func clearProblemPackageCacheIfNeeded(ctx context.Context, id uint, key string) {
-	data := problemAssetPrefix(id, "data") + "/"
-	judge := problemAssetPrefix(id, "judge") + "/"
-	if strings.HasPrefix(key, data) || strings.HasPrefix(key, judge) {
-		clearProblemPackageCache(ctx, id)
-	}
-}
-
-func clearProblemPackageCache(ctx context.Context, id uint) {
-	_ = cache.Delete(ctx, cache.ProblemPackageKey(id))
-}
-
 func cleanEditableAssetKey(id uint, raw string) (string, error) {
 	key, err := storage.CleanKey(raw)
 	if err != nil || !problemAssetKeyAllowed(id, key) {

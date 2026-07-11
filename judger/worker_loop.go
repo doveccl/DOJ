@@ -20,12 +20,21 @@ func RunLoop(ctx context.Context, cfg LoopConfig) error {
 		return runLoopWorker(ctx, cfg)
 	}
 	errCh := make(chan error, workers)
+	workerCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	for i := 0; i < workers; i++ {
 		go func() {
-			errCh <- runLoopWorker(ctx, cfg)
+			errCh <- runLoopWorker(workerCtx, cfg)
 		}()
 	}
-	return <-errCh
+	first := <-errCh
+	cancel()
+	for i := 1; i < workers; i++ {
+		if err := <-errCh; first == nil {
+			first = err
+		}
+	}
+	return first
 }
 
 func runLoopWorker(ctx context.Context, cfg LoopConfig) error {

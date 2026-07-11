@@ -173,18 +173,36 @@ func validateResult(req judger.ResultRequest) error {
 	if len([]byte(req.Message)) > limits.MaxJudgerMessageBytes {
 		return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "result message is too large")
 	}
+	if invalidUsage(req.TimeMS, limits.MaxProblemTimeMS*2) || invalidUsage(req.MemoryKB, limits.MaxProblemMemoryMB*1024) {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid result resource usage")
+	}
+	if len(req.Cases) > limits.MaxJudgerCases {
+		return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "too many case results")
+	}
+	caseNumbers := make(map[int]struct{}, len(req.Cases))
 	for _, item := range req.Cases {
-		if item.No <= 0 {
+		if item.No <= 0 || item.No > len(req.Cases) {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid case number")
 		}
+		if _, exists := caseNumbers[item.No]; exists {
+			return echo.NewHTTPError(http.StatusBadRequest, "duplicate case number")
+		}
+		caseNumbers[item.No] = struct{}{}
 		if !validVerdict(item.Status) {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid case status")
+		}
+		if item.Score < 0 || item.Score > 100 || invalidUsage(item.TimeMS, limits.MaxProblemTimeMS*2) || invalidUsage(item.MemoryKB, limits.MaxProblemMemoryMB*1024) {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid case result")
 		}
 		if len([]rune(item.Message)) > models.CaseMessageMax {
 			return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "case message is too large")
 		}
 	}
 	return nil
+}
+
+func invalidUsage(value *int, max int) bool {
+	return value != nil && (*value < 0 || *value > max)
 }
 
 func validateHeartbeat(req judger.HeartbeatRequest) error {

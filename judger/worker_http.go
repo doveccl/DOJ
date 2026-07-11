@@ -5,12 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"runtime"
 	"time"
 
 	common "github.com/doveccl/doj/contract/judger"
+	contractlimits "github.com/doveccl/doj/contract/limits"
 )
 
 const (
@@ -97,5 +99,12 @@ func doJSON(ctx context.Context, client *http.Client, cfg WorkerConfig, method s
 	if out == nil {
 		return nil
 	}
-	return json.NewDecoder(httpResp.Body).Decode(out)
+	data, err := io.ReadAll(io.LimitReader(httpResp.Body, contractlimits.MaxJudgerLeaseBytes+1))
+	if err != nil {
+		return err
+	}
+	if len(data) > contractlimits.MaxJudgerLeaseBytes {
+		return fmt.Errorf("%s %s response is too large", method, path)
+	}
+	return json.Unmarshal(data, out)
 }

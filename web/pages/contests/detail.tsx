@@ -10,6 +10,7 @@ import { Link, useParams } from 'react-router-dom'
 
 import { api, apiData } from '../../client'
 import type { ProblemListItem, ProblemRef, ProblemState, RankUser } from '../../client'
+import { DescriptionCard } from '../../components/description'
 import { ProblemLink, UserLink } from '../../components/entity'
 import { defaultProblemSort, ProblemRefInput } from '../../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
@@ -84,7 +85,9 @@ export function ContestDetailPage() {
   }
 
   const { contest, problems, rank } = query.data
-  const stateByProblem = mapByProblem(state.data ?? [])
+  const oiRankHidden = contest.kind === 'OI' && contest.status === 'running' && !session.admin
+  const recordsUser = session.signedIn && !session.admin ? session.name : ''
+  const stateByProblem = new Map((state.data ?? []).map((item) => [item.problemId, item]))
   const problemOptions = problems.map((item) => ({
     value: item.id,
     label: problemLabel(item.id, item.title)
@@ -92,6 +95,17 @@ export function ContestDetailPage() {
 
   function openEdit() {
     setEditOpen(true)
+  }
+
+  async function saveDescription(description: string) {
+    try {
+      const next = await apiData(api.PATCH('/api/contests/{id}/description', { params: { path: { id } }, body: { description } }))
+      client.setQueryData<typeof query.data>(['contest', id], (current) => current ? { ...current, description: next.description } : current)
+      message.success(text.common.saved)
+    } catch (error) {
+      showError(error)
+      throw error
+    }
   }
 
   return (
@@ -109,22 +123,29 @@ export function ContestDetailPage() {
               </Tooltip>
             ) : null}
           </Flex>
-          <DeadlineTimer
-            kind="contest"
-            status={contest.status}
-            target={contestTarget(contest.status, contest.startAt, contest.endAt)}
-            range={`${formatTime(contest.startAt, lang)} - ${formatTime(contest.endAt, lang)}`}
-            onFinish={() => void query.refetch()}
-          />
+          <Flex align="center" gap={12} wrap>
+            <Button icon={<UnorderedListOutlined />} href={`/submissions?contest=${contest.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`}>
+              {recordsUser ? text.submissions.myRecords : text.submissions.allRecords}
+            </Button>
+            <DeadlineTimer
+              kind="contest"
+              status={contest.status}
+              target={contestTarget(contest.status, contest.startAt, contest.endAt)}
+              range={`${formatTime(contest.startAt, lang)} - ${formatTime(contest.endAt, lang)}`}
+              onFinish={() => void query.refetch()}
+            />
+          </Flex>
         </Flex>
       </Card>
+      <DescriptionCard id={`contest-${contest.id}-description`} title={text.contests.description} value={query.data.description} editable={session.admin} onSave={saveDescription} />
+      <Alert type="info" showIcon title={text.contests.rules} description={contest.kind === 'ICPC' ? text.contests.icpcRules : text.contests.oiRules} />
       <Card>
         <Tabs
           items={[
             {
               key: 'problems',
               label: text.contests.problems,
-              children: <Table<ProblemListItem> rowKey="id" columns={problemColumns(text, session.admin, contest.id, stateByProblem)} dataSource={problems} pagination={false} loading={state.isLoading} scroll={{ x: session.admin ? 640 : 560 }} />
+              children: <Table<ProblemListItem> rowKey="id" columns={problemColumns(text, contest.id, contest.status === 'ended', recordsUser, stateByProblem)} dataSource={problems} pagination={false} loading={state.isLoading} scroll={{ x: 640 }} />
             },
             {
               key: 'rank',
@@ -132,7 +153,18 @@ export function ContestDetailPage() {
               children: (
                 <Flex vertical gap={12}>
                   {contest.status === 'frozen' ? <Alert type={session.admin ? 'info' : 'warning'} showIcon title={session.admin ? text.contests.realtimeRank : text.contests.frozenRank} /> : null}
-                  <Table<RankUser> rowKey="rank" columns={rankColumns(text, contest.kind, problems)} dataSource={rank} pagination={false} scroll={{ x: 'max-content' }} />
+                  {oiRankHidden ? (
+                    <Alert type="info" showIcon title={text.contests.oiRankHidden} />
+                  ) : (
+                    <Table<RankUser>
+                      rowKey="rank"
+                      columns={rankColumns(text, contest.kind, problems)}
+                      dataSource={rank}
+                      pagination={false}
+                      scroll={{ x: 'max-content' }}
+                      locale={{ emptyText: text.contests.emptyRank }}
+                    />
+                  )}
                 </Flex>
               )
             }
@@ -144,6 +176,8 @@ export function ContestDetailPage() {
           contest={contest}
           problems={problems}
           problemOptions={problemOptions}
+          scopeLocked={contest.status !== 'pending'}
+          ended={contest.status === 'ended'}
           loading={update.isPending}
           onCancel={() => setEditOpen(false)}
           onSave={(values) => update.mutate(values)}
@@ -157,6 +191,8 @@ function ContestEditModal({
   contest,
   problems,
   problemOptions,
+  scopeLocked,
+  ended,
   loading,
   onCancel,
   onSave
@@ -164,6 +200,8 @@ function ContestEditModal({
   contest: { title: string; kind: string; startAt: string; endAt: string; freezeAt: string | null }
   problems: ProblemListItem[]
   problemOptions: { value: number; label: string }[]
+  scopeLocked: boolean
+  ended: boolean
   loading: boolean
   onCancel: () => void
   onSave: (values: ContestForm) => void
@@ -191,11 +229,13 @@ function ContestEditModal({
       onOk={() => form.submit()}
     >
       <Form<ContestForm> form={form} preserve={false} layout="vertical" initialValues={initialValues} onFinish={onSave}>
+        {scopeLocked ? <Alert type="info" showIcon title={text.contests.locked} /> : null}
         <Form.Item name="title" label={text.contests.name} rules={[{ required: true, whitespace: true }]}>
           <Input maxLength={limits.title} showCount />
         </Form.Item>
         <Form.Item name="kind" label={text.contests.kind}>
           <Select
+            disabled={scopeLocked}
             options={[
               { value: 'OI', label: 'OI' },
               { value: 'ICPC', label: 'ICPC' }
@@ -204,17 +244,17 @@ function ContestEditModal({
         </Form.Item>
         <Space size={12} style={{ width: '100%' }} align="start">
           <Form.Item name="startAt" label={text.contests.start} rules={[{ required: true }]}>
-            <DatePicker showTime />
+            <DatePicker showTime disabled={scopeLocked} />
           </Form.Item>
           <Form.Item name="endAt" label={text.contests.end} rules={[{ required: true }]}>
-            <DatePicker showTime />
+            <DatePicker showTime disabled={ended} minDate={scopeLocked && !ended ? dayjs(contest.endAt) : undefined} />
           </Form.Item>
           <Form.Item name="freezeAt" label={text.contests.freeze}>
-            <DatePicker showTime />
+            <DatePicker showTime disabled={scopeLocked} />
           </Form.Item>
         </Space>
-        <Form.Item name="problems" label={text.contests.problems}>
-          <ProblemRefInput options={problemOptions} />
+        <Form.Item name="problems" label={text.contests.problems} extra={scopeLocked ? undefined : text.contests.secretProblemsHint}>
+          <ProblemRefInput options={problemOptions} disabled={scopeLocked} hiddenOnly />
         </Form.Item>
       </Form>
     </Modal>
@@ -286,13 +326,16 @@ function RankProblemCell({ kind, item }: { kind: string; item?: RankUser['proble
     }
     return <Tag color="error">-{item.submit}</Tag>
   }
+  if (item.status === 'pending') {
+    return <Tag color="processing">?</Tag>
+  }
   if (item.status === 'ac') {
     return <Tag color="success">{item.score}</Tag>
   }
   return <Tag color={item.score > 0 ? 'warning' : 'error'}>{item.score}</Tag>
 }
 
-function problemColumns(text: ReturnType<typeof useLocale>['text'], admin: boolean, contestID: number, state: Map<number, ProblemState>): TableProps<ProblemListItem>['columns'] {
+function problemColumns(text: ReturnType<typeof useLocale>['text'], contestID: number, contestEnded: boolean, recordsUser: string, state: Map<number, ProblemState>): TableProps<ProblemListItem>['columns'] {
   const columns: TableProps<ProblemListItem>['columns'] = [
     {
       title: text.common.sort,
@@ -304,23 +347,21 @@ function problemColumns(text: ReturnType<typeof useLocale>['text'], admin: boole
       dataIndex: 'title',
       width: 320,
       ellipsis: { showTitle: false },
-      render: (title: string, row) => <ProblemLink id={row.id} title={title} />
+      render: (title: string, row) => <ProblemLink id={row.id} title={title} search={contestEnded ? '' : `?contest=${contestID}`} />
     },
     {
       title: text.contests.status,
       render: (_, row) => <ContestProblemStatus record={state.get(row.id)} text={text} />
-    }
-  ]
-  if (admin) {
-    columns.push({
+    },
+    {
       align: 'right',
       render: (_, row) => (
         <Tooltip title={text.submissions.viewProblemRecords}>
-          <Button aria-label={`${text.submissions.viewProblemRecords} ${problemCode(row.id)}`} type="text" icon={<UnorderedListOutlined />} href={`/submissions?contest=${contestID}&problem=${row.id}`} />
+          <Button aria-label={`${text.submissions.viewProblemRecords} ${problemCode(row.id)}`} type="text" icon={<UnorderedListOutlined />} href={`/submissions?contest=${contestID}&problem=${row.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`} />
         </Tooltip>
       )
-    })
-  }
+    }
+  ]
   return columns
 }
 
@@ -337,8 +378,4 @@ function ContestProblemStatus({ record, text }: { record?: ProblemState; text: R
     return wrap(<Tag color="warning">{text.contests.attempted}</Tag>)
   }
   return <Tag>{text.contests.notCompleted}</Tag>
-}
-
-function mapByProblem<T extends { problemId: number }>(items: T[]) {
-  return new Map(items.map((item) => [item.problemId, item]))
 }

@@ -98,15 +98,17 @@ type RankUser struct {
 }
 
 type assignmentDetail struct {
-	Assignment Assignment           `json:"assignment"`
-	Problems   []ProblemListItem    `json:"problems"`
-	Progress   []AssignmentProgress `json:"progress"`
+	Assignment  Assignment           `json:"assignment"`
+	Description string               `json:"description"`
+	Problems    []ProblemListItem    `json:"problems"`
+	Progress    []AssignmentProgress `json:"progress"`
 }
 
 type contestDetail struct {
-	Contest  contract.Contest  `json:"contest"`
-	Problems []ProblemListItem `json:"problems"`
-	Rank     []RankUser        `json:"rank"`
+	Contest     contract.Contest  `json:"contest"`
+	Description string            `json:"description"`
+	Problems    []ProblemListItem `json:"problems"`
+	Rank        []RankUser        `json:"rank"`
 }
 
 type submissionDetail struct {
@@ -126,7 +128,7 @@ type userProfile struct {
 type discussionDetail struct {
 	Discussion contract.Discussion `json:"discussion"`
 	Content    string              `json:"content"`
-	Comments   []contract.Comment  `json:"comments"`
+	Comments   CommentPage         `json:"comments"`
 }
 
 type ProblemListPage contract.Page[ProblemListItem]
@@ -136,6 +138,7 @@ type SubmissionListPage contract.Page[contract.SubmissionListItem]
 type RankUserPage contract.Page[RankUser]
 type SolvedProblemPage contract.Page[contract.SolvedProblem]
 type DiscussionListPage contract.Page[contract.Discussion]
+type CommentPage contract.Page[contract.Comment]
 
 type AdminMembers struct {
 	Users  []AdminUser  `json:"users"`
@@ -266,6 +269,8 @@ type assignmentListQuery struct {
 type submissionListQuery struct {
 	Problem    string `query:"problem"`
 	User       string `query:"user"`
+	Language   string `query:"language"`
+	Status     string `query:"status"`
 	Assignment string `query:"assignment"`
 	Contest    string `query:"contest"`
 	Page       int    `query:"page"`
@@ -283,6 +288,12 @@ type discussionListQuery struct {
 	Tags     string `query:"tags"`
 	Page     int    `query:"page"`
 	PageSize int    `query:"pageSize"`
+}
+
+type discussionDetailQuery struct {
+	ID       uint `path:"id"`
+	Page     int  `query:"page"`
+	PageSize int  `query:"pageSize"`
 }
 
 type commentPath struct {
@@ -403,11 +414,13 @@ func RegisterOpenAPI(api huma.API) {
 	postCreated[bodyInput[contract.AssignmentCreate], contract.CreatedID](api, "/api/assignments", "createAssignment", "Assignment created")
 	getWith[idPath, assignmentDetail](api, "/api/assignments/{id}", "getAssignment", "Assignment detail")
 	patch[idBody[contract.AssignmentUpdate], contract.CreatedID](api, "/api/assignments/{id}", "updateAssignment", "Assignment updated")
+	patch[idBody[contract.DescriptionUpdate], contract.DescriptionUpdate](api, "/api/assignments/{id}/description", "updateAssignmentDescription", "Assignment description updated")
 	noContent[idPath](api, http.MethodDelete, "/api/assignments/{id}", "deleteAssignment", "Assignment deleted")
 	getWith[assignmentListQuery, ContestListPage](api, "/api/contests", "listContests", "Contest list")
 	postCreated[bodyInput[contract.ContestCreate], contract.CreatedID](api, "/api/contests", "createContest", "Contest created")
 	getWith[idPath, contestDetail](api, "/api/contests/{id}", "getContest", "Contest detail")
 	patch[idBody[contract.ContestUpdate], contract.CreatedID](api, "/api/contests/{id}", "updateContest", "Contest updated")
+	patch[idBody[contract.DescriptionUpdate], contract.DescriptionUpdate](api, "/api/contests/{id}/description", "updateContestDescription", "Contest description updated")
 	noContent[idPath](api, http.MethodDelete, "/api/contests/{id}", "deleteContest", "Contest deleted")
 
 	getWith[submissionListQuery, SubmissionListPage](api, "/api/submissions", "listSubmissions", "Submission list")
@@ -422,7 +435,7 @@ func RegisterOpenAPI(api huma.API) {
 	getWith[userProfilePath, userProfile](api, "/api/users/{name}", "getUser", "User profile")
 	getWith[discussionListQuery, DiscussionListPage](api, "/api/discussion", "listDiscussions", "Discussion list")
 	postCreated[bodyInput[contract.DiscussionCreate], contract.CreatedID](api, "/api/discussion", "createDiscussion", "Discussion created")
-	getWith[idPath, discussionDetail](api, "/api/discussion/{id}", "getDiscussion", "Discussion detail")
+	getWith[discussionDetailQuery, discussionDetail](api, "/api/discussion/{id}", "getDiscussion", "Discussion detail")
 	patch[idBody[contract.DiscussionUpdate], contract.CreatedID](api, "/api/discussion/{id}", "updateDiscussion", "Discussion updated")
 	noContent[idPath](api, http.MethodDelete, "/api/discussion/{id}", "deleteDiscussion", "Discussion deleted")
 	postCreated[idBody[contract.CommentCreate], contract.Comment](api, "/api/discussion/{id}/comments", "createComment", "Comment created")

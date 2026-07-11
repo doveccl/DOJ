@@ -8,24 +8,24 @@ import (
 	"gorm.io/gorm"
 )
 
-func EnsureAdmin(db *gorm.DB, name string, mail string, password string) error {
+func EnsureAdmin(db *gorm.DB, name string, mail string, password string) (bool, error) {
 	var count int64
 	if err := db.Model(&User{}).Where("admin = ?", true).Count(&count).Error; err != nil {
-		return err
+		return false, err
 	}
 	if count > 0 {
-		return nil
+		return false, nil
 	}
 
 	name = strings.TrimSpace(name)
 	mail = strings.TrimSpace(mail)
 	if name == "" || mail == "" || password == "" {
-		return fmt.Errorf("default admin seed is incomplete")
+		return false, fmt.Errorf("default admin seed is incomplete")
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return err
+		return false, err
 	}
 	user := User{
 		Name:  name,
@@ -33,7 +33,10 @@ func EnsureAdmin(db *gorm.DB, name string, mail string, password string) error {
 		Auth:  string(hash),
 		Admin: true,
 	}
-	return db.Create(&user).Error
+	if err := db.Create(&user).Error; err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func DefaultLanguage() Language {

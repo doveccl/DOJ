@@ -8,14 +8,41 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
 
+	"github.com/doveccl/doj/contract/limits"
 	contract "github.com/doveccl/doj/contract/web"
 	"github.com/doveccl/doj/models"
 	"github.com/labstack/echo/v4"
 	"gorm.io/datatypes"
 )
 
-func TestProblemVisibilityUpdateDoesNotTouchStatementStorage(t *testing.T) {
+func TestProblemLimitsHaveUpperBounds(t *testing.T) {
+	db := testWebDB(t)
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatal(err)
+	}
+	e := echo.New()
+	Register(e, db)
+	cookies := databaseSession(t, db, admin.ID)
+	tooLarge := `{"title":"Huge","timeMs":` + strconv.Itoa(limits.MaxProblemTimeMS+1) + `,"memoryMb":` + strconv.Itoa(limits.MaxProblemMemoryMB+1) + `}`
+	if res := requestJSONWithCookies(e, http.MethodPost, "/api/problems", cookies, tooLarge); res.Code != http.StatusBadRequest {
+		t.Fatalf("oversized create got %d body=%s", res.Code, res.Body.String())
+	}
+	valid := `{"title":"Bounded","timeMs":` + strconv.Itoa(limits.MaxProblemTimeMS) + `,"memoryMb":` + strconv.Itoa(limits.MaxProblemMemoryMB) + `}`
+	res := requestJSONWithCookies(e, http.MethodPost, "/api/problems", cookies, valid)
+	if res.Code != http.StatusCreated {
+		t.Fatalf("maximum limits got %d body=%s", res.Code, res.Body.String())
+	}
+	id := decodeJSON[contract.CreatedID](t, res).ID
+	patch := `{"memoryMb":` + strconv.Itoa(limits.MaxProblemMemoryMB+1) + `}`
+	if res := requestJSONWithCookies(e, http.MethodPatch, "/api/problems/"+strconv.FormatUint(uint64(id), 10), cookies, patch); res.Code != http.StatusBadRequest {
+		t.Fatalf("oversized patch got %d body=%s", res.Code, res.Body.String())
+	}
+}
+
+func TestPublishedProblemCannotBeHiddenWithoutTouchingStatementStorage(t *testing.T) {
 	db := testWebDB(t)
 	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
 	if err := db.Create(&admin).Error; err != nil {
@@ -29,7 +56,7 @@ func TestProblemVisibilityUpdateDoesNotTouchStatementStorage(t *testing.T) {
 		t.Fatalf("create submission: %v", err)
 	}
 	discussionTags, _ := json.Marshal([]string{"P1000"})
-	if err := db.Create(&models.Discussion{Title: "Visible discussion", Content: "body", UserID: admin.ID, Tags: discussionTags}).Error; err != nil {
+	if err := db.Create(&models.Discussion{Title: "Visible discussion", Content: "body", UserID: admin.ID, ProblemID: &problem.ID, Tags: discussionTags}).Error; err != nil {
 		t.Fatalf("create discussion: %v", err)
 	}
 	blockedStorage := filepath.Join(t.TempDir(), "storage-file")
@@ -42,15 +69,12 @@ func TestProblemVisibilityUpdateDoesNotTouchStatementStorage(t *testing.T) {
 	Register(e, db)
 	cookies := databaseSession(t, db, admin.ID)
 	res := requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000/visibility", cookies, `{"visible":false}`)
-	if res.Code != http.StatusOK {
+	if res.Code != http.StatusConflict {
 		t.Fatalf("visibility update got %d body=%s", res.Code, res.Body.String())
 	}
-	updated := decodeJSON[contract.Problem](t, res)
-	if updated.Visible {
-		t.Fatalf("problem should be hidden after visibility update: %+v", updated)
-	}
-	if updated.Cases != nil || updated.DataBytes != nil || updated.Statement != "" {
-		t.Fatalf("visibility response should stay a list item without storage/detail fields: %+v", updated)
+	var updated models.Problem
+	if err := db.First(&updated, problem.ID).Error; err != nil || !updated.Visible {
+		t.Fatalf("published problem visibility changed: %+v err=%v", updated, err)
 	}
 }
 
@@ -87,16 +111,13 @@ func TestProblemPatchOnlyUpdatesProvidedFields(t *testing.T) {
 	if updated.Mode != "strict" || updated.Title != "Original" || updated.Statement != statement || !updated.Visible || updated.TimeMS != 2000 || updated.MemoryMB != 512 {
 		t.Fatalf("mode patch should preserve unrelated problem fields: %+v", updated)
 	}
-	res = requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000", cookies, `{"visible":false}`)
-	if res.Code != http.StatusOK {
+	res = requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000/visibility", cookies, `{"visible":false}`)
+	if res.Code != http.StatusConflict {
 		t.Fatalf("visible false patch got %d body=%s", res.Code, res.Body.String())
 	}
-	if got := decodeJSON[contract.CreatedID](t, res); got.ID != problem.ID {
-		t.Fatalf("visible patch should return problem id: %+v", got)
-	}
 	updated = decodeJSON[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil))
-	if updated.Visible || updated.Mode != "strict" || updated.Title != "Original" || updated.Statement != statement {
-		t.Fatalf("visible false patch should apply false and preserve unrelated fields: %+v", updated)
+	if !updated.Visible || updated.Mode != "strict" || updated.Title != "Original" || updated.Statement != statement {
+		t.Fatalf("failed unpublish should preserve the problem: %+v", updated)
 	}
 	res = requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000", cookies, `{"tags":[]}`)
 	if res.Code != http.StatusOK {
@@ -106,7 +127,7 @@ func TestProblemPatchOnlyUpdatesProvidedFields(t *testing.T) {
 		t.Fatalf("tags patch should return problem id: %+v", got)
 	}
 	updated = decodeJSON[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil))
-	if len(updated.Tags) != 0 || updated.Visible || updated.Mode != "strict" || updated.Statement != statement {
+	if len(updated.Tags) != 0 || !updated.Visible || updated.Mode != "strict" || updated.Statement != statement {
 		t.Fatalf("empty tags patch should clear tags and preserve unrelated fields: %+v", updated)
 	}
 	res = requestJSONWithCookies(e, http.MethodPatch, "/api/problems/1000", cookies, `{"timeMs":0,"memoryMb":0}`)
@@ -122,7 +143,7 @@ func TestProblemPatchOnlyUpdatesProvidedFields(t *testing.T) {
 	}
 }
 
-func TestProblemCreateDefaultsVisibleAndListSortsByID(t *testing.T) {
+func TestProblemCreateDefaultsHiddenAndListSortsByID(t *testing.T) {
 	db := testWebDB(t)
 	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
 	if err := db.Create(&admin).Error; err != nil {
@@ -143,8 +164,8 @@ func TestProblemCreateDefaultsVisibleAndListSortsByID(t *testing.T) {
 	cookies := databaseSession(t, db, admin.ID)
 	created := decodeJSON[contract.CreatedID](t, requestJSONWithCookies(e, http.MethodPost, "/api/problems", cookies, `{"title":"Created","tags":[],"mode":"default","timeMs":1000,"memoryMb":256}`))
 	createdDetail := decodeJSON[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems/"+strconv.FormatUint(uint64(created.ID), 10), cookies, nil))
-	if !createdDetail.Visible {
-		t.Fatalf("created problem should default to visible: %+v", createdDetail)
+	if createdDetail.Visible {
+		t.Fatalf("unfinished problem should default to hidden: %+v", createdDetail)
 	}
 	items := decodePageItems[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems", cookies, nil))
 	if len(items) < 3 {
@@ -153,6 +174,123 @@ func TestProblemCreateDefaultsVisibleAndListSortsByID(t *testing.T) {
 	ids := []uint{items[0].ID, items[1].ID, items[2].ID}
 	if ids[0] != 1000 || ids[1] != 1002 || ids[2] != created.ID {
 		t.Fatalf("problem list should sort by id asc, got %+v", ids)
+	}
+}
+
+func TestProblemPublishRequiresStatementCasesAndCustomJudge(t *testing.T) {
+	db := testWebDB(t)
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	t.Setenv("STORAGE", root)
+	e := echo.New()
+	Register(e, db)
+	cookies := databaseSession(t, db, admin.ID)
+	created := decodeJSON[contract.CreatedID](t, requestJSONWithCookies(e, http.MethodPost, "/api/problems", cookies, `{"title":"Draft","tags":[],"mode":"default","timeMs":1000,"memoryMb":256}`))
+	visibilityPath := "/api/problems/" + strconv.FormatUint(uint64(created.ID), 10) + "/visibility"
+	if res := requestJSONWithCookies(e, http.MethodPatch, visibilityPath, cookies, `{"visible":true}`); res.Code != http.StatusConflict {
+		t.Fatalf("empty draft publish got %d body=%s", res.Code, res.Body.String())
+	}
+	files := map[string]string{
+		"statement.md": "# Draft\n\nAdd two integers.",
+		"data/1.in":    "1 2\n",
+		"data/1.out":   "3\n",
+	}
+	for name, content := range files {
+		file := filepath.Join(root, "problems", strconv.FormatUint(uint64(created.ID), 10), filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(file, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if res := requestJSONWithCookies(e, http.MethodPatch, visibilityPath, cookies, `{"visible":true}`); res.Code != http.StatusOK {
+		t.Fatalf("ready problem publish got %d body=%s", res.Code, res.Body.String())
+	}
+	if res := requestJSONWithCookies(e, http.MethodPatch, visibilityPath, cookies, `{"visible":false}`); res.Code != http.StatusOK {
+		if res.Code != http.StatusConflict {
+			t.Fatalf("published problem hide got %d body=%s", res.Code, res.Body.String())
+		}
+	}
+	custom := decodeJSON[contract.CreatedID](t, requestJSONWithCookies(e, http.MethodPost, "/api/problems", cookies, `{"title":"Custom Draft","tags":[],"mode":"custom","timeMs":1000,"memoryMb":256}`))
+	customFiles := map[string]string{
+		"statement.md": "# Custom Draft\n\nJudge interactively.",
+		"data/1.in":    "1\n",
+		"data/1.out":   "1\n",
+	}
+	for name, content := range customFiles {
+		file := filepath.Join(root, "problems", strconv.FormatUint(uint64(custom.ID), 10), filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(file, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	customVisibilityPath := "/api/problems/" + strconv.FormatUint(uint64(custom.ID), 10) + "/visibility"
+	if res := requestJSONWithCookies(e, http.MethodPatch, customVisibilityPath, cookies, `{"visible":true}`); res.Code != http.StatusConflict {
+		t.Fatalf("custom problem without Dockerfile got %d body=%s", res.Code, res.Body.String())
+	}
+}
+
+func TestProblemDeleteOnlyAllowsUnusedDraft(t *testing.T) {
+	db := testWebDB(t)
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatal(err)
+	}
+	problems := []models.Problem{
+		{ID: 1000, Title: "Published", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256},
+		{ID: 1001, Title: "Contest", Tags: datatypes.JSON([]byte(`[]`)), Mode: "default", TimeMS: 1000, MemoryMB: 256},
+		{ID: 1002, Title: "Assignment", Tags: datatypes.JSON([]byte(`[]`)), Mode: "default", TimeMS: 1000, MemoryMB: 256},
+		{ID: 1003, Title: "Submission", Tags: datatypes.JSON([]byte(`[]`)), Mode: "default", TimeMS: 1000, MemoryMB: 256},
+		{ID: 1004, Title: "Discussion", Tags: datatypes.JSON([]byte(`[]`)), Mode: "default", TimeMS: 1000, MemoryMB: 256},
+		{ID: 1005, Title: "Unused draft", Tags: datatypes.JSON([]byte(`[]`)), Mode: "default", TimeMS: 1000, MemoryMB: 256},
+	}
+	if err := db.Create(&problems).Error; err != nil {
+		t.Fatal(err)
+	}
+	contest := models.Contest{Title: "Round", Kind: "OI", StartAt: time.Now().Add(time.Hour), EndAt: time.Now().Add(2 * time.Hour)}
+	assignment := models.Assignment{Title: "Homework", EndAt: time.Now().Add(time.Hour)}
+	if err := db.Create(&contest).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&assignment).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&models.ContestProblem{ContestID: contest.ID, ProblemID: 1001, Sort: "A"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&models.AssignmentProblem{AssignmentID: assignment.ID, ProblemID: 1002, Sort: "A"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&models.Submission{UserID: admin.ID, ProblemID: 1003, Language: "cpp", Code: "int main(){}", Status: "AC", Score: 100}).Error; err != nil {
+		t.Fatal(err)
+	}
+	discussionProblemID := uint(1004)
+	if err := db.Create(&models.Discussion{ProblemID: &discussionProblemID, Title: "Discussion", Content: "body", UserID: admin.ID, Tags: datatypes.JSON([]byte(`[]`))}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+	cookies := databaseSession(t, db, admin.ID)
+	for id := uint(1000); id <= 1004; id++ {
+		res := requestWithCookies(e, http.MethodDelete, "/api/problems/"+strconv.FormatUint(uint64(id), 10), cookies, nil)
+		if res.Code != http.StatusConflict {
+			t.Fatalf("delete P%d got %d body=%s", id, res.Code, res.Body.String())
+		}
+	}
+	res := requestWithCookies(e, http.MethodDelete, "/api/problems/1005", cookies, nil)
+	if res.Code != http.StatusNoContent {
+		t.Fatalf("delete unused draft got %d body=%s", res.Code, res.Body.String())
+	}
+	var count int64
+	if err := db.Model(&models.Problem{}).Where("id = ?", 1005).Count(&count).Error; err != nil || count != 0 {
+		t.Fatalf("unused draft still exists: count=%d err=%v", count, err)
 	}
 }
 

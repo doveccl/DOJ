@@ -12,6 +12,7 @@ const liveKeys = new Set([
   'contests',
   'home',
   'problem',
+  'problem-state',
   'problems',
   'rank',
   'submission',
@@ -31,15 +32,27 @@ export function LiveEvents() {
     }
 
     const source = new EventSource(apiUrl('/api/events').toString(), { withCredentials: true })
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined
     source.addEventListener('submission', () => {
-      void client.invalidateQueries({
-        predicate: (query) => liveKeys.has(String(query.queryKey[0]))
-      })
+      if (refreshTimer !== undefined) {
+        return
+      }
+      refreshTimer = setTimeout(() => {
+        refreshTimer = undefined
+        void client.invalidateQueries({
+          predicate: (query) => liveKeys.has(String(query.queryKey[0]))
+        })
+      }, 300)
     })
     source.addEventListener('submission-progress', () => {
       void client.invalidateQueries({ queryKey: ['submission'] })
     })
-    return () => source.close()
+    return () => {
+      source.close()
+      if (refreshTimer !== undefined) {
+        clearTimeout(refreshTimer)
+      }
+    }
   }, [client, enabled])
 
   return null

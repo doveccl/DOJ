@@ -125,9 +125,10 @@ type ProblemRef struct {
 }
 
 type AssignmentDetail struct {
-	Assignment Assignment           `json:"assignment"`
-	Problems   []Problem            `json:"problems"`
-	Progress   []AssignmentProgress `json:"progress"`
+	Assignment  Assignment           `json:"assignment"`
+	Description string               `json:"description"`
+	Problems    []Problem            `json:"problems"`
+	Progress    []AssignmentProgress `json:"progress"`
 }
 
 type AssignmentProgress struct {
@@ -173,18 +174,26 @@ type ContestUpdate struct {
 }
 
 type ContestDetail struct {
-	Contest  Contest    `json:"contest"`
-	Problems []Problem  `json:"problems"`
-	Rank     []RankUser `json:"rank"`
+	Contest     Contest    `json:"contest"`
+	Description string     `json:"description"`
+	Problems    []Problem  `json:"problems"`
+	Rank        []RankUser `json:"rank"`
+}
+
+type DescriptionUpdate struct {
+	Description string `json:"description"`
 }
 
 type SubmissionListItem struct {
 	ID           uint      `json:"id"`
 	ProblemID    uint      `json:"problemId"`
 	ProblemTitle string    `json:"problemTitle"`
+	AssignmentID *uint     `json:"assignmentId,omitempty"`
+	ContestID    *uint     `json:"contestId,omitempty"`
 	User         string    `json:"user"`
 	Language     string    `json:"language"`
 	Status       string    `json:"status"`
+	Score        int       `json:"score"`
 	TimeMS       *int      `json:"timeMs,omitempty"`
 	MemoryKB     *int      `json:"memoryKb,omitempty"`
 	CreatedAt    time.Time `json:"createdAt"`
@@ -194,6 +203,8 @@ type Submission struct {
 	ID           uint      `json:"id"`
 	ProblemID    uint      `json:"problemId"`
 	ProblemTitle string    `json:"problemTitle"`
+	AssignmentID *uint     `json:"assignmentId,omitempty"`
+	ContestID    *uint     `json:"contestId,omitempty"`
 	User         string    `json:"user"`
 	Language     string    `json:"language"`
 	Status       string    `json:"status"`
@@ -220,10 +231,12 @@ type SubmissionProgress struct {
 }
 
 type SubmitRequest struct {
-	ProblemID uint   `json:"problemId"`
-	Language  string `json:"language"`
-	Code      string `json:"code"`
-	Public    bool   `json:"public"`
+	ProblemID    uint   `json:"problemId"`
+	AssignmentID *uint  `json:"assignmentId,omitempty"`
+	ContestID    *uint  `json:"contestId,omitempty"`
+	Language     string `json:"language"`
+	Code         string `json:"code"`
+	Public       bool   `json:"public"`
 }
 
 type SubmissionUpdate struct {
@@ -297,6 +310,7 @@ type UserActivity struct {
 
 type Discussion struct {
 	ID        uint      `json:"id"`
+	ProblemID *uint     `json:"problemId,omitempty"`
 	Title     string    `json:"title"`
 	Author    string    `json:"author"`
 	Tags      []string  `json:"tags"`
@@ -321,9 +335,9 @@ type DiscussionUpdate struct {
 }
 
 type DiscussionDetail struct {
-	Discussion Discussion `json:"discussion"`
-	Content    string     `json:"content"`
-	Comments   []Comment  `json:"comments"`
+	Discussion Discussion    `json:"discussion"`
+	Content    string        `json:"content"`
+	Comments   Page[Comment] `json:"comments"`
 }
 
 type Comment struct {
@@ -371,7 +385,6 @@ type ProblemRecord struct {
 type ProblemCreate struct {
 	Title    string   `json:"title"`
 	Tags     []string `json:"tags"`
-	Visible  *bool    `json:"visible"`
 	Mode     string   `json:"mode"`
 	TimeMS   int      `json:"timeMs"`
 	MemoryMB int      `json:"memoryMb"`
@@ -381,7 +394,6 @@ type ProblemUpdate struct {
 	Title     *string   `json:"title,omitempty"`
 	Statement *string   `json:"statement,omitempty"`
 	Tags      *[]string `json:"tags,omitempty"`
-	Visible   *bool     `json:"visible,omitempty"`
 	Mode      *string   `json:"mode,omitempty"`
 	TimeMS    *int      `json:"timeMs,omitempty"`
 	MemoryMB  *int      `json:"memoryMb,omitempty"`

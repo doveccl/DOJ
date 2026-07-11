@@ -67,7 +67,7 @@ func TestLocalLoopbackLeaseReusesJudgerWithoutToken(t *testing.T) {
 	group.POST("/lease", api.lease)
 
 	for index := 0; index < 3; index++ {
-		req := httptest.NewRequest(http.MethodPost, "/api/judger/lease", strings.NewReader(`{"host":"local-judger"}`))
+		req := httptest.NewRequest(http.MethodPost, "/api/judger/lease", strings.NewReader(`{"version":"`+judger.Version+`","host":"local-judger"}`))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 		req.RemoteAddr = "127.0.0.1:1234"
 		res := httptest.NewRecorder()

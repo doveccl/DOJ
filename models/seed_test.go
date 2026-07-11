@@ -14,7 +14,7 @@ func TestEnsureAdminRequiresBootstrapWhenNoAdminExists(t *testing.T) {
 	if err := AutoMigrate(db); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	if err := EnsureAdmin(db, "admin", "admin@example.com", ""); err == nil {
+	if _, err := EnsureAdmin(db, "admin", "admin@example.com", ""); err == nil {
 		t.Fatalf("expected missing bootstrap password to fail")
 	}
 }
@@ -24,8 +24,12 @@ func TestEnsureAdminCreatesFirstAdmin(t *testing.T) {
 	if err := AutoMigrate(db); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	if err := EnsureAdmin(db, " admin ", " admin@example.com ", "password123"); err != nil {
+	created, err := EnsureAdmin(db, " admin ", " admin@example.com ", "password123")
+	if err != nil {
 		t.Fatalf("ensure admin: %v", err)
+	}
+	if !created {
+		t.Fatalf("first admin was not reported as created")
 	}
 	var user User
 	if err := db.First(&user, "name = ?", "admin").Error; err != nil {
@@ -44,11 +48,15 @@ func TestEnsureAdminDoesNotRequireBootstrapAfterAdminExists(t *testing.T) {
 	if err := AutoMigrate(db); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	if err := EnsureAdmin(db, "admin", "admin@example.com", "password123"); err != nil {
+	if _, err := EnsureAdmin(db, "admin", "admin@example.com", "password123"); err != nil {
 		t.Fatalf("initial ensure admin: %v", err)
 	}
-	if err := EnsureAdmin(db, "", "", ""); err != nil {
+	created, err := EnsureAdmin(db, "", "", "")
+	if err != nil {
 		t.Fatalf("existing admin should allow empty bootstrap settings: %v", err)
+	}
+	if created {
+		t.Fatalf("existing admin was reported as newly created")
 	}
 	var count int64
 	if err := db.Model(&User{}).Where("admin = ?", true).Count(&count).Error; err != nil {
@@ -94,6 +102,22 @@ func TestEnsureDefaultLanguageKeepsExistingLangs(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("lang count = %d, want 1", count)
+	}
+}
+
+func TestUserIdentityIndexesAreCaseInsensitive(t *testing.T) {
+	db := openTestDB(t)
+	if err := AutoMigrate(db); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	if err := db.Create(&User{Name: "Alice", Mail: "Alice@example.com", Auth: "hash"}).Error; err != nil {
+		t.Fatalf("create first user: %v", err)
+	}
+	if err := db.Create(&User{Name: "alice", Mail: "other@example.com", Auth: "hash"}).Error; err == nil {
+		t.Fatal("case-folded duplicate username was accepted")
+	}
+	if err := db.Create(&User{Name: "other", Mail: "alice@EXAMPLE.com", Auth: "hash"}).Error; err == nil {
+		t.Fatal("case-folded duplicate mail was accepted")
 	}
 }
 

@@ -71,6 +71,7 @@ func (api *API) downloadBackup(c echo.Context) error {
 	if contentType == "" {
 		contentType = "application/gzip"
 	}
+	c.Response().Header().Set(echo.HeaderCacheControl, "private, no-store")
 	c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="`+name+`"`)
 	return c.Stream(http.StatusOK, contentType, reader)
 }

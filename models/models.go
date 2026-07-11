@@ -9,8 +9,8 @@ import (
 
 type User struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
-	Name      string         `gorm:"size:32;uniqueIndex;not null" json:"name"`
-	Mail      string         `gorm:"size:256;uniqueIndex;not null" json:"mail"`
+	Name      string         `gorm:"size:32;uniqueIndex:idx_users_name_ci,expression:LOWER(name);not null" json:"name"`
+	Mail      string         `gorm:"size:256;uniqueIndex:idx_users_mail_ci,expression:LOWER(mail);not null" json:"mail"`
 	Auth      string         `gorm:"size:128;not null" json:"-"`
 	Bio       string         `gorm:"size:256;not null;default:''" json:"bio"`
 	Avatar    string         `gorm:"size:512;not null;default:''" json:"avatar"`
@@ -140,6 +140,7 @@ type ContestProblem struct {
 
 type Discussion struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
+	ProblemID *uint          `gorm:"index" json:"problemId"`
 	Title     string         `gorm:"size:256;not null" json:"title"`
 	Content   string         `gorm:"type:text;not null" json:"content"`
 	UserID    uint           `gorm:"index;not null" json:"userId"`

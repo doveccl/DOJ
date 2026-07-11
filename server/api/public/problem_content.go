@@ -3,22 +3,16 @@ package public
 import (
 	"context"
 	"fmt"
-	"github.com/doveccl/doj/contract/limits"
-	"github.com/doveccl/doj/server/cache"
-	"github.com/doveccl/doj/server/storage"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
-	contract "github.com/doveccl/doj/contract/web"
-
+	"github.com/doveccl/doj/contract/limits"
 	"github.com/doveccl/doj/models"
+	"github.com/doveccl/doj/server/storage"
 	"github.com/labstack/echo/v4"
 )
-
-const problemDiscussionsCacheKey = "doj:problem:discussions"
 
 func (api *API) problemStatement(ctx context.Context, id uint, title string) (string, error) {
 	store, err := storage.NewFromEnv()
@@ -27,7 +21,10 @@ func (api *API) problemStatement(ctx context.Context, id uint, title string) (st
 	}
 	reader, _, err := store.Open(ctx, problemStatementKey(id))
 	if err != nil {
-		return "# " + title, nil
+		if storage.IsNotFound(err) {
+			return "# " + title, nil
+		}
+		return "", err
 	}
 	defer reader.Close()
 	data, err := io.ReadAll(io.LimitReader(reader, limits.MaxMarkdownBytes+1))
@@ -64,20 +61,19 @@ func problemStatementKey(id uint) string {
 
 func (api *API) problemDiscussionCounts(ctx context.Context) (map[uint]int, error) {
 	counts := map[uint]int{}
-	found, err := cache.Get(ctx, problemDiscussionsCacheKey, &counts)
-	if err == nil && found {
-		return counts, nil
+	var rows []struct {
+		ProblemID uint
+		Count     int64
 	}
-	var rows []models.Discussion
-	if err := api.db.Select("id", "tags", "pinned", "locked").Order("updated_at desc").Limit(1000).Find(&rows).Error; err != nil {
+	if err := api.db.WithContext(ctx).Model(&models.Discussion{}).
+		Select("problem_id, count(*) AS count").
+		Where("problem_id IS NOT NULL").
+		Group("problem_id").
+		Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	for _, row := range rows {
-		item := contract.Discussion{ID: row.ID, Tags: readTags([]byte(row.Tags)), Pinned: row.Pinned, Locked: row.Locked}
-		for _, problemID := range discussionProblemIDs(item) {
-			counts[problemID]++
-		}
+		counts[row.ProblemID] = int(row.Count)
 	}
-	_ = cache.Set(ctx, problemDiscussionsCacheKey, counts, 10*time.Second)
 	return counts, nil
 }

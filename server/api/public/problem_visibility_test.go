@@ -13,6 +13,109 @@ import (
 	"gorm.io/datatypes"
 )
 
+func TestDeletedRunningContestDoesNotPublishHiddenResults(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	user := models.User{Name: "student", Mail: "student@example.com", Auth: "hash"}
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	for _, row := range []*models.User{&user, &admin} {
+		if err := db.Create(row).Error; err != nil {
+			t.Fatalf("create user: %v", err)
+		}
+	}
+	publicProblem := models.Problem{ID: 1000, Title: "Public", Tags: datatypes.JSON([]byte(`["public-tag"]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	hiddenProblem := models.Problem{ID: 1001, Title: "Hidden", Tags: datatypes.JSON([]byte(`["hidden-tag"]`)), Visible: false, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	contestProblem := models.Problem{ID: 1002, Title: "Contest", Tags: datatypes.JSON([]byte(`["contest-tag"]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	for _, row := range []*models.Problem{&publicProblem, &hiddenProblem, &contestProblem} {
+		if err := db.Create(row).Error; err != nil {
+			t.Fatalf("create problem: %v", err)
+		}
+	}
+	contest := models.Contest{Title: "Running", Kind: "OI", StartAt: time.Now().Add(-time.Hour), EndAt: time.Now().Add(time.Hour)}
+	if err := db.Create(&contest).Error; err != nil {
+		t.Fatalf("create contest: %v", err)
+	}
+	if err := db.Create(&models.ContestProblem{ContestID: contest.ID, ProblemID: contestProblem.ID, Sort: "A"}).Error; err != nil {
+		t.Fatalf("create contest problem: %v", err)
+	}
+	contestID := contest.ID
+	submission := models.Submission{UserID: user.ID, ProblemID: contestProblem.ID, ContestID: &contestID, Language: "cpp", Code: "answer", Status: "AC", Score: 100, Public: true}
+	if err := db.Create(&submission).Error; err != nil {
+		t.Fatalf("create submission: %v", err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+	userCookies := databaseSession(t, db, user.ID)
+	adminCookies := databaseSession(t, db, admin.ID)
+	viewerCookies := [][]*http.Cookie{nil, userCookies}
+	for index, cookies := range viewerCookies {
+		tags := decodeJSON[[]string](t, requestWithCookies(e, http.MethodGet, "/api/tags?kind=problem", cookies, nil))
+		if !hasTag(tags, "public-tag") || hasTag(tags, "hidden-tag") || hasTag(tags, "contest-tag") {
+			t.Fatalf("viewer %d problem tags leaked hidden context: %+v", index, tags)
+		}
+		problems := decodePageItems[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems", cookies, nil))
+		if !hasProblem(problems, publicProblem.ID) || hasProblem(problems, hiddenProblem.ID) || hasProblem(problems, contestProblem.ID) {
+			t.Fatalf("viewer %d problem list leaked hidden context: %+v", index, problems)
+		}
+		detail := decodeJSON[contract.SubmissionDetail](t, requestWithCookies(e, http.MethodGet, "/api/submissions/"+strconv.FormatUint(uint64(submission.ID), 10), cookies, nil))
+		if detail.Submission.Status != "pending" || detail.Submission.Score != 0 {
+			t.Fatalf("viewer %d saw running OI result: %+v", index, detail.Submission)
+		}
+		profile := decodeJSON[contract.UserProfile](t, requestWithCookies(e, http.MethodGet, "/api/users/student", cookies, nil))
+		if profile.User.AC != 0 {
+			t.Fatalf("viewer %d inferred running OI result from profile: %+v", index, profile.User)
+		}
+	}
+	adminTags := decodeJSON[[]string](t, requestWithCookies(e, http.MethodGet, "/api/tags?kind=problem", adminCookies, nil))
+	if !hasTag(adminTags, "public-tag") || !hasTag(adminTags, "hidden-tag") || !hasTag(adminTags, "contest-tag") {
+		t.Fatalf("admin should see all problem tags: %+v", adminTags)
+	}
+	adminSubmission := decodeJSON[contract.SubmissionDetail](t, requestWithCookies(e, http.MethodGet, "/api/submissions/"+strconv.FormatUint(uint64(submission.ID), 10), adminCookies, nil))
+	if adminSubmission.Submission.Status != "AC" || adminSubmission.Submission.Score != 100 {
+		t.Fatalf("admin result was hidden: %+v", adminSubmission.Submission)
+	}
+	adminProfile := decodeJSON[contract.UserProfile](t, requestWithCookies(e, http.MethodGet, "/api/users/student", adminCookies, nil))
+	if adminProfile.User.AC != 1 {
+		t.Fatalf("admin profile result was hidden: %+v", adminProfile.User)
+	}
+
+	if err := db.Delete(&contest).Error; err != nil {
+		t.Fatalf("delete contest: %v", err)
+	}
+	for index, cookies := range viewerCookies {
+		tags := decodeJSON[[]string](t, requestWithCookies(e, http.MethodGet, "/api/tags?kind=problem", cookies, nil))
+		if !hasTag(tags, "public-tag") || !hasTag(tags, "contest-tag") || hasTag(tags, "hidden-tag") {
+			t.Fatalf("viewer %d tags still affected by deleted contest: %+v", index, tags)
+		}
+		problems := decodePageItems[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems", cookies, nil))
+		if !hasProblem(problems, contestProblem.ID) {
+			t.Fatalf("viewer %d list still hid deleted-contest problem: %+v", index, problems)
+		}
+		problemDetail := decodeJSON[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems/"+strconv.FormatUint(uint64(contestProblem.ID), 10), cookies, nil))
+		if !hasTag(problemDetail.Tags, "contest-tag") {
+			t.Fatalf("viewer %d detail still treated deleted contest as unfinished: %+v", index, problemDetail)
+		}
+		detail := decodeJSON[contract.SubmissionDetail](t, requestWithCookies(e, http.MethodGet, "/api/submissions/"+strconv.FormatUint(uint64(submission.ID), 10), cookies, nil))
+		if detail.Submission.Status != "pending" || detail.Submission.Score != 0 {
+			t.Fatalf("viewer %d saw a result because its running contest was deleted: %+v", index, detail.Submission)
+		}
+		profile := decodeJSON[contract.UserProfile](t, requestWithCookies(e, http.MethodGet, "/api/users/student", cookies, nil))
+		if profile.User.AC != 0 {
+			t.Fatalf("viewer %d inferred a result because its running contest was deleted: %+v", index, profile.User)
+		}
+	}
+	if err := db.Model(&contestProblem).Update("visible", false).Error; err != nil {
+		t.Fatalf("hide deleted-contest problem: %v", err)
+	}
+	for index, cookies := range viewerCookies {
+		res := requestWithCookies(e, http.MethodGet, "/api/problems/"+strconv.FormatUint(uint64(contestProblem.ID), 10), cookies, nil)
+		if res.Code != http.StatusNotFound {
+			t.Fatalf("viewer %d saw hidden problem through deleted running contest: %d %s", index, res.Code, res.Body.String())
+		}
+	}
+}
+
 func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *testing.T) {
 	db := testWebDB(t)
 	allowGuest(t, db)
@@ -75,7 +178,7 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 			t.Fatalf("create submission: %v", err)
 		}
 	}
-	if err := db.Create(&models.Discussion{Title: "Student note", Content: "body", UserID: student.ID, Tags: datatypes.JSON([]byte(`["P1000"]`))}).Error; err != nil {
+	if err := db.Create(&models.Discussion{Title: "Student note", Content: "body", UserID: student.ID, ProblemID: &visible.ID, Tags: datatypes.JSON([]byte(`["P1000"]`))}).Error; err != nil {
 		t.Fatalf("create discussion: %v", err)
 	}
 
@@ -87,15 +190,15 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 	if hasSolvedProblem(profile.Solved.Items, hidden.ID) || hasActivityProblem(profile.Activities, hidden.ID) {
 		t.Fatalf("guest profile leaked hidden problem: %+v", profile)
 	}
-	if !hasActivity(profile.Activities, "discussion", "Student note") {
-		t.Fatalf("guest profile should include discussion activity: %+v", profile.Activities)
+	if hasActivity(profile.Activities, "discussion", "Student note") {
+		t.Fatalf("guest profile leaked a running contest discussion: %+v", profile.Activities)
 	}
-	if profile.User.AC != 2 || profile.User.Submit != 6 {
-		t.Fatalf("guest profile stats should include all activity: %+v", profile.User)
+	if profile.User.AC != 2 || profile.User.Submit != 2 {
+		t.Fatalf("guest profile stats should exclude private assignment and hidden contest rows: %+v", profile.User)
 	}
 	today := time.Now().Format("2006-01-02")
-	if got := countForDate(profile.Heatmap, today); got != 6 {
-		t.Fatalf("guest profile heatmap should include all submissions, got %d", got)
+	if got := countForDate(profile.Heatmap, today); got != 2 {
+		t.Fatalf("guest profile heatmap should exclude private assignment and hidden contest rows, got %d", got)
 	}
 	var rawProfile struct {
 		Solved struct {

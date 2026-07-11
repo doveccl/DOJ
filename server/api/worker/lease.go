@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -18,6 +19,9 @@ func (api *API) lease(c echo.Context) error {
 	var req judger.LeaseRequest
 	if err := c.Bind(&req); err != nil {
 		return err
+	}
+	if req.Version != judger.Version {
+		return echo.NewHTTPError(http.StatusUpgradeRequired, "judger version mismatch")
 	}
 
 	judgerID, err := api.ensureJudger(c, req)
@@ -63,7 +67,7 @@ func (api *API) longPollWait() time.Duration {
 
 func (api *API) tryLease(ctx context.Context, judgerID uint) (*judger.TaskPayload, error) {
 	now := time.Now()
-	var payload *judger.TaskPayload
+	var leased *models.Submission
 	err := api.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var rows []models.Submission
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
@@ -92,18 +96,25 @@ func (api *API) tryLease(ctx context.Context, judgerID uint) (*judger.TaskPayloa
 		submission.Attempt = nextAttempt
 		submission.JudgerID = &judgerID
 		submission.LeaseUntil = &until
-		got, err := buildPayload(ctx, tx, submission)
-		if err != nil {
-			return err
-		}
-		payload = got
+		leased = &submission
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	if payload != nil {
-		_ = judge.SaveProgress(ctx, payload.SubmissionID, judge.Progress{Attempt: payload.Attempt, Stage: "leased", UpdatedAt: now})
+	if leased == nil {
+		return nil, nil
 	}
+	payload, err := buildPayload(ctx, api.db.WithContext(ctx), *leased)
+	if err != nil {
+		resetErr := api.db.WithContext(ctx).Model(&models.Submission{}).
+			Where("id = ? AND status = ? AND attempt = ? AND judger_id = ?", leased.ID, "judging", leased.Attempt, judgerID).
+			Updates(map[string]any{"status": "queued", "judger_id": nil, "lease_until": nil}).Error
+		if resetErr != nil {
+			return nil, fmt.Errorf("build task payload: %v; reset lease: %w", err, resetErr)
+		}
+		return nil, err
+	}
+	_ = judge.SaveProgress(ctx, payload.SubmissionID, judge.Progress{Attempt: payload.Attempt, Stage: "leased", UpdatedAt: now})
 	return payload, nil
 }

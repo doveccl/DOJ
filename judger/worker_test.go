@@ -35,7 +35,7 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 				Source:       "cat\n",
 				Lang:         testLeaseLang(),
 				Mode:         string(ModeDefault),
-				Limits:       common.LimitsPayload{TimeMS: 1000, OutputKB: 64},
+				Limits:       common.LimitsPayload{TimeMS: 1000, MemoryKB: 64 << 10, OutputKB: 64, Pids: 32, FileKB: 64 << 10},
 				Problem:      common.ProblemPayload{ID: 1000, PackageHash: "fixture-v1"},
 				Cases: []common.CasePayload{{
 					ID:     "1",
@@ -44,7 +44,11 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 					Score:  100,
 				}},
 			}})
-		case "/api/judger/P1000.zip":
+		case "/api/judger/tasks/7/package":
+			if r.URL.Query().Get("attempt") != "2" || r.URL.Query().Get("hash") != "fixture-v1" {
+				http.Error(w, "bad package lease", http.StatusBadRequest)
+				return
+			}
 			w.Header().Set("Content-Type", "application/zip")
 			_, _ = w.Write(testPackageZip(t))
 		case "/api/judger/tasks/7/result":
@@ -114,7 +118,7 @@ func TestRunOneDownloadsPackageForRelativeCases(t *testing.T) {
 				Source:       "cat\n",
 				Lang:         testLeaseLang(),
 				Mode:         string(ModeDefault),
-				Limits:       common.LimitsPayload{TimeMS: 1000, OutputKB: 64},
+				Limits:       common.LimitsPayload{TimeMS: 1000, MemoryKB: 64 << 10, OutputKB: 64, Pids: 32, FileKB: 64 << 10},
 				Problem:      common.ProblemPayload{ID: 1000, PackageHash: "fixture-v1"},
 				Cases: []common.CasePayload{{
 					ID:     "1",
@@ -123,7 +127,11 @@ func TestRunOneDownloadsPackageForRelativeCases(t *testing.T) {
 					Score:  100,
 				}},
 			}})
-		case "/api/judger/P1000.zip":
+		case "/api/judger/tasks/8/package":
+			if r.URL.Query().Get("attempt") != "1" || r.URL.Query().Get("hash") != "fixture-v1" {
+				http.Error(w, "bad package lease", http.StatusBadRequest)
+				return
+			}
 			w.Header().Set("Content-Type", "application/zip")
 			_, _ = w.Write(testPackageZip(t))
 		case "/api/judger/tasks/8/result":
@@ -183,7 +191,7 @@ func TestRunOneCleansWorkAfterPackageError(t *testing.T) {
 				Source:       "cat\n",
 				Lang:         testLeaseLang(),
 				Mode:         string(ModeDefault),
-				Limits:       common.LimitsPayload{TimeMS: 1000, OutputKB: 64},
+				Limits:       common.LimitsPayload{TimeMS: 1000, MemoryKB: 64 << 10, OutputKB: 64, Pids: 32, FileKB: 64 << 10},
 				Problem:      common.ProblemPayload{ID: 1000, PackageHash: "fixture-v1"},
 				Cases: []common.CasePayload{{
 					ID:     "1",
@@ -192,7 +200,7 @@ func TestRunOneCleansWorkAfterPackageError(t *testing.T) {
 					Score:  100,
 				}},
 			}})
-		case "/api/judger/P1000.zip":
+		case "/api/judger/tasks/9/package":
 			http.Error(w, "missing", http.StatusNotFound)
 		case "/api/judger/tasks/9/result":
 			var req common.ResultRequest

@@ -143,6 +143,26 @@ func CleanKey(raw string) (string, error) {
 	return key, nil
 }
 
+func IsNotFound(err error) bool {
+	if os.IsNotExist(err) {
+		return true
+	}
+	switch minio.ToErrorResponse(err).Code {
+	case "NoSuchBucket", "NoSuchKey", "NoSuchObject", "NotFound":
+		return true
+	default:
+		return false
+	}
+}
+
+func cleanListPrefix(raw string) (string, error) {
+	key, err := CleanKey(raw)
+	if err != nil {
+		return "", err
+	}
+	return key + "/", nil
+}
+
 type localStore struct {
 	root string
 }
@@ -153,14 +173,20 @@ func (store localStore) Put(_ context.Context, key string, data io.Reader, _ int
 		return err
 	}
 	filePath := filepath.Join(store.root, filepath.FromSlash(clean))
-	if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(filePath), 0o700); err != nil {
 		return err
 	}
-	file, err := os.Create(filePath)
+	if err := os.Chmod(filepath.Dir(filePath), 0o700); err != nil {
+		return err
+	}
+	file, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
+	if err := file.Chmod(0o600); err != nil {
+		return err
+	}
 	_, err = io.Copy(file, data)
 	return err
 }
@@ -272,7 +298,7 @@ func (store s3Store) Open(ctx context.Context, key string) (io.ReadCloser, strin
 }
 
 func (store s3Store) List(ctx context.Context, prefix string) ([]Info, error) {
-	clean, err := CleanKey(prefix)
+	clean, err := cleanListPrefix(prefix)
 	if err != nil {
 		return nil, err
 	}

@@ -1,9 +1,11 @@
 import { lazy, Suspense } from 'react'
 import type { ReactNode } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { Button, Result } from 'antd'
+import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
 
 import { AppLayout } from './components/app-layout'
 import { LoadingBlock } from './components/state'
+import { useLocale } from './locale'
 
 const AdminPage = lazy(() => import('./pages/admin').then((mod) => ({ default: mod.AdminPage })))
 const AssignmentDetailPage = lazy(() => import('./pages/assignments/detail').then((mod) => ({ default: mod.AssignmentDetailPage })))
@@ -22,6 +24,11 @@ const UserPage = lazy(() => import('./pages/user').then((mod) => ({ default: mod
 
 function page(node: ReactNode) {
   return <Suspense fallback={<LoadingBlock />}>{node}</Suspense>
+}
+
+function NotFoundPage() {
+  const { text } = useLocale()
+  return <Result status="404" title="404" subTitle={text.common.notFound} extra={<Link to="/"><Button type="primary">{text.common.backHome}</Button></Link>} />
 }
 
 export function AppRoutes() {
@@ -43,7 +50,7 @@ export function AppRoutes() {
           <Route path="submissions" element={page(<SubmissionsPage />)} />
           <Route path="submissions/:id" element={page(<SubmissionDetailPage />)} />
           <Route path="admin" element={page(<AdminPage />)} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

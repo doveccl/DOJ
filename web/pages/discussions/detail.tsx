@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { api, apiData, apiEmpty } from '../../client'
-import type { CommentCreate, DiscussionDetail } from '../../client'
+import type { CommentCreate } from '../../client'
 import { UserLink } from '../../components/entity'
 import { MarkdownEditor, MarkdownPreview } from '../../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
@@ -36,8 +36,8 @@ export function DiscussionDetailPage() {
   const params = useParams()
   const id = Number(params.id)
   const query = useQuery({
-    queryKey: ['discussion', id],
-    queryFn: () => apiData(api.GET('/api/discussion/{id}', { params: { path: { id } } })),
+    queryKey: ['discussion', id, commentPage, commentPageSize],
+    queryFn: () => apiData(api.GET('/api/discussion/{id}', { params: { path: { id }, query: { page: commentPage, pageSize: commentPageSize } } })),
     enabled: Number.isFinite(id)
   })
   const showError = (error: unknown) => {
@@ -45,18 +45,10 @@ export function DiscussionDetailPage() {
   }
   const reply = useMutation({
     mutationFn: (body: CommentCreate) => apiData(api.POST('/api/discussion/{id}/comments', { params: { path: { id } }, body })),
-    onSuccess: (item) => {
-      const nextCount = (query.data?.comments.length ?? 0) + 1
+    onSuccess: () => {
+      const nextCount = (query.data?.comments.total ?? 0) + 1
       setCommentPage(Math.max(1, Math.ceil(nextCount / commentPageSize)))
-      client.setQueryData<DiscussionDetail>(['discussion', id], (old) =>
-        old
-          ? {
-              ...old,
-              discussion: { ...old.discussion, replies: old.discussion.replies + 1 },
-              comments: [...old.comments, item]
-            }
-          : old
-      )
+      void client.invalidateQueries({ queryKey: ['discussion'] })
       form.resetFields()
       message.success(text.discussion.repliedTip)
     },
@@ -116,8 +108,8 @@ export function DiscussionDetailPage() {
   }
 
   const { discussion, content, comments } = query.data
-  const pageStart = (commentPage - 1) * commentPageSize
-  const pageComments = comments.slice(pageStart, pageStart + commentPageSize)
+  const pageStart = (comments.page - 1) * comments.pageSize
+  const pageComments = comments.items
   const canDelete = session.admin || (session.signedIn && discussion.author.toLowerCase() === session.name.toLowerCase())
 
   return (
@@ -205,8 +197,8 @@ export function DiscussionDetailPage() {
               </Flex>
             </div>
           ))}
-          {comments.length > commentPageSize ? (
-            <Pagination current={commentPage} pageSize={commentPageSize} total={comments.length} showSizeChanger={false} onChange={setCommentPage} />
+          {comments.total > comments.pageSize ? (
+            <Pagination current={comments.page} pageSize={comments.pageSize} total={comments.total} showSizeChanger={false} onChange={setCommentPage} />
           ) : null}
           {!discussion.locked && session.signedIn ? (
             <Form<CommentCreate> form={form} layout="vertical" onFinish={(values) => reply.mutate(values)}>

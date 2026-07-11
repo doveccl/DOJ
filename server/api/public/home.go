@@ -78,7 +78,7 @@ func (api *API) homeHeatmap(c echo.Context) ([]contract.HeatCell, error) {
 	if err != nil {
 		return nil, err
 	}
-	return api.userHeatmap(user.ID)
+	return api.userHeatmap(c, user.ID)
 }
 
 func (api *API) homeAssignments(c echo.Context) ([]contract.HomeAssignment, error) {
@@ -107,9 +107,10 @@ func (api *API) homeAssignments(c echo.Context) ([]contract.HomeAssignment, erro
 				WHERE assignment_groups.assignment_id = assignments.id
 				AND group_users.user_id = ?
 			)
-		)`, user.ID, user.ID)
+		)`, user.ID, user.ID).
+		Where("assignments.end_at > ?", time.Now())
 	var rows []models.Assignment
-	if err := query.Order("end_at desc").Limit(homeListLimit).Find(&rows).Error; err != nil {
+	if err := query.Order("end_at asc").Limit(homeListLimit).Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	ids := assignmentIDs(rows)
@@ -147,15 +148,7 @@ func (api *API) homeContests(c echo.Context) ([]contract.HomeContest, error) {
 			WHERE contest_problems.contest_id = contests.id
 		)`).
 		Where("contests.end_at > ?", time.Now())
-	if !api.isAdmin(c) {
-		query = query.Where(`EXISTS (
-			SELECT 1 FROM contest_problems
-			JOIN problems ON problems.id = contest_problems.problem_id
-			WHERE contest_problems.contest_id = contests.id
-			AND problems.visible = ?
-		)`, true)
-	}
-	if err := query.Order("start_at desc").Limit(homeListLimit).Find(&rows).Error; err != nil {
+	if err := query.Order("CASE WHEN start_at <= CURRENT_TIMESTAMP THEN 0 ELSE 1 END, CASE WHEN start_at <= CURRENT_TIMESTAMP THEN end_at ELSE start_at END ASC").Limit(homeListLimit).Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	items := make([]contract.HomeContest, 0, len(rows))

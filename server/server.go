@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -16,9 +17,11 @@ import (
 	"github.com/doveccl/doj/server/api/admin"
 	"github.com/doveccl/doj/server/api/public"
 	"github.com/doveccl/doj/server/api/worker"
+	"github.com/doveccl/doj/server/auth"
 	"github.com/doveccl/doj/server/backup"
 	"github.com/doveccl/doj/server/cache"
 	dojmw "github.com/doveccl/doj/server/middleware"
+	"github.com/doveccl/doj/server/validate"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"gorm.io/gorm"
@@ -29,6 +32,10 @@ const (
 	defaultDatabaseURL = "postgres://postgres@localhost"
 	defaultWebDir      = "dist"
 	shutdownGrace      = 15 * time.Second
+	readHeaderTimeout  = 10 * time.Second
+	readTimeout        = 5 * time.Minute
+	idleTimeout        = time.Minute
+	maxHeaderBytes     = 64 << 10
 )
 
 func Main() {
@@ -36,7 +43,9 @@ func Main() {
 	defer cancel()
 
 	e := echo.New()
+	configureHTTPServer(e)
 	e.HideBanner = true
+	e.IPExtractor = trustedProxyIPExtractor()
 	e.Use(middleware.Recover())
 	e.Use(middleware.Logger())
 	e.Use(securityHeaders())
@@ -61,6 +70,13 @@ func Main() {
 	if err := startServer(e); err != nil {
 		e.Logger.Fatal(err)
 	}
+}
+
+func configureHTTPServer(e *echo.Echo) {
+	e.Server.ReadHeaderTimeout = readHeaderTimeout
+	e.Server.ReadTimeout = readTimeout
+	e.Server.IdleTimeout = idleTimeout
+	e.Server.MaxHeaderBytes = maxHeaderBytes
 }
 
 func startServer(e *echo.Echo) error {
@@ -109,13 +125,41 @@ func openDB() (*gorm.DB, error) {
 	if err := models.EnsureProblemIDBase(db); err != nil {
 		return nil, err
 	}
-	if err := models.EnsureAdmin(db, "admin", "admin@localhost", "admin"); err != nil {
+	password, generated, err := initialAdminPassword()
+	if err != nil {
 		return nil, err
+	}
+	created, err := models.EnsureAdmin(db, "admin", "admin@localhost", password)
+	if err != nil {
+		return nil, err
+	}
+	if created && generated {
+		slog.Warn("bootstrap administrator created; sign in and change this password", "username", "admin", "password", password)
+	} else if created {
+		slog.Info("bootstrap administrator created from ADMIN_PASSWORD", "username", "admin")
 	}
 	if err := models.EnsureDefaultLanguage(db); err != nil {
 		return nil, err
 	}
 	return db, nil
+}
+
+func initialAdminPassword() (string, bool, error) {
+	if password := os.Getenv("ADMIN_PASSWORD"); password != "" {
+		if !validate.Password(password) {
+			return "", false, fmt.Errorf("ADMIN_PASSWORD must be between 8 and 72 bytes")
+		}
+		return password, false, nil
+	}
+	password, err := auth.NewToken()
+	return password, true, err
+}
+
+func trustedProxyIPExtractor() echo.IPExtractor {
+	return echo.ExtractIPFromXFFHeader(
+		echo.TrustPrivateNet(false),
+		echo.TrustLinkLocal(false),
+	)
 }
 
 func databaseDSN() string {
