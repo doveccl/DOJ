@@ -96,7 +96,12 @@ export const en: typeof zh = {
     shown: 'Problem is now visible',
     hiddenDone: 'Problem is now hidden',
     time: 'Time limit',
-    memory: 'Memory limit'
+    memory: 'Memory limit',
+    statusFilter: 'Status',
+    statusAll: 'All',
+    statusNone: 'Not started',
+    statusTried: 'Attempted',
+    statusAc: 'Solved'
   },
   problem: {
     statement: 'Statement',
@@ -216,6 +221,7 @@ export const en: typeof zh = {
     rejudged: 'Requeued',
     myRecords: 'My submissions',
     allRecords: 'All submissions',
+    onlyMine: 'Only mine',
     viewAssignmentRecords: 'View assignment submissions',
     viewContestRecords: 'View contest submissions',
     viewProblemRecords: 'View problem submissions',

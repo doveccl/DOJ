@@ -235,6 +235,7 @@ type adminMembersQuery struct {
 type problemListQuery struct {
 	Q        string `query:"q"`
 	Tag      string `query:"tag"`
+	Status   string `query:"status" enum:"all,none,tried,ac"`
 	Page     int    `query:"page"`
 	PageSize int    `query:"pageSize"`
 }

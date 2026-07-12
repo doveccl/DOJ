@@ -3553,6 +3553,7 @@ export interface operations {
             query?: {
                 q?: string;
                 tag?: string;
+                status?: "all" | "none" | "tried" | "ac";
                 page?: number;
                 pageSize?: number;
             };

@@ -40,27 +40,3 @@
 .submitLang {
   min-width: 140px;
 }
-
-.assetDrop {
-  display: block;
-  width: 100%;
-}
-
-.assetDrop .ant-upload-drag {
-  padding: 0;
-  border-color: transparent;
-  background: transparent;
-}
-
-.assetDrop .ant-upload-drag-hover {
-  border-color: var(--ant-color-primary);
-  background: var(--ant-color-fill-quaternary);
-}
-
-.assetDrop .ant-upload {
-  padding: 0 !important;
-}
-
-.assetDrop .ant-table-wrapper {
-  width: 100%;
-}

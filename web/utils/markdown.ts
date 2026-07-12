@@ -26,6 +26,10 @@ export function problemMarkdownID(problemID: number) {
   return `P${problemID}`
 }
 
+export function codeBlock(value: string, lang: string) {
+  return `\`\`\`${lang}\n${value.replaceAll('```', '`\\`\\`')}\n\`\`\``
+}
+
 export function rewriteAssetURL(value: string, editorID?: string) {
   const problemID = editorID?.match(/^P(\d+)$/)?.[1]
   const problemBase = problemID ? `/api/problems/${problemID}/` : undefined

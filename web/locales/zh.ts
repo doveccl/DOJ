@@ -94,7 +94,12 @@ export const zh = {
     shown: '已设为可见',
     hiddenDone: '已设为隐藏',
     time: '时间限制',
-    memory: '内存限制'
+    memory: '内存限制',
+    statusFilter: '完成状态',
+    statusAll: '全部',
+    statusNone: '未开始',
+    statusTried: '已尝试',
+    statusAc: '已通过'
   },
   problem: {
     statement: '题面',
@@ -214,6 +219,7 @@ export const zh = {
     rejudged: '已重新进入队列',
     myRecords: '我的提交',
     allRecords: '全部提交',
+    onlyMine: '只看我的',
     viewAssignmentRecords: '查看作业提交记录',
     viewContestRecords: '查看比赛提交记录',
     viewProblemRecords: '查看本题提交记录',

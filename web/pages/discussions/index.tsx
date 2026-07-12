@@ -1,5 +1,5 @@
 import { DeleteOutlined, EditOutlined, LockOutlined, PlusOutlined, PushpinOutlined, SearchOutlined, UnlockOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, Flex, Form, Input, Modal, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd'
+import { Button, Card, Flex, Form, Input, Modal, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -12,6 +12,7 @@ import { MarkdownEditor } from '../../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
 import { TagList } from '../../components/tags'
 import { TagSelect } from '../../components/tag-select'
+import { useApiMessage } from '../../components/use-api-message'
 import { useLocale } from '../../locale'
 import type { Lang } from '../../locale'
 import { useSession } from '../../session'
@@ -32,7 +33,7 @@ export function DiscussionsPage() {
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Discussion | null>(null)
   const [draft, setDraft] = useState<DiscussionForm | null>(null)
-  const { message } = AntApp.useApp()
+  const { message, showError } = useApiMessage()
   const client = useQueryClient()
   const navigate = useNavigate()
   const q = params.get('q') ?? ''
@@ -40,9 +41,6 @@ export function DiscussionsPage() {
   const page = pageFromParams(params)
   const pageSize = pageSizeFromParams(params)
   const query = useQuery({ queryKey: ['discussion', q, tags, page, pageSize], queryFn: () => apiData(api.GET('/api/discussion', { params: { query: { q, tags, page, pageSize } } })) })
-  const showError = (error: unknown) => {
-    message.error(error instanceof Error ? error.message : text.common.loadingFailed)
-  }
   const create = useMutation({
     mutationFn: (body: DiscussionCreate) => apiData(api.POST('/api/discussion', { body })),
     onSuccess: (item) => {
@@ -150,10 +148,10 @@ export function DiscussionsPage() {
         <Flex className="tableToolbar" justify="space-between" align="center" gap={12} wrap>
           <Form className="tableToolbarForm" layout="inline" initialValues={{ q: q || undefined, tags: tags || undefined }} onFinish={submitSearch} key={`${q}:${tags}`}>
             <Form.Item name="q">
-              <Input placeholder={text.discussion.search} allowClear style={{ width: 280 }} />
+              <Input placeholder={text.discussion.search} allowClear />
             </Form.Item>
             <Form.Item name="tags">
-              <TagSelect kind="discussion" placeholder={text.discussion.tags} allowClear style={{ width: 180 }} />
+              <TagSelect kind="discussion" placeholder={text.discussion.tags} allowClear />
             </Form.Item>
             <Form.Item>
               <Button onClick={clearSearch}>{text.common.clear}</Button>

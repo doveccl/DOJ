@@ -1,4 +1,4 @@
-import { EditOutlined, UnorderedListOutlined } from '@ant-design/icons'
+import { UnorderedListOutlined } from '@ant-design/icons'
 import { Alert, App as AntApp, Button, Card, Flex, Form, Space, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -9,7 +9,7 @@ import { Link, useParams } from 'react-router-dom'
 
 import { api, apiData } from '../../client'
 import type { ProblemListItem, ProblemState, RankUser } from '../../client'
-import { DescriptionCard } from '../../components/description'
+import { ScheduledDetailHeader } from '../../components/scheduled-detail-header'
 import { ProblemLink, UserLink } from '../../components/entity'
 import { defaultProblemSort } from '../../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
@@ -102,64 +102,49 @@ export function ContestDetailPage() {
 
   return (
     <Flex vertical gap={16}>
-      <DescriptionCard
-        id={`contest-${contest.id}-description`}
-        value={query.data.description}
-        header={
-          <Flex align="center" gap={10} style={{ minWidth: 0 }}>
-            <Typography.Text ellipsis={{ tooltip: contest.title }} style={{ minWidth: 0 }}>
-              {contest.title}
-            </Typography.Text>
-            <Tag>{contest.kind}</Tag>
-          </Flex>
+      <ScheduledDetailHeader
+        descriptionId={`contest-${contest.id}-description`}
+        descriptionValue={query.data.description}
+        title={contest.title}
+        titleTag={<Tag>{contest.kind}</Tag>}
+        deadline={
+          <DeadlineTimer
+            kind="contest"
+            status={contest.status}
+            target={contestTarget(contest.status, contest.startAt, contest.endAt)}
+            range={`${formatTime(contest.startAt, lang)} - ${formatTime(contest.endAt, lang)}`}
+            onFinish={() => void query.refetch()}
+          />
         }
-        extra={
-          editOpen ? (
-            <Space size={8}>
-              <Button onClick={() => setEditOpen(false)}>{text.common.cancel}</Button>
-              <Button type="primary" htmlType="submit" form={editFormId} loading={update.isPending}>{text.common.save}</Button>
-            </Space>
-          ) : (
-            <Space size={16} wrap>
-              <DeadlineTimer
-                kind="contest"
-                status={contest.status}
-                target={contestTarget(contest.status, contest.startAt, contest.endAt)}
-                range={`${formatTime(contest.startAt, lang)} - ${formatTime(contest.endAt, lang)}`}
-                onFinish={() => void query.refetch()}
-              />
-              <Space size={8} wrap>
-                <Button icon={<UnorderedListOutlined />} href={`/submissions?contest=${contest.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`}>
-                  {recordsUser ? text.submissions.myRecords : text.submissions.allRecords}
-                </Button>
-                {session.admin ? <Button icon={<EditOutlined />} onClick={() => setEditOpen(true)}>{text.common.edit}</Button> : null}
-              </Space>
-            </Space>
-          )
-        }
+        recordsHref={`/submissions?contest=${contest.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`}
+        recordsLabel={recordsUser ? text.submissions.myRecords : text.submissions.allRecords}
+        admin={session.admin}
+        editing={editOpen}
+        onStartEdit={() => setEditOpen(true)}
+        onCancelEdit={() => setEditOpen(false)}
+        saving={update.isPending}
+        editFormId={editFormId}
       >
-        {editOpen ? (
-          <Form<ContestFormValues>
-            id={editFormId}
-            key={editFormId}
-            form={editForm}
-            preserve={false}
-            layout="vertical"
-            initialValues={{
-              title: contest.title,
-              description: query.data.description,
-              kind: contest.kind,
-              startAt: dayjs(contest.startAt),
-              endAt: dayjs(contest.endAt),
-              freezeAt: contest.freezeAt ? dayjs(contest.freezeAt) : null,
-              problems: problems.map((problem, index) => ({ id: problem.id, sort: problem.sort || defaultProblemSort(index) }))
-            }}
-            onFinish={save}
-          >
-            <ContestFormFields form={editForm} editorId={`contest-${contest.id}-description-edit`} problemOptions={problemOptions} />
-          </Form>
-        ) : undefined}
-      </DescriptionCard>
+        <Form<ContestFormValues>
+          id={editFormId}
+          key={editFormId}
+          form={editForm}
+          preserve={false}
+          layout="vertical"
+          initialValues={{
+            title: contest.title,
+            description: query.data.description,
+            kind: contest.kind,
+            startAt: dayjs(contest.startAt),
+            endAt: dayjs(contest.endAt),
+            freezeAt: contest.freezeAt ? dayjs(contest.freezeAt) : null,
+            problems: problems.map((problem, index) => ({ id: problem.id, sort: problem.sort || defaultProblemSort(index) }))
+          }}
+          onFinish={save}
+        >
+          <ContestFormFields form={editForm} editorId={`contest-${contest.id}-description-edit`} problemOptions={problemOptions} />
+        </Form>
+      </ScheduledDetailHeader>
       <Card>
         <Tabs
           items={[

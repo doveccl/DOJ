@@ -1,5 +1,5 @@
-import { EditOutlined, UnorderedListOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, Flex, Form, Space, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
+import { UnorderedListOutlined } from '@ant-design/icons'
+import { App as AntApp, Button, Card, Flex, Form, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
@@ -9,7 +9,7 @@ import { Link, useParams } from 'react-router-dom'
 
 import { api, apiData } from '../../client'
 import type { AssignmentProgress, ProblemListItem, ProblemState } from '../../client'
-import { DescriptionCard } from '../../components/description'
+import { ScheduledDetailHeader } from '../../components/scheduled-detail-header'
 import { ProblemLink, UserLink } from '../../components/entity'
 import { defaultProblemSort } from '../../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
@@ -99,55 +99,38 @@ export function AssignmentDetailPage() {
   }
   return (
     <Flex vertical gap={16}>
-      <DescriptionCard
-        id={`assignment-${assignment.id}-description`}
-        value={query.data.description}
-        header={
-          <Flex align="center" gap={10} style={{ minWidth: 0 }}>
-            <Typography.Text ellipsis={{ tooltip: assignment.title }} style={{ minWidth: 0 }}>
-              {assignment.title}
-            </Typography.Text>
-          </Flex>
-        }
-        extra={
-          editOpen ? (
-            <Space size={8}>
-              <Button onClick={() => setEditOpen(false)}>{text.common.cancel}</Button>
-              <Button type="primary" htmlType="submit" form={editFormId} loading={update.isPending}>{text.common.save}</Button>
-            </Space>
-          ) : (
-            <Space size={16} wrap>
-              <DeadlineTimer kind="assignment" status={assignment.status} target={assignment.endAt} onFinish={() => void query.refetch()} />
-              <Space size={8} wrap>
-                <Button icon={<UnorderedListOutlined />} href={`/submissions?assignment=${assignment.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`}>
-                  {recordsUser ? text.submissions.myRecords : text.submissions.allRecords}
-                </Button>
-                {session.admin ? <Button icon={<EditOutlined />} onClick={() => setEditOpen(true)}>{text.common.edit}</Button> : null}
-              </Space>
-            </Space>
-          )
-        }
+      <ScheduledDetailHeader
+        descriptionId={`assignment-${assignment.id}-description`}
+        descriptionValue={query.data.description}
+        title={assignment.title}
+        deadline={<DeadlineTimer kind="assignment" status={assignment.status} target={assignment.endAt} onFinish={() => void query.refetch()} />}
+        recordsHref={`/submissions?assignment=${assignment.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`}
+        recordsLabel={recordsUser ? text.submissions.myRecords : text.submissions.allRecords}
+        admin={session.admin}
+        editing={editOpen}
+        onStartEdit={() => setEditOpen(true)}
+        onCancelEdit={() => setEditOpen(false)}
+        saving={update.isPending}
+        editFormId={editFormId}
       >
-        {editOpen ? (
-          <Form<AssignmentFormValues>
-            id={editFormId}
-            key={editFormId}
-            preserve={false}
-            layout="vertical"
-            initialValues={{
-              title: assignment.title,
-              description: query.data.description,
-              endAt: dayjs(assignment.endAt),
-              problems: problems.map((problem, index) => ({ id: problem.id, sort: problem.sort || defaultProblemSort(index) })),
-              users: assignment.users,
-              groups: assignment.groups
-            }}
-            onFinish={save}
-          >
-            <AssignmentFormFields editorId={`assignment-${assignment.id}-description-edit`} problemOptions={problemOptions} />
-          </Form>
-        ) : undefined}
-      </DescriptionCard>
+        <Form<AssignmentFormValues>
+          id={editFormId}
+          key={editFormId}
+          preserve={false}
+          layout="vertical"
+          initialValues={{
+            title: assignment.title,
+            description: query.data.description,
+            endAt: dayjs(assignment.endAt),
+            problems: problems.map((problem, index) => ({ id: problem.id, sort: problem.sort || defaultProblemSort(index) })),
+            users: assignment.users,
+            groups: assignment.groups
+          }}
+          onFinish={save}
+        >
+          <AssignmentFormFields editorId={`assignment-${assignment.id}-description-edit`} problemOptions={problemOptions} />
+        </Form>
+      </ScheduledDetailHeader>
       <Card>
         <Tabs
           items={[

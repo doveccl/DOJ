@@ -172,6 +172,15 @@ body {
   margin-bottom: 0;
 }
 
+/* Unify filter control widths across list pages; buttons and checkboxes keep
+   their intrinsic width so the toolbar can pack onto one row on wide screens. */
+.tableToolbarForm .ant-select,
+.tableToolbarForm .ant-input-affix-wrapper,
+.tableToolbarForm .ant-picker,
+.tableToolbarForm .ant-input-number {
+  width: 160px;
+}
+
 .nowrap {
   white-space: nowrap;
 }

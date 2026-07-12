@@ -1,5 +1,5 @@
 import { SearchOutlined } from '@ant-design/icons'
-import { Button, Card, Flex, Form, Select, Table, Typography } from 'antd'
+import { Button, Card, Checkbox, Flex, Form, Select, Table, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -12,6 +12,7 @@ import { SubmissionStatus } from '../../components/status'
 import { useRemoteSearch } from '../../components/use-debounced-value'
 import { useLocale } from '../../locale'
 import type { Lang } from '../../locale'
+import { useSession } from '../../session'
 import { formatTime, memoryText, problemCode, problemLabel, submissionCode } from '../../utils/format'
 import { pageFromParams, pageSizeFromParams, setPageParams } from '../../utils/pagination'
 
@@ -26,6 +27,7 @@ type SubmissionFilters = {
 
 export function SubmissionsPage() {
   const { lang, text } = useLocale()
+  const session = useSession()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const problem = numberParam(params.get('problem'))
@@ -34,6 +36,7 @@ export function SubmissionsPage() {
   const status = params.get('status') ?? ''
   const assignment = numberParam(params.get('assignment'))
   const contest = numberParam(params.get('contest'))
+  const onlyMine = session.signedIn && user.toLowerCase() === session.name.toLowerCase()
   const page = pageFromParams(params)
   const pageSize = pageSizeFromParams(params)
   const problemSearch = useRemoteSearch()
@@ -102,6 +105,17 @@ export function SubmissionsPage() {
     setParams(new URLSearchParams())
   }
 
+  function toggleOnlyMine(checked: boolean) {
+    const next = new URLSearchParams(params)
+    if (checked) {
+      next.set('user', session.name)
+    } else {
+      next.delete('user')
+    }
+    next.delete('page')
+    setParams(next)
+  }
+
   return (
     <Card>
       <Flex vertical gap={16}>
@@ -116,7 +130,6 @@ export function SubmissionsPage() {
                 placeholder={text.submissions.problem}
                 options={problemOptions}
                 showSearch={{ filterOption: false }}
-                style={{ width: 240 }}
               />
             </Form.Item>
             <Form.Item name="user">
@@ -128,14 +141,13 @@ export function SubmissionsPage() {
                 placeholder={text.submissions.user}
                 options={userOptions}
                 showSearch={{ filterOption: false }}
-                style={{ width: 160 }}
               />
             </Form.Item>
             <Form.Item name="language">
-              <Select allowClear placeholder={text.submissions.language} options={languageOptions} style={{ width: 160 }} />
+              <Select allowClear placeholder={text.submissions.language} options={languageOptions} />
             </Form.Item>
             <Form.Item name="status">
-              <Select allowClear placeholder={text.submissions.allStatus} options={submissionStatusValues.map((value) => ({ value, label: text.submissions.statuses[value] }))} style={{ width: 180 }} />
+              <Select allowClear placeholder={text.submissions.allStatus} options={submissionStatusValues.map((value) => ({ value, label: text.submissions.statuses[value] }))} />
             </Form.Item>
             <Form.Item name="assignment">
               <Select
@@ -146,7 +158,6 @@ export function SubmissionsPage() {
                 placeholder={text.assignments.title}
                 options={assignmentOptions}
                 showSearch={{ filterOption: false }}
-                style={{ width: 180 }}
               />
             </Form.Item>
             <Form.Item name="contest">
@@ -158,7 +169,6 @@ export function SubmissionsPage() {
                 placeholder={text.contests.title}
                 options={contestOptions}
                 showSearch={{ filterOption: false }}
-                style={{ width: 180 }}
               />
             </Form.Item>
             <Form.Item>
@@ -169,6 +179,13 @@ export function SubmissionsPage() {
                 {text.common.search}
               </Button>
             </Form.Item>
+            {session.signedIn ? (
+              <Form.Item>
+                <Checkbox checked={onlyMine} onChange={(event) => toggleOnlyMine(event.target.checked)}>
+                  {text.submissions.onlyMine}
+                </Checkbox>
+              </Form.Item>
+            ) : null}
           </Form>
         </Flex>
         {query.isError ? (

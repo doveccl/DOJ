@@ -341,3 +341,106 @@ func TestProblemListSearchesByCode(t *testing.T) {
 		}
 	}
 }
+
+func TestProblemListFiltersByViewerStatus(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	user := models.User{Name: "solver", Mail: "solver@example.com", Auth: "hash"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	problems := []models.Problem{
+		{ID: 1000, Title: "Solved", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256},
+		{ID: 1001, Title: "Tried", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256},
+		{ID: 1002, Title: "Untouched", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256},
+	}
+	if err := db.Create(&problems).Error; err != nil {
+		t.Fatalf("create problems: %v", err)
+	}
+	if err := db.Create(&models.Submission{ProblemID: 1000, UserID: user.ID, Language: "cpp", Code: "int main(){}", Status: "AC", Score: 100}).Error; err != nil {
+		t.Fatalf("create AC submission: %v", err)
+	}
+	if err := db.Create(&models.Submission{ProblemID: 1001, UserID: user.ID, Language: "cpp", Code: "int main(){}", Status: "WA", Score: 0}).Error; err != nil {
+		t.Fatalf("create WA submission: %v", err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+	cookies := databaseSession(t, db, user.ID)
+
+	statusIDs := func(status string) []uint {
+		res := requestWithCookies(e, http.MethodGet, "/api/problems?status="+status, cookies, nil)
+		if res.Code != http.StatusOK {
+			t.Fatalf("status=%s got %d body=%s", status, res.Code, res.Body.String())
+		}
+		items := decodePageItems[contract.Problem](t, res)
+		ids := make([]uint, 0, len(items))
+		for _, item := range items {
+			ids = append(ids, item.ID)
+		}
+		return ids
+	}
+	if got := statusIDs("ac"); len(got) != 1 || got[0] != 1000 {
+		t.Fatalf("status=ac got %+v, want [1000]", got)
+	}
+	if got := statusIDs("tried"); len(got) != 1 || got[0] != 1001 {
+		t.Fatalf("status=tried got %+v, want [1001]", got)
+	}
+	if got := statusIDs("none"); len(got) != 1 || got[0] != 1002 {
+		t.Fatalf("status=none got %+v, want [1002]", got)
+	}
+	if got := statusIDs("all"); len(got) != 3 {
+		t.Fatalf("status=all got %+v, want 3 problems", got)
+	}
+
+	// A guest must not be able to filter by another viewer's solve state.
+	guest := decodePageItems[contract.Problem](t, requestOK(t, e, http.MethodGet, "/api/problems?status=ac", ""))
+	if len(guest) != 3 {
+		t.Fatalf("guest status filter should be ignored, got %+v", guest)
+	}
+}
+
+func TestProblemStatusFilterHidesRunningOIContestAC(t *testing.T) {
+	db := testWebDB(t)
+	user := models.User{Name: "player", Mail: "player@example.com", Auth: "hash"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	problem := models.Problem{ID: 1000, Title: "Shared Problem", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatalf("create problem: %v", err)
+	}
+	contest := models.Contest{Title: "Running OI", Kind: "OI", StartAt: time.Now().Add(-time.Hour), EndAt: time.Now().Add(time.Hour)}
+	if err := db.Create(&contest).Error; err != nil {
+		t.Fatalf("create contest: %v", err)
+	}
+	contestID := contest.ID
+	// A normal-context non-AC attempt, plus an AC inside the running OI contest
+	// whose result is hidden. Only the normal attempt may drive list status, so
+	// the problem must read as "tried", never "ac".
+	if err := db.Create(&models.Submission{ProblemID: problem.ID, UserID: user.ID, Language: "cpp", Code: "int main(){}", Status: "WA", Score: 0}).Error; err != nil {
+		t.Fatalf("create normal WA: %v", err)
+	}
+	if err := db.Create(&models.Submission{ProblemID: problem.ID, UserID: user.ID, ContestID: &contestID, Language: "cpp", Code: "int main(){}", Status: "AC", Score: 100}).Error; err != nil {
+		t.Fatalf("create contest AC: %v", err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+	cookies := databaseSession(t, db, user.ID)
+
+	acRes := requestWithCookies(e, http.MethodGet, "/api/problems?status=ac", cookies, nil)
+	if acRes.Code != http.StatusOK {
+		t.Fatalf("status=ac got %d body=%s", acRes.Code, acRes.Body.String())
+	}
+	if items := decodePageItems[contract.Problem](t, acRes); len(items) != 0 {
+		t.Fatalf("hidden contest AC must not count as solved, got %+v", items)
+	}
+	triedRes := requestWithCookies(e, http.MethodGet, "/api/problems?status=tried", cookies, nil)
+	if triedRes.Code != http.StatusOK {
+		t.Fatalf("status=tried got %d body=%s", triedRes.Code, triedRes.Body.String())
+	}
+	if items := decodePageItems[contract.Problem](t, triedRes); len(items) != 1 || items[0].ID != problem.ID {
+		t.Fatalf("normal-context attempt should read as tried, got %+v", items)
+	}
+}

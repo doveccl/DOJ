@@ -19,7 +19,7 @@ func (api *API) problems(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	problems, total, err := api.searchProblemPage(c, c.QueryParam("q"), c.QueryParam("tag"), pageSize, offset)
+	problems, total, err := api.searchProblemPage(c, c.QueryParam("q"), c.QueryParam("tag"), c.QueryParam("status"), pageSize, offset)
 	if err != nil {
 		return err
 	}

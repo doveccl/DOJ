@@ -14,9 +14,8 @@ import {
   Typography
 } from 'antd'
 import type { TableProps } from 'antd'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
-import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { api, apiData, apiEmpty } from '../../client'
@@ -24,6 +23,7 @@ import type { Contest } from '../../client'
 import { defaultProblemSort } from '../../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
 import { contestTarget, ScheduleTag } from '../../components/time'
+import { useEntityCrud } from '../../components/use-entity-crud'
 import { useLocale } from '../../locale'
 import type { Lang } from '../../locale'
 import { useSession } from '../../session'
@@ -35,18 +35,11 @@ import type { ContestFormValues } from './form'
 export function ContestsPage() {
   const { lang, text } = useLocale()
   const session = useSession()
-  const { message } = AntApp.useApp()
-  const client = useQueryClient()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const [open, setOpen] = useState(false)
-  const [editingId, setEditingId] = useState<number | null>(null)
   const page = pageFromParams(params)
   const pageSize = pageSizeFromParams(params)
   const query = useQuery({ queryKey: ['contests', page, pageSize], queryFn: () => apiData(api.GET('/api/contests', { params: { query: { page, pageSize } } })) })
-  const showError = (error: unknown) => {
-    message.error(error instanceof Error ? error.message : text.common.loadingFailed)
-  }
   const payload = (values: ContestFormValues) => ({
     title: values.title,
     description: values.description,
@@ -56,71 +49,20 @@ export function ContestsPage() {
     freezeAt: values.kind === 'ICPC' ? (values.freezeAt?.toISOString() ?? '') : '',
     problems: values.problems ?? []
   })
-  const create = useMutation({
-    mutationFn: (values: ContestFormValues) => apiData(api.POST('/api/contests', { body: payload(values) })),
-    onSuccess: (item) => {
-      void client.invalidateQueries({ queryKey: ['contests'] })
-      void client.invalidateQueries({ queryKey: ['home'] })
-      message.success(text.common.saved)
-      closeModal()
-      navigate(`/contests/${item.id}`)
-    },
-    onError: showError
+  const crud = useEntityCrud<ContestFormValues, { id: number }>({
+    invalidate: [['contests'], ['contest'], ['home']],
+    create: (values) => apiData(api.POST('/api/contests', { body: payload(values) })),
+    update: (id, values) => apiData(api.PATCH('/api/contests/{id}', { params: { path: { id } }, body: payload(values) })),
+    remove: (id) => apiEmpty(api.DELETE('/api/contests/{id}', { params: { path: { id } } })),
+    onCreated: (item) => navigate(`/contests/${item.id}`)
   })
-  const update = useMutation({
-    mutationFn: (values: ContestFormValues) => {
-      if (!editingId) {
-        throw new Error(text.common.emptyResponse)
-      }
-      return apiData(api.PATCH('/api/contests/{id}', { params: { path: { id: editingId } }, body: payload(values) }))
-    },
-    onSuccess: (item) => {
-      void client.invalidateQueries({ queryKey: ['contests'] })
-      void client.invalidateQueries({ queryKey: ['contest', item.id] })
-      void client.invalidateQueries({ queryKey: ['home'] })
-      message.success(text.common.saved)
-      closeModal()
-    },
-    onError: showError
-  })
-  const remove = useMutation({
-    mutationFn: (id: number) => apiEmpty(api.DELETE('/api/contests/{id}', { params: { path: { id } } })),
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ['contests'] })
-      void client.invalidateQueries({ queryKey: ['home'] })
-      message.success(text.common.saved)
-    },
-    onError: showError
-  })
-  function openCreate() {
-    setEditingId(null)
-    setOpen(true)
-  }
-
-  function openEdit(item: Contest) {
-    setEditingId(item.id)
-    setOpen(true)
-  }
-
-  function closeModal() {
-    setOpen(false)
-    setEditingId(null)
-  }
-
-  function save(values: ContestFormValues) {
-    if (editingId) {
-      update.mutate(values)
-      return
-    }
-    create.mutate(values)
-  }
 
   return (
     <Card>
       <Flex vertical gap={16}>
         <Flex className="tableToolbar" justify="flex-end">
           {session.admin ? (
-            <Button icon={<PlusOutlined />} onClick={openCreate}>
+            <Button icon={<PlusOutlined />} onClick={crud.openCreate}>
               {text.contests.create}
             </Button>
           ) : null}
@@ -137,8 +79,8 @@ export function ContestsPage() {
               text,
               lang,
               {
-                edit: openEdit,
-                remove: (id) => remove.mutate(id),
+                edit: (item) => crud.openEdit(item.id),
+                remove: (id) => crud.remove.mutate(id),
                 refresh: () => void query.refetch()
               },
               session.admin
@@ -149,12 +91,12 @@ export function ContestsPage() {
           />
         )}
       </Flex>
-      {session.admin && open ? (
+      {session.admin && crud.open ? (
         <ContestModal
-          editingId={editingId}
-          loading={create.isPending || update.isPending}
-          onCancel={closeModal}
-          onSave={save}
+          editingId={crud.editingId}
+          loading={crud.saving}
+          onCancel={crud.closeModal}
+          onSave={crud.save}
         />
       ) : null}
     </Card>

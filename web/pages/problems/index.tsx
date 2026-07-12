@@ -1,6 +1,5 @@
 import { DeleteOutlined, EditOutlined, EyeInvisibleOutlined, EyeOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import {
-  App as AntApp,
   Button,
   Card,
   Flex,
@@ -8,6 +7,7 @@ import {
   Input,
   Modal,
   Popconfirm,
+  Select,
   Space,
   Table,
   Tag,
@@ -16,7 +16,6 @@ import {
 } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { api, apiData, apiEmpty, uploadProblemImage } from '../../client'
@@ -24,6 +23,7 @@ import type { ProblemListItem, ProblemListPage, ProblemState } from '../../clien
 import { ProblemLink } from '../../components/entity'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
 import { TagList } from '../../components/tags'
+import { useEntityCrud } from '../../components/use-entity-crud'
 import { TagSelect } from '../../components/tag-select'
 import { useLocale } from '../../locale'
 import { useSession } from '../../session'
@@ -36,17 +36,17 @@ import type { ProblemFormValues } from './form'
 export function ProblemsPage() {
   const { text } = useLocale()
   const session = useSession()
-  const { message } = AntApp.useApp()
   const client = useQueryClient()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const [open, setOpen] = useState(false)
-  const [editingId, setEditingId] = useState<number | null>(null)
   const q = params.get('q') ?? ''
   const tag = params.get('tag') ?? ''
+  const status = params.get('status') ?? ''
+  const showStatusFilter = session.signedIn
+  const activeStatus = showStatusFilter && isProblemStatus(status) ? status : ''
   const page = pageFromParams(params)
   const pageSize = pageSizeFromParams(params)
-  const query = useQuery({ queryKey: ['problems', q, tag, page, pageSize], queryFn: () => apiData(api.GET('/api/problems', { params: { query: { q, tag, page, pageSize } } })) })
+  const query = useQuery({ queryKey: ['problems', q, tag, activeStatus, page, pageSize], queryFn: () => apiData(api.GET('/api/problems', { params: { query: { q, tag, status: activeStatus || undefined, page, pageSize } } })) })
   const problemIds = (query.data?.items ?? []).map((item) => item.id)
   const ids = problemIds.join(',')
   const state = useQuery({
@@ -54,58 +54,25 @@ export function ProblemsPage() {
     queryFn: () => apiData(api.GET('/api/problem-state', { params: { query: { ids } } })),
     enabled: ids.length > 0
   })
-  const showError = (error: unknown) => {
-    message.error(error instanceof Error ? error.message : text.common.loadingFailed)
-  }
-  const create = useMutation({
-    mutationFn: (values: ProblemFormValues) =>
-      apiData(api.POST('/api/problems', { body: {
-        title: values.title,
-        tags: values.tags ?? [],
-        mode: values.mode,
-        timeMs: values.timeMs,
-        memoryMb: values.memoryMb
-      } })),
-    onSuccess: (item) => {
-      void client.invalidateQueries({ queryKey: ['problems'] })
-      void client.invalidateQueries({ queryKey: ['home'] })
-      message.success(text.common.saved)
-      closeModal()
-      navigate(`/problems/${item.id}`)
-    },
-    onError: showError
-  })
-  const update = useMutation({
-    mutationFn: (values: ProblemFormValues) => {
-      if (!editingId) {
-        throw new Error(text.common.emptyResponse)
-      }
-      return apiData(api.PATCH('/api/problems/{id}', { params: { path: { id: editingId } }, body: {
-        title: values.title,
-        statement: values.statement ?? '',
-        tags: values.tags ?? [],
-        mode: values.mode,
-        timeMs: values.timeMs,
-        memoryMb: values.memoryMb
-      } }))
-    },
-    onSuccess: (item) => {
-      void client.invalidateQueries({ queryKey: ['problem', item.id] })
-      void client.invalidateQueries({ queryKey: ['problems'] })
-      void client.invalidateQueries({ queryKey: ['home'] })
-      message.success(text.common.saved)
-      closeModal()
-    },
-    onError: showError
-  })
-  const remove = useMutation({
-    mutationFn: (id: number) => apiEmpty(api.DELETE('/api/problems/{id}', { params: { path: { id } } })),
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ['problems'] })
-      void client.invalidateQueries({ queryKey: ['home'] })
-      message.success(text.common.saved)
-    },
-    onError: showError
+  const crud = useEntityCrud<ProblemFormValues, { id: number }>({
+    invalidate: [['problems'], ['problem'], ['home']],
+    create: (values) => apiData(api.POST('/api/problems', { body: {
+      title: values.title,
+      tags: values.tags ?? [],
+      mode: values.mode,
+      timeMs: values.timeMs,
+      memoryMb: values.memoryMb
+    } })),
+    update: (id, values) => apiData(api.PATCH('/api/problems/{id}', { params: { path: { id } }, body: {
+      title: values.title,
+      statement: values.statement ?? '',
+      tags: values.tags ?? [],
+      mode: values.mode,
+      timeMs: values.timeMs,
+      memoryMb: values.memoryMb
+    } })),
+    remove: (id) => apiEmpty(api.DELETE('/api/problems/{id}', { params: { path: { id } } })),
+    onCreated: (item) => navigate(`/problems/${item.id}`)
   })
   const visibility = useMutation({
     mutationFn: (item: ProblemListItem) =>
@@ -114,26 +81,29 @@ export function ProblemsPage() {
       replaceProblemInCaches(client, item)
       void client.invalidateQueries({ queryKey: ['problems'] })
       void client.invalidateQueries({ queryKey: ['home'] })
-      message.success(item.visible ? text.problems.shown : text.problems.hiddenDone)
+      crud.message.success(item.visible ? text.problems.shown : text.problems.hiddenDone)
     },
-    onError: showError
+    onError: crud.showError
   })
   const stateByProblem = new Map((state.data ?? []).map((item) => [item.problemId, item]))
   const stateLoading = ids.length > 0 && state.isLoading
   const columns = problemColumns(text, stateByProblem, {
-    edit: (item) => openEdit(item),
-    remove: (id) => remove.mutate(id),
+    edit: (item) => crud.openEdit(item.id),
+    remove: (id) => crud.remove.mutate(id),
     toggle: (item) => visibility.mutate(item),
     toggling: (item) => visibility.isPending && visibility.variables?.id === item.id
   }, session.admin)
 
-  function submit(values: { q?: string; tag?: string }) {
+  function submit(values: { q?: string; tag?: string; status?: string }) {
     const next = new URLSearchParams()
     if (values.q) {
       next.set('q', values.q)
     }
     if (values.tag) {
       next.set('tag', values.tag)
+    }
+    if (showStatusFilter && values.status) {
+      next.set('status', values.status)
     }
     setParams(next)
   }
@@ -142,40 +112,30 @@ export function ProblemsPage() {
     setParams(new URLSearchParams())
   }
 
-  function openCreate() {
-    setEditingId(null)
-    setOpen(true)
-  }
-
-  function openEdit(item: ProblemListItem) {
-    setEditingId(item.id)
-    setOpen(true)
-  }
-
-  function closeModal() {
-    setOpen(false)
-    setEditingId(null)
-  }
-
-  function save(values: ProblemFormValues) {
-    if (editingId) {
-      update.mutate(values)
-      return
-    }
-    create.mutate(values)
-  }
-
   return (
     <Card>
       <Flex vertical gap={16}>
         <Flex className="tableToolbar" justify="space-between" align="center" gap={12} wrap>
-          <Form className="tableToolbarForm" layout="inline" initialValues={{ q: q || undefined, tag: tag || undefined }} onFinish={submit} key={`${q}:${tag}`}>
+          <Form className="tableToolbarForm" layout="inline" initialValues={{ q: q || undefined, tag: tag || undefined, status: activeStatus || undefined }} onFinish={submit} key={`${q}:${tag}:${activeStatus}`}>
             <Form.Item name="q">
-              <Input placeholder={text.problems.q} allowClear style={{ width: 280 }} />
+              <Input placeholder={text.problems.q} allowClear />
             </Form.Item>
             <Form.Item name="tag">
-              <TagSelect kind="problem" placeholder={text.problems.tag} allowClear style={{ width: 220 }} />
+              <TagSelect kind="problem" placeholder={text.problems.tag} allowClear />
             </Form.Item>
+            {showStatusFilter ? (
+              <Form.Item name="status">
+                <Select
+                  allowClear
+                  placeholder={text.problems.statusFilter}
+                  options={[
+                    { value: 'none', label: text.problems.statusNone },
+                    { value: 'tried', label: text.problems.statusTried },
+                    { value: 'ac', label: text.problems.statusAc }
+                  ]}
+                />
+              </Form.Item>
+            ) : null}
             <Form.Item>
               <Button onClick={clear}>{text.common.clear}</Button>
             </Form.Item>
@@ -186,7 +146,7 @@ export function ProblemsPage() {
             </Form.Item>
           </Form>
           {session.admin ? (
-            <Button icon={<PlusOutlined />} onClick={openCreate}>
+            <Button icon={<PlusOutlined />} onClick={crud.openCreate}>
               {text.common.createProblem}
             </Button>
           ) : null}
@@ -207,8 +167,8 @@ export function ProblemsPage() {
           />
         )}
       </Flex>
-      {session.admin && open ? (
-        <ProblemModal editingId={editingId} loading={create.isPending || update.isPending} onCancel={closeModal} onSave={save} />
+      {session.admin && crud.open ? (
+        <ProblemModal editingId={crud.editingId} loading={crud.saving} onCancel={crud.closeModal} onSave={crud.save} />
       ) : null}
     </Card>
   )
@@ -369,6 +329,10 @@ function ProblemRecordTag({ status }: { status?: string }) {
     return <Tag color="warning">{text.problem.tried}</Tag>
   }
   return null
+}
+
+function isProblemStatus(value: string): value is 'none' | 'tried' | 'ac' {
+  return value === 'none' || value === 'tried' || value === 'ac'
 }
 
 function replaceProblemInCaches(client: ReturnType<typeof useQueryClient>, item: ProblemListItem) {
