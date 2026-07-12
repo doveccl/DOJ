@@ -44,7 +44,7 @@ func (api *API) updateLanguage(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusConflict, "language already exists")
 		}
 	}
-	updates := map[string]any{"id": req.ID, "name": req.Name, "source": req.Source, "image": req.Image, "compile": req.Compile, "run": req.Run}
+	updates := map[string]any{"id": req.ID, "name": req.Name, "source": req.Source, "image": req.Image, "compile": req.Compile, "compile_ms": req.CompileMS, "run": req.Run}
 	if err := api.db.Model(&models.Language{}).Where("id = ?", row.ID).Updates(updates).Error; err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (api *API) createLanguage(c echo.Context) error {
 	if err := validateLanguage(req.LanguageUpdate); err != nil {
 		return err
 	}
-	row := models.Language{ID: req.ID, Name: req.Name, Source: req.Source, Image: req.Image, Compile: req.Compile, Run: req.Run}
+	row := models.Language{ID: req.ID, Name: req.Name, Source: req.Source, Image: req.Image, Compile: req.Compile, CompileMS: req.CompileMS, Run: req.Run}
 	if err := api.db.Create(&row).Error; err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func (api *API) languages() ([]Language, error) {
 	}
 	items := make([]Language, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, Language{ID: row.ID, Name: row.Name, Source: row.Source, Image: row.Image, Compile: row.Compile, Run: row.Run})
+		items = append(items, Language{ID: row.ID, Name: row.Name, Source: row.Source, Image: row.Image, Compile: row.Compile, CompileMS: row.CompileMS, Run: row.Run})
 	}
 	return items, nil
 }
@@ -138,6 +138,9 @@ func validateLanguage(req LanguageUpdate) error {
 	}
 	if req.Run == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "language run command is required")
+	}
+	if req.CompileMS <= 0 || req.CompileMS > limits.MaxLanguageCompileMS {
+		return echo.NewHTTPError(http.StatusBadRequest, "language compile limit is invalid")
 	}
 	if len([]byte(req.Compile)) > limits.MaxLanguageCommandBytes || len([]byte(req.Run)) > limits.MaxLanguageCommandBytes {
 		return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "language command is too large")

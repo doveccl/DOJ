@@ -127,5 +127,5 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (runner.TaskResult
 		logf:       req.Logf,
 		progress:   req.Progress,
 	}
-	return client.runTask(ctx, task, lang.CompileCommand, lang.RunCommand, restoreAssets)
+	return client.runTask(ctx, task, lang.CompileCommand, lang.CompileMS, lang.RunCommand, restoreAssets)
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/doveccl/doj/contract/limits"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -41,12 +42,13 @@ func EnsureAdmin(db *gorm.DB, name string, mail string, password string) (bool, 
 
 func DefaultLanguage() Language {
 	return Language{
-		ID:      "cpp",
-		Name:    "C/C++",
-		Source:  "main.cc",
-		Image:   "gcc",
-		Compile: "g++ main.cc -o main",
-		Run:     "./main",
+		ID:        "cpp",
+		Name:      "C/C++",
+		Source:    "main.cc",
+		Image:     "gcc",
+		Compile:   "g++ main.cc -o main",
+		CompileMS: limits.DefaultLanguageCompileMS,
+		Run:       "./main",
 	}
 }
 
@@ -68,8 +70,8 @@ func EnsureDefaultLanguage(db *gorm.DB) error {
 func EnsureDefaultLanguageRuntime(db *gorm.DB) error {
 	lang := DefaultLanguage()
 	return db.Model(&Language{}).
-		Where("id = ? AND (image = '' OR compile = '' OR run = '')", lang.ID).
-		Updates(map[string]any{"image": lang.Image, "compile": lang.Compile, "run": lang.Run}).Error
+		Where("id = ? AND (image = '' OR compile = '' OR compile_ms <= 0 OR run = '')", lang.ID).
+		Updates(map[string]any{"image": lang.Image, "compile": lang.Compile, "compile_ms": lang.CompileMS, "run": lang.Run}).Error
 }
 
 const ProblemIDBase uint = 1000

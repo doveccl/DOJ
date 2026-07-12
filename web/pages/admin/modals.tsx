@@ -1,4 +1,4 @@
-import { Form, Input, Modal, Select } from 'antd'
+import { Form, Input, InputNumber, Modal, Select } from 'antd'
 
 import { IdSelect } from '../../components/id-select'
 import { useLocale } from '../../locale'
@@ -139,6 +139,9 @@ export function LangModal({
         </Form.Item>
         <Form.Item name="compile" label={text.admin.compile}>
           <Input.TextArea rows={3} />
+        </Form.Item>
+        <Form.Item name="compileMs" label={text.admin.compileMs} rules={[{ required: true }]}>
+          <InputNumber min={1} max={limits.compileMs} controls={false} style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item name="run" label={text.admin.run} rules={[{ required: true, whitespace: true }]}>
           <Input.TextArea rows={2} />

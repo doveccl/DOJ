@@ -51,3 +51,19 @@ func TestRunnerHostConfigBoundsResources(t *testing.T) {
 		t.Fatalf("runner capabilities = drop %#v add %#v", config.CapDrop, config.CapAdd)
 	}
 }
+
+func TestApplyContainerCgroupStatsUsesCPUTimeForNonTimeout(t *testing.T) {
+	result := runner.CaseResult{CaseID: "1", Verdict: runner.VerdictWrongAnswer, TimeMS: 1200}
+	applyCgroupStatsSnapshot(&result, runner.CgroupStats{CPUUsageUSec: 12_345})
+	if result.TimeMS != 13 {
+		t.Fatalf("time ms = %d", result.TimeMS)
+	}
+}
+
+func TestApplyContainerCgroupStatsKeepsWallTimeForTimeout(t *testing.T) {
+	result := runner.CaseResult{CaseID: "1", Verdict: runner.VerdictTimeLimit, TimeMS: 1001}
+	applyCgroupStatsSnapshot(&result, runner.CgroupStats{CPUUsageUSec: 12_345})
+	if result.TimeMS != 1001 {
+		t.Fatalf("time ms = %d", result.TimeMS)
+	}
+}

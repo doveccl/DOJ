@@ -11,16 +11,17 @@ import (
 func TestPrepareLanguageRuntimeWritesSourceAndCommands(t *testing.T) {
 	work := t.TempDir()
 	lang, err := prepareLanguageRuntime(work, runner.Lang{
-		ID:      "cpp",
-		Source:  "main.cc",
-		Image:   "gcc:14",
-		Compile: "g++ main.cc -o main",
-		Run:     "./main",
+		ID:        "cpp",
+		Source:    "main.cc",
+		Image:     "gcc:14",
+		Compile:   "g++ main.cc -o main",
+		CompileMS: 10000,
+		Run:       "./main",
 	}, "int main(){}\n")
 	if err != nil {
 		t.Fatalf("prepare language runtime: %v", err)
 	}
-	if lang.Image != "gcc:14" || lang.CompileCommand != "g++ main.cc -o main" || lang.RunCommand != "./main" {
+	if lang.Image != "gcc:14" || lang.CompileCommand != "g++ main.cc -o main" || lang.CompileMS != 10000 || lang.RunCommand != "./main" {
 		t.Fatalf("runtime = %#v", lang)
 	}
 	got, err := os.ReadFile(filepath.Join(work, "src", "main.cc"))

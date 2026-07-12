@@ -3,6 +3,7 @@ export const limits = {
   username: 32,
   password: 72,
   languageId: 32,
+  compileMs: 30000,
   sort: 16,
   name: 64,
   source: 128,

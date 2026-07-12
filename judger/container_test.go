@@ -34,10 +34,11 @@ func containerEntryNames(entries []os.DirEntry) string {
 
 func testShellLang() runner.Lang {
 	return runner.Lang{
-		ID:      "sh",
-		Source:  "main.sh",
-		Image:   "alpine:3.20",
-		Compile: "",
-		Run:     "sh main.sh",
+		ID:        "sh",
+		Source:    "main.sh",
+		Image:     "alpine:3.20",
+		Compile:   "",
+		CompileMS: 10000,
+		Run:       "sh main.sh",
 	}
 }

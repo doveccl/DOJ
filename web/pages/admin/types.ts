@@ -17,5 +17,6 @@ export const defaultLanguage = {
   source: 'main.cc',
   image: 'gcc',
   compile: 'g++ main.cc -o main',
+  compileMs: 10000,
   run: './main'
 }

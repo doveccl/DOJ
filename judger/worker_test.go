@@ -241,10 +241,11 @@ func TestRunOneCleansWorkAfterPackageError(t *testing.T) {
 func testLeaseLang() common.LangPayload {
 	lang := testShellLang()
 	return common.LangPayload{
-		ID:      lang.ID,
-		Source:  lang.Source,
-		Image:   lang.Image,
-		Compile: lang.Compile,
-		Run:     lang.Run,
+		ID:        lang.ID,
+		Source:    lang.Source,
+		Image:     lang.Image,
+		Compile:   lang.Compile,
+		CompileMS: 10000,
+		Run:       lang.Run,
 	}
 }

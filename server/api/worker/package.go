@@ -102,11 +102,12 @@ func buildPayload(ctx context.Context, tx *gorm.DB, submission models.Submission
 		Attempt:      submission.Attempt,
 		Source:       submission.Code,
 		Lang: judger.LangPayload{
-			ID:      lang.ID,
-			Source:  lang.Source,
-			Image:   lang.Image,
-			Compile: lang.Compile,
-			Run:     lang.Run,
+			ID:        lang.ID,
+			Source:    lang.Source,
+			Image:     lang.Image,
+			Compile:   lang.Compile,
+			CompileMS: lang.CompileMS,
+			Run:       lang.Run,
 		},
 		Mode: problem.Mode,
 		Limits: judger.LimitsPayload{

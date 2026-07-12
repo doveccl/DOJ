@@ -163,6 +163,22 @@ func TestApplyCgroupStatsReportsMemoryMax(t *testing.T) {
 	}
 }
 
+func TestApplyCgroupStatsUsesCPUTimeForNonTimeout(t *testing.T) {
+	result := CaseResult{CaseID: "1", Verdict: VerdictAccepted, Score: 100, TimeMS: 1200}
+	applyCgroupStatsSnapshot(&result, CgroupStats{CPUUsageUSec: 12_345})
+	if result.TimeMS != 13 {
+		t.Fatalf("time ms = %d", result.TimeMS)
+	}
+}
+
+func TestApplyCgroupStatsKeepsWallTimeForTimeout(t *testing.T) {
+	result := CaseResult{CaseID: "1", Verdict: VerdictTimeLimit, Score: 0, TimeMS: 1001}
+	applyCgroupStatsSnapshot(&result, CgroupStats{CPUUsageUSec: 12_345})
+	if result.TimeMS != 1001 {
+		t.Fatalf("time ms = %d", result.TimeMS)
+	}
+}
+
 func TestCgroupMemoryLimitReached(t *testing.T) {
 	if !cgroupMemoryLimitReached(CgroupStats{MemoryMaxed: true}) {
 		t.Fatal("memory.max event was not treated as memory limit")

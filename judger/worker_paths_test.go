@@ -16,7 +16,7 @@ import (
 func validWorkerTask() *common.TaskPayload {
 	return &common.TaskPayload{
 		ID: 7, SubmissionID: 11, Attempt: 1, Source: "package main",
-		Lang:    common.LangPayload{ID: "go", Source: "main.go", Image: "go:latest", Run: "go run main.go"},
+		Lang:    common.LangPayload{ID: "go", Source: "main.go", Image: "go:latest", CompileMS: 10000, Run: "go run main.go"},
 		Mode:    string(runner.ModeDefault),
 		Limits:  common.LimitsPayload{TimeMS: 1000, MemoryKB: 64 << 10, OutputKB: 64, Pids: 32, FileKB: 64 << 10},
 		Cases:   []common.CasePayload{{ID: "1", Input: "data/1.in", Answer: "data/1.out", Score: 100}},

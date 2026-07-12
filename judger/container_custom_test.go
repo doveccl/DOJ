@@ -184,11 +184,12 @@ int main() {
 }
 `,
 			Lang: jr.Lang{
-				ID:      "cpp",
-				Source:  "main.cc",
-				Image:   "gcc",
-				Compile: "g++ main.cc -o main",
-				Run:     "./main",
+				ID:        "cpp",
+				Source:    "main.cc",
+				Image:     "gcc",
+				Compile:   "g++ main.cc -o main",
+				CompileMS: 10000,
+				Run:       "./main",
 			},
 			Mode:   jr.ModeCustom,
 			Limits: jr.Limits{TimeMS: 1000, MemoryKB: 64 << 10, OutputKB: 64, Pids: 32},

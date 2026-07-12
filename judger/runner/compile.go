@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	minUserCompileTimeout     = 30 * time.Second
-	defaultUserCompileTimeout = 2 * time.Minute
+	defaultUserCompileTimeout = 10 * time.Second
+	maxUserCompileTimeout     = 30 * time.Second
 	compileDiskPollInterval   = 10 * time.Millisecond
 	maxCompileFiles           = 10_000
 )
@@ -21,13 +21,7 @@ func compileUserProgram(ctx context.Context, work string, runner string, userIde
 	if req.CompileCommand == "" {
 		return CompileResult{OK: true}, nil
 	}
-	timeout := minUserCompileTimeout
-	if req.Limits.TimeMS > int(timeout/time.Millisecond) {
-		timeout = time.Duration(req.Limits.TimeMS) * time.Millisecond
-	}
-	if timeout > defaultUserCompileTimeout {
-		timeout = defaultUserCompileTimeout
-	}
+	timeout := compileTimeout(req.CompileMS)
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -71,6 +65,17 @@ func compileUserProgram(ctx context.Context, work string, runner string, userIde
 		return CompileResult{OK: false, Message: message, TimeMS: elapsed}, nil
 	}
 	return CompileResult{OK: true, Message: message, TimeMS: elapsed}, nil
+}
+
+func compileTimeout(compileMS int) time.Duration {
+	if compileMS <= 0 {
+		return defaultUserCompileTimeout
+	}
+	timeout := time.Duration(compileMS) * time.Millisecond
+	if timeout > maxUserCompileTimeout {
+		return maxUserCompileTimeout
+	}
+	return timeout
 }
 
 func runCompiler(cmd *exec.Cmd, root string, maxBytes int64) (error, bool) {

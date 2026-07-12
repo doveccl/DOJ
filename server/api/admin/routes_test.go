@@ -300,12 +300,12 @@ func TestDatabaseAdminCrud(t *testing.T) {
 	if assignmentGroupLinks != 0 {
 		t.Fatalf("deleted group should remove assignment_groups, got %d", assignmentGroupLinks)
 	}
-	langBody := `{"id":"py","name":"Python","source":"main.py","image":"python:3.13","compile":"","run":"python3 main.py"}`
+	langBody := `{"id":"py","name":"Python","source":"main.py","image":"python:3.13","compile":"","compileMs":10000,"run":"python3 main.py"}`
 	res = requestJSONWithCookies(e, http.MethodPost, "/api/admin/languages", adminCookies, langBody)
 	if res.Code != http.StatusCreated {
 		t.Fatalf("create language got %d body=%s", res.Code, res.Body.String())
 	}
-	updateLang := `{"id":"python","name":"Python","source":"main.py","image":"python:3.13","compile":"","run":"python3 main.py"}`
+	updateLang := `{"id":"python","name":"Python","source":"main.py","image":"python:3.13","compile":"","compileMs":10000,"run":"python3 main.py"}`
 	res = requestJSONWithCookies(e, http.MethodPatch, "/api/admin/languages/py", adminCookies, updateLang)
 	if res.Code != http.StatusOK {
 		t.Fatalf("update language got %d body=%s", res.Code, res.Body.String())

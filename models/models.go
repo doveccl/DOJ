@@ -51,6 +51,7 @@ type Language struct {
 	Source    string    `gorm:"size:128;not null" json:"source"`
 	Image     string    `gorm:"size:256;not null;default:''" json:"image"`
 	Compile   string    `gorm:"type:text;not null;default:''" json:"compile"`
+	CompileMS int       `gorm:"not null;default:10000" json:"compileMs"`
 	Run       string    `gorm:"type:text;not null;default:''" json:"run"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`

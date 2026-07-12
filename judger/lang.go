@@ -12,6 +12,7 @@ import (
 type preparedLang struct {
 	Image          string
 	CompileCommand string
+	CompileMS      int
 	RunCommand     string
 	SourceName     string
 }
@@ -46,6 +47,7 @@ func prepareLanguageRuntime(work string, lang runner.Lang, source string) (prepa
 	return preparedLang{
 		Image:          strings.TrimSpace(lang.Image),
 		CompileCommand: strings.TrimSpace(lang.Compile),
+		CompileMS:      lang.CompileMS,
 		RunCommand:     strings.TrimSpace(lang.Run),
 		SourceName:     sourceName,
 	}, nil

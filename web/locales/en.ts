@@ -323,6 +323,7 @@ export const en: typeof zh = {
     source: 'Source',
     image: 'Image',
     compile: 'Compile command',
+    compileMs: 'Compile limit (ms)',
     run: 'Run command',
     token: 'Token',
     status: 'Status',

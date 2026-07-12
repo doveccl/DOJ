@@ -22,7 +22,7 @@ type runnerClient struct {
 	progress   func(stage string, done int64, total *int64)
 }
 
-func (client runnerClient) runTask(ctx context.Context, task runner.Task, compileCommand string, userCommand string, beforeCases func() error) (runner.TaskResult, error) {
+func (client runnerClient) runTask(ctx context.Context, task runner.Task, compileCommand string, compileMS int, userCommand string, beforeCases func() error) (runner.TaskResult, error) {
 	result := runner.TaskResult{SubmissionID: task.SubmissionID, Attempt: task.Attempt}
 	if len(task.Cases) == 0 {
 		result.Verdict = runner.VerdictSystemError
@@ -36,7 +36,7 @@ func (client runnerClient) runTask(ctx context.Context, task runner.Task, compil
 	logStep(client.logf, task.SubmissionID, task.Attempt, "runner_hello", helloStartedAt)
 	compileStartedAt := time.Now()
 	client.reportProgress("compile", 0, nil)
-	compile, err := client.compile(task, compileCommand, userCommand)
+	compile, err := client.compile(task, compileCommand, compileMS, userCommand)
 	logTask(client.logf, task.SubmissionID, task.Attempt, "compile=%s ok=%t reported=%dms", formatDuration(time.Since(compileStartedAt)), compile.OK, compile.TimeMS)
 	if err != nil {
 		return runner.TaskResult{}, err
@@ -133,10 +133,11 @@ func (client runnerClient) hello() error {
 	return nil
 }
 
-func (client runnerClient) compile(task runner.Task, compileCommand string, userCommand string) (runner.CompileResult, error) {
+func (client runnerClient) compile(task runner.Task, compileCommand string, compileMS int, userCommand string) (runner.CompileResult, error) {
 	if err := client.codec.Send(runner.Message{Kind: runner.MsgCompile, Compile: &runner.CompileRequest{
 		TaskID:         client.taskID,
 		CompileCommand: compileCommand,
+		CompileMS:      compileMS,
 		UserCommand:    userCommand,
 		Limits:         task.Limits,
 	}}); err != nil {

@@ -180,6 +180,9 @@ func validateTask(task *common.TaskPayload) error {
 	if len(task.Lang.Compile) > contractlimits.MaxLanguageCommandBytes || len(task.Lang.Run) > contractlimits.MaxLanguageCommandBytes {
 		return fmt.Errorf("language command is too large")
 	}
+	if task.Lang.CompileMS < 0 || task.Lang.CompileMS > contractlimits.MaxLanguageCompileMS {
+		return fmt.Errorf("language compile limit is invalid")
+	}
 	if _, err := cleanLanguageSource(task.Lang.Source); err != nil {
 		return err
 	}
@@ -246,11 +249,12 @@ func taskToTask(task *common.TaskPayload) runner.Task {
 		Attempt:      task.Attempt,
 		Source:       task.Source,
 		Lang: runner.Lang{
-			ID:      task.Lang.ID,
-			Source:  task.Lang.Source,
-			Image:   task.Lang.Image,
-			Compile: task.Lang.Compile,
-			Run:     task.Lang.Run,
+			ID:        task.Lang.ID,
+			Source:    task.Lang.Source,
+			Image:     task.Lang.Image,
+			Compile:   task.Lang.Compile,
+			CompileMS: task.Lang.CompileMS,
+			Run:       task.Lang.Run,
 		},
 		Mode: runner.JudgeMode(task.Mode),
 		Limits: runner.Limits{

@@ -1092,6 +1092,8 @@ export interface components {
         };
         AdminLang: {
             compile: string;
+            /** Format: int64 */
+            compileMs: number;
             id: string;
             image: string;
             name: string;
@@ -1100,6 +1102,8 @@ export interface components {
         };
         AdminLangCreate: {
             compile: string;
+            /** Format: int64 */
+            compileMs: number;
             id: string;
             image: string;
             name: string;
@@ -1108,6 +1112,8 @@ export interface components {
         };
         AdminLangUpdate: {
             compile: string;
+            /** Format: int64 */
+            compileMs: number;
             id: string;
             image: string;
             name: string;

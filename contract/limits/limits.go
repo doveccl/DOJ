@@ -17,6 +17,8 @@ const (
 	MaxSourceBytes            = 1 << 20
 	MaxShortTextBytes         = 256 << 10
 	MaxLanguageCommandBytes   = 128 << 10
+	DefaultLanguageCompileMS  = 10_000
+	MaxLanguageCompileMS      = 30_000
 	MaxJudgerMessageBytes     = 256 << 10
 	MaxCaseMessageRunes       = 1024
 	MaxProblemTimeMS          = 60_000

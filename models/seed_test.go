@@ -79,7 +79,7 @@ func TestEnsureDefaultLanguageCreatesCppWhenEmpty(t *testing.T) {
 	if err := db.First(&lang, "id = ?", "cpp").Error; err != nil {
 		t.Fatalf("read default lang: %v", err)
 	}
-	if lang.Name != "C/C++" || lang.Source != "main.cc" || lang.Image != "gcc" || lang.Compile != "g++ main.cc -o main" || lang.Run != "./main" {
+	if lang.Name != "C/C++" || lang.Source != "main.cc" || lang.Image != "gcc" || lang.Compile != "g++ main.cc -o main" || lang.CompileMS != 10000 || lang.Run != "./main" {
 		t.Fatalf("unexpected default lang: %+v", lang)
 	}
 }
@@ -89,7 +89,7 @@ func TestEnsureDefaultLanguageKeepsExistingLangs(t *testing.T) {
 	if err := AutoMigrate(db); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	custom := Language{ID: "py", Name: "Python", Source: "main.py", Image: "python:3", Run: "python3 main.py"}
+	custom := Language{ID: "py", Name: "Python", Source: "main.py", Image: "python:3", CompileMS: 10000, Run: "python3 main.py"}
 	if err := db.Create(&custom).Error; err != nil {
 		t.Fatalf("create custom lang: %v", err)
 	}

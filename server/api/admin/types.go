@@ -42,12 +42,13 @@ type Group struct {
 }
 
 type Language struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Source  string `json:"source"`
-	Image   string `json:"image"`
-	Compile string `json:"compile"`
-	Run     string `json:"run"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Source    string `json:"source"`
+	Image     string `json:"image"`
+	Compile   string `json:"compile"`
+	CompileMS int    `json:"compileMs"`
+	Run       string `json:"run"`
 }
 
 type Judger struct {
@@ -89,12 +90,13 @@ type GroupUpdate struct {
 }
 
 type LanguageUpdate struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Source  string `json:"source"`
-	Image   string `json:"image"`
-	Compile string `json:"compile"`
-	Run     string `json:"run"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Source    string `json:"source"`
+	Image     string `json:"image"`
+	Compile   string `json:"compile"`
+	CompileMS int    `json:"compileMs"`
+	Run       string `json:"run"`
 }
 
 type LanguageCreate struct {

@@ -41,6 +41,7 @@ type Hello struct {
 type CompileRequest struct {
 	TaskID         string
 	CompileCommand string
+	CompileMS      int
 	UserCommand    string
 	Limits         Limits
 }

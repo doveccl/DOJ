@@ -32,3 +32,15 @@ func TestCompileUserProgramEnforcesWorkspaceLimit(t *testing.T) {
 		t.Fatalf("compile result = %+v", result)
 	}
 }
+
+func TestCompileTimeoutUsesLanguageLimit(t *testing.T) {
+	if got := compileTimeout(0); got != 10*time.Second {
+		t.Fatalf("default timeout = %v", got)
+	}
+	if got := compileTimeout(12_345); got != 12345*time.Millisecond {
+		t.Fatalf("language timeout = %v", got)
+	}
+	if got := compileTimeout(60_000); got != 30*time.Second {
+		t.Fatalf("capped timeout = %v", got)
+	}
+}

@@ -63,6 +63,9 @@ func applyCgroupStats(result *runner.CaseResult, cgroup *runner.CgroupCase) {
 }
 
 func applyCgroupStatsSnapshot(result *runner.CaseResult, stats runner.CgroupStats) {
+	if timeMS := cgroupCPUTimeMS(stats); timeMS > 0 && result.Verdict != runner.VerdictTimeLimit {
+		result.TimeMS = timeMS
+	}
 	if stats.MemoryPeak > 0 {
 		result.MemoryKB = int((stats.MemoryPeak + 1023) / 1024)
 	}
@@ -77,4 +80,11 @@ func applyCgroupStatsSnapshot(result *runner.CaseResult, stats runner.CgroupStat
 		result.Score = 0
 		result.Message = "process limit exceeded"
 	}
+}
+
+func cgroupCPUTimeMS(stats runner.CgroupStats) int {
+	if stats.CPUUsageUSec <= 0 {
+		return 0
+	}
+	return int((stats.CPUUsageUSec + 999) / 1000)
 }

@@ -25,11 +25,12 @@ type TaskPayload struct {
 }
 
 type LangPayload struct {
-	ID      string `json:"id"`
-	Source  string `json:"source"`
-	Image   string `json:"image"`
-	Compile string `json:"compile"`
-	Run     string `json:"run"`
+	ID        string `json:"id"`
+	Source    string `json:"source"`
+	Image     string `json:"image"`
+	Compile   string `json:"compile"`
+	CompileMS int    `json:"compileMs"`
+	Run       string `json:"run"`
 }
 
 type ProblemPayload struct {

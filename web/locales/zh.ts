@@ -321,6 +321,7 @@ export const zh = {
     source: '源文件',
     image: '镜像',
     compile: '编译命令',
+    compileMs: '编译时限(ms)',
     run: '运行命令',
     token: '令牌',
     status: '状态',
