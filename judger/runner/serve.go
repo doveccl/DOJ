@@ -154,14 +154,8 @@ func handleRunnerConn(ctx context.Context, conn net.Conn, req RunnerServe) {
 					delete(pending, runKey)
 					pendingMu.Unlock()
 				}()
-				runCtx := ctx
-				cancel := func() {}
-				if run.Limits.TimeMS > 0 {
-					runCtx, cancel = context.WithTimeout(ctx, time.Duration(run.Limits.TimeMS)*time.Millisecond)
-				}
-				defer cancel()
 				absCase := absolutizeCase(req.Work, run.Case)
-				caseWork, err := os.MkdirTemp("", "doj-case-"+safeCaseID(run.Case.ID)+"-")
+				caseWork, err := makeCaseWork(req.Work, run.Case.ID)
 				if err != nil {
 					_ = codec.Send(Message{Kind: MsgError, Error: err.Error()})
 					return
@@ -171,6 +165,12 @@ func handleRunnerConn(ctx context.Context, conn net.Conn, req RunnerServe) {
 					_ = codec.Send(Message{Kind: MsgError, Error: err.Error()})
 					return
 				}
+				runCtx := ctx
+				cancel := func() {}
+				if run.Limits.TimeMS > 0 {
+					runCtx, cancel = context.WithTimeout(ctx, time.Duration(run.Limits.TimeMS)*time.Millisecond)
+				}
+				defer cancel()
 				result, err := RunLocalCase(runCtx, LocalRun{
 					Runner:       req.Runner,
 					Work:         req.Work,
@@ -217,6 +217,14 @@ func handleRunnerConn(ctx context.Context, conn net.Conn, req RunnerServe) {
 			_ = codec.Send(Message{Kind: MsgError, Error: "unsupported message kind"})
 		}
 	}
+}
+
+func makeCaseWork(work string, caseID string) (string, error) {
+	root := filepath.Join(work, ".cases")
+	if err := os.MkdirAll(root, 0o700); err != nil {
+		return "", err
+	}
+	return os.MkdirTemp(root, "doj-case-"+safeCaseID(caseID)+"-")
 }
 
 type protocolUserGate struct {

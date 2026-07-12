@@ -184,24 +184,15 @@ func (api *API) updateProblem(c echo.Context) error {
 		}
 		row.MemoryMB = memoryMB
 	}
-	var statement *string
 	if req.Statement != nil {
-		value := strings.TrimSpace(*req.Statement)
-		if value == "" && row.Title != "" {
-			value = "# " + row.Title
-		}
-		if err := validateTextBytes(value, limits.MaxMarkdownBytes, "statement is too large"); err != nil {
+		value, err := normalizeProblemStatement(row.ID, row.Title, *req.Statement)
+		if err != nil {
 			return err
 		}
-		statement = &value
+		row.Content = value
 	}
 	if err := api.db.Save(&row).Error; err != nil {
 		return err
-	}
-	if statement != nil {
-		if err := api.writeProblemStatement(c.Request().Context(), row.ID, *statement); err != nil {
-			return err
-		}
 	}
 	return c.JSON(http.StatusOK, contract.CreatedID{ID: row.ID})
 }

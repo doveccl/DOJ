@@ -28,6 +28,7 @@ const (
 	MaxJudgerLeaseBytes       = 32 << 20
 	MaxJudgerOutputKB         = 64 << 10
 	MaxJudgerPids             = 256
+	DefaultJudgerFileKB       = 256 << 10
 	MaxJudgerFileKB           = 1 << 20
 	MaxPasswordBytes          = 72
 )

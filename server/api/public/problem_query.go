@@ -154,10 +154,6 @@ func problemView(row models.Problem) contract.Problem {
 
 func (api *API) problemViewWithStatement(ctx context.Context, row models.Problem) (contract.Problem, error) {
 	item := problemView(row)
-	statement, err := api.problemStatement(ctx, row.ID, row.Title)
-	if err != nil {
-		return item, err
-	}
-	item.Statement = statement
+	item.Statement = problemStatement(row)
 	return item, nil
 }

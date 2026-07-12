@@ -35,6 +35,7 @@ type GroupUser struct {
 type Problem struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
 	Title     string         `gorm:"size:256;not null" json:"title"`
+	Content   string         `gorm:"type:text;not null;default:''" json:"content"`
 	Tags      datatypes.JSON `gorm:"type:jsonb;not null;default:'[]'" json:"tags"`
 	Visible   bool           `gorm:"not null;default:false" json:"visible"`
 	Mode      string         `gorm:"size:16;not null;default:'default'" json:"mode"`

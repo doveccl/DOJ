@@ -84,11 +84,15 @@ func TestProblemPatchOnlyUpdatesProvidedFields(t *testing.T) {
 	if err := db.Create(&admin).Error; err != nil {
 		t.Fatalf("create admin: %v", err)
 	}
-	problem := models.Problem{ID: 1000, Title: "Original", Tags: datatypes.JSON([]byte(`["old"]`)), Visible: true, Mode: "default", TimeMS: 2000, MemoryMB: 512}
+	problem := models.Problem{ID: 1000, Title: "Original", Content: "# Before", Tags: datatypes.JSON([]byte(`["old"]`)), Visible: true, Mode: "default", TimeMS: 2000, MemoryMB: 512}
 	if err := db.Create(&problem).Error; err != nil {
 		t.Fatalf("create problem: %v", err)
 	}
-	t.Setenv("STORAGE", t.TempDir())
+	blockedStorage := filepath.Join(t.TempDir(), "storage-file")
+	if err := os.WriteFile(blockedStorage, []byte("not a directory"), 0o644); err != nil {
+		t.Fatalf("create blocked storage marker: %v", err)
+	}
+	t.Setenv("STORAGE", blockedStorage)
 
 	e := echo.New()
 	Register(e, db)
@@ -107,6 +111,11 @@ func TestProblemPatchOnlyUpdatesProvidedFields(t *testing.T) {
 	if got := decodeJSON[contract.CreatedID](t, res); got.ID != problem.ID {
 		t.Fatalf("mode patch should return problem id: %+v", got)
 	}
+	var row models.Problem
+	if err := db.First(&row, problem.ID).Error; err != nil || row.Content != statement {
+		t.Fatalf("statement should be saved on problem row: content=%q err=%v", row.Content, err)
+	}
+	t.Setenv("STORAGE", t.TempDir())
 	updated := decodeJSON[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems/1000", cookies, nil))
 	if updated.Mode != "strict" || updated.Title != "Original" || updated.Statement != statement || !updated.Visible || updated.TimeMS != 2000 || updated.MemoryMB != 512 {
 		t.Fatalf("mode patch should preserve unrelated problem fields: %+v", updated)
@@ -193,11 +202,7 @@ func TestAdminCanPublishDraftProblem(t *testing.T) {
 	if res := requestJSONWithCookies(e, http.MethodPatch, visibilityPath, cookies, `{"visible":true}`); res.Code != http.StatusOK {
 		t.Fatalf("empty draft publish got %d body=%s", res.Code, res.Body.String())
 	}
-	files := map[string]string{
-		"statement.md": "# Draft\n\nAdd two integers.",
-		"data/1.in":    "1 2\n",
-		"data/1.out":   "3\n",
-	}
+	files := map[string]string{"data/1.in": "1 2\n", "data/1.out": "3\n"}
 	for name, content := range files {
 		file := filepath.Join(root, "problems", strconv.FormatUint(uint64(created.ID), 10), filepath.FromSlash(name))
 		if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
@@ -216,11 +221,7 @@ func TestAdminCanPublishDraftProblem(t *testing.T) {
 		}
 	}
 	custom := decodeJSON[contract.CreatedID](t, requestJSONWithCookies(e, http.MethodPost, "/api/problems", cookies, `{"title":"Custom Draft","tags":[],"mode":"custom","timeMs":1000,"memoryMb":256}`))
-	customFiles := map[string]string{
-		"statement.md": "# Custom Draft\n\nJudge interactively.",
-		"data/1.in":    "1\n",
-		"data/1.out":   "1\n",
-	}
+	customFiles := map[string]string{"data/1.in": "1\n", "data/1.out": "1\n"}
 	for name, content := range customFiles {
 		file := filepath.Join(root, "problems", strconv.FormatUint(uint64(custom.ID), 10), filepath.FromSlash(name))
 		if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {

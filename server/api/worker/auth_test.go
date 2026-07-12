@@ -95,6 +95,31 @@ func TestLocalLoopbackLeaseReusesJudgerWithoutToken(t *testing.T) {
 	}
 }
 
+func TestLocalLoopbackLeaseDoesNotCreateOnExistingJudger(t *testing.T) {
+	db := newJudgerTestDB(t)
+	api := &API{db: db}
+	row := models.Judger{Name: "local-judger", Auth: ""}
+	if err := db.Create(&row).Error; err != nil {
+		t.Fatalf("create judger: %v", err)
+	}
+	for index := 0; index < 3; index++ {
+		id, err := api.ensureJudger(localJudgerContext(t, api), judger.LeaseRequest{Host: "local-judger"})
+		if err != nil {
+			t.Fatalf("ensure judger %d: %v", index, err)
+		}
+		if id != row.ID {
+			t.Fatalf("ensure judger id = %d, want %d", id, row.ID)
+		}
+	}
+	var count int64
+	if err := db.Model(&models.Judger{}).Count(&count).Error; err != nil {
+		t.Fatalf("count judgers: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("judger count = %d, want 1", count)
+	}
+}
+
 func TestLocalLoopbackConcurrentEnsureReusesJudgerWithoutToken(t *testing.T) {
 	db := newJudgerTestDB(t)
 	api := &API{db: db}

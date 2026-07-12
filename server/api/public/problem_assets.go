@@ -300,10 +300,7 @@ func (api *API) downloadProblemAssets(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	statement, err := api.problemStatement(c.Request().Context(), id, problem.Title)
-	if err != nil {
-		return err
-	}
+	statement := problemStatement(problem)
 	assets, err := problemAssetsFromStore(c.Request().Context(), id, store)
 	if err != nil {
 		return err

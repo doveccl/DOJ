@@ -82,6 +82,9 @@ func TestTaskPackageRequiresCurrentOwnedLeaseAndHash(t *testing.T) {
 	if err != nil || payload == nil {
 		t.Fatalf("lease task: payload=%+v err=%v", payload, err)
 	}
+	if payload.Limits.FileKB != 256<<10 {
+		t.Fatalf("file limit = %d KB, want %d KB", payload.Limits.FileKB, 256<<10)
+	}
 
 	e := echo.New()
 	Register(e, db)

@@ -44,7 +44,7 @@ func TestImageUploadUsesRelativeMediaPathsAndHeaders(t *testing.T) {
 	if err := db.Create(&student).Error; err != nil {
 		t.Fatalf("create student: %v", err)
 	}
-	problem := models.Problem{ID: 1000, Title: "Visible", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	problem := models.Problem{ID: 1000, Title: "Visible", Content: "# Visible\n\n![img](./assets/note.png)", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
 	if err := db.Create(&problem).Error; err != nil {
 		t.Fatalf("create problem: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestProblemAssetDownloadsSupportNestedPathsAndExistingProblems(t *testing.T
 	if err := db.Create(&admin).Error; err != nil {
 		t.Fatalf("create admin: %v", err)
 	}
-	problem := models.Problem{ID: 1000, Title: "Visible", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	problem := models.Problem{ID: 1000, Title: "Visible", Content: "# Visible\n\n![img](./assets/note.png)", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
 	if err := db.Create(&problem).Error; err != nil {
 		t.Fatalf("create problem: %v", err)
 	}
@@ -110,7 +110,6 @@ func TestProblemAssetDownloadsSupportNestedPathsAndExistingProblems(t *testing.T
 		t.Fatalf("write nested data file: %v", err)
 	}
 	for key, body := range map[string]string{
-		filepath.Join(storage.Root(), "problems", "1000", "statement.md"):           "# Visible\n\n![img](./assets/note.png)",
 		filepath.Join(storage.Root(), "problems", "1000", "data", "cases", "1.out"): "nested output",
 		filepath.Join(storage.Root(), "problems", "1000", "judge", "main.cc"):       "int main(){}",
 		filepath.Join(storage.Root(), "problems", "1000", "assets", "note.txt"):     "asset note",

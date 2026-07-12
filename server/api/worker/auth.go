@@ -51,7 +51,15 @@ func (api *API) ensureJudger(c echo.Context, req judger.LeaseRequest) (uint, err
 		return 0, echo.NewHTTPError(http.StatusUnauthorized, "invalid judger auth")
 	}
 	name := judgerRequestName(req)
-	row := models.Judger{Name: name, Auth: ""}
+	var row models.Judger
+	if err := api.db.First(&row, "name = ?", name).Error; err == nil {
+		c.Set(contextJudgerID, row.ID)
+		judge.TouchStatus(c.Request().Context(), row.ID, time.Now())
+		return row.ID, nil
+	} else if err != gorm.ErrRecordNotFound {
+		return 0, err
+	}
+	row = models.Judger{Name: name, Auth: ""}
 	if err := api.db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "name"}}, DoNothing: true}).Create(&row).Error; err != nil {
 		return 0, err
 	}

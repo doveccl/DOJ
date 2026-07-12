@@ -30,9 +30,8 @@ func writeReadyProblemFiles(t *testing.T, root string, id uint, title string) {
 	t.Helper()
 	base := filepath.Join(root, "problems", strconv.FormatUint(uint64(id), 10))
 	for name, content := range map[string]string{
-		"statement.md": "# " + title + "\n\nReady for judging.",
-		"data/1.in":    "1 2\n",
-		"data/1.out":   "3\n",
+		"data/1.in":  "1 2\n",
+		"data/1.out": "3\n",
 	} {
 		file := filepath.Join(base, filepath.FromSlash(name))
 		if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {

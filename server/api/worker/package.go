@@ -16,6 +16,7 @@ import (
 
 	"github.com/doveccl/doj/contract/cases"
 	"github.com/doveccl/doj/contract/judger"
+	contractlimits "github.com/doveccl/doj/contract/limits"
 	"github.com/doveccl/doj/models"
 	"github.com/doveccl/doj/server/storage"
 	"github.com/labstack/echo/v4"
@@ -115,7 +116,7 @@ func buildPayload(ctx context.Context, tx *gorm.DB, submission models.Submission
 			MemoryKB: problem.MemoryMB * 1024,
 			OutputKB: 65536,
 			Pids:     64,
-			FileKB:   65536,
+			FileKB:   contractlimits.DefaultJudgerFileKB,
 		},
 		Cases: cases,
 		Problem: judger.ProblemPayload{

@@ -208,6 +208,104 @@ func TestServeRunnerRunCaseTimesOutWithoutRelease(t *testing.T) {
 	}
 }
 
+func TestServeRunnerCopiesLargeRuntimeOutsideTmp(t *testing.T) {
+	skipShortRunnerIntegration(t)
+	runner := buildRunner(t)
+	work := t.TempDir()
+	runtimeRoot := filepath.Join(work, languageSourceDir)
+	socket := filepath.Join(os.TempDir(), fmt.Sprintf("doj-large-runtime-%d.sock", time.Now().UnixNano()))
+	defer os.Remove(socket)
+	if err := os.Mkdir(runtimeRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(work, "1.in"), []byte("42\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(work, "1.out"), []byte("42\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(runtimeRoot, "run.sh"), []byte("cat\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	blob, err := os.Create(filepath.Join(runtimeRoot, "main"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := blob.Truncate(80 << 20); err != nil {
+		_ = blob.Close()
+		t.Fatal(err)
+	}
+	if err := blob.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ServeRunner(ctx, RunnerServe{Socket: socket, Work: work, Runner: runner, RuntimeRoot: runtimeRoot, SkipRuntime: "main.ts"})
+	}()
+	waitSocket(t, socket)
+
+	conn, err := net.Dial("unix", socket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	codec := NewCodec(conn)
+	if err := codec.Send(Message{Kind: MsgHello, Hello: &Hello{Role: "judger", Version: Version}}); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := codec.Recv(); err != nil || got.Kind != MsgHello {
+		t.Fatalf("hello = %#v, %v", got, err)
+	}
+	if err := codec.Send(Message{Kind: MsgCompile, Compile: &CompileRequest{
+		TaskID:      "task-1",
+		UserCommand: "sh run.sh",
+		Limits:      Limits{TimeMS: 1000, OutputKB: 64, FileKB: 256 << 10},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := codec.Recv(); err != nil || got.Kind != MsgCompileResult || got.CompileResult == nil || !got.CompileResult.OK {
+		t.Fatalf("compiled = %#v, %v", got, err)
+	}
+	if err := codec.Send(Message{Kind: MsgRunCase, RunCase: &RunCaseRequest{
+		TaskID: "task-1",
+		Case:   Case{ID: "1", Input: "1.in", Answer: "1.out", Score: 100},
+		Mode:   ModeDefault,
+		Limits: Limits{TimeMS: 1000, OutputKB: 64, FileKB: 256 << 10},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	pid, err := codec.Recv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pid.Kind != MsgUserPID || pid.UserPID == nil {
+		t.Fatalf("pid = %#v", pid)
+	}
+	if err := codec.Send(Message{Kind: MsgReleaseUser, ReleaseUser: &ReleaseUser{TaskID: pid.UserPID.TaskID, CaseID: pid.UserPID.CaseID}}); err != nil {
+		t.Fatal(err)
+	}
+	ran, err := codec.Recv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ran.Kind != MsgCaseResult || ran.CaseResult == nil || ran.CaseResult.Verdict != VerdictAccepted {
+		t.Fatalf("ran = %#v", ran)
+	}
+
+	cancel()
+	select {
+	case err := <-errCh:
+		if err != nil && err != context.Canceled {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("runner server did not exit")
+	}
+}
+
 func waitSocket(t *testing.T, socket string) {
 	t.Helper()
 	deadline := time.Now().Add(time.Second)
