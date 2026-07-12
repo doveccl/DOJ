@@ -288,11 +288,14 @@ function discussionColumns(
     {
       title: text.discussion.author,
       dataIndex: 'author',
+      width: 180,
       render: (author: string) => <UserLink name={author} />
     },
     {
       title: text.discussion.replies,
-      dataIndex: 'replies'
+      dataIndex: 'replies',
+      width: 96,
+      align: 'center'
     },
     {
       title: text.discussion.created,

@@ -59,7 +59,7 @@ export function GroupsTab({
           setPageSize(pagination.pageSize ?? pageSize)
         }}
         columns={[
-          { title: text.admin.groups, dataIndex: 'name' },
+          { title: text.admin.groups, dataIndex: 'name', width: 360, ellipsis: { showTitle: false }, render: (name: string) => <Typography.Text ellipsis={{ tooltip: name }}>{name}</Typography.Text> },
           { title: text.admin.userCount, render: (_, row) => <Typography.Text>{row.users?.length ?? 0}</Typography.Text> },
           {
             align: 'right',

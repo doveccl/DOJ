@@ -96,28 +96,21 @@ export function ContestDetailPage() {
     label: problemLabel(item.id, item.title)
   }))
 
-  function openEdit() {
-    setEditOpen(true)
-  }
-
   return (
     <Flex vertical gap={16}>
       <DescriptionCard
         id={`contest-${contest.id}-description`}
         value={query.data.description}
         header={
-          <Flex align="center" gap={10}>
-            <Typography.Title level={3} style={{ margin: 0 }}>
+          <Flex align="center" gap={10} style={{ minWidth: 0 }}>
+            <Typography.Title level={3} ellipsis={{ tooltip: contest.title }} style={{ margin: 0, minWidth: 0 }}>
               {contest.title}
             </Typography.Title>
             <Tag>{contest.kind}</Tag>
           </Flex>
         }
         extra={
-          <Space size={12} wrap>
-            <Button icon={<UnorderedListOutlined />} href={`/submissions?contest=${contest.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`}>
-              {recordsUser ? text.submissions.myRecords : text.submissions.allRecords}
-            </Button>
+          <Space size={16} wrap>
             <DeadlineTimer
               kind="contest"
               status={contest.status}
@@ -125,7 +118,12 @@ export function ContestDetailPage() {
               range={`${formatTime(contest.startAt, lang)} - ${formatTime(contest.endAt, lang)}`}
               onFinish={() => void query.refetch()}
             />
-            {session.admin ? <Button icon={<EditOutlined />} onClick={openEdit}>{text.common.edit}</Button> : null}
+            <Space size={8} wrap>
+              <Button icon={<UnorderedListOutlined />} href={`/submissions?contest=${contest.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`}>
+                {recordsUser ? text.submissions.myRecords : text.submissions.allRecords}
+              </Button>
+              {session.admin ? <Button icon={<EditOutlined />} onClick={() => setEditOpen(true)}>{text.common.edit}</Button> : null}
+            </Space>
           </Space>
         }
       />
@@ -267,17 +265,22 @@ function rankColumns(text: ReturnType<typeof useLocale>['text'], kind: string, p
   const columns: NonNullable<TableProps<RankUser>['columns']> = [
     {
       title: text.rank.rank,
-      dataIndex: 'rank'
+      dataIndex: 'rank',
+      width: 72,
+      align: 'center'
     },
     {
       title: text.rank.user,
+      width: 200,
       render: (_, row) => <UserLink name={row.user} strong />
     }
   ]
   if (kind === 'OI') {
     columns.splice(2, 0, {
       title: text.rank.score,
-      dataIndex: 'score'
+      dataIndex: 'score',
+      width: 88,
+      align: 'center'
     })
     return [...columns, ...rankProblemColumns(kind, problems)]
   }
@@ -286,11 +289,15 @@ function rankColumns(text: ReturnType<typeof useLocale>['text'], kind: string, p
     0,
     {
       title: text.rank.ac,
-      dataIndex: 'ac'
+      dataIndex: 'ac',
+      width: 80,
+      align: 'center'
     },
     {
       title: text.rank.penalty,
-      dataIndex: 'penalty'
+      dataIndex: 'penalty',
+      width: 100,
+      align: 'center'
     }
   )
   return [...columns, ...rankProblemColumns(kind, problems)]

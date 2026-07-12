@@ -31,8 +31,8 @@ export function LanguagesTab({
         pagination={false}
         dataSource={data ?? []}
         columns={[
-          { title: text.admin.name, dataIndex: 'name' },
-          { title: text.admin.source, dataIndex: 'source' },
+          { title: text.admin.name, dataIndex: 'name', width: 220, ellipsis: { showTitle: false }, render: (name: string) => <Typography.Text ellipsis={{ tooltip: name }}>{name}</Typography.Text> },
+          { title: text.admin.source, dataIndex: 'source', width: 160, ellipsis: { showTitle: false }, render: (source: string) => <Typography.Text ellipsis={{ tooltip: source }}>{source}</Typography.Text> },
           {
             title: text.admin.image,
             dataIndex: 'image',

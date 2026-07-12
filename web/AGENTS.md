@@ -11,8 +11,9 @@
 - Prefer antd native components and documented props over custom CSS.
 - Check `https://ant.design/llms.txt` or the component Markdown docs when using unfamiliar antd APIs.
 - Do not use deprecated antd props.
-- Do not specify component `size` by default. In dense nested admin surfaces such as a modal containing cards/tables/tool buttons, use `small` consistently inside that surface.
+- Do not specify component `size` by default. Regular page Card headers use default-size controls; `size="small"` Cards, including dense Cards inside modals, use `small` controls consistently.
 - Keep `.appLayout` at `100vw` with horizontal overflow clipped on the document; this intentionally prevents the centered page from changing width when the vertical scrollbar appears.
+- Keep modal geometry stable with `scrollbar-gutter: stable both-edges` on its scroll container; do not replace it with JavaScript width measurement.
 - Use Tag for row state when table row styling would require custom CSS.
 - Free-form tags from problem/discussion/user data must render through the shared entity tag component so long tags get antd ellipsis and tooltip behavior consistently.
 - Problem references in tables, lists, timelines, and cards should use the shared problem link component; set a max width at the call site only when the surrounding layout needs a fixed budget.
@@ -27,6 +28,7 @@
 - Home page order: notice, heatmap, latest problems/assignments/contests.
 - The notice is edited inline on the home page, not in admin settings.
 - Management actions should live near the business object: problems on problem pages, assignments on assignment pages, contests on contest pages, discussions on discussion pages.
+- Assignment and contest detail Card headers keep long titles on one ellipsized line; schedule information comes before a grouped set of action buttons in `extra`.
 - Problem references should display as clickable `P{id} {title}` under a column named “题目”.
 - User references are clickable usernames; only the rank page shows avatars in the user column.
 - Markdown uploads must use server-returned relative URLs. Rendering may rewrite relative asset URLs to API URLs.

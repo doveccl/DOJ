@@ -18,6 +18,11 @@ body {
   overflow-x: clip;
 }
 
+/* Keep centered dialogs fixed when their own vertical scrollbar appears. */
+.ant-modal-wrap {
+  scrollbar-gutter: stable both-edges;
+}
+
 :root[data-theme='dark'] {
   --page-bg: var(--ant-color-bg-layout, #000);
   --header-bg: var(--ant-color-bg-container, #141414);

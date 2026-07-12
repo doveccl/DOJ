@@ -15,7 +15,7 @@ export function ProblemLink({ id, title, search = '', strong, maxWidth }: { id: 
 
 export function UserLink({ name, strong }: { name: string; strong?: boolean }) {
   return (
-    <Typography.Text strong={strong} className="nowrap">
+    <Typography.Text strong={strong} ellipsis={{ tooltip: name }} style={{ maxWidth: '100%' }}>
       <Link to={`/users/${name}`}>{name}</Link>
     </Typography.Text>
   )

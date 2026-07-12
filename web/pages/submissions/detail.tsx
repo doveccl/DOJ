@@ -107,7 +107,7 @@ export function SubmissionDetailPage() {
                   <MetaInline label={text.submissions.memory}>{memoryText(submission.memoryKb)}</MetaInline>
                   {session.admin ? (
                     <Popconfirm title={text.submissions.confirmRejudge} okText={text.submissions.rejudge} cancelText={text.common.cancel} onConfirm={() => rejudge.mutate()}>
-                      <Button size="small" icon={<ReloadOutlined />} loading={rejudge.isPending}>{text.submissions.rejudge}</Button>
+                      <Button icon={<ReloadOutlined />} loading={rejudge.isPending}>{text.submissions.rejudge}</Button>
                     </Popconfirm>
                   ) : null}
                 </Space>
@@ -155,7 +155,7 @@ export function SubmissionDetailPage() {
         title={text.submissions.source}
         extra={
           <Space size={8}>
-            {code.trim() ? <Button size="small" icon={<CopyOutlined />} onClick={() => void copySource()}>{text.submissions.copy}</Button> : null}
+            {code.trim() ? <Button icon={<CopyOutlined />} onClick={() => void copySource()}>{text.submissions.copy}</Button> : null}
             {canUpdatePublic ? <>
               <Typography.Text type="secondary">{text.problem.publicSource}</Typography.Text>
               <Switch
@@ -239,8 +239,8 @@ function clampPercent(done: number, total: number) {
 function Meta({ label, children }: { label: string; children: ReactNode }) {
   return (
     <Flex justify="space-between" gap={12}>
-      <Typography.Text type="secondary">{label}</Typography.Text>
-      <span>{children}</span>
+      <Typography.Text type="secondary" className="nowrap">{label}</Typography.Text>
+      <span style={{ minWidth: 0, textAlign: 'right', overflowWrap: 'anywhere' }}>{children}</span>
     </Flex>
   )
 }

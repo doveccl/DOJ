@@ -1,5 +1,5 @@
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
-import { Button, Popconfirm, Space, Statistic, Table, Tag, Tooltip } from 'antd'
+import { Button, Popconfirm, Space, Statistic, Table, Tag, Tooltip, Typography } from 'antd'
 
 import type { AdminJudgers } from '../../../client'
 import type { Lang } from '../../../locale'
@@ -40,7 +40,7 @@ export function JudgersTab({
         pagination={false}
         dataSource={data?.judgers ?? []}
         columns={[
-          { title: text.admin.name, dataIndex: 'name' },
+          { title: text.admin.name, dataIndex: 'name', width: 280, ellipsis: { showTitle: false }, render: (name: string) => <Typography.Text ellipsis={{ tooltip: name }}>{name}</Typography.Text> },
           { title: text.admin.status, dataIndex: 'online', render: (online: boolean) => (online ? <Tag color="success">{text.admin.online}</Tag> : <Tag>{text.admin.offline}</Tag>) },
           { title: text.admin.uptime, dataIndex: 'uptimeSeconds', render: (value: number, row) => (row.online ? formatDuration(value, lang) : '-') },
           {

@@ -251,11 +251,13 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: Lan
     {
       title: text.submissions.user,
       dataIndex: 'user',
+      width: 180,
       render: (user: string) => <UserLink name={user} />
     },
     {
       title: text.submissions.status,
       dataIndex: 'status',
+      width: 150,
       render: (status: string) => <SubmissionStatus status={status} />
     },
     {

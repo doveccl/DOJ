@@ -59,16 +59,15 @@ export function HomePage() {
           session.admin ? (
             noticeEditing ? (
               <Space size={8}>
-                <Button size="small" onClick={() => setNoticeEditing(false)}>
+                <Button onClick={() => setNoticeEditing(false)}>
                   {text.common.cancel}
                 </Button>
-                <Button size="small" type="primary" loading={notice.isPending} onClick={() => noticeForm.submit()}>
+                <Button type="primary" loading={notice.isPending} onClick={() => noticeForm.submit()}>
                   {text.common.save}
                 </Button>
               </Space>
             ) : (
               <Button
-                size="small"
                 icon={<EditOutlined />}
                 onClick={() => {
                   noticeForm.setFieldsValue({ content: home.notice })

@@ -95,29 +95,27 @@ export function AssignmentDetailPage() {
     value: item.id,
     label: problemLabel(item.id, item.title)
   }))
-  function openEdit() {
-    setEditOpen(true)
-  }
-
   return (
     <Flex vertical gap={16}>
       <DescriptionCard
         id={`assignment-${assignment.id}-description`}
         value={query.data.description}
         header={
-          <Flex align="center" gap={10}>
-            <Typography.Title level={3} style={{ margin: 0 }}>
+          <Flex align="center" gap={10} style={{ minWidth: 0 }}>
+            <Typography.Title level={3} ellipsis={{ tooltip: assignment.title }} style={{ margin: 0, minWidth: 0 }}>
               {assignment.title}
             </Typography.Title>
           </Flex>
         }
         extra={
-          <Space size={12} wrap>
-            <Button icon={<UnorderedListOutlined />} href={`/submissions?assignment=${assignment.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`}>
-              {recordsUser ? text.submissions.myRecords : text.submissions.allRecords}
-            </Button>
+          <Space size={16} wrap>
             <DeadlineTimer kind="assignment" status={assignment.status} target={assignment.endAt} onFinish={() => void query.refetch()} />
-            {session.admin ? <Button icon={<EditOutlined />} onClick={openEdit}>{text.common.edit}</Button> : null}
+            <Space size={8} wrap>
+              <Button icon={<UnorderedListOutlined />} href={`/submissions?assignment=${assignment.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`}>
+                {recordsUser ? text.submissions.myRecords : text.submissions.allRecords}
+              </Button>
+              {session.admin ? <Button icon={<EditOutlined />} onClick={() => setEditOpen(true)}>{text.common.edit}</Button> : null}
+            </Space>
           </Space>
         }
       />
@@ -232,15 +230,20 @@ function progressColumns(text: ReturnType<typeof useLocale>['text'], problems: P
   return [
     {
       title: text.rank.user,
+      width: 220,
       render: (_, row) => <UserLink name={row.user} strong />
     },
     {
       title: text.rank.ac,
-      dataIndex: 'ac'
+      dataIndex: 'ac',
+      width: 80,
+      align: 'center'
     },
     {
       title: text.rank.submit,
-      dataIndex: 'submit'
+      dataIndex: 'submit',
+      width: 80,
+      align: 'center'
     },
     ...problems.map((problem) => ({
       key: `problem-${problem.id}`,

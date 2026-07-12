@@ -102,7 +102,7 @@ export function ProblemsPage() {
     },
     onError: showError
   })
-  const stateByProblem = mapByProblem(state.data ?? [])
+  const stateByProblem = new Map((state.data ?? []).map((item) => [item.problemId, item]))
   const stateLoading = ids.length > 0 && state.isLoading
   const columns = problemColumns(text, stateByProblem, {
     remove: (id) => remove.mutate(id),
@@ -311,10 +311,6 @@ function ProblemRecordTag({ status }: { status?: string }) {
     return <Tag color="warning">{text.problem.tried}</Tag>
   }
   return null
-}
-
-function mapByProblem<T extends { problemId: number }>(items: T[]) {
-  return new Map(items.map((item) => [item.problemId, item]))
 }
 
 function replaceProblemInCaches(client: ReturnType<typeof useQueryClient>, item: ProblemListItem) {

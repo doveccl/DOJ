@@ -40,7 +40,9 @@ function rankColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Ran
   return [
     {
       title: text.rank.rank,
-      dataIndex: 'rank'
+      dataIndex: 'rank',
+      width: 72,
+      align: 'center'
     },
     {
       title: text.rank.user,
@@ -68,11 +70,15 @@ function rankColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Ran
     },
     {
       title: text.rank.ac,
-      dataIndex: 'ac'
+      dataIndex: 'ac',
+      width: 88,
+      align: 'center'
     },
     {
       title: text.rank.submit,
-      dataIndex: 'submit'
+      dataIndex: 'submit',
+      width: 88,
+      align: 'center'
     }
   ]
 }

@@ -211,15 +211,15 @@ export function ProblemManageActions({
 }) {
   const { text } = useLocale()
   return (
-    <Space size={6} wrap>
-      <Button size="small" icon={<FolderOpenOutlined />} onClick={onOpenAssets}>
+    <Space size={8} wrap>
+      <Button icon={<FolderOpenOutlined />} onClick={onOpenAssets}>
         {text.problem.assetManage}
       </Button>
-      <Button size="small" icon={<DownloadOutlined />} onClick={() => downloadURL(problemAssetsDownloadURL(id), `${problemCode(id)}.zip`)}>
+      <Button icon={<DownloadOutlined />} onClick={() => downloadURL(problemAssetsDownloadURL(id), `${problemCode(id)}.zip`)}>
         {text.problem.downloadAssets}
       </Button>
       <Popconfirm title={text.problem.confirmRejudgeAll} okText={text.problem.rejudgeAll} cancelText={text.common.cancel} onConfirm={onRejudge}>
-        <Button size="small" icon={<ReloadOutlined />} loading={rejudgeLoading}>
+        <Button icon={<ReloadOutlined />} loading={rejudgeLoading}>
           {text.problem.rejudgeAll}
         </Button>
       </Popconfirm>
