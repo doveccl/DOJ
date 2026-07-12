@@ -13,6 +13,7 @@ import (
 )
 
 func TestServeRunnerUserProgramDoesNotInheritInternalFDs(t *testing.T) {
+	skipShortRunnerIntegration(t)
 	runner := buildRunner(t)
 	work := t.TempDir()
 	socket := filepath.Join(os.TempDir(), fmt.Sprintf("doj-fd-%d.sock", time.Now().UnixNano()))

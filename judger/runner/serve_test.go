@@ -13,6 +13,7 @@ import (
 )
 
 func TestServeRunnerCompileAndRunCase(t *testing.T) {
+	skipShortRunnerIntegration(t)
 	runner := buildRunner(t)
 	work := t.TempDir()
 	socket := filepath.Join(os.TempDir(), fmt.Sprintf("doj-%d.sock", time.Now().UnixNano()))
@@ -135,6 +136,7 @@ func TestServeRunnerCompileAndRunCase(t *testing.T) {
 }
 
 func TestServeRunnerRunCaseTimesOutWithoutRelease(t *testing.T) {
+	skipShortRunnerIntegration(t)
 	runner := buildRunner(t)
 	work := t.TempDir()
 	socket := filepath.Join(os.TempDir(), fmt.Sprintf("doj-timeout-%d.sock", time.Now().UnixNano()))
@@ -216,6 +218,13 @@ func waitSocket(t *testing.T, socket string) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("socket %s was not created", socket)
+}
+
+func skipShortRunnerIntegration(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("runner service integration test")
+	}
 }
 
 func TestRunnerRejectsCommandsBeforeHello(t *testing.T) {

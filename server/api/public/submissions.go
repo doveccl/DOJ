@@ -12,6 +12,7 @@ import (
 	"github.com/doveccl/doj/models"
 	"github.com/doveccl/doj/server/events"
 	"github.com/doveccl/doj/server/judge"
+	"github.com/doveccl/doj/server/storage"
 	"github.com/doveccl/doj/server/validate"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -157,6 +158,9 @@ func (api *API) submit(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusNotFound, "problem not found")
 		}
 	}
+	if err := api.validateProblemReadyForSubmit(c.Request().Context(), problem); err != nil {
+		return err
+	}
 	row := models.Submission{
 		UserID:       user.ID,
 		ProblemID:    req.ProblemID,
@@ -185,6 +189,33 @@ func (api *API) submit(c echo.Context) error {
 	}
 	events.SubmissionChanged()
 	return c.JSON(http.StatusCreated, contract.CreatedID{ID: row.ID})
+}
+
+func (api *API) validateProblemReadyForSubmit(ctx context.Context, problem models.Problem) error {
+	store, err := storage.NewFromEnv()
+	if err != nil {
+		return err
+	}
+	assets, err := api.problemAssetsCached(ctx, problem.ID, store)
+	if err != nil {
+		return err
+	}
+	if assets.Cases == 0 {
+		return echo.NewHTTPError(http.StatusConflict, "problem has no test data")
+	}
+	if problem.Mode == "custom" && !hasCustomJudgeDockerfile(assets.Judge) {
+		return echo.NewHTTPError(http.StatusConflict, "custom judge requires Dockerfile")
+	}
+	return nil
+}
+
+func hasCustomJudgeDockerfile(files []contract.AssetFile) bool {
+	for _, file := range files {
+		if file.Name == "Dockerfile" {
+			return true
+		}
+	}
+	return false
 }
 
 func (api *API) submitContext(userID uint, problemID uint, assignmentID *uint, contestID *uint, now time.Time) (*uint, *uint, error) {

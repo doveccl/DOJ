@@ -246,6 +246,8 @@ func TestAssignmentProgressPrivacy(t *testing.T) {
 
 func TestEndedAssignmentKeepsMemberReviewAndPracticeAccess(t *testing.T) {
 	db := testWebDB(t)
+	root := t.TempDir()
+	t.Setenv("STORAGE", root)
 	member := models.User{Name: "member", Mail: "member@example.com", Auth: "hash"}
 	outsider := models.User{Name: "outsider", Mail: "outsider@example.com", Auth: "hash"}
 	for _, user := range []*models.User{&member, &outsider} {
@@ -258,6 +260,7 @@ func TestEndedAssignmentKeepsMemberReviewAndPracticeAccess(t *testing.T) {
 	if err := db.Create(&problem).Error; err != nil {
 		t.Fatal(err)
 	}
+	writeReadyProblemFiles(t, root, problem.ID, problem.Title)
 	if err := db.Create(&assignment).Error; err != nil {
 		t.Fatal(err)
 	}

@@ -232,6 +232,8 @@ func TestDatabaseContestRankUsesContextSubmissions(t *testing.T) {
 
 func TestContestProblemVisibilityIsDerivedFromContestTime(t *testing.T) {
 	db := testWebDB(t)
+	root := t.TempDir()
+	t.Setenv("STORAGE", root)
 	allowGuest(t, db)
 	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
 	student := models.User{Name: "student", Mail: "student@example.com", Auth: "hash"}
@@ -245,6 +247,7 @@ func TestContestProblemVisibilityIsDerivedFromContestTime(t *testing.T) {
 	if err := db.Create(&problem).Error; err != nil {
 		t.Fatalf("create problem: %v", err)
 	}
+	writeReadyProblemFiles(t, root, problem.ID, problem.Title)
 	now := time.Now()
 	contest := models.Contest{Title: "Future", Kind: "OI", StartAt: now.Add(time.Hour), EndAt: now.Add(2 * time.Hour)}
 	if err := db.Create(&contest).Error; err != nil {

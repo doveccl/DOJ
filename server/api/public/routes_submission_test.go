@@ -17,6 +17,8 @@ import (
 
 func TestSubmitCapsOutstandingPerUser(t *testing.T) {
 	db := testWebDB(t)
+	root := t.TempDir()
+	t.Setenv("STORAGE", root)
 	user := models.User{Name: "alice", Mail: "alice@example.com", Auth: "hash"}
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatal(err)
@@ -25,6 +27,7 @@ func TestSubmitCapsOutstandingPerUser(t *testing.T) {
 	if err := db.Create(&problem).Error; err != nil {
 		t.Fatal(err)
 	}
+	writeReadyProblemFiles(t, root, problem.ID, problem.Title)
 	for index := 0; index < limits.MaxOutstandingSubmissions; index++ {
 		if err := db.Create(&models.Submission{UserID: user.ID, ProblemID: problem.ID, Language: "cpp", Code: "code", Status: "queued"}).Error; err != nil {
 			t.Fatal(err)
@@ -36,6 +39,62 @@ func TestSubmitCapsOutstandingPerUser(t *testing.T) {
 	res := requestJSONWithCookies(e, http.MethodPost, "/api/submissions", databaseSession(t, db, user.ID), body)
 	if res.Code != http.StatusTooManyRequests {
 		t.Fatalf("outstanding submission cap got %d body=%s", res.Code, res.Body.String())
+	}
+}
+
+func TestSubmitRejectsProblemWithoutCases(t *testing.T) {
+	db := testWebDB(t)
+	t.Setenv("STORAGE", t.TempDir())
+	user := models.User{Name: "alice", Mail: "alice@example.com", Auth: "hash"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatal(err)
+	}
+	problem := models.Problem{ID: 1000, Title: "No Data", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatal(err)
+	}
+	e := echo.New()
+	Register(e, db)
+	body := `{"problemId":1000,"language":"cpp","code":"int main(){}","public":false}`
+	res := requestJSONWithCookies(e, http.MethodPost, "/api/submissions", databaseSession(t, db, user.ID), body)
+	if res.Code != http.StatusConflict || !strings.Contains(res.Body.String(), "problem has no test data") {
+		t.Fatalf("empty data submission got %d body=%s", res.Code, res.Body.String())
+	}
+	var submissions int64
+	if err := db.Model(&models.Submission{}).Count(&submissions).Error; err != nil {
+		t.Fatal(err)
+	}
+	if submissions != 0 {
+		t.Fatalf("invalid problem should not create submission rows, got %d", submissions)
+	}
+}
+
+func TestSubmitRejectsCustomProblemWithoutDockerfile(t *testing.T) {
+	db := testWebDB(t)
+	root := t.TempDir()
+	t.Setenv("STORAGE", root)
+	user := models.User{Name: "alice", Mail: "alice@example.com", Auth: "hash"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatal(err)
+	}
+	problem := models.Problem{ID: 1000, Title: "Custom No Dockerfile", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "custom", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&problem).Error; err != nil {
+		t.Fatal(err)
+	}
+	writeReadyProblemFiles(t, root, problem.ID, problem.Title)
+	e := echo.New()
+	Register(e, db)
+	body := `{"problemId":1000,"language":"cpp","code":"int main(){}","public":false}`
+	res := requestJSONWithCookies(e, http.MethodPost, "/api/submissions", databaseSession(t, db, user.ID), body)
+	if res.Code != http.StatusConflict || !strings.Contains(res.Body.String(), "custom judge requires Dockerfile") {
+		t.Fatalf("custom submission without Dockerfile got %d body=%s", res.Code, res.Body.String())
+	}
+	var submissions int64
+	if err := db.Model(&models.Submission{}).Count(&submissions).Error; err != nil {
+		t.Fatal(err)
+	}
+	if submissions != 0 {
+		t.Fatalf("invalid custom judge should not create submission rows, got %d", submissions)
 	}
 }
 

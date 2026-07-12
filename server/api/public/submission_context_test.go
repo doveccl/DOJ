@@ -15,6 +15,8 @@ import (
 
 func TestDatabaseSubmitStoresAndValidatesContext(t *testing.T) {
 	db := testWebDB(t)
+	root := t.TempDir()
+	t.Setenv("STORAGE", root)
 	student := models.User{Name: "student", Mail: "student@example.com", Auth: "hash"}
 	if err := db.Create(&student).Error; err != nil {
 		t.Fatalf("create student: %v", err)
@@ -25,6 +27,7 @@ func TestDatabaseSubmitStoresAndValidatesContext(t *testing.T) {
 		if err := db.Create(problem).Error; err != nil {
 			t.Fatalf("create problem %s: %v", problem.Title, err)
 		}
+		writeReadyProblemFiles(t, root, problem.ID, problem.Title)
 	}
 	assignment := models.Assignment{Title: "HW", EndAt: time.Now().Add(time.Hour)}
 	if err := db.Create(&assignment).Error; err != nil {
