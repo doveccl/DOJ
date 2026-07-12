@@ -1,7 +1,6 @@
 package public
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -152,8 +151,8 @@ func problemView(row models.Problem) contract.Problem {
 	}
 }
 
-func (api *API) problemViewWithStatement(ctx context.Context, row models.Problem) (contract.Problem, error) {
+func problemViewWithStatement(row models.Problem) contract.Problem {
 	item := problemView(row)
 	item.Statement = problemStatement(row)
-	return item, nil
+	return item
 }

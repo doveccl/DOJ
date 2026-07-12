@@ -24,31 +24,6 @@ type Site struct {
 	DefaultSubmissionPublic bool   `json:"defaultSubmissionPublic"`
 }
 
-type ProblemListItem struct {
-	ID       uint     `json:"id"`
-	Sort     string   `json:"sort,omitempty" maxLength:"16"`
-	Title    string   `json:"title" maxLength:"256"`
-	Tags     []string `json:"tags"`
-	Visible  bool     `json:"visible"`
-	Mode     string   `json:"mode" maxLength:"16"`
-	TimeMS   int      `json:"timeMs"`
-	MemoryMB int      `json:"memoryMb"`
-}
-
-type Problem struct {
-	ID        uint     `json:"id"`
-	Sort      string   `json:"sort,omitempty" maxLength:"16"`
-	Title     string   `json:"title" maxLength:"256"`
-	Statement string   `json:"statement,omitempty"`
-	Tags      []string `json:"tags"`
-	Visible   bool     `json:"visible"`
-	Mode      string   `json:"mode" maxLength:"16"`
-	TimeMS    int      `json:"timeMs"`
-	MemoryMB  int      `json:"memoryMb"`
-	Cases     int      `json:"cases"`
-	DataBytes int64    `json:"dataBytes"`
-}
-
 type ProblemState struct {
 	ProblemID   uint                    `json:"problemId"`
 	AC          int                     `json:"ac"`
@@ -100,15 +75,15 @@ type RankUser struct {
 type assignmentDetail struct {
 	Assignment  Assignment           `json:"assignment"`
 	Description string               `json:"description"`
-	Problems    []ProblemListItem    `json:"problems"`
+	Problems    []contract.Problem   `json:"problems"`
 	Progress    []AssignmentProgress `json:"progress"`
 }
 
 type contestDetail struct {
-	Contest     contract.Contest  `json:"contest"`
-	Description string            `json:"description"`
-	Problems    []ProblemListItem `json:"problems"`
-	Rank        []RankUser        `json:"rank"`
+	Contest     contract.Contest   `json:"contest"`
+	Description string             `json:"description"`
+	Problems    []contract.Problem `json:"problems"`
+	Rank        []RankUser         `json:"rank"`
 }
 
 type submissionDetail struct {
@@ -131,7 +106,7 @@ type discussionDetail struct {
 	Comments   CommentPage         `json:"comments"`
 }
 
-type ProblemListPage contract.Page[ProblemListItem]
+type ProblemListPage contract.Page[contract.Problem]
 type AssignmentListPage contract.Page[AssignmentListItem]
 type ContestListPage contract.Page[contract.Contest]
 type SubmissionListPage contract.Page[contract.SubmissionListItem]
@@ -392,10 +367,10 @@ func RegisterOpenAPI(api huma.API) {
 	postCreated[bodyInput[contract.ProblemCreate], contract.CreatedID](api, "/api/problems", "createProblem", "Problem created")
 	getWith[tagQuery, []string](api, "/api/tags", "listTags", "Tag suggestions")
 	getWith[problemStateQuery, []ProblemState](api, "/api/problem-state", "getProblemState", "Problem state for current user and page context")
-	getWith[idPath, Problem](api, "/api/problems/{id}", "getProblem", "Problem detail")
+	getWith[idPath, contract.Problem](api, "/api/problems/{id}", "getProblem", "Problem detail")
 	patch[idBody[contract.ProblemUpdate], contract.CreatedID](api, "/api/problems/{id}", "updateProblem", "Problem updated")
 	noContent[idPath](api, http.MethodDelete, "/api/problems/{id}", "deleteProblem", "Problem deleted")
-	patch[idBody[contract.ProblemVisibilityUpdate], ProblemListItem](api, "/api/problems/{id}/visibility", "updateProblemVisibility", "Problem visibility updated")
+	patch[idBody[contract.ProblemVisibilityUpdate], contract.Problem](api, "/api/problems/{id}/visibility", "updateProblemVisibility", "Problem visibility updated")
 	post[idPath, contract.CountResult](api, "/api/problems/{id}/rejudge", "rejudgeProblem", "Problem submissions requeued")
 	getWith[idPath, contract.ProblemAssets](api, "/api/problems/{id}/assets", "getProblemAssets", "Problem assets")
 	postCreated[uploadProblemAssetInput, contract.UploadResult](api, "/api/problems/{id}/assets/images", "uploadProblemImage", "Problem image uploaded")

@@ -68,6 +68,7 @@ export function progress(row: AssignmentProgressLike) {
 
 export function formatTime(value: string, lang: Lang) {
   return new Date(value).toLocaleString(localeCode(lang), {
+    year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',

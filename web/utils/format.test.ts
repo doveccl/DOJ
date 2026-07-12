@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatBytes, formatLimit, formatPass, problemCode } from './format'
+import { formatBytes, formatLimit, formatPass, formatTime, problemCode } from './format'
 
 describe('format helpers', () => {
   it('formats problem identity and limits', () => {
@@ -13,5 +13,9 @@ describe('format helpers', () => {
     expect(formatPass({ ac: 0, submit: 0 })).toBe('0/0 (0%)')
     expect(formatBytes(13)).toBe('13B')
     expect(formatBytes(4096)).toBe('4KB')
+  })
+
+  it('includes the year in timestamps', () => {
+    expect(formatTime('2020-01-02T03:04:00Z', 'en')).toContain('2020')
   })
 })

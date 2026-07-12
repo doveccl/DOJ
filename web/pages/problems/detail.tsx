@@ -364,11 +364,11 @@ export function ProblemDetailPage() {
                     </Flex>
                     <Flex align="center" justify="space-between" gap={12}>
                       <Typography.Text type="secondary">{text.problem.cases}</Typography.Text>
-                      <Typography.Text strong>{problem.cases}</Typography.Text>
+                      <Typography.Text strong>{problem.cases ?? 0}</Typography.Text>
                     </Flex>
                     <Flex align="center" justify="space-between" gap={12}>
                       <Typography.Text type="secondary">{text.problem.dataSize}</Typography.Text>
-                      <Typography.Text strong>{formatBytes(problem.dataBytes)}</Typography.Text>
+                      <Typography.Text strong>{formatBytes(problem.dataBytes ?? 0)}</Typography.Text>
                     </Flex>
                   </Flex>
                 </Card>

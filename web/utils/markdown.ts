@@ -62,7 +62,11 @@ export function configureMarkdownAssetRenderer(md: MarkdownItLike, editorID: str
     return imageRule ? imageRule(tokens, idx, options, env, self) : renderToken(tokens, idx, options, self)
   }
   const linkOpenRenderer: MarkdownRendererRule = (tokens, idx, options, env, self) => {
-    rewriteTokenURL(tokens[idx], 'href', editorID)
+    const href = rewriteTokenURL(tokens[idx], 'href', editorID)
+    if (href && isExternalURL(href)) {
+      setTokenAttr(tokens[idx], 'target', '_blank')
+      setTokenAttr(tokens[idx], 'rel', 'noopener noreferrer')
+    }
     return linkOpenRule ? linkOpenRule(tokens, idx, options, env, self) : renderToken(tokens, idx, options, self)
   }
   md.renderer.rules.image = imageRenderer
@@ -71,18 +75,26 @@ export function configureMarkdownAssetRenderer(md: MarkdownItLike, editorID: str
 
 function rewriteTokenURL(token: MarkdownToken | undefined, attr: string, editorID: string) {
   if (!token) {
-    return
+    return ''
   }
   const value = token.attrGet?.(attr) ?? token.attrs?.find(([name]) => name === attr)?.[1]
   if (!value) {
-    return
+    return ''
   }
   const next = rewriteAssetURL(value, editorID)
   if (next === value) {
+    return value
+  }
+  setTokenAttr(token, attr, next)
+  return next
+}
+
+function setTokenAttr(token: MarkdownToken | undefined, attr: string, value: string) {
+  if (!token) {
     return
   }
   if (token.attrSet) {
-    token.attrSet(attr, next)
+    token.attrSet(attr, value)
     return
   }
   if (!token.attrs) {
@@ -90,8 +102,12 @@ function rewriteTokenURL(token: MarkdownToken | undefined, attr: string, editorI
   }
   const existing = token.attrs.find((item) => item[0] === attr)
   if (existing) {
-    existing[1] = next
+    existing[1] = value
   } else {
-    token.attrs.push([attr, next])
+    token.attrs.push([attr, value])
   }
+}
+
+function isExternalURL(value: string) {
+  return /^https?:\/\//i.test(value) || value.startsWith('//')
 }

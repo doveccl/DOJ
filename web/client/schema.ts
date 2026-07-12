@@ -1212,7 +1212,7 @@ export interface components {
         AssignmentDetail: {
             assignment: components["schemas"]["Assignment"];
             description: string;
-            problems: components["schemas"]["ProblemListItem"][];
+            problems: components["schemas"]["Problem"][];
             progress: components["schemas"]["AssignmentProgress"][];
         };
         AssignmentListItem: {
@@ -1340,7 +1340,7 @@ export interface components {
         ContestDetail: {
             contest: components["schemas"]["Contest"];
             description: string;
-            problems: components["schemas"]["ProblemListItem"][];
+            problems: components["schemas"]["Problem"][];
             rank: components["schemas"]["RankUser"][];
         };
         ContestListPage: {
@@ -1521,9 +1521,9 @@ export interface components {
         };
         Problem: {
             /** Format: int64 */
-            cases: number;
+            cases?: number;
             /** Format: int64 */
-            dataBytes: number;
+            dataBytes?: number;
             /** Format: int64 */
             id: number;
             /** Format: int64 */
@@ -1555,21 +1555,8 @@ export interface components {
             timeMs: number;
             title: string;
         };
-        ProblemListItem: {
-            /** Format: int64 */
-            id: number;
-            /** Format: int64 */
-            memoryMb: number;
-            mode: string;
-            sort?: string;
-            tags: string[];
-            /** Format: int64 */
-            timeMs: number;
-            title: string;
-            visible: boolean;
-        };
         ProblemListPage: {
-            items: components["schemas"]["ProblemListItem"][];
+            items: components["schemas"]["Problem"][];
             /** Format: int64 */
             page: number;
             /** Format: int64 */
@@ -4180,7 +4167,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProblemListItem"];
+                    "application/json": components["schemas"]["Problem"];
                 };
             };
             /** @description Error */

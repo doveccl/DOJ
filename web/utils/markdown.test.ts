@@ -48,6 +48,29 @@ describe('markdown assets', () => {
     expect(image.attrGet('src')).toBe('/api/problems/1000/assets/a.png')
     expect(link.attrGet('href')).toBe('/api/problems/1000/assets/b.png')
   })
+
+  it('opens external markdown links in a new tab', () => {
+    const md: { renderer: { rules: Record<string, unknown> } } = {
+      renderer: {
+        rules: {}
+      }
+    }
+    configureMarkdownAssetRenderer(md, 'P1000')
+    const self = {
+      renderToken: () => ''
+    }
+    const external = token('href', 'https://example.com')
+    const asset = token('href', './assets/a.pdf')
+
+    const linkRule = md.renderer.rules.link_open as TestRule
+    linkRule([external], 0, {}, {}, self)
+    linkRule([asset], 0, {}, {}, self)
+
+    expect(external.attrGet('target')).toBe('_blank')
+    expect(external.attrGet('rel')).toBe('noopener noreferrer')
+    expect(asset.attrGet('href')).toBe('/api/problems/1000/assets/a.pdf')
+    expect(asset.attrGet('target')).toBeNull()
+  })
 })
 
 function token(name: string, value: string) {
