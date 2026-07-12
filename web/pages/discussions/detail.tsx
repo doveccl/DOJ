@@ -1,5 +1,5 @@
 import { DeleteOutlined, EditOutlined, LockOutlined, PushpinOutlined, UnlockOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, Divider, Flex, Form, Input, Modal, Pagination, Popconfirm, Space, Tag, Tooltip, Typography } from 'antd'
+import { App as AntApp, Button, Card, Divider, Flex, Form, Input, Pagination, Popconfirm, Space, Tag, Tooltip, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -114,62 +114,87 @@ export function DiscussionDetailPage() {
 
   return (
     <Flex vertical gap={16}>
-      <Card>
-        <Flex vertical gap={12}>
-          <Flex align="flex-start" justify="space-between" gap={16} wrap>
-            <Flex align="center" gap={8} wrap>
-              {discussion.pinned ? <Tag color="green">{text.discussion.pinned}</Tag> : null}
-              {discussion.locked ? <Tag color="warning">{text.discussion.locked}</Tag> : null}
-              <Typography.Title level={3} style={{ margin: 0 }}>
-                {discussion.title}
-              </Typography.Title>
-            </Flex>
-            {canDelete ? (
-              <Space size={4}>
-                {session.admin ? (
-                  <>
-                    <Tooltip title={discussion.pinned ? text.discussion.unpin : text.discussion.pinned}>
-                      <Button
-                        aria-label={`${discussion.pinned ? text.discussion.unpin : text.discussion.pinned} #${discussion.id}`}
-                        type="text"
-                        size="small"
-                        icon={<PushpinOutlined />}
-                        style={{ color: discussion.pinned ? 'var(--ant-color-primary)' : undefined }}
-                        loading={toggleState.isPending && toggleState.variables?.pinned !== undefined}
-                        onClick={() => toggleState.mutate({ pinned: !discussion.pinned })}
-                      />
-                    </Tooltip>
-                    <Tooltip title={discussion.locked ? text.discussion.unlock : text.discussion.locked}>
-                      <Button
-                        aria-label={`${discussion.locked ? text.discussion.unlock : text.discussion.locked} #${discussion.id}`}
-                        type="text"
-                        size="small"
-                        icon={discussion.locked ? <LockOutlined /> : <UnlockOutlined />}
-                        style={{ color: discussion.locked ? 'var(--ant-color-warning)' : undefined }}
-                        loading={toggleState.isPending && toggleState.variables?.locked !== undefined}
-                        onClick={() => toggleState.mutate({ locked: !discussion.locked })}
-                      />
-                    </Tooltip>
-                    <Tooltip title={text.common.edit}>
-                      <Button aria-label={`${text.common.edit} #${discussion.id}`} type="text" size="small" icon={<EditOutlined />} onClick={() => setEditOpen(true)} />
-                    </Tooltip>
-                  </>
-                ) : null}
-                {canDelete ? (
-                  <Popconfirm title={text.common.confirmDelete} okText={text.common.delete} cancelText={text.common.cancel} onConfirm={() => remove.mutate()}>
-                    <Button aria-label={`${text.common.delete} #${discussion.id}`} type="text" size="small" danger icon={<DeleteOutlined />} loading={remove.isPending} />
-                  </Popconfirm>
-                ) : null}
-              </Space>
-            ) : null}
+      <Card
+        title={
+          <Flex align="center" gap={8} wrap={false} style={{ minWidth: 0 }}>
+            {discussion.pinned ? <Tag color="green">{text.discussion.pinned}</Tag> : null}
+            {discussion.locked ? <Tag color="warning">{text.discussion.locked}</Tag> : null}
+            <Typography.Text ellipsis={{ tooltip: discussion.title }} style={{ minWidth: 0 }}>
+              {discussion.title}
+            </Typography.Text>
           </Flex>
-          <Space size={8} wrap>
-            <UserLink name={discussion.author} />
-            <Typography.Text type="secondary">{formatTime(discussion.createdAt, lang)}</Typography.Text>
-            <TagList tags={discussion.tags} linkTo={(tag) => `/discussion?tags=${encodeURIComponent(tag)}`} />
-          </Space>
-          <MarkdownPreview value={content} />
-        </Flex>
+        }
+        extra={
+          editOpen ? (
+            <Space size={8}>
+              <Button onClick={() => setEditOpen(false)}>{text.common.cancel}</Button>
+              <Button type="primary" htmlType="submit" form="discussion-edit-form" loading={edit.isPending}>{text.common.save}</Button>
+            </Space>
+          ) : canDelete ? (
+            <Space size={4}>
+              {session.admin ? (
+                <>
+                  <Tooltip title={discussion.pinned ? text.discussion.unpin : text.discussion.pinned}>
+                    <Button
+                      aria-label={`${discussion.pinned ? text.discussion.unpin : text.discussion.pinned} #${discussion.id}`}
+                      type="text"
+                      icon={<PushpinOutlined />}
+                      style={{ color: discussion.pinned ? 'var(--ant-color-primary)' : undefined }}
+                      loading={toggleState.isPending && toggleState.variables?.pinned !== undefined}
+                      onClick={() => toggleState.mutate({ pinned: !discussion.pinned })}
+                    />
+                  </Tooltip>
+                  <Tooltip title={discussion.locked ? text.discussion.unlock : text.discussion.locked}>
+                    <Button
+                      aria-label={`${discussion.locked ? text.discussion.unlock : text.discussion.locked} #${discussion.id}`}
+                      type="text"
+                      icon={discussion.locked ? <LockOutlined /> : <UnlockOutlined />}
+                      style={{ color: discussion.locked ? 'var(--ant-color-warning)' : undefined }}
+                      loading={toggleState.isPending && toggleState.variables?.locked !== undefined}
+                      onClick={() => toggleState.mutate({ locked: !discussion.locked })}
+                    />
+                  </Tooltip>
+                  <Tooltip title={text.common.edit}>
+                    <Button aria-label={`${text.common.edit} #${discussion.id}`} type="text" icon={<EditOutlined />} onClick={() => setEditOpen(true)} />
+                  </Tooltip>
+                </>
+              ) : null}
+              <Popconfirm title={text.common.confirmDelete} okText={text.common.delete} cancelText={text.common.cancel} onConfirm={() => remove.mutate()}>
+                <Button aria-label={`${text.common.delete} #${discussion.id}`} type="text" danger icon={<DeleteOutlined />} loading={remove.isPending} />
+              </Popconfirm>
+            </Space>
+          ) : null
+        }
+      >
+        {editOpen ? (
+          <Form<DiscussionForm>
+            id="discussion-edit-form"
+            key={discussion.id}
+            preserve={false}
+            layout="vertical"
+            initialValues={{ title: discussion.title, content, tags: discussion.tags }}
+            onFinish={(values) => edit.mutate(values)}
+          >
+            <Form.Item name="title" label={text.discussion.title} rules={[{ required: true, whitespace: true }]}>
+              <Input maxLength={limits.title} showCount />
+            </Form.Item>
+            <Form.Item name="tags" label={text.discussion.tags}>
+              <TagSelect kind="discussion" mode="tags" />
+            </Form.Item>
+            <Form.Item name="content" label={text.discussion.content} rules={[{ required: true, whitespace: true }]}>
+              <MarkdownEditor />
+            </Form.Item>
+          </Form>
+        ) : (
+          <Flex vertical gap={12}>
+            <Space size={8} wrap>
+              <UserLink name={discussion.author} />
+              <Typography.Text type="secondary">{formatTime(discussion.createdAt, lang)}</Typography.Text>
+              <TagList tags={discussion.tags} linkTo={(tag) => `/discussion?tags=${encodeURIComponent(tag)}`} />
+            </Space>
+            <MarkdownPreview value={content} />
+          </Flex>
+        )}
       </Card>
       <Card title={text.discussion.replies}>
         <Flex vertical gap={16}>
@@ -212,61 +237,6 @@ export function DiscussionDetailPage() {
           ) : null}
         </Flex>
       </Card>
-      {editOpen ? (
-        <DiscussionEditModal
-          initial={{ title: discussion.title, content, tags: discussion.tags }}
-          loading={edit.isPending}
-          onCancel={() => setEditOpen(false)}
-          onSave={(values) => edit.mutate(values)}
-        />
-      ) : null}
     </Flex>
-  )
-}
-
-function DiscussionEditModal({
-  initial,
-  loading,
-  onCancel,
-  onSave
-}: {
-  initial: DiscussionForm
-  loading: boolean
-  onCancel: () => void
-  onSave: (values: DiscussionForm) => void
-}) {
-  const { text } = useLocale()
-  const [form] = Form.useForm<DiscussionForm>()
-  const [editorKey, setEditorKey] = useState(0)
-
-  return (
-    <Modal
-      open
-      destroyOnHidden
-      title={text.common.edit}
-      okText={text.common.save}
-      cancelText={text.common.cancel}
-      confirmLoading={loading}
-      width={{ xs: 'calc(100vw - 32px)', sm: 960 }}
-      afterOpenChange={(open) => {
-        if (open) {
-          setEditorKey((key) => key + 1)
-        }
-      }}
-      onCancel={onCancel}
-      onOk={() => form.submit()}
-    >
-      <Form<DiscussionForm> form={form} layout="vertical" initialValues={initial} onFinish={onSave}>
-        <Form.Item name="title" label={text.discussion.title} rules={[{ required: true, whitespace: true }]}>
-          <Input maxLength={limits.title} showCount />
-        </Form.Item>
-        <Form.Item name="tags" label={text.discussion.tags}>
-          <TagSelect kind="discussion" mode="tags" />
-        </Form.Item>
-        <Form.Item name="content" label={text.discussion.content} rules={[{ required: true, whitespace: true }]}>
-          <MarkdownEditor key={editorKey} />
-        </Form.Item>
-      </Form>
-    </Modal>
   )
 }

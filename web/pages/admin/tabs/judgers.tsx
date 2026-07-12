@@ -1,12 +1,13 @@
+import type { ReactNode } from 'react'
+
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
 import { Button, Popconfirm, Space, Statistic, Table, Tag, Tooltip, Typography } from 'antd'
 
 import type { AdminJudgers } from '../../../client'
+import { useLocale } from '../../../locale'
 import type { Lang } from '../../../locale'
 import { formatDuration } from '../../../utils/format'
 import type { JudgerRow } from '../types'
-import type { Block } from './shared'
-import { useAdminText } from './shared'
 
 export function JudgersTab({
   block,
@@ -16,14 +17,14 @@ export function JudgersTab({
   onEdit,
   onDelete
 }: {
-  block: Block
+  block: ReactNode
   data?: AdminJudgers
   lang: Lang
   onAdd: () => void
   onEdit: (row: JudgerRow) => void
   onDelete: (id: number) => void
 }) {
-  const text = useAdminText()
+  const text = useLocale().text
   return block ?? (
     <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Space size={24} wrap>
@@ -44,6 +45,7 @@ export function JudgersTab({
           { title: text.admin.status, dataIndex: 'online', render: (online: boolean) => (online ? <Tag color="success">{text.admin.online}</Tag> : <Tag>{text.admin.offline}</Tag>) },
           { title: text.admin.uptime, dataIndex: 'uptimeSeconds', render: (value: number, row) => (row.online ? formatDuration(value, lang) : '-') },
           {
+            title: text.common.actions,
             align: 'right',
             render: (_, row) => (
               <Space size={4}>

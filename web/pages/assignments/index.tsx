@@ -3,10 +3,8 @@ import {
   App as AntApp,
   Button,
   Card,
-  DatePicker,
   Flex,
   Form,
-  Input,
   Modal,
   Popconfirm,
   Progress,
@@ -18,31 +16,20 @@ import {
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
-import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { api, apiData, apiEmpty } from '../../client'
-import type { AssignmentListItem, ProblemRef } from '../../client'
-import { IdSelect } from '../../components/id-select'
-import { MarkdownEditor } from '../../components/markdown'
-import { defaultProblemSort, ProblemRefInput } from '../../components/problem-ref'
+import type { AssignmentListItem } from '../../client'
+import { defaultProblemSort } from '../../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
 import { ScheduleTag } from '../../components/time'
 import { useLocale } from '../../locale'
 import { useSession } from '../../session'
 import { problemLabel, progress } from '../../utils/format'
-import { limits } from '../../utils/limits'
 import { pageFromParams, pageSizeFromParams, setPageParams } from '../../utils/pagination'
-
-type AssignmentForm = {
-  title: string
-  description: string
-  endAt: Dayjs
-  problems?: ProblemRef[]
-  users?: number[]
-  groups?: number[]
-}
+import { AssignmentFormFields } from './form'
+import type { AssignmentFormValues } from './form'
 
 export function AssignmentsPage() {
   const { text } = useLocale()
@@ -60,7 +47,7 @@ export function AssignmentsPage() {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
   const create = useMutation({
-    mutationFn: (values: AssignmentForm) =>
+    mutationFn: (values: AssignmentFormValues) =>
       apiData(api.POST('/api/assignments', { body: {
         title: values.title,
         description: values.description,
@@ -79,7 +66,7 @@ export function AssignmentsPage() {
     onError: showError
   })
   const update = useMutation({
-    mutationFn: (values: AssignmentForm) => {
+    mutationFn: (values: AssignmentFormValues) => {
       if (!editingId) {
         throw new Error(text.common.emptyResponse)
       }
@@ -125,7 +112,7 @@ export function AssignmentsPage() {
     setEditingId(null)
   }
 
-  function save(values: AssignmentForm) {
+  function save(values: AssignmentFormValues) {
     if (editingId) {
       update.mutate(values)
       return
@@ -187,11 +174,11 @@ function AssignmentModal({
   editingId: number | null
   loading: boolean
   onCancel: () => void
-  onSave: (values: AssignmentForm) => void
+  onSave: (values: AssignmentFormValues) => void
 }) {
   const { text } = useLocale()
   const { modal } = AntApp.useApp()
-  const [form] = Form.useForm<AssignmentForm>()
+  const [form] = Form.useForm<AssignmentFormValues>()
   const isEdit = editingId !== null
   const detail = useQuery({
     queryKey: ['assignment', editingId],
@@ -199,7 +186,7 @@ function AssignmentModal({
     enabled: isEdit
   })
 
-  const initialValues: Partial<AssignmentForm> =
+  const initialValues: Partial<AssignmentFormValues> =
     isEdit && detail.data
       ? {
           title: detail.data.assignment.title,
@@ -214,7 +201,7 @@ function AssignmentModal({
     value: item.id,
     label: problemLabel(item.id, item.title)
   }))
-  function submit(values: AssignmentForm) {
+  function submit(values: AssignmentFormValues) {
     const risky = isEdit && detail.data && (detail.data.assignment.status === 'ended' || detail.data.progress.some((item) => item.submit > 0))
     if (!risky) {
       onSave(values)
@@ -235,7 +222,7 @@ function AssignmentModal({
     ) : isEdit && detail.isError ? (
       <ErrorBlock error={detail.error} />
     ) : (
-      <Form<AssignmentForm>
+      <Form<AssignmentFormValues>
         key={isEdit ? `assignment-${editingId}` : 'assignment-new'}
         form={form}
         preserve={false}
@@ -243,24 +230,11 @@ function AssignmentModal({
         initialValues={initialValues}
         onFinish={submit}
       >
-        <Form.Item name="title" label={text.assignments.name} rules={[{ required: true, whitespace: true }]}>
-          <Input maxLength={limits.title} showCount />
-        </Form.Item>
-        <Form.Item name="description" label={text.assignments.instructions}>
-          <MarkdownEditor id={isEdit ? `assignment-${editingId}-description-edit` : 'assignment-new-description'} height={220} />
-        </Form.Item>
-        <Form.Item name="endAt" label={text.assignments.deadline} rules={[{ required: true }]}>
-          <DatePicker showTime style={{ width: '100%' }} />
-        </Form.Item>
-        <Form.Item name="problems" label={text.assignments.problems}>
-          <ProblemRefInput options={problemOptions} loading={detail.isLoading} />
-        </Form.Item>
-	        <Form.Item name="users" label={text.assignments.users}>
-	          <IdSelect kind="users" />
-	        </Form.Item>
-	        <Form.Item name="groups" label={text.assignments.groups}>
-	          <IdSelect kind="groups" />
-	        </Form.Item>
+        <AssignmentFormFields
+          editorId={isEdit ? `assignment-${editingId}-description-edit` : 'assignment-new-description'}
+          problemOptions={problemOptions}
+          loading={detail.isLoading}
+        />
       </Form>
     )
 
@@ -322,6 +296,7 @@ function assignmentColumns(
   ]
   if (admin) {
     columns.push({
+      title: text.common.actions,
       align: 'right',
       render: (_, row) => (
         <Space size={4}>

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/doveccl/doj/judger/runner"
 )
 
 func requireDocker(t *testing.T) {
@@ -30,8 +32,8 @@ func containerEntryNames(entries []os.DirEntry) string {
 	return strings.Join(names, ",")
 }
 
-func testShellLang() Lang {
-	return Lang{
+func testShellLang() runner.Lang {
+	return runner.Lang{
 		ID:      "sh",
 		Source:  "main.sh",
 		Image:   "alpine:3.20",

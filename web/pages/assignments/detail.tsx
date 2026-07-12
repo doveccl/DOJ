@@ -1,36 +1,24 @@
 import { EditOutlined, UnorderedListOutlined } from '@ant-design/icons'
-import { App as AntApp, Button, Card, DatePicker, Flex, Form, Input, Modal, Space, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
+import { App as AntApp, Button, Card, Flex, Form, Space, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
-import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { api, apiData } from '../../client'
-import type { AssignmentProgress, ProblemListItem, ProblemRef, ProblemState } from '../../client'
+import type { AssignmentProgress, ProblemListItem, ProblemState } from '../../client'
 import { DescriptionCard } from '../../components/description'
 import { ProblemLink, UserLink } from '../../components/entity'
-import { IdSelect } from '../../components/id-select'
-import { MarkdownEditor } from '../../components/markdown'
-import { defaultProblemSort, ProblemRefInput } from '../../components/problem-ref'
-import { ScoreTag } from '../../components/score'
+import { defaultProblemSort } from '../../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
 import { DeadlineTimer } from '../../components/time'
 import { useLocale } from '../../locale'
 import { useSession } from '../../session'
 import { problemCode, problemLabel } from '../../utils/format'
-import { limits } from '../../utils/limits'
-
-type AssignmentForm = {
-  title: string
-  description: string
-  endAt: Dayjs
-  problems?: ProblemRef[]
-  users?: number[]
-  groups?: number[]
-}
+import { AssignmentFormFields } from './form'
+import type { AssignmentFormValues } from './form'
 
 export function AssignmentDetailPage() {
   const { text } = useLocale()
@@ -55,7 +43,7 @@ export function AssignmentDetailPage() {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
   const update = useMutation({
-    mutationFn: (values: AssignmentForm) =>
+    mutationFn: (values: AssignmentFormValues) =>
       apiData(api.PATCH('/api/assignments/{id}', { params: { path: { id } }, body: {
         title: values.title,
         description: values.description,
@@ -95,6 +83,20 @@ export function AssignmentDetailPage() {
     value: item.id,
     label: problemLabel(item.id, item.title)
   }))
+  const editFormId = `assignment-${assignment.id}-edit-form`
+  const save = (values: AssignmentFormValues) => {
+    if (!scopeRisk) {
+      update.mutate(values)
+      return
+    }
+    modal.confirm({
+      title: text.assignments.changeWarning,
+      content: text.assignments.changeWarningDescription,
+      okText: text.common.save,
+      cancelText: text.common.cancel,
+      onOk: () => update.mutate(values)
+    })
+  }
   return (
     <Flex vertical gap={16}>
       <DescriptionCard
@@ -102,23 +104,50 @@ export function AssignmentDetailPage() {
         value={query.data.description}
         header={
           <Flex align="center" gap={10} style={{ minWidth: 0 }}>
-            <Typography.Title level={3} ellipsis={{ tooltip: assignment.title }} style={{ margin: 0, minWidth: 0 }}>
+            <Typography.Text ellipsis={{ tooltip: assignment.title }} style={{ minWidth: 0 }}>
               {assignment.title}
-            </Typography.Title>
+            </Typography.Text>
           </Flex>
         }
         extra={
-          <Space size={16} wrap>
-            <DeadlineTimer kind="assignment" status={assignment.status} target={assignment.endAt} onFinish={() => void query.refetch()} />
-            <Space size={8} wrap>
-              <Button icon={<UnorderedListOutlined />} href={`/submissions?assignment=${assignment.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`}>
-                {recordsUser ? text.submissions.myRecords : text.submissions.allRecords}
-              </Button>
-              {session.admin ? <Button icon={<EditOutlined />} onClick={() => setEditOpen(true)}>{text.common.edit}</Button> : null}
+          editOpen ? (
+            <Space size={8}>
+              <Button onClick={() => setEditOpen(false)}>{text.common.cancel}</Button>
+              <Button type="primary" htmlType="submit" form={editFormId} loading={update.isPending}>{text.common.save}</Button>
             </Space>
-          </Space>
+          ) : (
+            <Space size={16} wrap>
+              <DeadlineTimer kind="assignment" status={assignment.status} target={assignment.endAt} onFinish={() => void query.refetch()} />
+              <Space size={8} wrap>
+                <Button icon={<UnorderedListOutlined />} href={`/submissions?assignment=${assignment.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`}>
+                  {recordsUser ? text.submissions.myRecords : text.submissions.allRecords}
+                </Button>
+                {session.admin ? <Button icon={<EditOutlined />} onClick={() => setEditOpen(true)}>{text.common.edit}</Button> : null}
+              </Space>
+            </Space>
+          )
         }
-      />
+      >
+        {editOpen ? (
+          <Form<AssignmentFormValues>
+            id={editFormId}
+            key={editFormId}
+            preserve={false}
+            layout="vertical"
+            initialValues={{
+              title: assignment.title,
+              description: query.data.description,
+              endAt: dayjs(assignment.endAt),
+              problems: problems.map((problem, index) => ({ id: problem.id, sort: problem.sort || defaultProblemSort(index) })),
+              users: assignment.users,
+              groups: assignment.groups
+            }}
+            onFinish={save}
+          >
+            <AssignmentFormFields editorId={`assignment-${assignment.id}-description-edit`} problemOptions={problemOptions} />
+          </Form>
+        ) : undefined}
+      </DescriptionCard>
       <Card>
         <Tabs
           items={[
@@ -135,94 +164,7 @@ export function AssignmentDetailPage() {
           ]}
         />
       </Card>
-      {editOpen ? (
-        <AssignmentEditModal
-          assignment={assignment}
-          description={query.data.description}
-          problems={problems}
-          problemOptions={problemOptions}
-          loading={update.isPending}
-          onCancel={() => setEditOpen(false)}
-          onSave={(values) => {
-            if (!scopeRisk) {
-              update.mutate(values)
-              return
-            }
-            modal.confirm({
-              title: text.assignments.changeWarning,
-              content: text.assignments.changeWarningDescription,
-              okText: text.common.save,
-              cancelText: text.common.cancel,
-              onOk: () => update.mutate(values)
-            })
-          }}
-        />
-      ) : null}
     </Flex>
-  )
-}
-
-function AssignmentEditModal({
-  assignment,
-  description,
-  problems,
-  problemOptions,
-  loading,
-  onCancel,
-  onSave
-}: {
-  assignment: { id: number; title: string; endAt: string; users: number[]; groups: number[] }
-  description: string
-  problems: ProblemListItem[]
-  problemOptions: { value: number; label: string }[]
-  loading: boolean
-  onCancel: () => void
-  onSave: (values: AssignmentForm) => void
-}) {
-  const { text } = useLocale()
-  const [form] = Form.useForm<AssignmentForm>()
-  const initialValues = {
-    title: assignment.title,
-    description,
-    endAt: dayjs(assignment.endAt),
-    problems: problems.map((problem, index) => ({ id: problem.id, sort: problem.sort || defaultProblemSort(index) })),
-    users: assignment.users,
-    groups: assignment.groups
-  }
-
-  return (
-    <Modal
-      open
-      destroyOnHidden
-      width={780}
-      title={text.common.edit}
-      okText={text.common.save}
-      cancelText={text.common.cancel}
-      confirmLoading={loading}
-      onCancel={onCancel}
-      onOk={() => form.submit()}
-    >
-      <Form<AssignmentForm> form={form} preserve={false} layout="vertical" initialValues={initialValues} onFinish={onSave}>
-        <Form.Item name="title" label={text.assignments.name} rules={[{ required: true, whitespace: true }]}>
-          <Input maxLength={limits.title} showCount />
-        </Form.Item>
-        <Form.Item name="description" label={text.assignments.instructions}>
-          <MarkdownEditor id={`assignment-${assignment.id}-description-edit`} height={220} />
-        </Form.Item>
-        <Form.Item name="endAt" label={text.assignments.deadline} rules={[{ required: true }]}>
-          <DatePicker showTime style={{ width: '100%' }} />
-        </Form.Item>
-        <Form.Item name="problems" label={text.assignments.problems}>
-          <ProblemRefInput options={problemOptions} />
-        </Form.Item>
-        <Form.Item name="users" label={text.assignments.users}>
-          <IdSelect kind="users" />
-        </Form.Item>
-        <Form.Item name="groups" label={text.assignments.groups}>
-          <IdSelect kind="groups" />
-        </Form.Item>
-      </Form>
-    </Modal>
   )
 }
 
@@ -255,7 +197,10 @@ function progressColumns(text: ReturnType<typeof useLocale>['text'], problems: P
       ),
       render: (_: unknown, row: AssignmentProgress) => {
         const item = row.problems?.find((problemProgress) => problemProgress.problemId === problem.id)
-        return item?.status === 'pending' ? <Tag color="processing">{text.submissions.statuses.pending}</Tag> : <ScoreTag score={item?.score} />
+        const score = item?.score
+        if (item?.status === 'pending') return <Tag color="processing">{text.submissions.statuses.pending}</Tag>
+        if (score === undefined) return <Typography.Text type="secondary">-</Typography.Text>
+        return <Tag color={score >= 100 ? 'success' : score > 0 ? 'warning' : 'error'}>{score}</Tag>
       }
     }))
   ]
@@ -266,7 +211,7 @@ function problemColumns(text: ReturnType<typeof useLocale>['text'], assignmentID
     {
       title: text.common.sort,
       dataIndex: 'sort',
-      width: 120,
+      width: 88,
       render: (sort: string | undefined, row) => <Typography.Text>{sort || problemCode(row.id)}</Typography.Text>
     },
     {
@@ -281,6 +226,7 @@ function problemColumns(text: ReturnType<typeof useLocale>['text'], assignmentID
       render: (_, row) => <AssignmentProblemStatus record={state.get(row.id)} text={text} />
     },
     {
+      title: text.common.actions,
       align: 'right',
       render: (_, row) => (
         <Tooltip title={text.submissions.viewProblemRecords}>

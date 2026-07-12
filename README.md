@@ -58,7 +58,7 @@ The judger is Linux-only. It reads:
 
 The default compose judger shares the server container's network namespace, so it connects to `127.0.0.1` and is treated as a local judger. No token is needed for the default compose deployment.
 
-The judger uses the same DOJ image with a different command. It uses the host PID and cgroup namespaces, mounts cgroup v2 read-write, and keeps only `DAC_OVERRIDE` instead of privileged mode. It also uses the host Docker socket, which remains a host-root trust boundary, so run judgers on dedicated, disposable machines. It keeps runner binaries in `/var/lib/doj/bin`, active work under `/var/lib/doj/tasks`, and problem cache under `/var/lib/doj/cache/P{id}`.
+The outer judger container is a deployment wrapper, not a security boundary. It intentionally runs privileged with the host PID and cgroup namespaces and the host Docker socket, which gives it host-root control, so run judgers only on dedicated, disposable machines. With privileged mode and the host cgroup namespace, Docker exposes the host cgroup hierarchy read-write; no explicit `/sys/fs/cgroup` bind is needed. Untrusted source is isolated by the runner language containers and per-case cgroups, not by the outer judger container. Runner binaries live in `/var/lib/doj/bin`, active work in `/var/lib/doj/tasks`, and problem cache in `/var/lib/doj/cache/P{id}`.
 
 ## Development
 
@@ -164,7 +164,7 @@ STORAGE=https://access:secret@s3.example.com/bucket?lookup=dns
 
 默认 compose 里的评测机会共享 server 容器的网络命名空间，因此它连接 `127.0.0.1`，会被 server 视为本地评测机。默认 compose 部署不需要 token。
 
-评测机使用同一个 DOJ 镜像，但用不同 command 启动。它使用宿主机 PID/cgroup namespace，以读写方式挂载 cgroup v2，并只保留 `DAC_OVERRIDE` capability，不再使用 privileged 模式。宿主机 Docker socket 仍然属于 host-root 信任边界，因此评测机应运行在专用、可随时重建的机器上。runner 二进制放在 `/var/lib/doj/bin`，当前评测工作目录放在 `/var/lib/doj/tasks`，题目缓存放在 `/var/lib/doj/cache/P{id}`。
+外层评测机容器只是部署包装，不是安全边界。它会以 privileged 模式使用宿主机 PID/cgroup namespace 和 Docker socket，等同拥有宿主机 root 控制权，因此只应运行在专用、可随时重建的机器上。privileged 模式配合宿主机 cgroup namespace 时，Docker 已会以可写方式暴露宿主机 cgroup 层级，无需显式映射 `/sys/fs/cgroup`。不受信源码由 runner 语言容器和逐用例 cgroup 隔离，而不是由外层评测机容器隔离。runner 二进制放在 `/var/lib/doj/bin`，当前评测工作目录放在 `/var/lib/doj/tasks`，题目缓存放在 `/var/lib/doj/cache/P{id}`。
 
 ## 本地开发
 

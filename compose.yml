@@ -49,21 +49,15 @@ services:
     image: doveccl/doj:4
     command: ["doj", "judger"]
     restart: unless-stopped
+    privileged: true
     pid: host
     cgroup: host
-    cap_drop:
-      - ALL
-    cap_add:
-      - DAC_OVERRIDE
-    security_opt:
-      - no-new-privileges:true
     network_mode: service:server
     depends_on:
       server:
         condition: service_healthy
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
       - /var/lib/doj:/var/lib/doj
 
 volumes:

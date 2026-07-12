@@ -7,6 +7,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/doveccl/doj/judger/runner"
 )
 
 func TestRunCaseDoesNotReleaseUserWhenCgroupPrepareFails(t *testing.T) {
@@ -15,27 +17,27 @@ func TestRunCaseDoesNotReleaseUserWhenCgroupPrepareFails(t *testing.T) {
 	defer runnerConn.Close()
 
 	client := runnerClient{
-		codec:      NewCodec(clientConn),
+		codec:      runner.NewCodec(clientConn),
 		cgroupRoot: t.TempDir(),
 		procRoot:   t.TempDir(),
 		initPID:    123,
 		taskID:     "submission-1",
-		limits:     Limits{MemoryKB: 1024, Pids: 2},
+		limits:     runner.Limits{MemoryKB: 1024, Pids: 2},
 	}
 	errCh := make(chan error, 1)
 	go func() {
-		_, err := client.runCase(context.Background(), RunCaseRequest{
+		_, err := client.runCase(context.Background(), runner.RunCaseRequest{
 			TaskID: "submission-1",
-			Case:   Case{ID: "case-1"},
+			Case:   runner.Case{ID: "case-1"},
 		})
 		errCh <- err
 	}()
 
-	codec := NewCodec(runnerConn)
-	if msg, err := codec.Recv(); err != nil || msg.Kind != MsgRunCase {
+	codec := runner.NewCodec(runnerConn)
+	if msg, err := codec.Recv(); err != nil || msg.Kind != runner.MsgRunCase {
 		t.Fatalf("run request = %+v, %v", msg, err)
 	}
-	if err := codec.Send(Message{Kind: MsgUserPID, UserPID: &UserPID{
+	if err := codec.Send(runner.Message{Kind: runner.MsgUserPID, UserPID: &runner.UserPID{
 		TaskID: "submission-1",
 		CaseID: "case-1",
 		PID:    42,

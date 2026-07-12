@@ -179,20 +179,15 @@ export function AdminPage() {
     image: doveccl/doj:4
     command: ["doj", "judger"]
     restart: unless-stopped
+    privileged: true
+    network_mode: host
     pid: host
     cgroup: host
-    cap_drop:
-      - ALL
-    cap_add:
-      - DAC_OVERRIDE
-    security_opt:
-      - no-new-privileges:true
     environment:
       SERVER: ${server}
       TOKEN: ${created.token}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
       - /var/lib/doj:/var/lib/doj`
         modal.info({
           title: text.admin.judgerTokenCreated,

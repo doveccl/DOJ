@@ -151,25 +151,27 @@ export function SubmissionDetailPage() {
           </Card>
         </Col>
       </Row>
-      <Card
-        title={text.submissions.source}
-        extra={
-          <Space size={8}>
-            {code.trim() ? <Button icon={<CopyOutlined />} onClick={() => void copySource()}>{text.submissions.copy}</Button> : null}
-            {canUpdatePublic ? <>
-              <Typography.Text type="secondary">{text.problem.publicSource}</Typography.Text>
-              <Switch
-                checked={submission.public}
-                loading={updatePublic.isPending}
-                disabled={updatePublic.isPending}
-                onChange={(checked) => updatePublic.mutate(checked)}
-              />
-            </> : null}
-          </Space>
-        }
-      >
-        {code.trim() ? <SourceBlock code={code} language={submission.language} /> : <Alert type="info" showIcon title={text.submissions.sourceHidden} />}
-      </Card>
+      {code.trim() ? (
+        <Card
+          title={text.submissions.source}
+          extra={
+            <Space size={8}>
+              <Button icon={<CopyOutlined />} onClick={() => void copySource()}>{text.submissions.copy}</Button>
+              {canUpdatePublic ? <>
+                <Typography.Text type="secondary">{text.problem.publicSource}</Typography.Text>
+                <Switch
+                  checked={submission.public}
+                  loading={updatePublic.isPending}
+                  disabled={updatePublic.isPending}
+                  onChange={(checked) => updatePublic.mutate(checked)}
+                />
+              </> : null}
+            </Space>
+          }
+        >
+          <SourceBlock code={code} language={submission.language} />
+        </Card>
+      ) : null}
     </Flex>
   )
 }

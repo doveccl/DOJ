@@ -65,7 +65,8 @@ export const en: typeof zh = {
     shortTimer: 'HH:mm:ss',
     startsIn: { prefix: 'Starts in ', suffix: '' },
     dueIn: { prefix: 'Due in ', suffix: '' },
-    endsIn: { prefix: 'Ends in ', suffix: '' }
+    endsIn: { prefix: 'Ends in ', suffix: '' },
+    frozenEndsIn: { prefix: 'Frozen · ends in ', suffix: '' }
   },
   home: {
     notice: 'Notice',
@@ -206,7 +207,6 @@ export const en: typeof zh = {
     copy: 'Copy',
     copied: 'Source copied',
     copyFailed: 'Copy failed; select the source manually',
-    sourceHidden: 'The source is private or its activity is still running; only the submitter and administrators can view it',
     resultHidden: 'The judge result is hidden until the contest ends',
     cases: 'Cases',
     message: 'Message',

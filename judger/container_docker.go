@@ -16,7 +16,7 @@ const (
 	runnerPidsFloor   = int64(256)
 )
 
-func startRunnerContainer(ctx context.Context, image string, runner string, work string, socket string, runtimeRoot string, skipRuntime string, limits Limits) (string, error) {
+func startRunnerContainer(ctx context.Context, image string, runnerPath string, work string, socket string, runtimeRoot string, skipRuntime string, limits runner.Limits) (string, error) {
 	_ = os.Remove(socket)
 	containerID, err := dockerCreateContainer(ctx, dockerCreateRequest{
 		Image:      image,
@@ -34,7 +34,7 @@ func startRunnerContainer(ctx context.Context, image string, runner string, work
 		HostConfig: runnerHostConfig(limits, []string{
 			work + ":" + containerWorkDir,
 			filepath.Dir(socket) + ":/runner",
-			runner + ":/usr/local/bin/doj:ro",
+			runnerPath + ":/usr/local/bin/doj:ro",
 		}),
 	})
 	if err != nil {
@@ -47,7 +47,7 @@ func startRunnerContainer(ctx context.Context, image string, runner string, work
 	return containerID, nil
 }
 
-func runnerHostConfig(limits Limits, binds []string) dockerHostConfig {
+func runnerHostConfig(limits runner.Limits, binds []string) dockerHostConfig {
 	memory := int64(limits.MemoryKB)*1024 + (256 << 20)
 	if memory < runnerMemoryFloor {
 		memory = runnerMemoryFloor

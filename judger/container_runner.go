@@ -5,31 +5,33 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/doveccl/doj/judger/runner"
 )
 
 type runnerClient struct {
-	codec      *Codec
+	codec      *runner.Codec
 	cgroupRoot string
 	procRoot   string
 	initPID    int
 	taskID     string
-	limits     Limits
+	limits     runner.Limits
 	work       string
 	judgeCache string
 	logf       func(format string, args ...any)
 	progress   func(stage string, done int64, total *int64)
 }
 
-func (client runnerClient) runTask(ctx context.Context, task Task, compileCommand string, userCommand string, beforeCases func() error) (TaskResult, error) {
-	result := TaskResult{SubmissionID: task.SubmissionID, Attempt: task.Attempt}
+func (client runnerClient) runTask(ctx context.Context, task runner.Task, compileCommand string, userCommand string, beforeCases func() error) (runner.TaskResult, error) {
+	result := runner.TaskResult{SubmissionID: task.SubmissionID, Attempt: task.Attempt}
 	if len(task.Cases) == 0 {
-		result.Verdict = VerdictSystemError
+		result.Verdict = runner.VerdictSystemError
 		result.Message = "task has no cases"
 		return result, nil
 	}
 	helloStartedAt := time.Now()
 	if err := client.hello(); err != nil {
-		return TaskResult{}, err
+		return runner.TaskResult{}, err
 	}
 	logStep(client.logf, task.SubmissionID, task.Attempt, "runner_hello", helloStartedAt)
 	compileStartedAt := time.Now()
@@ -37,32 +39,32 @@ func (client runnerClient) runTask(ctx context.Context, task Task, compileComman
 	compile, err := client.compile(task, compileCommand, userCommand)
 	logTask(client.logf, task.SubmissionID, task.Attempt, "compile=%s ok=%t reported=%dms", formatDuration(time.Since(compileStartedAt)), compile.OK, compile.TimeMS)
 	if err != nil {
-		return TaskResult{}, err
+		return runner.TaskResult{}, err
 	}
 	if !compile.OK {
-		result.Verdict = VerdictCompileError
+		result.Verdict = runner.VerdictCompileError
 		result.Message = compile.Message
 		return result, nil
 	}
 	if beforeCases != nil {
 		if err := beforeCases(); err != nil {
-			return TaskResult{}, err
+			return runner.TaskResult{}, err
 		}
 		if err := protectCaseFiles(client.work, task.Cases); err != nil {
-			return TaskResult{}, err
+			return runner.TaskResult{}, err
 		}
 	}
 	judgeCommand := ""
-	if task.Mode == ModeCustom {
-		var judgeBuild CompileResult
+	if task.Mode == runner.ModeCustom {
+		var judgeBuild runner.CompileResult
 		customStartedAt := time.Now()
 		judgeCommand, judgeBuild, err = prepareContainerCustomJudge(ctx, client.work, task.Limits, client.judgeCache)
 		logTask(client.logf, task.SubmissionID, task.Attempt, "custom_judge_build=%s ok=%t reported=%dms", formatDuration(time.Since(customStartedAt)), judgeBuild.OK, judgeBuild.TimeMS)
 		if err != nil {
-			return TaskResult{}, err
+			return runner.TaskResult{}, err
 		}
 		if !judgeBuild.OK {
-			result.Verdict = VerdictSystemError
+			result.Verdict = runner.VerdictSystemError
 			result.Message = "custom judge compile failed: " + judgeBuild.Message
 			result.TimeMS = judgeBuild.TimeMS
 			return result, nil
@@ -70,15 +72,15 @@ func (client runnerClient) runTask(ctx context.Context, task Task, compileComman
 	}
 
 	totalScore := 0
-	verdict := VerdictAccepted
+	verdict := runner.VerdictAccepted
 	maxTime := 0
 	maxMemory := 0
-	caseResults := make([]CaseResult, 0, len(task.Cases))
+	caseResults := make([]runner.CaseResult, 0, len(task.Cases))
 	totalCases := int64(len(task.Cases))
 	client.reportProgress("judge", 0, &totalCases)
 	for index, item := range task.Cases {
 		caseStartedAt := time.Now()
-		got, err := client.runCase(ctx, RunCaseRequest{
+		got, err := client.runCase(ctx, runner.RunCaseRequest{
 			TaskID:       client.taskID,
 			JudgeCommand: judgeCommand,
 			Case:         item,
@@ -87,7 +89,7 @@ func (client runnerClient) runTask(ctx context.Context, task Task, compileComman
 		})
 		logTask(client.logf, task.SubmissionID, task.Attempt, "case=%d id=%s elapsed=%s verdict=%s reported=%dms", index+1, item.ID, formatDuration(time.Since(caseStartedAt)), got.Verdict, got.TimeMS)
 		if err != nil {
-			return TaskResult{}, err
+			return runner.TaskResult{}, err
 		}
 		caseResults = append(caseResults, got)
 		totalScore += got.Score
@@ -97,7 +99,7 @@ func (client runnerClient) runTask(ctx context.Context, task Task, compileComman
 		if got.MemoryKB > maxMemory {
 			maxMemory = got.MemoryKB
 		}
-		if verdict == VerdictAccepted && got.Verdict != VerdictAccepted {
+		if verdict == runner.VerdictAccepted && got.Verdict != runner.VerdictAccepted {
 			verdict = got.Verdict
 		}
 		done := int64(index + 1)
@@ -118,47 +120,47 @@ func (client runnerClient) reportProgress(stage string, done int64, total *int64
 }
 
 func (client runnerClient) hello() error {
-	if err := client.codec.Send(Message{Kind: MsgHello, Hello: &Hello{Role: "judger", Version: Version}}); err != nil {
+	if err := client.codec.Send(runner.Message{Kind: runner.MsgHello, Hello: &runner.Hello{Role: "judger", Version: runner.Version}}); err != nil {
 		return err
 	}
 	msg, err := client.codec.Recv()
 	if err != nil {
 		return err
 	}
-	if msg.Kind != MsgHello || msg.Hello == nil || msg.Hello.Role != "runner" || msg.Hello.Version != Version {
+	if msg.Kind != runner.MsgHello || msg.Hello == nil || msg.Hello.Role != "runner" || msg.Hello.Version != runner.Version {
 		return fmt.Errorf("runner hello got %s", msg.Kind)
 	}
 	return nil
 }
 
-func (client runnerClient) compile(task Task, compileCommand string, userCommand string) (CompileResult, error) {
-	if err := client.codec.Send(Message{Kind: MsgCompile, Compile: &CompileRequest{
+func (client runnerClient) compile(task runner.Task, compileCommand string, userCommand string) (runner.CompileResult, error) {
+	if err := client.codec.Send(runner.Message{Kind: runner.MsgCompile, Compile: &runner.CompileRequest{
 		TaskID:         client.taskID,
 		CompileCommand: compileCommand,
 		UserCommand:    userCommand,
 		Limits:         task.Limits,
 	}}); err != nil {
-		return CompileResult{}, err
+		return runner.CompileResult{}, err
 	}
 	msg, err := client.codec.Recv()
 	if err != nil {
-		return CompileResult{}, err
+		return runner.CompileResult{}, err
 	}
-	if msg.Kind == MsgError {
-		return CompileResult{}, errors.New(msg.Error)
+	if msg.Kind == runner.MsgError {
+		return runner.CompileResult{}, errors.New(msg.Error)
 	}
-	if msg.Kind != MsgCompileResult || msg.CompileResult == nil {
-		return CompileResult{}, fmt.Errorf("runner compile got %s", msg.Kind)
+	if msg.Kind != runner.MsgCompileResult || msg.CompileResult == nil {
+		return runner.CompileResult{}, fmt.Errorf("runner compile got %s", msg.Kind)
 	}
 	return *msg.CompileResult, nil
 }
 
-func (client runnerClient) runCase(ctx context.Context, req RunCaseRequest) (result CaseResult, err error) {
+func (client runnerClient) runCase(ctx context.Context, req runner.RunCaseRequest) (result runner.CaseResult, err error) {
 	startedAt := time.Now()
-	if err := client.codec.Send(Message{Kind: MsgRunCase, RunCase: &req}); err != nil {
-		return CaseResult{}, err
+	if err := client.codec.Send(runner.Message{Kind: runner.MsgRunCase, RunCase: &req}); err != nil {
+		return runner.CaseResult{}, err
 	}
-	var cgroup *CgroupCase
+	var cgroup *runner.CgroupCase
 	stopCgroupWatch := func() {}
 	defer func() {
 		stopCgroupWatch()
@@ -171,46 +173,46 @@ func (client runnerClient) runCase(ctx context.Context, req RunCaseRequest) (res
 	for {
 		msg, err := client.codec.Recv()
 		if err != nil {
-			return CaseResult{}, err
+			return runner.CaseResult{}, err
 		}
 		switch msg.Kind {
-		case MsgUserPID:
+		case runner.MsgUserPID:
 			if msg.UserPID == nil {
-				return CaseResult{}, fmt.Errorf("runner sent empty user pid")
+				return runner.CaseResult{}, fmt.Errorf("runner sent empty user pid")
 			}
 			if cgroup == nil && client.cgroupRoot != "" {
 				cg, err := client.prepareUserCgroup(msg.UserPID)
 				if err != nil {
-					return CaseResult{}, err
+					return runner.CaseResult{}, err
 				}
 				cgroup = cg
 				stopCgroupWatch = watchCgroupMemoryLimit(cgroup)
 			}
-			if err := client.codec.Send(Message{Kind: MsgReleaseUser, ReleaseUser: &ReleaseUser{
+			if err := client.codec.Send(runner.Message{Kind: runner.MsgReleaseUser, ReleaseUser: &runner.ReleaseUser{
 				TaskID: msg.UserPID.TaskID,
 				CaseID: msg.UserPID.CaseID,
 			}}); err != nil {
-				return CaseResult{}, err
+				return runner.CaseResult{}, err
 			}
-		case MsgCaseResult:
+		case runner.MsgCaseResult:
 			if msg.CaseResult == nil {
-				return CaseResult{}, fmt.Errorf("runner sent empty case result")
+				return runner.CaseResult{}, fmt.Errorf("runner sent empty case result")
 			}
 			result := *msg.CaseResult
 			if cgroup != nil {
 				applyCgroupStats(&result, cgroup)
 			}
-			if result.TimeMS == 0 && (result.Verdict == VerdictTimeLimit || result.Verdict == VerdictMemoryLimit) {
+			if result.TimeMS == 0 && (result.Verdict == runner.VerdictTimeLimit || result.Verdict == runner.VerdictMemoryLimit) {
 				result.TimeMS = elapsedMS(startedAt)
 			}
 			return result, nil
-		case MsgError:
-			return CaseResult{}, errors.New(msg.Error)
+		case runner.MsgError:
+			return runner.CaseResult{}, errors.New(msg.Error)
 		default:
 			if err := ctx.Err(); err != nil {
-				return CaseResult{CaseID: req.Case.ID, Verdict: VerdictTimeLimit, TimeMS: elapsedMS(startedAt), Message: err.Error()}, nil
+				return runner.CaseResult{CaseID: req.Case.ID, Verdict: runner.VerdictTimeLimit, TimeMS: elapsedMS(startedAt), Message: err.Error()}, nil
 			}
-			return CaseResult{}, fmt.Errorf("runner run_case got %s", msg.Kind)
+			return runner.CaseResult{}, fmt.Errorf("runner run_case got %s", msg.Kind)
 		}
 	}
 }

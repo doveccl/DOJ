@@ -8,49 +8,51 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/doveccl/doj/judger/runner"
 )
 
 const maxCustomJudgeBinaryBytes = 64 << 20
 const minCustomJudgeCompileTimeout = 30 * time.Second
 
-func prepareContainerCustomJudge(ctx context.Context, work string, limits Limits, cachePath string) (string, CompileResult, error) {
+func prepareContainerCustomJudge(ctx context.Context, work string, limits runner.Limits, cachePath string) (string, runner.CompileResult, error) {
 	path, result, err := prepareCustomJudgePath(ctx, work, limits, cachePath)
 	if path == "" || err != nil || !result.OK {
 		return "", result, err
 	}
 	rel, err := filepath.Rel(work, path)
 	if err != nil || rel == "." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." {
-		return "", CompileResult{OK: false, Message: "custom judge path is outside task directory"}, nil
+		return "", runner.CompileResult{OK: false, Message: "custom judge path is outside task directory"}, nil
 	}
 	return slashpath.Join(containerWorkDir, filepath.ToSlash(rel)), result, nil
 }
 
-func prepareCustomJudgePath(ctx context.Context, work string, limits Limits, cachePath string) (string, CompileResult, error) {
+func prepareCustomJudgePath(ctx context.Context, work string, limits runner.Limits, cachePath string) (string, runner.CompileResult, error) {
 	startedAt := time.Now()
 	dir := filepath.Join(work, "judge")
 	info, err := os.Stat(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", CompileResult{OK: false, Message: "custom judge resources are missing"}, nil
+			return "", runner.CompileResult{OK: false, Message: "custom judge resources are missing"}, nil
 		}
-		return "", CompileResult{}, err
+		return "", runner.CompileResult{}, err
 	}
 	if !info.IsDir() {
-		return "", CompileResult{OK: false, Message: "custom judge resource path is not a directory"}, nil
+		return "", runner.CompileResult{OK: false, Message: "custom judge resource path is not a directory"}, nil
 	}
 	output := filepath.Join(work, "judge-program")
 	if cachePath != "" {
 		if err := copyCachedCustomJudge(cachePath, output); err == nil {
-			return output, CompileResult{OK: true, TimeMS: int(time.Since(startedAt).Milliseconds())}, nil
+			return output, runner.CompileResult{OK: true, TimeMS: int(time.Since(startedAt).Milliseconds())}, nil
 		} else if !os.IsNotExist(err) {
-			return "", CompileResult{}, err
+			return "", runner.CompileResult{}, err
 		}
 	}
 	if _, err := os.Stat(filepath.Join(dir, "Dockerfile")); err != nil {
 		if os.IsNotExist(err) {
-			return "", CompileResult{OK: false, Message: "custom judge requires Dockerfile"}, nil
+			return "", runner.CompileResult{OK: false, Message: "custom judge requires Dockerfile"}, nil
 		}
-		return "", CompileResult{}, err
+		return "", runner.CompileResult{}, err
 	}
 	got, err := compileDockerfileJudge(ctx, dir, output, limits)
 	if err != nil || !got.OK {
@@ -58,7 +60,7 @@ func prepareCustomJudgePath(ctx context.Context, work string, limits Limits, cac
 	}
 	if cachePath != "" {
 		if err := storeCachedCustomJudge(output, cachePath); err != nil {
-			return "", CompileResult{}, err
+			return "", runner.CompileResult{}, err
 		}
 	}
 	return output, got, nil
@@ -91,7 +93,7 @@ func storeCachedCustomJudge(output string, cachePath string) error {
 	return os.Rename(tmpPath, cachePath)
 }
 
-func compileDockerfileJudge(ctx context.Context, dir string, output string, limits Limits) (CompileResult, error) {
+func compileDockerfileJudge(ctx context.Context, dir string, output string, limits runner.Limits) (runner.CompileResult, error) {
 	timeout := minCustomJudgeCompileTimeout
 	if limits.TimeMS > int(minCustomJudgeCompileTimeout/time.Millisecond) {
 		timeout = time.Duration(limits.TimeMS) * time.Millisecond
@@ -117,7 +119,7 @@ func compileDockerfileJudge(ctx context.Context, dir string, output string, limi
 	}
 	program, ok := customJudgeProgramFromCmd(cmd)
 	if !ok {
-		return CompileResult{OK: false, Message: "custom judge Dockerfile CMD must point to a single absolute program path", TimeMS: int(time.Since(startedAt).Milliseconds())}, nil
+		return runner.CompileResult{OK: false, Message: "custom judge Dockerfile CMD must point to a single absolute program path", TimeMS: int(time.Since(startedAt).Milliseconds())}, nil
 	}
 	containerID, err := dockerCreateContainer(runCtx, dockerCreateRequest{Image: imageID})
 	if err != nil {
@@ -129,9 +131,9 @@ func compileDockerfileJudge(ctx context.Context, dir string, output string, limi
 		return dockerBuildResult("", err, startedAt), nil
 	}
 	if err := validateCustomJudgeProgram(output, program); err != nil {
-		return CompileResult{OK: false, Message: err.Error(), TimeMS: int(time.Since(startedAt).Milliseconds())}, nil
+		return runner.CompileResult{OK: false, Message: err.Error(), TimeMS: int(time.Since(startedAt).Milliseconds())}, nil
 	}
-	return CompileResult{OK: true, TimeMS: int(time.Since(startedAt).Milliseconds())}, nil
+	return runner.CompileResult{OK: true, TimeMS: int(time.Since(startedAt).Milliseconds())}, nil
 }
 
 func customJudgeProgramFromCmd(cmd []string) (string, bool) {
@@ -147,12 +149,12 @@ func customJudgeProgramFromCmd(cmd []string) (string, bool) {
 	return "", false
 }
 
-func dockerBuildResult(out string, err error, startedAt time.Time) CompileResult {
-	message := strings.TrimSpace(out)
+func dockerBuildResult(out string, err error, startedAt time.Time) runner.CompileResult {
+	message := runner.CleanBuildMessage(out)
 	if message == "" && err != nil {
 		message = err.Error()
 	}
-	return CompileResult{OK: false, Message: message, TimeMS: int(time.Since(startedAt).Milliseconds())}
+	return runner.CompileResult{OK: false, Message: message, TimeMS: int(time.Since(startedAt).Milliseconds())}
 }
 
 func validateCustomJudgeProgram(path string, source string) error {

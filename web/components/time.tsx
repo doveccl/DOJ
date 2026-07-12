@@ -45,11 +45,14 @@ export function DeadlineTimer({
   return (
     <Flex vertical gap={0} align={align}>
       {status === 'ended' ? (
-        <Typography.Text className="nowrap">{formatTime(target, lang)}</Typography.Text>
+        <Flex align="center" gap={8} wrap>
+          <Tag style={{ marginInlineEnd: 0 }}>{kind === 'assignment' ? text.assignments.ended : text.contests.ended}</Tag>
+          <Typography.Text type="secondary" className="nowrap">{range ?? formatTime(target, lang)}</Typography.Text>
+        </Flex>
       ) : (
         <TimerText copy={timerCopy(status, kind, text)} targetMs={targetMs} strong={strong} onFinish={onFinish} />
       )}
-      {range ? (
+      {status !== 'ended' && range ? (
         <Typography.Text type="secondary" className="nowrap">
           {range}
         </Typography.Text>
@@ -143,6 +146,9 @@ function timerCopy(status: string, kind: DeadlineKind, text: ReturnType<typeof u
   }
   if (kind === 'assignment') {
     return text.time.dueIn
+  }
+  if (status === 'frozen') {
+    return text.time.frozenEndsIn
   }
   return text.time.endsIn
 }

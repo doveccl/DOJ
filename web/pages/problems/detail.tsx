@@ -12,7 +12,6 @@ import {
   Col,
   Flex,
   Form,
-  Input,
   Popconfirm,
   Row,
   Select,
@@ -34,29 +33,20 @@ import {
 import type { Problem, ProblemState } from '../../client'
 import { CodeEditor } from '../../components/code'
 import { JudgeModeSelect } from '../../components/judge'
-import { LimitInput } from '../../components/limit'
-import { MarkdownEditor, MarkdownPreview } from '../../components/markdown'
+import { MarkdownPreview } from '../../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
 import { SubmissionStatus } from '../../components/status'
 import { TagList } from '../../components/tags'
-import { TagSelect } from '../../components/tag-select'
 import { useLocale } from '../../locale'
 import { useSession } from '../../session'
 import { submissionDraftKey } from '../../utils/draft'
 import { formatBytes, formatLimit, problemCode } from '../../utils/format'
-import { limits } from '../../utils/limits'
 import { problemAssetUploadMarkdownURL, problemMarkdownID } from '../../utils/markdown'
 import { ProblemAssetsManager, ProblemManageActions } from './assets'
+import { ProblemFormFields } from './form'
+import type { ProblemFormValues } from './form'
 
 const languageStorageKey = 'doj.language'
-
-type ProblemEditForm = {
-  title: string
-  statement: string
-  tags: string[]
-  timeMs: number
-  memoryMb: number
-}
 
 export function ProblemDetailPage() {
   const { text } = useLocale()
@@ -146,13 +136,13 @@ export function ProblemDetailPage() {
     onError: showError
   })
   const edit = useMutation({
-    mutationFn: (values: ProblemEditForm) => {
+    mutationFn: (values: ProblemFormValues) => {
       if (!query.data) {
         throw new Error(text.common.emptyResponse)
       }
       return apiData(api.PATCH('/api/problems/{id}', { params: { path: { id } }, body: {
         title: values.title,
-        statement: values.statement,
+        statement: values.statement ?? '',
         tags: values.tags ?? [],
         timeMs: values.timeMs,
         memoryMb: values.memoryMb
@@ -315,7 +305,7 @@ export function ProblemDetailPage() {
               }
             >
               {problemEditing ? (
-                <Form<ProblemEditForm>
+                <Form<ProblemFormValues>
                   id="problem-edit-form"
                   key={[
                     problem.id,
@@ -331,32 +321,13 @@ export function ProblemDetailPage() {
                     title: problem.title,
                     statement: problem.statement || `# ${problem.title}`,
                     tags: problem.tags,
+                    mode: problem.mode,
                     timeMs: problem.timeMs,
                     memoryMb: problem.memoryMb
                   }}
                   onFinish={(values) => edit.mutate(values)}
                 >
-                  <Form.Item name="title" label={text.problems.title} rules={[{ required: true, whitespace: true }]}>
-                    <Input maxLength={limits.title} showCount />
-                  </Form.Item>
-                  <Form.Item name="tags" label={text.problems.tag}>
-                    <TagSelect kind="problem" mode="tags" />
-                  </Form.Item>
-                  <Row gutter={12}>
-                    <Col xs={24} md={12}>
-                      <Form.Item name="timeMs" label={text.problems.time} rules={[{ required: true }]}>
-                        <LimitInput min={100} step={100} unit="ms" />
-                      </Form.Item>
-                    </Col>
-                    <Col xs={24} md={12}>
-                      <Form.Item name="memoryMb" label={text.problems.memory} rules={[{ required: true }]}>
-                        <LimitInput min={16} step={16} unit="MB" />
-                      </Form.Item>
-                    </Col>
-                  </Row>
-                  <Form.Item name="statement" label={text.problem.statement} rules={[{ required: true, whitespace: true }]}>
-                    <MarkdownEditor id={statementMarkdownID} upload={uploadStatementImage} />
-                  </Form.Item>
+                  <ProblemFormFields statement={{ editorId: statementMarkdownID, upload: uploadStatementImage }} />
                 </Form>
               ) : (
                 <MarkdownPreview id={statementMarkdownID} value={problem.statement || `# ${problem.title}`} />
@@ -384,7 +355,6 @@ export function ProblemDetailPage() {
                     <Flex align="center" justify="space-between" gap={12}>
                       <Typography.Text type="secondary">{text.problem.mode}</Typography.Text>
                       <JudgeModeSelect
-                        size="small"
                         value={problem.mode as 'default' | 'strict' | 'custom'}
                         onChange={(next) => modeUpdate.mutate(next)}
                         disabled={modeUpdate.isPending}

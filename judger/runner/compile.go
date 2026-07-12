@@ -161,5 +161,5 @@ func prepareCompilerIdentity(work string) error {
 }
 
 func cleanCompileMessage(message string) string {
-	return cleanBuildMessage(message)
+	return CleanBuildMessage(message)
 }

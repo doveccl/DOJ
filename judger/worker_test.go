@@ -13,6 +13,7 @@ import (
 	"time"
 
 	common "github.com/doveccl/doj/contract/judger"
+	jr "github.com/doveccl/doj/judger/runner"
 )
 
 func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
@@ -34,7 +35,7 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 				Attempt:      2,
 				Source:       "cat\n",
 				Lang:         testLeaseLang(),
-				Mode:         string(ModeDefault),
+				Mode:         string(jr.ModeDefault),
 				Limits:       common.LimitsPayload{TimeMS: 1000, MemoryKB: 64 << 10, OutputKB: 64, Pids: 32, FileKB: 64 << 10},
 				Problem:      common.ProblemPayload{ID: 1000, PackageHash: "fixture-v1"},
 				Cases: []common.CasePayload{{
@@ -87,10 +88,10 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 
 	select {
 	case result := <-gotResult:
-		if result.SubmissionID != 11 || result.Attempt != 2 || result.Status != string(VerdictAccepted) || result.Score != 100 {
+		if result.SubmissionID != 11 || result.Attempt != 2 || result.Status != string(jr.VerdictAccepted) || result.Score != 100 {
 			t.Fatalf("result = %#v", result)
 		}
-		if len(result.Cases) != 1 || result.Cases[0].Status != string(VerdictAccepted) {
+		if len(result.Cases) != 1 || result.Cases[0].Status != string(jr.VerdictAccepted) {
 			t.Fatalf("cases = %#v", result.Cases)
 		}
 	case <-ctx.Done():
@@ -117,7 +118,7 @@ func TestRunOneDownloadsPackageForRelativeCases(t *testing.T) {
 				Attempt:      1,
 				Source:       "cat\n",
 				Lang:         testLeaseLang(),
-				Mode:         string(ModeDefault),
+				Mode:         string(jr.ModeDefault),
 				Limits:       common.LimitsPayload{TimeMS: 1000, MemoryKB: 64 << 10, OutputKB: 64, Pids: 32, FileKB: 64 << 10},
 				Problem:      common.ProblemPayload{ID: 1000, PackageHash: "fixture-v1"},
 				Cases: []common.CasePayload{{
@@ -170,7 +171,7 @@ func TestRunOneDownloadsPackageForRelativeCases(t *testing.T) {
 
 	select {
 	case result := <-gotResult:
-		if result.SubmissionID != 12 || result.Attempt != 1 || result.Status != string(VerdictAccepted) || result.Score != 100 {
+		if result.SubmissionID != 12 || result.Attempt != 1 || result.Status != string(jr.VerdictAccepted) || result.Score != 100 {
 			t.Fatalf("result = %#v", result)
 		}
 	case <-ctx.Done():
@@ -190,7 +191,7 @@ func TestRunOneCleansWorkAfterPackageError(t *testing.T) {
 				Attempt:      1,
 				Source:       "cat\n",
 				Lang:         testLeaseLang(),
-				Mode:         string(ModeDefault),
+				Mode:         string(jr.ModeDefault),
 				Limits:       common.LimitsPayload{TimeMS: 1000, MemoryKB: 64 << 10, OutputKB: 64, Pids: 32, FileKB: 64 << 10},
 				Problem:      common.ProblemPayload{ID: 1000, PackageHash: "fixture-v1"},
 				Cases: []common.CasePayload{{
@@ -232,7 +233,7 @@ func TestRunOneCleansWorkAfterPackageError(t *testing.T) {
 		t.Fatalf("task directory should be cleaned after package error, err=%v", err)
 	}
 	result := <-gotResult
-	if result.Status != string(VerdictSystemError) {
+	if result.Status != string(jr.VerdictSystemError) {
 		t.Fatalf("result = %#v", result)
 	}
 }

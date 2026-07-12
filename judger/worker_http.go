@@ -13,6 +13,7 @@ import (
 
 	common "github.com/doveccl/doj/contract/judger"
 	contractlimits "github.com/doveccl/doj/contract/limits"
+	"github.com/doveccl/doj/judger/runner"
 )
 
 const (
@@ -23,7 +24,7 @@ const (
 func lease(ctx context.Context, client *http.Client, cfg WorkerConfig) (*common.TaskPayload, error) {
 	host, _ := os.Hostname()
 	req := common.LeaseRequest{
-		Version: Version,
+		Version: runner.Version,
 		Host:    host,
 		Arch:    runtime.GOOS + "/" + runtime.GOARCH,
 	}
@@ -34,7 +35,7 @@ func lease(ctx context.Context, client *http.Client, cfg WorkerConfig) (*common.
 	return resp.Task, nil
 }
 
-func postResult(ctx context.Context, client *http.Client, cfg WorkerConfig, taskID uint, result TaskResult) error {
+func postResult(ctx context.Context, client *http.Client, cfg WorkerConfig, taskID uint, result runner.TaskResult) error {
 	req := common.ResultRequest{
 		SubmissionID: result.SubmissionID,
 		Attempt:      result.Attempt,

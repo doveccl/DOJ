@@ -31,11 +31,3 @@ export const markdownEditorExtensions = {
     instance: katex
   }
 } satisfies GlobalConfig['editorExtensions']
-
-export function markdownEditorExtensionURLs() {
-  const urls = [
-    markdownEditorExtensions.highlight.js,
-    ...Object.values(markdownEditorExtensions.highlight.css).flatMap((theme) => [theme.light, theme.dark]),
-  ]
-  return urls.filter(Boolean)
-}

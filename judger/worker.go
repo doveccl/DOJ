@@ -13,6 +13,7 @@ import (
 
 	common "github.com/doveccl/doj/contract/judger"
 	contractlimits "github.com/doveccl/doj/contract/limits"
+	"github.com/doveccl/doj/judger/runner"
 )
 
 type WorkerConfig struct {
@@ -46,10 +47,10 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 		return false, nil
 	}
 	if err := validateTask(task); err != nil {
-		result := TaskResult{
+		result := runner.TaskResult{
 			SubmissionID: task.SubmissionID,
 			Attempt:      task.Attempt,
-			Verdict:      VerdictSystemError,
+			Verdict:      runner.VerdictSystemError,
 			Message:      err.Error(),
 		}
 		if postErr := postResult(ctx, client, cfg, task.ID, result); postErr != nil {
@@ -94,10 +95,10 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 		packageStartedAt := time.Now()
 		if err := downloadProblemPackage(ctx, client, cfg, task.Problem.ID, task.Problem.PackageHash, taskDir, task.ID, task.SubmissionID, task.Attempt); err != nil {
 			logStep(cfg.Logf, task.SubmissionID, task.Attempt, "download_problem_package_error", packageStartedAt)
-			result := TaskResult{
+			result := runner.TaskResult{
 				SubmissionID: task.SubmissionID,
 				Attempt:      task.Attempt,
-				Verdict:      VerdictSystemError,
+				Verdict:      runner.VerdictSystemError,
 				Message:      err.Error(),
 			}
 			if postErr := postResult(ctx, client, cfg, task.ID, result); postErr != nil {
@@ -113,17 +114,17 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 		Work:             taskDir,
 		CgroupRoot:       cfg.CgroupRoot,
 		ProcRoot:         cfg.ProcRoot,
-		CustomJudgeCache: customJudgeCachePath(cfg.Cache, task.Problem.ID, JudgeMode(task.Mode)),
+		CustomJudgeCache: customJudgeCachePath(cfg.Cache, task.Problem.ID, runner.JudgeMode(task.Mode)),
 		Task:             taskToTask(task),
 		Logf:             cfg.Logf,
 		Progress:         cfg.Progress,
 	})
 	logStep(cfg.Logf, task.SubmissionID, task.Attempt, "run_container", runStartedAt)
 	if err != nil {
-		result = TaskResult{
+		result = runner.TaskResult{
 			SubmissionID: task.SubmissionID,
 			Attempt:      task.Attempt,
-			Verdict:      VerdictSystemError,
+			Verdict:      runner.VerdictSystemError,
 			Message:      err.Error(),
 		}
 	}
@@ -151,7 +152,7 @@ func validateWorkerServer(raw string) error {
 }
 
 func taskNeedsProblemPackage(task *common.TaskPayload) bool {
-	return JudgeMode(task.Mode) == ModeCustom || len(task.Cases) > 0
+	return runner.JudgeMode(task.Mode) == runner.ModeCustom || len(task.Cases) > 0
 }
 
 const (
@@ -164,7 +165,7 @@ func validateTask(task *common.TaskPayload) error {
 	if task.ID == 0 || task.SubmissionID == 0 || task.Attempt <= 0 || task.Problem.ID == 0 {
 		return fmt.Errorf("task identity is invalid")
 	}
-	if task.Mode != string(ModeDefault) && task.Mode != string(ModeStrict) && task.Mode != string(ModeCustom) {
+	if task.Mode != string(runner.ModeDefault) && task.Mode != string(runner.ModeStrict) && task.Mode != string(runner.ModeCustom) {
 		return fmt.Errorf("judge mode is invalid")
 	}
 	if len(task.Source) > contractlimits.MaxSourceBytes {
@@ -230,29 +231,29 @@ func validateTaskCasePaths(task *common.TaskPayload) error {
 	return nil
 }
 
-func taskToTask(task *common.TaskPayload) Task {
-	cases := make([]Case, 0, len(task.Cases))
+func taskToTask(task *common.TaskPayload) runner.Task {
+	cases := make([]runner.Case, 0, len(task.Cases))
 	for _, item := range task.Cases {
-		cases = append(cases, Case{
+		cases = append(cases, runner.Case{
 			ID:     item.ID,
 			Input:  item.Input,
 			Answer: item.Answer,
 			Score:  item.Score,
 		})
 	}
-	return Task{
+	return runner.Task{
 		SubmissionID: task.SubmissionID,
 		Attempt:      task.Attempt,
 		Source:       task.Source,
-		Lang: Lang{
+		Lang: runner.Lang{
 			ID:      task.Lang.ID,
 			Source:  task.Lang.Source,
 			Image:   task.Lang.Image,
 			Compile: task.Lang.Compile,
 			Run:     task.Lang.Run,
 		},
-		Mode: JudgeMode(task.Mode),
-		Limits: Limits{
+		Mode: runner.JudgeMode(task.Mode),
+		Limits: runner.Limits{
 			TimeMS:   task.Limits.TimeMS,
 			MemoryKB: task.Limits.MemoryKB,
 			OutputKB: task.Limits.OutputKB,

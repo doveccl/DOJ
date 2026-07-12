@@ -1,10 +1,11 @@
+import type { ReactNode } from 'react'
+
 import { DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import { Button, Input, Popconfirm, Space, Table, Tooltip, Typography } from 'antd'
 
 import type { AdminGroupPage } from '../../../client'
+import { useLocale } from '../../../locale'
 import type { GroupRow } from '../types'
-import type { Block } from './shared'
-import { useAdminText } from './shared'
 
 export function GroupsTab({
   block,
@@ -19,7 +20,7 @@ export function GroupsTab({
   onEdit,
   onDelete
 }: {
-  block: Block
+  block: ReactNode
   data?: AdminGroupPage
   search: string
   setSearch: (value: string) => void
@@ -31,7 +32,7 @@ export function GroupsTab({
   onEdit: (row: GroupRow) => void
   onDelete: (id: number) => void
 }) {
-  const text = useAdminText()
+  const text = useLocale().text
   return block ?? (
     <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
@@ -62,6 +63,7 @@ export function GroupsTab({
           { title: text.admin.groups, dataIndex: 'name', width: 360, ellipsis: { showTitle: false }, render: (name: string) => <Typography.Text ellipsis={{ tooltip: name }}>{name}</Typography.Text> },
           { title: text.admin.userCount, render: (_, row) => <Typography.Text>{row.users?.length ?? 0}</Typography.Text> },
           {
+            title: text.common.actions,
             align: 'right',
             render: (_, row) => (
               <Space size={4}>

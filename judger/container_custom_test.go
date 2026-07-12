@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	jr "github.com/doveccl/doj/judger/runner"
 )
 
 func TestRunContainerTaskCustomInteractorFromDockerfileCMD(t *testing.T) {
@@ -48,14 +50,14 @@ fi
 	result, err := RunContainerTask(ctx, ContainerTask{
 		Runner: runner,
 		Work:   work,
-		Task: Task{
+		Task: jr.Task{
 			SubmissionID: 82,
 			Attempt:      1,
 			Source:       "#!/bin/sh\nwhile read n; do echo $((n * n)); done\n",
 			Lang:         testShellLang(),
-			Mode:         ModeCustom,
-			Limits:       Limits{TimeMS: 3000, OutputKB: 64, MemoryKB: 64 << 10, Pids: 32},
-			Cases: []Case{
+			Mode:         jr.ModeCustom,
+			Limits:       jr.Limits{TimeMS: 3000, OutputKB: 64, MemoryKB: 64 << 10, Pids: 32},
+			Cases: []jr.Case{
 				{ID: "interactive", Input: "interactive.in", Answer: "interactive.out", Score: 100},
 			},
 		},
@@ -63,7 +65,7 @@ fi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Verdict != VerdictAccepted || result.Score != 100 || len(result.Cases) != 1 {
+	if result.Verdict != jr.VerdictAccepted || result.Score != 100 || len(result.Cases) != 1 {
 		t.Fatalf("result = %#v", result)
 	}
 }
@@ -102,14 +104,14 @@ fi
 	result, err := RunContainerTask(ctx, ContainerTask{
 		Runner: runner,
 		Work:   work,
-		Task: Task{
+		Task: jr.Task{
 			SubmissionID: 83,
 			Attempt:      1,
 			Source:       "#!/bin/sh\nread n\necho $((n * n))\n",
 			Lang:         testShellLang(),
-			Mode:         ModeCustom,
-			Limits:       Limits{TimeMS: 60000, OutputKB: 128, MemoryKB: 64 << 10, Pids: 32},
-			Cases: []Case{
+			Mode:         jr.ModeCustom,
+			Limits:       jr.Limits{TimeMS: 60000, OutputKB: 128, MemoryKB: 64 << 10, Pids: 32},
+			Cases: []jr.Case{
 				{ID: "docker", Input: "docker.in", Answer: "docker.out", Score: 100},
 			},
 		},
@@ -117,7 +119,7 @@ fi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Verdict != VerdictAccepted || result.Score != 100 || len(result.Cases) != 1 {
+	if result.Verdict != jr.VerdictAccepted || result.Score != 100 || len(result.Cases) != 1 {
 		t.Fatalf("result = %#v", result)
 	}
 }
@@ -170,7 +172,7 @@ int main(int argc, char** argv) {
 	result, err := RunContainerTask(ctx, ContainerTask{
 		Runner: runner,
 		Work:   work,
-		Task: Task{
+		Task: jr.Task{
 			SubmissionID: 204,
 			Attempt:      1,
 			Source: `#include <bits/stdc++.h>
@@ -181,22 +183,22 @@ int main() {
   return 0;
 }
 `,
-			Lang: Lang{
+			Lang: jr.Lang{
 				ID:      "cpp",
 				Source:  "main.cc",
 				Image:   "gcc",
 				Compile: "g++ main.cc -o main",
 				Run:     "./main",
 			},
-			Mode:   ModeCustom,
-			Limits: Limits{TimeMS: 1000, MemoryKB: 64 << 10, OutputKB: 64, Pids: 32},
-			Cases:  []Case{{ID: "0", Input: "0.in", Answer: "0.out", Score: 100}},
+			Mode:   jr.ModeCustom,
+			Limits: jr.Limits{TimeMS: 1000, MemoryKB: 64 << 10, OutputKB: 64, Pids: 32},
+			Cases:  []jr.Case{{ID: "0", Input: "0.in", Answer: "0.out", Score: 100}},
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Verdict != VerdictAccepted || result.Score != 100 || len(result.Cases) != 1 {
+	if result.Verdict != jr.VerdictAccepted || result.Score != 100 || len(result.Cases) != 1 {
 		t.Fatalf("result = %#v", result)
 	}
 }

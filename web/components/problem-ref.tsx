@@ -65,7 +65,7 @@ export function ProblemRefInput({ value = [], onChange, options = [], loading, d
   const columns: TableProps<ProblemRef>['columns'] = [
     {
       title: text.common.sort,
-      width: 160,
+      width: 120,
       render: (_, row) => <Input value={row.sort} disabled={disabled} maxLength={limits.sort} onChange={(event) => setSort(row.id, event.target.value)} />
     },
     {

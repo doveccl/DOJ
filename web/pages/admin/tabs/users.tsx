@@ -1,11 +1,12 @@
+import type { ReactNode } from 'react'
+
 import { DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import { Button, Input, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd'
 
 import type { AdminUserPage } from '../../../client'
 import { UserLink } from '../../../components/entity'
+import { useLocale } from '../../../locale'
 import type { UserRow } from '../types'
-import type { Block } from './shared'
-import { useAdminText } from './shared'
 
 export function UsersTab({
   block,
@@ -23,7 +24,7 @@ export function UsersTab({
   resetLoadingName,
   onDelete
 }: {
-  block: Block
+  block: ReactNode
   data?: AdminUserPage
   search: string
   setSearch: (value: string) => void
@@ -38,7 +39,7 @@ export function UsersTab({
   resetLoadingName?: string
   onDelete: (name: string) => void
 }) {
-  const text = useAdminText()
+  const text = useLocale().text
   return block ?? (
     <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
@@ -71,6 +72,7 @@ export function UsersTab({
           { title: text.admin.role, dataIndex: 'role', render: (role: string) => <Tag color={role === 'admin' ? 'blue' : undefined}>{roleText[role] ?? role}</Tag> },
           { title: text.admin.groupCount, dataIndex: 'groups', render: (groups: number[] | undefined) => <Typography.Text>{groups?.length ?? 0}</Typography.Text> },
           {
+            title: text.common.actions,
             align: 'right',
             render: (_, row) => (
               <Space size={4}>

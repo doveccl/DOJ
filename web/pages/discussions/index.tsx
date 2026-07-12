@@ -305,6 +305,7 @@ function discussionColumns(
   ]
   if (admin || userName) {
     columns.push({
+      title: text.common.actions,
       width: admin ? 156 : 56,
       align: 'right',
       render: (_, row) => (

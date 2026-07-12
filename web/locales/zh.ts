@@ -63,7 +63,8 @@ export const zh = {
     shortTimer: 'HH:mm:ss',
     startsIn: { prefix: '', suffix: ' 后开始' },
     dueIn: { prefix: '', suffix: ' 后截止' },
-    endsIn: { prefix: '', suffix: ' 后结束' }
+    endsIn: { prefix: '', suffix: ' 后结束' },
+    frozenEndsIn: { prefix: '封榜中 · ', suffix: ' 后结束' }
   },
   home: {
     notice: '公告',
@@ -204,7 +205,6 @@ export const zh = {
     copy: '复制',
     copied: '源码已复制',
     copyFailed: '复制失败，请手动选择源码',
-    sourceHidden: '源码未公开，或当前活动尚未结束；仅提交者和管理员可查看',
     resultHidden: '评测结果暂未公布，将在比赛结束后显示',
     cases: '测试点',
     message: '消息',

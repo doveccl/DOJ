@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/doveccl/doj/judger/runner"
 )
 
 func TestTarDirectoryStreamsFiles(t *testing.T) {
@@ -38,7 +40,7 @@ func TestReadDockerErrorStream(t *testing.T) {
 }
 
 func TestRunnerHostConfigBoundsResources(t *testing.T) {
-	config := runnerHostConfig(Limits{MemoryKB: 256 << 10, Pids: 64, FileKB: 64 << 10}, []string{"work:/work"})
+	config := runnerHostConfig(runner.Limits{MemoryKB: 256 << 10, Pids: 64, FileKB: 64 << 10}, []string{"work:/work"})
 	if config.Memory != runnerMemoryFloor || config.NanoCPUs != runnerNanoCPUs || config.PidsLimit != runnerPidsFloor {
 		t.Fatalf("runner resources = memory %d cpu %d pids %d", config.Memory, config.NanoCPUs, config.PidsLimit)
 	}

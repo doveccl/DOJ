@@ -1,10 +1,11 @@
+import type { ReactNode } from 'react'
+
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
 import { Button, Popconfirm, Space, Table, Tooltip, Typography } from 'antd'
 
 import type { AdminLang } from '../../../client'
+import { useLocale } from '../../../locale'
 import type { LanguageRow } from '../types'
-import type { Block } from './shared'
-import { useAdminText } from './shared'
 
 export function LanguagesTab({
   block,
@@ -13,13 +14,13 @@ export function LanguagesTab({
   onEdit,
   onDelete
 }: {
-  block: Block
+  block: ReactNode
   data?: AdminLang[]
   onAdd: () => void
   onEdit: (row: LanguageRow) => void
   onDelete: (id: string) => void
 }) {
-  const text = useAdminText()
+  const text = useLocale().text
   return block ?? (
     <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Button type="primary" icon={<PlusOutlined />} onClick={onAdd}>
@@ -51,6 +52,7 @@ export function LanguagesTab({
             }
           },
           {
+            title: text.common.actions,
             align: 'right',
             render: (_, row) => (
               <Space size={4}>

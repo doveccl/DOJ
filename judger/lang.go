@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
+
+	"github.com/doveccl/doj/judger/runner"
 )
 
 type preparedLang struct {
@@ -17,9 +18,7 @@ type preparedLang struct {
 
 const languageSourceDir = "src"
 
-var ansiEscapePattern = regexp.MustCompile(`\x1b\[[0-?]*[ -/]*[@-~]`)
-
-func prepareLanguageRuntime(work string, lang Lang, source string) (preparedLang, error) {
+func prepareLanguageRuntime(work string, lang runner.Lang, source string) (preparedLang, error) {
 	if strings.TrimSpace(lang.Image) == "" {
 		return preparedLang{}, fmt.Errorf("language image is required")
 	}
@@ -58,8 +57,4 @@ func cleanLanguageSource(source string) (string, error) {
 		return "", fmt.Errorf("unsafe language source path %q", source)
 	}
 	return sourceName, nil
-}
-
-func cleanBuildMessage(message string) string {
-	return strings.TrimSpace(ansiEscapePattern.ReplaceAllString(message, ""))
 }

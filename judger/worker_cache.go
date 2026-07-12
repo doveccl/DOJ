@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/doveccl/doj/judger/runner"
 )
 
 var problemPackageLocks sync.Map
@@ -141,9 +143,9 @@ func problemCacheDir(root string, problemID uint) string {
 	return filepath.Join(root, fmt.Sprintf("P%d", problemID))
 }
 
-func customJudgeCachePath(root string, problemID uint, mode JudgeMode) string {
+func customJudgeCachePath(root string, problemID uint, mode runner.JudgeMode) string {
 	root = strings.TrimSpace(root)
-	if mode != ModeCustom || root == "" {
+	if mode != runner.ModeCustom || root == "" {
 		return ""
 	}
 	return filepath.Join(root, fmt.Sprintf("P%d", problemID), "judge.bin")

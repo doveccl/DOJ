@@ -1,4 +1,4 @@
-import { DeleteOutlined, EyeInvisibleOutlined, EyeOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
+import { DeleteOutlined, EditOutlined, EyeInvisibleOutlined, EyeOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import {
   App as AntApp,
   Button,
@@ -19,27 +19,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
-import { api, apiData, apiEmpty } from '../../client'
+import { api, apiData, apiEmpty, uploadProblemImage } from '../../client'
 import type { ProblemListItem, ProblemListPage, ProblemState } from '../../client'
 import { ProblemLink } from '../../components/entity'
-import { JudgeModeSelect } from '../../components/judge'
-import { LimitInput } from '../../components/limit'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
 import { TagList } from '../../components/tags'
 import { TagSelect } from '../../components/tag-select'
 import { useLocale } from '../../locale'
 import { useSession } from '../../session'
 import { formatLimit, formatPass, problemCode } from '../../utils/format'
-import { limits } from '../../utils/limits'
 import { pageFromParams, pageSizeFromParams, setPageParams } from '../../utils/pagination'
-
-type ProblemForm = {
-  title: string
-  tags?: string[]
-  mode: string
-  timeMs: number
-  memoryMb: number
-}
+import { problemAssetUploadMarkdownURL, problemMarkdownID } from '../../utils/markdown'
+import { ProblemFormFields } from './form'
+import type { ProblemFormValues } from './form'
 
 export function ProblemsPage() {
   const { text } = useLocale()
@@ -49,6 +41,7 @@ export function ProblemsPage() {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const [open, setOpen] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
   const q = params.get('q') ?? ''
   const tag = params.get('tag') ?? ''
   const page = pageFromParams(params)
@@ -65,7 +58,7 @@ export function ProblemsPage() {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
   const create = useMutation({
-    mutationFn: (values: ProblemForm) =>
+    mutationFn: (values: ProblemFormValues) =>
       apiData(api.POST('/api/problems', { body: {
         title: values.title,
         tags: values.tags ?? [],
@@ -79,6 +72,29 @@ export function ProblemsPage() {
       message.success(text.common.saved)
       closeModal()
       navigate(`/problems/${item.id}`)
+    },
+    onError: showError
+  })
+  const update = useMutation({
+    mutationFn: (values: ProblemFormValues) => {
+      if (!editingId) {
+        throw new Error(text.common.emptyResponse)
+      }
+      return apiData(api.PATCH('/api/problems/{id}', { params: { path: { id: editingId } }, body: {
+        title: values.title,
+        statement: values.statement ?? '',
+        tags: values.tags ?? [],
+        mode: values.mode,
+        timeMs: values.timeMs,
+        memoryMb: values.memoryMb
+      } }))
+    },
+    onSuccess: (item) => {
+      void client.invalidateQueries({ queryKey: ['problem', item.id] })
+      void client.invalidateQueries({ queryKey: ['problems'] })
+      void client.invalidateQueries({ queryKey: ['home'] })
+      message.success(text.common.saved)
+      closeModal()
     },
     onError: showError
   })
@@ -105,6 +121,7 @@ export function ProblemsPage() {
   const stateByProblem = new Map((state.data ?? []).map((item) => [item.problemId, item]))
   const stateLoading = ids.length > 0 && state.isLoading
   const columns = problemColumns(text, stateByProblem, {
+    edit: (item) => openEdit(item),
     remove: (id) => remove.mutate(id),
     toggle: (item) => visibility.mutate(item),
     toggling: (item) => visibility.isPending && visibility.variables?.id === item.id
@@ -126,14 +143,25 @@ export function ProblemsPage() {
   }
 
   function openCreate() {
+    setEditingId(null)
+    setOpen(true)
+  }
+
+  function openEdit(item: ProblemListItem) {
+    setEditingId(item.id)
     setOpen(true)
   }
 
   function closeModal() {
     setOpen(false)
+    setEditingId(null)
   }
 
-  function save(values: ProblemForm) {
+  function save(values: ProblemFormValues) {
+    if (editingId) {
+      update.mutate(values)
+      return
+    }
     create.mutate(values)
   }
 
@@ -180,55 +208,79 @@ export function ProblemsPage() {
         )}
       </Flex>
       {session.admin && open ? (
-        <ProblemModal loading={create.isPending} onCancel={closeModal} onSave={save} />
+        <ProblemModal editingId={editingId} loading={create.isPending || update.isPending} onCancel={closeModal} onSave={save} />
       ) : null}
     </Card>
   )
 }
 
 function ProblemModal({
+  editingId,
   loading,
   onCancel,
   onSave
 }: {
+  editingId: number | null
   loading: boolean
   onCancel: () => void
-  onSave: (values: ProblemForm) => void
+  onSave: (values: ProblemFormValues) => void
 }) {
   const { text } = useLocale()
-  const [form] = Form.useForm<ProblemForm>()
-  const initialValues = { tags: [], mode: 'default', timeMs: 1000, memoryMb: 256 }
+  const [form] = Form.useForm<ProblemFormValues>()
+  const isEdit = editingId !== null
+  const detail = useQuery({
+    queryKey: ['problem', editingId],
+    queryFn: () => apiData(api.GET('/api/problems/{id}', { params: { path: { id: editingId ?? 0 } } })),
+    enabled: isEdit
+  })
+  const initialValues: Partial<ProblemFormValues> = isEdit && detail.data
+    ? {
+        title: detail.data.title,
+        statement: detail.data.statement || `# ${detail.data.title}`,
+        tags: detail.data.tags,
+        mode: detail.data.mode,
+        timeMs: detail.data.timeMs,
+        memoryMb: detail.data.memoryMb
+      }
+    : { tags: [], mode: 'default', timeMs: 1000, memoryMb: 256 }
+  const body = isEdit && detail.isLoading ? (
+    <LoadingBlock />
+  ) : isEdit && detail.isError ? (
+    <ErrorBlock error={detail.error} />
+  ) : (
+    <Form<ProblemFormValues>
+      key={isEdit ? `problem-${editingId}` : 'problem-new'}
+      form={form}
+      preserve={false}
+      layout="vertical"
+      initialValues={initialValues}
+      onFinish={onSave}
+    >
+      <ProblemFormFields
+        showMode
+        statement={isEdit && editingId ? {
+          editorId: problemMarkdownID(editingId),
+          height: 260,
+          upload: async (file) => problemAssetUploadMarkdownURL(await uploadProblemImage(editingId, file), editingId)
+        } : undefined}
+      />
+    </Form>
+  )
 
   return (
     <Modal
       open
       destroyOnHidden
-      title={text.common.createProblem}
-      okText={text.common.create}
+      width={isEdit ? 780 : undefined}
+      title={isEdit ? text.common.edit : text.common.createProblem}
+      okText={isEdit ? text.common.save : text.common.create}
       cancelText={text.common.cancel}
       confirmLoading={loading}
       onCancel={onCancel}
       onOk={() => form.submit()}
+      okButtonProps={{ disabled: isEdit && !detail.data }}
     >
-      <Form<ProblemForm> form={form} preserve={false} layout="vertical" initialValues={initialValues} onFinish={onSave}>
-        <Form.Item name="title" label={text.problems.title} rules={[{ required: true, whitespace: true }]}>
-          <Input maxLength={limits.title} showCount />
-        </Form.Item>
-        <Form.Item name="tags" label={text.problems.tag}>
-          <TagSelect kind="problem" mode="tags" />
-        </Form.Item>
-        <Form.Item name="mode" label={text.problem.mode}>
-          <JudgeModeSelect />
-        </Form.Item>
-        <Space size={12} style={{ width: '100%' }} align="start">
-          <Form.Item name="timeMs" label={text.problems.time} rules={[{ required: true }]}>
-            <LimitInput min={100} step={100} unit="ms" />
-          </Form.Item>
-          <Form.Item name="memoryMb" label={text.problems.memory} rules={[{ required: true }]}>
-            <LimitInput min={16} step={16} unit="MB" />
-          </Form.Item>
-        </Space>
-      </Form>
+      {body}
     </Modal>
   )
 }
@@ -237,6 +289,7 @@ function problemColumns(
   text: ReturnType<typeof useLocale>['text'],
   state: Map<number, ProblemState>,
   actions: {
+    edit: (item: ProblemListItem) => void
     remove: (id: number) => void
     toggle: (item: ProblemListItem) => void
     toggling: (item: ProblemListItem) => boolean
@@ -260,6 +313,7 @@ function problemColumns(
     {
       title: text.problems.tag,
       dataIndex: 'tags',
+      width: 280,
       render: (tags: string[]) => <TagList tags={tags} empty={<Typography.Text type="secondary">-</Typography.Text>} />
     },
     {
@@ -276,6 +330,7 @@ function problemColumns(
   ]
   if (admin) {
     columns.push({
+      title: text.common.actions,
       align: 'right',
       render: (_, row) => (
         <Space size={4}>
@@ -288,6 +343,9 @@ function problemColumns(
               disabled={actions.toggling(row)}
               onClick={(event) => { event.stopPropagation(); actions.toggle(row) }}
             />
+          </Tooltip>
+          <Tooltip title={text.common.edit}>
+            <Button aria-label={`${text.common.edit} ${problemCode(row.id)}`} type="text" icon={<EditOutlined />} onClick={() => actions.edit(row)} />
           </Tooltip>
           <Popconfirm title={text.common.confirmDelete} okText={text.common.delete} cancelText={text.common.cancel} onConfirm={() => actions.remove(row.id)}>
             <Button aria-label={`${text.common.delete} ${problemCode(row.id)}`} type="text" danger icon={<DeleteOutlined />} />

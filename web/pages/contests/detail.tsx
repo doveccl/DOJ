@@ -1,35 +1,24 @@
 import { EditOutlined, UnorderedListOutlined } from '@ant-design/icons'
-import { Alert, App as AntApp, Button, Card, DatePicker, Flex, Form, Input, Modal, Select, Space, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
+import { Alert, App as AntApp, Button, Card, Flex, Form, Space, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
-import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { api, apiData } from '../../client'
-import type { ProblemListItem, ProblemRef, ProblemState, RankUser } from '../../client'
+import type { ProblemListItem, ProblemState, RankUser } from '../../client'
 import { DescriptionCard } from '../../components/description'
 import { ProblemLink, UserLink } from '../../components/entity'
-import { MarkdownEditor } from '../../components/markdown'
-import { defaultProblemSort, ProblemRefInput } from '../../components/problem-ref'
+import { defaultProblemSort } from '../../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
 import { contestTarget, DeadlineTimer } from '../../components/time'
 import { useLocale } from '../../locale'
 import { useSession } from '../../session'
 import { formatTime, problemCode, problemLabel } from '../../utils/format'
-import { limits } from '../../utils/limits'
-
-type ContestForm = {
-  title: string
-  description: string
-  kind: string
-  startAt: Dayjs
-  endAt: Dayjs
-  freezeAt?: Dayjs | null
-  problems?: ProblemRef[]
-}
+import { ContestFormFields } from './form'
+import type { ContestFormValues } from './form'
 
 export function ContestDetailPage() {
   const { lang, text } = useLocale()
@@ -39,6 +28,7 @@ export function ContestDetailPage() {
   const params = useParams()
   const id = Number(params.id)
   const [editOpen, setEditOpen] = useState(false)
+  const [editForm] = Form.useForm<ContestFormValues>()
   const query = useQuery({
     queryKey: ['contest', id],
     queryFn: () => apiData(api.GET('/api/contests/{id}', { params: { path: { id } } })),
@@ -54,14 +44,14 @@ export function ContestDetailPage() {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
   const update = useMutation({
-    mutationFn: (values: ContestForm) =>
+    mutationFn: (values: ContestFormValues) =>
       apiData(api.PATCH('/api/contests/{id}', { params: { path: { id } }, body: {
         title: values.title,
         description: values.description,
         kind: values.kind,
         startAt: values.startAt.toISOString(),
         endAt: values.endAt.toISOString(),
-        freezeAt: values.freezeAt?.toISOString() ?? '',
+        freezeAt: values.kind === 'ICPC' ? (values.freezeAt?.toISOString() ?? '') : '',
         problems: values.problems ?? []
       } })),
     onSuccess: () => {
@@ -95,6 +85,20 @@ export function ContestDetailPage() {
     value: item.id,
     label: problemLabel(item.id, item.title)
   }))
+  const editFormId = `contest-${contest.id}-edit-form`
+  const save = (values: ContestFormValues) => {
+    if (contest.status === 'pending') {
+      update.mutate(values)
+      return
+    }
+    modal.confirm({
+      title: text.contests.changeWarning,
+      content: text.contests.changeWarningDescription,
+      okText: text.common.save,
+      cancelText: text.common.cancel,
+      onOk: () => update.mutate(values)
+    })
+  }
 
   return (
     <Flex vertical gap={16}>
@@ -103,30 +107,59 @@ export function ContestDetailPage() {
         value={query.data.description}
         header={
           <Flex align="center" gap={10} style={{ minWidth: 0 }}>
-            <Typography.Title level={3} ellipsis={{ tooltip: contest.title }} style={{ margin: 0, minWidth: 0 }}>
+            <Typography.Text ellipsis={{ tooltip: contest.title }} style={{ minWidth: 0 }}>
               {contest.title}
-            </Typography.Title>
+            </Typography.Text>
             <Tag>{contest.kind}</Tag>
           </Flex>
         }
         extra={
-          <Space size={16} wrap>
-            <DeadlineTimer
-              kind="contest"
-              status={contest.status}
-              target={contestTarget(contest.status, contest.startAt, contest.endAt)}
-              range={`${formatTime(contest.startAt, lang)} - ${formatTime(contest.endAt, lang)}`}
-              onFinish={() => void query.refetch()}
-            />
-            <Space size={8} wrap>
-              <Button icon={<UnorderedListOutlined />} href={`/submissions?contest=${contest.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`}>
-                {recordsUser ? text.submissions.myRecords : text.submissions.allRecords}
-              </Button>
-              {session.admin ? <Button icon={<EditOutlined />} onClick={() => setEditOpen(true)}>{text.common.edit}</Button> : null}
+          editOpen ? (
+            <Space size={8}>
+              <Button onClick={() => setEditOpen(false)}>{text.common.cancel}</Button>
+              <Button type="primary" htmlType="submit" form={editFormId} loading={update.isPending}>{text.common.save}</Button>
             </Space>
-          </Space>
+          ) : (
+            <Space size={16} wrap>
+              <DeadlineTimer
+                kind="contest"
+                status={contest.status}
+                target={contestTarget(contest.status, contest.startAt, contest.endAt)}
+                range={`${formatTime(contest.startAt, lang)} - ${formatTime(contest.endAt, lang)}`}
+                onFinish={() => void query.refetch()}
+              />
+              <Space size={8} wrap>
+                <Button icon={<UnorderedListOutlined />} href={`/submissions?contest=${contest.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`}>
+                  {recordsUser ? text.submissions.myRecords : text.submissions.allRecords}
+                </Button>
+                {session.admin ? <Button icon={<EditOutlined />} onClick={() => setEditOpen(true)}>{text.common.edit}</Button> : null}
+              </Space>
+            </Space>
+          )
         }
-      />
+      >
+        {editOpen ? (
+          <Form<ContestFormValues>
+            id={editFormId}
+            key={editFormId}
+            form={editForm}
+            preserve={false}
+            layout="vertical"
+            initialValues={{
+              title: contest.title,
+              description: query.data.description,
+              kind: contest.kind,
+              startAt: dayjs(contest.startAt),
+              endAt: dayjs(contest.endAt),
+              freezeAt: contest.freezeAt ? dayjs(contest.freezeAt) : null,
+              problems: problems.map((problem, index) => ({ id: problem.id, sort: problem.sort || defaultProblemSort(index) }))
+            }}
+            onFinish={save}
+          >
+            <ContestFormFields form={editForm} editorId={`contest-${contest.id}-description-edit`} problemOptions={problemOptions} />
+          </Form>
+        ) : undefined}
+      </DescriptionCard>
       <Card>
         <Tabs
           items={[
@@ -159,105 +192,7 @@ export function ContestDetailPage() {
           ]}
         />
       </Card>
-      {editOpen ? (
-        <ContestEditModal
-          contest={contest}
-          description={query.data.description}
-          problems={problems}
-          problemOptions={problemOptions}
-          loading={update.isPending}
-          onCancel={() => setEditOpen(false)}
-          onSave={(values) => {
-            if (contest.status === 'pending') {
-              update.mutate(values)
-              return
-            }
-            modal.confirm({
-              title: text.contests.changeWarning,
-              content: text.contests.changeWarningDescription,
-              okText: text.common.save,
-              cancelText: text.common.cancel,
-              onOk: () => update.mutate(values)
-            })
-          }}
-        />
-      ) : null}
     </Flex>
-  )
-}
-
-function ContestEditModal({
-  contest,
-  description,
-  problems,
-  problemOptions,
-  loading,
-  onCancel,
-  onSave
-}: {
-  contest: { id: number; title: string; kind: string; startAt: string; endAt: string; freezeAt: string | null }
-  description: string
-  problems: ProblemListItem[]
-  problemOptions: { value: number; label: string }[]
-  loading: boolean
-  onCancel: () => void
-  onSave: (values: ContestForm) => void
-}) {
-  const { text } = useLocale()
-  const [form] = Form.useForm<ContestForm>()
-  const initialValues = {
-    title: contest.title,
-    description,
-    kind: contest.kind,
-    startAt: dayjs(contest.startAt),
-    endAt: dayjs(contest.endAt),
-    freezeAt: contest.freezeAt ? dayjs(contest.freezeAt) : null,
-    problems: problems.map((problem, index) => ({ id: problem.id, sort: problem.sort || defaultProblemSort(index) }))
-  }
-
-  return (
-    <Modal
-      open
-      destroyOnHidden
-      width={780}
-      title={text.common.edit}
-      okText={text.common.save}
-      cancelText={text.common.cancel}
-      confirmLoading={loading}
-      onCancel={onCancel}
-      onOk={() => form.submit()}
-    >
-      <Form<ContestForm> form={form} preserve={false} layout="vertical" initialValues={initialValues} onFinish={onSave}>
-        <Form.Item name="title" label={text.contests.name} rules={[{ required: true, whitespace: true }]}>
-          <Input maxLength={limits.title} showCount />
-        </Form.Item>
-        <Form.Item name="description" label={text.contests.description}>
-          <MarkdownEditor id={`contest-${contest.id}-description-edit`} height={220} />
-        </Form.Item>
-        <Form.Item name="kind" label={text.contests.kind}>
-          <Select
-            options={[
-              { value: 'OI', label: 'OI' },
-              { value: 'ICPC', label: 'ICPC' }
-            ]}
-          />
-        </Form.Item>
-        <Space size={12} style={{ width: '100%' }} align="start">
-          <Form.Item name="startAt" label={text.contests.start} rules={[{ required: true }]}>
-            <DatePicker showTime />
-          </Form.Item>
-          <Form.Item name="endAt" label={text.contests.end} rules={[{ required: true }]}>
-            <DatePicker showTime />
-          </Form.Item>
-          <Form.Item name="freezeAt" label={text.contests.freeze}>
-            <DatePicker showTime />
-          </Form.Item>
-        </Space>
-        <Form.Item name="problems" label={text.contests.problems}>
-          <ProblemRefInput options={problemOptions} />
-        </Form.Item>
-      </Form>
-    </Modal>
   )
 }
 
@@ -349,7 +284,7 @@ function problemColumns(text: ReturnType<typeof useLocale>['text'], contestID: n
     {
       title: text.common.sort,
       dataIndex: 'sort',
-      width: 120,
+      width: 88,
       render: (sort: string | undefined, row) => <Typography.Text>{sort || problemCode(row.id)}</Typography.Text>
     },
     {
@@ -364,6 +299,7 @@ function problemColumns(text: ReturnType<typeof useLocale>['text'], contestID: n
       render: (_, row) => <ContestProblemStatus record={state.get(row.id)} text={text} />
     },
     {
+      title: text.common.actions,
       align: 'right',
       render: (_, row) => (
         <Tooltip title={text.submissions.viewProblemRecords}>

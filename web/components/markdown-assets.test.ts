@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import { markdownEditorExtensionURLs } from './markdown-assets'
+import { markdownEditorExtensions } from './markdown-assets'
 
 describe('markdown editor runtime assets', () => {
   it('keeps md-editor dynamic extension urls same-origin', () => {
-    for (const url of markdownEditorExtensionURLs()) {
+    const urls = [
+      markdownEditorExtensions.highlight.js,
+      ...Object.values(markdownEditorExtensions.highlight.css).flatMap((theme) => [theme.light, theme.dark])
+    ]
+    for (const url of urls) {
       expect(url).not.toMatch(/^https?:\/\//)
       expect(url).not.toMatch(/^\/\//)
     }

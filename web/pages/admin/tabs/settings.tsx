@@ -1,11 +1,12 @@
+import type { ReactNode } from 'react'
+
 import { Form, Input, Switch } from 'antd'
 import type { FormInstance } from 'antd'
 
 import type { AdminSettings } from '../../../client'
+import { useLocale } from '../../../locale'
 import { limits } from '../../../utils/limits'
 import type { SettingsForm } from '../types'
-import type { Block } from './shared'
-import { useAdminText } from './shared'
 
 export function SettingsTab({
   block,
@@ -15,14 +16,14 @@ export function SettingsTab({
   saveSiteName,
   savePatch
 }: {
-  block: Block
+  block: ReactNode
   form: FormInstance<SettingsForm>
   data?: AdminSettings
   pending: boolean
   saveSiteName: (value: string) => void
   savePatch: (patch: Partial<SettingsForm>) => void
 }) {
-  const text = useAdminText()
+  const text = useLocale().text
   return block ?? (
     <Form<SettingsForm>
       form={form}

@@ -2,13 +2,13 @@ import { CloudUploadOutlined, DeleteOutlined, DownloadOutlined } from '@ant-desi
 import { AutoComplete, Button, Flex, Form, InputNumber, Popconfirm, Space, Switch, Table, Tooltip, Typography } from 'antd'
 
 import type { BackupItem, BackupList, BackupSettings } from '../../../client'
-import { localeCode } from '../../../locale'
+import { localeCode, useLocale } from '../../../locale'
 import type { Lang } from '../../../locale'
 import { ErrorBlock, LoadingBlock } from '../../../components/state'
 import { formatBytes } from '../../../utils/format'
 import type { BackupSettingsForm } from '../types'
-import type { Option } from './shared'
-import { useAdminText } from './shared'
+
+type Option = { value: string; label: string }
 
 export function BackupsTab({
   settings,
@@ -26,7 +26,7 @@ export function BackupsTab({
 }: {
   settings: { isLoading: boolean; isError: boolean; error: unknown; data?: BackupSettings }
   backups: { isLoading: boolean; isError: boolean; error: unknown; data?: BackupList }
-  cronOptions: Option<string>[]
+  cronOptions: Option[]
   createLoading: boolean
   settingsSaveLoading: boolean
   downloadName?: string
@@ -37,7 +37,7 @@ export function BackupsTab({
   onDelete: (name: string) => void
   lang: Lang
 }) {
-  const text = useAdminText()
+  const text = useLocale().text
   const [form] = Form.useForm<BackupSettingsForm>()
   const saveSettings = (patch?: Partial<BackupSettingsForm>) => {
     if (!settings.data) {
@@ -86,6 +86,7 @@ export function BackupsTab({
             { title: text.admin.createdAt, dataIndex: 'createdAt', render: (value: string) => new Date(value).toLocaleString(localeCode(lang)) },
             { title: text.admin.backupSize, dataIndex: 'size', render: (value: number) => formatBytes(value) },
             {
+              title: text.common.actions,
               align: 'right',
               render: (_, row) => (
                 <Space size={4}>

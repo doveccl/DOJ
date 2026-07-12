@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	jr "github.com/doveccl/doj/judger/runner"
 )
 
 func TestRunContainerTaskNormalMultiCase(t *testing.T) {
@@ -23,14 +25,14 @@ func TestRunContainerTaskNormalMultiCase(t *testing.T) {
 	result, err := RunContainerTask(ctx, ContainerTask{
 		Runner: runner,
 		Work:   work,
-		Task: Task{
+		Task: jr.Task{
 			SubmissionID: 80,
 			Attempt:      1,
 			Source:       "#!/bin/sh\nread a b\necho $((a + b))\n",
 			Lang:         testShellLang(),
-			Mode:         ModeDefault,
-			Limits:       Limits{TimeMS: 3000, OutputKB: 64, MemoryKB: 64 << 10, Pids: 32},
-			Cases: []Case{
+			Mode:         jr.ModeDefault,
+			Limits:       jr.Limits{TimeMS: 3000, OutputKB: 64, MemoryKB: 64 << 10, Pids: 32},
+			Cases: []jr.Case{
 				{ID: "1", Input: "1.in", Answer: "1.out", Score: 40},
 				{ID: "2", Input: "2.in", Answer: "2.out", Score: 60},
 			},
@@ -39,7 +41,7 @@ func TestRunContainerTaskNormalMultiCase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Verdict != VerdictAccepted || result.Score != 100 || len(result.Cases) != 2 {
+	if result.Verdict != jr.VerdictAccepted || result.Score != 100 || len(result.Cases) != 2 {
 		t.Fatalf("result = %#v", result)
 	}
 	maxCaseTime := 0
@@ -71,26 +73,26 @@ func TestRunContainerTaskCppPartialInputReaderIsWrongAnswer(t *testing.T) {
 	result, err := RunContainerTask(ctx, ContainerTask{
 		Runner: runner,
 		Work:   work,
-		Task: Task{
+		Task: jr.Task{
 			SubmissionID: 85,
 			Attempt:      1,
 			Source:       "#include <bits/stdc++.h>\nusing namespace std;\nint main(){ long long a,b; cin>>a>>b; cout<<a+b<<'\\n'; }\n",
-			Lang: Lang{
+			Lang: jr.Lang{
 				ID:      "cpp",
 				Source:  "main.cc",
 				Image:   "gcc:14",
 				Compile: "g++ -std=c++20 -O2 -pipe -static -s main.cc -o main",
 				Run:     "./main",
 			},
-			Mode:   ModeDefault,
-			Limits: Limits{TimeMS: 1000, MemoryKB: 256 * 1024, OutputKB: 64, Pids: 64},
-			Cases:  []Case{{ID: "1", Input: "1.in", Answer: "1.out", Score: 100}},
+			Mode:   jr.ModeDefault,
+			Limits: jr.Limits{TimeMS: 1000, MemoryKB: 256 * 1024, OutputKB: 64, Pids: 64},
+			Cases:  []jr.Case{{ID: "1", Input: "1.in", Answer: "1.out", Score: 100}},
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Verdict != VerdictWrongAnswer || len(result.Cases) != 1 || result.Cases[0].Verdict != VerdictWrongAnswer {
+	if result.Verdict != jr.VerdictWrongAnswer || len(result.Cases) != 1 || result.Cases[0].Verdict != jr.VerdictWrongAnswer {
 		t.Fatalf("result = %#v", result)
 	}
 }
@@ -109,14 +111,14 @@ func TestRunContainerTaskCgroupAttach(t *testing.T) {
 		Work:       work,
 		CgroupRoot: root,
 		ProcRoot:   "/proc",
-		Task: Task{
+		Task: jr.Task{
 			SubmissionID: 81,
 			Attempt:      2,
 			Source:       "#!/bin/sh\nread ignored\necho ok\n",
 			Lang:         testShellLang(),
-			Mode:         ModeDefault,
-			Limits:       Limits{TimeMS: 3000, OutputKB: 64, MemoryKB: 64 << 10, Pids: 32},
-			Cases: []Case{
+			Mode:         jr.ModeDefault,
+			Limits:       jr.Limits{TimeMS: 3000, OutputKB: 64, MemoryKB: 64 << 10, Pids: 32},
+			Cases: []jr.Case{
 				{ID: "1", Input: "1.in", Answer: "1.out", Score: 100},
 			},
 		},
@@ -124,7 +126,7 @@ func TestRunContainerTaskCgroupAttach(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Verdict != VerdictAccepted || result.Score != 100 || len(result.Cases) != 1 {
+	if result.Verdict != jr.VerdictAccepted || result.Score != 100 || len(result.Cases) != 1 {
 		t.Fatalf("result = %#v", result)
 	}
 	if result.Cases[0].MemoryKB <= 0 {
@@ -159,26 +161,26 @@ int main() {
 		Work:       work,
 		CgroupRoot: root,
 		ProcRoot:   "/proc",
-		Task: Task{
+		Task: jr.Task{
 			SubmissionID: 88,
 			Attempt:      1,
 			Source:       source,
-			Lang: Lang{
+			Lang: jr.Lang{
 				ID:      "cpp",
 				Source:  "main.cc",
 				Image:   "gcc",
 				Compile: "g++ main.cc -o main",
 				Run:     "./main",
 			},
-			Mode:   ModeDefault,
-			Limits: Limits{TimeMS: 3000, MemoryKB: 16 * 1024, OutputKB: 64, Pids: 64},
-			Cases:  []Case{{ID: "1", Input: "1.in", Answer: "1.out", Score: 100}},
+			Mode:   jr.ModeDefault,
+			Limits: jr.Limits{TimeMS: 3000, MemoryKB: 16 * 1024, OutputKB: 64, Pids: 64},
+			Cases:  []jr.Case{{ID: "1", Input: "1.in", Answer: "1.out", Score: 100}},
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Verdict != VerdictMemoryLimit || len(result.Cases) != 1 || result.Cases[0].Verdict != VerdictMemoryLimit {
+	if result.Verdict != jr.VerdictMemoryLimit || len(result.Cases) != 1 || result.Cases[0].Verdict != jr.VerdictMemoryLimit {
 		t.Fatalf("result = %#v", result)
 	}
 	if result.MemoryKB <= 0 {

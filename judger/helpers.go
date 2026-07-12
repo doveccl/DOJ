@@ -5,22 +5,12 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/doveccl/doj/judger/runner"
 )
 
 const defaultCompileOutputLimit = 256 << 10
 
-func safeCaseID(id string) string {
-	return runner.SafeCaseID(id)
-}
-
 func elapsedMS(startedAt time.Time) int {
 	return int(time.Since(startedAt).Milliseconds())
-}
-
-func cgroupMemoryLimitReached(stats CgroupStats) bool {
-	return runner.CgroupMemoryLimitReached(stats)
 }
 
 type limitBuffer struct {

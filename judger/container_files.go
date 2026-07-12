@@ -4,9 +4,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/doveccl/doj/judger/runner"
 )
 
-func stashCaseFiles(work string, cases []Case) (func() error, error) {
+func stashCaseFiles(work string, cases []runner.Case) (func() error, error) {
 	tmp, err := os.MkdirTemp(filepath.Dir(work), ".case-assets-")
 	if err != nil {
 		return nil, err
@@ -64,7 +66,7 @@ func stashCaseFiles(work string, cases []Case) (func() error, error) {
 	}, nil
 }
 
-func protectCaseFiles(work string, cases []Case) error {
+func protectCaseFiles(work string, cases []runner.Case) error {
 	for _, item := range cases {
 		for _, name := range []string{item.Input, item.Answer} {
 			path := absolutizeWorkFile(work, name)

@@ -12,14 +12,13 @@ import (
 	"github.com/doveccl/doj/judger/runner"
 )
 
-const Version = runner.Version
 const JudgerRoot = "/var/lib/doj"
 
 const defaultServer = "http://localhost:7974"
 
 func JudgerCLI(ctx context.Context, args []string) int {
 	if len(args) > 0 && args[0] == "version" {
-		fmt.Fprintln(os.Stdout, Version)
+		fmt.Fprintln(os.Stdout, runner.Version)
 		return 0
 	}
 	if len(args) > 0 {
@@ -31,7 +30,7 @@ func JudgerCLI(ctx context.Context, args []string) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	runner, err := installRunner()
+	runnerPath, err := installRunner()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
@@ -50,10 +49,10 @@ func JudgerCLI(ctx context.Context, args []string) int {
 		Worker: WorkerConfig{
 			Server:     getenv("SERVER", defaultServer),
 			Token:      os.Getenv("TOKEN"),
-			Runner:     runner,
+			Runner:     runnerPath,
 			Tasks:      tasks,
 			Cache:      cache,
-			CgroupRoot: DefaultCgroupRoot(),
+			CgroupRoot: runner.DefaultCgroupRoot(),
 			ProcRoot:   "/proc",
 		},
 		Concurrency: getenvInt("CONCURRENCY", 1),

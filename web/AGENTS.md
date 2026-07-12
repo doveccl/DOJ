@@ -28,7 +28,9 @@
 - Home page order: notice, heatmap, latest problems/assignments/contests.
 - The notice is edited inline on the home page, not in admin settings.
 - Management actions should live near the business object: problems on problem pages, assignments on assignment pages, contests on contest pages, discussions on discussion pages.
-- Assignment and contest detail Card headers keep long titles on one ellipsized line; schedule information comes before a grouped set of action buttons in `extra`.
+- Editable entity list pages use modal create/edit forms; entity detail pages edit in place inside the existing primary Card. Reuse the business form fields, not a generic schema-driven editor.
+- Card titles use the native Card title typography rather than nested heading components. Assignment and contest detail Card headers keep long titles on one ellipsized line; their shared responsive header puts schedule information before a grouped set of actions and wraps below the title on narrow screens.
+- Assignment and contest lists use a compact status Tag. Their detail headers use the same explicit ended state plus the relevant deadline or range; do not fall back to a bare timestamp.
 - Problem references should display as clickable `P{id} {title}` under a column named “题目”.
 - User references are clickable usernames; only the rank page shows avatars in the user column.
 - Markdown uploads must use server-returned relative URLs. Rendering may rewrite relative asset URLs to API URLs.

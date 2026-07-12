@@ -6,6 +6,9 @@
 
 - Judger talks only to the server API.
 - PostgreSQL, Redis/Valkey, and object storage are server-only dependencies.
+- The outer Judger container is only a deployment wrapper, not a security boundary. It intentionally runs privileged with the host PID/cgroup namespaces and Docker socket; do not trade orchestration correctness for capability-based hardening there.
+- Runner language containers and per-case cgroups are the user-code isolation boundary. Keep their network, capability, filesystem, identity, process, and resource restrictions intact.
+- Privileged mode with the host cgroup namespace exposes the writable host cgroup hierarchy; do not add an explicit `/sys/fs/cgroup` bind unless a supported Docker engine proves it necessary.
 - Language config comes from the server as a source file name, fixed image, compile command, and run command. User source is written into an isolated source dir; host-side judger compiles in a short-lived container that sees only source and an empty output dir, then runner runs cases in the fixed language container.
 - Server sends resource limits to judger in KB. Judger reports memory in KB.
 

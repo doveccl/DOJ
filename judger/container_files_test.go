@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	jr "github.com/doveccl/doj/judger/runner"
 )
 
 func TestRunContainerTaskUserCannotReadJobArtifacts(t *testing.T) {
@@ -47,14 +49,14 @@ fi
 	result, err := RunContainerTask(ctx, ContainerTask{
 		Runner: runner,
 		Work:   work,
-		Task: Task{
+		Task: jr.Task{
 			SubmissionID: 84,
 			Attempt:      1,
 			Source:       source,
 			Lang:         testShellLang(),
-			Mode:         ModeDefault,
-			Limits:       Limits{TimeMS: 3000, OutputKB: 64, MemoryKB: 64 << 10, Pids: 32},
-			Cases: []Case{
+			Mode:         jr.ModeDefault,
+			Limits:       jr.Limits{TimeMS: 3000, OutputKB: 64, MemoryKB: 64 << 10, Pids: 32},
+			Cases: []jr.Case{
 				{ID: "secret", Input: "secret.in", Answer: "secret.out", Score: 100},
 			},
 		},
@@ -62,7 +64,7 @@ fi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Verdict != VerdictAccepted || result.Score != 100 || len(result.Cases) != 1 {
+	if result.Verdict != jr.VerdictAccepted || result.Score != 100 || len(result.Cases) != 1 {
 		t.Fatalf("result = %#v", result)
 	}
 }
@@ -81,26 +83,26 @@ int main(){ return 0; }
 	result, err := RunContainerTask(ctx, ContainerTask{
 		Runner: runner,
 		Work:   work,
-		Task: Task{
+		Task: jr.Task{
 			SubmissionID: 86,
 			Attempt:      1,
 			Source:       source,
-			Lang: Lang{
+			Lang: jr.Lang{
 				ID:      "cpp",
 				Source:  "main.cc",
 				Image:   "gcc:14",
 				Compile: "g++ -std=c++20 -O2 -pipe -static -s main.cc -o main",
 				Run:     "./main",
 			},
-			Mode:   ModeDefault,
-			Limits: Limits{TimeMS: 1000, MemoryKB: 256 * 1024, OutputKB: 64, Pids: 64},
-			Cases:  []Case{{ID: "secret", Input: "secret.in", Answer: "secret.out", Score: 100}},
+			Mode:   jr.ModeDefault,
+			Limits: jr.Limits{TimeMS: 1000, MemoryKB: 256 * 1024, OutputKB: 64, Pids: 64},
+			Cases:  []jr.Case{{ID: "secret", Input: "secret.in", Answer: "secret.out", Score: 100}},
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Verdict != VerdictCompileError {
+	if result.Verdict != jr.VerdictCompileError {
 		t.Fatalf("result = %#v", result)
 	}
 	if result.TimeMS != 0 {
@@ -129,20 +131,20 @@ cat
 	result, err := RunContainerTask(ctx, ContainerTask{
 		Runner: runner,
 		Work:   work,
-		Task: Task{
+		Task: jr.Task{
 			SubmissionID: 87,
 			Attempt:      1,
 			Source:       source,
-			Lang:         Lang{ID: "sh-compile", Source: "main.sh", Image: "alpine:3.20", Compile: "sh main.sh compile", Run: "sh program.sh run"},
-			Mode:         ModeDefault,
-			Limits:       Limits{TimeMS: 1000, MemoryKB: 64 << 10, OutputKB: 64, Pids: 32, FileKB: 64 << 10},
-			Cases:        []Case{{ID: "1", Input: "1.in", Answer: "1.out", Score: 100}},
+			Lang:         jr.Lang{ID: "sh-compile", Source: "main.sh", Image: "alpine:3.20", Compile: "sh main.sh compile", Run: "sh program.sh run"},
+			Mode:         jr.ModeDefault,
+			Limits:       jr.Limits{TimeMS: 1000, MemoryKB: 64 << 10, OutputKB: 64, Pids: 32, FileKB: 64 << 10},
+			Cases:        []jr.Case{{ID: "1", Input: "1.in", Answer: "1.out", Score: 100}},
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Verdict != VerdictAccepted {
+	if result.Verdict != jr.VerdictAccepted {
 		t.Fatalf("compiler was root or compiled program failed: %#v", result)
 	}
 }
@@ -172,26 +174,26 @@ int main() {
 	result, err := RunContainerTask(ctx, ContainerTask{
 		Runner: runner,
 		Work:   work,
-		Task: Task{
+		Task: jr.Task{
 			SubmissionID: 87,
 			Attempt:      1,
 			Source:       source,
-			Lang: Lang{
+			Lang: jr.Lang{
 				ID:      "cpp",
 				Source:  "main.cc",
 				Image:   "gcc",
 				Compile: "g++ main.cc -o main",
 				Run:     "./main",
 			},
-			Mode:   ModeDefault,
-			Limits: Limits{TimeMS: 1000, MemoryKB: 256 * 1024, OutputKB: 64, Pids: 64},
-			Cases:  []Case{{ID: "0", Input: "data/0.in", Answer: "data/0.out", Score: 100}},
+			Mode:   jr.ModeDefault,
+			Limits: jr.Limits{TimeMS: 1000, MemoryKB: 256 * 1024, OutputKB: 64, Pids: 64},
+			Cases:  []jr.Case{{ID: "0", Input: "data/0.in", Answer: "data/0.out", Score: 100}},
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Verdict != VerdictAccepted {
+	if result.Verdict != jr.VerdictAccepted {
 		t.Fatalf("result = %#v", result)
 	}
 }

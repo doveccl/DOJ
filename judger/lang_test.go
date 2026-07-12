@@ -4,11 +4,13 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/doveccl/doj/judger/runner"
 )
 
 func TestPrepareLanguageRuntimeWritesSourceAndCommands(t *testing.T) {
 	work := t.TempDir()
-	lang, err := prepareLanguageRuntime(work, Lang{
+	lang, err := prepareLanguageRuntime(work, runner.Lang{
 		ID:      "cpp",
 		Source:  "main.cc",
 		Image:   "gcc:14",
@@ -42,7 +44,7 @@ func TestPrepareLanguageRuntimeWritesSourceAndCommands(t *testing.T) {
 func TestPrepareLanguageRuntimeRejectsUnsafeSource(t *testing.T) {
 	for _, source := range []string{"../main.cc", "/main.cc", ".", "src/main.cc"} {
 		t.Run(source, func(t *testing.T) {
-			if _, err := prepareLanguageRuntime(t.TempDir(), Lang{Source: source, Image: "gcc:14", Run: "./main"}, ""); err == nil {
+			if _, err := prepareLanguageRuntime(t.TempDir(), runner.Lang{Source: source, Image: "gcc:14", Run: "./main"}, ""); err == nil {
 				t.Fatal("expected unsafe source to be rejected")
 			}
 		})
@@ -50,7 +52,7 @@ func TestPrepareLanguageRuntimeRejectsUnsafeSource(t *testing.T) {
 }
 
 func TestCleanBuildMessageStripsANSI(t *testing.T) {
-	got := cleanBuildMessage("\x1b[91mmain.cc:1: error\x1b[0m\n")
+	got := runner.CleanBuildMessage("\x1b[91mmain.cc:1: error\x1b[0m\n")
 	if got != "main.cc:1: error" {
 		t.Fatalf("cleanBuildMessage = %q", got)
 	}

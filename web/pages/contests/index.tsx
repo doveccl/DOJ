@@ -3,13 +3,10 @@ import {
   App as AntApp,
   Button,
   Card,
-  DatePicker,
   Flex,
   Form,
-  Input,
   Modal,
   Popconfirm,
-  Select,
   Space,
   Table,
   Tag,
@@ -19,32 +16,21 @@ import {
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
-import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { api, apiData, apiEmpty } from '../../client'
-import type { Contest, ProblemRef } from '../../client'
-import { defaultProblemSort, ProblemRefInput } from '../../components/problem-ref'
-import { MarkdownEditor } from '../../components/markdown'
+import type { Contest } from '../../client'
+import { defaultProblemSort } from '../../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
 import { contestTarget, ScheduleTag } from '../../components/time'
 import { useLocale } from '../../locale'
 import type { Lang } from '../../locale'
 import { useSession } from '../../session'
 import { formatTime, problemLabel } from '../../utils/format'
-import { limits } from '../../utils/limits'
 import { pageFromParams, pageSizeFromParams, setPageParams } from '../../utils/pagination'
-
-type ContestForm = {
-  title: string
-  description: string
-  kind: string
-  startAt: Dayjs
-  endAt: Dayjs
-  freezeAt?: Dayjs | null
-  problems?: ProblemRef[]
-}
+import { ContestFormFields } from './form'
+import type { ContestFormValues } from './form'
 
 export function ContestsPage() {
   const { lang, text } = useLocale()
@@ -61,7 +47,7 @@ export function ContestsPage() {
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
-  const payload = (values: ContestForm) => ({
+  const payload = (values: ContestFormValues) => ({
     title: values.title,
     description: values.description,
     kind: values.kind,
@@ -71,7 +57,7 @@ export function ContestsPage() {
     problems: values.problems ?? []
   })
   const create = useMutation({
-    mutationFn: (values: ContestForm) => apiData(api.POST('/api/contests', { body: payload(values) })),
+    mutationFn: (values: ContestFormValues) => apiData(api.POST('/api/contests', { body: payload(values) })),
     onSuccess: (item) => {
       void client.invalidateQueries({ queryKey: ['contests'] })
       void client.invalidateQueries({ queryKey: ['home'] })
@@ -82,7 +68,7 @@ export function ContestsPage() {
     onError: showError
   })
   const update = useMutation({
-    mutationFn: (values: ContestForm) => {
+    mutationFn: (values: ContestFormValues) => {
       if (!editingId) {
         throw new Error(text.common.emptyResponse)
       }
@@ -121,7 +107,7 @@ export function ContestsPage() {
     setEditingId(null)
   }
 
-  function save(values: ContestForm) {
+  function save(values: ContestFormValues) {
     if (editingId) {
       update.mutate(values)
       return
@@ -184,11 +170,11 @@ function ContestModal({
   editingId: number | null
   loading: boolean
   onCancel: () => void
-  onSave: (values: ContestForm) => void
+  onSave: (values: ContestFormValues) => void
 }) {
   const { text } = useLocale()
   const { modal } = AntApp.useApp()
-  const [form] = Form.useForm<ContestForm>()
+  const [form] = Form.useForm<ContestFormValues>()
   const isEdit = editingId !== null
   const detail = useQuery({
     queryKey: ['contest', editingId],
@@ -196,7 +182,7 @@ function ContestModal({
     enabled: isEdit
   })
 
-  const initialValues: Partial<ContestForm> =
+  const initialValues: Partial<ContestFormValues> =
     isEdit && detail.data
       ? {
           title: detail.data.contest.title,
@@ -212,8 +198,7 @@ function ContestModal({
     value: item.id,
     label: problemLabel(item.id, item.title)
   }))
-  const kind = Form.useWatch('kind', form) ?? initialValues.kind ?? 'OI'
-  function submit(values: ContestForm) {
+  function submit(values: ContestFormValues) {
     if (!isEdit || detail.data?.contest.status === 'pending') {
       onSave(values)
       return
@@ -233,7 +218,7 @@ function ContestModal({
     ) : isEdit && detail.isError ? (
       <ErrorBlock error={detail.error} />
     ) : (
-      <Form<ContestForm>
+      <Form<ContestFormValues>
         key={isEdit ? `contest-${editingId}` : 'contest-new'}
         form={form}
         preserve={false}
@@ -241,36 +226,12 @@ function ContestModal({
         initialValues={initialValues}
         onFinish={submit}
       >
-        <Form.Item name="title" label={text.contests.name} rules={[{ required: true, whitespace: true }]}>
-          <Input maxLength={limits.title} showCount />
-        </Form.Item>
-        <Form.Item name="description" label={text.contests.description}>
-          <MarkdownEditor id={isEdit ? `contest-${editingId}-description-edit` : 'contest-new-description'} height={220} />
-        </Form.Item>
-        <Form.Item name="kind" label={text.contests.kind}>
-          <Select
-            options={[
-              { value: 'OI', label: 'OI' },
-              { value: 'ICPC', label: 'ICPC' }
-            ]}
-          />
-        </Form.Item>
-        <Space size={12} style={{ width: '100%' }} align="start">
-          <Form.Item name="startAt" label={text.contests.start} rules={[{ required: true }]}>
-            <DatePicker showTime />
-          </Form.Item>
-          <Form.Item name="endAt" label={text.contests.end} rules={[{ required: true }]}>
-            <DatePicker showTime />
-          </Form.Item>
-          {kind === 'ICPC' ? (
-            <Form.Item name="freezeAt" label={text.contests.freeze}>
-              <DatePicker showTime />
-            </Form.Item>
-          ) : null}
-        </Space>
-        <Form.Item name="problems" label={text.contests.problems}>
-          <ProblemRefInput options={problemOptions} loading={detail.isLoading} />
-        </Form.Item>
+        <ContestFormFields
+          form={form}
+          editorId={isEdit ? `contest-${editingId}-description-edit` : 'contest-new-description'}
+          problemOptions={problemOptions}
+          loading={detail.isLoading}
+        />
       </Form>
     )
 
@@ -341,6 +302,7 @@ function contestColumns(
   ]
   if (admin) {
     columns.push({
+      title: text.common.actions,
       align: 'right',
       render: (_, row) => (
         <Space size={4}>
