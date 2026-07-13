@@ -195,7 +195,7 @@ export function SubmissionsPage() {
         ) : (
           <Table<SubmissionListItem>
             rowKey="id"
-            scroll={{ x: 1240 }}
+            scroll={{ x: 1040 }}
             rowClassName="clickableRow"
             onRow={(row) => ({
               role: 'link',
@@ -253,12 +253,12 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: Lan
     {
       title: <Typography.Text className="nowrap">{text.submissions.id}</Typography.Text>,
       dataIndex: 'id',
-      width: 80,
+      width: 72,
       render: (id: number) => <Link to={`/submissions/${id}`}>{submissionCode(id)}</Link>
     },
     {
       title: text.submissions.problem,
-      width: 360,
+      width: 280,
       ellipsis: { showTitle: false },
       render: (_, row) => (
         <Flex align="center" className="tableTitleLine">
@@ -269,35 +269,35 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: Lan
     {
       title: text.submissions.user,
       dataIndex: 'user',
-      width: 180,
+      width: 144,
       render: (user: string) => <UserLink name={user} />
     },
     {
       title: text.submissions.status,
       dataIndex: 'status',
-      width: 150,
+      width: 116,
       render: (status: string) => <SubmissionStatus status={status} />
     },
     {
       title: text.submissions.score,
       dataIndex: 'score',
-      width: 90
+      width: 72
     },
     {
       title: text.submissions.time,
       dataIndex: 'timeMs',
-      width: 90,
+      width: 72,
       render: (value?: number) => (value === undefined ? '-' : `${value}ms`)
     },
     {
       title: text.submissions.memory,
       dataIndex: 'memoryKb',
-      width: 110,
+      width: 88,
       render: (value?: number) => memoryText(value)
     },
     {
       title: text.submissions.language,
-      width: 180,
+      width: 116,
       ellipsis: { showTitle: false },
       render: (_, row) => {
         const language = languageNames.get(row.language) ?? row.language
@@ -307,8 +307,9 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: Lan
     {
       title: text.submissions.created,
       dataIndex: 'createdAt',
-      width: 160,
-      render: (value: string) => <Typography.Text className="nowrap" title={formatTime(value, lang)}>{formatShortTime(value, lang)}</Typography.Text>
+      width: 80,
+      ellipsis: { showTitle: false },
+      render: (value: string) => <Typography.Text className="nowrap" ellipsis={{ tooltip: formatTime(value, lang) }}>{formatShortTime(value, lang)}</Typography.Text>
     }
   ]
 }
