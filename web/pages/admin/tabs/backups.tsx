@@ -5,7 +5,7 @@ import type { BackupItem, BackupList, BackupSettings } from '../../../client'
 import { useLocale } from '../../../locale'
 import type { Lang } from '../../../locale'
 import { ErrorBlock, LoadingBlock } from '../../../components/state'
-import { formatBytes, formatTime } from '../../../utils/format'
+import { formatBytes, formatShortTime, formatTime } from '../../../utils/format'
 import type { BackupSettingsForm } from '../types'
 
 type Option = { value: string; label: string }
@@ -83,7 +83,7 @@ export function BackupsTab({
           dataSource={backups.data?.items ?? []}
           columns={[
             { title: text.admin.backupFile, dataIndex: 'name', width: 360, render: (name: string) => <Typography.Text ellipsis={{ tooltip: name }}>{name}</Typography.Text> },
-            { title: text.admin.createdAt, dataIndex: 'createdAt', render: (value: string) => formatTime(value, lang) },
+            { title: text.admin.createdAt, dataIndex: 'createdAt', width: 160, render: (value: string) => <Typography.Text className="nowrap" title={formatTime(value, lang)}>{formatShortTime(value, lang)}</Typography.Text> },
             { title: text.admin.backupSize, dataIndex: 'size', render: (value: number) => formatBytes(value) },
             {
               title: text.common.actions,

@@ -16,7 +16,7 @@ import { useApiMessage } from '../../components/use-api-message'
 import { useLocale } from '../../locale'
 import type { Lang } from '../../locale'
 import { useSession } from '../../session'
-import { formatTime } from '../../utils/format'
+import { formatShortTime, formatTime } from '../../utils/format'
 import { limits } from '../../utils/limits'
 import { pageFromParams, pageSizeFromParams, setPageParams } from '../../utils/pagination'
 
@@ -298,7 +298,8 @@ function discussionColumns(
     {
       title: text.discussion.created,
       dataIndex: 'createdAt',
-      render: (value: string) => <Typography.Text className="nowrap">{formatTime(value, lang)}</Typography.Text>
+      width: 160,
+      render: (value: string) => <Typography.Text className="nowrap" title={formatTime(value, lang)}>{formatShortTime(value, lang)}</Typography.Text>
     }
   ]
   if (admin || userName) {

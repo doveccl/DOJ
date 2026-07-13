@@ -40,7 +40,7 @@ func (api *API) searchProblemPage(c echo.Context, q string, tag string, status s
 	if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	if err := query.Session(&gorm.Session{}).Order("id asc").Limit(limit).Offset(offset).Find(&rows).Error; err != nil {
+	if err := problemListColumns(query.Session(&gorm.Session{})).Order("id asc").Limit(limit).Offset(offset).Find(&rows).Error; err != nil {
 		return nil, 0, err
 	}
 	items := make([]contract.Problem, 0, len(rows))
@@ -116,7 +116,7 @@ func (api *API) findProblems(c echo.Context, q string, tag string, limit int, or
 		rawTag, _ := json.Marshal([]string{tag})
 		query = query.Where("tags @> ?::jsonb", string(rawTag))
 	}
-	if err := query.Find(&rows).Error; err != nil {
+	if err := problemListColumns(query).Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	items := make([]contract.Problem, 0, len(rows))
@@ -151,8 +151,6 @@ func problemView(row models.Problem) contract.Problem {
 	}
 }
 
-func problemViewWithStatement(row models.Problem) contract.Problem {
-	item := problemView(row)
-	item.Statement = problemStatement(row)
-	return item
+func problemListColumns(query *gorm.DB) *gorm.DB {
+	return query.Select("id", "title", "tags", "visible", "mode", "time_ms", "memory_mb")
 }

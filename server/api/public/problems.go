@@ -59,7 +59,8 @@ func (api *API) problem(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusNotFound, "problem not found")
 		}
 	}
-	item := problemViewWithStatement(problem)
+	item := problemView(problem)
+	item.Statement = problemStatement(problem)
 	if !api.isAdmin(c) && api.problemInUnfinishedContest(problem.ID) {
 		item.Tags = []string{}
 	}

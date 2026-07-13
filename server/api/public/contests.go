@@ -391,7 +391,7 @@ func (api *API) contestProblems(c echo.Context, contest models.Contest, links []
 	for _, link := range links {
 		ids = append(ids, link.ProblemID)
 	}
-	query := api.db.Model(&models.Problem{}).Where("id IN ?", uniqueUint(ids))
+	query := problemListColumns(api.db.Model(&models.Problem{})).Where("id IN ?", uniqueUint(ids))
 	if !admin && contestEnded(contest) {
 		query = query.Where(`NOT EXISTS (
 			SELECT 1 FROM contest_problems future_links

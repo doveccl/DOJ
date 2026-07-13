@@ -290,7 +290,7 @@ func (api *API) assignmentProblems(links []models.AssignmentProblem) ([]contract
 	for _, link := range links {
 		ids = append(ids, link.ProblemID)
 	}
-	query := api.db.Model(&models.Problem{}).Where("id IN ?", uniqueUint(ids))
+	query := problemListColumns(api.db.Model(&models.Problem{})).Where("id IN ?", uniqueUint(ids))
 	var rows []models.Problem
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err

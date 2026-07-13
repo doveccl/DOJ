@@ -76,6 +76,16 @@ export function formatTime(value: string, lang: Lang) {
   })
 }
 
+export function formatShortTime(value: string, lang: Lang) {
+  return new Date(value).toLocaleString(localeCode(lang), {
+    year: '2-digit',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
 export function formatDuration(seconds: number, lang: Lang) {
   const value = Math.max(0, Math.floor(seconds))
   if (value < 60) {

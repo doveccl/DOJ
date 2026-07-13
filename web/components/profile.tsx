@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom'
 import type { SolvedProblem, SolvedProblemPage, UserActivity, UserProfile } from '../client'
 import { useLocale } from '../locale'
 import type { Lang } from '../locale'
-import { formatTime } from '../utils/format'
+import { formatShortTime, formatTime } from '../utils/format'
 import { ProblemLink } from './entity'
 import { YearHeatmap } from './heatmap'
 import { SubmissionStatus } from './status'
@@ -124,8 +124,8 @@ function ActivityItem({ activity, lang, submitted, posted }: { activity: UserAct
             </Typography.Text>
           </span>
         </Flex>
-        <Typography.Text type="secondary" className="nowrap">
-          {formatTime(activity.createdAt, lang)}
+        <Typography.Text type="secondary" className="nowrap" title={formatTime(activity.createdAt, lang)}>
+          {formatShortTime(activity.createdAt, lang)}
         </Typography.Text>
       </Flex>
     )
@@ -144,8 +144,8 @@ function ActivityItem({ activity, lang, submitted, posted }: { activity: UserAct
           {activity.problemId ? <ProblemLink id={activity.problemId} title={activity.problemTitle} /> : <Typography.Text ellipsis={{ tooltip: activity.title }}>{activity.title}</Typography.Text>}
         </span>
       </Flex>
-      <Typography.Text type="secondary" className="nowrap">
-        {formatTime(activity.createdAt, lang)}
+      <Typography.Text type="secondary" className="nowrap" title={formatTime(activity.createdAt, lang)}>
+        {formatShortTime(activity.createdAt, lang)}
       </Typography.Text>
     </Flex>
   )

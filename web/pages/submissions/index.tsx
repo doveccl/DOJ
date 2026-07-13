@@ -13,7 +13,7 @@ import { useRemoteSearch } from '../../components/use-debounced-value'
 import { useLocale } from '../../locale'
 import type { Lang } from '../../locale'
 import { useSession } from '../../session'
-import { formatTime, memoryText, problemCode, problemLabel, submissionCode } from '../../utils/format'
+import { formatShortTime, formatTime, memoryText, problemCode, problemLabel, submissionCode } from '../../utils/format'
 import { pageFromParams, pageSizeFromParams, setPageParams } from '../../utils/pagination'
 
 type SubmissionFilters = {
@@ -195,7 +195,7 @@ export function SubmissionsPage() {
         ) : (
           <Table<SubmissionListItem>
             rowKey="id"
-            scroll={{ x: 1040 }}
+            scroll={{ x: 1240 }}
             rowClassName="clickableRow"
             onRow={(row) => ({
               role: 'link',
@@ -253,6 +253,7 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: Lan
     {
       title: <Typography.Text className="nowrap">{text.submissions.id}</Typography.Text>,
       dataIndex: 'id',
+      width: 80,
       render: (id: number) => <Link to={`/submissions/${id}`}>{submissionCode(id)}</Link>
     },
     {
@@ -279,16 +280,19 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: Lan
     },
     {
       title: text.submissions.score,
-      dataIndex: 'score'
+      dataIndex: 'score',
+      width: 90
     },
     {
       title: text.submissions.time,
       dataIndex: 'timeMs',
+      width: 90,
       render: (value?: number) => (value === undefined ? '-' : `${value}ms`)
     },
     {
       title: text.submissions.memory,
       dataIndex: 'memoryKb',
+      width: 110,
       render: (value?: number) => memoryText(value)
     },
     {
@@ -303,7 +307,8 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: Lan
     {
       title: text.submissions.created,
       dataIndex: 'createdAt',
-      render: (value: string) => <Typography.Text className="nowrap">{formatTime(value, lang)}</Typography.Text>
+      width: 160,
+      render: (value: string) => <Typography.Text className="nowrap" title={formatTime(value, lang)}>{formatShortTime(value, lang)}</Typography.Text>
     }
   ]
 }
