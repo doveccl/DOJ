@@ -143,7 +143,7 @@ export function SubmissionDetailPage() {
               {submission.assignmentId ? <Meta label={text.assignments.title}><Link to={`/assignments/${submission.assignmentId}`}>#{submission.assignmentId}</Link></Meta> : null}
               {submission.contestId ? <Meta label={text.contests.title}><Link to={`/contests/${submission.contestId}`}>#{submission.contestId}</Link></Meta> : null}
               <Meta label={text.submissions.user}>
-                <UserLink name={submission.user} />
+                <UserLink name={submission.user} avatar={submission.avatar} />
               </Meta>
               <Meta label={text.submissions.language}>{languageName}</Meta>
               <Meta label={text.submissions.created}>{formatTime(submission.createdAt, lang)}</Meta>

@@ -267,7 +267,7 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: Lan
     {
       title: text.submissions.user,
       dataIndex: 'user',
-      render: (user: string) => <UserLink name={user} maxWidth={110} />
+      render: (_, row) => <UserLink name={row.user} avatar={row.avatar} maxWidth={110} />
     },
     {
       title: text.submissions.status,

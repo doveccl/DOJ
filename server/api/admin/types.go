@@ -30,6 +30,7 @@ type AdminSettingsPatch = settings.Patch
 type User struct {
 	ID     uint   `json:"id"`
 	Name   string `json:"name"`
+	Avatar string `json:"avatar"`
 	Mail   string `json:"mail"`
 	Role   string `json:"role"`
 	Groups []uint `json:"groups"`

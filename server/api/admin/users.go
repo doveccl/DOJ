@@ -271,7 +271,7 @@ func (api *API) userViews(rows []models.User) ([]User, error) {
 		if row.Admin {
 			role = "admin"
 		}
-		items = append(items, User{ID: row.ID, Name: row.Name, Mail: row.Mail, Role: role, Groups: cleanUintList(groupMap[row.ID])})
+		items = append(items, User{ID: row.ID, Name: row.Name, Avatar: row.Avatar, Mail: row.Mail, Role: role, Groups: cleanUintList(groupMap[row.ID])})
 	}
 	return items, nil
 }

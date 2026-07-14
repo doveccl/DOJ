@@ -101,7 +101,7 @@ func TestSubmitRejectsCustomProblemWithoutDockerfile(t *testing.T) {
 func TestPrivateSubmissionSourceVisibilityWithDatabase(t *testing.T) {
 	db := testWebDB(t)
 	allowGuest(t, db)
-	owner := models.User{Name: "owner", Mail: "owner@example.com", Auth: "hash"}
+	owner := models.User{Name: "owner", Mail: "owner@example.com", Avatar: "/owner.png", Auth: "hash"}
 	other := models.User{Name: "other", Mail: "other@example.com", Auth: "hash"}
 	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
 	for _, user := range []*models.User{&owner, &other, &admin} {
@@ -139,8 +139,12 @@ func TestPrivateSubmissionSourceVisibilityWithDatabase(t *testing.T) {
 		t.Fatalf("guest should read public DB submission, got %d body=%s", res.Code, res.Body.String())
 	}
 	otherDetail := decodeJSON[contract.SubmissionDetail](t, requestWithCookies(e, http.MethodGet, privateTarget, databaseSession(t, db, other.ID), nil))
-	if otherDetail.Code != "" || otherDetail.Submission.ID != private.ID {
+	if otherDetail.Code != "" || otherDetail.Submission.ID != private.ID || otherDetail.Submission.Avatar != owner.Avatar {
 		t.Fatalf("other user should read private submission detail without source: %+v", otherDetail)
+	}
+	list := decodeJSON[contract.Page[contract.SubmissionListItem]](t, requestWithCookies(e, http.MethodGet, "/api/submissions", nil, nil))
+	if len(list.Items) != 2 || list.Items[0].Avatar != owner.Avatar || list.Items[1].Avatar != owner.Avatar {
+		t.Fatalf("submission list should include user avatars: %+v", list)
 	}
 	if got := decodeJSON[contract.SubmissionDetail](t, requestWithCookies(e, http.MethodGet, privateTarget, databaseSession(t, db, owner.ID), nil)); got.Code != "secret" {
 		t.Fatalf("owner should read private DB submission source: %+v", got)

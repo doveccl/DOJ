@@ -79,6 +79,7 @@ type AssignmentListItem struct {
 
 type AssignmentProgress struct {
 	User     string                               `json:"user" maxLength:"32"`
+	Avatar   string                               `json:"avatar" maxLength:"512"`
 	AC       int                                  `json:"ac"`
 	Submit   int                                  `json:"submit"`
 	Problems []contract.AssignmentProblemProgress `json:"problems"`

@@ -287,7 +287,7 @@ function discussionColumns(
       title: text.discussion.author,
       dataIndex: 'author',
       width: 180,
-      render: (author: string) => <UserLink name={author} maxWidth={130} />
+      render: (_, row) => <UserLink name={row.author} avatar={row.avatar} maxWidth={130} />
     },
     {
       title: text.discussion.replies,

@@ -295,9 +295,9 @@ func (api *API) userName(id uint) string {
 	return strconv.Itoa(int(id))
 }
 
-func authorName(id uint, names map[uint]string) string {
-	if name := names[id]; name != "" {
-		return name
+func authorName(id uint, users map[uint]models.User) string {
+	if user := users[id]; user.Name != "" {
+		return user.Name
 	}
 	return strconv.Itoa(int(id))
 }

@@ -32,7 +32,7 @@
 - Card titles use the native Card title typography rather than nested heading components. Assignment and contest detail Card headers keep long titles on one ellipsized line; their shared responsive header puts schedule information before a grouped set of actions and wraps below the title on narrow screens.
 - Assignment and contest lists use a compact status Tag. Their detail headers use the same explicit ended state plus the relevant deadline or range; do not fall back to a bare timestamp.
 - Problem references should display as clickable `P{id} {title}` under a column named “题目”.
-- User references are clickable usernames; only the rank page shows avatars in the user column.
+- User references are clickable usernames with avatars.
 - Markdown uploads must use server-returned relative URLs. Rendering may rewrite relative asset URLs to API URLs.
 - Code highlighting matches the configured language `id` through CodeMirror language data; unknown languages fall back to plain text.
 

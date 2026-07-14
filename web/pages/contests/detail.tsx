@@ -191,7 +191,7 @@ function rankColumns(text: ReturnType<typeof useLocale>['text'], kind: string, p
     {
       title: text.rank.user,
       width: 200,
-      render: (_, row) => <UserLink name={row.user} />
+      render: (_, row) => <UserLink name={row.user} avatar={row.avatar} />
     }
   ]
   if (kind === 'OI') {

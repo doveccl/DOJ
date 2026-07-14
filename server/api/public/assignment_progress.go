@@ -46,6 +46,7 @@ func (api *API) assignmentProgress(c echo.Context, id uint, problems []contract.
 	for _, user := range users {
 		item := contract.AssignmentProgress{
 			User:     user.Name,
+			Avatar:   user.Avatar,
 			Problems: make([]contract.AssignmentProblemProgress, 0, len(problems)),
 		}
 		byProblem := map[uint]*contract.AssignmentProblemProgress{}

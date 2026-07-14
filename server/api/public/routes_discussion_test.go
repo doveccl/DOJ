@@ -267,11 +267,11 @@ func discussionByTitle(items []contract.Discussion, title string) *contract.Disc
 	return nil
 }
 
-func TestDatabaseDiscussionAuthorsUseNames(t *testing.T) {
+func TestDatabaseDiscussionAuthorsUseProfiles(t *testing.T) {
 	db := testWebDB(t)
 	allowGuest(t, db)
-	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
-	student := models.User{Name: "student", Mail: "student@example.com", Auth: "hash"}
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Avatar: "/admin.png", Auth: "hash", Admin: true}
+	student := models.User{Name: "student", Mail: "student@example.com", Avatar: "/student.png", Auth: "hash"}
 	if err := db.Create(&admin).Error; err != nil {
 		t.Fatalf("create admin: %v", err)
 	}
@@ -296,7 +296,7 @@ func TestDatabaseDiscussionAuthorsUseNames(t *testing.T) {
 	Register(e, db)
 
 	list := decodePageItems[contract.Discussion](t, requestOK(t, e, http.MethodGet, "/api/discussion", ""))
-	if len(list) != 1 || list[0].Author != "admin" || list[0].Replies != 1 {
+	if len(list) != 1 || list[0].Author != "admin" || list[0].Avatar != admin.Avatar || list[0].Replies != 1 {
 		t.Fatalf("discussion list should include author and reply count: %+v", list)
 	}
 	listRes := requestOK(t, e, http.MethodGet, "/api/discussion", "")
@@ -307,7 +307,7 @@ func TestDatabaseDiscussionAuthorsUseNames(t *testing.T) {
 
 	target := "/api/discussion/" + strconv.FormatUint(uint64(discussion.ID), 10)
 	detail := decodeJSON[contract.DiscussionDetail](t, requestOK(t, e, http.MethodGet, target, ""))
-	if detail.Discussion.Author != "admin" || len(detail.Comments.Items) != 1 || detail.Comments.Items[0].Author != "student" {
+	if detail.Discussion.Author != "admin" || detail.Discussion.Avatar != admin.Avatar || len(detail.Comments.Items) != 1 || detail.Comments.Items[0].Author != "student" || detail.Comments.Items[0].Avatar != student.Avatar {
 		t.Fatalf("discussion detail authors should be usernames: %+v", detail)
 	}
 

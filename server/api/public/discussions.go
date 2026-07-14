@@ -46,7 +46,7 @@ func (api *API) discussions(c echo.Context) error {
 		authorIDs = append(authorIDs, row.UserID)
 		discussionIDs = append(discussionIDs, row.ID)
 	}
-	authors, err := api.userNameMap(authorIDs)
+	authors, err := api.userMap(authorIDs)
 	if err != nil {
 		return err
 	}
@@ -130,7 +130,7 @@ func (api *API) discussion(c echo.Context) error {
 	for _, item := range comments {
 		authorIDs = append(authorIDs, item.UserID)
 	}
-	authors, err := api.userNameMap(authorIDs)
+	authors, err := api.userMap(authorIDs)
 	if err != nil {
 		return err
 	}
@@ -144,6 +144,7 @@ func (api *API) discussion(c echo.Context) error {
 		items = append(items, contract.Comment{
 			ID:        item.ID,
 			Author:    authorName(item.UserID, authors),
+			Avatar:    authors[item.UserID].Avatar,
 			Content:   content,
 			Deleted:   deleted,
 			CreatedAt: item.CreatedAt,
@@ -157,6 +158,7 @@ func (api *API) discussion(c echo.Context) error {
 		ID:        row.ID,
 		Title:     row.Title,
 		Author:    authorName(row.UserID, authors),
+		Avatar:    authors[row.UserID].Avatar,
 		Tags:      readTags([]byte(row.Tags)),
 		Pinned:    row.Pinned,
 		Locked:    row.Locked,
@@ -320,11 +322,12 @@ func (api *API) deleteComment(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func discussionViewFromRefs(row models.Discussion, authors map[uint]string, replies map[uint]int) contract.Discussion {
+func discussionViewFromRefs(row models.Discussion, authors map[uint]models.User, replies map[uint]int) contract.Discussion {
 	return contract.Discussion{
 		ID:        row.ID,
 		Title:     row.Title,
 		Author:    authorName(row.UserID, authors),
+		Avatar:    authors[row.UserID].Avatar,
 		Tags:      readTags([]byte(row.Tags)),
 		Pinned:    row.Pinned,
 		Locked:    row.Locked,

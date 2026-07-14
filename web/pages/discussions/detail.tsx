@@ -188,7 +188,7 @@ export function DiscussionDetailPage() {
         ) : (
           <Flex vertical gap={12}>
             <Space size={8} wrap>
-              <UserLink name={discussion.author} />
+              <UserLink name={discussion.author} avatar={discussion.avatar} />
               <Typography.Text type="secondary">{formatTime(discussion.createdAt, lang)}</Typography.Text>
               <TagList tags={discussion.tags} linkTo={(tag) => `/discussion?tags=${encodeURIComponent(tag)}`} />
             </Space>
@@ -205,7 +205,7 @@ export function DiscussionDetailPage() {
                 <Flex align="center" justify="space-between" gap={8}>
                   <Space size={8}>
                     <Typography.Text type="secondary">{text.discussion.floor(pageStart + index + 1)}</Typography.Text>
-                    {item.deleted ? <Typography.Text type="secondary">{text.discussion.deletedReply}</Typography.Text> : <UserLink name={item.author} />}
+                    {item.deleted ? <Typography.Text type="secondary">{text.discussion.deletedReply}</Typography.Text> : <UserLink name={item.author} avatar={item.avatar} />}
                     {item.deleted ? null : <Typography.Text type="secondary">{formatTime(item.createdAt, lang)}</Typography.Text>}
                   </Space>
                   {!item.deleted && (session.admin || (session.signedIn && item.author.toLowerCase() === session.name.toLowerCase())) ? (

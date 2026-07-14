@@ -1139,6 +1139,7 @@ export interface components {
             siteName?: string;
         };
         AdminUser: {
+            avatar: string;
             groups: number[];
             /** Format: int64 */
             id: number;
@@ -1246,6 +1247,7 @@ export interface components {
         AssignmentProgress: {
             /** Format: int64 */
             ac: number;
+            avatar: string;
             problems: components["schemas"]["AssignmentProblemProgress"][];
             /** Format: int64 */
             submit: number;
@@ -1294,6 +1296,7 @@ export interface components {
         };
         Comment: {
             author: string;
+            avatar: string;
             content: string;
             /** Format: date-time */
             createdAt: string;
@@ -1371,6 +1374,7 @@ export interface components {
         };
         Discussion: {
             author: string;
+            avatar: string;
             /** Format: date-time */
             createdAt: string;
             /** Format: int64 */
@@ -1682,6 +1686,7 @@ export interface components {
         Submission: {
             /** Format: int64 */
             assignmentId?: number;
+            avatar: string;
             /** Format: int64 */
             contestId?: number;
             /** Format: date-time */
@@ -1712,6 +1717,7 @@ export interface components {
         SubmissionListItem: {
             /** Format: int64 */
             assignmentId?: number;
+            avatar: string;
             /** Format: int64 */
             contestId?: number;
             /** Format: date-time */

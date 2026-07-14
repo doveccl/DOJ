@@ -155,7 +155,7 @@ function progressColumns(text: ReturnType<typeof useLocale>['text'], problems: P
     {
       title: text.rank.user,
       width: 220,
-      render: (_, row) => <UserLink name={row.user} />
+      render: (_, row) => <UserLink name={row.user} avatar={row.avatar} />
     },
     {
       title: text.rank.ac,

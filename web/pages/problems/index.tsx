@@ -288,10 +288,10 @@ function problemColumns(
     },
     {
       title: text.problems.pass,
-      width: 96,
+      width: 128,
       render: (_, row) => {
-        const item = state.get(row.id)
-        return item ? <Typography.Text>{formatPass(item)}</Typography.Text> : <Typography.Text type="secondary">-</Typography.Text>
+		const item = state.get(row.id)
+		return item ? <Typography.Text className="nowrap">{formatPass(item)}</Typography.Text> : <Typography.Text type="secondary">-</Typography.Text>
       }
     }
   ]

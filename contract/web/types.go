@@ -136,6 +136,7 @@ type AssignmentDetail struct {
 
 type AssignmentProgress struct {
 	User     string                      `json:"user"`
+	Avatar   string                      `json:"avatar"`
 	AC       int                         `json:"ac"`
 	Submit   int                         `json:"submit"`
 	Problems []AssignmentProblemProgress `json:"problems"`
@@ -192,6 +193,7 @@ type SubmissionListItem struct {
 	AssignmentID *uint     `json:"assignmentId,omitempty"`
 	ContestID    *uint     `json:"contestId,omitempty"`
 	User         string    `json:"user"`
+	Avatar       string    `json:"avatar"`
 	Language     string    `json:"language"`
 	Status       string    `json:"status"`
 	Score        int       `json:"score"`
@@ -207,6 +209,7 @@ type Submission struct {
 	AssignmentID *uint     `json:"assignmentId,omitempty"`
 	ContestID    *uint     `json:"contestId,omitempty"`
 	User         string    `json:"user"`
+	Avatar       string    `json:"avatar"`
 	Language     string    `json:"language"`
 	Status       string    `json:"status"`
 	Score        int       `json:"score"`
@@ -313,6 +316,7 @@ type Discussion struct {
 	ID        uint      `json:"id"`
 	Title     string    `json:"title"`
 	Author    string    `json:"author"`
+	Avatar    string    `json:"avatar"`
 	Tags      []string  `json:"tags"`
 	Pinned    bool      `json:"pinned"`
 	Locked    bool      `json:"locked"`
@@ -343,6 +347,7 @@ type DiscussionDetail struct {
 type Comment struct {
 	ID        uint      `json:"id"`
 	Author    string    `json:"author"`
+	Avatar    string    `json:"avatar"`
 	Content   string    `json:"content"`
 	Deleted   bool      `json:"deleted"`
 	CreatedAt time.Time `json:"createdAt"`

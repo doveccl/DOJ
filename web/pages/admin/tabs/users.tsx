@@ -67,7 +67,7 @@ export function UsersTab({
           setPageSize(pagination.pageSize ?? pageSize)
         }}
         columns={[
-          { title: text.rank.user, dataIndex: 'name', width: 220, render: (name: string) => <UserLink name={name} /> },
+          { title: text.rank.user, dataIndex: 'name', width: 220, render: (_, row) => <UserLink name={row.name} avatar={row.avatar} /> },
           { title: text.profile.email, dataIndex: 'mail', width: 300, ellipsis: { showTitle: false }, render: (mail: string) => <Typography.Text ellipsis={{ tooltip: mail }}>{mail}</Typography.Text> },
           { title: text.admin.role, dataIndex: 'role', render: (role: string) => <Tag color={role === 'admin' ? 'blue' : undefined}>{roleText[role] ?? role}</Tag> },
           { title: text.admin.groupCount, dataIndex: 'groups', render: (groups: number[] | undefined) => <Typography.Text>{groups?.length ?? 0}</Typography.Text> },

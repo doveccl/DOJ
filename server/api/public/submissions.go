@@ -482,7 +482,7 @@ func (api *API) submissionPayloads(c echo.Context, rows []models.Submission) ([]
 	if err != nil {
 		return nil, err
 	}
-	users, err := api.userNameMap(userIDs)
+	users, err := api.userMap(userIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -509,6 +509,7 @@ func submissionListItemFromPayload(row contract.Submission) contract.SubmissionL
 		AssignmentID: row.AssignmentID,
 		ContestID:    row.ContestID,
 		User:         row.User,
+		Avatar:       row.Avatar,
 		Language:     row.Language,
 		Status:       row.Status,
 		Score:        row.Score,
@@ -518,14 +519,14 @@ func submissionListItemFromPayload(row contract.Submission) contract.SubmissionL
 	}
 }
 
-func submissionPayloadFromRefs(row models.Submission, titles map[uint]string, users map[uint]string) contract.Submission {
+func submissionPayloadFromRefs(row models.Submission, titles map[uint]string, users map[uint]models.User) contract.Submission {
 	title := titles[row.ProblemID]
-	userName := users[row.UserID]
+	user := users[row.UserID]
 	if title == "" {
 		title = "P" + strconv.Itoa(int(row.ProblemID))
 	}
-	if userName == "" {
-		userName = strconv.Itoa(int(row.UserID))
+	if user.Name == "" {
+		user.Name = strconv.Itoa(int(row.UserID))
 	}
 	return contract.Submission{
 		ID:           row.ID,
@@ -533,7 +534,8 @@ func submissionPayloadFromRefs(row models.Submission, titles map[uint]string, us
 		ProblemTitle: title,
 		AssignmentID: row.AssignmentID,
 		ContestID:    row.ContestID,
-		User:         userName,
+		User:         user.Name,
+		Avatar:       user.Avatar,
 		Language:     row.Language,
 		Status:       row.Status,
 		Score:        row.Score,
@@ -569,18 +571,18 @@ func (api *API) problemTitleMap(ids []uint) (map[uint]string, error) {
 	return titles, nil
 }
 
-func (api *API) userNameMap(ids []uint) (map[uint]string, error) {
+func (api *API) userMap(ids []uint) (map[uint]models.User, error) {
 	ids = uniqueUint(ids)
-	names := map[uint]string{}
+	users := map[uint]models.User{}
 	if len(ids) == 0 {
-		return names, nil
+		return users, nil
 	}
 	var rows []models.User
-	if err := api.db.Select("id", "name").Where("id IN ?", ids).Find(&rows).Error; err != nil {
+	if err := api.db.Select("id", "name", "avatar").Where("id IN ?", ids).Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	for _, row := range rows {
-		names[row.ID] = row.Name
+		users[row.ID] = row
 	}
-	return names, nil
+	return users, nil
 }
