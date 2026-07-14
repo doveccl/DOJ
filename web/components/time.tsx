@@ -1,4 +1,4 @@
-import { Flex, Statistic, Tag, Tooltip, Typography } from 'antd'
+import { Statistic, Tag, Tooltip } from 'antd'
 
 import { useLocale } from '../locale'
 import { formatTime } from '../utils/format'
@@ -9,16 +9,6 @@ type TimerCopy = {
   suffix: string
 }
 
-type DeadlineTimerProps = {
-  kind: DeadlineKind
-  status: string
-  target: string
-  range?: string
-  strong?: boolean
-  align?: 'flex-start' | 'flex-end'
-  onFinish?: () => void
-}
-
 type ScheduleTagProps = {
   kind: DeadlineKind
   status: string
@@ -27,58 +17,24 @@ type ScheduleTagProps = {
   onFinish?: () => void
 }
 
-export function DeadlineTimer({
-  kind,
-  status,
-  target,
-  range,
-  strong = false,
-  align = 'flex-start',
-  onFinish
-}: DeadlineTimerProps) {
-  const { lang, text } = useLocale()
-  const targetMs = new Date(target).getTime()
-  if (!Number.isFinite(targetMs)) {
-    return <Typography.Text>-</Typography.Text>
-  }
-
-  return (
-    <Flex vertical gap={0} align={align}>
-      {status === 'ended' ? (
-        <Flex align="center" gap={8} wrap>
-          <Tag style={{ marginInlineEnd: 0 }}>{kind === 'assignment' ? text.assignments.ended : text.contests.ended}</Tag>
-          <Typography.Text type="secondary" className="nowrap">{range ?? formatTime(target, lang)}</Typography.Text>
-        </Flex>
-      ) : (
-        <TimerText copy={timerCopy(status, kind, text)} targetMs={targetMs} strong={strong} onFinish={onFinish} />
-      )}
-      {status !== 'ended' && range ? (
-        <Typography.Text type="secondary" className="nowrap">
-          {range}
-        </Typography.Text>
-      ) : null}
-    </Flex>
-  )
-}
-
 export function ScheduleTag({ kind, status, target, range, onFinish }: ScheduleTagProps) {
   const { lang, text } = useLocale()
   const targetMs = new Date(target).getTime()
   const tooltip = range ?? formatTime(target, lang)
   if (!Number.isFinite(targetMs)) {
-    return <Tag>-</Tag>
+    return <Tag style={{ marginInlineEnd: 0 }}>-</Tag>
   }
   if (status === 'ended') {
     return (
       <Tooltip title={tooltip}>
-        <Tag>{kind === 'assignment' ? text.assignments.ended : text.contests.ended}</Tag>
+        <Tag style={{ marginInlineEnd: 0 }}>{kind === 'assignment' ? text.assignments.ended : text.contests.ended}</Tag>
       </Tooltip>
     )
   }
   return (
     <Tooltip title={tooltip}>
-      <Tag color={status === 'pending' ? 'processing' : status === 'frozen' ? 'warning' : 'success'}>
-        <TimerText copy={timerCopy(status, kind, text)} targetMs={targetMs} compact onFinish={onFinish} />
+      <Tag color={status === 'pending' ? 'processing' : status === 'frozen' ? 'warning' : 'success'} style={{ marginInlineEnd: 0 }}>
+        <TimerText copy={timerCopy(status, kind, text)} targetMs={targetMs} onFinish={onFinish} />
       </Tag>
     </Tooltip>
   )
@@ -91,14 +47,10 @@ export function contestTarget(status: string, startAt: string, endAt: string) {
 function TimerText({
   copy,
   targetMs,
-  compact = false,
-  strong = false,
   onFinish
 }: {
   copy: TimerCopy
   targetMs: number
-  compact?: boolean
-  strong?: boolean
   onFinish?: () => void
 }) {
   const { text } = useLocale()
@@ -116,9 +68,9 @@ function TimerText({
         },
         content: {
           color: 'currentColor',
-          fontSize: compact ? 12 : strong ? 20 : 14,
-          fontWeight: strong ? 600 : 500,
-          lineHeight: compact ? '20px' : strong ? '28px' : '22px',
+          fontSize: 12,
+          fontWeight: 500,
+          lineHeight: '20px',
           fontVariantNumeric: 'tabular-nums'
         },
         value: {

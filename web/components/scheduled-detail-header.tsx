@@ -8,9 +8,9 @@ import { useLocale } from '../locale'
 export function ScheduledDetailHeader({
   descriptionId,
   descriptionValue,
+  status,
   title,
   titleTag,
-  deadline,
   recordsHref,
   recordsLabel,
   admin,
@@ -23,9 +23,9 @@ export function ScheduledDetailHeader({
 }: {
   descriptionId: string
   descriptionValue: string
+  status: ReactNode
   title: string
   titleTag?: ReactNode
-  deadline: ReactNode
   recordsHref: string
   recordsLabel: string
   admin: boolean
@@ -43,10 +43,11 @@ export function ScheduledDetailHeader({
       value={descriptionValue}
       header={
         <Flex align="center" gap={10} style={{ minWidth: 0 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', flex: 'none' }}>{status}</span>
           <Typography.Text ellipsis={{ tooltip: title }} style={{ minWidth: 0 }}>
             {title}
           </Typography.Text>
-          {titleTag}
+          {titleTag ? <span style={{ display: 'inline-flex', alignItems: 'center', flex: 'none' }}>{titleTag}</span> : null}
         </Flex>
       }
       extra={
@@ -56,12 +57,9 @@ export function ScheduledDetailHeader({
             <Button type="primary" htmlType="submit" form={editFormId} loading={saving}>{text.common.save}</Button>
           </Space>
         ) : (
-          <Space size={16} wrap>
-            {deadline}
-            <Space size={8} wrap>
-              <Button icon={<UnorderedListOutlined />} href={recordsHref}>{recordsLabel}</Button>
-              {admin ? <Button icon={<EditOutlined />} onClick={onStartEdit}>{text.common.edit}</Button> : null}
-            </Space>
+          <Space size={8} wrap>
+            <Button icon={<UnorderedListOutlined />} href={recordsHref}>{recordsLabel}</Button>
+            {admin ? <Button icon={<EditOutlined />} onClick={onStartEdit}>{text.common.edit}</Button> : null}
           </Space>
         )
       }

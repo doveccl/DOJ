@@ -12,7 +12,7 @@ import { ScheduledDetailHeader } from '../../components/scheduled-detail-header'
 import { ProblemLink, UserLink } from '../../components/entity'
 import { defaultProblemSort } from '../../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
-import { DeadlineTimer } from '../../components/time'
+import { ScheduleTag } from '../../components/time'
 import { useLocale } from '../../locale'
 import { useSession } from '../../session'
 import { problemCode, problemLabel } from '../../utils/format'
@@ -101,8 +101,8 @@ export function AssignmentDetailPage() {
       <ScheduledDetailHeader
         descriptionId={`assignment-${assignment.id}-description`}
         descriptionValue={query.data.description}
+        status={<ScheduleTag kind="assignment" status={assignment.status} target={assignment.endAt} onFinish={() => void query.refetch()} />}
         title={assignment.title}
-        deadline={<DeadlineTimer kind="assignment" status={assignment.status} target={assignment.endAt} onFinish={() => void query.refetch()} />}
         recordsHref={`/submissions?assignment=${assignment.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`}
         recordsLabel={recordsUser ? text.submissions.myRecords : text.submissions.allRecords}
         admin={session.admin}

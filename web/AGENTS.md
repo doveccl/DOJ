@@ -15,6 +15,7 @@
 - Keep `.appLayout` at `100vw` with horizontal overflow clipped on the document; this intentionally prevents the centered page from changing width when the vertical scrollbar appears.
 - Keep modal geometry stable with `scrollbar-gutter: stable both-edges` on its scroll container; do not replace it with JavaScript width measurement.
 - Use Tag for row state when table row styling would require custom CSS.
+- When text and Tag share a line, use an explicit center-aligned Flex layout. Remove Tag's default inline-end margin when the parent already supplies a gap.
 - Free-form tags from problem/discussion/user data must render through the shared entity tag component so long tags get antd ellipsis and tooltip behavior consistently.
 - Problem references in tables, lists, timelines, and cards should use the shared problem link component; set a max width at the call site only when the surrounding layout needs a fixed budget.
 - For table overflow, give ellipsized text columns an explicit `width` and use `ellipsis: { showTitle: false }` with `Typography.Text` ellipsis. Do not use `tableLayout="fixed"` or shared CSS as a substitute for column sizing. `TagList` handles its own item width; do not add table column ellipsis just for tag lists.
@@ -30,8 +31,8 @@
 - The notice is edited inline on the home page, not in admin settings.
 - Management actions should live near the business object: problems on problem pages, assignments on assignment pages, contests on contest pages, discussions on discussion pages.
 - Editable entity list pages use modal create/edit forms; entity detail pages edit in place inside the existing primary Card. Reuse the business form fields, not a generic schema-driven editor.
-- Card titles use the native Card title typography rather than nested heading components. Assignment and contest detail Card headers keep long titles on one ellipsized line; their shared responsive header puts schedule information before a grouped set of actions and wraps below the title on narrow screens.
-- Assignment and contest lists use a compact status Tag. Their detail headers use the same explicit ended state plus the relevant deadline or range; do not fall back to a bare timestamp.
+- Card titles use the native Card title typography rather than nested heading components. Assignment and contest detail Card headers keep long titles on one ellipsized line and group actions on the right.
+- Assignment and contest lists use a compact status Tag. Reuse it at the start of detail headers, followed by the title and, for contests, the contest kind; keep the relevant time or range in the status tooltip.
 - Problem references should display as clickable `P{id} {title}` under a column named “题目”.
 - User references are clickable usernames with avatars.
 - Markdown uploads must use server-returned relative URLs. Rendering may rewrite relative asset URLs to API URLs.

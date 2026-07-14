@@ -12,7 +12,7 @@ import { ScheduledDetailHeader } from '../../components/scheduled-detail-header'
 import { ProblemLink, UserLink } from '../../components/entity'
 import { defaultProblemSort } from '../../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
-import { contestTarget, DeadlineTimer } from '../../components/time'
+import { contestTarget, ScheduleTag } from '../../components/time'
 import { useLocale } from '../../locale'
 import { useSession } from '../../session'
 import { formatTime, problemCode, problemLabel } from '../../utils/format'
@@ -104,10 +104,8 @@ export function ContestDetailPage() {
       <ScheduledDetailHeader
         descriptionId={`contest-${contest.id}-description`}
         descriptionValue={query.data.description}
-        title={contest.title}
-        titleTag={<Tag>{contest.kind}</Tag>}
-        deadline={
-          <DeadlineTimer
+        status={
+          <ScheduleTag
             kind="contest"
             status={contest.status}
             target={contestTarget(contest.status, contest.startAt, contest.endAt)}
@@ -115,6 +113,8 @@ export function ContestDetailPage() {
             onFinish={() => void query.refetch()}
           />
         }
+        title={contest.title}
+        titleTag={<Tag style={{ marginInlineEnd: 0 }}>{contest.kind}</Tag>}
         recordsHref={`/submissions?contest=${contest.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`}
         recordsLabel={recordsUser ? text.submissions.myRecords : text.submissions.allRecords}
         admin={session.admin}

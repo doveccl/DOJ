@@ -163,7 +163,7 @@ function ContestList({ title, items }: { title: string; items: HomeContest[] }) 
               <Typography.Text strong ellipsis={{ tooltip: item.title }}>
                 <Link to={`/contests/${item.id}`}>{item.title}</Link>
               </Typography.Text>
-              <Tag color={contestStatusColor(item.status)}>{contestStatusText(item.status, text)}</Tag>
+              <Tag color={contestStatusColor(item.status)} style={{ marginInlineEnd: 0 }}>{contestStatusText(item.status, text)}</Tag>
             </Flex>
           ))}
         </Flex>

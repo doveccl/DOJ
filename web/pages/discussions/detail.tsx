@@ -117,8 +117,8 @@ export function DiscussionDetailPage() {
       <Card
         title={
           <Flex align="center" gap={8} wrap={false} style={{ minWidth: 0 }}>
-            {discussion.pinned ? <Tag color="green">{text.discussion.pinned}</Tag> : null}
-            {discussion.locked ? <Tag color="warning">{text.discussion.locked}</Tag> : null}
+            {discussion.pinned ? <Tag color="green" style={{ marginInlineEnd: 0 }}>{text.discussion.pinned}</Tag> : null}
+            {discussion.locked ? <Tag color="warning" style={{ marginInlineEnd: 0 }}>{text.discussion.locked}</Tag> : null}
             <Typography.Text ellipsis={{ tooltip: discussion.title }} style={{ minWidth: 0 }}>
               {discussion.title}
             </Typography.Text>
@@ -187,7 +187,7 @@ export function DiscussionDetailPage() {
           </Form>
         ) : (
           <Flex vertical gap={12}>
-            <Space size={8} wrap>
+            <Space size={8} align="center" wrap>
               <UserLink name={discussion.author} avatar={discussion.avatar} />
               <Typography.Text type="secondary">{formatTime(discussion.createdAt, lang)}</Typography.Text>
               <TagList tags={discussion.tags} linkTo={(tag) => `/discussion?tags=${encodeURIComponent(tag)}`} />
@@ -203,7 +203,7 @@ export function DiscussionDetailPage() {
               {index > 0 ? <Divider style={{ margin: '0 0 8px' }} /> : null}
               <Flex vertical gap={8} style={{ width: '100%' }}>
                 <Flex align="center" justify="space-between" gap={8}>
-                  <Space size={8}>
+                  <Space size={8} align="center">
                     <Typography.Text type="secondary">{text.discussion.floor(pageStart + index + 1)}</Typography.Text>
                     {item.deleted ? <Typography.Text type="secondary">{text.discussion.deletedReply}</Typography.Text> : <UserLink name={item.author} avatar={item.avatar} />}
                     {item.deleted ? null : <Typography.Text type="secondary">{formatTime(item.createdAt, lang)}</Typography.Text>}

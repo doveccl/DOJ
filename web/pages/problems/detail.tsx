@@ -398,11 +398,11 @@ export function ProblemDetailPage() {
         {session.signedIn ? (
           <Card
             title={
-              <Space size={8}>
-                {text.problem.submit}
-                {assignmentID !== undefined ? <Tag color="blue"><Link to={`/assignments/${assignmentID}`}>{`${text.assignments.title} #${assignmentID}`}</Link></Tag> : null}
-                {contestID !== undefined ? <Tag color="purple"><Link to={`/contests/${contestID}`}>{`${text.contests.title} #${contestID}`}</Link></Tag> : null}
-              </Space>
+              <Flex align="center" gap={8} wrap>
+                <Typography.Text strong>{text.problem.submit}</Typography.Text>
+                {assignmentID !== undefined ? <Tag color="blue" style={{ marginInlineEnd: 0 }}><Link to={`/assignments/${assignmentID}`}>{`${text.assignments.title} #${assignmentID}`}</Link></Tag> : null}
+                {contestID !== undefined ? <Tag color="purple" style={{ marginInlineEnd: 0 }}><Link to={`/contests/${contestID}`}>{`${text.contests.title} #${contestID}`}</Link></Tag> : null}
+              </Flex>
             }
           >
             <Flex vertical gap={12}>

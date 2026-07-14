@@ -95,10 +95,10 @@ export function SubmissionDetailPage() {
               className="submissionResultCard"
               style={{ position: 'relative' }}
               title={
-                <Space size={10}>
+                <Flex align="center" gap={10}>
                   <Typography.Text strong>{submissionCode(submission.id)}</Typography.Text>
                   <SubmissionStatus status={submission.status} />
-                </Space>
+                </Flex>
               }
               extra={
                 <Space size={12} wrap>
