@@ -2,6 +2,10 @@ import { Tag, Typography } from 'antd'
 
 import { useLocale } from '../locale'
 
+export function ContestKindTag({ kind }: { kind: string }) {
+  return <Tag color={kind === 'OI' ? 'purple' : 'cyan'} style={{ marginInlineEnd: 0 }}>{kind}</Tag>
+}
+
 export function SubmissionStatus({ status }: { status: string }) {
   const { text } = useLocale()
   return <Tag color={submissionStatusColor(status)} style={{ marginInlineEnd: 0 }}>{text.submissions.statuses[status as keyof typeof text.submissions.statuses] ?? status}</Tag>

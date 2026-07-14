@@ -12,6 +12,7 @@ import { ScheduledDetailHeader } from '../../components/scheduled-detail-header'
 import { ProblemLink, UserLink } from '../../components/entity'
 import { defaultProblemSort } from '../../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
+import { ContestKindTag } from '../../components/status'
 import { contestTarget, ScheduleTag } from '../../components/time'
 import { useLocale } from '../../locale'
 import { useSession } from '../../session'
@@ -114,7 +115,7 @@ export function ContestDetailPage() {
           />
         }
         title={contest.title}
-        titleTag={<Tag color={contest.kind === 'OI' ? 'purple' : 'cyan'} style={{ marginInlineEnd: 0 }}>{contest.kind}</Tag>}
+        titleTag={<ContestKindTag kind={contest.kind} />}
         recordsHref={`/submissions?contest=${contest.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`}
         recordsLabel={recordsUser ? text.submissions.myRecords : text.submissions.allRecords}
         admin={session.admin}

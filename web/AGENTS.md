@@ -32,7 +32,7 @@
 - Management actions should live near the business object: problems on problem pages, assignments on assignment pages, contests on contest pages, discussions on discussion pages.
 - Editable entity list pages use modal create/edit forms; entity detail pages edit in place inside the existing primary Card. Reuse the business form fields, not a generic schema-driven editor.
 - Card titles use the native Card title typography rather than nested heading components. Assignment and contest detail Card headers keep long titles on one ellipsized line and group actions on the right.
-- Assignment and contest lists use a compact status Tag. Reuse it at the start of detail headers; contest headers then show the colored contest kind before the title. Keep the relevant time or range in the status tooltip.
+- Assignment and contest lists use a compact status Tag. Contest lists and detail headers order status, colored contest kind, then title. Keep the relevant time or range in the status tooltip.
 - Problem references should display as clickable `P{id} {title}` under a column named “题目”.
 - User references are clickable usernames with avatars.
 - Markdown uploads must use server-returned relative URLs. Rendering may rewrite relative asset URLs to API URLs.

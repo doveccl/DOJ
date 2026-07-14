@@ -9,7 +9,6 @@ import {
   Popconfirm,
   Space,
   Table,
-  Tag,
   Tooltip,
   Typography
 } from 'antd'
@@ -22,6 +21,7 @@ import { api, apiData, apiEmpty } from '../../client'
 import type { Contest } from '../../client'
 import { defaultProblemSort } from '../../components/problem-ref'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
+import { ContestKindTag } from '../../components/status'
 import { contestTarget, ScheduleTag } from '../../components/time'
 import { useEntityCrud } from '../../components/use-entity-crud'
 import { useLocale } from '../../locale'
@@ -220,6 +220,12 @@ function contestColumns(
       )
     },
     {
+      title: text.contests.kind,
+      dataIndex: 'kind',
+      width: 80,
+      render: (kind: string) => <ContestKindTag kind={kind} />
+    },
+    {
       title: text.contests.name,
       dataIndex: 'title',
       ellipsis: { showTitle: false },
@@ -230,12 +236,6 @@ function contestColumns(
           </Link>
         </Flex>
       )
-    },
-    {
-      title: text.contests.kind,
-      dataIndex: 'kind',
-      width: 80,
-      render: (kind: string) => <Tag>{kind}</Tag>
     },
     {
       title: text.contests.problems,
