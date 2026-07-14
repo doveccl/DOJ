@@ -21,6 +21,7 @@
 - Table filter toolbars use `Flex vertical gap={16}` around the toolbar and table, with `tableToolbar` plus `tableToolbarForm` on inline antd forms so wrapped fields keep row spacing.
 - Table action columns must have a visible header, usually `text.common.actions`.
 - User-facing text must go through locale data.
+- Problem statements and the home notice are admin-managed trusted Markdown and may render raw HTML; user-generated Markdown must not.
 - Use “用户” and “用户组” consistently in the admin UI; do not mix in “成员”.
 
 ## Product UI

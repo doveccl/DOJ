@@ -207,18 +207,6 @@ function contestColumns(
 ): TableProps<Contest>['columns'] {
   const columns: TableProps<Contest>['columns'] = [
     {
-      title: text.contests.name,
-      dataIndex: 'title',
-      ellipsis: { showTitle: false },
-      render: (title: string, row) => (
-        <Flex align="center" gap={8} className="tableTitleLine">
-          <Link to={`/contests/${row.id}`} className="entityTextLink">
-            <Typography.Text className="ellipsisText" ellipsis={{ tooltip: title }}>{title}</Typography.Text>
-          </Link>
-        </Flex>
-      )
-    },
-    {
       title: text.contests.status,
       width: 160,
       render: (_, row) => (
@@ -229,6 +217,18 @@ function contestColumns(
           range={`${formatTime(row.startAt, lang)} - ${formatTime(row.endAt, lang)}`}
           onFinish={actions.refresh}
         />
+      )
+    },
+    {
+      title: text.contests.name,
+      dataIndex: 'title',
+      ellipsis: { showTitle: false },
+      render: (title: string, row) => (
+        <Flex align="center" gap={8} className="tableTitleLine">
+          <Link to={`/contests/${row.id}`} className="entityTextLink">
+            <Typography.Text className="ellipsisText" ellipsis={{ tooltip: title }}>{title}</Typography.Text>
+          </Link>
+        </Flex>
       )
     },
     {

@@ -26,6 +26,10 @@ export function problemMarkdownID(problemID: number) {
   return `P${problemID}`
 }
 
+export function trustedMarkdownID(editorID: string) {
+  return editorID === 'home-notice' || /^P\d+$/.test(editorID)
+}
+
 export function codeBlock(value: string, lang: string) {
   return `\`\`\`${lang}\n${value.replaceAll('```', '`\\`\\`')}\n\`\`\``
 }

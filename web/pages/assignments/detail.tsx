@@ -191,6 +191,11 @@ function progressColumns(text: ReturnType<typeof useLocale>['text'], problems: P
 function problemColumns(text: ReturnType<typeof useLocale>['text'], assignmentID: number, assignmentEnded: boolean, recordsUser: string, state: Map<number, ProblemState>): TableProps<ProblemListItem>['columns'] {
   const columns: TableProps<ProblemListItem>['columns'] = [
     {
+      title: text.assignments.status,
+      width: 140,
+      render: (_, row) => <AssignmentProblemStatus record={state.get(row.id)} text={text} />
+    },
+    {
       title: text.common.sort,
       dataIndex: 'sort',
       width: 88,
@@ -201,11 +206,6 @@ function problemColumns(text: ReturnType<typeof useLocale>['text'], assignmentID
       dataIndex: 'title',
       ellipsis: { showTitle: false },
       render: (title: string, row) => <ProblemLink id={row.id} title={title} search={assignmentEnded ? '' : `?assignment=${assignmentID}`} />
-    },
-    {
-      title: text.assignments.status,
-      width: 140,
-      render: (_, row) => <AssignmentProblemStatus record={state.get(row.id)} text={text} />
     },
     {
       title: text.common.actions,

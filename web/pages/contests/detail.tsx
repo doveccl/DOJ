@@ -266,6 +266,11 @@ function RankProblemCell({ kind, item }: { kind: string; item?: RankUser['proble
 function problemColumns(text: ReturnType<typeof useLocale>['text'], contestID: number, contestEnded: boolean, recordsUser: string, state: Map<number, ProblemState>): TableProps<ProblemListItem>['columns'] {
   const columns: TableProps<ProblemListItem>['columns'] = [
     {
+      title: text.contests.status,
+      width: 140,
+      render: (_, row) => <ContestProblemStatus record={state.get(row.id)} text={text} />
+    },
+    {
       title: text.common.sort,
       dataIndex: 'sort',
       width: 88,
@@ -276,11 +281,6 @@ function problemColumns(text: ReturnType<typeof useLocale>['text'], contestID: n
       dataIndex: 'title',
       ellipsis: { showTitle: false },
       render: (title: string, row) => <ProblemLink id={row.id} title={title} search={contestEnded ? '' : `?contest=${contestID}`} />
-    },
-    {
-      title: text.contests.status,
-      width: 140,
-      render: (_, row) => <ContestProblemStatus record={state.get(row.id)} text={text} />
     },
     {
       title: text.common.actions,

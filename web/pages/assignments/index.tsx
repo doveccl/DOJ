@@ -202,6 +202,11 @@ function assignmentColumns(
 ): TableProps<AssignmentListItem>['columns'] {
   const columns: TableProps<AssignmentListItem>['columns'] = [
     {
+      title: text.assignments.status,
+      width: 160,
+      render: (_, row) => <ScheduleTag kind="assignment" status={row.status} target={row.endAt} onFinish={actions.refresh} />
+    },
+    {
       title: text.assignments.name,
       dataIndex: 'title',
       ellipsis: { showTitle: false },
@@ -212,11 +217,6 @@ function assignmentColumns(
           </Link>
         </Flex>
       )
-    },
-    {
-      title: text.assignments.status,
-      width: 160,
-      render: (_, row) => <ScheduleTag kind="assignment" status={row.status} target={row.endAt} onFinish={actions.refresh} />
     },
     {
       title: text.assignments.progress,
