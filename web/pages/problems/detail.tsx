@@ -26,6 +26,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import {
+  APIError,
   api,
   apiData,
   uploadProblemImage
@@ -51,7 +52,7 @@ const languageStorageKey = 'doj.language'
 export function ProblemDetailPage() {
   const { text } = useLocale()
   const session = useSession()
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const client = useQueryClient()
   const navigate = useNavigate()
   const params = useParams()
@@ -133,7 +134,26 @@ export function ProblemDetailPage() {
       message.success(text.problem.queued)
       navigate(`/submissions/${item.id}`)
     },
-    onError: showError
+    onError: (error) => {
+      if (
+        error instanceof APIError &&
+        error.status === 403 &&
+        (error.message === 'assignment has ended' || error.message === 'contest is not running')
+      ) {
+        modal.confirm({
+          title: text.problem.contextClosed,
+          content: text.problem.contextClosedDescription,
+          okText: text.problem.switchToPractice,
+          cancelText: text.common.cancel,
+          onOk: () => {
+            window.localStorage.setItem(submissionDraftKey(session.name, id, lang), source)
+            navigate(`/problems/${id}`, { replace: true })
+          }
+        })
+        return
+      }
+      showError(error)
+    }
   })
   const edit = useMutation({
     mutationFn: (values: ProblemFormValues) => {

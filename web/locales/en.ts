@@ -145,6 +145,9 @@ export const en: typeof zh = {
     noLanguages: 'Configure a language first',
     publicSource: 'Public',
     invalidContext: 'Invalid submission context; reopen the problem from its assignment or contest',
+    contextClosed: 'This assignment or contest no longer accepts submissions',
+    contextClosedDescription: 'No submission was created. Keep the current source and switch to a practice submission?',
+    switchToPractice: 'Switch to practice',
     queued: 'Submission queued'
   },
   assignments: {

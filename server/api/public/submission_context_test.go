@@ -113,6 +113,18 @@ func TestDatabaseSubmitStoresAndValidatesContext(t *testing.T) {
 	if res := requestJSONWithCookies(e, http.MethodPost, "/api/submissions", cookies, bothBody); res.Code != http.StatusBadRequest {
 		t.Fatalf("mixed assignment and contest context got %d body=%s", res.Code, res.Body.String())
 	}
+	if err := db.Model(&assignment).Update("end_at", time.Now().Add(-time.Minute)).Error; err != nil {
+		t.Fatalf("end assignment: %v", err)
+	}
+	if res := requestJSONWithCookies(e, http.MethodPost, "/api/submissions", cookies, okBody); res.Code != http.StatusForbidden {
+		t.Fatalf("ended assignment context got %d body=%s", res.Code, res.Body.String())
+	}
+	if err := db.Model(&contest).Update("end_at", time.Now().Add(-time.Minute)).Error; err != nil {
+		t.Fatalf("end contest: %v", err)
+	}
+	if res := requestJSONWithCookies(e, http.MethodPost, "/api/submissions", cookies, contestBody); res.Code != http.StatusForbidden {
+		t.Fatalf("ended contest context got %d body=%s", res.Code, res.Body.String())
+	}
 
 	unassigned := models.Assignment{Title: "Other HW", EndAt: time.Now().Add(time.Hour)}
 	if err := db.Create(&unassigned).Error; err != nil {
