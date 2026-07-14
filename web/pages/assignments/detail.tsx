@@ -4,7 +4,6 @@ import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import { useState } from 'react'
-import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { api, apiData } from '../../client'
@@ -156,7 +155,7 @@ function progressColumns(text: ReturnType<typeof useLocale>['text'], problems: P
     {
       title: text.rank.user,
       width: 220,
-      render: (_, row) => <UserLink name={row.user} strong />
+      render: (_, row) => <UserLink name={row.user} />
     },
     {
       title: text.rank.ac,
@@ -200,16 +199,17 @@ function problemColumns(text: ReturnType<typeof useLocale>['text'], assignmentID
     {
       title: text.submissions.problem,
       dataIndex: 'title',
-      width: 320,
       ellipsis: { showTitle: false },
       render: (title: string, row) => <ProblemLink id={row.id} title={title} search={assignmentEnded ? '' : `?assignment=${assignmentID}`} />
     },
     {
       title: text.assignments.status,
+      width: 140,
       render: (_, row) => <AssignmentProblemStatus record={state.get(row.id)} text={text} />
     },
     {
       title: text.common.actions,
+      width: 80,
       align: 'right',
       render: (_, row) => (
         <Tooltip title={text.submissions.viewProblemRecords}>
@@ -223,15 +223,14 @@ function problemColumns(text: ReturnType<typeof useLocale>['text'], assignmentID
 
 function AssignmentProblemStatus({ record, text }: { record?: ProblemState; text: ReturnType<typeof useLocale>['text'] }) {
   const status = record?.status
-  const wrap = (node: ReactNode) => record?.submission?.id ? <Link to={`/submissions/${record.submission.id}`}>{node}</Link> : node
   if (status === 'pending') {
-    return wrap(<Tag color="processing">{text.submissions.statuses.pending}</Tag>)
+    return <Tag color="processing">{text.submissions.statuses.pending}</Tag>
   }
   if (status === 'ac') {
-    return wrap(<Tag color="success">{text.assignments.completed}</Tag>)
+    return <Tag color="success">{text.assignments.completed}</Tag>
   }
   if (status === 'tried') {
-    return wrap(<Tag color="warning">{text.assignments.attempted}</Tag>)
+    return <Tag color="warning">{text.assignments.attempted}</Tag>
   }
   return <Tag>{text.assignments.notCompleted}</Tag>
 }

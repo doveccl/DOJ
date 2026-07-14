@@ -27,10 +27,6 @@ func (api *API) submissions(c echo.Context) error {
 	}
 	var rows []models.Submission
 	query := api.db.Model(&models.Submission{})
-	query, err = api.applySubmissionAccess(c, query)
-	if err != nil {
-		return err
-	}
 	if !api.isAdmin(c) {
 		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
 		query = query.Where("problems.deleted_at IS NULL")
@@ -55,7 +51,7 @@ func (api *API) submissions(c echo.Context) error {
 		}
 		query = query.Where("submissions.status = ?", status)
 		if !submissionLive(status) {
-			query, err = api.filterHiddenResultAC(c, query)
+			query, err = api.filterVisibleResults(c, query)
 			if err != nil {
 				return err
 			}
@@ -290,13 +286,6 @@ func (api *API) submission(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusNotFound, "submission not found")
 		}
 		return err
-	}
-	accessible, err := api.submissionAccessible(c, row)
-	if err != nil {
-		return err
-	}
-	if !accessible {
-		return echo.NewHTTPError(http.StatusNotFound, "submission not found")
 	}
 	if !api.isAdmin(c) {
 		var count int64
@@ -562,12 +551,6 @@ func hideSubmissionResult(row *contract.Submission) {
 	row.Message = ""
 	row.TimeMS = nil
 	row.MemoryKB = nil
-}
-
-func pendingRecord(row contract.ProblemRecord) contract.ProblemRecord {
-	row.Status = "pending"
-	row.Score = 0
-	return row
 }
 
 func (api *API) problemTitleMap(ids []uint) (map[uint]string, error) {

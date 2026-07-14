@@ -367,19 +367,11 @@ type Problem struct {
 }
 
 type ProblemState struct {
-	ProblemID   uint           `json:"problemId"`
-	AC          int            `json:"ac"`
-	Submit      int            `json:"submit"`
-	Discussions *int           `json:"discussions,omitempty"`
-	Status      string         `json:"status"`
-	Submission  *ProblemRecord `json:"submission,omitempty"`
-}
-
-type ProblemRecord struct {
-	ID        uint      `json:"id"`
-	Status    string    `json:"status"`
-	Score     int       `json:"score"`
-	CreatedAt time.Time `json:"createdAt"`
+	ProblemID   uint   `json:"problemId"`
+	AC          int    `json:"ac"`
+	Submit      int    `json:"submit"`
+	Discussions *int   `json:"discussions,omitempty"`
+	Status      string `json:"status"`
 }
 
 type ProblemCreate struct {

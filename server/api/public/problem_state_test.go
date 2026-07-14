@@ -123,33 +123,33 @@ func TestProblemStateStatsAreScopedAndAccessControlled(t *testing.T) {
 	}
 	assignmentID := assignment.ID
 	otherAssignmentID := otherAssignment.ID
-	practiceOwner := models.Submission{UserID: owner.ID, ProblemID: problem.ID, Language: "cpp", Code: "practice owner", Status: "WA"}
-	practiceOutsider := models.Submission{UserID: outsider.ID, ProblemID: problem.ID, Language: "cpp", Code: "practice outsider", Status: "AC", Score: 100}
+	ordinaryOwner := models.Submission{UserID: owner.ID, ProblemID: problem.ID, Language: "cpp", Code: "ordinary owner", Status: "WA"}
+	ordinaryOutsider := models.Submission{UserID: outsider.ID, ProblemID: problem.ID, Language: "cpp", Code: "ordinary outsider", Status: "AC", Score: 100}
 	assignmentOwner := models.Submission{UserID: owner.ID, ProblemID: problem.ID, AssignmentID: &assignmentID, Language: "cpp", Code: "assignment owner", Status: "AC", Score: 100}
 	assignmentPeer := models.Submission{UserID: peer.ID, ProblemID: problem.ID, AssignmentID: &assignmentID, Language: "cpp", Code: "assignment peer", Status: "AC", Score: 100}
 	otherContext := models.Submission{UserID: outsider.ID, ProblemID: problem.ID, AssignmentID: &otherAssignmentID, Language: "cpp", Code: "other assignment", Status: "AC", Score: 100}
-	if err := db.Create(&[]*models.Submission{&practiceOwner, &practiceOutsider, &assignmentOwner, &assignmentPeer, &otherContext}).Error; err != nil {
+	if err := db.Create(&[]*models.Submission{&ordinaryOwner, &ordinaryOutsider, &assignmentOwner, &assignmentPeer, &otherContext}).Error; err != nil {
 		t.Fatal(err)
 	}
 
 	e := echo.New()
 	Register(e, db)
-	practicePath := "/api/problem-state?ids=1000"
-	guest := decodeJSON[[]contract.ProblemState](t, requestOK(t, e, http.MethodGet, practicePath, ""))[0]
-	if guest.Submit != 2 || guest.AC != 1 || guest.Status != "none" {
-		t.Fatalf("guest practice stats mixed private contexts: %+v", guest)
+	ordinaryPath := "/api/problem-state?ids=1000"
+	guest := decodeJSON[[]contract.ProblemState](t, requestOK(t, e, http.MethodGet, ordinaryPath, ""))[0]
+	if guest.Submit != 5 || guest.AC != 4 || guest.Status != "none" {
+		t.Fatalf("guest global stats should include all contexts: %+v", guest)
 	}
-	outsiderPractice := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, practicePath, databaseSession(t, db, outsider.ID), nil))[0]
-	if outsiderPractice.Submit != 2 || outsiderPractice.AC != 1 || outsiderPractice.Status != "ac" || outsiderPractice.Submission == nil || outsiderPractice.Submission.ID != practiceOutsider.ID {
-		t.Fatalf("outsider practice state mixed assignment context: %+v", outsiderPractice)
+	outsiderOrdinary := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, ordinaryPath, databaseSession(t, db, outsider.ID), nil))[0]
+	if outsiderOrdinary.Submit != 5 || outsiderOrdinary.AC != 4 || outsiderOrdinary.Status != "ac" {
+		t.Fatalf("outsider global state should include all contexts: %+v", outsiderOrdinary)
 	}
-	ownerPractice := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, practicePath, databaseSession(t, db, owner.ID), nil))[0]
-	if ownerPractice.Submit != 2 || ownerPractice.AC != 1 || ownerPractice.Status != "tried" || ownerPractice.Submission == nil || ownerPractice.Submission.ID != practiceOwner.ID {
-		t.Fatalf("owner practice state mixed assignment context: %+v", ownerPractice)
+	ownerOrdinary := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, ordinaryPath, databaseSession(t, db, owner.ID), nil))[0]
+	if ownerOrdinary.Submit != 5 || ownerOrdinary.AC != 4 || ownerOrdinary.Status != "ac" {
+		t.Fatalf("owner global state should include all contexts: %+v", ownerOrdinary)
 	}
-	adminPractice := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, practicePath, databaseSession(t, db, admin.ID), nil))[0]
-	if adminPractice.Submit != 2 || adminPractice.AC != 1 {
-		t.Fatalf("admin practice stats mixed contextual submissions: %+v", adminPractice)
+	adminOrdinary := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, ordinaryPath, databaseSession(t, db, admin.ID), nil))[0]
+	if adminOrdinary.Submit != 5 || adminOrdinary.AC != 4 {
+		t.Fatalf("admin global stats should include all contexts: %+v", adminOrdinary)
 	}
 
 	assignmentPath := "/api/problem-state?assignment=" + strconv.FormatUint(uint64(assignment.ID), 10) + "&ids=1000"
@@ -160,8 +160,8 @@ func TestProblemStateStatsAreScopedAndAccessControlled(t *testing.T) {
 		t.Fatalf("outsider queried private assignment stats: %d %s", res.Code, res.Body.String())
 	}
 	ownerAssignment := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, assignmentPath, databaseSession(t, db, owner.ID), nil))[0]
-	if ownerAssignment.Submit != 1 || ownerAssignment.AC != 1 || ownerAssignment.Status != "ac" || ownerAssignment.Submission == nil || ownerAssignment.Submission.ID != assignmentOwner.ID {
-		t.Fatalf("active assignment owner saw another user's aggregate: %+v", ownerAssignment)
+	if ownerAssignment.Submit != 2 || ownerAssignment.AC != 2 || ownerAssignment.Status != "ac" {
+		t.Fatalf("assignment stats should include the whole assignment context: %+v", ownerAssignment)
 	}
 	adminAssignment := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, assignmentPath, databaseSession(t, db, admin.ID), nil))[0]
 	if adminAssignment.Submit != 2 || adminAssignment.AC != 2 {
@@ -169,26 +169,76 @@ func TestProblemStateStatsAreScopedAndAccessControlled(t *testing.T) {
 	}
 }
 
-func TestProblemStateTreatsLiveSubmissionAsPending(t *testing.T) {
+func TestProblemStateUsesOrdinaryStatusWithoutLatestRecord(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	user := models.User{Name: "alice", Mail: "alice@example.com", Auth: "hash"}
+	queuedOnly := models.Problem{ID: 1000, Title: "Queued", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	triedThenQueued := models.Problem{ID: 1001, Title: "Tried", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	solvedThenQueued := models.Problem{ID: 1002, Title: "Solved", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&[]models.Problem{queuedOnly, triedThenQueued, solvedThenQueued}).Error; err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	if err := db.Create(&[]models.Submission{
+		{UserID: user.ID, ProblemID: queuedOnly.ID, Language: "cpp", Code: "a", Status: "queued", CreatedAt: now},
+		{UserID: user.ID, ProblemID: triedThenQueued.ID, Language: "cpp", Code: "b", Status: "WA", CreatedAt: now},
+		{UserID: user.ID, ProblemID: triedThenQueued.ID, Language: "cpp", Code: "c", Status: "queued", CreatedAt: now.Add(time.Second)},
+		{UserID: user.ID, ProblemID: solvedThenQueued.ID, Language: "cpp", Code: "d", Status: "AC", Score: 100, CreatedAt: now},
+		{UserID: user.ID, ProblemID: solvedThenQueued.ID, Language: "cpp", Code: "e", Status: "queued", CreatedAt: now.Add(time.Second)},
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+	state := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?ids=1000,1001,1002", databaseSession(t, db, user.ID), nil))
+	if len(state) != 3 || state[0].Status != "pending" {
+		t.Fatalf("queued-only global state = %+v", state)
+	}
+	if state[1].Status != "pending" {
+		t.Fatalf("global state should preserve pending over tried: %+v", state)
+	}
+	if state[2].Status != "ac" {
+		t.Fatalf("global state should keep historical AC: %+v", state)
+	}
+}
+
+func TestProblemStateTreatsAssignmentLiveSubmissionAsPending(t *testing.T) {
 	db := testWebDB(t)
 	allowGuest(t, db)
 	user := models.User{Name: "alice", Mail: "alice@example.com", Auth: "hash"}
 	problem := models.Problem{ID: 1000, Title: "A+B", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	assignment := models.Assignment{Title: "Homework", EndAt: time.Now().Add(time.Hour)}
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Create(&problem).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Create(&models.Submission{UserID: user.ID, ProblemID: problem.ID, Language: "cpp", Code: "a", Status: "queued"}).Error; err != nil {
+	if err := db.Create(&assignment).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&models.AssignmentUser{AssignmentID: assignment.ID, UserID: user.ID}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&models.AssignmentProblem{AssignmentID: assignment.ID, ProblemID: problem.ID}).Error; err != nil {
+		t.Fatal(err)
+	}
+	assignmentID := assignment.ID
+	if err := db.Create(&models.Submission{UserID: user.ID, ProblemID: problem.ID, AssignmentID: &assignmentID, Language: "cpp", Code: "a", Status: "queued"}).Error; err != nil {
 		t.Fatal(err)
 	}
 
 	e := echo.New()
 	Register(e, db)
-	state := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?ids=1000", databaseSession(t, db, user.ID), nil))
-	if len(state) != 1 || state[0].Status != "pending" || state[0].Submission == nil || state[0].Submission.Status != "queued" {
-		t.Fatalf("live submission state = %+v", state)
+	path := "/api/problem-state?assignment=" + strconv.FormatUint(uint64(assignment.ID), 10) + "&ids=1000"
+	state := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, path, databaseSession(t, db, user.ID), nil))
+	if len(state) != 1 || state[0].Status != "pending" {
+		t.Fatalf("assignment live submission state = %+v", state)
 	}
 }
 

@@ -23,11 +23,8 @@ type ProfileOverviewProps = {
 export function ProfileOverview({ profile, renderAvatar, sidebarAction, onSolvedPageChange }: ProfileOverviewProps) {
   const { text } = useLocale()
   const user = profile.user
-  const avatarText = user.name.slice(0, 1).toUpperCase()
   const avatar = (
-    <Avatar className="profileAvatar" size={168} src={user.avatar || undefined} icon={avatarText ? undefined : <UserOutlined />}>
-      {avatarText}
-    </Avatar>
+    <Avatar className="profileAvatar" size={168} src={user.avatar || undefined} icon={<UserOutlined />} />
   )
 
   return (

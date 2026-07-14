@@ -13,20 +13,16 @@ import (
 func (api *API) assignmentProgress(c echo.Context, id uint, problems []contract.Problem) ([]contract.AssignmentProgress, error) {
 	admin := api.isAdmin(c)
 	viewerID := uint(0)
-	var userIDs []uint
-	if admin {
-		var err error
-		userIDs, err = api.assignmentProgressUserIDs(id)
+	if !admin {
+		vid, err := api.viewerID(c)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		var err error
-		viewerID, err = api.viewerID(c)
-		if err != nil {
-			return nil, err
-		}
-		userIDs = []uint{viewerID}
+		viewerID = vid
+	}
+	userIDs, err := api.assignmentProgressUserIDs(id)
+	if err != nil {
+		return nil, err
 	}
 	if len(userIDs) == 0 {
 		return []contract.AssignmentProgress{}, nil

@@ -207,9 +207,54 @@ body {
   min-width: 0;
 }
 
+.tableTitleLine > .entityTextLink {
+  flex: 1 1 auto;
+}
+
 .tableTitleLine .ant-tag {
   flex: none;
   margin-inline-end: 0;
+}
+
+.entityTextLink {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--ant-color-link);
+  vertical-align: bottom;
+}
+
+.ellipsisText {
+  display: inline-block;
+  min-width: 0;
+  max-width: 100%;
+  vertical-align: bottom;
+}
+
+.entityTextLink .ellipsisText,
+.entityUserLink .ellipsisText {
+  color: inherit;
+}
+
+.entityUserLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--ant-color-link);
+  overflow: hidden;
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+
+.entityUserLink .ant-avatar {
+  flex: none;
+  line-height: 24px;
+}
+
+.entityUserLink > .ant-typography {
+  min-width: 0;
 }
 
 .noticeCard .ant-card-body {

@@ -108,13 +108,6 @@ func (api *API) problemStateVisibleIDs(c echo.Context, ids []uint, assignmentID 
 		}
 	} else if !api.isAdmin(c) {
 		now := time.Now()
-		query = query.Where(`NOT EXISTS (
-			SELECT 1 FROM contest_problems unfinished_links
-			JOIN contests unfinished_contests ON unfinished_contests.id = unfinished_links.contest_id
-			WHERE unfinished_links.problem_id = problems.id
-				AND unfinished_contests.deleted_at IS NULL
-				AND unfinished_contests.end_at > ?
-		)`, now)
 		baseVisibility := `problems.visible = ? OR EXISTS (
 			SELECT 1 FROM contest_problems ended_links
 			JOIN contests ended_contests ON ended_contests.id = ended_links.contest_id
@@ -221,10 +214,7 @@ func (api *API) problemSubmissionStats(c echo.Context, ids []uint, assignmentID 
 		ProblemID uint
 		Count     int64
 	}
-	submitQuery, err := api.applySubmissionAccess(c, api.problemStateSubmissionQuery(ids, assignmentID, contestID))
-	if err != nil {
-		return nil, nil, err
-	}
+	submitQuery := api.problemStateSubmissionQuery(ids, assignmentID, contestID)
 	if err := submitQuery.
 		Select("submissions.problem_id, count(*) AS count").
 		Group("problem_id").
@@ -239,7 +229,7 @@ func (api *API) problemSubmissionStats(c echo.Context, ids []uint, assignmentID 
 		ProblemID uint
 		Count     int64
 	}
-	acQuery, err := api.applySubmissionStatsVisibility(c, api.problemStateSubmissionQuery(ids, assignmentID, contestID).Where("submissions.status = ?", "AC"))
+	acQuery, err := api.filterVisibleResults(c, api.problemStateSubmissionQuery(ids, assignmentID, contestID).Where("submissions.status = ?", "AC"))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -264,7 +254,7 @@ func (api *API) problemStateSubmissionQuery(ids []uint, assignmentID *uint, cont
 	if contestID != nil {
 		return query.Where("submissions.contest_id = ? AND submissions.assignment_id IS NULL", *contestID)
 	}
-	return query.Where("submissions.assignment_id IS NULL AND submissions.contest_id IS NULL")
+	return query
 }
 
 func (api *API) fillProblemUserState(c echo.Context, items []contract.ProblemState, assignmentID *uint, contest *models.Contest) ([]contract.ProblemState, error) {
@@ -294,8 +284,6 @@ func (api *API) fillProblemUserState(c echo.Context, items []contract.ProblemSta
 		Order("created_at desc")
 	if assignmentID != nil {
 		query = query.Where("assignment_id = ? AND contest_id IS NULL", *assignmentID)
-	} else {
-		query = query.Where("assignment_id IS NULL AND contest_id IS NULL")
 	}
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
@@ -309,25 +297,9 @@ func (api *API) fillProblemUserState(c echo.Context, items []contract.ProblemSta
 		return nil, err
 	}
 	status := map[uint]string{}
-	submission := map[uint]contract.ProblemRecord{}
 	for index, row := range rows {
-		resultVisible := row.ID == 0 || views[index].Result
-		submissionSet := false
-		if _, ok := submission[row.ProblemID]; !ok {
-			submission[row.ProblemID] = contract.ProblemRecord{ID: row.ID, Status: row.Status, Score: row.Score, CreatedAt: row.CreatedAt}
-			submissionSet = true
-		}
-		if !resultVisible {
-			if submissionSet {
-				submission[row.ProblemID] = pendingRecord(submission[row.ProblemID])
-			}
-			if status[row.ProblemID] == "" {
-				status[row.ProblemID] = "pending"
-			}
-			continue
-		}
-		if submissionLive(row.Status) {
-			if status[row.ProblemID] == "" {
+		if !views[index].Result || submissionLive(row.Status) {
+			if status[row.ProblemID] != "ac" {
 				status[row.ProblemID] = "pending"
 			}
 			continue
@@ -344,9 +316,6 @@ func (api *API) fillProblemUserState(c echo.Context, items []contract.ProblemSta
 		items[index].Status = status[items[index].ProblemID]
 		if items[index].Status == "" {
 			items[index].Status = "none"
-		}
-		if item, ok := submission[items[index].ProblemID]; ok {
-			items[index].Submission = &item
 		}
 	}
 	return items, nil
@@ -386,20 +355,10 @@ func (api *API) fillProblemUserStateInContest(c echo.Context, items []contract.P
 		return nil, err
 	}
 	status := map[uint]string{}
-	submission := map[uint]contract.ProblemRecord{}
 	oiBest := map[uint]int{}
 	oiDone := map[uint]bool{}
 	for index, row := range rows {
-		resultVisible := row.ID == 0 || views[index].Result
-		submissionSet := false
-		if _, ok := submission[row.ProblemID]; !ok {
-			submission[row.ProblemID] = contract.ProblemRecord{ID: row.ID, Status: row.Status, Score: row.Score, CreatedAt: row.CreatedAt}
-			submissionSet = true
-		}
-		if !resultVisible {
-			if submissionSet {
-				submission[row.ProblemID] = pendingRecord(submission[row.ProblemID])
-			}
+		if !views[index].Result {
 			if status[row.ProblemID] == "" {
 				status[row.ProblemID] = "pending"
 			}
@@ -414,7 +373,6 @@ func (api *API) fillProblemUserStateInContest(c echo.Context, items []contract.P
 		if contest.Kind == "OI" {
 			if !oiDone[row.ProblemID] || row.Score > oiBest[row.ProblemID] {
 				oiBest[row.ProblemID] = row.Score
-				submission[row.ProblemID] = contract.ProblemRecord{ID: row.ID, Status: row.Status, Score: row.Score, CreatedAt: row.CreatedAt}
 			}
 			oiDone[row.ProblemID] = true
 			if oiBest[row.ProblemID] >= 100 {
@@ -429,7 +387,6 @@ func (api *API) fillProblemUserStateInContest(c echo.Context, items []contract.P
 		}
 		if row.Status == "AC" {
 			status[row.ProblemID] = "ac"
-			submission[row.ProblemID] = contract.ProblemRecord{ID: row.ID, Status: row.Status, Score: row.Score, CreatedAt: row.CreatedAt}
 			continue
 		}
 		if status[row.ProblemID] == "" {
@@ -440,9 +397,6 @@ func (api *API) fillProblemUserStateInContest(c echo.Context, items []contract.P
 		items[index].Status = status[items[index].ProblemID]
 		if items[index].Status == "" {
 			items[index].Status = "none"
-		}
-		if item, ok := submission[items[index].ProblemID]; ok {
-			items[index].Submission = &item
 		}
 	}
 	return items, nil

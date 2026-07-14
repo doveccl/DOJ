@@ -120,7 +120,7 @@ function ProblemList({ title, items }: { title: string; items: HomeProblem[] }) 
       ) : (
         <Flex vertical gap={8}>
           {items.map((item) => (
-            <ProblemLink key={item.id} id={item.id} title={item.title} strong />
+            <ProblemLink key={item.id} id={item.id} title={item.title} />
           ))}
         </Flex>
       )}

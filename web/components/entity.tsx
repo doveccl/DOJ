@@ -1,23 +1,29 @@
-import { Tag, Typography } from 'antd'
+import { UserOutlined } from '@ant-design/icons'
+import { Avatar, Tag, Typography } from 'antd'
 import { Link } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
 import { problemLabel } from '../utils/format'
 
-export function ProblemLink({ id, title, search = '', strong, maxWidth }: { id: number; title?: string; search?: string; strong?: boolean; maxWidth?: number }) {
+export function ProblemLink({ id, title, search = '', maxWidth }: { id: number; title?: string; search?: string; maxWidth?: number | string }) {
   const label = problemLabel(id, title)
   return (
-    <Typography.Text strong={strong} ellipsis={{ tooltip: label }} style={maxWidth ? { maxWidth } : undefined}>
-      <Link to={`/problems/${id}${search}`}>{label}</Link>
-    </Typography.Text>
+    <Link to={`/problems/${id}${search}`} className="entityTextLink">
+      <Typography.Text className="ellipsisText" ellipsis={{ tooltip: label }} style={maxWidth === undefined ? undefined : { maxWidth }}>
+        {label}
+      </Typography.Text>
+    </Link>
   )
 }
 
-export function UserLink({ name, strong }: { name: string; strong?: boolean }) {
+export function UserLink({ name, avatar, maxWidth }: { name: string; avatar?: string; maxWidth?: number | string }) {
   return (
-    <Typography.Text strong={strong} ellipsis={{ tooltip: name }} style={{ maxWidth: '100%' }}>
-      <Link to={`/users/${name}`}>{name}</Link>
-    </Typography.Text>
+    <Link to={`/users/${name}`} className="entityUserLink">
+      <Avatar size={24} src={avatar || undefined} icon={<UserOutlined />} />
+      <Typography.Text className="ellipsisText" ellipsis={{ tooltip: name }} style={maxWidth === undefined ? undefined : { maxWidth }}>
+        {name}
+      </Typography.Text>
+    </Link>
   )
 }
 

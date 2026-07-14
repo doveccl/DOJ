@@ -186,7 +186,7 @@ func TestAssignmentMembershipCreateUpdateAndVisibility(t *testing.T) {
 	}
 }
 
-func TestAssignmentProgressPrivacy(t *testing.T) {
+func TestAssignmentProgressVisibleToAssignedUsers(t *testing.T) {
 	db := testWebDB(t)
 	allowGuest(t, db)
 	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
@@ -235,8 +235,8 @@ func TestAssignmentProgressPrivacy(t *testing.T) {
 		t.Fatalf("unassigned detail got %d body=%s", res.Code, res.Body.String())
 	}
 	aliceDetail := decodeJSON[contract.AssignmentDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, alice.ID), nil))
-	if len(aliceDetail.Progress) != 1 || aliceDetail.Progress[0].User != alice.Name || aliceDetail.Progress[0].AC != 1 || aliceDetail.Progress[0].Submit != 1 {
-		t.Fatalf("assigned user should see only own progress: %+v", aliceDetail.Progress)
+	if len(aliceDetail.Progress) != 2 || aliceDetail.Progress[0].User != alice.Name || aliceDetail.Progress[1].User != bob.Name {
+		t.Fatalf("assigned user should see assignment progress: %+v", aliceDetail.Progress)
 	}
 	adminDetail := decodeJSON[contract.AssignmentDetail](t, requestWithCookies(e, http.MethodGet, target, databaseSession(t, db, admin.ID), nil))
 	if len(adminDetail.Progress) != 2 || adminDetail.Progress[0].User != alice.Name || adminDetail.Progress[1].User != bob.Name {

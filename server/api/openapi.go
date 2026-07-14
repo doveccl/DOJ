@@ -50,12 +50,11 @@ type Problem struct {
 }
 
 type ProblemState struct {
-	ProblemID   uint                    `json:"problemId"`
-	AC          int                     `json:"ac"`
-	Submit      int                     `json:"submit"`
-	Discussions *int                    `json:"discussions,omitempty"`
-	Status      string                  `json:"status" enum:"none,tried,ac,pending"`
-	Submission  *contract.ProblemRecord `json:"submission,omitempty"`
+	ProblemID   uint   `json:"problemId"`
+	AC          int    `json:"ac"`
+	Submit      int    `json:"submit"`
+	Discussions *int   `json:"discussions,omitempty"`
+	Status      string `json:"status" enum:"none,tried,ac,pending"`
 }
 
 type Assignment struct {
@@ -235,7 +234,7 @@ type adminMembersQuery struct {
 type problemListQuery struct {
 	Q        string `query:"q"`
 	Tag      string `query:"tag"`
-	Status   string `query:"status" enum:"all,none,tried,ac"`
+	Status   string `query:"status" enum:"all,none,tried,ac,pending"`
 	Page     int    `query:"page"`
 	PageSize int    `query:"pageSize"`
 }

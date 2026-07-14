@@ -150,9 +150,7 @@ export function AppLayout() {
                 >
                   <Button type="text" className="profileButton" aria-label={`${text.prefs.profile}: ${session.name}`}>
                     <Flex align="center" gap={8} className="profileButtonInner">
-                      <Avatar size={28} src={session.avatar || undefined} icon={<UserOutlined />}>
-                        {session.name.slice(0, 1).toUpperCase()}
-                      </Avatar>
+                      <Avatar size={28} src={session.avatar || undefined} icon={<UserOutlined />} />
                       <span className="profileName">{session.name}</span>
                       <DownOutlined className="profileArrow" />
                     </Flex>

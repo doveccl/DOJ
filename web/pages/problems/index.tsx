@@ -22,6 +22,7 @@ import { api, apiData, apiEmpty, uploadProblemImage } from '../../client'
 import type { ProblemListItem, ProblemListPage, ProblemState } from '../../client'
 import { ProblemLink } from '../../components/entity'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
+import { ProblemStatus } from '../../components/status'
 import { TagList } from '../../components/tags'
 import { useEntityCrud } from '../../components/use-entity-crud'
 import { TagSelect } from '../../components/tag-select'
@@ -130,6 +131,7 @@ export function ProblemsPage() {
                   placeholder={text.problems.statusFilter}
                   options={[
                     { value: 'none', label: text.problems.statusNone },
+                    { value: 'pending', label: text.problems.statusPending },
                     { value: 'tried', label: text.problems.statusTried },
                     { value: 'ac', label: text.problems.statusAc }
                   ]}
@@ -258,15 +260,18 @@ function problemColumns(
 ): TableProps<ProblemListItem>['columns'] {
   const columns: TableProps<ProblemListItem>['columns'] = [
     {
+      title: text.problems.statusFilter,
+      width: 88,
+      align: 'center',
+      render: (_, row) => <ProblemStatus status={state.get(row.id)?.status} />
+    },
+    {
       title: text.submissions.problem,
       dataIndex: 'title',
-      width: 420,
       ellipsis: { showTitle: false },
       render: (title: string, row) => (
         <Flex align="center" gap={8} wrap={false} className="tableTitleLine">
-          <ProblemLink id={row.id} title={title} maxWidth={560} />
-          <ProblemRecordTag status={state.get(row.id)?.status} />
-          {!row.visible ? <Tag>{text.problems.hidden}</Tag> : null}
+          <ProblemLink id={row.id} title={title} />
         </Flex>
       )
     },
@@ -278,10 +283,12 @@ function problemColumns(
     },
     {
       title: text.problems.limit,
+      width: 160,
       render: (_, row) => <Typography.Text type="secondary" className="nowrap">{formatLimit(row)}</Typography.Text>
     },
     {
       title: text.problems.pass,
+      width: 96,
       render: (_, row) => {
         const item = state.get(row.id)
         return item ? <Typography.Text>{formatPass(item)}</Typography.Text> : <Typography.Text type="secondary">-</Typography.Text>
@@ -291,6 +298,7 @@ function problemColumns(
   if (admin) {
     columns.push({
       title: text.common.actions,
+      width: 140,
       align: 'right',
       render: (_, row) => (
         <Space size={4}>
@@ -317,22 +325,8 @@ function problemColumns(
   return columns
 }
 
-function ProblemRecordTag({ status }: { status?: string }) {
-  const { text } = useLocale()
-  if (status === 'pending') {
-    return <Tag color="processing">{text.submissions.statuses.pending}</Tag>
-  }
-  if (status === 'ac') {
-    return <Tag color="success">{text.problem.passed}</Tag>
-  }
-  if (status === 'tried') {
-    return <Tag color="warning">{text.problem.tried}</Tag>
-  }
-  return null
-}
-
-function isProblemStatus(value: string): value is 'none' | 'tried' | 'ac' {
-  return value === 'none' || value === 'tried' || value === 'ac'
+function isProblemStatus(value: string): value is 'none' | 'pending' | 'tried' | 'ac' {
+  return value === 'none' || value === 'pending' || value === 'tried' || value === 'ac'
 }
 
 function replaceProblemInCaches(client: ReturnType<typeof useQueryClient>, item: ProblemListItem) {

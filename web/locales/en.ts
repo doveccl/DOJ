@@ -99,14 +99,15 @@ export const en: typeof zh = {
     memory: 'Memory limit',
     statusFilter: 'Status',
     statusAll: 'All',
-    statusNone: 'Not started',
+    statusNone: 'No completed submissions',
+    statusPending: 'Pending',
     statusTried: 'Attempted',
     statusAc: 'Solved'
   },
   problem: {
     statement: 'Statement',
     visible: 'Visible to regular users',
-    record: 'Latest',
+    record: 'Status',
     passed: 'Accepted',
     tried: 'Tried',
     none: 'No record',

@@ -240,7 +240,7 @@ func (api *API) assignmentDoneCount(c echo.Context, id uint) (int, error) {
 		Select("DISTINCT submissions.problem_id").
 		Joins("JOIN assignment_problems ON assignment_problems.problem_id = submissions.problem_id").
 		Where("assignment_problems.assignment_id = ? AND submissions.assignment_id = ? AND submissions.user_id = ? AND submissions.status = ?", id, id, user.ID, "AC")
-	query, err = api.filterHiddenResultAC(c, query)
+	query, err = api.filterVisibleResults(c, query)
 	if err != nil {
 		return 0, err
 	}
@@ -269,7 +269,7 @@ func (api *API) assignmentDoneMap(c echo.Context, ids []uint) (map[uint]int, err
 		Joins("JOIN assignment_problems ON assignment_problems.assignment_id = submissions.assignment_id AND assignment_problems.problem_id = submissions.problem_id").
 		Where("submissions.assignment_id IN ? AND submissions.user_id = ? AND submissions.status = ?", ids, user.ID, "AC").
 		Group("submissions.assignment_id")
-	query, err = api.filterHiddenResultAC(c, query)
+	query, err = api.filterVisibleResults(c, query)
 	if err != nil {
 		return nil, err
 	}

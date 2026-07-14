@@ -50,16 +50,15 @@ func (api *API) user(c echo.Context) error {
 		return err
 	}
 
-	includeHidden := api.isAdmin(c)
-	solved, err := api.solvedProblems(c, row.ID, includeHidden, solvedPage, solvedPageSize, solvedOffset)
+	solved, err := api.solvedProblems(c, row.ID, solvedPage, solvedPageSize, solvedOffset)
 	if err != nil {
 		return err
 	}
-	activities, err := api.userActivities(c, row.ID, includeHidden)
+	activities, err := api.userActivities(c, row.ID)
 	if err != nil {
 		return err
 	}
-	heatmap, err := api.userHeatmap(c, row.ID)
+	heatmap, err := api.userHeatmap(row.ID)
 	if err != nil {
 		return err
 	}
@@ -75,17 +74,13 @@ func (api *API) user(c echo.Context) error {
 	})
 }
 
-type userStatsCache struct {
-	AC     int `json:"ac"`
-	Submit int `json:"submit"`
+type userStatsCounts struct {
+	AC     int
+	Submit int
 }
 
 func (api *API) userStats(c echo.Context, userID uint) (int, int, error) {
 	submitQuery := api.db.Model(&models.Submission{}).Where("submissions.user_id = ?", userID)
-	submitQuery, err := api.applySubmissionStatsVisibility(c, submitQuery)
-	if err != nil {
-		return 0, 0, err
-	}
 	var submit int64
 	if err := submitQuery.Count(&submit).Error; err != nil {
 		return 0, 0, err
@@ -94,7 +89,7 @@ func (api *API) userStats(c echo.Context, userID uint) (int, int, error) {
 	acQuery := api.db.Model(&models.Submission{}).
 		Where("submissions.user_id = ? AND submissions.status = ?", userID, "AC").
 		Distinct("submissions.problem_id")
-	acQuery, err = api.applySubmissionStatsVisibility(c, acQuery)
+	acQuery, err := api.filterVisibleResults(c, acQuery)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -102,13 +97,12 @@ func (api *API) userStats(c echo.Context, userID uint) (int, int, error) {
 	if err := acQuery.Count(&ac).Error; err != nil {
 		return 0, 0, err
 	}
-	stats := userStatsCache{AC: int(ac), Submit: int(submit)}
-	return stats.AC, stats.Submit, nil
+	return int(ac), int(submit), nil
 }
 
-func (api *API) userStatsMap(c echo.Context, userIDs []uint) (map[uint]userStatsCache, error) {
+func (api *API) userStatsMap(c echo.Context, userIDs []uint) (map[uint]userStatsCounts, error) {
 	userIDs = uniqueUint(userIDs)
-	stats := map[uint]userStatsCache{}
+	stats := map[uint]userStatsCounts{}
 	if len(userIDs) == 0 {
 		return stats, nil
 	}
@@ -120,10 +114,6 @@ func (api *API) userStatsMap(c echo.Context, userIDs []uint) (map[uint]userStats
 		Select("user_id, count(*) as count").
 		Where("user_id IN ?", userIDs).
 		Group("user_id")
-	submitQuery, err := api.applySubmissionStatsVisibility(c, submitQuery)
-	if err != nil {
-		return nil, err
-	}
 	if err := submitQuery.Find(&submits).Error; err != nil {
 		return nil, err
 	}
@@ -140,7 +130,7 @@ func (api *API) userStatsMap(c echo.Context, userIDs []uint) (map[uint]userStats
 		Select("user_id, count(DISTINCT problem_id) as count").
 		Where("user_id IN ? AND status = ?", userIDs, "AC").
 		Group("user_id")
-	acQuery, err = api.applySubmissionStatsVisibility(c, acQuery)
+	acQuery, err := api.filterVisibleResults(c, acQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -155,38 +145,17 @@ func (api *API) userStatsMap(c echo.Context, userIDs []uint) (map[uint]userStats
 	return stats, nil
 }
 
-func (api *API) applySubmissionStatsVisibility(c echo.Context, query *gorm.DB) (*gorm.DB, error) {
-	query, err := api.applySubmissionAccess(c, query)
-	if err != nil {
-		return nil, err
-	}
-	return api.filterHiddenResultAC(c, query)
-}
-
-func (api *API) userSubmissions(c echo.Context, userID uint, includeHidden bool) ([]models.Submission, error) {
-	var rows []models.Submission
-	query := api.db.
+func (api *API) userActivities(c echo.Context, userID uint) ([]contract.UserActivity, error) {
+	var submissions []models.Submission
+	if err := api.db.
 		Select("submissions.id", "submissions.user_id", "submissions.problem_id", "submissions.assignment_id", "submissions.contest_id", "submissions.status", "submissions.score", "submissions.created_at").
 		Where("submissions.user_id = ?", userID).
 		Order("submissions.created_at desc").
-		Limit(userActivityLimit)
-	var err error
-	query, err = api.applySubmissionAccess(c, query)
-	if err != nil {
+		Limit(userActivityLimit).
+		Find(&submissions).Error; err != nil {
 		return nil, err
 	}
-	if !includeHidden {
-		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
-		query = api.applyProblemListVisibility(query)
-	}
-	if err := query.Find(&rows).Error; err != nil {
-		return nil, err
-	}
-	return rows, nil
-}
-
-func (api *API) userActivities(c echo.Context, userID uint, includeHidden bool) ([]contract.UserActivity, error) {
-	submissions, err := api.userSubmissions(c, userID, includeHidden)
+	views, err := api.submissionViews(c, submissions)
 	if err != nil {
 		return nil, err
 	}
@@ -196,10 +165,6 @@ func (api *API) userActivities(c echo.Context, userID uint, includeHidden bool) 
 		problemIDs = append(problemIDs, submission.ProblemID)
 	}
 	titles, err := api.problemTitleMap(problemIDs)
-	if err != nil {
-		return nil, err
-	}
-	views, err := api.submissionViews(c, submissions)
 	if err != nil {
 		return nil, err
 	}
@@ -245,17 +210,13 @@ func (api *API) userActivities(c echo.Context, userID uint, includeHidden bool) 
 	return items, nil
 }
 
-func (api *API) solvedProblems(c echo.Context, userID uint, includeHidden bool, page int, pageSize int, offset int) (contract.Page[contract.SolvedProblem], error) {
+func (api *API) solvedProblems(c echo.Context, userID uint, page int, pageSize int, offset int) (contract.Page[contract.SolvedProblem], error) {
 	base := api.db.Model(&models.Submission{}).
 		Where("submissions.user_id = ? AND submissions.status = ?", userID, "AC").
 		Distinct("submissions.problem_id")
-	base, err := api.applySubmissionStatsVisibility(c, base)
+	base, err := api.filterVisibleResults(c, base)
 	if err != nil {
 		return contract.Page[contract.SolvedProblem]{}, err
-	}
-	if !includeHidden {
-		base = base.Joins("JOIN problems ON problems.id = submissions.problem_id")
-		base = api.applyProblemListVisibility(base)
 	}
 	var total int64
 	if err := base.Session(&gorm.Session{}).Count(&total).Error; err != nil {
@@ -275,13 +236,9 @@ func (api *API) solvedProblems(c echo.Context, userID uint, includeHidden bool, 
 		Order("MAX(submissions.created_at) desc").
 		Limit(pageSize).
 		Offset(offset)
-	query, err = api.applySubmissionStatsVisibility(c, query)
+	query, err = api.filterVisibleResults(c, query)
 	if err != nil {
 		return contract.Page[contract.SolvedProblem]{}, err
-	}
-	if !includeHidden {
-		query = query.Joins("JOIN problems ON problems.id = submissions.problem_id")
-		query = api.applyProblemListVisibility(query)
 	}
 	if err := query.Find(&rows).Error; err != nil {
 		return contract.Page[contract.SolvedProblem]{}, err
@@ -294,9 +251,6 @@ func (api *API) solvedProblems(c echo.Context, userID uint, includeHidden bool, 
 		return contract.Page[contract.SolvedProblem]{Items: []contract.SolvedProblem{}, Page: page, PageSize: pageSize, Total: total}, nil
 	}
 	problemQuery := api.db.Model(&models.Problem{}).Select("id", "title", "tags").Where("id IN ?", problemIDs)
-	if !includeHidden {
-		problemQuery = api.applyProblemListVisibility(problemQuery)
-	}
 	var problems []models.Problem
 	if err := problemQuery.Find(&problems).Error; err != nil {
 		return contract.Page[contract.SolvedProblem]{}, err
@@ -317,14 +271,10 @@ func (api *API) solvedProblems(c echo.Context, userID uint, includeHidden bool, 
 	return contract.Page[contract.SolvedProblem]{Items: items, Page: page, PageSize: pageSize, Total: total}, nil
 }
 
-func (api *API) userHeatmap(c echo.Context, userID uint) ([]contract.HeatCell, error) {
+func (api *API) userHeatmap(userID uint) ([]contract.HeatCell, error) {
 	since := time.Now().AddDate(-1, 0, 0)
 	var rows []models.Submission
 	query := api.db.Model(&models.Submission{}).Select("created_at").Where("submissions.user_id = ? AND submissions.created_at >= ?", userID, since)
-	query, err := api.applySubmissionStatsVisibility(c, query)
-	if err != nil {
-		return nil, err
-	}
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
 	}

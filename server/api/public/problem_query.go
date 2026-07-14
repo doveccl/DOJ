@@ -50,15 +50,14 @@ func (api *API) searchProblemPage(c echo.Context, q string, tag string, status s
 	return items, total, nil
 }
 
-// applyProblemStatusFilter narrows the problem list by the viewer's own solve
-// state (none/tried/ac) in the normal problem context. It reuses the same
-// visibility rules as problem stats so hidden results never leak as "solved".
+// applyProblemStatusFilter uses the same ac > pending > tried > none priority
+// as problem-state so filters and displayed labels stay aligned.
 func (api *API) applyProblemStatusFilter(c echo.Context, query *gorm.DB, status string) (*gorm.DB, error) {
 	status = strings.TrimSpace(status)
 	if status == "" || status == "all" {
 		return query, nil
 	}
-	if status != "none" && status != "tried" && status != "ac" {
+	if status != "none" && status != "tried" && status != "ac" && status != "pending" {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid status filter")
 	}
 	if api.role(c) == "guest" {
@@ -79,30 +78,39 @@ func (api *API) applyProblemStatusFilter(c echo.Context, query *gorm.DB, status 
 	if err != nil {
 		return nil, err
 	}
+	liveSub := api.viewerProblemSubmissionSubquery(viewerID).Where("submissions.status IN ?", []string{"queued", "judging"})
+	hiddenSub, err := api.filterHiddenResults(c, api.viewerProblemSubmissionSubquery(viewerID).Where("submissions.status NOT IN ?", []string{"queued", "judging"}))
+	if err != nil {
+		return nil, err
+	}
 	switch status {
 	case "ac":
 		return query.Where("EXISTS (?)", acSub), nil
+	case "pending":
+		return query.Where("NOT EXISTS (?) AND (EXISTS (?) OR EXISTS (?))", acSub, liveSub, hiddenSub), nil
 	case "tried":
-		return query.Where("EXISTS (?) AND NOT EXISTS (?)", anySub, acSub), nil
+		return query.Where("EXISTS (?) AND NOT EXISTS (?) AND NOT EXISTS (?) AND NOT EXISTS (?)", anySub, acSub, liveSub, hiddenSub), nil
 	default:
-		return query.Where("NOT EXISTS (?)", anySub), nil
+		return query.Where("NOT EXISTS (?) AND NOT EXISTS (?) AND NOT EXISTS (?)", anySub, liveSub, hiddenSub), nil
 	}
 }
 
-// viewerProblemStatusSubquery builds a correlated subquery selecting the
-// viewer's own submissions for the outer problem in the normal context
-// (no assignment/contest), honoring submission result visibility. When acOnly
-// is set it further restricts to visible AC submissions.
+// viewerProblemStatusSubquery selects the viewer's visible completed results
+// for the outer problem. When acOnly is set it further restricts to AC.
 func (api *API) viewerProblemStatusSubquery(c echo.Context, viewerID uint, acOnly bool) (*gorm.DB, error) {
-	sub := api.db.Model(&models.Submission{}).
-		Select("1").
-		Where("submissions.problem_id = problems.id").
-		Where("submissions.user_id = ?", viewerID).
-		Where("submissions.assignment_id IS NULL AND submissions.contest_id IS NULL")
+	sub := api.viewerProblemSubmissionSubquery(viewerID).
+		Where("submissions.status NOT IN ?", []string{"queued", "judging"})
 	if acOnly {
 		sub = sub.Where("submissions.status = ?", "AC")
 	}
-	return api.applySubmissionStatsVisibility(c, sub)
+	return api.filterVisibleResults(c, sub)
+}
+
+func (api *API) viewerProblemSubmissionSubquery(viewerID uint) *gorm.DB {
+	return api.db.Model(&models.Submission{}).
+		Select("1").
+		Where("submissions.problem_id = problems.id").
+		Where("submissions.user_id = ?", viewerID)
 }
 
 func (api *API) findProblems(c echo.Context, q string, tag string, limit int, order string) ([]contract.Problem, error) {

@@ -191,16 +191,16 @@ func TestRunningOIContestHidesSubmissionResults(t *testing.T) {
 		t.Fatalf("admin should see running OI result and source: %+v", adminView)
 	}
 	records := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?contest="+strconv.FormatUint(uint64(contest.ID), 10)+"&ids=1000", databaseSession(t, db, owner.ID), nil))
-	if len(records) != 1 || records[0].Submit != 1 || records[0].AC != 0 || records[0].Status != "pending" || records[0].Submission == nil || records[0].Submission.Status != "pending" || records[0].Submission.Score != 0 {
+	if len(records) != 1 || records[0].Submit != 1 || records[0].AC != 0 || records[0].Status != "pending" {
 		t.Fatalf("running OI contest problem should not expose record result: %+v", records)
 	}
 	contestStatePath := "/api/problem-state?contest=" + strconv.FormatUint(uint64(contest.ID), 10) + "&ids=1000"
 	guestRecord := decodeJSON[[]contract.ProblemState](t, requestOK(t, e, http.MethodGet, contestStatePath, ""))[0]
-	if guestRecord.Submit != 1 || guestRecord.AC != 0 || guestRecord.Status != "none" || guestRecord.Submission != nil {
+	if guestRecord.Submit != 1 || guestRecord.AC != 0 || guestRecord.Status != "none" {
 		t.Fatalf("guest contest aggregate exposed hidden OI result: %+v", guestRecord)
 	}
 	otherRecord := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, contestStatePath, databaseSession(t, db, other.ID), nil))[0]
-	if otherRecord.Submit != 1 || otherRecord.AC != 0 || otherRecord.Status != "none" || otherRecord.Submission != nil {
+	if otherRecord.Submit != 1 || otherRecord.AC != 0 || otherRecord.Status != "none" {
 		t.Fatalf("outsider contest aggregate exposed hidden OI result: %+v", otherRecord)
 	}
 	adminRecord := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, contestStatePath, databaseSession(t, db, admin.ID), nil))[0]
@@ -208,25 +208,38 @@ func TestRunningOIContestHidesSubmissionResults(t *testing.T) {
 		t.Fatalf("admin should see complete contest aggregate: %+v", adminRecord)
 	}
 	allRecords := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?ids=1000", databaseSession(t, db, owner.ID), nil))
-	if len(allRecords) != 1 || allRecords[0].Submit != 0 || allRecords[0].AC != 0 || allRecords[0].Status != "none" || allRecords[0].Submission != nil {
-		t.Fatalf("practice problem state must not mix in contextual submissions: %+v", allRecords)
+	if len(allRecords) != 1 || allRecords[0].Submit != 2 || allRecords[0].AC != 0 || allRecords[0].Status != "pending" {
+		t.Fatalf("global problem state should count all contexts without exposing OI results: %+v", allRecords)
 	}
 	assignmentDetail := decodeJSON[contract.AssignmentDetail](t, requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(assignment.ID), 10), databaseSession(t, db, owner.ID), nil))
 	progress := assignmentDetail.Progress[0].Problems[0]
 	if assignmentDetail.Assignment.Done != 0 || progress.Status != "tried" || progress.Score == nil || *progress.Score != tried.Score {
 		t.Fatalf("assignment completion must ignore the separate contest submission: detail=%+v progress=%+v", assignmentDetail.Assignment, progress)
 	}
+	if err := db.Model(&tried).Updates(map[string]any{"status": "AC", "score": 100}).Error; err != nil {
+		t.Fatalf("mark assignment submission accepted: %v", err)
+	}
+	assignmentState := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?assignment="+strconv.FormatUint(uint64(assignment.ID), 10)+"&ids=1000", databaseSession(t, db, owner.ID), nil))
+	if len(assignmentState) != 1 || assignmentState[0].Submit != 1 || assignmentState[0].AC != 1 || assignmentState[0].Status != "ac" {
+		t.Fatalf("assignment result should not be hidden by an unfinished contest on the problem: %+v", assignmentState)
+	}
 	assignmentList := decodeJSON[contract.Page[contract.Assignment]](t, requestWithCookies(e, http.MethodGet, "/api/assignments", databaseSession(t, db, owner.ID), nil))
-	if len(assignmentList.Items) != 1 || assignmentList.Items[0].Done != 0 {
+	if len(assignmentList.Items) != 1 || assignmentList.Items[0].Done != 1 {
 		t.Fatalf("assignment list done should not count hidden contest result: %+v", assignmentList)
 	}
 	ownerProfile := decodeJSON[contract.UserProfile](t, requestWithCookies(e, http.MethodGet, "/api/users/owner", databaseSession(t, db, owner.ID), nil))
-	if _, ok := activityBySubmission(ownerProfile.Activities, submission.ID); ok {
-		t.Fatalf("profile activity should not expose unfinished contest submission: %+v", ownerProfile.Activities)
+	if activity, ok := activityBySubmission(ownerProfile.Activities, submission.ID); !ok || activity.Status != "pending" {
+		t.Fatalf("profile activity should retain the hidden OI submission as pending: %+v", ownerProfile.Activities)
 	}
 	submissionList := decodeJSON[contract.Page[contract.SubmissionListItem]](t, requestWithCookies(e, http.MethodGet, "/api/submissions", databaseSession(t, db, owner.ID), nil))
-	if len(submissionList.Items) != 2 || submissionList.Items[0].ID != submission.ID || submissionList.Items[0].Status != "pending" || submissionList.Items[0].TimeMS != nil || submissionList.Items[0].MemoryKB != nil || submissionList.Items[1].ID != tried.ID || submissionList.Items[1].Status != "WA" {
-		t.Fatalf("submission endpoint list should include running OI submission as pending: %+v", submissionList)
+	if len(submissionList.Items) != 2 ||
+		submissionList.Items[0].ID != submission.ID || submissionList.Items[0].Status != "pending" || submissionList.Items[0].TimeMS != nil || submissionList.Items[0].MemoryKB != nil ||
+		submissionList.Items[1].ID != tried.ID || submissionList.Items[1].Status != "AC" {
+		t.Fatalf("submission list should hide only the direct unfinished OI result: %+v", submissionList)
+	}
+	otherAssignment := decodeJSON[contract.SubmissionDetail](t, requestWithCookies(e, http.MethodGet, "/api/submissions/"+strconv.FormatUint(uint64(tried.ID), 10), databaseSession(t, db, other.ID), nil))
+	if otherAssignment.Submission.Status != "AC" || otherAssignment.Code != "" {
+		t.Fatalf("unfinished contest membership should hide historical public source, not its result: %+v", otherAssignment)
 	}
 	hiddenAC := decodeJSON[contract.Page[contract.SubmissionListItem]](t, requestWithCookies(e, http.MethodGet, "/api/submissions?contest="+strconv.FormatUint(uint64(contest.ID), 10)+"&status=AC", databaseSession(t, db, owner.ID), nil))
 	if hiddenAC.Total != 0 || len(hiddenAC.Items) != 0 {

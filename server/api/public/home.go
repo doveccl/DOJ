@@ -78,7 +78,7 @@ func (api *API) homeHeatmap(c echo.Context) ([]contract.HeatCell, error) {
 	if err != nil {
 		return nil, err
 	}
-	return api.userHeatmap(c, user.ID)
+	return api.userHeatmap(user.ID)
 }
 
 func (api *API) homeAssignments(c echo.Context) ([]contract.HomeAssignment, error) {

@@ -1,10 +1,11 @@
-import { Avatar, Card, Flex, Table, Typography } from 'antd'
+import { Card, Table, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useQuery } from '@tanstack/react-query'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 
 import { api, apiData } from '../client'
 import type { RankUser } from '../client'
+import { UserLink } from '../components/entity'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { useLocale } from '../locale'
 import { pageFromParams, pageSizeFromParams, setPageParams } from '../utils/pagination'
@@ -27,7 +28,7 @@ export function RankPage() {
           rowKey="user"
           columns={rankColumns(text)}
           dataSource={query.data?.items ?? []}
-          scroll={{ x: 640 }}
+          scroll={{ x: 560 }}
           pagination={{ current: query.data?.page ?? page, pageSize: query.data?.pageSize ?? pageSize, total: query.data?.total ?? 0, showSizeChanger: true }}
           onChange={(pagination) => setParams(setPageParams(params, pagination.current ?? page, pagination.pageSize ?? pageSize))}
         />
@@ -46,21 +47,13 @@ function rankColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Ran
     },
     {
       title: text.rank.user,
-      width: 240,
+      width: 220,
       ellipsis: { showTitle: false },
-      render: (_, row) => (
-        <Flex align="center" gap={12}>
-          <Avatar src={row.avatar || undefined}>{row.user.slice(0, 1).toUpperCase()}</Avatar>
-          <Typography.Text strong ellipsis={{ tooltip: row.user }}>
-            <Link to={`/users/${row.user}`}>{row.user}</Link>
-          </Typography.Text>
-        </Flex>
-      )
+      render: (_, row) => <UserLink name={row.user} avatar={row.avatar} maxWidth={168} />
     },
     {
       title: text.profile.bio,
       dataIndex: 'bio',
-      width: 240,
       ellipsis: { showTitle: false },
       render: (bio: string) => (
         <Typography.Text type={bio ? undefined : 'secondary'} ellipsis={{ tooltip: bio || text.user.noBio }}>

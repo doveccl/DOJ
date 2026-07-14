@@ -354,6 +354,9 @@ func TestProblemListFiltersByViewerStatus(t *testing.T) {
 		{ID: 1000, Title: "Solved", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256},
 		{ID: 1001, Title: "Tried", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256},
 		{ID: 1002, Title: "Untouched", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256},
+		{ID: 1003, Title: "Queued", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256},
+		{ID: 1004, Title: "Solved Then Queued", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256},
+		{ID: 1005, Title: "Tried", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256},
 	}
 	if err := db.Create(&problems).Error; err != nil {
 		t.Fatalf("create problems: %v", err)
@@ -363,6 +366,21 @@ func TestProblemListFiltersByViewerStatus(t *testing.T) {
 	}
 	if err := db.Create(&models.Submission{ProblemID: 1001, UserID: user.ID, Language: "cpp", Code: "int main(){}", Status: "WA", Score: 0}).Error; err != nil {
 		t.Fatalf("create WA submission: %v", err)
+	}
+	if err := db.Create(&models.Submission{ProblemID: 1001, UserID: user.ID, Language: "cpp", Code: "int main(){}", Status: "queued"}).Error; err != nil {
+		t.Fatalf("create tried live submission: %v", err)
+	}
+	if err := db.Create(&models.Submission{ProblemID: 1003, UserID: user.ID, Language: "cpp", Code: "int main(){}", Status: "queued"}).Error; err != nil {
+		t.Fatalf("create queued submission: %v", err)
+	}
+	if err := db.Create(&models.Submission{ProblemID: 1004, UserID: user.ID, Language: "cpp", Code: "int main(){}", Status: "AC", Score: 100}).Error; err != nil {
+		t.Fatalf("create historical AC submission: %v", err)
+	}
+	if err := db.Create(&models.Submission{ProblemID: 1004, UserID: user.ID, Language: "cpp", Code: "int main(){}", Status: "queued"}).Error; err != nil {
+		t.Fatalf("create solved live submission: %v", err)
+	}
+	if err := db.Create(&models.Submission{ProblemID: 1005, UserID: user.ID, Language: "cpp", Code: "int main(){}", Status: "WA"}).Error; err != nil {
+		t.Fatalf("create tried submission: %v", err)
 	}
 
 	e := echo.New()
@@ -381,22 +399,25 @@ func TestProblemListFiltersByViewerStatus(t *testing.T) {
 		}
 		return ids
 	}
-	if got := statusIDs("ac"); len(got) != 1 || got[0] != 1000 {
-		t.Fatalf("status=ac got %+v, want [1000]", got)
+	if got := statusIDs("ac"); len(got) != 2 || got[0] != 1000 || got[1] != 1004 {
+		t.Fatalf("status=ac got %+v, want [1000 1004]", got)
 	}
-	if got := statusIDs("tried"); len(got) != 1 || got[0] != 1001 {
-		t.Fatalf("status=tried got %+v, want [1001]", got)
+	if got := statusIDs("pending"); len(got) != 2 || got[0] != 1001 || got[1] != 1003 {
+		t.Fatalf("status=pending got %+v, want [1001 1003]", got)
+	}
+	if got := statusIDs("tried"); len(got) != 1 || got[0] != 1005 {
+		t.Fatalf("status=tried got %+v, want [1005]", got)
 	}
 	if got := statusIDs("none"); len(got) != 1 || got[0] != 1002 {
 		t.Fatalf("status=none got %+v, want [1002]", got)
 	}
-	if got := statusIDs("all"); len(got) != 3 {
-		t.Fatalf("status=all got %+v, want 3 problems", got)
+	if got := statusIDs("all"); len(got) != 6 {
+		t.Fatalf("status=all got %+v, want 6 problems", got)
 	}
 
 	// A guest must not be able to filter by another viewer's solve state.
 	guest := decodePageItems[contract.Problem](t, requestOK(t, e, http.MethodGet, "/api/problems?status=ac", ""))
-	if len(guest) != 3 {
+	if len(guest) != 6 {
 		t.Fatalf("guest status filter should be ignored, got %+v", guest)
 	}
 }
@@ -416,9 +437,8 @@ func TestProblemStatusFilterHidesRunningOIContestAC(t *testing.T) {
 		t.Fatalf("create contest: %v", err)
 	}
 	contestID := contest.ID
-	// A normal-context non-AC attempt, plus an AC inside the running OI contest
-	// whose result is hidden. Only the normal attempt may drive list status, so
-	// the problem must read as "tried", never "ac".
+	// A visible non-AC attempt plus a hidden unfinished OI result is pending,
+	// never tried or accepted.
 	if err := db.Create(&models.Submission{ProblemID: problem.ID, UserID: user.ID, Language: "cpp", Code: "int main(){}", Status: "WA", Score: 0}).Error; err != nil {
 		t.Fatalf("create normal WA: %v", err)
 	}
@@ -437,11 +457,64 @@ func TestProblemStatusFilterHidesRunningOIContestAC(t *testing.T) {
 	if items := decodePageItems[contract.Problem](t, acRes); len(items) != 0 {
 		t.Fatalf("hidden contest AC must not count as solved, got %+v", items)
 	}
-	triedRes := requestWithCookies(e, http.MethodGet, "/api/problems?status=tried", cookies, nil)
-	if triedRes.Code != http.StatusOK {
-		t.Fatalf("status=tried got %d body=%s", triedRes.Code, triedRes.Body.String())
+	pendingRes := requestWithCookies(e, http.MethodGet, "/api/problems?status=pending", cookies, nil)
+	if pendingRes.Code != http.StatusOK {
+		t.Fatalf("status=pending got %d body=%s", pendingRes.Code, pendingRes.Body.String())
 	}
-	if items := decodePageItems[contract.Problem](t, triedRes); len(items) != 1 || items[0].ID != problem.ID {
-		t.Fatalf("normal-context attempt should read as tried, got %+v", items)
+	if items := decodePageItems[contract.Problem](t, pendingRes); len(items) != 1 || items[0].ID != problem.ID {
+		t.Fatalf("hidden contest result should read as pending, got %+v", items)
+	}
+}
+
+func TestProblemStatusFilterCountsEndedContextAC(t *testing.T) {
+	db := testWebDB(t)
+	user := models.User{Name: "player", Mail: "player@example.com", Auth: "hash"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	contestProblem := models.Problem{ID: 1000, Title: "Ended OI Problem", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	assignmentProblem := models.Problem{ID: 1001, Title: "Ended Assignment Problem", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	if err := db.Create(&[]models.Problem{contestProblem, assignmentProblem}).Error; err != nil {
+		t.Fatalf("create problems: %v", err)
+	}
+	contest := models.Contest{Title: "Ended OI", Kind: "OI", StartAt: time.Now().Add(-2 * time.Hour), EndAt: time.Now().Add(-time.Hour)}
+	if err := db.Create(&contest).Error; err != nil {
+		t.Fatalf("create contest: %v", err)
+	}
+	contestID := contest.ID
+	if err := db.Create(&models.ContestProblem{ContestID: contest.ID, ProblemID: contestProblem.ID, Sort: "A"}).Error; err != nil {
+		t.Fatalf("create contest problem: %v", err)
+	}
+	if err := db.Create(&models.Submission{ProblemID: contestProblem.ID, UserID: user.ID, ContestID: &contestID, Language: "cpp", Code: "int main(){}", Status: "AC", Score: 100}).Error; err != nil {
+		t.Fatalf("create contest AC: %v", err)
+	}
+	assignment := models.Assignment{Title: "Ended Assignment", EndAt: time.Now().Add(-time.Hour)}
+	if err := db.Create(&assignment).Error; err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+	assignmentID := assignment.ID
+	if err := db.Create(&models.AssignmentProblem{AssignmentID: assignment.ID, ProblemID: assignmentProblem.ID, Sort: "A"}).Error; err != nil {
+		t.Fatalf("create assignment problem: %v", err)
+	}
+	if err := db.Create(&models.AssignmentUser{AssignmentID: assignment.ID, UserID: user.ID}).Error; err != nil {
+		t.Fatalf("create assignment user: %v", err)
+	}
+	if err := db.Create(&models.Submission{ProblemID: assignmentProblem.ID, UserID: user.ID, AssignmentID: &assignmentID, Language: "cpp", Code: "int main(){}", Status: "AC", Score: 100}).Error; err != nil {
+		t.Fatalf("create assignment AC: %v", err)
+	}
+
+	e := echo.New()
+	Register(e, db)
+	cookies := databaseSession(t, db, user.ID)
+
+	state := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?ids=1000,1001", cookies, nil))
+	if len(state) != 2 || state[0].Status != "ac" || state[0].AC != 1 || state[0].Submit != 1 {
+		t.Fatalf("global state missed ended contest result: %+v", state)
+	}
+	if state[1].Status != "ac" || state[1].AC != 1 || state[1].Submit != 1 {
+		t.Fatalf("global state missed ended assignment result: %+v", state)
+	}
+	if items := decodePageItems[contract.Problem](t, requestWithCookies(e, http.MethodGet, "/api/problems?status=ac", cookies, nil)); len(items) != 2 || items[0].ID != contestProblem.ID || items[1].ID != assignmentProblem.ID {
+		t.Fatalf("global status filter missed ended context AC: %+v", items)
 	}
 }

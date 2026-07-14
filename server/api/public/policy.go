@@ -163,62 +163,68 @@ func (api *API) submissionViews(c echo.Context, rows []models.Submission) ([]sub
 	if err != nil {
 		return nil, err
 	}
+	problemIDs := make([]uint, 0, len(rows))
+	for _, row := range rows {
+		problemIDs = append(problemIDs, row.ProblemID)
+	}
+	unfinishedProblems, err := api.unfinishedContestProblemSet(uniqueUint(problemIDs))
+	if err != nil {
+		return nil, err
+	}
 	contestIDs := make([]uint, 0, len(rows))
-	assignmentIDs := make([]uint, 0, len(rows))
 	for _, row := range rows {
 		if row.ContestID != nil {
 			contestIDs = append(contestIDs, *row.ContestID)
-		}
-		if row.AssignmentID != nil {
-			assignmentIDs = append(assignmentIDs, *row.AssignmentID)
 		}
 	}
 	contests := map[uint]models.Contest{}
 	if ids := uniqueUint(contestIDs); len(ids) > 0 {
 		var found []models.Contest
-		if err := api.db.Unscoped().Where("id IN ?", ids).Find(&found).Error; err != nil {
+		if err := api.db.Where("id IN ?", ids).Find(&found).Error; err != nil {
 			return nil, err
 		}
 		for _, row := range found {
 			contests[row.ID] = row
 		}
 	}
-	assignments := map[uint]models.Assignment{}
-	if ids := uniqueUint(assignmentIDs); len(ids) > 0 {
-		var found []models.Assignment
-		if err := api.db.Unscoped().Where("id IN ?", ids).Find(&found).Error; err != nil {
-			return nil, err
-		}
-		for _, row := range found {
-			assignments[row.ID] = row
-		}
-	}
 	now := time.Now()
 	for index, row := range rows {
 		owner := viewerID != 0 && viewerID == row.UserID
 		view := submissionView{Result: true, Code: owner}
+		sourceLocked := unfinishedProblems[row.ProblemID]
 		if row.ContestID != nil {
 			if contest, ok := contests[*row.ContestID]; ok && now.Before(contest.EndAt) {
+				sourceLocked = true
 				if contest.Kind == "OI" || (!owner && contest.FreezeAt != nil && !row.CreatedAt.Before(*contest.FreezeAt)) {
 					view.Result = false
 				}
-				views[index] = view
-				continue
 			}
 		}
-		if row.AssignmentID != nil {
-			if assignment, ok := assignments[*row.AssignmentID]; ok && now.Before(assignment.EndAt) {
-				views[index] = view
-				continue
-			}
+		if !sourceLocked {
+			view.Code = owner || row.Public
 		}
-		view.Code = owner || row.Public
 		views[index] = view
 	}
 	return views, nil
 }
 
-func (api *API) applySubmissionAccess(c echo.Context, query *gorm.DB) (*gorm.DB, error) {
+const visibleSubmissionResultSQL = `NOT EXISTS (
+	SELECT 1 FROM contests
+	WHERE contests.id = submissions.contest_id
+		AND contests.deleted_at IS NULL
+		AND contests.end_at > ?
+		AND (
+			contests.kind = ?
+			OR (
+				contests.kind = ?
+				AND contests.freeze_at IS NOT NULL
+				AND submissions.created_at >= contests.freeze_at
+				AND (? = 0 OR submissions.user_id <> ?)
+			)
+		)
+)`
+
+func (api *API) filterVisibleResults(c echo.Context, query *gorm.DB) (*gorm.DB, error) {
 	if api.isAdmin(c) {
 		return query, nil
 	}
@@ -226,61 +232,20 @@ func (api *API) applySubmissionAccess(c echo.Context, query *gorm.DB) (*gorm.DB,
 	if err != nil {
 		return nil, err
 	}
-	return query.Where(`NOT EXISTS (
-		SELECT 1 FROM assignments
-		WHERE assignments.id = submissions.assignment_id
-			AND assignments.end_at > ?
-			AND submissions.user_id <> ?
-	)`, time.Now(), viewerID), nil
+	return query.Where(visibleSubmissionResultSQL, submissionResultVisibilityArgs(viewerID)...), nil
 }
 
-func (api *API) submissionAccessible(c echo.Context, row models.Submission) (bool, error) {
-	if api.isAdmin(c) || row.AssignmentID == nil {
-		return true, nil
-	}
-	viewerID, err := api.viewerID(c)
-	if err != nil {
-		return false, err
-	}
-	if viewerID != 0 && viewerID == row.UserID {
-		return true, nil
-	}
-	var active int64
-	if err := api.db.Unscoped().Model(&models.Assignment{}).
-		Where("id = ? AND end_at > ?", *row.AssignmentID, time.Now()).
-		Count(&active).Error; err != nil {
-		return false, err
-	}
-	return active == 0, nil
-}
-
-func (api *API) filterHiddenResultAC(c echo.Context, query *gorm.DB) (*gorm.DB, error) {
+func (api *API) filterHiddenResults(c echo.Context, query *gorm.DB) (*gorm.DB, error) {
 	if api.isAdmin(c) {
-		return query, nil
+		return query.Where("1 = 0"), nil
 	}
 	viewerID, err := api.viewerID(c)
 	if err != nil {
 		return nil, err
 	}
-	return query.Where(
-		`NOT EXISTS (
-			SELECT 1 FROM contests
-			WHERE contests.id = submissions.contest_id
-				AND contests.end_at > ?
-				AND (
-					contests.kind = ?
-					OR (
-						contests.kind = ?
-						AND contests.freeze_at IS NOT NULL
-						AND submissions.created_at >= contests.freeze_at
-						AND (? = 0 OR submissions.user_id <> ?)
-					)
-				)
-		)`,
-		time.Now(),
-		"OI",
-		"ICPC",
-		viewerID,
-		viewerID,
-	), nil
+	return query.Where("NOT ("+visibleSubmissionResultSQL+")", submissionResultVisibilityArgs(viewerID)...), nil
+}
+
+func submissionResultVisibilityArgs(viewerID uint) []any {
+	return []any{time.Now(), "OI", "ICPC", viewerID, viewerID}
 }

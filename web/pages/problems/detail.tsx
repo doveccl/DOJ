@@ -30,12 +30,12 @@ import {
   apiData,
   uploadProblemImage
 } from '../../client'
-import type { Problem, ProblemState } from '../../client'
+import type { Problem } from '../../client'
 import { CodeEditor } from '../../components/code'
 import { JudgeModeSelect } from '../../components/judge'
 import { MarkdownPreview } from '../../components/markdown'
 import { ErrorBlock, LoadingBlock } from '../../components/state'
-import { SubmissionStatus } from '../../components/status'
+import { ProblemStatus } from '../../components/status'
 import { TagList } from '../../components/tags'
 import { useLocale } from '../../locale'
 import { useSession } from '../../session'
@@ -186,9 +186,7 @@ export function ProblemDetailPage() {
   const rejudge = useMutation({
     mutationFn: () => apiData(api.POST('/api/problems/{id}/rejudge', { params: { path: { id } } })),
     onSuccess: () => {
-      client.setQueryData<ProblemState[]>(['problem-state', id], (current) =>
-        current?.map((item) => (item.submission ? { ...item, submission: { ...item.submission, status: 'queued', score: 0 } } : item))
-      )
+      void client.invalidateQueries({ queryKey: ['problem-state'] })
       void client.invalidateQueries({ queryKey: ['problem', id] })
       void client.invalidateQueries({ queryKey: ['problems'] })
       void client.invalidateQueries({ queryKey: ['submissions'] })
@@ -218,6 +216,7 @@ export function ProblemDetailPage() {
   const langOptions = langItems.map((item) => ({ value: item.id, label: item.name }))
   const selectedLang = langItems.find((item) => item.id === lang)
   const problemState = state.data?.[0]
+  const myProblemSubmissions = `/submissions?problem=${problemCode(problem.id)}${session.signedIn ? `&user=${encodeURIComponent(session.name)}` : ''}`
   const problemStats = state.isLoading
     ? [
         { title: text.problem.record, value: <Skeleton.Input active size="small" style={{ width: 72 }} /> },
@@ -225,16 +224,16 @@ export function ProblemDetailPage() {
         { title: text.problem.discussion, value: <Skeleton.Input active size="small" style={{ width: 56 }} /> }
       ]
     : [
-        ...(problemState?.submission
-          ? [{
-              title: text.problem.record,
-              value: (
-                <Link to={`/submissions/${problemState.submission.id}`}>
-                  <SubmissionStatus status={problemState.submission.status} />
-                </Link>
-              )
-            }]
-          : []),
+        {
+          title: text.problem.record,
+          value: problemState ? (
+            <Link to={myProblemSubmissions}>
+              <ProblemStatus status={problemState.status} />
+            </Link>
+          ) : (
+            <Skeleton.Input active size="small" style={{ width: 72 }} />
+          )
+        },
         {
           title: text.problem.pass,
           value: problemState ? (

@@ -18,14 +18,11 @@
   - OI: last score per problem;
   - ICPC: accepted count and penalty from the first AC;
   - ICPC freeze: non-admin rank uses submissions before `freeze_at`; admin rank is live.
-- Submission result visibility is independent from source visibility:
-  - submission list/detail access is independent from problem visibility; hidden problem titles may appear on submissions, while problem detail links still enforce problem visibility;
-  - normal submissions and ended assignments/contests expose results to everyone;
-  - running assignments expose results to everyone but source only to the owner/admin;
-  - running OI contests hide results from non-admin users, including the owner;
-  - running ICPC contests expose results unless a non-owner/non-admin views a post-freeze submission;
-  - hidden results must be represented as `pending` and must not expose score, time, memory, messages, cases, or progress.
-- Submission source is visible to the owner/admin; other users only see it for normal or ended-context submissions when `public` is true.
+- An unfinished contest is non-deleted with `end_at > now`, including scheduled contests. Assignments only group problems/submissions; they never gate submission access, results, or source.
+- Submission result visibility depends only on its direct `contest_id`: admins see all; owners see all except unfinished OI results; others also lose post-freeze ICPC results. No contest, ended/deleted contest, and pre-freeze ICPC results are visible.
+- Submission source visibility is separate: admins and owners always see source; others require `public` and the problem must belong to no unfinished contest. Unfinished contests on a problem never hide unrelated submission results.
+- Raw submission counts and heatmaps include hidden results. AC, score, solved, done, rank, status, and result-status filters use only viewer-visible results; hidden/live results contribute `pending`. Explicit assignment/contest statistics scope by context id; global statistics include all contexts.
+- Hidden results must not expose score, time, memory, messages, cases, or progress. Hidden source is an empty `code`.
 - Submission lists, assignment progress and done counts, profile activities, problem latest/mine, and contest ranks must not expose hidden submission results through alternate DTOs.
 - `/api/events` only publishes lightweight invalidation signals. Do not put submission status, score, cases, progress, messages, or source in SSE payloads.
 - Assignments are visible only to assigned users/groups and administrators.

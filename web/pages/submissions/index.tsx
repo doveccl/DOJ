@@ -195,7 +195,8 @@ export function SubmissionsPage() {
         ) : (
           <Table<SubmissionListItem>
             rowKey="id"
-            scroll={{ x: 1040 }}
+            scroll={{ x: 1080 }}
+            tableLayout="auto"
             rowClassName="clickableRow"
             onRow={(row) => ({
               role: 'link',
@@ -253,63 +254,51 @@ function submissionColumns(text: ReturnType<typeof useLocale>['text'], lang: Lan
     {
       title: <Typography.Text className="nowrap">{text.submissions.id}</Typography.Text>,
       dataIndex: 'id',
-      width: 72,
       render: (id: number) => <Link to={`/submissions/${id}`}>{submissionCode(id)}</Link>
     },
     {
       title: text.submissions.problem,
-      width: 280,
-      ellipsis: { showTitle: false },
       render: (_, row) => (
         <Flex align="center" className="tableTitleLine">
-          <ProblemLink id={row.problemId} title={row.problemTitle} search={row.assignmentId ? `?assignment=${row.assignmentId}` : row.contestId ? `?contest=${row.contestId}` : ''} />
+          <ProblemLink id={row.problemId} title={row.problemTitle} search={row.assignmentId ? `?assignment=${row.assignmentId}` : row.contestId ? `?contest=${row.contestId}` : ''} maxWidth={285} />
         </Flex>
       )
     },
     {
       title: text.submissions.user,
       dataIndex: 'user',
-      width: 144,
-      render: (user: string) => <UserLink name={user} />
+      render: (user: string) => <UserLink name={user} maxWidth={110} />
     },
     {
       title: text.submissions.status,
       dataIndex: 'status',
-      width: 116,
       render: (status: string) => <SubmissionStatus status={status} />
     },
     {
       title: text.submissions.score,
-      dataIndex: 'score',
-      width: 72
+      dataIndex: 'score'
     },
     {
       title: text.submissions.time,
       dataIndex: 'timeMs',
-      width: 72,
       render: (value?: number) => (value === undefined ? '-' : `${value}ms`)
     },
     {
       title: text.submissions.memory,
       dataIndex: 'memoryKb',
-      width: 88,
       render: (value?: number) => memoryText(value)
     },
     {
       title: text.submissions.language,
-      width: 116,
-      ellipsis: { showTitle: false },
       render: (_, row) => {
         const language = languageNames.get(row.language) ?? row.language
-        return <Typography.Text ellipsis={{ tooltip: language }}>{language}</Typography.Text>
+        return <Typography.Text className="ellipsisText" ellipsis={{ tooltip: language }} style={{ maxWidth: 100 }}>{language}</Typography.Text>
       }
     },
     {
       title: text.submissions.created,
       dataIndex: 'createdAt',
-      width: 80,
-      ellipsis: { showTitle: false },
-      render: (value: string) => <Typography.Text className="nowrap" ellipsis={{ tooltip: formatTime(value, lang) }}>{formatShortTime(value, lang)}</Typography.Text>
+      render: (value: string) => <Typography.Text className="nowrap" title={formatTime(value, lang)}>{formatShortTime(value, lang)}</Typography.Text>
     }
   ]
 }

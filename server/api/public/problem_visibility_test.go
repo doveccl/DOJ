@@ -76,8 +76,8 @@ func TestDeletedRunningContestDoesNotPublishHiddenResults(t *testing.T) {
 		t.Fatalf("admin result was hidden: %+v", adminSubmission.Submission)
 	}
 	adminProfile := decodeJSON[contract.UserProfile](t, requestWithCookies(e, http.MethodGet, "/api/users/student", adminCookies, nil))
-	if adminProfile.User.AC != 1 {
-		t.Fatalf("admin profile result was hidden: %+v", adminProfile.User)
+	if adminProfile.User.AC != 1 || adminProfile.User.Submit != 1 {
+		t.Fatalf("admin profile should see the unfinished OI result: %+v", adminProfile.User)
 	}
 
 	if err := db.Delete(&contest).Error; err != nil {
@@ -97,12 +97,12 @@ func TestDeletedRunningContestDoesNotPublishHiddenResults(t *testing.T) {
 			t.Fatalf("viewer %d detail still treated deleted contest as unfinished: %+v", index, problemDetail)
 		}
 		detail := decodeJSON[contract.SubmissionDetail](t, requestWithCookies(e, http.MethodGet, "/api/submissions/"+strconv.FormatUint(uint64(submission.ID), 10), cookies, nil))
-		if detail.Submission.Status != "pending" || detail.Submission.Score != 0 {
-			t.Fatalf("viewer %d saw a result because its running contest was deleted: %+v", index, detail.Submission)
+		if detail.Submission.Status != "AC" || detail.Submission.Score != 100 {
+			t.Fatalf("viewer %d still treated deleted contest as active: %+v", index, detail.Submission)
 		}
 		profile := decodeJSON[contract.UserProfile](t, requestWithCookies(e, http.MethodGet, "/api/users/student", cookies, nil))
-		if profile.User.AC != 0 {
-			t.Fatalf("viewer %d inferred a result because its running contest was deleted: %+v", index, profile.User)
+		if profile.User.AC != 1 || profile.User.Submit != 1 {
+			t.Fatalf("viewer %d profile still treated deleted contest as active: %+v", index, profile.User)
 		}
 	}
 	if err := db.Model(&contestProblem).Update("visible", false).Error; err != nil {
@@ -187,18 +187,18 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 
 	profileRes := requestOK(t, e, http.MethodGet, "/api/users/student", "")
 	profile := decodeJSON[contract.UserProfile](t, profileRes)
-	if hasSolvedProblem(profile.Solved.Items, hidden.ID) || hasActivityProblem(profile.Activities, hidden.ID) {
-		t.Fatalf("guest profile leaked hidden problem: %+v", profile)
+	if !hasSolvedProblem(profile.Solved.Items, hidden.ID) || !hasActivityProblem(profile.Activities, hidden.ID) {
+		t.Fatalf("profile submission data should be independent from problem visibility: %+v", profile)
 	}
 	if !hasActivity(profile.Activities, "discussion", "Student note") {
 		t.Fatalf("soft-linked discussion should remain visible on profile: %+v", profile.Activities)
 	}
-	if profile.User.AC != 2 || profile.User.Submit != 2 {
-		t.Fatalf("guest profile stats should exclude private assignment and hidden contest rows: %+v", profile.User)
+	if profile.User.AC != 2 || profile.User.Submit != 6 {
+		t.Fatalf("guest profile should count all submissions and visible results: %+v", profile.User)
 	}
 	today := time.Now().Format("2006-01-02")
-	if got := countForDate(profile.Heatmap, today); got != 2 {
-		t.Fatalf("guest profile heatmap should exclude private assignment and hidden contest rows, got %d", got)
+	if got := countForDate(profile.Heatmap, today); got != 6 {
+		t.Fatalf("guest profile heatmap should count all submissions, got %d", got)
 	}
 	var rawProfile struct {
 		Solved struct {
@@ -240,7 +240,7 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 		t.Fatalf("student assignment progress should include hidden problems in aggregate stats: %+v", studentAssignment.Assignment)
 	}
 	if len(studentAssignment.Progress) != 1 || studentAssignment.Progress[0].User != "student" {
-		t.Fatalf("student assignment completion should include assigned student only: %+v", studentAssignment.Progress)
+		t.Fatalf("student assignment completion should include assigned users: %+v", studentAssignment.Progress)
 	}
 	if len(studentAssignment.Progress[0].Problems) != 2 || studentAssignment.Progress[0].Problems[0].ProblemID != visible.ID || studentAssignment.Progress[0].Problems[1].ProblemID != hidden.ID {
 		t.Fatalf("student assignment completion should expose assigned problem statuses: %+v", studentAssignment.Progress[0].Problems)
@@ -260,12 +260,12 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 	}
 	adminProfile := decodeJSON[contract.UserProfile](t, adminProfileRes)
 	if !hasSolvedProblem(adminProfile.Solved.Items, hidden.ID) || !hasActivityProblem(adminProfile.Activities, hidden.ID) {
-		t.Fatalf("admin profile should include hidden problem: %+v", adminProfile)
+		t.Fatalf("admin profile should include all problem contexts: %+v", adminProfile)
 	}
 	if adminProfile.User.AC != 2 || adminProfile.User.Submit != 6 {
-		t.Fatalf("admin profile stats should include hidden activity: %+v", adminProfile.User)
+		t.Fatalf("admin profile stats should include all results: %+v", adminProfile.User)
 	}
 	if got := countForDate(adminProfile.Heatmap, today); got != 6 {
-		t.Fatalf("admin profile heatmap should include hidden submissions, got %d", got)
+		t.Fatalf("admin profile heatmap should count all submissions, got %d", got)
 	}
 }

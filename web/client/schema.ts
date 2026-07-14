@@ -1577,15 +1577,6 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
-        ProblemRecord: {
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: int64 */
-            id: number;
-            /** Format: int64 */
-            score: number;
-            status: string;
-        };
         ProblemRef: {
             /** Format: int64 */
             id: number;
@@ -1600,7 +1591,6 @@ export interface components {
             problemId: number;
             /** @enum {string} */
             status: "none" | "tried" | "ac" | "pending";
-            submission?: components["schemas"]["ProblemRecord"];
             /** Format: int64 */
             submit: number;
         };
@@ -3559,7 +3549,7 @@ export interface operations {
             query?: {
                 q?: string;
                 tag?: string;
-                status?: "all" | "none" | "tried" | "ac";
+                status?: "all" | "none" | "tried" | "ac" | "pending";
                 page?: number;
                 pageSize?: number;
             };

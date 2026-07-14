@@ -355,8 +355,8 @@ func TestContextSubmissionSourceLockedUntilContextEnds(t *testing.T) {
 	if got := decodeJSON[contract.SubmissionDetail](t, requestWithCookies(e, http.MethodGet, target(submissions[1]), otherCookies, nil)); got.Code != "ended contest" {
 		t.Fatalf("other user should read ended contest public source: %+v", got)
 	}
-	if res := requestWithCookies(e, http.MethodGet, target(submissions[2]), otherCookies, nil); res.Code != http.StatusNotFound {
-		t.Fatalf("other user should not read live assignment detail: %d %s", res.Code, res.Body.String())
+	if got := decodeJSON[contract.SubmissionDetail](t, requestWithCookies(e, http.MethodGet, target(submissions[2]), otherCookies, nil)); got.Code != "live assignment" || got.Submission.Status != "AC" {
+		t.Fatalf("assignment should not gate public source or results: %+v", got)
 	}
 	if res := requestWithCookies(e, http.MethodGet, target(submissions[2]), ownerCookies, nil); res.Code != http.StatusOK {
 		t.Fatalf("owner should read live assignment source, got %d body=%s", res.Code, res.Body.String())
@@ -407,11 +407,11 @@ func TestSubmissionEndpointsReadHiddenProblemSubmissionsButHideFields(t *testing
 	Register(e, db)
 	otherCookies := databaseSession(t, db, other.ID)
 	list := decodeJSON[contract.Page[contract.SubmissionListItem]](t, requestWithCookies(e, http.MethodGet, "/api/submissions", otherCookies, nil))
-	if list.Total != 0 || len(list.Items) != 0 {
-		t.Fatalf("live assignment submission leaked through list: %+v", list)
+	if list.Total != 1 || len(list.Items) != 1 || list.Items[0].ID != submission.ID {
+		t.Fatalf("assignment submission should remain accessible: %+v", list)
 	}
-	if res := requestWithCookies(e, http.MethodGet, "/api/submissions/"+strconv.FormatUint(uint64(submission.ID), 10), otherCookies, nil); res.Code != http.StatusNotFound {
-		t.Fatalf("live assignment submission detail leaked: %d %s", res.Code, res.Body.String())
+	if got := decodeJSON[contract.SubmissionDetail](t, requestWithCookies(e, http.MethodGet, "/api/submissions/"+strconv.FormatUint(uint64(submission.ID), 10), otherCookies, nil)); got.Code != submission.Code || got.Submission.Status != "AC" {
+		t.Fatalf("assignment submission detail should use normal visibility: %+v", got)
 	}
 	if res := requestWithCookies(e, http.MethodGet, "/api/problems/1000", otherCookies, nil); res.Code != http.StatusNotFound {
 		t.Fatalf("problem detail should still be hidden, got %d body=%s", res.Code, res.Body.String())
@@ -445,7 +445,11 @@ func TestRunningAssignmentShowsResultsButHidesOtherSource(t *testing.T) {
 	e := echo.New()
 	Register(e, db)
 	res := requestWithCookies(e, http.MethodGet, "/api/submissions/"+strconv.FormatUint(uint64(submission.ID), 10), databaseSession(t, db, other.ID), nil)
-	if res.Code != http.StatusNotFound {
-		t.Fatalf("running assignment should be private, got %d body=%s", res.Code, res.Body.String())
+	if res.Code != http.StatusOK {
+		t.Fatalf("assignment should not gate submission detail, got %d body=%s", res.Code, res.Body.String())
+	}
+	got := decodeJSON[contract.SubmissionDetail](t, res)
+	if got.Submission.Status != "WA" || got.Code != "homework" {
+		t.Fatalf("assignment should not hide result or public source: %+v", got)
 	}
 }

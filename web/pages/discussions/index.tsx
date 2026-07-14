@@ -266,13 +266,12 @@ function discussionColumns(
     {
       title: text.discussion.title,
       dataIndex: 'title',
-      width: 420,
       ellipsis: { showTitle: false },
       render: (title: string, row) => (
         <Flex align="center" gap={8} className="tableTitleLine">
-          <Typography.Text ellipsis={{ tooltip: title }}>
-            <Link to={`/discussion/${row.id}`}>{title}</Link>
-          </Typography.Text>
+          <Link to={`/discussion/${row.id}`} className="entityTextLink">
+            <Typography.Text className="ellipsisText" ellipsis={{ tooltip: title }}>{title}</Typography.Text>
+          </Link>
           {row.pinned ? <Tag color="green">{text.discussion.pinned}</Tag> : null}
           {row.locked ? <Tag color="warning">{text.discussion.locked}</Tag> : null}
         </Flex>
@@ -281,13 +280,14 @@ function discussionColumns(
     {
       title: text.discussion.tags,
       dataIndex: 'tags',
+      width: 240,
       render: (tags: string[]) => <TagList tags={tags} empty={<Typography.Text type="secondary">-</Typography.Text>} />
     },
     {
       title: text.discussion.author,
       dataIndex: 'author',
       width: 180,
-      render: (author: string) => <UserLink name={author} />
+      render: (author: string) => <UserLink name={author} maxWidth={130} />
     },
     {
       title: text.discussion.replies,

@@ -204,18 +204,18 @@ function assignmentColumns(
     {
       title: text.assignments.name,
       dataIndex: 'title',
-      width: 280,
       ellipsis: { showTitle: false },
       render: (title: string, row) => (
         <Flex align="center" gap={8} className="tableTitleLine">
-          <Typography.Text ellipsis={{ tooltip: title }}>
-            <Link to={`/assignments/${row.id}`}>{title}</Link>
-          </Typography.Text>
+          <Link to={`/assignments/${row.id}`} className="entityTextLink">
+            <Typography.Text className="ellipsisText" ellipsis={{ tooltip: title }}>{title}</Typography.Text>
+          </Link>
         </Flex>
       )
     },
     {
       title: text.assignments.status,
+      width: 160,
       render: (_, row) => <ScheduleTag kind="assignment" status={row.status} target={row.endAt} onFinish={actions.refresh} />
     },
     {
@@ -232,6 +232,7 @@ function assignmentColumns(
   if (admin) {
     columns.push({
       title: text.common.actions,
+      width: 140,
       align: 'right',
       render: (_, row) => (
         <Space size={4}>

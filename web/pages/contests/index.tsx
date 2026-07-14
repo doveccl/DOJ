@@ -209,18 +209,18 @@ function contestColumns(
     {
       title: text.contests.name,
       dataIndex: 'title',
-      width: 280,
       ellipsis: { showTitle: false },
       render: (title: string, row) => (
         <Flex align="center" gap={8} className="tableTitleLine">
-          <Typography.Text ellipsis={{ tooltip: title }}>
-            <Link to={`/contests/${row.id}`}>{title}</Link>
-          </Typography.Text>
+          <Link to={`/contests/${row.id}`} className="entityTextLink">
+            <Typography.Text className="ellipsisText" ellipsis={{ tooltip: title }}>{title}</Typography.Text>
+          </Link>
         </Flex>
       )
     },
     {
       title: text.contests.status,
+      width: 160,
       render: (_, row) => (
         <ScheduleTag
           kind="contest"
@@ -234,17 +234,20 @@ function contestColumns(
     {
       title: text.contests.kind,
       dataIndex: 'kind',
+      width: 80,
       render: (kind: string) => <Tag>{kind}</Tag>
     },
     {
       title: text.contests.problems,
       dataIndex: 'total',
+      width: 100,
       render: (total: number) => <Typography.Text>{text.contests.total(total)}</Typography.Text>
     }
   ]
   if (admin) {
     columns.push({
       title: text.common.actions,
+      width: 140,
       align: 'right',
       render: (_, row) => (
         <Space size={4}>
