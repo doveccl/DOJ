@@ -52,12 +52,12 @@ export function ScheduledDetailHeader({
       }
       extra={
         editing ? (
-          <Space size={8}>
+          <Space key="editing" size={8}>
             <Button onClick={onCancelEdit}>{text.common.cancel}</Button>
             <Button type="primary" htmlType="submit" form={editFormId} loading={saving}>{text.common.save}</Button>
           </Space>
         ) : (
-          <Space size={8} wrap>
+          <Space key="view" size={8} wrap>
             <Button icon={<UnorderedListOutlined />} href={recordsHref}>{recordsLabel}</Button>
             {admin ? <Button icon={<EditOutlined />} onClick={onStartEdit}>{text.common.edit}</Button> : null}
           </Space>
