@@ -207,6 +207,12 @@ function contestColumns(
 ): TableProps<Contest>['columns'] {
   const columns: TableProps<Contest>['columns'] = [
     {
+      title: text.contests.kind,
+      dataIndex: 'kind',
+      width: 80,
+      render: (kind: string) => <ContestKindTag kind={kind} />
+    },
+    {
       title: text.contests.status,
       width: 160,
       render: (_, row) => (
@@ -218,12 +224,6 @@ function contestColumns(
           onFinish={actions.refresh}
         />
       )
-    },
-    {
-      title: text.contests.kind,
-      dataIndex: 'kind',
-      width: 80,
-      render: (kind: string) => <ContestKindTag kind={kind} />
     },
     {
       title: text.contests.name,

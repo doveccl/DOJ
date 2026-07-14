@@ -43,8 +43,8 @@ export function ScheduledDetailHeader({
       value={descriptionValue}
       header={
         <Flex align="center" gap={10} style={{ minWidth: 0 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', flex: 'none' }}>{status}</span>
           {titleTag ? <span style={{ display: 'inline-flex', alignItems: 'center', flex: 'none' }}>{titleTag}</span> : null}
+          <span style={{ display: 'inline-flex', alignItems: 'center', flex: 'none' }}>{status}</span>
           <Typography.Text ellipsis={{ tooltip: title }} style={{ minWidth: 0 }}>
             {title}
           </Typography.Text>
