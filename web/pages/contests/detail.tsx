@@ -114,7 +114,7 @@ export function ContestDetailPage() {
           />
         }
         title={contest.title}
-        titleTag={<Tag style={{ marginInlineEnd: 0 }}>{contest.kind}</Tag>}
+        titleTag={<Tag color={contest.kind === 'OI' ? 'purple' : 'cyan'} style={{ marginInlineEnd: 0 }}>{contest.kind}</Tag>}
         recordsHref={`/submissions?contest=${contest.id}${recordsUser ? `&user=${encodeURIComponent(recordsUser)}` : ''}`}
         recordsLabel={recordsUser ? text.submissions.myRecords : text.submissions.allRecords}
         admin={session.admin}
