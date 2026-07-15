@@ -9,13 +9,14 @@ import { acceptedDataFile, dataPairRows } from './files'
 import type { DataPairRow } from './files'
 
 export function AssetSection({
-  title, files, cases, section, loading, uploadProgress, onUpload, onDownload, onDelete, onClear, onScore
+  title, files, cases, section, loading, disabled, uploadProgress, onUpload, onDownload, onDelete, onClear, onScore
 }: {
   title: string
   files: AssetFile[]
   cases?: AssetCase[]
   section: 'data' | 'judge'
   loading: boolean
+  disabled: boolean
   uploadProgress?: number
   onUpload: (files: File[]) => void
   onDownload: (file: AssetFile) => void
@@ -50,11 +51,11 @@ export function AssetSection({
             }}
           />
           <Space size={6}>
-            <Button size="small" disabled={loading} loading={loading} icon={<UploadOutlined />} onClick={() => input.current?.click()}>
+            <Button size="small" disabled={disabled} loading={loading} icon={<UploadOutlined />} onClick={() => input.current?.click()}>
               {text.problem.upload}
             </Button>
             <Popconfirm title={text.common.confirmClear} okText={text.common.clear} cancelText={text.common.cancel} onConfirm={onClear}>
-              <Button size="small" danger disabled={loading || files.length === 0} icon={<DeleteOutlined />}>{text.common.clear}</Button>
+              <Button size="small" danger disabled={disabled || files.length === 0} icon={<DeleteOutlined />}>{text.common.clear}</Button>
             </Popconfirm>
           </Space>
         </>
@@ -69,8 +70,8 @@ export function AssetSection({
           pagination={{ pageSize: 10, hideOnSinglePage: true, showSizeChanger: false, size: 'small' }}
           tableLayout="auto"
           columns={[
-            { title: text.problem.inputFile, render: (_, row) => row.input ? <AssetCell file={row.input} onDownload={onDownload} onDelete={onDelete} /> : null },
-            { title: text.problem.outputFile, render: (_, row) => row.output ? <AssetCell file={row.output} onDownload={onDownload} onDelete={onDelete} /> : null },
+            { title: text.problem.inputFile, render: (_, row) => row.input ? <AssetCell file={row.input} disabled={disabled} onDownload={onDownload} onDelete={onDelete} /> : null },
+            { title: text.problem.outputFile, render: (_, row) => row.output ? <AssetCell file={row.output} disabled={disabled} onDownload={onDownload} onDelete={onDelete} /> : null },
             {
               title: text.problem.score,
               width: 92,
@@ -80,6 +81,7 @@ export function AssetSection({
                   min={0}
                   placeholder="10"
                   size="small"
+                  disabled={disabled}
                   defaultValue={scores.get(row.key) ?? undefined}
                   onBlur={(event) => {
                     const raw = event.target.value.trim()
@@ -108,7 +110,7 @@ export function AssetSection({
             pagination={false}
             tableLayout="auto"
             columns={[
-              { title: text.problem.judgeFile, render: (_, file) => <AssetCell file={file} onDownload={onDownload} onDelete={onDelete} /> }
+              { title: text.problem.judgeFile, render: (_, file) => <AssetCell file={file} disabled={disabled} onDownload={onDownload} onDelete={onDelete} /> }
             ]}
           />
         </>
@@ -117,11 +119,11 @@ export function AssetSection({
   )
 }
 
-function AssetCell({ file, onDownload, onDelete }: { file: AssetFile; onDownload: (file: AssetFile) => void; onDelete: (key: string) => Promise<ProblemAssets> }) {
+function AssetCell({ file, disabled, onDownload, onDelete }: { file: AssetFile; disabled: boolean; onDownload: (file: AssetFile) => void; onDelete: (key: string) => Promise<ProblemAssets> }) {
   return (
     <Flex align="center" justify="space-between" gap={8}>
       <AssetName file={file} />
-      <AssetActions file={file} onDownload={onDownload} onDelete={onDelete} />
+      <AssetActions file={file} disabled={disabled} onDownload={onDownload} onDelete={onDelete} />
     </Flex>
   )
 }
@@ -130,13 +132,13 @@ function AssetName({ file }: { file: AssetFile }) {
   return <Typography.Text style={{ minWidth: 0 }} ellipsis={{ tooltip: `${file.name} (${formatBytes(file.size)})` }}>{file.name} <Typography.Text type="secondary">({formatBytes(file.size)})</Typography.Text></Typography.Text>
 }
 
-function AssetActions({ file, onDownload, onDelete }: { file: AssetFile; onDownload: (file: AssetFile) => void; onDelete: (key: string) => Promise<ProblemAssets> }) {
+function AssetActions({ file, disabled, onDownload, onDelete }: { file: AssetFile; disabled: boolean; onDownload: (file: AssetFile) => void; onDelete: (key: string) => Promise<ProblemAssets> }) {
   const { text } = useLocale()
   return (
     <Space size={4}>
       <Button size="small" type="text" icon={<DownloadOutlined />} aria-label={text.common.download} onClick={() => onDownload(file)} />
       <Popconfirm title={text.common.confirmDelete} okText={text.common.delete} cancelText={text.common.cancel} onConfirm={() => onDelete(file.key)}>
-        <Button size="small" type="text" danger icon={<DeleteOutlined />} aria-label={text.common.delete} />
+        <Button size="small" type="text" danger disabled={disabled} icon={<DeleteOutlined />} aria-label={text.common.delete} />
       </Popconfirm>
     </Space>
   )

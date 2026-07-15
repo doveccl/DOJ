@@ -89,6 +89,8 @@ export function ProblemAssetsManager({
     },
     onError: showError
   })
+  const uploadSection = upload.isPending ? upload.variables.section : null
+  const disabled = assets.isLoading || removeAsset.isPending || upload.isPending || score.isPending
 
   return (
     <>
@@ -107,7 +109,8 @@ export function ProblemAssetsManager({
             files={assets.data?.data ?? []}
             cases={assets.data?.caseList ?? []}
             section="data"
-            loading={assets.isLoading || removeAsset.isPending || upload.isPending || score.isPending}
+            loading={assets.isLoading || removeAsset.isPending || uploadSection === 'data' || score.isPending}
+            disabled={disabled}
             uploadProgress={upload.isPending && upload.variables.section === 'data' ? uploadProgress : undefined}
             onUpload={(files) => upload.mutate({ section: 'data', files })}
             onDownload={(file) => downloadURL(problemFileDownloadURL(id, 'data', file.name), file.name)}
@@ -120,7 +123,8 @@ export function ProblemAssetsManager({
               title={text.problem.judge}
               files={assets.data?.judge ?? []}
               section="judge"
-              loading={assets.isLoading || removeAsset.isPending || upload.isPending}
+              loading={assets.isLoading || removeAsset.isPending || uploadSection === 'judge'}
+              disabled={disabled}
               uploadProgress={upload.isPending && upload.variables.section === 'judge' ? uploadProgress : undefined}
               onUpload={(files) => upload.mutate({ section: 'judge', files })}
               onDownload={(file) => downloadURL(problemFileDownloadURL(id, 'judge', file.name), file.name)}
