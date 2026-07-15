@@ -158,7 +158,7 @@ func TestProblemAssetDownloadsSupportNestedPathsAndExistingProblems(t *testing.T
 		t.Fatal(err)
 	}
 
-	res := requestWithCookies(e, http.MethodGet, "/api/problems/1000/data/cases/1.in", adminCookies, nil)
+	res := requestWithCookies(e, http.MethodGet, "/api/problems/1000/package/data/cases/1.in", adminCookies, nil)
 	if res.Code != http.StatusOK || res.Body.String() != "nested input" {
 		t.Fatalf("nested asset download got %d body=%q", res.Code, res.Body.String())
 	}
@@ -238,7 +238,7 @@ func TestProblemPackageBatchUploadRangeDeleteAndCAS(t *testing.T) {
 	e := echo.New()
 	Register(e, db)
 	cookies := databaseSession(t, db, admin.ID)
-	get := requestWithCookies(e, http.MethodGet, "/api/problems/1000/assets", cookies, nil)
+	get := requestWithCookies(e, http.MethodGet, "/api/problems/1000/package", cookies, nil)
 	version := get.Header().Get("ETag")
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -264,7 +264,7 @@ func TestProblemPackageBatchUploadRangeDeleteAndCAS(t *testing.T) {
 	}
 	_, _ = part.Write(archive.Bytes())
 	_ = writer.Close()
-	req := httptest.NewRequest(http.MethodPost, "/api/problems/1000/assets/files", &body)
+	req := httptest.NewRequest(http.MethodPost, "/api/problems/1000/package/files", &body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	req.Header.Set("If-Match", version)
 	for _, cookie := range cookies {
@@ -276,21 +276,24 @@ func TestProblemPackageBatchUploadRangeDeleteAndCAS(t *testing.T) {
 	if res.Code != http.StatusCreated {
 		t.Fatalf("batch upload got %d body=%s", res.Code, res.Body.String())
 	}
-	assets := decodeJSON[contract.ProblemAssets](t, res)
-	if len(assets.Data) != 2 || len(assets.CaseList) != 1 || assets.CaseList[0].Score != nil {
-		t.Fatalf("assets = %+v", assets)
+	if bytes.Contains(res.Body.Bytes(), []byte(`"assets"`)) {
+		t.Fatalf("package response must not include public assets: %s", res.Body.String())
 	}
-	download := requestWithCookies(e, http.MethodGet, "/api/problems/1000/data/1.out", cookies, nil)
+	pkg := decodeJSON[contract.ProblemPackage](t, res)
+	if len(pkg.Data) != 2 || len(pkg.CaseList) != 1 || pkg.CaseList[0].Score != nil {
+		t.Fatalf("package = %+v", pkg)
+	}
+	download := requestWithCookies(e, http.MethodGet, "/api/problems/1000/package/data/1.out", cookies, nil)
 	if download.Code != http.StatusOK || download.Body.String() != "answer" {
 		t.Fatalf("range download got %d body=%q", download.Code, download.Body.String())
 	}
-	input := requestWithCookies(e, http.MethodGet, "/api/problems/1000/data/1.in", cookies, nil)
+	input := requestWithCookies(e, http.MethodGet, "/api/problems/1000/package/data/1.in", cookies, nil)
 	if input.Code != http.StatusOK || input.Body.String() != "input" {
 		t.Fatalf("loose file should override same-request ZIP, got %d body=%q", input.Code, input.Body.String())
 	}
-	scoreRequest := httptest.NewRequest(http.MethodPatch, "/api/problems/1000/assets/cases/score?case=1", strings.NewReader(`{"score":1000001}`))
+	scoreRequest := httptest.NewRequest(http.MethodPatch, "/api/problems/1000/package/cases/score?case=1", strings.NewReader(`{"score":1000001}`))
 	scoreRequest.Header.Set("Content-Type", "application/json")
-	scoreRequest.Header.Set("If-Match", `"`+assets.Version+`"`)
+	scoreRequest.Header.Set("If-Match", `"`+pkg.Version+`"`)
 	for _, cookie := range cookies {
 		scoreRequest.AddCookie(cookie)
 	}
@@ -300,11 +303,11 @@ func TestProblemPackageBatchUploadRangeDeleteAndCAS(t *testing.T) {
 	if scoreResponse.Code != http.StatusOK {
 		t.Fatalf("score update got %d body=%s", scoreResponse.Code, scoreResponse.Body.String())
 	}
-	scored := decodeJSON[contract.ProblemAssets](t, scoreResponse)
+	scored := decodeJSON[contract.ProblemPackage](t, scoreResponse)
 	if scored.CaseList[0].Score == nil || *scored.CaseList[0].Score != 1_000_001 {
 		t.Fatalf("case score = %+v", scored.CaseList)
 	}
-	resetRequest := httptest.NewRequest(http.MethodPatch, "/api/problems/1000/assets/cases/score?case=1", strings.NewReader(`{"score":null}`))
+	resetRequest := httptest.NewRequest(http.MethodPatch, "/api/problems/1000/package/cases/score?case=1", strings.NewReader(`{"score":null}`))
 	resetRequest.Header.Set("Content-Type", "application/json")
 	resetRequest.Header.Set("If-Match", `"`+scored.Version+`"`)
 	for _, cookie := range cookies {
@@ -316,7 +319,7 @@ func TestProblemPackageBatchUploadRangeDeleteAndCAS(t *testing.T) {
 	if resetResponse.Code != http.StatusOK {
 		t.Fatalf("score reset got %d body=%s", resetResponse.Code, resetResponse.Body.String())
 	}
-	reset := decodeJSON[contract.ProblemAssets](t, resetResponse)
+	reset := decodeJSON[contract.ProblemPackage](t, resetResponse)
 	if reset.CaseList[0].Score != nil {
 		t.Fatalf("default case score should be omitted: %+v", reset.CaseList)
 	}
@@ -329,7 +332,7 @@ func TestProblemPackageBatchUploadRangeDeleteAndCAS(t *testing.T) {
 		t.Fatalf("DB-only score update package objects = %d, %v", len(objects), err)
 	}
 	deleteRequest := func(match string) *httptest.ResponseRecorder {
-		req := httptest.NewRequest(http.MethodDelete, "/api/problems/1000/assets/files?key=data%2F1.out", nil)
+		req := httptest.NewRequest(http.MethodDelete, "/api/problems/1000/package/files?key=data%2F1.out", nil)
 		req.Header.Set("If-Match", match)
 		for _, cookie := range cookies {
 			req.AddCookie(cookie)
@@ -347,15 +350,15 @@ func TestProblemPackageBatchUploadRangeDeleteAndCAS(t *testing.T) {
 	if deleted.Code != http.StatusOK {
 		t.Fatalf("delete got %d body=%s", deleted.Code, deleted.Body.String())
 	}
-	missing := requestWithCookies(e, http.MethodGet, "/api/problems/1000/data/1.out", cookies, nil)
+	missing := requestWithCookies(e, http.MethodGet, "/api/problems/1000/package/data/1.out", cookies, nil)
 	if missing.Code != http.StatusNotFound {
 		t.Fatalf("deleted download got %d body=%s", missing.Code, missing.Body.String())
 	}
-	var afterDelete contract.ProblemAssets
+	var afterDelete contract.ProblemPackage
 	if err := json.Unmarshal(deleted.Body.Bytes(), &afterDelete); err != nil {
 		t.Fatal(err)
 	}
-	clearRequest := httptest.NewRequest(http.MethodDelete, "/api/problems/1000/assets/files?key=data", nil)
+	clearRequest := httptest.NewRequest(http.MethodDelete, "/api/problems/1000/package/files?key=data", nil)
 	clearRequest.Header.Set("If-Match", `"`+afterDelete.Version+`"`)
 	for _, cookie := range cookies {
 		clearRequest.AddCookie(cookie)
@@ -366,9 +369,9 @@ func TestProblemPackageBatchUploadRangeDeleteAndCAS(t *testing.T) {
 	if cleared.Code != http.StatusOK {
 		t.Fatalf("clear got %d body=%s", cleared.Code, cleared.Body.String())
 	}
-	clearAssets := decodeJSON[contract.ProblemAssets](t, cleared)
-	if len(clearAssets.Data) != 0 || len(clearAssets.CaseList) != 0 {
-		t.Fatalf("cleared assets = %+v", clearAssets)
+	clearedPackage := decodeJSON[contract.ProblemPackage](t, cleared)
+	if len(clearedPackage.Data) != 0 || len(clearedPackage.CaseList) != 0 {
+		t.Fatalf("cleared package = %+v", clearedPackage)
 	}
 	objects, err = store.List(t.Context(), "problems/1000/packages")
 	if err != nil || len(objects) != 1 {

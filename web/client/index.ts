@@ -15,9 +15,9 @@ export type ProblemListPage = components['schemas']['ProblemListPage']
 export type Problem = components['schemas']['Problem']
 export type ProblemListItem = components['schemas']['ProblemListItem']
 export type ProblemState = components['schemas']['ProblemState']
-export type ProblemAssets = components['schemas']['ProblemAssets']
-export type AssetFile = components['schemas']['AssetFile']
-export type AssetCase = components['schemas']['AssetCase']
+export type ProblemPackage = components['schemas']['ProblemPackage']
+export type PackageFile = components['schemas']['PackageFile']
+export type PackageCase = components['schemas']['PackageCase']
 export type HeatCell = components['schemas']['HeatCell']
 export type Assignment = components['schemas']['Assignment']
 export type AssignmentListItem = components['schemas']['AssignmentListItem']
@@ -232,28 +232,28 @@ export function csrfHeaders() {
   return token ? { 'X-DOJ-CSRF': token } : undefined
 }
 
-export function problemAssetsDownloadURL(id: number) {
+export function problemArchiveDownloadURL(id: number) {
   return apiUrl(`/api/problems/${id}.zip`).toString()
 }
 
-export function problemFileDownloadURL(id: number, section: 'data' | 'judge', name: string) {
+export function problemPackageFileURL(id: number, section: 'data' | 'judge', name: string) {
   const path = name
     .split('/')
     .filter(Boolean)
     .map((part) => encodeURIComponent(part))
     .join('/')
-  return apiUrl(`/api/problems/${id}/${section}/${path}`).toString()
+  return apiUrl(`/api/problems/${id}/package/${section}/${path}`).toString()
 }
 
-export function uploadProblemAssets(id: number, section: 'data' | 'judge', files: File[], version: string, onProgress?: (percent: number) => void) {
+export function uploadProblemPackage(id: number, section: 'data' | 'judge', files: File[], version: string, onProgress?: (percent: number) => void) {
   const body = new FormData()
   body.set('section', section)
   for (const file of files) {
     body.append('files', file)
   }
-  return new Promise<ProblemAssets>((resolve, reject) => {
+  return new Promise<ProblemPackage>((resolve, reject) => {
     const request = new XMLHttpRequest()
-    request.open('POST', apiUrl(`/api/problems/${id}/assets/files`))
+    request.open('POST', apiUrl(`/api/problems/${id}/package/files`))
     request.withCredentials = true
     request.setRequestHeader('If-Match', `"${version}"`)
     const csrf = readCookie('doj_csrf')
@@ -268,7 +268,7 @@ export function uploadProblemAssets(id: number, section: 'data' | 'judge', files
         return
       }
       try {
-        resolve(JSON.parse(request.responseText) as ProblemAssets)
+        resolve(JSON.parse(request.responseText) as ProblemPackage)
       } catch {
         reject(new Error('Invalid upload response'))
       }

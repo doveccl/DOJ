@@ -12,7 +12,6 @@ import (
 	"github.com/doveccl/doj/models"
 	"github.com/doveccl/doj/server/events"
 	"github.com/doveccl/doj/server/judge"
-	"github.com/doveccl/doj/server/storage"
 	"github.com/doveccl/doj/server/validate"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -188,24 +187,20 @@ func (api *API) submit(c echo.Context) error {
 }
 
 func (api *API) validateProblemReadyForSubmit(ctx context.Context, problem models.Problem) error {
-	store, err := storage.NewFromEnv()
+	pkg, err := api.problemPackageCached(ctx, problem.ID)
 	if err != nil {
 		return err
 	}
-	assets, err := api.problemAssetsCached(ctx, problem.ID, store)
-	if err != nil {
-		return err
-	}
-	if assets.Cases == 0 {
+	if pkg.Cases == 0 {
 		return echo.NewHTTPError(http.StatusConflict, "problem has no test data")
 	}
-	if problem.Mode == "custom" && !hasCustomJudgeDockerfile(assets.Judge) {
+	if problem.Mode == "custom" && !hasCustomJudgeDockerfile(pkg.Judge) {
 		return echo.NewHTTPError(http.StatusConflict, "custom judge requires Dockerfile")
 	}
 	return nil
 }
 
-func hasCustomJudgeDockerfile(files []contract.AssetFile) bool {
+func hasCustomJudgeDockerfile(files []contract.PackageFile) bool {
 	for _, file := range files {
 		if file.Name == "Dockerfile" {
 			return true

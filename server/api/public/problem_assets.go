@@ -7,7 +7,6 @@ import (
 	"fmt"
 	problemdata "github.com/doveccl/doj/server/problem"
 	"github.com/doveccl/doj/server/storage"
-	"io"
 	"net/http"
 	"path"
 	"strconv"
@@ -20,17 +19,17 @@ import (
 	"gorm.io/gorm"
 )
 
-func (api *API) problemAssets(c echo.Context) error {
+func (api *API) problemPackage(c echo.Context) error {
 	id, err := api.requireProblemAdmin(c)
 	if err != nil {
 		return err
 	}
-	assets, err := api.syncProblemAssets(c, id)
+	pkg, err := api.syncProblemPackage(c, id)
 	if err != nil {
 		return err
 	}
-	c.Response().Header().Set("ETag", `"`+assets.Version+`"`)
-	return c.JSON(http.StatusOK, assets)
+	c.Response().Header().Set("ETag", `"`+pkg.Version+`"`)
+	return c.JSON(http.StatusOK, pkg)
 }
 
 func (api *API) uploadProblemImage(c echo.Context) error {
@@ -59,21 +58,21 @@ func (api *API) uploadProblemImage(c echo.Context) error {
 }
 
 func (api *API) problemPrivateData(c echo.Context) error {
-	return api.problemPrivateAsset(c, "data")
+	return api.problemPackageFile(c, "data")
 }
 
 func (api *API) problemPrivateJudge(c echo.Context) error {
-	return api.problemPrivateAsset(c, "judge")
+	return api.problemPackageFile(c, "judge")
 }
 
-func (api *API) problemPrivateAsset(c echo.Context, section string) error {
+func (api *API) problemPackageFile(c echo.Context, section string) error {
 	id, err := api.requireProblemAdmin(c)
 	if err != nil {
 		return err
 	}
 	rel, err := storage.CleanKey(c.Param("*"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "asset not found")
+		return echo.NewHTTPError(http.StatusNotFound, "package file not found")
 	}
 	return api.streamProblemPackageFile(c, id, path.Join(section, rel))
 }
@@ -94,83 +93,31 @@ func (api *API) problemPublicAsset(c echo.Context) error {
 	return streamMedia(c, key, "media not found", true)
 }
 
-func (api *API) uploadProblemAsset(c echo.Context) error {
+func (api *API) uploadProblemPackage(c echo.Context) error {
 	id, err := api.requireProblemAdmin(c)
 	if err != nil {
 		return err
 	}
-	section, err := assetSection(c.FormValue("section"))
+	section, err := packageSection(c.FormValue("section"))
 	if err != nil {
 		return err
 	}
-	if section == "data" || section == "judge" {
-		return api.uploadProblemPackageFiles(c, id, section)
-	}
-	file, err := c.FormFile("file")
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "asset file is required")
-	}
-	name, err := cleanAssetName(file.Filename)
-	if err != nil {
-		return err
-	}
-	if file.Size > maxAssetBytes {
-		return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "asset file is too large")
-	}
-	src, err := file.Open()
-	if err != nil {
-		return err
-	}
-	defer src.Close()
-	buffer := make([]byte, 512)
-	n, readErr := src.Read(buffer)
-	if readErr != nil && readErr != io.EOF {
-		return readErr
-	}
-	contentType := http.DetectContentType(buffer[:n])
-	reader := io.MultiReader(bytes.NewReader(buffer[:n]), src)
-	store, err := storage.NewFromEnv()
-	if err != nil {
-		return err
-	}
-	key := path.Join(problemAssetPrefix(id, section), name)
-	if err := store.Put(c.Request().Context(), key, reader, file.Size, contentType); err != nil {
-		return err
-	}
-	assets, err := api.syncProblemAssets(c, id)
-	if err != nil {
-		return err
-	}
-	return c.JSON(http.StatusCreated, assets)
+	return api.uploadProblemPackageFiles(c, id, section)
 }
 
-func (api *API) deleteProblemAsset(c echo.Context) error {
+func (api *API) deleteProblemPackage(c echo.Context) error {
 	id, err := api.requireProblemAdmin(c)
 	if err != nil {
 		return err
 	}
 	key, err := storage.CleanKey(c.QueryParam("key"))
-	if err == nil && (key == "data" || key == "judge" || strings.HasPrefix(key, "data/") || strings.HasPrefix(key, "judge/")) {
-		return api.deleteProblemPackageFiles(c, id, key)
+	if err != nil || key != "data" && key != "judge" && !strings.HasPrefix(key, "data/") && !strings.HasPrefix(key, "judge/") {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid package key")
 	}
-	if err != nil || !problemAssetKeyAllowed(id, key) {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid asset key")
-	}
-	store, err := storage.NewFromEnv()
-	if err != nil {
-		return err
-	}
-	if err := store.Delete(c.Request().Context(), key); err != nil {
-		return err
-	}
-	assets, err := api.syncProblemAssets(c, id)
-	if err != nil {
-		return err
-	}
-	return c.JSON(http.StatusOK, assets)
+	return api.deleteProblemPackageFiles(c, id, key)
 }
 
-func (api *API) downloadProblemAssets(c echo.Context) error {
+func (api *API) downloadProblemArchive(c echo.Context) error {
 	if err := api.requireAdmin(c); err != nil {
 		return err
 	}
@@ -192,7 +139,7 @@ func (api *API) downloadProblemAssets(c echo.Context) error {
 		return err
 	}
 	statement := problemStatement(problem)
-	assets, err := api.problemAssetsFromPackage(c.Request().Context(), id, store)
+	assets, err := assetFiles(c.Request().Context(), store, problemAssetPrefix(id))
 	if err != nil {
 		return err
 	}
@@ -213,28 +160,24 @@ func (api *API) downloadProblemAssets(c echo.Context) error {
 	if err := writeProblemPackageArchive(c.Request().Context(), writer, store, id, item); err != nil {
 		return err
 	}
-	if err := writeAssetZipFiles(c.Request().Context(), writer, store, "assets", assets.Assets); err != nil {
+	if err := writeAssetZipFiles(c.Request().Context(), writer, store, "assets", assets); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (api *API) decorateProblemAssetStats(ctx context.Context, items []contract.Problem) error {
+func (api *API) decorateProblemPackageStats(ctx context.Context, items []contract.Problem) error {
 	if len(items) == 0 {
 		return nil
 	}
-	store, err := storage.NewFromEnv()
-	if err != nil {
-		return err
-	}
 	for index := range items {
 		id := items[index].ID
-		assets, err := api.problemAssetsCached(ctx, id, store)
+		pkg, err := api.problemPackageCached(ctx, id)
 		if err != nil {
 			return err
 		}
-		cases := assets.Cases
-		dataBytes := assets.DataBytes
+		cases := pkg.Cases
+		dataBytes := pkg.DataBytes
 		items[index].Cases = &cases
 		items[index].DataBytes = &dataBytes
 	}

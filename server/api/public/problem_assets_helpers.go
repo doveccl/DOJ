@@ -21,46 +21,41 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func (api *API) syncProblemAssets(c echo.Context, id uint) (contract.ProblemAssets, error) {
-	store, err := storage.NewFromEnv()
+func (api *API) syncProblemPackage(c echo.Context, id uint) (contract.ProblemPackage, error) {
+	pkg, err := api.problemPackageFromDB(c.Request().Context(), id)
 	if err != nil {
-		return contract.ProblemAssets{}, err
+		return contract.ProblemPackage{}, err
 	}
-	assets, err := api.problemAssetsFromPackage(c.Request().Context(), id, store)
-	if err != nil {
-		return contract.ProblemAssets{}, err
-	}
-	api.cacheProblemAssets(c.Request().Context(), id, assets)
-	return assets, nil
+	api.cacheProblemPackage(c.Request().Context(), id, pkg)
+	return pkg, nil
 }
 
-func (api *API) problemAssetsFromPackage(ctx context.Context, id uint, store storage.Store) (contract.ProblemAssets, error) {
+func (api *API) problemPackageFromDB(ctx context.Context, id uint) (contract.ProblemPackage, error) {
 	var row models.Problem
 	if err := api.db.WithContext(ctx).First(&row, id).Error; err != nil {
-		return contract.ProblemAssets{}, err
+		return contract.ProblemPackage{}, err
 	}
 	item, err := problemdata.Parse(row.Package)
 	if err != nil {
-		return contract.ProblemAssets{}, err
+		return contract.ProblemPackage{}, err
 	}
-	result := contract.ProblemAssets{Version: problemdata.ETag(packageJSON(row.Package))}
+	result := contract.ProblemPackage{Version: problemdata.ETag(packageJSON(row.Package))}
 	for _, file := range item.Files {
-		asset := contract.AssetFile{Key: file.Path, Name: strings.TrimPrefix(strings.TrimPrefix(file.Path, "data/"), "judge/"), Size: file.Size}
+		view := contract.PackageFile{Key: file.Path, Name: strings.TrimPrefix(strings.TrimPrefix(file.Path, "data/"), "judge/"), Size: file.Size}
 		switch {
 		case strings.HasPrefix(file.Path, "data/"):
-			result.Data = append(result.Data, asset)
+			result.Data = append(result.Data, view)
 			result.DataBytes += file.Size
 		case strings.HasPrefix(file.Path, "judge/"):
-			result.Judge = append(result.Judge, asset)
+			result.Judge = append(result.Judge, view)
 		}
 	}
 	for _, item := range item.Cases {
-		result.CaseList = append(result.CaseList, contract.AssetCase{ID: item.ID, Input: item.Input, Answer: item.Answer, Score: item.Score})
+		result.CaseList = append(result.CaseList, contract.PackageCase{ID: item.ID, Input: item.Input, Answer: item.Answer, Score: item.Score})
 	}
 	sort.Slice(result.Data, func(i, j int) bool { return cases.DataCaseFileLess(result.Data[i].Name, result.Data[j].Name) })
 	result.Cases = len(result.CaseList)
-	result.Assets, err = assetFiles(ctx, store, problemAssetPrefix(id, "assets"))
-	return result, err
+	return result, nil
 }
 
 func packageJSON(raw []byte) []byte {
@@ -70,26 +65,26 @@ func packageJSON(raw []byte) []byte {
 	return raw
 }
 
-func (api *API) problemAssetsCached(ctx context.Context, id uint, store storage.Store) (contract.ProblemAssets, error) {
-	var cached contract.ProblemAssets
-	found, err := cache.Get(ctx, problemAssetsCacheKey(id), &cached)
+func (api *API) problemPackageCached(ctx context.Context, id uint) (contract.ProblemPackage, error) {
+	var cached contract.ProblemPackage
+	found, err := cache.Get(ctx, problemPackageCacheKey(id), &cached)
 	if err == nil && found {
 		return cached, nil
 	}
-	assets, err := api.problemAssetsFromPackage(ctx, id, store)
+	pkg, err := api.problemPackageFromDB(ctx, id)
 	if err != nil {
-		return contract.ProblemAssets{}, err
+		return contract.ProblemPackage{}, err
 	}
-	api.cacheProblemAssets(ctx, id, assets)
-	return assets, nil
+	api.cacheProblemPackage(ctx, id, pkg)
+	return pkg, nil
 }
 
-func (api *API) cacheProblemAssets(ctx context.Context, id uint, assets contract.ProblemAssets) {
-	_ = cache.Set(ctx, problemAssetsCacheKey(id), assets, time.Minute)
+func (api *API) cacheProblemPackage(ctx context.Context, id uint, pkg contract.ProblemPackage) {
+	_ = cache.Set(ctx, problemPackageCacheKey(id), pkg, time.Minute)
 }
 
-func problemAssetsCacheKey(id uint) string {
-	return "doj:problem:" + strconv.FormatUint(uint64(id), 10) + ":assets"
+func problemPackageCacheKey(id uint) string {
+	return "doj:problem:" + strconv.FormatUint(uint64(id), 10) + ":package"
 }
 
 func writeProblemStatementZipFile(writer *zip.Writer, statement string) error {
@@ -101,7 +96,7 @@ func writeProblemStatementZipFile(writer *zip.Writer, statement string) error {
 	return err
 }
 
-func writeAssetZipFiles(ctx context.Context, writer *zip.Writer, store storage.Store, section string, files []contract.AssetFile) error {
+func writeAssetZipFiles(ctx context.Context, writer *zip.Writer, store storage.Store, section string, files []contract.PackageFile) error {
 	for _, item := range files {
 		zipName, ok := safeAssetZipName(section, item.Name)
 		if !ok {
@@ -137,13 +132,13 @@ func safeAssetZipName(section string, name string) (string, bool) {
 	return path.Join(section, clean), true
 }
 
-func assetFiles(ctx context.Context, store storage.Store, prefix string) ([]contract.AssetFile, error) {
+func assetFiles(ctx context.Context, store storage.Store, prefix string) ([]contract.PackageFile, error) {
 	objects, err := store.List(ctx, prefix)
 	if err != nil {
 		return nil, err
 	}
 	fullPrefix := strings.TrimSuffix(prefix, "/") + "/"
-	items := make([]contract.AssetFile, 0, len(objects))
+	items := make([]contract.PackageFile, 0, len(objects))
 	for _, object := range objects {
 		if !strings.HasPrefix(object.Key, fullPrefix) {
 			continue
@@ -152,37 +147,32 @@ func assetFiles(ctx context.Context, store storage.Store, prefix string) ([]cont
 		if name == "" {
 			continue
 		}
-		items = append(items, contract.AssetFile{Key: object.Key, Name: name, Size: object.Size})
+		items = append(items, contract.PackageFile{Key: object.Key, Name: name, Size: object.Size})
 	}
 	sort.Slice(items, func(i, j int) bool { return cases.DataCaseFileLess(items[i].Name, items[j].Name) })
 	return items, nil
 }
 
-func problemAssetPrefix(id uint, section string) string {
-	return fmt.Sprintf("problems/%d/%s", id, section)
+func problemAssetPrefix(id uint) string {
+	return fmt.Sprintf("problems/%d/assets", id)
 }
 
-func problemAssetKeyAllowed(id uint, key string) bool {
-	assets := problemAssetPrefix(id, "assets") + "/"
-	return strings.HasPrefix(key, assets)
-}
-
-func assetSection(raw string) (string, error) {
+func packageSection(raw string) (string, error) {
 	switch strings.TrimSpace(raw) {
-	case "data", "judge", "assets":
+	case "data", "judge":
 		return strings.TrimSpace(raw), nil
 	default:
-		return "", echo.NewHTTPError(http.StatusBadRequest, "asset section must be data, judge or assets")
+		return "", echo.NewHTTPError(http.StatusBadRequest, "package section must be data or judge")
 	}
 }
 
-func cleanAssetName(raw string) (string, error) {
+func cleanPackageFileName(raw string) (string, error) {
 	name := path.Base(strings.ReplaceAll(strings.TrimSpace(raw), "\\", "/"))
 	if name == "" || name == "." || name == ".." {
-		return "", echo.NewHTTPError(http.StatusBadRequest, "asset file name is required")
+		return "", echo.NewHTTPError(http.StatusBadRequest, "package file name is required")
 	}
 	if _, err := storage.CleanKey(name); err != nil {
-		return "", echo.NewHTTPError(http.StatusBadRequest, "invalid asset file name")
+		return "", echo.NewHTTPError(http.StatusBadRequest, "invalid package file name")
 	}
 	return name, nil
 }

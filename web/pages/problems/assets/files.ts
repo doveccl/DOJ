@@ -1,8 +1,8 @@
-import type { AssetFile } from '../../../client'
+import type { PackageFile } from '../../../client'
 
-export type DataPairRow = { key: string; input?: AssetFile; output?: AssetFile }
+export type DataPairRow = { key: string; input?: PackageFile; output?: PackageFile }
 
-export function dataPairRows(files: AssetFile[]) {
+export function dataPairRows(files: PackageFile[]) {
   const rows: DataPairRow[] = []
   const byStem = new Map<string, DataPairRow>()
   for (const file of files) {

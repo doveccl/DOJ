@@ -113,7 +113,7 @@ func (api *API) uploadProblemPackageFiles(c echo.Context, id uint, section strin
 				}
 				continue
 			}
-			name, err := cleanAssetName(file.Filename)
+			name, err := cleanPackageFileName(file.Filename)
 			if err != nil {
 				return err
 			}
@@ -145,7 +145,7 @@ func (api *API) uploadProblemPackageFiles(c echo.Context, id uint, section strin
 	if err := api.compareAndSwapPackage(c, id, baseJSON, nextJSON); err != nil {
 		return err
 	}
-	assets, err := api.syncProblemAssets(c, id)
+	assets, err := api.syncProblemPackage(c, id)
 	if err != nil {
 		return err
 	}
@@ -188,7 +188,7 @@ func (api *API) deleteProblemPackageFiles(c echo.Context, id uint, name string) 
 	if err := api.compareAndSwapPackage(c, id, baseJSON, nextJSON); err != nil {
 		return err
 	}
-	assets, err := api.syncProblemAssets(c, id)
+	assets, err := api.syncProblemPackage(c, id)
 	if err != nil {
 		return err
 	}
@@ -244,7 +244,7 @@ func (api *API) updateProblemCaseScore(c echo.Context) error {
 	if err := api.compareAndSwapPackage(c, id, baseJSON, nextJSON); err != nil {
 		return err
 	}
-	assets, err := api.syncProblemAssets(c, id)
+	assets, err := api.syncProblemPackage(c, id)
 	if err != nil {
 		return err
 	}
@@ -277,7 +277,7 @@ func packageCases(files []problemdata.File, old []problemdata.Case) []problemdat
 func requirePackageMatch(c echo.Context, raw []byte) error {
 	want := `"` + problemdata.ETag(raw) + `"`
 	if c.Request().Header.Get("If-Match") != want {
-		return echo.NewHTTPError(http.StatusPreconditionFailed, "problem assets changed; refresh and retry")
+		return echo.NewHTTPError(http.StatusPreconditionFailed, "problem package changed; refresh and retry")
 	}
 	return nil
 }
@@ -289,7 +289,7 @@ func (api *API) compareAndSwapPackage(c echo.Context, id uint, oldJSON []byte, n
 			return err
 		}
 		if !bytes.Equal(packageJSON(current.Package), oldJSON) {
-			return echo.NewHTTPError(http.StatusPreconditionFailed, "problem assets changed; refresh and retry")
+			return echo.NewHTTPError(http.StatusPreconditionFailed, "problem package changed; refresh and retry")
 		}
 		return tx.Model(&models.Problem{}).Where("id = ?", id).Update("package", datatypes.JSON(nextJSON)).Error
 	})

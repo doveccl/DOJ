@@ -647,63 +647,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Problem assets zip */
-        get: operations["downloadProblemAssets"];
+        /** Problem archive */
+        get: operations["downloadProblemArchive"];
         put?: never;
         post?: never;
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/problems/{id}/assets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Problem assets */
-        get: operations["getProblemAssets"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/problems/{id}/assets/cases/score": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Problem case score updated */
-        patch: operations["updateProblemCaseScore"];
-        trace?: never;
-    };
-    "/api/problems/{id}/assets/files": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Problem asset uploaded */
-        post: operations["uploadProblemAsset"];
-        /** Problem asset deleted */
-        delete: operations["deleteProblemAsset"];
         options?: never;
         head?: never;
         patch?: never;
@@ -743,14 +691,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/problems/{id}/data/{name}": {
+    "/api/problems/{id}/package": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Private problem data file */
+        /** Problem package */
+        get: operations["getProblemPackage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/problems/{id}/package/cases/score": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Problem case score updated */
+        patch: operations["updateProblemCaseScore"];
+        trace?: never;
+    };
+    "/api/problems/{id}/package/data/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Problem data file */
         get: operations["problemPrivateData"];
         put?: never;
         post?: never;
@@ -760,14 +742,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/problems/{id}/judge/{name}": {
+    "/api/problems/{id}/package/files": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Private problem judge file */
+        get?: never;
+        put?: never;
+        /** Problem package updated */
+        post: operations["uploadProblemPackage"];
+        /** Problem package updated */
+        delete: operations["deleteProblemPackage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/problems/{id}/package/judge/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Problem judge file */
         get: operations["problemPrivateJudge"];
         put?: never;
         post?: never;
@@ -1132,23 +1132,6 @@ export interface components {
             groups: number[];
             role: string;
         };
-        AssetCase: {
-            answer: string;
-            id: string;
-            input: string;
-            /** Format: int64 */
-            score: number | null;
-        };
-        AssetCaseScoreUpdate: {
-            /** Format: int64 */
-            score: number | null;
-        };
-        AssetFile: {
-            key: string;
-            name: string;
-            /** Format: int64 */
-            size: number;
-        };
         Assignment: {
             /** Format: int64 */
             done: number;
@@ -1480,6 +1463,23 @@ export interface components {
         NoticeUpdate: {
             content: string;
         };
+        PackageCase: {
+            answer: string;
+            id: string;
+            input: string;
+            /** Format: int64 */
+            score: number | null;
+        };
+        PackageCaseScoreUpdate: {
+            /** Format: int64 */
+            score: number | null;
+        };
+        PackageFile: {
+            key: string;
+            name: string;
+            /** Format: int64 */
+            size: number;
+        };
         PasswordReset: {
             password: string;
         };
@@ -1504,17 +1504,6 @@ export interface components {
             timeMs: number;
             title: string;
             visible: boolean;
-        };
-        ProblemAssets: {
-            assets: components["schemas"]["AssetFile"][];
-            caseList: components["schemas"]["AssetCase"][];
-            /** Format: int64 */
-            cases: number;
-            data: components["schemas"]["AssetFile"][];
-            /** Format: int64 */
-            dataBytes: number;
-            judge: components["schemas"]["AssetFile"][];
-            version: string;
         };
         ProblemCreate: {
             /** Format: int64 */
@@ -1546,6 +1535,16 @@ export interface components {
             pageSize: number;
             /** Format: int64 */
             total: number;
+        };
+        ProblemPackage: {
+            caseList: components["schemas"]["PackageCase"][];
+            /** Format: int64 */
+            cases: number;
+            data: components["schemas"]["PackageFile"][];
+            /** Format: int64 */
+            dataBytes: number;
+            judge: components["schemas"]["PackageFile"][];
+            version: string;
         };
         ProblemRef: {
             /** Format: int64 */
@@ -3679,7 +3678,7 @@ export interface operations {
             };
         };
     };
-    downloadProblemAssets: {
+    downloadProblemArchive: {
         parameters: {
             query?: never;
             header?: never;
@@ -3697,150 +3696,6 @@ export interface operations {
                 };
                 content: {
                     "application/zip": string;
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    getProblemAssets: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemAssets"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    updateProblemCaseScore: {
-        parameters: {
-            query: {
-                case: string;
-            };
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AssetCaseScoreUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemAssets"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    uploadProblemAsset: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": {
-                    /**
-                     * Format: binary
-                     * @description filename of the file being uploaded
-                     */
-                    filename?: string;
-                    /** @description general purpose name for multipart form value */
-                    name?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemAssets"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    deleteProblemAsset: {
-        parameters: {
-            query: {
-                key: string;
-            };
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemAssets"];
                 };
             };
             /** @description Error */
@@ -3929,6 +3784,74 @@ export interface operations {
             };
         };
     };
+    getProblemPackage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemPackage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    updateProblemCaseScore: {
+        parameters: {
+            query: {
+                case: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackageCaseScoreUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemPackage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     problemPrivateData: {
         parameters: {
             query?: never;
@@ -3948,6 +3871,82 @@ export interface operations {
                 };
                 content: {
                     "application/octet-stream": string;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    uploadProblemPackage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description filename of the file being uploaded
+                     */
+                    filename?: string;
+                    /** @description general purpose name for multipart form value */
+                    name?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemPackage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deleteProblemPackage: {
+        parameters: {
+            query: {
+                key: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemPackage"];
                 };
             };
             /** @description Error */

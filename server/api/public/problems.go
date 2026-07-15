@@ -36,7 +36,7 @@ func (api *API) tags(c echo.Context) error {
 
 func (api *API) problem(c echo.Context) error {
 	if strings.HasSuffix(c.Param("id"), ".zip") {
-		return api.downloadProblemAssets(c)
+		return api.downloadProblemArchive(c)
 	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -65,7 +65,7 @@ func (api *API) problem(c echo.Context) error {
 		item.Tags = []string{}
 	}
 	items := []contract.Problem{item}
-	if err := api.decorateProblemAssetStats(c.Request().Context(), items); err != nil {
+	if err := api.decorateProblemPackageStats(c.Request().Context(), items); err != nil {
 		return err
 	}
 	item = items[0]

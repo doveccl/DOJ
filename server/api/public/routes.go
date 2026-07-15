@@ -24,7 +24,6 @@ type API struct {
 }
 
 const (
-	maxAssetBytes            = 128 << 20
 	maxTitleRunes            = models.TitleMax
 	homeListLimit            = 5
 	userActivityLimit        = 10
@@ -70,13 +69,13 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.PATCH("/problems/:id/visibility", api.updateProblemVisibility, echomw.BodyLimit(limits.BodyShortText))
 	group.POST("/problems/:id/rejudge", api.rejudgeProblem)
 	group.DELETE("/problems/:id", api.deleteProblem)
-	group.GET("/problems/:id/assets", api.problemAssets)
+	group.GET("/problems/:id/package", api.problemPackage)
 	group.POST("/problems/:id/assets/images", api.uploadProblemImage, api.rateLimit("problem-upload", 60, time.Minute), echomw.BodyLimit(limits.BodyImage))
-	group.GET("/problems/:id/data/*", api.problemPrivateData)
-	group.GET("/problems/:id/judge/*", api.problemPrivateJudge)
-	group.POST("/problems/:id/assets/files", api.uploadProblemAsset, api.rateLimit("problem-upload", 60, time.Minute), echomw.BodyLimit(limits.BodyProblemPackage))
-	group.DELETE("/problems/:id/assets/files", api.deleteProblemAsset)
-	group.PATCH("/problems/:id/assets/cases/score", api.updateProblemCaseScore, echomw.BodyLimit(limits.BodyShortText))
+	group.GET("/problems/:id/package/data/*", api.problemPrivateData)
+	group.GET("/problems/:id/package/judge/*", api.problemPrivateJudge)
+	group.POST("/problems/:id/package/files", api.uploadProblemPackage, api.rateLimit("problem-upload", 60, time.Minute), echomw.BodyLimit(limits.BodyProblemPackage))
+	group.DELETE("/problems/:id/package/files", api.deleteProblemPackage)
+	group.PATCH("/problems/:id/package/cases/score", api.updateProblemCaseScore, echomw.BodyLimit(limits.BodyShortText))
 	group.GET("/problems/:id/assets/*", api.problemPublicAsset)
 
 	group.GET("/assignments", api.assignments)

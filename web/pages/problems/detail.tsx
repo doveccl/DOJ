@@ -43,7 +43,7 @@ import { useSession } from '../../session'
 import { submissionDraftKey } from '../../utils/draft'
 import { formatBytes, formatLimit, problemCode } from '../../utils/format'
 import { problemAssetUploadMarkdownURL, problemMarkdownID } from '../../utils/markdown'
-import { ProblemAssetsManager, ProblemManageActions } from './assets'
+import { ProblemPackageManager, ProblemManageActions } from './assets'
 import { ProblemFormFields } from './form'
 import type { ProblemFormValues } from './form'
 
@@ -463,7 +463,7 @@ export function ProblemDetailPage() {
         ) : null}
       </Flex>
       {session.admin ? (
-        <ProblemAssetsManager id={id} mode={problem.mode} open={assetsOpen} onClose={() => setAssetsOpen(false)} />
+        <ProblemPackageManager id={id} mode={problem.mode} open={assetsOpen} onClose={() => setAssetsOpen(false)} />
       ) : null}
     </>
   )

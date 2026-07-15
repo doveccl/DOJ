@@ -259,7 +259,7 @@ type keyQuery struct {
 type caseScoreBody struct {
 	ID   uint   `path:"id"`
 	Case string `query:"case" required:"true"`
-	Body contract.AssetCaseScoreUpdate
+	Body contract.PackageCaseScoreUpdate
 }
 
 type assignmentListQuery struct {
@@ -315,7 +315,7 @@ type uploadImageInput struct {
 	RawBody multipart.Form
 }
 
-type uploadProblemAssetInput struct {
+type uploadProblemFileInput struct {
 	ID      uint `path:"id"`
 	RawBody multipart.Form
 }
@@ -398,15 +398,15 @@ func RegisterOpenAPI(api huma.API) {
 	noContent[idPath](api, http.MethodDelete, "/api/problems/{id}", "deleteProblem", "Problem deleted")
 	patch[idBody[contract.ProblemVisibilityUpdate], ProblemListItem](api, "/api/problems/{id}/visibility", "updateProblemVisibility", "Problem visibility updated")
 	post[idPath, contract.CountResult](api, "/api/problems/{id}/rejudge", "rejudgeProblem", "Problem submissions requeued")
-	getWith[idPath, contract.ProblemAssets](api, "/api/problems/{id}/assets", "getProblemAssets", "Problem assets")
-	postCreated[uploadProblemAssetInput, contract.UploadResult](api, "/api/problems/{id}/assets/images", "uploadProblemImage", "Problem image uploaded")
+	getWith[idPath, contract.ProblemPackage](api, "/api/problems/{id}/package", "getProblemPackage", "Problem package")
+	postCreated[uploadProblemFileInput, contract.UploadResult](api, "/api/problems/{id}/assets/images", "uploadProblemImage", "Problem image uploaded")
 	getBinary[nameAssetPath](api, "/api/problems/{id}/assets/{name}", "problemPublicAsset", "Public problem asset", "application/octet-stream")
-	getBinary[nameAssetPath](api, "/api/problems/{id}/data/{name}", "problemPrivateData", "Private problem data file", "application/octet-stream")
-	getBinary[nameAssetPath](api, "/api/problems/{id}/judge/{name}", "problemPrivateJudge", "Private problem judge file", "application/octet-stream")
-	postCreated[uploadProblemAssetInput, contract.ProblemAssets](api, "/api/problems/{id}/assets/files", "uploadProblemAsset", "Problem asset uploaded")
-	deleteWith[keyQuery, contract.ProblemAssets](api, "/api/problems/{id}/assets/files", "deleteProblemAsset", "Problem asset deleted", http.StatusOK)
-	patch[caseScoreBody, contract.ProblemAssets](api, "/api/problems/{id}/assets/cases/score", "updateProblemCaseScore", "Problem case score updated")
-	getBinary[idPath](api, "/api/problems/{id}/zip", "downloadProblemAssets", "Problem assets zip", "application/zip")
+	getBinary[nameAssetPath](api, "/api/problems/{id}/package/data/{name}", "problemPrivateData", "Problem data file", "application/octet-stream")
+	getBinary[nameAssetPath](api, "/api/problems/{id}/package/judge/{name}", "problemPrivateJudge", "Problem judge file", "application/octet-stream")
+	postCreated[uploadProblemFileInput, contract.ProblemPackage](api, "/api/problems/{id}/package/files", "uploadProblemPackage", "Problem package updated")
+	deleteWith[keyQuery, contract.ProblemPackage](api, "/api/problems/{id}/package/files", "deleteProblemPackage", "Problem package updated", http.StatusOK)
+	patch[caseScoreBody, contract.ProblemPackage](api, "/api/problems/{id}/package/cases/score", "updateProblemCaseScore", "Problem case score updated")
+	getBinary[idPath](api, "/api/problems/{id}/zip", "downloadProblemArchive", "Problem archive", "application/zip")
 	renamePath(api, "/api/problems/{id}/zip", "/api/problems/{id}.zip")
 
 	getWith[assignmentListQuery, AssignmentListPage](api, "/api/assignments", "listAssignments", "Assignment list")

@@ -402,30 +402,29 @@ type ProblemVisibilityUpdate struct {
 	Visible bool `json:"visible"`
 }
 
-type ProblemAssets struct {
-	Data      []AssetFile `json:"data"`
-	Judge     []AssetFile `json:"judge"`
-	Assets    []AssetFile `json:"assets"`
-	CaseList  []AssetCase `json:"caseList"`
-	Cases     int         `json:"cases"`
-	DataBytes int64       `json:"dataBytes"`
-	Version   string      `json:"version"`
+type ProblemPackage struct {
+	Data      []PackageFile `json:"data"`
+	Judge     []PackageFile `json:"judge"`
+	CaseList  []PackageCase `json:"caseList"`
+	Cases     int           `json:"cases"`
+	DataBytes int64         `json:"dataBytes"`
+	Version   string        `json:"version"`
 }
 
-type AssetFile struct {
+type PackageFile struct {
 	Key  string `json:"key"`
 	Name string `json:"name"`
 	Size int64  `json:"size"`
 }
 
-type AssetCase struct {
+type PackageCase struct {
 	ID     string `json:"id"`
 	Input  string `json:"input"`
 	Answer string `json:"answer"`
 	Score  *int   `json:"score"`
 }
 
-type AssetCaseScoreUpdate struct {
+type PackageCaseScoreUpdate struct {
 	Score *int `json:"score"`
 }
 

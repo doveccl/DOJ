@@ -2,7 +2,7 @@ import { DeleteOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/ic
 import { Button, Card, Flex, InputNumber, Popconfirm, Space, Table, Typography } from 'antd'
 import { useRef } from 'react'
 
-import type { AssetCase, AssetFile, ProblemAssets } from '../../../client'
+import type { PackageCase, PackageFile, ProblemPackage } from '../../../client'
 import { useLocale } from '../../../locale'
 import { formatBytes } from '../../../utils/format'
 import { acceptedDataFile, dataPairRows } from './files'
@@ -12,16 +12,16 @@ export function AssetSection({
   title, files, cases, section, loading, disabled, uploadProgress, onUpload, onDownload, onDelete, onClear, onScore
 }: {
   title: string
-  files: AssetFile[]
-  cases?: AssetCase[]
+  files: PackageFile[]
+  cases?: PackageCase[]
   section: 'data' | 'judge'
   loading: boolean
   disabled: boolean
   uploadProgress?: number
   onUpload: (files: File[]) => void
-  onDownload: (file: AssetFile) => void
-  onDelete: (key: string) => Promise<ProblemAssets>
-  onClear: () => Promise<ProblemAssets>
+  onDownload: (file: PackageFile) => void
+  onDelete: (key: string) => Promise<ProblemPackage>
+  onClear: () => Promise<ProblemPackage>
   onScore?: (id: string, score: number | null) => void
 }) {
   const { lang, text } = useLocale()
@@ -35,7 +35,14 @@ export function AssetSection({
   return (
     <Card
       size="small"
-      title={title}
+      title={section === 'judge' ? (
+        <Flex align="center" gap={6}>
+          <span>{title}</span>
+          <Typography.Link style={{ fontSize: 14, fontWeight: 400 }} href={`https://github.com/doveccl/DOJ/wiki/Custom-Judge${lang === 'zh' ? '.zh-CN' : ''}`} target="_blank" rel="noreferrer">
+            {text.problem.judgeHelpLink}
+          </Typography.Link>
+        </Flex>
+      ) : title}
       extra={
         <>
           <input
@@ -51,11 +58,6 @@ export function AssetSection({
             }}
           />
           <Space size={6}>
-            {section === 'judge' ? (
-              <Typography.Link href={`https://github.com/doveccl/DOJ/wiki/Custom-Judge${lang === 'zh' ? '.zh-CN' : ''}`} target="_blank" rel="noreferrer">
-                {text.problem.judgeHelpLink}
-              </Typography.Link>
-            ) : null}
             <Button size="small" disabled={disabled} loading={loading} icon={<UploadOutlined />} onClick={() => input.current?.click()}>
               {text.problem.upload}
             </Button>
@@ -100,7 +102,7 @@ export function AssetSection({
           ]}
         />
       ) : (
-        <Table<AssetFile>
+        <Table<PackageFile>
           rowKey="key"
           size="small"
           loading={tableLoading}
@@ -116,7 +118,7 @@ export function AssetSection({
   )
 }
 
-function AssetCell({ file, disabled, onDownload, onDelete }: { file: AssetFile; disabled: boolean; onDownload: (file: AssetFile) => void; onDelete: (key: string) => Promise<ProblemAssets> }) {
+function AssetCell({ file, disabled, onDownload, onDelete }: { file: PackageFile; disabled: boolean; onDownload: (file: PackageFile) => void; onDelete: (key: string) => Promise<ProblemPackage> }) {
   return (
     <Flex align="center" justify="space-between" gap={8}>
       <AssetName file={file} />
@@ -125,11 +127,11 @@ function AssetCell({ file, disabled, onDownload, onDelete }: { file: AssetFile; 
   )
 }
 
-function AssetName({ file }: { file: AssetFile }) {
+function AssetName({ file }: { file: PackageFile }) {
   return <Typography.Text style={{ minWidth: 0 }} ellipsis={{ tooltip: `${file.name} (${formatBytes(file.size)})` }}>{file.name} <Typography.Text type="secondary">({formatBytes(file.size)})</Typography.Text></Typography.Text>
 }
 
-function AssetActions({ file, disabled, onDownload, onDelete }: { file: AssetFile; disabled: boolean; onDownload: (file: AssetFile) => void; onDelete: (key: string) => Promise<ProblemAssets> }) {
+function AssetActions({ file, disabled, onDownload, onDelete }: { file: PackageFile; disabled: boolean; onDownload: (file: PackageFile) => void; onDelete: (key: string) => Promise<ProblemPackage> }) {
   const { text } = useLocale()
   return (
     <Space size={4}>

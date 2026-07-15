@@ -76,43 +76,6 @@ func readZipFile(file *zip.File) ([]byte, error) {
 	return io.ReadAll(reader)
 }
 
-func uploadAssetForTest(t *testing.T, e *echo.Echo, target string, cookies []*http.Cookie, section string, name string, content string) contract.ProblemAssets {
-	t.Helper()
-	assetURL := strings.TrimSuffix(target, "/files")
-	current := requestWithCookies(e, http.MethodGet, assetURL, cookies, nil)
-	if current.Code != http.StatusOK {
-		t.Fatalf("get assets got %d body=%s", current.Code, current.Body.String())
-	}
-	var body bytes.Buffer
-	writer := multipart.NewWriter(&body)
-	if err := writer.WriteField("section", section); err != nil {
-		t.Fatalf("write section failed: %v", err)
-	}
-	part, err := writer.CreateFormFile("file", name)
-	if err != nil {
-		t.Fatalf("create form file failed: %v", err)
-	}
-	if _, err := part.Write([]byte(content)); err != nil {
-		t.Fatalf("write asset failed: %v", err)
-	}
-	if err := writer.Close(); err != nil {
-		t.Fatalf("close multipart failed: %v", err)
-	}
-	req := httptest.NewRequest(http.MethodPost, target, &body)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.Header.Set("If-Match", current.Header().Get("ETag"))
-	for _, cookie := range cookies {
-		req.AddCookie(cookie)
-	}
-	addCSRFHeader(req, cookies)
-	res := httptest.NewRecorder()
-	e.ServeHTTP(res, req)
-	if res.Code != http.StatusCreated {
-		t.Fatalf("upload asset got %d body=%s", res.Code, res.Body.String())
-	}
-	return decodeJSON[contract.ProblemAssets](t, res)
-}
-
 func uploadImageForTest(t *testing.T, e *echo.Echo, target string, cookies []*http.Cookie, name string, content []byte) contract.UploadResult {
 	t.Helper()
 	var body bytes.Buffer
