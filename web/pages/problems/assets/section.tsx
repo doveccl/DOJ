@@ -9,7 +9,7 @@ import { acceptedDataFile, dataPairRows } from './files'
 import type { DataPairRow } from './files'
 
 export function AssetSection({
-  title, files, cases, section, loading, onUpload, onDownload, onDelete, onScore
+  title, files, cases, section, loading, onUpload, onDownload, onDelete, onClear, onScore
 }: {
   title: string
   files: AssetFile[]
@@ -19,6 +19,7 @@ export function AssetSection({
   onUpload: (files: File[]) => void
   onDownload: (file: AssetFile) => void
   onDelete: (key: string) => Promise<ProblemAssets>
+  onClear: () => Promise<ProblemAssets>
   onScore?: (id: string, score: number | null) => void
 }) {
   const { lang, text } = useLocale()
@@ -42,9 +43,14 @@ export function AssetSection({
               event.target.value = ''
             }}
           />
-          <Button size="small" disabled={loading} loading={loading} icon={<UploadOutlined />} onClick={() => input.current?.click()}>
-            {text.problem.upload}
-          </Button>
+          <Space size={6}>
+            <Button size="small" disabled={loading} loading={loading} icon={<UploadOutlined />} onClick={() => input.current?.click()}>
+              {text.problem.upload}
+            </Button>
+            <Popconfirm title={text.common.confirmClear} okText={text.common.clear} cancelText={text.common.cancel} onConfirm={onClear}>
+              <Button size="small" danger disabled={loading || files.length === 0} icon={<DeleteOutlined />}>{text.common.clear}</Button>
+            </Popconfirm>
+          </Space>
         </>
       }
     >

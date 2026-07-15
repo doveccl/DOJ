@@ -3,7 +3,7 @@ package public
 import (
 	"archive/zip"
 	"bytes"
-	"github.com/doveccl/doj/server/storage"
+	"encoding/json"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +12,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/doveccl/doj/server/storage"
 
 	contract "github.com/doveccl/doj/contract/web"
 	"github.com/doveccl/doj/models"
@@ -348,6 +350,29 @@ func TestProblemPackageBatchUploadRangeDeleteAndCAS(t *testing.T) {
 	missing := requestWithCookies(e, http.MethodGet, "/api/problems/1000/data/1.out", cookies, nil)
 	if missing.Code != http.StatusNotFound {
 		t.Fatalf("deleted download got %d body=%s", missing.Code, missing.Body.String())
+	}
+	var afterDelete contract.ProblemAssets
+	if err := json.Unmarshal(deleted.Body.Bytes(), &afterDelete); err != nil {
+		t.Fatal(err)
+	}
+	clearRequest := httptest.NewRequest(http.MethodDelete, "/api/problems/1000/assets/files?key=data", nil)
+	clearRequest.Header.Set("If-Match", `"`+afterDelete.Version+`"`)
+	for _, cookie := range cookies {
+		clearRequest.AddCookie(cookie)
+	}
+	addCSRFHeader(clearRequest, cookies)
+	cleared := httptest.NewRecorder()
+	e.ServeHTTP(cleared, clearRequest)
+	if cleared.Code != http.StatusOK {
+		t.Fatalf("clear got %d body=%s", cleared.Code, cleared.Body.String())
+	}
+	clearAssets := decodeJSON[contract.ProblemAssets](t, cleared)
+	if len(clearAssets.Data) != 0 || len(clearAssets.CaseList) != 0 {
+		t.Fatalf("cleared assets = %+v", clearAssets)
+	}
+	objects, err = store.List(t.Context(), "problems/1000/packages")
+	if err != nil || len(objects) != 1 {
+		t.Fatalf("DB-only clear package objects = %d, %v", len(objects), err)
 	}
 }
 

@@ -150,8 +150,8 @@ func (api *API) deleteProblemAsset(c echo.Context) error {
 		return err
 	}
 	key, err := storage.CleanKey(c.QueryParam("key"))
-	if err == nil && (strings.HasPrefix(key, "data/") || strings.HasPrefix(key, "judge/")) {
-		return api.deleteProblemPackageFile(c, id, key)
+	if err == nil && (key == "data" || key == "judge" || strings.HasPrefix(key, "data/") || strings.HasPrefix(key, "judge/")) {
+		return api.deleteProblemPackageFiles(c, id, key)
 	}
 	if err != nil || !problemAssetKeyAllowed(id, key) {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid asset key")

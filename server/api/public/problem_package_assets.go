@@ -153,7 +153,7 @@ func (api *API) uploadProblemPackageFiles(c echo.Context, id uint, section strin
 	return c.JSON(http.StatusCreated, assets)
 }
 
-func (api *API) deleteProblemPackageFile(c echo.Context, id uint, name string) error {
+func (api *API) deleteProblemPackageFiles(c echo.Context, id uint, name string) error {
 	var row models.Problem
 	if err := api.db.First(&row, id).Error; err != nil {
 		return err
@@ -168,14 +168,15 @@ func (api *API) deleteProblemPackageFile(c echo.Context, id uint, name string) e
 	}
 	files := item.Files[:0]
 	found := false
+	section := name == "data" || name == "judge"
 	for _, file := range item.Files {
-		if file.Path == name {
+		if file.Path == name || section && strings.HasPrefix(file.Path, name+"/") {
 			found = true
 			continue
 		}
 		files = append(files, file)
 	}
-	if !found {
+	if !found && !section {
 		return echo.NewHTTPError(http.StatusNotFound, "asset not found")
 	}
 	item.Files = files

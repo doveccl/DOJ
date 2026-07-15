@@ -112,6 +112,7 @@ export function ProblemAssetsManager({
             onUpload={(files) => upload.mutate({ section: 'data', files })}
             onDownload={(file) => downloadURL(problemFileDownloadURL(id, 'data', file.name), file.name)}
             onDelete={(key) => removeAsset.mutateAsync(key)}
+            onClear={() => removeAsset.mutateAsync('data')}
             onScore={(caseId, value) => score.mutate({ caseId, value })}
           />
           {mode === 'custom' ? (
@@ -123,6 +124,7 @@ export function ProblemAssetsManager({
               onUpload={(files) => upload.mutate({ section: 'judge', files })}
               onDownload={(file) => downloadURL(problemFileDownloadURL(id, 'judge', file.name), file.name)}
               onDelete={(key) => removeAsset.mutateAsync(key)}
+              onClear={() => removeAsset.mutateAsync('judge')}
             />
           ) : null}
         </Flex>
