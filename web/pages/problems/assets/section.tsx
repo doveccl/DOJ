@@ -29,7 +29,7 @@ export function AssetSection({
   const scores = new Map((cases ?? []).map((item) => [item.id, item.score]))
   const tableLoading = {
     spinning: loading,
-    percent: uploadProgress,
+    percent: uploadProgress === 100 ? undefined : uploadProgress,
     description: uploadProgress === undefined ? undefined : uploadProgress === 100 ? text.problem.uploadProcessing : `${uploadProgress}%`
   }
   return (
