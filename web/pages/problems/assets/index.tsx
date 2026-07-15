@@ -3,7 +3,7 @@ import {
   FolderOpenOutlined,
   ReloadOutlined
 } from '@ant-design/icons'
-import { App, Button, Flex, Modal, Popconfirm, Progress, Space } from 'antd'
+import { App, Button, Flex, Modal, Popconfirm, Space } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
 
@@ -102,13 +102,13 @@ export function ProblemAssetsManager({
       >
         <Flex vertical gap={12}>
           {pendingUpload ? <Button onClick={() => upload.mutate(pendingUpload)}>{text.problem.retryUpload(pendingUpload.files.length)}</Button> : null}
-          {upload.isPending ? <Progress percent={uploadProgress} status="active" format={(percent) => percent === 100 ? text.problem.uploadProcessing : `${percent}%`} /> : null}
           <AssetSection
             title={text.problem.data}
             files={assets.data?.data ?? []}
             cases={assets.data?.caseList ?? []}
             section="data"
             loading={assets.isLoading || removeAsset.isPending || upload.isPending || score.isPending}
+            uploadProgress={upload.isPending && upload.variables.section === 'data' ? uploadProgress : undefined}
             onUpload={(files) => upload.mutate({ section: 'data', files })}
             onDownload={(file) => downloadURL(problemFileDownloadURL(id, 'data', file.name), file.name)}
             onDelete={(key) => removeAsset.mutateAsync(key)}
@@ -121,6 +121,7 @@ export function ProblemAssetsManager({
               files={assets.data?.judge ?? []}
               section="judge"
               loading={assets.isLoading || removeAsset.isPending || upload.isPending}
+              uploadProgress={upload.isPending && upload.variables.section === 'judge' ? uploadProgress : undefined}
               onUpload={(files) => upload.mutate({ section: 'judge', files })}
               onDownload={(file) => downloadURL(problemFileDownloadURL(id, 'judge', file.name), file.name)}
               onDelete={(key) => removeAsset.mutateAsync(key)}

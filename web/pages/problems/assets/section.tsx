@@ -9,13 +9,14 @@ import { acceptedDataFile, dataPairRows } from './files'
 import type { DataPairRow } from './files'
 
 export function AssetSection({
-  title, files, cases, section, loading, onUpload, onDownload, onDelete, onClear, onScore
+  title, files, cases, section, loading, uploadProgress, onUpload, onDownload, onDelete, onClear, onScore
 }: {
   title: string
   files: AssetFile[]
   cases?: AssetCase[]
   section: 'data' | 'judge'
   loading: boolean
+  uploadProgress?: number
   onUpload: (files: File[]) => void
   onDownload: (file: AssetFile) => void
   onDelete: (key: string) => Promise<ProblemAssets>
@@ -25,6 +26,11 @@ export function AssetSection({
   const { lang, text } = useLocale()
   const input = useRef<HTMLInputElement>(null)
   const scores = new Map((cases ?? []).map((item) => [item.id, item.score]))
+  const tableLoading = {
+    spinning: loading,
+    percent: uploadProgress,
+    description: uploadProgress === undefined ? undefined : uploadProgress === 100 ? text.problem.uploadProcessing : `${uploadProgress}%`
+  }
   return (
     <Card
       size="small"
@@ -58,7 +64,7 @@ export function AssetSection({
         <Table<DataPairRow>
           rowKey="key"
           size="small"
-          loading={loading}
+          loading={tableLoading}
           dataSource={dataPairRows(files)}
           pagination={{ pageSize: 10, hideOnSinglePage: true, showSizeChanger: false, size: 'small' }}
           tableLayout="auto"
@@ -97,7 +103,7 @@ export function AssetSection({
           <Table<AssetFile>
             rowKey="key"
             size="small"
-            loading={loading}
+            loading={tableLoading}
             dataSource={files}
             pagination={false}
             tableLayout="auto"
