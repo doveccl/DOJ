@@ -21,10 +21,15 @@ func TestValidateResult(t *testing.T) {
 		Attempt:      1,
 		Status:       "AC",
 		Score:        100,
-		Cases:        []judger.CaseResult{{No: 1, Status: "AC", Score: 100}},
+		Cases:        []judger.CaseResult{{No: 1, ID: "1", Status: "AC", Score: 10}},
 	}
 	if err := validateResult(valid); err != nil {
 		t.Fatalf("valid result rejected: %v", err)
+	}
+	valid.Score = 1_000_001
+	valid.Cases[0].Score = 1_000_001
+	if err := validateResult(valid); err != nil {
+		t.Fatalf("large score rejected: %v", err)
 	}
 
 	tests := []struct {
@@ -36,17 +41,16 @@ func TestValidateResult(t *testing.T) {
 		{name: "missing attempt", req: judger.ResultRequest{SubmissionID: 1, Status: "AC", Score: 100}, want: http.StatusBadRequest},
 		{name: "bad status", req: judger.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "queued", Score: 0}, want: http.StatusBadRequest},
 		{name: "negative score", req: judger.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: -1}, want: http.StatusBadRequest},
-		{name: "large score", req: judger.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 101}, want: http.StatusBadRequest},
 		{name: "large message", req: judger.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Message: strings.Repeat("x", limits.MaxJudgerMessageBytes+1)}, want: http.StatusRequestEntityTooLarge},
 		{name: "bad case no", req: judger.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []judger.CaseResult{{No: 0, Status: "WA"}}}, want: http.StatusBadRequest},
 		{name: "bad case status", req: judger.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []judger.CaseResult{{No: 1, Status: "queued"}}}, want: http.StatusBadRequest},
-		{name: "bad case score", req: judger.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []judger.CaseResult{{No: 1, Status: "WA", Score: 101}}}, want: http.StatusBadRequest},
+		{name: "bad case score", req: judger.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []judger.CaseResult{{No: 1, ID: "1", Status: "WA", Score: -1}}}, want: http.StatusBadRequest},
 		{name: "duplicate case", req: judger.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []judger.CaseResult{{No: 1, Status: "WA"}, {No: 1, Status: "WA"}}}, want: http.StatusBadRequest},
 		{name: "negative usage", req: func() judger.ResultRequest {
 			value := -1
 			return judger.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", TimeMS: &value}
 		}(), want: http.StatusBadRequest},
-		{name: "large case message", req: judger.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []judger.CaseResult{{No: 1, Status: "WA", Message: strings.Repeat("x", models.CaseMessageMax+1)}}}, want: http.StatusRequestEntityTooLarge},
+		{name: "large case message", req: judger.ResultRequest{SubmissionID: 1, Attempt: 1, Status: "WA", Score: 0, Cases: []judger.CaseResult{{No: 1, ID: "1", Status: "WA", Message: strings.Repeat("x", models.CaseMessageMax+1)}}}, want: http.StatusRequestEntityTooLarge},
 	}
 	for _, item := range tests {
 		t.Run(item.name, func(t *testing.T) {
@@ -87,7 +91,7 @@ func TestResultIgnoresStaleAttempt(t *testing.T) {
 		t.Fatalf("stale attempt changed submission: %+v", got)
 	}
 
-	current := `{"submissionId":` + strconv.FormatUint(uint64(submission.ID), 10) + `,"attempt":2,"status":"AC","score":100,"message":"ok","cases":[{"no":1,"status":"AC","score":100}]}`
+	current := `{"submissionId":` + strconv.FormatUint(uint64(submission.ID), 10) + `,"attempt":2,"status":"AC","score":100,"message":"ok","cases":[{"no":1,"id":"sample-1","status":"AC","score":10}]}`
 	res = judgerJSON(e, target, "token-a", current)
 	if res.Code != http.StatusAccepted {
 		t.Fatalf("current result got %d body=%s", res.Code, res.Body.String())
@@ -104,6 +108,13 @@ func TestResultIgnoresStaleAttempt(t *testing.T) {
 	}
 	if cases != 1 {
 		t.Fatalf("case results = %d, want 1", cases)
+	}
+	var resultCase models.Case
+	if err := db.Where("submission_id = ?", submission.ID).First(&resultCase).Error; err != nil {
+		t.Fatal(err)
+	}
+	if resultCase.CaseID != "sample-1" || resultCase.Score != 10 {
+		t.Fatalf("case score snapshot = %+v", resultCase)
 	}
 }
 

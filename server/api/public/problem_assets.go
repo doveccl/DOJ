@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	problemdata "github.com/doveccl/doj/server/problem"
 	"github.com/doveccl/doj/server/storage"
 	"io"
 	"net/http"
@@ -28,6 +29,7 @@ func (api *API) problemAssets(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	c.Response().Header().Set("ETag", `"`+assets.Version+`"`)
 	return c.JSON(http.StatusOK, assets)
 }
 
@@ -73,8 +75,7 @@ func (api *API) problemPrivateAsset(c echo.Context, section string) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "asset not found")
 	}
-	key := path.Join("problems", strconv.Itoa(int(id)), section, rel)
-	return streamMedia(c, key, "asset not found", false)
+	return api.streamProblemPackageFile(c, id, path.Join(section, rel))
 }
 
 func (api *API) problemPublicAsset(c echo.Context) error {
@@ -101,6 +102,9 @@ func (api *API) uploadProblemAsset(c echo.Context) error {
 	section, err := assetSection(c.FormValue("section"))
 	if err != nil {
 		return err
+	}
+	if section == "data" || section == "judge" {
+		return api.uploadProblemPackageFiles(c, id, section)
 	}
 	file, err := c.FormFile("file")
 	if err != nil {
@@ -146,6 +150,9 @@ func (api *API) deleteProblemAsset(c echo.Context) error {
 		return err
 	}
 	key, err := storage.CleanKey(c.QueryParam("key"))
+	if err == nil && (strings.HasPrefix(key, "data/") || strings.HasPrefix(key, "judge/")) {
+		return api.deleteProblemPackageFile(c, id, key)
+	}
 	if err != nil || !problemAssetKeyAllowed(id, key) {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid asset key")
 	}
@@ -161,122 +168,6 @@ func (api *API) deleteProblemAsset(c echo.Context) error {
 		return err
 	}
 	return c.JSON(http.StatusOK, assets)
-}
-
-func (api *API) problemAssetContent(c echo.Context) error {
-	id, err := api.requireProblemAdmin(c)
-	if err != nil {
-		return err
-	}
-	key, err := cleanEditableAssetKey(id, c.QueryParam("key"))
-	if err != nil {
-		return err
-	}
-	store, err := storage.NewFromEnv()
-	if err != nil {
-		return err
-	}
-	reader, _, err := store.Open(c.Request().Context(), key)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "asset not found")
-	}
-	defer reader.Close()
-	data, err := io.ReadAll(io.LimitReader(reader, maxEditableAssetBytes+1))
-	if err != nil {
-		return err
-	}
-	if len(data) > maxEditableAssetBytes {
-		return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "asset is too large to edit")
-	}
-	return c.JSON(http.StatusOK, contract.AssetContent{Key: key, Name: path.Base(key), Content: string(data)})
-}
-
-func (api *API) updateProblemAssetContent(c echo.Context) error {
-	id, err := api.requireProblemAdmin(c)
-	if err != nil {
-		return err
-	}
-	var req contract.AssetContentUpdate
-	if err := c.Bind(&req); err != nil {
-		return err
-	}
-	key, err := cleanEditableAssetKey(id, req.Key)
-	if err != nil {
-		return err
-	}
-	if len(req.Content) > maxEditableAssetBytes {
-		return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "asset is too large to edit")
-	}
-	store, err := storage.NewFromEnv()
-	if err != nil {
-		return err
-	}
-	if err := store.Put(c.Request().Context(), key, strings.NewReader(req.Content), int64(len(req.Content)), "text/plain; charset=utf-8"); err != nil {
-		return err
-	}
-	assets, err := api.syncProblemAssets(c, id)
-	if err != nil {
-		return err
-	}
-	return c.JSON(http.StatusOK, assets)
-}
-
-func (api *API) createProblemCase(c echo.Context) error {
-	id, err := api.requireProblemAdmin(c)
-	if err != nil {
-		return err
-	}
-	var req contract.AssetCaseCreate
-	if err := c.Bind(&req); err != nil {
-		return err
-	}
-	store, err := storage.NewFromEnv()
-	if err != nil {
-		return err
-	}
-	assets, err := problemAssetsFromStore(c.Request().Context(), id, store)
-	if err != nil {
-		return err
-	}
-	name, err := caseName(req.Name, assets)
-	if err != nil {
-		return err
-	}
-	inputKey := path.Join(problemAssetPrefix(id, "data"), name+".in")
-	outputKey := path.Join(problemAssetPrefix(id, "data"), name+".out")
-	if err := store.Put(c.Request().Context(), inputKey, strings.NewReader(req.Input), int64(len(req.Input)), "text/plain; charset=utf-8"); err != nil {
-		return err
-	}
-	if err := store.Put(c.Request().Context(), outputKey, strings.NewReader(req.Output), int64(len(req.Output)), "text/plain; charset=utf-8"); err != nil {
-		return err
-	}
-	assets, err = api.syncProblemAssets(c, id)
-	if err != nil {
-		return err
-	}
-	return c.JSON(http.StatusCreated, assets)
-}
-
-func (api *API) fillJudgeTemplate(c echo.Context) error {
-	id, err := api.requireProblemAdmin(c)
-	if err != nil {
-		return err
-	}
-	store, err := storage.NewFromEnv()
-	if err != nil {
-		return err
-	}
-	for name, body := range judgeTemplateFiles() {
-		key := path.Join(problemAssetPrefix(id, "judge"), name)
-		if err := store.Put(c.Request().Context(), key, strings.NewReader(body), int64(len(body)), "text/plain; charset=utf-8"); err != nil {
-			return err
-		}
-	}
-	assets, err := api.syncProblemAssets(c, id)
-	if err != nil {
-		return err
-	}
-	return c.JSON(http.StatusCreated, assets)
 }
 
 func (api *API) downloadProblemAssets(c echo.Context) error {
@@ -301,7 +192,7 @@ func (api *API) downloadProblemAssets(c echo.Context) error {
 		return err
 	}
 	statement := problemStatement(problem)
-	assets, err := problemAssetsFromStore(c.Request().Context(), id, store)
+	assets, err := api.problemAssetsFromPackage(c.Request().Context(), id, store)
 	if err != nil {
 		return err
 	}
@@ -315,10 +206,11 @@ func (api *API) downloadProblemAssets(c echo.Context) error {
 	if err := writeProblemStatementZipFile(writer, statement); err != nil {
 		return err
 	}
-	if err := writeAssetZipFiles(c.Request().Context(), writer, store, "data", assets.Data); err != nil {
+	item, err := problemdata.Parse(problem.Package)
+	if err != nil {
 		return err
 	}
-	if err := writeAssetZipFiles(c.Request().Context(), writer, store, "judge", assets.Judge); err != nil {
+	if err := writeProblemPackageArchive(c.Request().Context(), writer, store, id, item); err != nil {
 		return err
 	}
 	if err := writeAssetZipFiles(c.Request().Context(), writer, store, "assets", assets.Assets); err != nil {

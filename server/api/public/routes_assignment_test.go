@@ -260,7 +260,7 @@ func TestEndedAssignmentKeepsMemberReviewAndPracticeAccess(t *testing.T) {
 	if err := db.Create(&problem).Error; err != nil {
 		t.Fatal(err)
 	}
-	writeReadyProblemFiles(t, root, problem.ID, problem.Title)
+	writeReadyProblemFiles(t, db, root, problem.ID, problem.Title)
 	if err := db.Create(&assignment).Error; err != nil {
 		t.Fatal(err)
 	}

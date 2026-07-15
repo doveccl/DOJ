@@ -53,12 +53,13 @@ func (api *API) rankUsers(submissions []models.Submission) (map[uint]models.User
 
 func oiRank(submissions []models.Submission, users map[uint]models.User, problems []contract.Problem) []contract.RankUser {
 	type state struct {
-		user    models.User
-		submit  int
-		score   map[uint]int
-		attempt map[uint]int
-		done    map[uint]int
-		pending map[uint]int
+		user     models.User
+		submit   int
+		score    map[uint]int
+		accepted map[uint]bool
+		attempt  map[uint]int
+		done     map[uint]int
+		pending  map[uint]int
 	}
 	problemSet := rankProblemSet(problems)
 	states := map[uint]*state{}
@@ -72,7 +73,7 @@ func oiRank(submissions []models.Submission, users map[uint]models.User, problem
 		}
 		got := states[row.UserID]
 		if got == nil {
-			got = &state{user: user, score: map[uint]int{}, attempt: map[uint]int{}, done: map[uint]int{}, pending: map[uint]int{}}
+			got = &state{user: user, score: map[uint]int{}, accepted: map[uint]bool{}, attempt: map[uint]int{}, done: map[uint]int{}, pending: map[uint]int{}}
 			states[row.UserID] = got
 		}
 		got.submit++
@@ -83,6 +84,9 @@ func oiRank(submissions []models.Submission, users map[uint]models.User, problem
 		}
 		if got.done[row.ProblemID] == 0 || row.Score > got.score[row.ProblemID] {
 			got.score[row.ProblemID] = row.Score
+		}
+		if row.Status == "AC" {
+			got.accepted[row.ProblemID] = true
 		}
 		got.done[row.ProblemID]++
 	}
@@ -100,7 +104,7 @@ func oiRank(submissions []models.Submission, users map[uint]models.User, problem
 			} else if submit > 0 {
 				status = "tried"
 			}
-			if value >= 100 {
+			if got.accepted[problem.ID] {
 				status = "ac"
 				ac++
 			}

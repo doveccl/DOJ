@@ -27,7 +27,7 @@ func TestSubmitCapsOutstandingPerUser(t *testing.T) {
 	if err := db.Create(&problem).Error; err != nil {
 		t.Fatal(err)
 	}
-	writeReadyProblemFiles(t, root, problem.ID, problem.Title)
+	writeReadyProblemFiles(t, db, root, problem.ID, problem.Title)
 	for index := 0; index < limits.MaxOutstandingSubmissions; index++ {
 		if err := db.Create(&models.Submission{UserID: user.ID, ProblemID: problem.ID, Language: "cpp", Code: "code", Status: "queued"}).Error; err != nil {
 			t.Fatal(err)
@@ -81,7 +81,7 @@ func TestSubmitRejectsCustomProblemWithoutDockerfile(t *testing.T) {
 	if err := db.Create(&problem).Error; err != nil {
 		t.Fatal(err)
 	}
-	writeReadyProblemFiles(t, root, problem.ID, problem.Title)
+	writeReadyProblemFiles(t, db, root, problem.ID, problem.Title)
 	e := echo.New()
 	Register(e, db)
 	body := `{"problemId":1000,"language":"cpp","code":"int main(){}","public":false}`

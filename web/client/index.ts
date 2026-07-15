@@ -17,7 +17,7 @@ export type ProblemListItem = components['schemas']['ProblemListItem']
 export type ProblemState = components['schemas']['ProblemState']
 export type ProblemAssets = components['schemas']['ProblemAssets']
 export type AssetFile = components['schemas']['AssetFile']
-export type AssetContent = components['schemas']['AssetContent']
+export type AssetCase = components['schemas']['AssetCase']
 export type HeatCell = components['schemas']['HeatCell']
 export type Assignment = components['schemas']['Assignment']
 export type AssignmentListItem = components['schemas']['AssignmentListItem']
@@ -243,4 +243,36 @@ export function problemFileDownloadURL(id: number, section: 'data' | 'judge', na
     .map((part) => encodeURIComponent(part))
     .join('/')
   return apiUrl(`/api/problems/${id}/${section}/${path}`).toString()
+}
+
+export function uploadProblemAssets(id: number, section: 'data' | 'judge', files: File[], version: string, onProgress?: (percent: number) => void) {
+  const body = new FormData()
+  body.set('section', section)
+  for (const file of files) {
+    body.append('files', file)
+  }
+  return new Promise<ProblemAssets>((resolve, reject) => {
+    const request = new XMLHttpRequest()
+    request.open('POST', apiUrl(`/api/problems/${id}/assets/files`))
+    request.withCredentials = true
+    request.setRequestHeader('If-Match', `"${version}"`)
+    const csrf = readCookie('doj_csrf')
+    if (csrf) request.setRequestHeader('X-DOJ-CSRF', csrf)
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress?.(Math.round(event.loaded * 100 / event.total))
+    }
+    request.onerror = () => reject(new Error('Upload failed'))
+    request.onload = () => {
+      if (request.status < 200 || request.status >= 300) {
+        reject(new APIError(request.responseText, request.status))
+        return
+      }
+      try {
+        resolve(JSON.parse(request.responseText) as ProblemAssets)
+      } catch {
+        reject(new Error('Invalid upload response'))
+      }
+    }
+    request.send(body)
+  })
 }

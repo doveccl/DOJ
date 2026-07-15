@@ -674,7 +674,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/problems/{id}/assets/cases": {
+    "/api/problems/{id}/assets/cases/score": {
         parameters: {
             query?: never;
             header?: never;
@@ -683,12 +683,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Problem case created */
-        post: operations["createProblemCase"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Problem case score updated */
+        patch: operations["updateProblemCaseScore"];
         trace?: never;
     };
     "/api/problems/{id}/assets/files": {
@@ -709,24 +709,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/problems/{id}/assets/files/content": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Text asset content */
-        get: operations["getProblemAssetContent"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Text asset updated */
-        patch: operations["updateProblemAssetContent"];
-        trace?: never;
-    };
     "/api/problems/{id}/assets/images": {
         parameters: {
             query?: never;
@@ -738,23 +720,6 @@ export interface paths {
         put?: never;
         /** Problem image uploaded */
         post: operations["uploadProblemImage"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/problems/{id}/assets/template": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Judge template written */
-        post: operations["fillJudgeTemplate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1167,22 +1132,18 @@ export interface components {
             groups: number[];
             role: string;
         };
-        AssetCaseCreate: {
+        AssetCase: {
+            answer: string;
+            id: string;
             input: string;
-            name: string;
-            output: string;
+            /** Format: int64 */
+            score: number | null;
         };
-        AssetContent: {
-            content: string;
-            key: string;
-            name: string;
-        };
-        AssetContentUpdate: {
-            content: string;
-            key: string;
+        AssetCaseScoreUpdate: {
+            /** Format: int64 */
+            score: number | null;
         };
         AssetFile: {
-            editable: boolean;
             key: string;
             name: string;
             /** Format: int64 */
@@ -1285,11 +1246,14 @@ export interface components {
             keep: number;
         };
         Case: {
+            id: string;
             /** Format: int64 */
             memoryKb?: number;
             message: string;
             /** Format: int64 */
             no: number;
+            /** Format: int64 */
+            score: number;
             status: string;
             /** Format: int64 */
             timeMs?: number;
@@ -1543,12 +1507,14 @@ export interface components {
         };
         ProblemAssets: {
             assets: components["schemas"]["AssetFile"][];
+            caseList: components["schemas"]["AssetCase"][];
             /** Format: int64 */
             cases: number;
             data: components["schemas"]["AssetFile"][];
             /** Format: int64 */
             dataBytes: number;
             judge: components["schemas"]["AssetFile"][];
+            version: string;
         };
         ProblemCreate: {
             /** Format: int64 */
@@ -3775,9 +3741,11 @@ export interface operations {
             };
         };
     };
-    createProblemCase: {
+    updateProblemCaseScore: {
         parameters: {
-            query?: never;
+            query: {
+                case: string;
+            };
             header?: never;
             path: {
                 id: number;
@@ -3786,12 +3754,12 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AssetCaseCreate"];
+                "application/json": components["schemas"]["AssetCaseScoreUpdate"];
             };
         };
         responses: {
-            /** @description Created */
-            201: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3886,74 +3854,6 @@ export interface operations {
             };
         };
     };
-    getProblemAssetContent: {
-        parameters: {
-            query: {
-                key: string;
-            };
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AssetContent"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    updateProblemAssetContent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AssetContentUpdate"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemAssets"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
     uploadProblemImage: {
         parameters: {
             query?: never;
@@ -3984,37 +3884,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UploadResult"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    fillJudgeTemplate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemAssets"];
                 };
             };
             /** @description Error */

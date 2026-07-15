@@ -355,8 +355,6 @@ func (api *API) fillProblemUserStateInContest(c echo.Context, items []contract.P
 		return nil, err
 	}
 	status := map[uint]string{}
-	oiBest := map[uint]int{}
-	oiDone := map[uint]bool{}
 	for index, row := range rows {
 		if !views[index].Result {
 			if status[row.ProblemID] == "" {
@@ -371,13 +369,9 @@ func (api *API) fillProblemUserStateInContest(c echo.Context, items []contract.P
 			continue
 		}
 		if contest.Kind == "OI" {
-			if !oiDone[row.ProblemID] || row.Score > oiBest[row.ProblemID] {
-				oiBest[row.ProblemID] = row.Score
-			}
-			oiDone[row.ProblemID] = true
-			if oiBest[row.ProblemID] >= 100 {
+			if row.Status == "AC" {
 				status[row.ProblemID] = "ac"
-			} else {
+			} else if status[row.ProblemID] != "ac" {
 				status[row.ProblemID] = "tried"
 			}
 			continue

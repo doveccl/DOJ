@@ -5,11 +5,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/doveccl/doj/server/cache"
+	problemdata "github.com/doveccl/doj/server/problem"
 	"github.com/doveccl/doj/server/storage"
 	"io"
 	"net/http"
 	"path"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,6 +17,7 @@ import (
 
 	"github.com/doveccl/doj/contract/cases"
 	contract "github.com/doveccl/doj/contract/web"
+	"github.com/doveccl/doj/models"
 	"github.com/labstack/echo/v4"
 )
 
@@ -25,12 +26,48 @@ func (api *API) syncProblemAssets(c echo.Context, id uint) (contract.ProblemAsse
 	if err != nil {
 		return contract.ProblemAssets{}, err
 	}
-	assets, err := problemAssetsFromStore(c.Request().Context(), id, store)
+	assets, err := api.problemAssetsFromPackage(c.Request().Context(), id, store)
 	if err != nil {
 		return contract.ProblemAssets{}, err
 	}
 	api.cacheProblemAssets(c.Request().Context(), id, assets)
 	return assets, nil
+}
+
+func (api *API) problemAssetsFromPackage(ctx context.Context, id uint, store storage.Store) (contract.ProblemAssets, error) {
+	var row models.Problem
+	if err := api.db.WithContext(ctx).First(&row, id).Error; err != nil {
+		return contract.ProblemAssets{}, err
+	}
+	item, err := problemdata.Parse(row.Package)
+	if err != nil {
+		return contract.ProblemAssets{}, err
+	}
+	result := contract.ProblemAssets{Version: problemdata.ETag(packageJSON(row.Package))}
+	for _, file := range item.Files {
+		asset := contract.AssetFile{Key: file.Path, Name: strings.TrimPrefix(strings.TrimPrefix(file.Path, "data/"), "judge/"), Size: file.Size}
+		switch {
+		case strings.HasPrefix(file.Path, "data/"):
+			result.Data = append(result.Data, asset)
+			result.DataBytes += file.Size
+		case strings.HasPrefix(file.Path, "judge/"):
+			result.Judge = append(result.Judge, asset)
+		}
+	}
+	for _, item := range item.Cases {
+		result.CaseList = append(result.CaseList, contract.AssetCase{ID: item.ID, Input: item.Input, Answer: item.Answer, Score: item.Score})
+	}
+	sort.Slice(result.Data, func(i, j int) bool { return cases.DataCaseFileLess(result.Data[i].Name, result.Data[j].Name) })
+	result.Cases = len(result.CaseList)
+	result.Assets, err = assetFiles(ctx, store, problemAssetPrefix(id, "assets"))
+	return result, err
+}
+
+func packageJSON(raw []byte) []byte {
+	if len(raw) == 0 || string(raw) == "null" {
+		return []byte("{}")
+	}
+	return raw
 }
 
 func (api *API) problemAssetsCached(ctx context.Context, id uint, store storage.Store) (contract.ProblemAssets, error) {
@@ -39,7 +76,7 @@ func (api *API) problemAssetsCached(ctx context.Context, id uint, store storage.
 	if err == nil && found {
 		return cached, nil
 	}
-	assets, err := problemAssetsFromStore(ctx, id, store)
+	assets, err := api.problemAssetsFromPackage(ctx, id, store)
 	if err != nil {
 		return contract.ProblemAssets{}, err
 	}
@@ -53,34 +90,6 @@ func (api *API) cacheProblemAssets(ctx context.Context, id uint, assets contract
 
 func problemAssetsCacheKey(id uint) string {
 	return "doj:problem:" + strconv.FormatUint(uint64(id), 10) + ":assets"
-}
-
-func cleanEditableAssetKey(id uint, raw string) (string, error) {
-	key, err := storage.CleanKey(raw)
-	if err != nil || !problemAssetKeyAllowed(id, key) {
-		return "", echo.NewHTTPError(http.StatusBadRequest, "invalid asset key")
-	}
-	if !editableAssetName(key) {
-		return "", echo.NewHTTPError(http.StatusBadRequest, "asset is not editable")
-	}
-	return key, nil
-}
-
-func problemAssetsFromStore(ctx context.Context, id uint, store storage.Store) (contract.ProblemAssets, error) {
-	data, err := assetFiles(ctx, store, problemAssetPrefix(id, "data"))
-	if err != nil {
-		return contract.ProblemAssets{}, err
-	}
-	judge, err := assetFiles(ctx, store, problemAssetPrefix(id, "judge"))
-	if err != nil {
-		return contract.ProblemAssets{}, err
-	}
-	assets, err := assetFiles(ctx, store, problemAssetPrefix(id, "assets"))
-	if err != nil {
-		return contract.ProblemAssets{}, err
-	}
-	cases, dataBytes := dataStats(data)
-	return contract.ProblemAssets{Data: data, Judge: judge, Assets: assets, Cases: cases, DataBytes: dataBytes}, nil
 }
 
 func writeProblemStatementZipFile(writer *zip.Writer, statement string) error {
@@ -143,58 +152,10 @@ func assetFiles(ctx context.Context, store storage.Store, prefix string) ([]cont
 		if name == "" {
 			continue
 		}
-		items = append(items, contract.AssetFile{
-			Key:      object.Key,
-			Name:     name,
-			Size:     object.Size,
-			Editable: editableAsset(name, object.Size),
-		})
+		items = append(items, contract.AssetFile{Key: object.Key, Name: name, Size: object.Size})
 	}
 	sort.Slice(items, func(i, j int) bool { return cases.DataCaseFileLess(items[i].Name, items[j].Name) })
 	return items, nil
-}
-
-func dataStats(files []contract.AssetFile) (int, int64) {
-	inputs := map[string]bool{}
-	outputs := map[string]bool{}
-	var bytes int64
-	for _, file := range files {
-		bytes += file.Size
-		stem, kind := cases.DataCaseStem(file.Name)
-		switch kind {
-		case "in":
-			inputs[stem] = true
-		case "out":
-			outputs[stem] = true
-		}
-	}
-	cases := 0
-	for stem := range inputs {
-		if outputs[stem] {
-			cases++
-		}
-	}
-	return cases, bytes
-}
-
-func editableAsset(name string, size int64) bool {
-	if size > maxEditableAssetBytes {
-		return false
-	}
-	return editableAssetName(name)
-}
-
-func editableAssetName(name string) bool {
-	switch strings.ToLower(path.Base(name)) {
-	case "dockerfile", "makefile":
-		return true
-	}
-	switch strings.ToLower(filepath.Ext(name)) {
-	case ".c", ".cc", ".cpp", ".cxx", ".go", ".rs", ".py", ".java", ".js", ".ts", ".txt", ".md", ".json", ".yaml", ".yml", ".toml", ".in", ".out":
-		return true
-	default:
-		return false
-	}
 }
 
 func problemAssetPrefix(id uint, section string) string {
@@ -202,10 +163,8 @@ func problemAssetPrefix(id uint, section string) string {
 }
 
 func problemAssetKeyAllowed(id uint, key string) bool {
-	data := problemAssetPrefix(id, "data") + "/"
-	judge := problemAssetPrefix(id, "judge") + "/"
 	assets := problemAssetPrefix(id, "assets") + "/"
-	return strings.HasPrefix(key, data) || strings.HasPrefix(key, judge) || strings.HasPrefix(key, assets)
+	return strings.HasPrefix(key, assets)
 }
 
 func assetSection(raw string) (string, error) {
@@ -226,81 +185,4 @@ func cleanAssetName(raw string) (string, error) {
 		return "", echo.NewHTTPError(http.StatusBadRequest, "invalid asset file name")
 	}
 	return name, nil
-}
-
-func caseName(raw string, assets contract.ProblemAssets) (string, error) {
-	name := strings.TrimSpace(raw)
-	if name == "" {
-		name = nextCaseName(assets)
-	}
-	name = strings.TrimSuffix(strings.TrimSuffix(name, ".in"), ".out")
-	var out []rune
-	for _, char := range name {
-		if char >= 'a' && char <= 'z' || char >= 'A' && char <= 'Z' || char >= '0' && char <= '9' || char == '-' || char == '_' {
-			out = append(out, char)
-		}
-	}
-	if len(out) == 0 {
-		return "", echo.NewHTTPError(http.StatusBadRequest, "invalid case name")
-	}
-	return string(out), nil
-}
-
-func nextCaseName(assets contract.ProblemAssets) string {
-	used := map[string]bool{}
-	for _, file := range assets.Data {
-		stem, kind := cases.DataCaseStem(file.Name)
-		if kind != "" {
-			used[stem] = true
-		}
-	}
-	for i := 1; ; i++ {
-		name := strconv.Itoa(i)
-		if !used[name] {
-			return name
-		}
-	}
-}
-
-func judgeTemplateFiles() map[string]string {
-	return map[string]string{
-		"Dockerfile": `FROM gcc
-WORKDIR /src
-COPY main.cc .
-RUN g++ main.cc -o main
-CMD ["/src/main"]
-`,
-		"main.cc": `#include <bits/stdc++.h>
-using namespace std;
-
-string read_all(istream& in) { return string(istreambuf_iterator<char>(in), {}); }
-string read_file(const char* p) { ifstream f(p, ios::binary); return read_all(f); }
-void trim_right(string& s) { while (!s.empty() && isspace((unsigned char)s.back())) s.pop_back(); }
-
-int main(int argc, char** argv) {
-  // argv: input, transcript, answer, result
-  // return: 0 = AC, 1 = WA, 2 = PE, 3 = checker/interactor error
-  if (argc != 5) return 3;
-
-  // Feed input while reading output; doing one whole side first can deadlock on full pipes.
-  thread feeder([&] {
-    cout << ifstream(argv[1], ios::binary).rdbuf() << flush;
-    fclose(stdout);
-  });
-  string got = read_all(cin);
-  feeder.join();
-
-  string ans = read_file(argv[3]);
-  trim_right(got);
-  trim_right(ans);
-
-  if (got != ans) {
-    ofstream(argv[4]) << "expected output differs";
-    return 1; // WA
-  }
-
-  return 0; // AC
-}
-`,
-	}
 }

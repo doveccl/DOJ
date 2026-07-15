@@ -308,7 +308,7 @@ func (api *API) submission(c echo.Context) error {
 	}
 	items := make([]contract.Case, 0, len(cases))
 	for _, item := range cases {
-		items = append(items, contract.Case{No: item.No, Status: item.Status, TimeMS: item.TimeMS, MemoryKB: item.MemoryKB, Message: item.Message})
+		items = append(items, contract.Case{No: item.No, ID: item.CaseID, Status: item.Status, Score: item.Score, TimeMS: item.TimeMS, MemoryKB: item.MemoryKB, Message: item.Message})
 	}
 	code := ""
 	if view.Code {

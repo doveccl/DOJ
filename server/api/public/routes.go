@@ -25,7 +25,6 @@ type API struct {
 
 const (
 	maxAssetBytes            = 128 << 20
-	maxEditableAssetBytes    = 1 << 20
 	maxTitleRunes            = models.TitleMax
 	homeListLimit            = 5
 	userActivityLimit        = 10
@@ -75,12 +74,9 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.POST("/problems/:id/assets/images", api.uploadProblemImage, api.rateLimit("problem-upload", 60, time.Minute), echomw.BodyLimit(limits.BodyImage))
 	group.GET("/problems/:id/data/*", api.problemPrivateData)
 	group.GET("/problems/:id/judge/*", api.problemPrivateJudge)
-	group.POST("/problems/:id/assets/files", api.uploadProblemAsset, api.rateLimit("problem-upload", 60, time.Minute), echomw.BodyLimit(limits.BodyAsset))
+	group.POST("/problems/:id/assets/files", api.uploadProblemAsset, api.rateLimit("problem-upload", 60, time.Minute), echomw.BodyLimit(limits.BodyProblemPackage))
 	group.DELETE("/problems/:id/assets/files", api.deleteProblemAsset)
-	group.GET("/problems/:id/assets/files/content", api.problemAssetContent)
-	group.PATCH("/problems/:id/assets/files/content", api.updateProblemAssetContent, echomw.BodyLimit(limits.BodyEditAsset))
-	group.POST("/problems/:id/assets/cases", api.createProblemCase, echomw.BodyLimit(limits.BodyEditAsset))
-	group.POST("/problems/:id/assets/template", api.fillJudgeTemplate, echomw.BodyLimit(limits.BodyEditAsset))
+	group.PATCH("/problems/:id/assets/cases/score", api.updateProblemCaseScore, echomw.BodyLimit(limits.BodyShortText))
 	group.GET("/problems/:id/assets/*", api.problemPublicAsset)
 
 	group.GET("/assignments", api.assignments)

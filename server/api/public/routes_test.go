@@ -12,7 +12,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -20,15 +19,18 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	contract "github.com/doveccl/doj/contract/web"
 	"github.com/doveccl/doj/models"
+	problemdata "github.com/doveccl/doj/server/problem"
 	"github.com/doveccl/doj/server/settings"
+	"github.com/doveccl/doj/server/storage"
 	"github.com/labstack/echo/v4"
+	"gorm.io/datatypes"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
-func writeReadyProblemFiles(t *testing.T, root string, id uint, title string) {
+func writeReadyProblemFiles(t *testing.T, db *gorm.DB, _ string, id uint, _ string) {
 	t.Helper()
-	base := filepath.Join(root, "problems", strconv.FormatUint(uint64(id), 10))
+	base := t.TempDir()
 	for name, content := range map[string]string{
 		"data/1.in":  "1 2\n",
 		"data/1.out": "3\n",
@@ -40,6 +42,28 @@ func writeReadyProblemFiles(t *testing.T, root string, id uint, title string) {
 		if err := os.WriteFile(file, []byte(content), 0o600); err != nil {
 			t.Fatal(err)
 		}
+	}
+	packagePath := filepath.Join(t.TempDir(), "package.zip")
+	item, err := problemdata.Build(base, packagePath, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := storage.NewFromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, err := os.Open(packagePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Put(t.Context(), problemdata.ObjectKey(id, item.Hash), file, item.Size, "application/zip"); err != nil {
+		_ = file.Close()
+		t.Fatal(err)
+	}
+	_ = file.Close()
+	raw, err := item.JSON()
+	if err != nil || db.Model(&models.Problem{}).Where("id = ?", id).Update("package", datatypes.JSON(raw)).Error != nil {
+		t.Fatalf("update problem package: %v", err)
 	}
 }
 
@@ -54,6 +78,11 @@ func readZipFile(file *zip.File) ([]byte, error) {
 
 func uploadAssetForTest(t *testing.T, e *echo.Echo, target string, cookies []*http.Cookie, section string, name string, content string) contract.ProblemAssets {
 	t.Helper()
+	assetURL := strings.TrimSuffix(target, "/files")
+	current := requestWithCookies(e, http.MethodGet, assetURL, cookies, nil)
+	if current.Code != http.StatusOK {
+		t.Fatalf("get assets got %d body=%s", current.Code, current.Body.String())
+	}
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 	if err := writer.WriteField("section", section); err != nil {
@@ -71,6 +100,7 @@ func uploadAssetForTest(t *testing.T, e *echo.Echo, target string, cookies []*ht
 	}
 	req := httptest.NewRequest(http.MethodPost, target, &body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("If-Match", current.Header().Get("ETag"))
 	for _, cookie := range cookies {
 		req.AddCookie(cookie)
 	}

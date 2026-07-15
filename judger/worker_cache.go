@@ -5,10 +5,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"hash/maphash"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -16,7 +18,9 @@ import (
 	"github.com/doveccl/doj/judger/runner"
 )
 
-var problemPackageLocks sync.Map
+var problemPackageLockSeed = maphash.MakeSeed()
+var problemPackageLocks [256]sync.Mutex
+var problemCacheTrimLock sync.Mutex
 
 const (
 	maxProblemPackageBytes         = 512 << 20
@@ -25,9 +29,9 @@ const (
 	maxProblemPackageExpandedBytes = 2 << 30
 )
 
-func downloadProblemPackage(ctx context.Context, client *http.Client, cfg WorkerConfig, problemID uint, packageHash string, taskDir string, taskID uint, submissionID uint, attempt int) error {
-	packageHash = strings.TrimSpace(packageHash)
-	if packageHash == "" {
+func downloadProblemPackage(ctx context.Context, client *http.Client, cfg WorkerConfig, problemID uint, zipHash string, files []string, taskDir string, taskID uint, submissionID uint, attempt int) error {
+	zipHash = strings.TrimSpace(zipHash)
+	if zipHash == "" {
 		return fmt.Errorf("problem package hash is required")
 	}
 	cacheRoot := strings.TrimSpace(cfg.Cache)
@@ -37,17 +41,15 @@ func downloadProblemPackage(ctx context.Context, client *http.Client, cfg Worker
 	if err := privateDir(cacheRoot); err != nil {
 		return err
 	}
-	cacheDir := problemCacheDir(cacheRoot, problemID)
-	lockValue, _ := problemPackageLocks.LoadOrStore(cacheDir, &sync.Mutex{})
-	lock := lockValue.(*sync.Mutex)
+	cacheDir := problemCacheDir(cacheRoot, problemID, zipHash)
+	lock := problemPackageLock(cacheDir)
 	lock.Lock()
 	defer lock.Unlock()
 
-	cacheHash := readProblemCacheHash(cacheDir)
-	cacheReady := cacheHash != "" && cacheHash == packageHash && dirExists(cacheDir)
-	logTask(cfg.Logf, submissionID, attempt, "cache ready=%t hash=%s dir=%s", cacheReady, shortHash(cacheHash), cacheDir)
+	cacheReady := fileExists(filepath.Join(cacheDir, ".ready"))
+	logTask(cfg.Logf, submissionID, attempt, "cache ready=%t hash=%s dir=%s", cacheReady, shortHash(zipHash), cacheDir)
 
-	path := fmt.Sprintf("/api/judger/tasks/%d/package?attempt=%d&hash=%s", taskID, attempt, packageHash)
+	path := fmt.Sprintf("/api/judger/tasks/%d/package?attempt=%d&hash=%s", taskID, attempt, zipHash)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, cfg.Server+path, nil)
 	if err != nil {
 		return err
@@ -56,7 +58,7 @@ func downloadProblemPackage(ctx context.Context, client *http.Client, cfg Worker
 		httpReq.Header.Set("Authorization", "Bearer "+cfg.Token)
 	}
 	if cacheReady {
-		httpReq.Header.Set("If-None-Match", `"`+packageHash+`"`)
+		httpReq.Header.Set("If-None-Match", `"`+zipHash+`"`)
 	}
 	downloadClient := client
 	if cfg.HTTPClient == nil {
@@ -64,7 +66,7 @@ func downloadProblemPackage(ctx context.Context, client *http.Client, cfg Worker
 	}
 	requestStartedAt := time.Now()
 	httpResp, err := downloadClient.Do(httpReq)
-	logTask(cfg.Logf, submissionID, attempt, "problem_package_request=%s status=%s cache_hash=%s lease_hash=%s", formatDuration(time.Since(requestStartedAt)), responseStatus(httpResp), shortHash(cacheHash), shortHash(packageHash))
+	logTask(cfg.Logf, submissionID, attempt, "problem_package_request=%s status=%s hash=%s", formatDuration(time.Since(requestStartedAt)), responseStatus(httpResp), shortHash(zipHash))
 	if err != nil {
 		return err
 	}
@@ -74,9 +76,10 @@ func downloadProblemPackage(ctx context.Context, client *http.Client, cfg Worker
 			return fmt.Errorf("GET problem package returned unexpected %s", httpResp.Status)
 		}
 		copyStartedAt := time.Now()
-		if err := copyProblemCache(cacheDir, taskDir); err != nil {
+		if err := copyProblemCache(cacheDir, taskDir, files); err != nil {
 			return err
 		}
+		touchProblemCache(cacheDir)
 		logTask(cfg.Logf, submissionID, attempt, "cache_copy=%s source=hit", formatDuration(time.Since(copyStartedAt)))
 		return nil
 	}
@@ -109,18 +112,96 @@ func downloadProblemPackage(ctx context.Context, client *http.Client, cfg Worker
 	if written > maxProblemPackageBytes {
 		return fmt.Errorf("problem package exceed %d bytes", maxProblemPackageBytes)
 	}
-	logTask(cfg.Logf, submissionID, attempt, "problem_package_read=%s bytes=%d hash=%s", formatDuration(time.Since(readStartedAt)), written, shortHash(packageHash))
+	logTask(cfg.Logf, submissionID, attempt, "problem_package_read=%s bytes=%d hash=%s", formatDuration(time.Since(readStartedAt)), written, shortHash(zipHash))
 	cacheStartedAt := time.Now()
-	if err := replaceProblemCache(cacheDir, packagePath, packageHash); err != nil {
+	if err := replaceProblemCache(cacheDir, packagePath); err != nil {
 		return err
 	}
 	logTask(cfg.Logf, submissionID, attempt, "cache_write=%s", formatDuration(time.Since(cacheStartedAt)))
 	copyStartedAt := time.Now()
-	if err := copyProblemCache(cacheDir, taskDir); err != nil {
+	if err := copyProblemCache(cacheDir, taskDir, files); err != nil {
 		return err
 	}
+	touchProblemCache(cacheDir)
+	trimProblemCache(cacheRoot, cfg.CacheBytes, cacheDir)
 	logTask(cfg.Logf, submissionID, attempt, "cache_copy=%s source=download", formatDuration(time.Since(copyStartedAt)))
 	return nil
+}
+
+func touchProblemCache(cacheDir string) {
+	now := time.Now()
+	_ = os.Chtimes(cacheDir, now, now)
+}
+
+func trimProblemCache(root string, limit int64, keep string) {
+	if limit <= 0 || !problemCacheTrimLock.TryLock() {
+		return
+	}
+	defer problemCacheTrimLock.Unlock()
+	type entry struct {
+		path string
+		size int64
+		used time.Time
+	}
+	var entries []entry
+	var total int64
+	dirs, err := os.ReadDir(root)
+	if err != nil {
+		return
+	}
+	for _, problem := range dirs {
+		if !problem.IsDir() || !strings.HasPrefix(problem.Name(), "P") {
+			continue
+		}
+		problemPath := filepath.Join(root, problem.Name())
+		versions, err := os.ReadDir(problemPath)
+		if err != nil {
+			continue
+		}
+		for _, version := range versions {
+			if !version.IsDir() {
+				continue
+			}
+			item := entry{path: filepath.Join(problemPath, version.Name())}
+			info, err := version.Info()
+			if err != nil {
+				continue
+			}
+			item.used = info.ModTime()
+			_ = filepath.WalkDir(item.path, func(_ string, file os.DirEntry, err error) error {
+				if err == nil && !file.IsDir() {
+					if info, infoErr := file.Info(); infoErr == nil {
+						item.size += info.Size()
+					}
+				}
+				return nil
+			})
+			total += item.size
+			entries = append(entries, item)
+		}
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].used.Before(entries[j].used) })
+	for _, item := range entries {
+		if total <= limit {
+			break
+		}
+		if item.path == keep {
+			continue
+		}
+		lock := problemPackageLock(item.path)
+		if !lock.TryLock() {
+			continue
+		}
+		if os.RemoveAll(item.path) == nil {
+			total -= item.size
+			_ = os.Remove(filepath.Dir(item.path))
+		}
+		lock.Unlock()
+	}
+}
+
+func problemPackageLock(path string) *sync.Mutex {
+	return &problemPackageLocks[maphash.String(problemPackageLockSeed, path)%uint64(len(problemPackageLocks))]
 }
 
 type progressReader struct {
@@ -138,32 +219,20 @@ func (reader *progressReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
-func problemCacheDir(root string, problemID uint) string {
+func problemCacheDir(root string, problemID uint, hash string) string {
 	root = strings.TrimSpace(root)
-	return filepath.Join(root, fmt.Sprintf("P%d", problemID))
+	return filepath.Join(root, fmt.Sprintf("P%d", problemID), hash)
 }
 
-func customJudgeCachePath(root string, problemID uint, mode runner.JudgeMode) string {
+func customJudgeCachePath(root string, problemID uint, hash string, mode runner.JudgeMode) string {
 	root = strings.TrimSpace(root)
 	if mode != runner.ModeCustom || root == "" {
 		return ""
 	}
-	return filepath.Join(root, fmt.Sprintf("P%d", problemID), "judge.bin")
+	return filepath.Join(problemCacheDir(root, problemID, hash), "judge.bin")
 }
 
-func readProblemCacheHash(cacheDir string) string {
-	raw, err := os.ReadFile(filepath.Join(cacheDir, "hash"))
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(raw))
-}
-
-func replaceProblemCache(cacheDir string, packagePath string, hash string) error {
-	hash = strings.TrimSpace(hash)
-	if hash == "" {
-		return fmt.Errorf("problem package hash is required")
-	}
+func replaceProblemCache(cacheDir string, packagePath string) error {
 	parent := filepath.Dir(cacheDir)
 	if err := os.MkdirAll(parent, 0o755); err != nil {
 		return err
@@ -181,7 +250,7 @@ func replaceProblemCache(cacheDir string, packagePath string, hash string) error
 	if err := extractProblemPackageFile(packagePath, tmp); err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(tmp, "hash"), []byte(hash+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmp, ".ready"), nil, 0o600); err != nil {
 		return err
 	}
 	if err := os.RemoveAll(cacheDir); err != nil {
@@ -194,67 +263,31 @@ func replaceProblemCache(cacheDir string, packagePath string, hash string) error
 	return nil
 }
 
-func copyProblemCache(cacheDir string, taskDir string) error {
-	for _, name := range []string{"data", "judge"} {
-		src := filepath.Join(cacheDir, name)
-		if !dirExists(src) {
-			continue
+func copyProblemCache(cacheDir string, taskDir string, files []string) error {
+	for _, name := range files {
+		clean := filepath.Clean(filepath.FromSlash(name))
+		if clean == "." || !filepath.IsLocal(clean) {
+			return fmt.Errorf("invalid package file %q", name)
 		}
-		if err := copyDir(src, filepath.Join(taskDir, name)); err != nil {
+		target := filepath.Join(taskDir, clean)
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
+		}
+		if err := copyFile(filepath.Join(cacheDir, clean), target, 0o600); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func copyDir(src string, dst string) error {
-	return filepath.WalkDir(src, func(file string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, err := filepath.Rel(src, file)
-		if err != nil {
-			return err
-		}
-		if rel == "." {
-			return nil
-		}
-		target := filepath.Join(dst, rel)
-		info, err := entry.Info()
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() {
-			return os.MkdirAll(target, info.Mode().Perm())
-		}
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			return err
-		}
-		in, err := os.Open(file)
-		if err != nil {
-			return err
-		}
-		out, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode().Perm())
-		if err != nil {
-			_ = in.Close()
-			return err
-		}
-		if _, err := io.Copy(out, in); err != nil {
-			_ = in.Close()
-			_ = out.Close()
-			return err
-		}
-		if err := in.Close(); err != nil {
-			_ = out.Close()
-			return err
-		}
-		return out.Close()
-	})
-}
-
 func dirExists(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && info.IsDir()
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.Mode().IsRegular()
 }
 
 func responseStatus(resp *http.Response) string {

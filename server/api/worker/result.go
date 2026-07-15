@@ -133,7 +133,9 @@ func (api *API) result(c echo.Context) error {
 				row := models.Case{
 					SubmissionID: req.SubmissionID,
 					No:           item.No,
+					CaseID:       item.ID,
 					Status:       item.Status,
+					Score:        item.Score,
 					TimeMS:       item.TimeMS,
 					MemoryKB:     item.MemoryKB,
 					Message:      item.Message,
@@ -167,7 +169,7 @@ func validateResult(req judger.ResultRequest) error {
 	if !validVerdict(req.Status) {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid result status")
 	}
-	if req.Score < 0 || req.Score > 100 {
+	if req.Score < 0 {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid result score")
 	}
 	if len([]byte(req.Message)) > limits.MaxJudgerMessageBytes {
@@ -191,7 +193,7 @@ func validateResult(req judger.ResultRequest) error {
 		if !validVerdict(item.Status) {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid case status")
 		}
-		if item.Score < 0 || item.Score > 100 || invalidUsage(item.TimeMS, limits.MaxProblemTimeMS*2) || invalidUsage(item.MemoryKB, limits.MaxProblemMemoryMB*1024) {
+		if item.ID == "" || len(item.ID) > 128 || item.Score < 0 || invalidUsage(item.TimeMS, limits.MaxProblemTimeMS*2) || invalidUsage(item.MemoryKB, limits.MaxProblemMemoryMB*1024) {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid case result")
 		}
 		if len([]rune(item.Message)) > models.CaseMessageMax {

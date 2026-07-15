@@ -55,6 +55,7 @@ The judger is Linux-only. It reads:
 | `SERVER` | `http://localhost:7974` | DOJ server URL. |
 | `TOKEN` | empty | Judger token created in the admin UI. |
 | `CONCURRENCY` | `1` | Number of concurrent judging workers. |
+| `CACHE_GB` | `20` | Maximum extracted problem cache size in GiB. |
 
 The default compose judger shares the server container's network namespace, so it connects to `127.0.0.1` and is treated as a local judger. No token is needed for the default compose deployment.
 
@@ -161,6 +162,7 @@ STORAGE=https://access:secret@s3.example.com/bucket?lookup=dns
 | `SERVER` | `http://localhost:7974` | DOJ server 地址。 |
 | `TOKEN` | 空 | 管理页创建的评测机 token。 |
 | `CONCURRENCY` | `1` | 并发评测 worker 数。 |
+| `CACHE_GB` | `20` | 题目解包缓存上限（GiB）。 |
 
 默认 compose 里的评测机会共享 server 容器的网络命名空间，因此它连接 `127.0.0.1`，会被 server 视为本地评测机。默认 compose 部署不需要 token。
 

@@ -256,9 +256,10 @@ type keyQuery struct {
 	Key string `query:"key" required:"true"`
 }
 
-type assetContentBody struct {
-	ID   uint `path:"id"`
-	Body contract.AssetContentUpdate
+type caseScoreBody struct {
+	ID   uint   `path:"id"`
+	Case string `query:"case" required:"true"`
+	Body contract.AssetCaseScoreUpdate
 }
 
 type assignmentListQuery struct {
@@ -404,10 +405,7 @@ func RegisterOpenAPI(api huma.API) {
 	getBinary[nameAssetPath](api, "/api/problems/{id}/judge/{name}", "problemPrivateJudge", "Private problem judge file", "application/octet-stream")
 	postCreated[uploadProblemAssetInput, contract.ProblemAssets](api, "/api/problems/{id}/assets/files", "uploadProblemAsset", "Problem asset uploaded")
 	deleteWith[keyQuery, contract.ProblemAssets](api, "/api/problems/{id}/assets/files", "deleteProblemAsset", "Problem asset deleted", http.StatusOK)
-	getWith[keyQuery, contract.AssetContent](api, "/api/problems/{id}/assets/files/content", "getProblemAssetContent", "Text asset content")
-	patch[assetContentBody, contract.ProblemAssets](api, "/api/problems/{id}/assets/files/content", "updateProblemAssetContent", "Text asset updated")
-	postCreated[idBody[contract.AssetCaseCreate], contract.ProblemAssets](api, "/api/problems/{id}/assets/cases", "createProblemCase", "Problem case created")
-	postCreated[idPath, contract.ProblemAssets](api, "/api/problems/{id}/assets/template", "fillJudgeTemplate", "Judge template written")
+	patch[caseScoreBody, contract.ProblemAssets](api, "/api/problems/{id}/assets/cases/score", "updateProblemCaseScore", "Problem case score updated")
 	getBinary[idPath](api, "/api/problems/{id}/zip", "downloadProblemAssets", "Problem assets zip", "application/zip")
 	renamePath(api, "/api/problems/{id}/zip", "/api/problems/{id}.zip")
 

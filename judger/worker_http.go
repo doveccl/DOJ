@@ -51,12 +51,7 @@ func postResult(ctx context.Context, client *http.Client, cfg WorkerConfig, task
 		req.MemoryKB = &result.MemoryKB
 	}
 	for index, item := range result.Cases {
-		got := common.CaseResult{
-			No:      index + 1,
-			Status:  string(item.Verdict),
-			Score:   item.Score,
-			Message: item.Message,
-		}
+		got := common.CaseResult{No: index + 1, ID: item.CaseID, Status: string(item.Verdict), Score: item.Score, Message: item.Message}
 		if item.TimeMS > 0 {
 			got.TimeMS = &item.TimeMS
 		}

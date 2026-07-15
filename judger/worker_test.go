@@ -16,6 +16,8 @@ import (
 	jr "github.com/doveccl/doj/judger/runner"
 )
 
+const testZipHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
 func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 	requireDocker(t)
 	runner := buildRunner(t)
@@ -37,7 +39,7 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 				Lang:         testLeaseLang(),
 				Mode:         string(jr.ModeDefault),
 				Limits:       common.LimitsPayload{TimeMS: 1000, MemoryKB: 64 << 10, OutputKB: 64, Pids: 32, FileKB: 64 << 10},
-				Problem:      common.ProblemPayload{ID: 1000, PackageHash: "fixture-v1"},
+				Problem:      common.ProblemPayload{ID: 1000, Hash: testZipHash, Files: testPackageFiles()},
 				Cases: []common.CasePayload{{
 					ID:     "1",
 					Input:  "data/1.in",
@@ -46,7 +48,7 @@ func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 				}},
 			}})
 		case "/api/judger/tasks/7/package":
-			if r.URL.Query().Get("attempt") != "2" || r.URL.Query().Get("hash") != "fixture-v1" {
+			if r.URL.Query().Get("attempt") != "2" || r.URL.Query().Get("hash") != testZipHash {
 				http.Error(w, "bad package lease", http.StatusBadRequest)
 				return
 			}
@@ -120,7 +122,7 @@ func TestRunOneDownloadsPackageForRelativeCases(t *testing.T) {
 				Lang:         testLeaseLang(),
 				Mode:         string(jr.ModeDefault),
 				Limits:       common.LimitsPayload{TimeMS: 1000, MemoryKB: 64 << 10, OutputKB: 64, Pids: 32, FileKB: 64 << 10},
-				Problem:      common.ProblemPayload{ID: 1000, PackageHash: "fixture-v1"},
+				Problem:      common.ProblemPayload{ID: 1000, Hash: testZipHash, Files: testPackageFiles()},
 				Cases: []common.CasePayload{{
 					ID:     "1",
 					Input:  "data/1.in",
@@ -129,7 +131,7 @@ func TestRunOneDownloadsPackageForRelativeCases(t *testing.T) {
 				}},
 			}})
 		case "/api/judger/tasks/8/package":
-			if r.URL.Query().Get("attempt") != "1" || r.URL.Query().Get("hash") != "fixture-v1" {
+			if r.URL.Query().Get("attempt") != "1" || r.URL.Query().Get("hash") != testZipHash {
 				http.Error(w, "bad package lease", http.StatusBadRequest)
 				return
 			}
@@ -193,7 +195,7 @@ func TestRunOneCleansWorkAfterPackageError(t *testing.T) {
 				Lang:         testLeaseLang(),
 				Mode:         string(jr.ModeDefault),
 				Limits:       common.LimitsPayload{TimeMS: 1000, MemoryKB: 64 << 10, OutputKB: 64, Pids: 32, FileKB: 64 << 10},
-				Problem:      common.ProblemPayload{ID: 1000, PackageHash: "fixture-v1"},
+				Problem:      common.ProblemPayload{ID: 1000, Hash: testZipHash, Files: testPackageFiles()},
 				Cases: []common.CasePayload{{
 					ID:     "1",
 					Input:  "data/1.in",

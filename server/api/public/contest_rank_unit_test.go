@@ -27,6 +27,21 @@ func TestOIRankKeepsLastCompletedScoreWhileJudging(t *testing.T) {
 	}
 }
 
+func TestOIRankDoesNotInferAcceptedFromScore(t *testing.T) {
+	users := map[uint]models.User{1: {ID: 1, Name: "alice"}, 2: {ID: 2, Name: "bob"}}
+	rows := []models.Submission{
+		{UserID: 1, ProblemID: 1000, Status: "AC", Score: 60},
+		{UserID: 2, ProblemID: 1000, Status: "WA", Score: 120},
+	}
+	rank := oiRank(rows, users, []contract.Problem{{ID: 1000}})
+	if rank[0].User != "bob" || rank[0].Problems[0].Status != "tried" || rank[0].AC != 0 {
+		t.Fatalf("non-AC score was treated as accepted: %+v", rank[0])
+	}
+	if rank[1].User != "alice" || rank[1].Problems[0].Status != "ac" || rank[1].AC != 1 {
+		t.Fatalf("AC status was lost below 100 points: %+v", rank[1])
+	}
+}
+
 func TestICPCRankDoesNotPenalizeLiveSubmission(t *testing.T) {
 	now := time.Now()
 	contest := models.Contest{Kind: "ICPC", StartAt: now.Add(-time.Hour), EndAt: now.Add(time.Hour)}

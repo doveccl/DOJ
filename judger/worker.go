@@ -2,6 +2,7 @@ package judger
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -22,6 +23,7 @@ type WorkerConfig struct {
 	Runner     string
 	Tasks      string
 	Cache      string
+	CacheBytes int64
 	CgroupRoot string
 	ProcRoot   string
 	HTTPClient *http.Client
@@ -93,7 +95,7 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 	logStep(cfg.Logf, task.SubmissionID, task.Attempt, "prepare_task", taskStartedAt)
 	if taskNeedsProblemPackage(task) {
 		packageStartedAt := time.Now()
-		if err := downloadProblemPackage(ctx, client, cfg, task.Problem.ID, task.Problem.PackageHash, taskDir, task.ID, task.SubmissionID, task.Attempt); err != nil {
+		if err := downloadProblemPackage(ctx, client, cfg, task.Problem.ID, task.Problem.Hash, task.Problem.Files, taskDir, task.ID, task.SubmissionID, task.Attempt); err != nil {
 			logStep(cfg.Logf, task.SubmissionID, task.Attempt, "download_problem_package_error", packageStartedAt)
 			result := runner.TaskResult{
 				SubmissionID: task.SubmissionID,
@@ -114,7 +116,7 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 		Work:             taskDir,
 		CgroupRoot:       cfg.CgroupRoot,
 		ProcRoot:         cfg.ProcRoot,
-		CustomJudgeCache: customJudgeCachePath(cfg.Cache, task.Problem.ID, runner.JudgeMode(task.Mode)),
+		CustomJudgeCache: customJudgeCachePath(cfg.Cache, task.Problem.ID, task.Problem.Hash, runner.JudgeMode(task.Mode)),
 		Task:             taskToTask(task),
 		Logf:             cfg.Logf,
 		Progress:         cfg.Progress,
@@ -196,11 +198,13 @@ func validateTask(task *common.TaskPayload) error {
 	if len(task.Cases) == 0 || len(task.Cases) > contractlimits.MaxJudgerCases {
 		return fmt.Errorf("task case count is invalid")
 	}
-	if task.Problem.PackageHash == "" || len(task.Problem.PackageHash) > 128 {
+	if len(task.Problem.Hash) != 64 {
+		return fmt.Errorf("problem package hash is invalid")
+	}
+	if _, err := hex.DecodeString(task.Problem.Hash); err != nil {
 		return fmt.Errorf("problem package hash is invalid")
 	}
 	seen := make(map[string]struct{}, len(task.Cases))
-	score := 0
 	for index, item := range task.Cases {
 		if item.ID == "" || len(item.ID) > maxTaskCaseIDBytes {
 			return fmt.Errorf("case %d id is invalid", index+1)
@@ -209,24 +213,27 @@ func validateTask(task *common.TaskPayload) error {
 			return fmt.Errorf("case %d id is duplicated", index+1)
 		}
 		seen[item.ID] = struct{}{}
-		if item.Score < 0 || item.Score > 100 {
+		if item.Score < 0 {
 			return fmt.Errorf("case %d score is invalid", index+1)
 		}
-		score += item.Score
-	}
-	if score != 100 {
-		return fmt.Errorf("case scores must total 100")
 	}
 	return validateTaskCasePaths(task)
 }
 
 func validateTaskCasePaths(task *common.TaskPayload) error {
+	files := make(map[string]bool, len(task.Problem.Files))
+	for _, name := range task.Problem.Files {
+		if len(name) > maxTaskCasePathBytes || !filepath.IsLocal(name) || filepath.Clean(name) != name || strings.ContainsRune(name, '\\') || (!strings.HasPrefix(name, "data/") && !strings.HasPrefix(name, "judge/")) {
+			return fmt.Errorf("problem package file path is invalid")
+		}
+		files[name] = true
+	}
 	for index, item := range task.Cases {
 		for _, file := range []struct {
 			kind string
 			path string
 		}{{"input", item.Input}, {"answer", item.Answer}} {
-			if file.path == "." || len(file.path) > maxTaskCasePathBytes || !filepath.IsLocal(file.path) || filepath.Clean(file.path) != file.path || strings.ContainsRune(file.path, '\\') {
+			if file.path == "." || len(file.path) > maxTaskCasePathBytes || !filepath.IsLocal(file.path) || filepath.Clean(file.path) != file.path || strings.ContainsRune(file.path, '\\') || !files[file.path] {
 				return fmt.Errorf("case %d %s must be a clean relative path", index+1, file.kind)
 			}
 		}

@@ -118,7 +118,7 @@ func TestContestAcceptsExistingAndDraftProblems(t *testing.T) {
 	if res := requestJSONWithCookies(e, http.MethodPost, "/api/contests", cookies, body("Unready", 1006)); res.Code != http.StatusCreated {
 		t.Fatalf("create contest with unready draft got %d body=%s", res.Code, res.Body.String())
 	}
-	writeReadyProblemFiles(t, root, 1005, "Fresh draft")
+	writeReadyProblemFiles(t, db, root, 1005, "Fresh draft")
 	createdResponse := requestJSONWithCookies(e, http.MethodPost, "/api/contests", cookies, body("Secret", 1005))
 	if createdResponse.Code != http.StatusCreated {
 		t.Fatalf("create contest with fresh draft got %d body=%s", createdResponse.Code, createdResponse.Body.String())
@@ -247,7 +247,7 @@ func TestContestProblemVisibilityIsDerivedFromContestTime(t *testing.T) {
 	if err := db.Create(&problem).Error; err != nil {
 		t.Fatalf("create problem: %v", err)
 	}
-	writeReadyProblemFiles(t, root, problem.ID, problem.Title)
+	writeReadyProblemFiles(t, db, root, problem.ID, problem.Title)
 	now := time.Now()
 	contest := models.Contest{Title: "Future", Kind: "OI", StartAt: now.Add(time.Hour), EndAt: now.Add(2 * time.Hour)}
 	if err := db.Create(&contest).Error; err != nil {
@@ -468,8 +468,8 @@ func TestContestOIIgnoresFreezeAndUsesBestScoreAfterEnd(t *testing.T) {
 	}
 	contestID := contest.ID
 	submissions := []models.Submission{
-		{UserID: alice.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "full", Status: "AC", Score: 100, Public: true, CreatedAt: now.Add(-110 * time.Minute)},
-		{UserID: alice.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "partial", Status: "WA", Score: 30, Public: true, CreatedAt: now.Add(-80 * time.Minute)},
+		{UserID: alice.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "full", Status: "AC", Score: 60, Public: true, CreatedAt: now.Add(-110 * time.Minute)},
+		{UserID: alice.ID, ProblemID: problem.ID, ContestID: &contestID, Language: "cpp", Code: "partial", Status: "WA", Score: 120, Public: true, CreatedAt: now.Add(-80 * time.Minute)},
 	}
 	for index := range submissions {
 		if err := db.Create(&submissions[index]).Error; err != nil {
@@ -488,11 +488,11 @@ func TestContestOIIgnoresFreezeAndUsesBestScoreAfterEnd(t *testing.T) {
 		t.Fatalf("OI detail should not expose freezeAt: %+v", guest.Contest)
 	}
 	aliceRank, ok := rankByUser(guest.Rank, "alice")
-	if !ok || aliceRank.Score != 100 || aliceRank.AC != 1 {
+	if !ok || aliceRank.Score != 120 || aliceRank.AC != 1 {
 		t.Fatalf("OI score should use the best submission score after contest ends: %+v", guest.Rank)
 	}
 	aliceProblem, ok := rankProblemByID(aliceRank.Problems, problem.ID)
-	if !ok || aliceProblem.Status != "ac" || aliceProblem.Score != 100 || aliceProblem.Submit != 2 {
+	if !ok || aliceProblem.Status != "ac" || aliceProblem.Score != 120 || aliceProblem.Submit != 2 {
 		t.Fatalf("OI rank should expose per-problem score: %+v", aliceRank.Problems)
 	}
 	aliceState := decodeJSON[[]contract.ProblemState](t, requestWithCookies(e, http.MethodGet, "/api/problem-state?contest="+strconv.FormatUint(uint64(contest.ID), 10)+"&ids=1000", databaseSession(t, db, alice.ID), nil))
@@ -506,7 +506,7 @@ func TestContestOIIgnoresFreezeAndUsesBestScoreAfterEnd(t *testing.T) {
 	}
 	root := t.TempDir()
 	t.Setenv("STORAGE", root)
-	writeReadyProblemFiles(t, root, fresh.ID, fresh.Title)
+	writeReadyProblemFiles(t, db, root, fresh.ID, fresh.Title)
 	createBody := `{"title":"New OI","kind":"OI","startAt":"` + now.Add(time.Hour).UTC().Format(time.RFC3339) + `","endAt":"` + now.Add(2*time.Hour).UTC().Format(time.RFC3339) + `","freezeAt":"` + now.Add(90*time.Minute).UTC().Format(time.RFC3339) + `","problems":[{"id":1001,"sort":"A"}]}`
 	res := requestJSONWithCookies(e, http.MethodPost, "/api/contests", databaseSession(t, db, admin.ID), createBody)
 	if res.Code != http.StatusCreated {

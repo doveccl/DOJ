@@ -19,8 +19,8 @@ func validWorkerTask() *common.TaskPayload {
 		Lang:    common.LangPayload{ID: "go", Source: "main.go", Image: "go:latest", CompileMS: 10000, Run: "go run main.go"},
 		Mode:    string(runner.ModeDefault),
 		Limits:  common.LimitsPayload{TimeMS: 1000, MemoryKB: 64 << 10, OutputKB: 64, Pids: 32, FileKB: 64 << 10},
-		Cases:   []common.CasePayload{{ID: "1", Input: "data/1.in", Answer: "data/1.out", Score: 100}},
-		Problem: common.ProblemPayload{ID: 1000, PackageHash: "hash"},
+		Cases:   []common.CasePayload{{ID: "1", Input: "data/1.in", Answer: "data/1.out", Score: 0}},
+		Problem: common.ProblemPayload{ID: 1000, Hash: strings.Repeat("a", 64), Files: []string{"data/1.in", "data/1.out"}},
 	}
 }
 
@@ -36,8 +36,8 @@ func TestValidateTaskTrustBoundary(t *testing.T) {
 		"output":       func(task *common.TaskPayload) { task.Limits.OutputKB = (64 << 10) + 1 },
 		"pids":         func(task *common.TaskPayload) { task.Limits.Pids = 257 },
 		"file":         func(task *common.TaskPayload) { task.Limits.FileKB = (1 << 20) + 1 },
-		"score":        func(task *common.TaskPayload) { task.Cases[0].Score = 99 },
-		"package hash": func(task *common.TaskPayload) { task.Problem.PackageHash = "" },
+		"score":        func(task *common.TaskPayload) { task.Cases[0].Score = -1 },
+		"package hash": func(task *common.TaskPayload) { task.Problem.Hash = "" },
 	}
 	for name, breakTask := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -51,20 +51,20 @@ func TestValidateTaskTrustBoundary(t *testing.T) {
 }
 
 func TestValidateTaskCasePaths(t *testing.T) {
-	valid := &common.TaskPayload{Cases: []common.CasePayload{{Input: "data/1.in", Answer: "data/1.out"}}}
+	valid := &common.TaskPayload{Problem: common.ProblemPayload{Files: []string{"data/1.in", "data/1.out"}}, Cases: []common.CasePayload{{Input: "data/1.in", Answer: "data/1.out"}}}
 	if err := validateTaskCasePaths(valid); err != nil {
 		t.Fatal(err)
 	}
 
 	for _, path := range []string{"", ".", "/tmp/1.in", "../1.in", "data/../1.in", "data//1.in", `data\..\1.in`} {
 		t.Run(path, func(t *testing.T) {
-			task := &common.TaskPayload{Cases: []common.CasePayload{{Input: path, Answer: "data/1.out"}}}
+			task := &common.TaskPayload{Problem: common.ProblemPayload{Files: []string{path, "data/1.out"}}, Cases: []common.CasePayload{{Input: path, Answer: "data/1.out"}}}
 			if err := validateTaskCasePaths(task); err == nil {
 				t.Fatalf("path %q was accepted", path)
 			}
 		})
 	}
-	if err := validateTaskCasePaths(&common.TaskPayload{Cases: []common.CasePayload{{Input: "data/1.in", Answer: "../1.out"}}}); err == nil {
+	if err := validateTaskCasePaths(&common.TaskPayload{Problem: common.ProblemPayload{Files: []string{"data/1.in", "../1.out"}}, Cases: []common.CasePayload{{Input: "data/1.in", Answer: "../1.out"}}}); err == nil {
 		t.Fatal("unsafe answer path was accepted")
 	}
 }
@@ -90,7 +90,7 @@ func TestRunOneRejectsUnsafeCasePathBeforeDownload(t *testing.T) {
 		case "/api/judger/lease":
 			_ = json.NewEncoder(w).Encode(common.LeaseResponse{Task: &common.TaskPayload{
 				ID: 7, SubmissionID: 11, Attempt: 1,
-				Problem: common.ProblemPayload{ID: 1000, PackageHash: "hash"},
+				Problem: common.ProblemPayload{ID: 1000, Hash: strings.Repeat("a", 64)},
 				Cases:   []common.CasePayload{{Input: "../secret", Answer: "data/1.out"}},
 			}})
 		case "/api/judger/tasks/7/package":

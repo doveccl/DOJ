@@ -1,164 +1,127 @@
-import { DeleteOutlined, DownloadOutlined, EditOutlined, UploadOutlined } from '@ant-design/icons'
-import { App, Button, Card, Divider, Popconfirm, Space, Table, Typography, Upload } from 'antd'
-import type { UploadFile, UploadProps } from 'antd'
-import { useState } from 'react'
-import type { ReactNode } from 'react'
+import { DeleteOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons'
+import { Button, Card, Flex, InputNumber, Popconfirm, Space, Table, Typography } from 'antd'
+import { useRef } from 'react'
 
-import { apiUrl, csrfHeaders } from '../../../client'
-import type { AssetFile, ProblemAssets } from '../../../client'
+import type { AssetCase, AssetFile, ProblemAssets } from '../../../client'
 import { useLocale } from '../../../locale'
 import { formatBytes } from '../../../utils/format'
 import { acceptedDataFile, dataPairRows } from './files'
 import type { DataPairRow } from './files'
 
 export function AssetSection({
-  title,
-  files,
-  section,
-  problemId,
-  loading,
-  extra,
-  onUploaded,
-  onEdit,
-  onDownload,
-  onDelete,
-  onDeleteAll
+  title, files, cases, section, loading, onUpload, onDownload, onDelete, onScore
 }: {
   title: string
   files: AssetFile[]
-  section: 'data' | 'judge' | 'assets'
-  problemId: number
+  cases?: AssetCase[]
+  section: 'data' | 'judge'
   loading: boolean
-  extra?: ReactNode
-  onUploaded: (assets: ProblemAssets) => void
-  onEdit: (file: AssetFile) => void
+  onUpload: (files: File[]) => void
   onDownload: (file: AssetFile) => void
   onDelete: (key: string) => Promise<ProblemAssets>
-  onDeleteAll?: () => Promise<ProblemAssets>
+  onScore?: (id: string, score: number | null) => void
 }) {
-  const { text } = useLocale()
-  const { message } = App.useApp()
-  const [uploadFiles, setUploadFiles] = useState<UploadFile<ProblemAssets>[]>([])
-  const uploadKey = `asset-upload-${section}`
-  const accept = section === 'data' ? '.in,.out,.ans,.txt' : undefined
-  const beforeUpload: UploadProps<ProblemAssets>['beforeUpload'] = (file) => {
-    if (accept && !acceptedDataFile(file.name)) {
-      message.error(`${file.name}: ${accept}`)
-      return Upload.LIST_IGNORE
-    }
-    return true
-  }
-  const onChange: UploadProps<ProblemAssets>['onChange'] = ({ file, fileList }) => {
-    const currentFiles = fileList.filter((item) => item.status !== 'removed')
-    setUploadFiles(currentFiles.some((item) => item.status === 'uploading') ? currentFiles : [])
-    if (file.status === 'uploading') {
-      const done = currentFiles.filter((item) => item.status === 'done').length
-      message.open({
-        key: uploadKey,
-        type: 'loading',
-        content: currentFiles.length > 1 ? text.problem.uploadedCount(done, currentFiles.length) : text.problem.uploadedPercent(Math.round(file.percent ?? 0)),
-        duration: 0
-      })
-      return
-    }
-    if (file.status === 'done' && file.response) {
-      onUploaded(file.response)
-      if (currentFiles.every((item) => item.status === 'done')) {
-        message.success({ key: uploadKey, content: text.problem.uploadDone })
-      }
-    } else if (file.status === 'error') {
-      message.error({ key: uploadKey, content: file.error?.message || text.common.loadingFailed })
-    }
-  }
+  const { lang, text } = useLocale()
+  const input = useRef<HTMLInputElement>(null)
+  const scores = new Map((cases ?? []).map((item) => [item.id, item.score]))
   return (
     <Card
       size="small"
       title={title}
       extra={
-        <Space wrap size={6}>
-          <Upload<ProblemAssets>
-            accept={accept}
-            action={apiUrl(`/api/problems/${problemId}/assets/files`).toString()}
-            beforeUpload={beforeUpload}
-            data={{ section }}
-            disabled={loading}
-            fileList={uploadFiles}
-            headers={csrfHeaders()}
-            withCredentials
+        <>
+          <input
+            ref={input}
+            hidden
             multiple
-            progress={{ showInfo: true }}
-            onChange={onChange}
-            showUploadList={false}
-          >
-            <Button size="small" disabled={loading} loading={loading} icon={<UploadOutlined />}>{text.problem.upload}</Button>
-          </Upload>
-          {extra}
-          {onDeleteAll ? (
-            <Popconfirm title={text.common.confirmClear} okText={text.common.clear} cancelText={text.common.cancel} onConfirm={onDeleteAll}>
-              <Button size="small" danger disabled={loading || files.length === 0} loading={loading} icon={<DeleteOutlined />}>{text.common.clear}</Button>
-            </Popconfirm>
-          ) : null}
-        </Space>
+            type="file"
+            accept={section === 'data' ? '.in,.out,.ans,.txt,.zip' : undefined}
+            onChange={(event) => {
+              const selected = Array.from(event.target.files ?? []).filter((file) => section !== 'data' || file.name.toLowerCase().endsWith('.zip') || acceptedDataFile(file.name))
+              if (selected.length > 0) onUpload(selected)
+              event.target.value = ''
+            }}
+          />
+          <Button size="small" disabled={loading} loading={loading} icon={<UploadOutlined />} onClick={() => input.current?.click()}>
+            {text.problem.upload}
+          </Button>
+        </>
       }
     >
       {section === 'data' ? (
         <Table<DataPairRow>
           rowKey="key"
           size="small"
-          showHeader={false}
           loading={loading}
           dataSource={dataPairRows(files)}
           pagination={{ pageSize: 10, hideOnSinglePage: true, showSizeChanger: false, size: 'small' }}
-          scroll={{ x: 760 }}
+          tableLayout="auto"
           columns={[
-            { title: text.problem.inputFile, width: 280, ellipsis: { showTitle: false }, render: (_, row) => row.input ? <AssetName file={row.input} /> : null },
-            { align: 'right', render: (_, row) => row.input ? <AssetActions file={row.input} onEdit={onEdit} onDownload={onDownload} onDelete={onDelete} /> : null },
-            { align: 'center', render: () => <Divider type="vertical" /> },
-            { title: text.problem.outputFile, width: 280, ellipsis: { showTitle: false }, render: (_, row) => row.output ? <AssetName file={row.output} /> : null },
-            { align: 'right', render: (_, row) => row.output ? <AssetActions file={row.output} onEdit={onEdit} onDownload={onDownload} onDelete={onDelete} /> : null }
+            { title: text.problem.inputFile, render: (_, row) => row.input ? <AssetCell file={row.input} onDownload={onDownload} onDelete={onDelete} /> : null },
+            { title: text.problem.outputFile, render: (_, row) => row.output ? <AssetCell file={row.output} onDownload={onDownload} onDelete={onDelete} /> : null },
+            {
+              title: text.problem.score,
+              width: 92,
+              render: (_, row) => scores.has(row.key) && onScore ? (
+                <InputNumber
+                  key={`${row.key}:${scores.get(row.key)}`}
+                  min={0}
+                  placeholder="10"
+                  size="small"
+                  defaultValue={scores.get(row.key) ?? undefined}
+                  onBlur={(event) => {
+                    const raw = event.target.value.trim()
+                    if (raw === '' && scores.get(row.key) != null) onScore(row.key, null)
+                    const value = Number(raw)
+                    if (raw !== '' && Number.isFinite(value) && value !== scores.get(row.key)) onScore(row.key, value)
+                  }}
+                />
+              ) : null
+            }
           ]}
         />
       ) : (
-        <Table<AssetFile>
-          rowKey="key"
-          size="small"
-          loading={loading}
-          dataSource={files}
-          pagination={false}
-          scroll={{ x: 520 }}
-          columns={[
-            { title: text.problem.judgeFile, width: 360, ellipsis: { showTitle: false }, render: (_, file) => <AssetName file={file} /> },
-            { align: 'right', render: (_, file) => <AssetActions file={file} onEdit={onEdit} onDownload={onDownload} onDelete={onDelete} /> }
-          ]}
-        />
+        <>
+          <Typography.Paragraph type="secondary">
+            {text.problem.judgeHelp}{' '}
+            <Typography.Link href={`https://github.com/doveccl/DOJ/wiki/Custom-Judge${lang === 'zh' ? '.zh-CN' : ''}`} target="_blank" rel="noreferrer">
+              {text.problem.judgeHelpLink}
+            </Typography.Link>
+          </Typography.Paragraph>
+          <Table<AssetFile>
+            rowKey="key"
+            size="small"
+            loading={loading}
+            dataSource={files}
+            pagination={false}
+            tableLayout="auto"
+            columns={[
+              { title: text.problem.judgeFile, render: (_, file) => <AssetCell file={file} onDownload={onDownload} onDelete={onDelete} /> }
+            ]}
+          />
+        </>
       )}
     </Card>
   )
 }
 
-function AssetName({ file }: { file: AssetFile }) {
+function AssetCell({ file, onDownload, onDelete }: { file: AssetFile; onDownload: (file: AssetFile) => void; onDelete: (key: string) => Promise<ProblemAssets> }) {
   return (
-    <Typography.Text ellipsis={{ tooltip: `${file.name} (${formatBytes(file.size)})` }}>
-      {file.name} <Typography.Text type="secondary">({formatBytes(file.size)})</Typography.Text>
-    </Typography.Text>
+    <Flex align="center" justify="space-between" gap={8}>
+      <AssetName file={file} />
+      <AssetActions file={file} onDownload={onDownload} onDelete={onDelete} />
+    </Flex>
   )
 }
 
-function AssetActions({
-  file,
-  onEdit,
-  onDownload,
-  onDelete
-}: {
-  file: AssetFile
-  onEdit: (file: AssetFile) => void
-  onDownload: (file: AssetFile) => void
-  onDelete: (key: string) => Promise<ProblemAssets>
-}) {
+function AssetName({ file }: { file: AssetFile }) {
+  return <Typography.Text style={{ minWidth: 0 }} ellipsis={{ tooltip: `${file.name} (${formatBytes(file.size)})` }}>{file.name} <Typography.Text type="secondary">({formatBytes(file.size)})</Typography.Text></Typography.Text>
+}
+
+function AssetActions({ file, onDownload, onDelete }: { file: AssetFile; onDownload: (file: AssetFile) => void; onDelete: (key: string) => Promise<ProblemAssets> }) {
   const { text } = useLocale()
   return (
     <Space size={4}>
-      {file.editable ? <Button size="small" type="text" icon={<EditOutlined />} aria-label={text.common.edit} onClick={() => onEdit(file)} /> : null}
       <Button size="small" type="text" icon={<DownloadOutlined />} aria-label={text.common.download} onClick={() => onDownload(file)} />
       <Popconfirm title={text.common.confirmDelete} okText={text.common.delete} cancelText={text.common.cancel} onConfirm={() => onDelete(file.key)}>
         <Button size="small" type="text" danger icon={<DeleteOutlined />} aria-label={text.common.delete} />

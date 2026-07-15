@@ -258,11 +258,15 @@ function MetaInline({ label, children }: { label: string; children: ReactNode })
 
 function caseColumns(text: ReturnType<typeof useLocale>['text']): TableProps<Case>['columns'] {
   return [
-    { title: text.submissions.cases, dataIndex: 'no', render: (no: number) => caseCode(no) },
+    { title: text.submissions.cases, render: (_, item) => item.id || caseCode(item.no) },
     {
       title: text.submissions.status,
       dataIndex: 'status',
       render: (status: string) => <SubmissionStatus status={status} />
+    },
+    {
+      title: text.submissions.score,
+      render: (_, item) => item.score
     },
     {
       title: text.submissions.time,

@@ -52,6 +52,7 @@ func JudgerCLI(ctx context.Context, args []string) int {
 			Runner:     runnerPath,
 			Tasks:      tasks,
 			Cache:      cache,
+			CacheBytes: int64(getenvInt("CACHE_GB", 20)) << 30,
 			CgroupRoot: runner.DefaultCgroupRoot(),
 			ProcRoot:   "/proc",
 		},

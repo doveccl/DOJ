@@ -155,10 +155,7 @@ func parseTestlibPoints(message string) (int, bool) {
 }
 
 func fullCaseScore(req LocalRun) int {
-	if req.Case.Score > 0 {
-		return req.Case.Score
-	}
-	return 100
+	return req.Case.Score
 }
 
 func clamp(value int, low int, high int) int {

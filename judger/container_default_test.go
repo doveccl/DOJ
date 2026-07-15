@@ -33,15 +33,15 @@ func TestRunContainerTaskNormalMultiCase(t *testing.T) {
 			Mode:         jr.ModeDefault,
 			Limits:       jr.Limits{TimeMS: 3000, OutputKB: 64, MemoryKB: 64 << 10, Pids: 32},
 			Cases: []jr.Case{
-				{ID: "1", Input: "1.in", Answer: "1.out", Score: 40},
-				{ID: "2", Input: "2.in", Answer: "2.out", Score: 60},
+				{ID: "1", Input: "1.in", Answer: "1.out", Score: 60},
+				{ID: "2", Input: "2.in", Answer: "2.out", Score: 70},
 			},
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Verdict != jr.VerdictAccepted || result.Score != 100 || len(result.Cases) != 2 {
+	if result.Verdict != jr.VerdictAccepted || result.Score != 130 || len(result.Cases) != 2 {
 		t.Fatalf("result = %#v", result)
 	}
 	maxCaseTime := 0

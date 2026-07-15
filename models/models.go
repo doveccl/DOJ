@@ -41,6 +41,7 @@ type Problem struct {
 	Mode      string         `gorm:"size:16;not null;default:'default'" json:"mode"`
 	TimeMS    int            `gorm:"not null;default:1000" json:"timeMs"`
 	MemoryMB  int            `gorm:"not null;default:256" json:"memoryMb"`
+	Package   datatypes.JSON `gorm:"type:jsonb;not null;default:'{}'" json:"-"`
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -83,7 +84,9 @@ type Case struct {
 	ID           uint   `gorm:"primaryKey" json:"id"`
 	SubmissionID uint   `gorm:"uniqueIndex:idx_case_submission_no;not null" json:"submissionId"`
 	No           int    `gorm:"uniqueIndex:idx_case_submission_no;not null" json:"no"`
+	CaseID       string `gorm:"size:128;not null;default:''" json:"caseId"`
 	Status       string `gorm:"size:32;not null" json:"status"`
+	Score        int    `gorm:"not null;default:0" json:"score"`
 	TimeMS       *int   `json:"timeMs"`
 	MemoryKB     *int   `json:"memoryKb"`
 	Message      string `gorm:"size:1024;not null;default:''" json:"message"`

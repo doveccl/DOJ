@@ -1,6 +1,6 @@
 package judger
 
-const Version = "v4"
+const Version = "v1"
 
 type LeaseRequest struct {
 	Version string `json:"version"`
@@ -34,8 +34,9 @@ type LangPayload struct {
 }
 
 type ProblemPayload struct {
-	ID          uint   `json:"id"`
-	PackageHash string `json:"packageHash"`
+	ID    uint     `json:"id"`
+	Hash  string   `json:"hash"`
+	Files []string `json:"files"`
 }
 
 type LimitsPayload struct {
@@ -74,6 +75,7 @@ type HeartbeatRequest struct {
 
 type CaseResult struct {
 	No       int    `json:"no"`
+	ID       string `json:"id"`
 	Status   string `json:"status"`
 	Score    int    `json:"score"`
 	TimeMS   *int   `json:"timeMs,omitempty"`

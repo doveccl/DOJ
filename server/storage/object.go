@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 type Store interface {
 	Put(ctx context.Context, key string, data io.Reader, size int64, contentType string) error
 	Open(ctx context.Context, key string) (io.ReadCloser, string, error)
+	OpenRange(ctx context.Context, key string, offset int64, size int64) (io.ReadCloser, error)
 	List(ctx context.Context, prefix string) ([]Info, error)
 	Delete(ctx context.Context, key string) error
 }
@@ -179,16 +181,24 @@ func (store localStore) Put(_ context.Context, key string, data io.Reader, _ int
 	if err := os.Chmod(filepath.Dir(filePath), 0o700); err != nil {
 		return err
 	}
-	file, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	file, err := os.CreateTemp(filepath.Dir(filePath), ".object-*")
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	tmp := file.Name()
+	defer os.Remove(tmp)
 	if err := file.Chmod(0o600); err != nil {
+		_ = file.Close()
 		return err
 	}
-	_, err = io.Copy(file, data)
-	return err
+	if _, err := io.Copy(file, data); err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp, filePath)
 }
 
 func (store localStore) Open(_ context.Context, key string) (io.ReadCloser, string, error) {
@@ -211,6 +221,33 @@ func (store localStore) Open(_ context.Context, key string) (io.ReadCloser, stri
 		}
 	}
 	return file, contentType, nil
+}
+
+func (store localStore) OpenRange(_ context.Context, key string, offset int64, size int64) (io.ReadCloser, error) {
+	if offset < 0 || size <= 0 {
+		return nil, fmt.Errorf("invalid object range")
+	}
+	clean, err := CleanKey(key)
+	if err != nil {
+		return nil, err
+	}
+	file, err := os.Open(filepath.Join(store.root, filepath.FromSlash(clean)))
+	if err != nil {
+		return nil, err
+	}
+	info, err := file.Stat()
+	if err != nil {
+		_ = file.Close()
+		return nil, err
+	}
+	if offset > info.Size() || size > info.Size()-offset {
+		_ = file.Close()
+		return nil, fmt.Errorf("object range exceeds size")
+	}
+	return struct {
+		io.Reader
+		io.Closer
+	}{Reader: io.NewSectionReader(file, offset, size), Closer: file}, nil
 }
 
 func (store localStore) List(_ context.Context, prefix string) ([]Info, error) {
@@ -281,20 +318,42 @@ func (store s3Store) Open(ctx context.Context, key string) (io.ReadCloser, strin
 	if err != nil {
 		return nil, "", err
 	}
-	object, err := store.client.GetObject(ctx, store.bucket, clean, minio.GetObjectOptions{})
+	object, info, headers, err := (minio.Core{Client: store.client}).GetObject(ctx, store.bucket, clean, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, "", err
 	}
-	stat, err := object.Stat()
-	if err != nil {
-		_ = object.Close()
-		return nil, "", err
+	contentType := info.ContentType
+	if contentType == "" {
+		contentType = headers.Get("Content-Type")
 	}
-	contentType := stat.ContentType
 	if contentType == "" {
 		contentType = mime.TypeByExtension(filepath.Ext(clean))
 	}
 	return object, contentType, nil
+}
+
+func (store s3Store) OpenRange(ctx context.Context, key string, offset int64, size int64) (io.ReadCloser, error) {
+	if offset < 0 || size <= 0 {
+		return nil, fmt.Errorf("invalid object range")
+	}
+	clean, err := CleanKey(key)
+	if err != nil {
+		return nil, err
+	}
+	opts := minio.GetObjectOptions{}
+	if err := opts.SetRange(offset, offset+size-1); err != nil {
+		return nil, err
+	}
+	reader, _, headers, err := (minio.Core{Client: store.client}).GetObject(ctx, store.bucket, clean, opts)
+	if err != nil {
+		return nil, err
+	}
+	want := fmt.Sprintf("bytes %d-%d/", offset, offset+size-1)
+	if !strings.HasPrefix(headers.Get("Content-Range"), want) || headers.Get("Content-Length") != strconv.FormatInt(size, 10) {
+		_ = reader.Close()
+		return nil, fmt.Errorf("S3 backend ignored object range")
+	}
+	return reader, nil
 }
 
 func (store s3Store) List(ctx context.Context, prefix string) ([]Info, error) {

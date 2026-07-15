@@ -113,6 +113,18 @@ func TestLocalStore(t *testing.T) {
 	if contentType != "text/plain; charset=utf-8" {
 		t.Fatalf("content type = %q", contentType)
 	}
+	rangeReader, err := store.OpenRange(ctx, "users/uploads/dot.txt", 1, 3)
+	if err != nil {
+		t.Fatalf("open range failed: %v", err)
+	}
+	rangeData, err := io.ReadAll(rangeReader)
+	_ = rangeReader.Close()
+	if err != nil || string(rangeData) != "ell" {
+		t.Fatalf("range data = %q, %v", rangeData, err)
+	}
+	if _, err := store.OpenRange(ctx, "users/uploads/dot.txt", 4, 2); err == nil {
+		t.Fatal("out-of-bounds range should fail")
+	}
 	items, err := store.List(ctx, "users")
 	if err != nil {
 		t.Fatalf("list failed: %v", err)
@@ -125,5 +137,37 @@ func TestLocalStore(t *testing.T) {
 	}
 	if _, _, err := store.Open(ctx, "users/uploads/dot.txt"); err == nil {
 		t.Fatal("deleted object should not open")
+	}
+}
+
+func TestS3StoreRangeIntegration(t *testing.T) {
+	raw := os.Getenv("DOJ_TEST_S3")
+	if raw == "" {
+		t.Skip("DOJ_TEST_S3 is not set")
+	}
+	t.Setenv("STORAGE", raw)
+	store, err := NewFromEnv()
+	if err != nil {
+		t.Fatalf("new S3 store: %v", err)
+	}
+	s3 := store.(s3Store)
+	ctx := t.Context()
+	if err := s3.client.MakeBucket(ctx, s3.bucket, minio.MakeBucketOptions{}); err != nil {
+		exists, existsErr := s3.client.BucketExists(ctx, s3.bucket)
+		if existsErr != nil || !exists {
+			t.Fatalf("make bucket: %v, exists: %v", err, existsErr)
+		}
+	}
+	if err := store.Put(ctx, "range/test.txt", bytes.NewBufferString("0123456789"), 10, "text/plain"); err != nil {
+		t.Fatalf("put S3 object: %v", err)
+	}
+	reader, err := store.OpenRange(ctx, "range/test.txt", 3, 4)
+	if err != nil {
+		t.Fatalf("open S3 range: %v", err)
+	}
+	got, readErr := io.ReadAll(reader)
+	_ = reader.Close()
+	if readErr != nil || string(got) != "3456" {
+		t.Fatalf("S3 range data = %q, %v", got, readErr)
 	}
 }

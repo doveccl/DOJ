@@ -3,8 +3,6 @@ package worker
 import (
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -71,7 +69,7 @@ func TestTryLeaseStoresDatabaseLease(t *testing.T) {
 	if payload == nil || payload.SubmissionID != submission.ID || payload.Attempt != 1 {
 		t.Fatalf("payload = %+v", payload)
 	}
-	if payload.Problem.PackageHash == "" {
+	if payload.Problem.Hash == "" {
 		t.Fatalf("lease payload should include problem package hash: %+v", payload.Problem)
 	}
 	var got models.Submission
@@ -94,11 +92,9 @@ func TestTryLeaseRequeuesWhenPayloadBuildFails(t *testing.T) {
 	if err := db.Create(&submission).Error; err != nil {
 		t.Fatal(err)
 	}
-	blocked := filepath.Join(t.TempDir(), "storage-file")
-	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
+	if err := db.Model(&models.Problem{}).Where("id = ?", 1000).Update("package", []byte(`{"broken"`)).Error; err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("STORAGE", blocked)
 	if payload, err := (&API{db: db}).tryLease(t.Context(), judgerRow.ID); err == nil || payload != nil {
 		t.Fatalf("payload = %+v, err = %v", payload, err)
 	}

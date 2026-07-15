@@ -303,6 +303,12 @@ func userUploadKeyAllowed(key string) bool {
 }
 
 func sameSiteMediaRequest(c echo.Context) bool {
+	switch c.Request().Header.Get("Sec-Fetch-Site") {
+	case "same-origin", "same-site", "none":
+		return true
+	case "cross-site":
+		return false
+	}
 	raw := c.Request().Referer()
 	if raw == "" {
 		return true

@@ -18,8 +18,16 @@ export function dataPairRows(files: AssetFile[]) {
       rows.push(row)
     }
     if (kind === 'in') {
+      if (row.input) {
+        rows.push({ key: file.key, input: file })
+        continue
+      }
       row.input = file
     } else {
+      if (row.output) {
+        rows.push({ key: file.key, output: file })
+        continue
+      }
       row.output = file
     }
   }

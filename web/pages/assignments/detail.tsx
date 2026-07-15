@@ -182,7 +182,7 @@ function progressColumns(text: ReturnType<typeof useLocale>['text'], problems: P
         const score = item?.score
         if (item?.status === 'pending') return <Tag color="processing">{text.submissions.statuses.pending}</Tag>
         if (score === undefined) return <Typography.Text type="secondary">-</Typography.Text>
-        return <Tag color={score >= 100 ? 'success' : score > 0 ? 'warning' : 'error'}>{score}</Tag>
+        return <Tag color={item?.status === 'ac' ? 'success' : score > 0 ? 'warning' : 'error'}>{score}</Tag>
       }
     }))
   ]

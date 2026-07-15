@@ -5,6 +5,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/doveccl/doj/models"
 	"github.com/doveccl/doj/server/cache"
+	problemdata "github.com/doveccl/doj/server/problem"
 	"github.com/doveccl/doj/server/storage"
 	"github.com/labstack/echo/v4"
 	"gorm.io/driver/sqlite"
@@ -39,22 +40,35 @@ func zipHasFile(reader *zip.Reader, name string) bool {
 func seedTaskData(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	t.Setenv("STORAGE", t.TempDir())
-	store, err := storage.NewFromEnv()
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	for key, content := range map[string]string{
-		"problems/1000/data/1.in":  "1 2\n",
-		"problems/1000/data/1.out": "3\n",
+	work := t.TempDir()
+	for name, content := range map[string]string{
+		"data/1.in":  "1 2\n",
+		"data/1.out": "3\n",
 	} {
-		if err := store.Put(t.Context(), key, strings.NewReader(content), int64(len(content)), "text/plain"); err != nil {
-			t.Fatalf("put %s: %v", key, err)
-		}
+		mustWriteFile(t, filepath.Join(work, filepath.FromSlash(name)), content)
 	}
 	if err := db.Create(&models.Language{ID: "cpp", Name: "C++", Source: "main.cc", Image: "gcc:14", Compile: "g++ main.cc -o main", CompileMS: 10000, Run: "./main"}).Error; err != nil {
 		t.Fatalf("create language: %v", err)
 	}
-	if err := db.Create(&models.Problem{ID: 1000, Title: "A+B", Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}).Error; err != nil {
+	packagePath := filepath.Join(t.TempDir(), "package.zip")
+	item, err := problemdata.Build(work, packagePath, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := storage.NewFromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, err := os.Open(packagePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Put(t.Context(), problemdata.ObjectKey(1000, item.Hash), file, item.Size, "application/zip"); err != nil {
+		t.Fatal(err)
+	}
+	_ = file.Close()
+	raw, _ := item.JSON()
+	if err := db.Create(&models.Problem{ID: 1000, Title: "A+B", Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256, Package: raw}).Error; err != nil {
 		t.Fatalf("create problem: %v", err)
 	}
 }

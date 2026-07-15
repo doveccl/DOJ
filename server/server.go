@@ -57,6 +57,7 @@ func Main() {
 		e.Logger.Fatal(err)
 	}
 	backupScheduler := backup.StartScheduler(ctx, db)
+	startProblemPackageGC(ctx, db)
 	public.Register(e, db)
 	admin.Register(e, db, backupScheduler)
 	worker.Register(e, db)

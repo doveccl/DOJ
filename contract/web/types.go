@@ -249,7 +249,9 @@ type SubmissionUpdate struct {
 
 type Case struct {
 	No       int    `json:"no"`
+	ID       string `json:"id"`
 	Status   string `json:"status"`
+	Score    int    `json:"score"`
 	TimeMS   *int   `json:"timeMs,omitempty"`
 	MemoryKB *int   `json:"memoryKb,omitempty"`
 	Message  string `json:"message"`
@@ -404,32 +406,27 @@ type ProblemAssets struct {
 	Data      []AssetFile `json:"data"`
 	Judge     []AssetFile `json:"judge"`
 	Assets    []AssetFile `json:"assets"`
+	CaseList  []AssetCase `json:"caseList"`
 	Cases     int         `json:"cases"`
 	DataBytes int64       `json:"dataBytes"`
+	Version   string      `json:"version"`
 }
 
 type AssetFile struct {
-	Key      string `json:"key"`
-	Name     string `json:"name"`
-	Size     int64  `json:"size"`
-	Editable bool   `json:"editable"`
+	Key  string `json:"key"`
+	Name string `json:"name"`
+	Size int64  `json:"size"`
 }
 
-type AssetCaseCreate struct {
-	Name   string `json:"name"`
+type AssetCase struct {
+	ID     string `json:"id"`
 	Input  string `json:"input"`
-	Output string `json:"output"`
+	Answer string `json:"answer"`
+	Score  *int   `json:"score"`
 }
 
-type AssetContent struct {
-	Key     string `json:"key"`
-	Name    string `json:"name"`
-	Content string `json:"content"`
-}
-
-type AssetContentUpdate struct {
-	Key     string `json:"key"`
-	Content string `json:"content"`
+type AssetCaseScoreUpdate struct {
+	Score *int `json:"score"`
 }
 
 type UploadResult struct {
