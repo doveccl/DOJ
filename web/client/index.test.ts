@@ -11,6 +11,7 @@ describe('apiUrl', () => {
 describe('API errors', () => {
   it('keeps HTTP status and retries only transient query failures once', async () => {
     await expect(apiData(Promise.resolve({ error: { message: 'missing' }, response: new Response('', { status: 404 }) }))).rejects.toMatchObject({ status: 404 })
+    expect(new APIError('{"message":"invalid ZIP"}', 400)).toMatchObject({ message: 'invalid ZIP', status: 400 })
     expect(shouldRetryQuery(0, new APIError('server', 500))).toBe(true)
     expect(shouldRetryQuery(0, new APIError('missing', 404))).toBe(false)
     expect(shouldRetryQuery(1, new Error('network'))).toBe(false)

@@ -172,7 +172,7 @@ function assertData<T>(data: T | undefined, error: unknown, response?: Response)
 
 export class APIError extends Error {
   constructor(message: string, readonly status?: number) {
-    super(message)
+    super(errorMessage(message))
     this.name = 'APIError'
   }
 }
@@ -192,7 +192,11 @@ function errorMessage(error: unknown) {
     }
   }
   if (typeof error === 'string') {
-    return error
+    try {
+      return errorMessage(JSON.parse(error))
+    } catch {
+      return error
+    }
   }
   return JSON.stringify(error)
 }
@@ -264,7 +268,7 @@ export function uploadProblemPackage(id: number, section: 'data' | 'judge', file
     request.onerror = () => reject(new Error('Upload failed'))
     request.onload = () => {
       if (request.status < 200 || request.status >= 300) {
-        reject(new APIError(request.responseText, request.status))
+        reject(new APIError(request.responseText || request.statusText || `HTTP ${request.status}`, request.status))
         return
       }
       try {
