@@ -1,4 +1,4 @@
-import { DeleteOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons'
+import { DeleteOutlined, DownloadOutlined, QuestionCircleOutlined, UploadOutlined } from '@ant-design/icons'
 import { Button, Card, Flex, InputNumber, Popconfirm, Space, Table, Typography } from 'antd'
 import { useRef } from 'react'
 
@@ -36,11 +36,11 @@ export function AssetSection({
     <Card
       size="small"
       title={section === 'judge' ? (
-        <Flex align="center" gap={6}>
+        <Flex align="center">
           <span>{title}</span>
-          <Typography.Link style={{ fontSize: 14, fontWeight: 400 }} href={`https://github.com/doveccl/DOJ/wiki/Custom-Judge${lang === 'zh' ? '.zh-CN' : ''}`} target="_blank" rel="noreferrer">
+          <Button type="link" size="small" icon={<QuestionCircleOutlined />} href={`https://github.com/doveccl/DOJ/wiki/Custom-Judge${lang === 'zh' ? '.zh-CN' : ''}`} target="_blank" rel="noreferrer">
             {text.problem.judgeHelpLink}
-          </Typography.Link>
+          </Button>
         </Flex>
       ) : title}
       extra={
