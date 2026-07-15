@@ -38,9 +38,7 @@ export function AssetSection({
       title={section === 'judge' ? (
         <Flex align="center">
           <span>{title}</span>
-          <Button type="link" size="small" icon={<QuestionCircleOutlined />} href={`https://github.com/doveccl/DOJ/wiki/Custom-Judge${lang === 'zh' ? '.zh-CN' : ''}`} target="_blank" rel="noreferrer">
-            {text.problem.judgeHelpLink}
-          </Button>
+          <Button type="link" size="small" icon={<QuestionCircleOutlined />} aria-label={text.problem.judgeHelpLink} href={`https://github.com/doveccl/DOJ/wiki/Custom-Judge${lang === 'zh' ? '.zh-CN' : ''}`} target="_blank" rel="noreferrer" />
         </Flex>
       ) : title}
       extra={
