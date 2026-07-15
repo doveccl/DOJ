@@ -51,6 +51,11 @@ export function AssetSection({
             }}
           />
           <Space size={6}>
+            {section === 'judge' ? (
+              <Typography.Link href={`https://github.com/doveccl/DOJ/wiki/Custom-Judge${lang === 'zh' ? '.zh-CN' : ''}`} target="_blank" rel="noreferrer">
+                {text.problem.judgeHelpLink}
+              </Typography.Link>
+            ) : null}
             <Button size="small" disabled={disabled} loading={loading} icon={<UploadOutlined />} onClick={() => input.current?.click()}>
               {text.problem.upload}
             </Button>
@@ -95,25 +100,17 @@ export function AssetSection({
           ]}
         />
       ) : (
-        <>
-          <Typography.Paragraph type="secondary">
-            {text.problem.judgeHelp}{' '}
-            <Typography.Link href={`https://github.com/doveccl/DOJ/wiki/Custom-Judge${lang === 'zh' ? '.zh-CN' : ''}`} target="_blank" rel="noreferrer">
-              {text.problem.judgeHelpLink}
-            </Typography.Link>
-          </Typography.Paragraph>
-          <Table<AssetFile>
-            rowKey="key"
-            size="small"
-            loading={tableLoading}
-            dataSource={files}
-            pagination={false}
-            tableLayout="auto"
-            columns={[
-              { title: text.problem.judgeFile, render: (_, file) => <AssetCell file={file} disabled={disabled} onDownload={onDownload} onDelete={onDelete} /> }
-            ]}
-          />
-        </>
+        <Table<AssetFile>
+          rowKey="key"
+          size="small"
+          loading={tableLoading}
+          dataSource={files}
+          pagination={false}
+          tableLayout="auto"
+          columns={[
+            { title: text.problem.judgeFile, render: (_, file) => <AssetCell file={file} disabled={disabled} onDownload={onDownload} onDelete={onDelete} /> }
+          ]}
+        />
       )}
     </Card>
   )
