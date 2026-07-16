@@ -231,14 +231,14 @@ export const zh = {
     progress: {
       waiting: '等待评测机接单',
       leased: '评测机已接单',
-      judging: '评测中',
-      download: '评测机正在下载题目数据包',
+      judging: '评测机正在评测',
+      download: '评测机正在下载题目数据',
       downloaded: (value: string) => `评测机已下载 ${value}`,
-      prepare: '准备运行环境',
-      compile: '编译中',
-      judge: '正在评测测试点',
-      cases: (done: number, total: number) => `已评测 ${done} / ${total} 个测试点`,
-      upload: '正在提交评测结果'
+      prepare: '评测机正在准备运行环境',
+      compile: '评测机正在编译',
+      judge: '评测机正在评测测试点',
+      cases: (done: number, total: number) => `评测机已评测 ${done} / ${total} 个测试点`,
+      upload: '评测机正在提交评测结果'
     },
     statuses: {
       pending: '待公布',

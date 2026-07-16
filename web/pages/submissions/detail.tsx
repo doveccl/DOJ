@@ -197,7 +197,7 @@ function progressCopy(status: string, progress: SubmissionDetail['progress'] | u
     case 'download':
       return {
         title: text.submissions.progress.download,
-        detail: progress.total && progress.total > 0 ? `${formatBytes(progress.done)} / ${formatBytes(progress.total)}` : text.submissions.progress.downloaded(formatBytes(progress.done))
+        detail: text.submissions.progress.downloaded(progress.total && progress.total > 0 ? `${formatBytes(progress.done)} / ${formatBytes(progress.total)}` : formatBytes(progress.done))
       }
     case 'prepare':
       return { title: text.submissions.progress.prepare }
