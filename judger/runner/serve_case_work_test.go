@@ -20,7 +20,14 @@ func TestMakeCaseWorkUsesWorkParent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm() != 0o700 {
-		t.Fatalf(".cases mode = %v, want 0700", info.Mode().Perm())
+	if info.Mode().Perm() != 0o711 {
+		t.Fatalf(".cases mode = %v, want 0711", info.Mode().Perm())
+	}
+	workInfo, err := os.Stat(work)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if workInfo.Mode().Perm() != 0o711 {
+		t.Fatalf("work mode = %v, want 0711", workInfo.Mode().Perm())
 	}
 }

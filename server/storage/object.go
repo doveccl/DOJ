@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -34,24 +35,40 @@ type Info struct {
 	UpdatedAt time.Time
 }
 
+var (
+	s3StoreCacheMu sync.Mutex
+	s3StoreCache   = map[string]Store{}
+)
+
 func NewFromEnv() (Store, error) {
 	storageURL := storageURL()
 	if strings.HasPrefix(storageURL, "http://") || strings.HasPrefix(storageURL, "https://") {
-		config, err := parseS3Storage(storageURL)
-		if err != nil {
-			return nil, err
-		}
-		client, err := minio.New(config.endpoint, &minio.Options{
-			Creds:        credentials.NewStaticV4(config.access, config.secret, ""),
-			Secure:       config.secure,
-			BucketLookup: config.lookup,
-		})
-		if err != nil {
-			return nil, err
-		}
-		return s3Store{client: client, bucket: config.bucket}, nil
+		return newS3Store(storageURL)
 	}
 	return localStore{root: Root()}, nil
+}
+
+func newS3Store(storageURL string) (Store, error) {
+	s3StoreCacheMu.Lock()
+	defer s3StoreCacheMu.Unlock()
+	if store, ok := s3StoreCache[storageURL]; ok {
+		return store, nil
+	}
+	config, err := parseS3Storage(storageURL)
+	if err != nil {
+		return nil, err
+	}
+	client, err := minio.New(config.endpoint, &minio.Options{
+		Creds:        credentials.NewStaticV4(config.access, config.secret, ""),
+		Secure:       config.secure,
+		BucketLookup: config.lookup,
+	})
+	if err != nil {
+		return nil, err
+	}
+	store := s3Store{client: client, bucket: config.bucket}
+	s3StoreCache[storageURL] = store
+	return store, nil
 }
 
 func Root() string {

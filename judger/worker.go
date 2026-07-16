@@ -95,7 +95,7 @@ func RunOne(ctx context.Context, cfg WorkerConfig) (bool, error) {
 	logStep(cfg.Logf, task.SubmissionID, task.Attempt, "prepare_task", taskStartedAt)
 	if taskNeedsProblemPackage(task) {
 		packageStartedAt := time.Now()
-		if err := downloadProblemPackage(ctx, client, cfg, task.Problem.ID, task.Problem.Hash, task.Problem.Files, taskDir, task.ID, task.SubmissionID, task.Attempt); err != nil {
+		if err := downloadProblemPackage(ctx, client, cfg, task.Problem.ID, task.Problem.Hash, task.Problem.Size, task.Problem.Files, taskDir, task.ID, task.SubmissionID, task.Attempt); err != nil {
 			logStep(cfg.Logf, task.SubmissionID, task.Attempt, "download_problem_package_error", packageStartedAt)
 			result := runner.TaskResult{
 				SubmissionID: task.SubmissionID,

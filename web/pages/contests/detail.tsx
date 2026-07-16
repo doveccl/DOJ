@@ -16,6 +16,7 @@ import { ContestKindTag } from '../../components/status'
 import { contestTarget, ScheduleTag } from '../../components/time'
 import { useLocale } from '../../locale'
 import { useSession } from '../../session'
+import { usePageTitle } from '../../title'
 import { formatTime, problemCode, problemLabel } from '../../utils/format'
 import { ContestFormFields } from './form'
 import type { ContestFormValues } from './form'
@@ -40,6 +41,7 @@ export function ContestDetailPage() {
     queryFn: () => apiData(api.GET('/api/problem-state', { params: { query: { ids: problemIds, contest: id } } })),
     enabled: Number.isFinite(id) && problemIds.length > 0
   })
+  usePageTitle(query.data?.contest.title)
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }

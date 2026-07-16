@@ -62,6 +62,41 @@ func TestRunContainerTaskNormalMultiCase(t *testing.T) {
 	}
 }
 
+func TestRunContainerTaskNoCompileSourceIsReadableByUser(t *testing.T) {
+	requireDocker(t)
+	runner := buildRunner(t)
+	work := t.TempDir()
+	writeCase(t, work, "1", "1 2\n", "3\n")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	result, err := RunContainerTask(ctx, ContainerTask{
+		Runner: runner,
+		Work:   work,
+		Task: jr.Task{
+			SubmissionID: 88,
+			Attempt:      1,
+			Source:       "print(sum(map(int, input().split())))\n",
+			Lang: jr.Lang{
+				ID:        "py",
+				Source:    "main.py",
+				Image:     "python:3.12",
+				CompileMS: 10000,
+				Run:       "python3 main.py",
+			},
+			Mode:   jr.ModeDefault,
+			Limits: jr.Limits{TimeMS: 3000, OutputKB: 64, MemoryKB: 64 << 10, Pids: 32},
+			Cases:  []jr.Case{{ID: "1", Input: "1.in", Answer: "1.out", Score: 100}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Verdict != jr.VerdictAccepted || result.Score != 100 {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
 func TestRunContainerTaskCppPartialInputReaderIsWrongAnswer(t *testing.T) {
 	requireDocker(t)
 	runner := buildRunner(t)

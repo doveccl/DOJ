@@ -129,8 +129,9 @@ func (api *API) result(c echo.Context) error {
 			if err := tx.Where("submission_id = ?", req.SubmissionID).Delete(&models.Case{}).Error; err != nil {
 				return err
 			}
+			rows := make([]models.Case, 0, len(req.Cases))
 			for _, item := range req.Cases {
-				row := models.Case{
+				rows = append(rows, models.Case{
 					SubmissionID: req.SubmissionID,
 					No:           item.No,
 					CaseID:       item.ID,
@@ -139,10 +140,10 @@ func (api *API) result(c echo.Context) error {
 					TimeMS:       item.TimeMS,
 					MemoryKB:     item.MemoryKB,
 					Message:      item.Message,
-				}
-				if err := tx.Create(&row).Error; err != nil {
-					return err
-				}
+				})
+			}
+			if err := tx.CreateInBatches(rows, 1000).Error; err != nil {
+				return err
 			}
 		}
 		applied = true

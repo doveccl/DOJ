@@ -143,7 +143,8 @@ export const zh = {
     contextClosed: '当前作业或比赛已不可提交',
     contextClosedDescription: '本次提交未创建。是否保留当前源码并切换到普通提交？',
     switchToPractice: '切换到普通提交',
-    queued: '提交已进入队列'
+    queued: '提交已进入队列',
+    pageTitle: (problem: string) => `题目 ${problem}`
   },
   assignments: {
     title: '作业',
@@ -226,12 +227,13 @@ export const zh = {
     viewProblemRecords: '查看本题提交记录',
     searchProblem: '题目编号',
     allStatus: '全部状态',
+    pageTitle: (submission: string, problem: string) => `提交 ${submission} · ${problem}`,
     progress: {
       waiting: '等待评测机接单',
       leased: '评测机已接单',
       judging: '评测中',
-      download: '正在下载题目数据',
-      downloaded: (value: string) => `已下载 ${value}`,
+      download: '评测机正在下载题目数据包',
+      downloaded: (value: string) => `评测机已下载 ${value}`,
       prepare: '准备运行环境',
       compile: '编译中',
       judge: '正在评测测试点',

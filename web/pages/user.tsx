@@ -11,6 +11,7 @@ import { ProfileOverview } from '../components/profile'
 import { ErrorBlock, LoadingBlock } from '../components/state'
 import { useLocale } from '../locale'
 import { useSession } from '../session'
+import { usePageTitle } from '../title'
 import { limits } from '../utils/limits'
 
 type AccountForm = Pick<Me, 'mail' | 'bio'>
@@ -36,6 +37,7 @@ export function UserPage() {
     enabled: name !== ''
   })
   const meQuery = useQuery({ queryKey: ['me'], queryFn: () => apiData(api.GET('/api/me')), enabled: isOwn })
+  usePageTitle(query.data?.user.name ?? name)
   const account = useMutation({
     mutationFn: (body: AccountPatch) => apiData(api.PATCH('/api/me', { body })),
     onSuccess: (data) => {

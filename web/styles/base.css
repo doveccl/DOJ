@@ -18,6 +18,10 @@ body {
   overflow-x: clip;
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 /* Keep centered dialogs fixed when their own vertical scrollbar appears. */
 .ant-modal-wrap {
   scrollbar-gutter: stable both-edges;
@@ -43,7 +47,7 @@ body {
 }
 
 .appLayout {
-  width: 100vw;
+  width: 100%;
   min-height: 100vh;
   background: var(--page-bg);
 }

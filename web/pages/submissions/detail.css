@@ -6,13 +6,6 @@
   overflow-wrap: anywhere;
 }
 
-.judgeProgressPanel {
-  padding: 12px 14px;
-  border: 1px solid var(--ant-color-info-border);
-  border-radius: 8px;
-  background: var(--ant-color-info-bg);
-}
-
 .sourceCodeBlock {
   max-height: 60vh;
   margin: 0;

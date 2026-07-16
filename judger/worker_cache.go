@@ -4,6 +4,8 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"hash/maphash"
 	"io"
@@ -11,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -29,7 +32,7 @@ const (
 	maxProblemPackageExpandedBytes = 2 << 30
 )
 
-func downloadProblemPackage(ctx context.Context, client *http.Client, cfg WorkerConfig, problemID uint, zipHash string, files []string, taskDir string, taskID uint, submissionID uint, attempt int) error {
+func downloadProblemPackage(ctx context.Context, client *http.Client, cfg WorkerConfig, problemID uint, zipHash string, zipSize int64, files []string, taskDir string, taskID uint, submissionID uint, attempt int) error {
 	zipHash = strings.TrimSpace(zipHash)
 	if zipHash == "" {
 		return fmt.Errorf("problem package hash is required")
@@ -87,12 +90,16 @@ func downloadProblemPackage(ctx context.Context, client *http.Client, cfg Worker
 		return fmt.Errorf("GET %s returned %s", path, httpResp.Status)
 	}
 	readStartedAt := time.Now()
+	var total *int64
+	if zipSize > 0 {
+		total = &zipSize
+	}
 	if cfg.Progress != nil {
-		cfg.Progress("download", 0, nil)
+		cfg.Progress("download", 0, total)
 	}
 	reader := &progressReader{reader: httpResp.Body, report: func(done int64) {
 		if cfg.Progress != nil {
-			cfg.Progress("download", done, nil)
+			cfg.Progress("download", done, total)
 		}
 	}}
 	packageFile, err := os.CreateTemp(cacheRoot, ".package-")
@@ -101,7 +108,8 @@ func downloadProblemPackage(ctx context.Context, client *http.Client, cfg Worker
 	}
 	packagePath := packageFile.Name()
 	defer os.Remove(packagePath)
-	written, copyErr := io.Copy(packageFile, io.LimitReader(reader, maxProblemPackageBytes+1))
+	hash := sha256.New()
+	written, copyErr := io.Copy(io.MultiWriter(packageFile, hash), io.LimitReader(reader, maxProblemPackageBytes+1))
 	closeErr := packageFile.Close()
 	if copyErr != nil {
 		return copyErr
@@ -111,6 +119,9 @@ func downloadProblemPackage(ctx context.Context, client *http.Client, cfg Worker
 	}
 	if written > maxProblemPackageBytes {
 		return fmt.Errorf("problem package exceed %d bytes", maxProblemPackageBytes)
+	}
+	if got := hex.EncodeToString(hash.Sum(nil)); got != zipHash {
+		return fmt.Errorf("problem package checksum mismatch")
 	}
 	logTask(cfg.Logf, submissionID, attempt, "problem_package_read=%s bytes=%d hash=%s", formatDuration(time.Since(readStartedAt)), written, shortHash(zipHash))
 	cacheStartedAt := time.Now()
@@ -168,14 +179,7 @@ func trimProblemCache(root string, limit int64, keep string) {
 				continue
 			}
 			item.used = info.ModTime()
-			_ = filepath.WalkDir(item.path, func(_ string, file os.DirEntry, err error) error {
-				if err == nil && !file.IsDir() {
-					if info, infoErr := file.Info(); infoErr == nil {
-						item.size += info.Size()
-					}
-				}
-				return nil
-			})
+			item.size = readProblemCacheSize(item.path)
 			total += item.size
 			entries = append(entries, item)
 		}
@@ -253,6 +257,9 @@ func replaceProblemCache(cacheDir string, packagePath string) error {
 	if err := os.WriteFile(filepath.Join(tmp, ".ready"), nil, 0o600); err != nil {
 		return err
 	}
+	if err := writeProblemCacheSize(tmp); err != nil {
+		return err
+	}
 	if err := os.RemoveAll(cacheDir); err != nil {
 		return err
 	}
@@ -261,6 +268,48 @@ func replaceProblemCache(cacheDir string, packagePath string) error {
 	}
 	cleanup = false
 	return nil
+}
+
+func writeProblemCacheSize(cacheDir string) error {
+	size, err := problemCacheSize(cacheDir)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(cacheDir, ".size"), []byte(strconv.FormatInt(size, 10)), 0o600)
+}
+
+func readProblemCacheSize(cacheDir string) int64 {
+	data, err := os.ReadFile(filepath.Join(cacheDir, ".size"))
+	if err == nil {
+		if size, parseErr := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64); parseErr == nil && size >= 0 {
+			return size
+		}
+	}
+	size, err := problemCacheSize(cacheDir)
+	if err == nil {
+		_ = os.WriteFile(filepath.Join(cacheDir, ".size"), []byte(strconv.FormatInt(size, 10)), 0o600)
+	}
+	return size
+}
+
+func problemCacheSize(cacheDir string) (int64, error) {
+	var size int64
+	sizePath := filepath.Join(cacheDir, ".size")
+	err := filepath.WalkDir(cacheDir, func(path string, file os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if file.IsDir() || path == sizePath {
+			return nil
+		}
+		info, err := file.Info()
+		if err != nil {
+			return err
+		}
+		size += info.Size()
+		return nil
+	})
+	return size, err
 }
 
 func copyProblemCache(cacheDir string, taskDir string, files []string) error {

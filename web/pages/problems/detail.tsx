@@ -40,8 +40,9 @@ import { ProblemStatus } from '../../components/status'
 import { TagList } from '../../components/tags'
 import { useLocale } from '../../locale'
 import { useSession } from '../../session'
+import { usePageTitle } from '../../title'
 import { submissionDraftKey } from '../../utils/draft'
-import { formatBytes, formatLimit, problemCode } from '../../utils/format'
+import { formatBytes, formatLimit, problemCode, problemLabel } from '../../utils/format'
 import { problemAssetUploadMarkdownURL, problemMarkdownID } from '../../utils/markdown'
 import { ProblemPackageManager, ProblemManageActions } from './assets'
 import { ProblemFormFields } from './form'
@@ -86,6 +87,7 @@ export function ProblemDetailPage() {
   })
   const site = useQuery({ queryKey: ['site'], queryFn: () => apiData(api.GET('/api/site')) })
   const languages = useQuery({ queryKey: ['languages'], queryFn: () => apiData(api.GET('/api/languages')) })
+  usePageTitle(query.data ? text.problem.pageTitle(problemLabel(query.data.id, query.data.title)) : undefined)
   const draftKey = session.signedIn && Number.isFinite(id) && lang
     ? submissionDraftKey(session.name, id, lang, assignmentID, contestID)
     : ''

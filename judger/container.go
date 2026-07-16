@@ -60,7 +60,7 @@ func RunContainerTask(ctx context.Context, req ContainerTask) (runner.TaskResult
 	}
 	if lang.CompileCommand == "" {
 		source := filepath.Join(work, languageSourceDir, lang.SourceName)
-		if err := copyFile(source, filepath.Join(work, lang.SourceName), 0o600); err != nil {
+		if err := copyFile(source, filepath.Join(work, lang.SourceName), 0o644); err != nil {
 			return runner.TaskResult{}, err
 		}
 	}

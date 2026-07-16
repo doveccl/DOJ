@@ -15,6 +15,7 @@ import { ErrorBlock, LoadingBlock } from '../../components/state'
 import { ScheduleTag } from '../../components/time'
 import { useLocale } from '../../locale'
 import { useSession } from '../../session'
+import { usePageTitle } from '../../title'
 import { problemCode, problemLabel } from '../../utils/format'
 import { AssignmentFormFields } from './form'
 import type { AssignmentFormValues } from './form'
@@ -38,6 +39,7 @@ export function AssignmentDetailPage() {
     queryFn: () => apiData(api.GET('/api/problem-state', { params: { query: { ids: problemIds, assignment: id } } })),
     enabled: Number.isFinite(id) && problemIds.length > 0
   })
+  usePageTitle(query.data?.assignment.title)
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }

@@ -12,7 +12,7 @@
 - Check `https://ant.design/llms.txt` or the component Markdown docs when using unfamiliar antd APIs.
 - Do not use deprecated antd props.
 - Do not specify component `size` by default. Regular page Card headers use default-size controls; `size="small"` Cards, including dense Cards inside modals, use `small` controls consistently.
-- Keep `.appLayout` at `100vw` with horizontal overflow clipped on the document; this intentionally prevents the centered page from changing width when the vertical scrollbar appears.
+- Keep `scrollbar-gutter: stable` on the document with `.appLayout` at `100%`; accept that the reserved gutter uses the page background instead of compensating with `100vw` or JavaScript. Keep horizontal overflow clipped.
 - Keep modal geometry stable with `scrollbar-gutter: stable both-edges` on its scroll container; do not replace it with JavaScript width measurement.
 - Use Tag for row state when table row styling would require custom CSS.
 - When text and Tag share a line, use an explicit center-aligned Flex layout. Remove Tag's default inline-end margin when the parent already supplies a gap.

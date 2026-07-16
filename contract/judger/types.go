@@ -36,6 +36,7 @@ type LangPayload struct {
 type ProblemPayload struct {
 	ID    uint     `json:"id"`
 	Hash  string   `json:"hash"`
+	Size  int64    `json:"size"`
 	Files []string `json:"files"`
 }
 

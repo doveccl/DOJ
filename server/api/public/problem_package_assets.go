@@ -180,7 +180,11 @@ func (api *API) deleteProblemPackageFiles(c echo.Context, id uint, name string) 
 		return echo.NewHTTPError(http.StatusNotFound, "asset not found")
 	}
 	item.Files = files
-	item.Cases = packageCases(item.Files, item.Cases)
+	if len(item.Files) == 0 {
+		item = problemdata.Package{}
+	} else {
+		item.Cases = packageCases(item.Files, item.Cases)
+	}
 	nextJSON, err := item.JSON()
 	if err != nil {
 		return err

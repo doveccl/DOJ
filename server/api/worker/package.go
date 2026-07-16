@@ -118,6 +118,7 @@ func buildPayload(ctx context.Context, tx *gorm.DB, submission models.Submission
 		Problem: judger.ProblemPayload{
 			ID:    problem.ID,
 			Hash:  item.Hash,
+			Size:  item.Size,
 			Files: files,
 		},
 	}, nil

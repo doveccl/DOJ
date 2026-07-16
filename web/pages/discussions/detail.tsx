@@ -13,6 +13,7 @@ import { TagList } from '../../components/tags'
 import { TagSelect } from '../../components/tag-select'
 import { useLocale } from '../../locale'
 import { useSession } from '../../session'
+import { usePageTitle } from '../../title'
 import { formatTime } from '../../utils/format'
 import { limits } from '../../utils/limits'
 
@@ -40,6 +41,7 @@ export function DiscussionDetailPage() {
     queryFn: () => apiData(api.GET('/api/discussion/{id}', { params: { path: { id }, query: { page: commentPage, pageSize: commentPageSize } } })),
     enabled: Number.isFinite(id)
   })
+  usePageTitle(query.data?.discussion.title)
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }

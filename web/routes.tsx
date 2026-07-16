@@ -6,6 +6,7 @@ import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/app-layout'
 import { LoadingBlock } from './components/state'
 import { useLocale } from './locale'
+import { PageTitleProvider, ScrollManager } from './title'
 
 const AdminPage = lazy(() => import('./pages/admin').then((mod) => ({ default: mod.AdminPage })))
 const AssignmentDetailPage = lazy(() => import('./pages/assignments/detail').then((mod) => ({ default: mod.AssignmentDetailPage })))
@@ -34,25 +35,28 @@ function NotFoundPage() {
 export function AppRoutes() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route index element={page(<HomePage />)} />
-          <Route path="problems" element={page(<ProblemsPage />)} />
-          <Route path="problems/:id" element={page(<ProblemDetailPage />)} />
-          <Route path="assignments" element={page(<AssignmentsPage />)} />
-          <Route path="assignments/:id" element={page(<AssignmentDetailPage />)} />
-          <Route path="contests" element={page(<ContestsPage />)} />
-          <Route path="contests/:id" element={page(<ContestDetailPage />)} />
-          <Route path="discussion" element={page(<DiscussionsPage />)} />
-          <Route path="discussion/:id" element={page(<DiscussionDetailPage />)} />
-          <Route path="rank" element={page(<RankPage />)} />
-          <Route path="users/:name" element={page(<UserPage />)} />
-          <Route path="submissions" element={page(<SubmissionsPage />)} />
-          <Route path="submissions/:id" element={page(<SubmissionDetailPage />)} />
-          <Route path="admin" element={page(<AdminPage />)} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Route>
-      </Routes>
+      <PageTitleProvider>
+        <ScrollManager />
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route index element={page(<HomePage />)} />
+            <Route path="problems" element={page(<ProblemsPage />)} />
+            <Route path="problems/:id" element={page(<ProblemDetailPage />)} />
+            <Route path="assignments" element={page(<AssignmentsPage />)} />
+            <Route path="assignments/:id" element={page(<AssignmentDetailPage />)} />
+            <Route path="contests" element={page(<ContestsPage />)} />
+            <Route path="contests/:id" element={page(<ContestDetailPage />)} />
+            <Route path="discussion" element={page(<DiscussionsPage />)} />
+            <Route path="discussion/:id" element={page(<DiscussionDetailPage />)} />
+            <Route path="rank" element={page(<RankPage />)} />
+            <Route path="users/:name" element={page(<UserPage />)} />
+            <Route path="submissions" element={page(<SubmissionsPage />)} />
+            <Route path="submissions/:id" element={page(<SubmissionDetailPage />)} />
+            <Route path="admin" element={page(<AdminPage />)} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Route>
+        </Routes>
+      </PageTitleProvider>
     </BrowserRouter>
   )
 }

@@ -16,7 +16,7 @@ import (
 	jr "github.com/doveccl/doj/judger/runner"
 )
 
-const testZipHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+var testZipHash = testPackageHash
 
 func TestRunOneLeasesExecutesAndPostsResult(t *testing.T) {
 	requireDocker(t)

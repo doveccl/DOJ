@@ -145,7 +145,8 @@ export const en: typeof zh = {
     contextClosed: 'This assignment or contest no longer accepts submissions',
     contextClosedDescription: 'No submission was created. Keep the current source and switch to a practice submission?',
     switchToPractice: 'Switch to practice',
-    queued: 'Submission queued'
+    queued: 'Submission queued',
+    pageTitle: (problem: string) => `Problem ${problem}`
   },
   assignments: {
     title: 'Assignments',
@@ -228,12 +229,13 @@ export const en: typeof zh = {
     viewProblemRecords: 'View problem submissions',
     searchProblem: 'Problem ID',
     allStatus: 'All statuses',
+    pageTitle: (submission: string, problem: string) => `Submission ${submission} · ${problem}`,
     progress: {
       waiting: 'Waiting for a judger',
       leased: 'Judger accepted the task',
       judging: 'Judging',
-      download: 'Downloading problem data',
-      downloaded: (value: string) => `Downloaded ${value}`,
+      download: 'Judger is downloading the problem data package',
+      downloaded: (value: string) => `Judger downloaded ${value}`,
       prepare: 'Preparing runtime',
       compile: 'Compiling',
       judge: 'Running test cases',

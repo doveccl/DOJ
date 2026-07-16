@@ -67,20 +67,33 @@ func prepareCustomJudgePath(ctx context.Context, work string, limits runner.Limi
 }
 
 func copyCachedCustomJudge(cachePath string, output string) error {
+	lock := problemPackageLock(filepath.Dir(cachePath))
+	lock.Lock()
+	defer lock.Unlock()
 	if err := validateCustomJudgeProgram(cachePath, cachePath); err != nil {
 		if os.IsNotExist(err) {
 			return err
 		}
-		return os.Remove(cachePath)
+		if err := os.Remove(cachePath); err != nil {
+			return err
+		}
+		if err := writeProblemCacheSize(filepath.Dir(cachePath)); err != nil {
+			return err
+		}
+		return os.ErrNotExist
 	}
 	return copyFile(cachePath, output, 0o700)
 }
 
 func storeCachedCustomJudge(output string, cachePath string) error {
-	if err := os.MkdirAll(filepath.Dir(cachePath), 0o755); err != nil {
+	dir := filepath.Dir(cachePath)
+	lock := problemPackageLock(dir)
+	lock.Lock()
+	defer lock.Unlock()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(cachePath), ".judge-program-")
+	tmp, err := os.CreateTemp(dir, ".judge-program-")
 	if err != nil {
 		return err
 	}
@@ -90,7 +103,11 @@ func storeCachedCustomJudge(output string, cachePath string) error {
 		_ = os.Remove(tmpPath)
 		return err
 	}
-	return os.Rename(tmpPath, cachePath)
+	if err := os.Rename(tmpPath, cachePath); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	return writeProblemCacheSize(dir)
 }
 
 func compileDockerfileJudge(ctx context.Context, dir string, output string, limits runner.Limits) (runner.CompileResult, error) {

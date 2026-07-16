@@ -28,6 +28,7 @@ import type { ColorMode } from '../color'
 import { useLocale } from '../locale'
 import type { Lang } from '../locale'
 import { useSession } from '../session'
+import { useCurrentPageTitle } from '../title'
 import { limits } from '../utils/limits'
 
 function navItems(text: ReturnType<typeof useLocale>['text'], admin: boolean): MenuProps['items'] {
@@ -60,6 +61,7 @@ export function AppLayout() {
   const { lang, setLang, text } = useLocale()
   const { mode, color, setMode } = useColor()
   const session = useSession()
+  const title = useCurrentPageTitle()
   const [loginOpen, setLoginOpen] = useState(false)
   const site = useQuery({ queryKey: ['site'], queryFn: () => apiData(api.GET('/api/site')) })
   const items = navItems(text, session.admin)
@@ -69,9 +71,12 @@ export function AppLayout() {
   const contentRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
-    contentRef.current?.focus()
-    document.title = pageTitle(location.pathname, text, siteName)
-  }, [location.pathname, siteName, text])
+    document.title = pageTitle(location.pathname, text, siteName, title)
+  }, [location.pathname, siteName, text, title])
+
+  useEffect(() => {
+    contentRef.current?.focus({ preventScroll: true })
+  }, [location.key])
 
   const languageItems: MenuProps['items'] = [
     { key: 'zh', label: text.prefs.chinese },
@@ -195,7 +200,10 @@ export function AppLayout() {
   )
 }
 
-function pageTitle(pathname: string, text: ReturnType<typeof useLocale>['text'], siteName: string) {
+function pageTitle(pathname: string, text: ReturnType<typeof useLocale>['text'], siteName: string, page: string) {
+  if (page) {
+    return `${page} · ${siteName}`
+  }
   const section = pathname.split('/')[1]
   const title = section === 'problems' ? text.nav.problems
     : section === 'assignments' ? text.nav.assignments

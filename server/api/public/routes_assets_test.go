@@ -373,6 +373,17 @@ func TestProblemPackageBatchUploadRangeDeleteAndCAS(t *testing.T) {
 	if len(clearedPackage.Data) != 0 || len(clearedPackage.CaseList) != 0 {
 		t.Fatalf("cleared package = %+v", clearedPackage)
 	}
+	var clearedProblem models.Problem
+	if err := db.First(&clearedProblem, 1000).Error; err != nil {
+		t.Fatal(err)
+	}
+	clearedItem, err := problemdata.Parse(clearedProblem.Package)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if clearedItem.Hash != "" || clearedItem.Size != 0 {
+		t.Fatalf("cleared DB package = %+v", clearedItem)
+	}
 	objects, err = store.List(t.Context(), "problems/1000/packages")
 	if err != nil || len(objects) != 1 {
 		t.Fatalf("DB-only clear package objects = %d, %v", len(objects), err)

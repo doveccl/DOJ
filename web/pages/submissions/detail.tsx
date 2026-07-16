@@ -1,5 +1,5 @@
 import { CopyOutlined, ReloadOutlined } from '@ant-design/icons'
-import { Alert, App as AntApp, BorderBeam, Button, Card, Col, Flex, Popconfirm, Progress, Row, Space, Spin, Switch, Table, Typography } from 'antd'
+import { Alert, App as AntApp, BorderBeam, Button, Card, Col, Flex, Popconfirm, Row, Space, Switch, Table, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
@@ -13,7 +13,8 @@ import { ErrorBlock, LoadingBlock } from '../../components/state'
 import { SubmissionStatus } from '../../components/status'
 import { useLocale } from '../../locale'
 import { useSession } from '../../session'
-import { caseCode, formatBytes, formatTime, isLiveSubmissionStatus, memoryText, submissionCode } from '../../utils/format'
+import { usePageTitle } from '../../title'
+import { caseCode, formatBytes, formatTime, isLiveSubmissionStatus, memoryText, problemLabel, submissionCode } from '../../utils/format'
 import './detail.css'
 
 export function SubmissionDetailPage() {
@@ -29,6 +30,7 @@ export function SubmissionDetailPage() {
     enabled: Number.isFinite(id)
   })
   const languages = useQuery({ queryKey: ['languages'], queryFn: () => apiData(api.GET('/api/languages')) })
+  usePageTitle(query.data ? text.submissions.pageTitle(submissionCode(query.data.submission.id), problemLabel(query.data.submission.problemId, query.data.submission.problemTitle)) : undefined)
   const updatePublic = useMutation({
     mutationFn: (value: boolean) => apiData(api.PATCH('/api/submissions/{id}', { params: { path: { id } }, body: { public: value } })),
     onSuccess: (_next, value) => {
@@ -77,6 +79,7 @@ export function SubmissionDetailPage() {
   const languageName = (languages.data ?? []).find((item) => item.id === submission.language)?.name ?? submission.language
   const canUpdatePublic = session.admin || session.name === submission.user
   const judging = isLiveSubmissionStatus(submission.status)
+  const progressLoading = judging ? progressTableLoading(submission.status, query.data.progress, text) : false
   async function copySource() {
     try {
       await navigator.clipboard.writeText(code)
@@ -114,7 +117,6 @@ export function SubmissionDetailPage() {
               }
             >
               <Flex vertical gap={24}>
-                {judging ? <JudgeProgressPanel status={submission.status} progress={query.data.progress} /> : null}
                 {submission.status === 'pending' ? (
                   <Alert type="info" showIcon title={text.submissions.resultHidden} />
                 ) : (
@@ -122,7 +124,7 @@ export function SubmissionDetailPage() {
                     {submission.message ? (
                       <pre className="submissionMessagePreview">{submission.message}</pre>
                     ) : null}
-                    <Table<Case> rowKey="no" columns={caseColumns(text)} dataSource={cases} pagination={false} size="small" scroll={{ x: 620 }} />
+                    <Table<Case> rowKey="no" columns={caseColumns(text)} dataSource={cases} pagination={false} size="small" scroll={{ x: 620 }} loading={progressLoading} />
                   </>
                 )}
               </Flex>
@@ -185,24 +187,6 @@ function ResultCard({ judging, children }: { judging: boolean; children: ReactNo
   return judging ? <BorderBeam>{children}</BorderBeam> : children
 }
 
-function JudgeProgressPanel({ status, progress }: { status: string; progress?: SubmissionDetail['progress'] }) {
-  const { text } = useLocale()
-  const copy = progressCopy(status, progress, text)
-  const percent = progress && progress.total && progress.total > 0 ? clampPercent(progress.done, progress.total) : undefined
-  return (
-    <Flex vertical gap={8} className="judgeProgressPanel">
-      <Flex align="center" justify="space-between" gap={12} wrap>
-        <Space size={8}>
-          {percent === undefined ? <Spin size="small" /> : null}
-          <Typography.Text strong>{copy.title}</Typography.Text>
-        </Space>
-        {copy.detail ? <Typography.Text type="secondary">{copy.detail}</Typography.Text> : null}
-      </Flex>
-      {percent === undefined ? null : <Progress percent={percent} size="small" showInfo={false} status="active" />}
-    </Flex>
-  )
-}
-
 function progressCopy(status: string, progress: SubmissionDetail['progress'] | undefined, text: ReturnType<typeof useLocale>['text']) {
   if (!progress) {
     return { title: status === 'queued' ? text.submissions.progress.waiting : text.submissions.progress.judging }
@@ -228,6 +212,16 @@ function progressCopy(status: string, progress: SubmissionDetail['progress'] | u
       return { title: text.submissions.progress.upload }
     default:
       return { title: text.submissions.progress.judging }
+  }
+}
+
+function progressTableLoading(status: string, progress: SubmissionDetail['progress'] | undefined, text: ReturnType<typeof useLocale>['text']) {
+  const copy = progressCopy(status, progress, text)
+  const percent = progress && progress.total && progress.total > 0 ? clampPercent(progress.done, progress.total) : undefined
+  return {
+    spinning: true,
+    percent,
+    description: copy.detail ?? copy.title
   }
 }
 

@@ -224,6 +224,12 @@ func makeCaseWork(work string, caseID string) (string, error) {
 	if err := os.MkdirAll(root, 0o700); err != nil {
 		return "", err
 	}
+	if err := os.Chmod(work, 0o711); err != nil {
+		return "", err
+	}
+	if err := os.Chmod(root, 0o711); err != nil {
+		return "", err
+	}
 	return os.MkdirTemp(root, "doj-case-"+safeCaseID(caseID)+"-")
 }
 

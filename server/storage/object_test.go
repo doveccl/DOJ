@@ -80,6 +80,29 @@ func TestParseS3Storage(t *testing.T) {
 	}
 }
 
+func TestNewFromEnvCachesS3StoresByURL(t *testing.T) {
+	t.Setenv("STORAGE", "https://ak:sk@s3.example.com/doj?lookup=dns")
+	first, err := NewFromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := NewFromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.(s3Store).client != second.(s3Store).client {
+		t.Fatal("same S3 STORAGE should reuse client")
+	}
+	t.Setenv("STORAGE", "https://ak:sk@s3.example.com/other?lookup=dns")
+	third, err := NewFromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.(s3Store).client == third.(s3Store).client {
+		t.Fatal("different S3 STORAGE should not reuse client")
+	}
+}
+
 func TestLocalStore(t *testing.T) {
 	root := t.TempDir()
 	store := localStore{root: root}
