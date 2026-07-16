@@ -233,14 +233,14 @@ export const en: typeof zh = {
     progress: {
       waiting: 'Waiting for a judger',
       leased: 'Judger accepted the task',
-      judging: 'Judger is judging',
+      judging: 'Judging',
       download: 'Judger is downloading problem data',
       downloaded: (value: string) => `Judger downloaded ${value}`,
-      prepare: 'Judger is preparing the runtime',
-      compile: 'Judger is compiling',
-      judge: 'Judger is running test cases',
-      cases: (done: number, total: number) => `Judger finished ${done} / ${total} cases`,
-      upload: 'Judger is submitting the result'
+      prepare: 'Preparing runtime',
+      compile: 'Compiling',
+      judge: 'Running test cases',
+      cases: (done: number, total: number) => `Finished ${done} / ${total} cases`,
+      upload: 'Submitting judge result'
     },
     statuses: {
       pending: 'Pending',
