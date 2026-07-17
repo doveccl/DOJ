@@ -101,13 +101,8 @@ func TestRequestViewerIsLoadedOncePerRequest(t *testing.T) {
 
 func TestUsernamePreservesCaseAndMatchesCaseInsensitively(t *testing.T) {
 	db := testWebDB(t)
-	if err := settings.Save(db, settings.Settings{
-		SiteName:                "DOJ",
-		AllowRegistration:       true,
-		AllowGuestAccess:        true,
-		DefaultSubmissionPublic: false,
-		Notice:                  "",
-	}); err != nil {
+	allowed := true
+	if _, err := settings.Update(db, settings.Patch{AllowRegistration: &allowed, AllowGuestAccess: &allowed}); err != nil {
 		t.Fatalf("enable registration: %v", err)
 	}
 	e := echo.New()

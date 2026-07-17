@@ -131,8 +131,8 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 	if err := db.Create(&admin).Error; err != nil {
 		t.Fatalf("create admin: %v", err)
 	}
-	visible := models.Problem{ID: 1000, Title: "Visible", Tags: datatypes.JSON([]byte(`[]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
-	hidden := models.Problem{ID: 1001, Title: "Hidden", Tags: datatypes.JSON([]byte(`[]`)), Visible: false, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	visible := models.Problem{ID: 1000, Title: "Visible", Tags: datatypes.JSON([]byte(`["visible-tag"]`)), Visible: true, Mode: "default", TimeMS: 1000, MemoryMB: 256}
+	hidden := models.Problem{ID: 1001, Title: "Hidden", Tags: datatypes.JSON([]byte(`["hidden-tag"]`)), Visible: false, Mode: "default", TimeMS: 1000, MemoryMB: 256}
 	if err := db.Create(&visible).Error; err != nil {
 		t.Fatalf("create visible problem: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 		t.Fatalf("decode raw profile: %v", err)
 	}
 	if len(rawProfile.Solved.Items) > 0 {
-		for _, key := range []string{"visible", "mode", "timeMs", "memoryMb", "discussions", "mine", "latest", "submission"} {
+		for _, key := range []string{"tags", "visible", "mode", "timeMs", "memoryMb", "discussions", "mine", "latest", "submission"} {
 			if _, ok := rawProfile.Solved.Items[0][key]; ok {
 				t.Fatalf("profile solved problem should not include list-only field %q: %+v", key, rawProfile.Solved.Items[0])
 			}
@@ -236,6 +236,11 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 	if len(studentAssignment.Problems) != 2 || studentAssignment.Problems[0].Sort != "A" || studentAssignment.Problems[1].Sort != "B" {
 		t.Fatalf("student assignment should expose collection problem order: %+v", studentAssignment.Problems)
 	}
+	for _, problem := range studentAssignment.Problems {
+		if len(problem.Tags) != 0 {
+			t.Fatalf("unfinished contest tags leaked through assignment: %+v", studentAssignment.Problems)
+		}
+	}
 	if studentAssignment.Assignment.Done != 2 || studentAssignment.Assignment.Total != 2 {
 		t.Fatalf("student assignment progress should include hidden problems in aggregate stats: %+v", studentAssignment.Assignment)
 	}
@@ -252,6 +257,10 @@ func TestHiddenProblemReferencesDoNotLeakFromDatabaseProfilesAndContexts(t *test
 	}
 	if len(contestDetail.Problems) != 2 || contestDetail.Problems[0].Sort != "A" || contestDetail.Problems[1].Sort != "B" {
 		t.Fatalf("guest contest should expose collection problem order: %+v", contestDetail.Problems)
+	}
+	adminAssignment := decodeJSON[contract.AssignmentDetail](t, requestWithCookies(e, http.MethodGet, "/api/assignments/"+strconv.FormatUint(uint64(assignment.ID), 10), databaseSession(t, db, admin.ID), nil))
+	if len(adminAssignment.Problems) != 2 || len(adminAssignment.Problems[0].Tags) != 1 || len(adminAssignment.Problems[1].Tags) != 1 {
+		t.Fatalf("admin assignment should retain problem tags: %+v", adminAssignment.Problems)
 	}
 
 	adminProfileRes := requestWithCookies(e, http.MethodGet, "/api/users/student", databaseSession(t, db, admin.ID), nil)

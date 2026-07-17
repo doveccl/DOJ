@@ -145,7 +145,7 @@ func (api *API) uploadProblemPackageFiles(c echo.Context, id uint, section strin
 	if err := api.compareAndSwapPackage(c, id, baseJSON, nextJSON); err != nil {
 		return err
 	}
-	assets, err := api.syncProblemPackage(c, id)
+	assets, err := api.problemPackageFromDB(c.Request().Context(), id)
 	if err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func (api *API) deleteProblemPackageFiles(c echo.Context, id uint, name string) 
 	if err := api.compareAndSwapPackage(c, id, baseJSON, nextJSON); err != nil {
 		return err
 	}
-	assets, err := api.syncProblemPackage(c, id)
+	assets, err := api.problemPackageFromDB(c.Request().Context(), id)
 	if err != nil {
 		return err
 	}
@@ -248,7 +248,7 @@ func (api *API) updateProblemCaseScore(c echo.Context) error {
 	if err := api.compareAndSwapPackage(c, id, baseJSON, nextJSON); err != nil {
 		return err
 	}
-	assets, err := api.syncProblemPackage(c, id)
+	assets, err := api.problemPackageFromDB(c.Request().Context(), id)
 	if err != nil {
 		return err
 	}

@@ -187,27 +187,6 @@ func dockerStartContainer(ctx context.Context, id string) error {
 	return err
 }
 
-func dockerWaitContainer(ctx context.Context, id string) (int, error) {
-	cli, err := newDockerClient()
-	if err != nil {
-		return 0, err
-	}
-	defer cli.Close()
-
-	wait := cli.ContainerWait(ctx, id, client.ContainerWaitOptions{Condition: dockercontainer.WaitConditionNotRunning})
-	select {
-	case err := <-wait.Error:
-		if err != nil {
-			return 0, err
-		}
-		return 0, fmt.Errorf("docker wait ended without a status")
-	case status := <-wait.Result:
-		return int(status.StatusCode), nil
-	case <-ctx.Done():
-		return 0, ctx.Err()
-	}
-}
-
 func dockerRemoveContainer(ctx context.Context, id string) {
 	cleanupCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()

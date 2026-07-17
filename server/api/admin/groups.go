@@ -127,10 +127,6 @@ func (api *API) deleteGroup(c echo.Context) error {
 	return c.JSON(http.StatusOK, members)
 }
 
-func (api *API) groups() ([]Group, error) {
-	return api.searchGroups("", nil, 200)
-}
-
 func (api *API) searchGroups(q string, includeIDs []uint, limit int) ([]Group, error) {
 	var rows []models.Group
 	query := api.db.Order("id asc").Limit(limit)

@@ -193,10 +193,6 @@ func (api *API) userByName(name string) (models.User, error) {
 	return row, nil
 }
 
-func (api *API) users() ([]User, error) {
-	return api.searchUsers("", nil, 200)
-}
-
 func (api *API) searchUsers(q string, includeIDs []uint, limit int) ([]User, error) {
 	var rows []models.User
 	query := api.db.Order("id asc").Limit(limit)

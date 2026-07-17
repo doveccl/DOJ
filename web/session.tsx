@@ -6,7 +6,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import { api, apiData, apiEmpty } from './client'
 import type { Me } from './client'
 
-export type Role = 'guest' | 'user' | 'admin'
+type Role = 'guest' | 'user' | 'admin'
 
 type SessionState = {
   role: Role

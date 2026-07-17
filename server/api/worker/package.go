@@ -123,10 +123,3 @@ func buildPayload(ctx context.Context, tx *gorm.DB, submission models.Submission
 		},
 	}, nil
 }
-
-func packageJSON(raw []byte) []byte {
-	if len(raw) == 0 || string(raw) == "null" {
-		return []byte("{}")
-	}
-	return raw
-}

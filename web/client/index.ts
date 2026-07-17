@@ -2,15 +2,11 @@ import createClient from 'openapi-fetch'
 
 import type { components, paths } from './schema'
 
-export type Home = components['schemas']['Home']
 export type HomeProblem = components['schemas']['HomeProblem']
 export type HomeAssignment = components['schemas']['HomeAssignment']
 export type HomeContest = components['schemas']['HomeContest']
-export type Site = components['schemas']['Site']
 export type NoticeUpdate = components['schemas']['NoticeUpdate']
-export type CreatedID = components['schemas']['CreatedID']
-export type Language = components['schemas']['Language']
-export type UploadResult = components['schemas']['UploadResult']
+type UploadResult = components['schemas']['UploadResult']
 export type ProblemListPage = components['schemas']['ProblemListPage']
 export type Problem = components['schemas']['Problem']
 export type ProblemListItem = components['schemas']['ProblemListItem']
@@ -19,33 +15,20 @@ export type ProblemPackage = components['schemas']['ProblemPackage']
 export type PackageFile = components['schemas']['PackageFile']
 export type PackageCase = components['schemas']['PackageCase']
 export type HeatCell = components['schemas']['HeatCell']
-export type Assignment = components['schemas']['Assignment']
 export type AssignmentListItem = components['schemas']['AssignmentListItem']
-export type AssignmentListPage = components['schemas']['AssignmentListPage']
 export type ProblemRef = components['schemas']['ProblemRef']
-export type AssignmentDetail = components['schemas']['AssignmentDetail']
 export type AssignmentProgress = components['schemas']['AssignmentProgress']
 export type Contest = components['schemas']['Contest']
-export type ContestListPage = components['schemas']['ContestListPage']
-export type ContestDetail = components['schemas']['ContestDetail']
-export type Submission = components['schemas']['Submission']
 export type SubmissionListItem = components['schemas']['SubmissionListItem']
-export type SubmissionListPage = components['schemas']['SubmissionListPage']
 export type SubmissionDetail = components['schemas']['SubmissionDetail']
 export type Case = components['schemas']['Case']
 export type RankUser = components['schemas']['RankUser']
-export type RankProblem = components['schemas']['RankProblem']
 export type UserProfile = components['schemas']['UserProfile']
 export type UserActivity = components['schemas']['UserActivity']
 export type SolvedProblem = components['schemas']['SolvedProblem']
 export type SolvedProblemPage = components['schemas']['SolvedProblemPage']
-export type PublicUser = components['schemas']['PublicUser']
-export type UserOption = components['schemas']['UserOption']
 export type Discussion = components['schemas']['Discussion']
-export type DiscussionListPage = components['schemas']['DiscussionListPage']
-export type DiscussionDetail = components['schemas']['DiscussionDetail']
 export type DiscussionCreate = components['schemas']['DiscussionCreate']
-export type Comment = components['schemas']['Comment']
 export type CommentCreate = components['schemas']['CommentCreate']
 export type Me = components['schemas']['Me']
 export type PasswordUpdate = components['schemas']['PasswordUpdate']
@@ -229,11 +212,6 @@ export async function downloadBackup(name: string) {
 		throw new APIError(await response.text(), response.status)
   }
   return response.blob()
-}
-
-export function csrfHeaders() {
-  const token = readCookie('doj_csrf')
-  return token ? { 'X-DOJ-CSRF': token } : undefined
 }
 
 export function problemArchiveDownloadURL(id: number) {

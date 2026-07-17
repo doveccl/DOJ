@@ -194,15 +194,6 @@ func addCSRFHeader(req *http.Request, cookies []*http.Cookie) {
 	}
 }
 
-func findCookie(cookies []*http.Cookie, name string) *http.Cookie {
-	for _, cookie := range cookies {
-		if cookie.Name == name {
-			return cookie
-		}
-	}
-	return nil
-}
-
 func testWebDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	startRedis(t)
@@ -244,14 +235,8 @@ func databaseSession(t *testing.T, db *gorm.DB, userID uint) []*http.Cookie {
 
 func allowGuest(t *testing.T, db *gorm.DB) {
 	t.Helper()
-	site := settings.Settings{
-		SiteName:                "DOJ",
-		AllowRegistration:       false,
-		AllowGuestAccess:        true,
-		DefaultSubmissionPublic: false,
-		Notice:                  "",
-	}
-	if err := settings.Save(db, site); err != nil {
+	allowed := true
+	if _, err := settings.Update(db, settings.Patch{AllowGuestAccess: &allowed}); err != nil {
 		t.Fatalf("enable guest access: %v", err)
 	}
 }
@@ -288,24 +273,6 @@ func hasSolvedProblem(items []contract.SolvedProblem, id uint) bool {
 	return false
 }
 
-func problemByID(items []contract.Problem, id uint) (contract.Problem, bool) {
-	for _, item := range items {
-		if item.ID == id {
-			return item, true
-		}
-	}
-	return contract.Problem{}, false
-}
-
-func hasSubmissionProblem(items []contract.Submission, id uint) bool {
-	for _, item := range items {
-		if item.ProblemID == id {
-			return true
-		}
-	}
-	return false
-}
-
 func hasActivityProblem(items []contract.UserActivity, id uint) bool {
 	for _, item := range items {
 		if item.ProblemID == id {
@@ -331,15 +298,6 @@ func activityBySubmission(items []contract.UserActivity, id uint) (contract.User
 		}
 	}
 	return contract.UserActivity{}, false
-}
-
-func hasSubmission(items []contract.Submission, id uint) bool {
-	for _, item := range items {
-		if item.ID == id {
-			return true
-		}
-	}
-	return false
 }
 
 func userInRank(items []contract.RankUser, user string) bool {
@@ -372,25 +330,6 @@ func countForDate(items []contract.HeatCell, date string) int {
 		}
 	}
 	return 0
-}
-
-func nonzeroHeatmapDays(items []contract.HeatCell) int {
-	count := 0
-	for _, item := range items {
-		if item.Count > 0 {
-			count++
-		}
-	}
-	return count
-}
-
-func zipHasFile(reader *zip.Reader, name string) bool {
-	for _, file := range reader.File {
-		if file.Name == name {
-			return true
-		}
-	}
-	return false
 }
 
 func tinyPNG() []byte {

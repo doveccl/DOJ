@@ -180,14 +180,6 @@ func TestCgroupLinuxHelperProcess(t *testing.T) {
 	}
 }
 
-func entryNames(entries []os.DirEntry) string {
-	names := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		names = append(names, entry.Name())
-	}
-	return strings.Join(names, ",")
-}
-
 func testCgroupRoot(t *testing.T) string {
 	t.Helper()
 	if testing.Short() {

@@ -96,16 +96,6 @@ func Update(db *gorm.DB, req Patch) (Settings, error) {
 	return current, saveChanged(db, changed)
 }
 
-func Save(db *gorm.DB, settings Settings) error {
-	return saveChanged(db, map[string]any{
-		keySiteName:                settings.SiteName,
-		keyAllowRegistration:       settings.AllowRegistration,
-		keyAllowGuestAccess:        settings.AllowGuestAccess,
-		keyDefaultSubmissionPublic: settings.DefaultSubmissionPublic,
-		keyHomeNotice:              settings.Notice,
-	})
-}
-
 func GuestAllowed(db *gorm.DB) bool {
 	settings, err := Get(db)
 	return err == nil && settings.AllowGuestAccess

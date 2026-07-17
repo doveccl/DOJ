@@ -13,14 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-func (api *API) listProblems(c echo.Context, limit int) ([]contract.Problem, error) {
-	return api.findProblems(c, "", "", limit, "id desc")
-}
-
-func (api *API) searchProblems(c echo.Context, q string, tag string, limit int) ([]contract.Problem, error) {
-	return api.findProblems(c, q, tag, limit, "id asc")
-}
-
 func (api *API) searchProblemPage(c echo.Context, q string, tag string, status string, limit int, offset int) ([]contract.Problem, int64, error) {
 	var rows []models.Problem
 	query := api.db.Model(&models.Problem{})
@@ -111,27 +103,6 @@ func (api *API) viewerProblemSubmissionSubquery(viewerID uint) *gorm.DB {
 		Select("1").
 		Where("submissions.problem_id = problems.id").
 		Where("submissions.user_id = ?", viewerID)
-}
-
-func (api *API) findProblems(c echo.Context, q string, tag string, limit int, order string) ([]contract.Problem, error) {
-	var rows []models.Problem
-	query := api.db.Order(order).Limit(limit)
-	if !api.isAdmin(c) {
-		query = api.applyProblemListVisibility(query)
-	}
-	query = applyProblemSearch(query, q)
-	if tag != "" {
-		rawTag, _ := json.Marshal([]string{tag})
-		query = query.Where("tags @> ?::jsonb", string(rawTag))
-	}
-	if err := problemListColumns(query).Find(&rows).Error; err != nil {
-		return nil, err
-	}
-	items := make([]contract.Problem, 0, len(rows))
-	for _, row := range rows {
-		items = append(items, problemView(row))
-	}
-	return items, nil
 }
 
 func applyProblemSearch(query *gorm.DB, q string) *gorm.DB {

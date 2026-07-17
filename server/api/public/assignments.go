@@ -53,7 +53,7 @@ func (api *API) assignments(c echo.Context) error {
 	if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
 		return err
 	}
-	if err := query.Session(&gorm.Session{}).Order("end_at desc").Limit(pageSize).Offset(offset).Find(&rows).Error; err != nil {
+	if err := query.Session(&gorm.Session{}).Select("id", "title", "end_at").Order("end_at desc").Limit(pageSize).Offset(offset).Find(&rows).Error; err != nil {
 		return err
 	}
 	items, err := api.assignmentViews(c, rows, false)
@@ -249,7 +249,7 @@ func (api *API) assignment(c echo.Context) error {
 	if err := api.db.Where("assignment_id = ?", row.ID).Order("sort asc").Find(&links).Error; err != nil {
 		return err
 	}
-	problems, err := api.assignmentProblems(links)
+	problems, err := api.assignmentProblems(c, links)
 	if err != nil {
 		return err
 	}
@@ -324,8 +324,4 @@ func saveAssignmentMembers(tx *gorm.DB, assignmentID uint, users []uint, groups 
 		}
 	}
 	return nil
-}
-
-func assignmentEnded(row models.Assignment) bool {
-	return !time.Now().Before(row.EndAt)
 }

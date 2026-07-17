@@ -1636,7 +1636,6 @@ export interface components {
         SolvedProblem: {
             /** Format: int64 */
             id: number;
-            tags: string[];
             title: string;
         };
         SolvedProblemPage: {

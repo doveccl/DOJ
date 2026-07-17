@@ -1,13 +1,11 @@
 package events
 
 import (
-	"encoding/json"
 	"sync"
 )
 
 type Event struct {
 	Type string
-	Data []byte
 }
 
 type Broker struct {
@@ -37,13 +35,8 @@ func (broker *Broker) Subscribe() (<-chan Event, func()) {
 	}
 }
 
-func (broker *Broker) Publish(kind string, data any) {
-	payload, err := json.Marshal(data)
-	if err != nil {
-		payload = []byte("{}")
-	}
-	event := Event{Type: kind, Data: payload}
-
+func (broker *Broker) Publish(kind string) {
+	event := Event{Type: kind}
 	broker.mu.RLock()
 	defer broker.mu.RUnlock()
 	for ch := range broker.subscribers {
@@ -55,9 +48,9 @@ func (broker *Broker) Publish(kind string, data any) {
 }
 
 func SubmissionChanged() {
-	Default.Publish("submission", map[string]string{"changed": "submission"})
+	Default.Publish("submission")
 }
 
 func SubmissionProgressChanged() {
-	Default.Publish("submission-progress", map[string]string{"changed": "submission-progress"})
+	Default.Publish("submission-progress")
 }

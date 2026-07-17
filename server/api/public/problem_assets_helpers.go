@@ -4,16 +4,13 @@ import (
 	"archive/zip"
 	"context"
 	"fmt"
-	"github.com/doveccl/doj/server/cache"
 	problemdata "github.com/doveccl/doj/server/problem"
 	"github.com/doveccl/doj/server/storage"
 	"io"
 	"net/http"
 	"path"
 	"sort"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/doveccl/doj/contract/cases"
 	contract "github.com/doveccl/doj/contract/web"
@@ -21,25 +18,20 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func (api *API) syncProblemPackage(c echo.Context, id uint) (contract.ProblemPackage, error) {
-	pkg, err := api.problemPackageFromDB(c.Request().Context(), id)
-	if err != nil {
-		return contract.ProblemPackage{}, err
-	}
-	api.cacheProblemPackage(c.Request().Context(), id, pkg)
-	return pkg, nil
-}
-
 func (api *API) problemPackageFromDB(ctx context.Context, id uint) (contract.ProblemPackage, error) {
 	var row models.Problem
-	if err := api.db.WithContext(ctx).First(&row, id).Error; err != nil {
+	if err := api.db.WithContext(ctx).Select("package").First(&row, id).Error; err != nil {
 		return contract.ProblemPackage{}, err
 	}
-	item, err := problemdata.Parse(row.Package)
+	return problemPackageView(row.Package)
+}
+
+func problemPackageView(raw []byte) (contract.ProblemPackage, error) {
+	item, err := problemdata.Parse(raw)
 	if err != nil {
 		return contract.ProblemPackage{}, err
 	}
-	result := contract.ProblemPackage{Version: problemdata.ETag(packageJSON(row.Package))}
+	result := contract.ProblemPackage{Version: problemdata.ETag(packageJSON(raw))}
 	for _, file := range item.Files {
 		view := contract.PackageFile{Key: file.Path, Name: strings.TrimPrefix(strings.TrimPrefix(file.Path, "data/"), "judge/"), Size: file.Size}
 		switch {
@@ -63,28 +55,6 @@ func packageJSON(raw []byte) []byte {
 		return []byte("{}")
 	}
 	return raw
-}
-
-func (api *API) problemPackageCached(ctx context.Context, id uint) (contract.ProblemPackage, error) {
-	var cached contract.ProblemPackage
-	found, err := cache.Get(ctx, problemPackageCacheKey(id), &cached)
-	if err == nil && found {
-		return cached, nil
-	}
-	pkg, err := api.problemPackageFromDB(ctx, id)
-	if err != nil {
-		return contract.ProblemPackage{}, err
-	}
-	api.cacheProblemPackage(ctx, id, pkg)
-	return pkg, nil
-}
-
-func (api *API) cacheProblemPackage(ctx context.Context, id uint, pkg contract.ProblemPackage) {
-	_ = cache.Set(ctx, problemPackageCacheKey(id), pkg, time.Minute)
-}
-
-func problemPackageCacheKey(id uint) string {
-	return "doj:problem:" + strconv.FormatUint(uint64(id), 10) + ":package"
 }
 
 func writeProblemStatementZipFile(writer *zip.Writer, statement string) error {

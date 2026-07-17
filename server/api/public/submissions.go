@@ -141,19 +141,26 @@ func (api *API) submit(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	if assignmentID == nil && contestID == nil && !user.Admin && !api.problemVisibleInList(problem) {
-		allowed := api.problemInEndedContest(problem.ID)
-		if !allowed {
-			allowed, err = api.problemInAssignmentForUser(problem.ID, user.ID, true)
-			if err != nil {
-				return err
+	if assignmentID == nil && contestID == nil && !user.Admin {
+		contests, err := api.problemContestState(problem.ID)
+		if err != nil {
+			return err
+		}
+		visible := problem.Visible && !contests.unfinished
+		if !visible {
+			allowed := contests.ended && !contests.unfinished
+			if !allowed {
+				allowed, err = api.problemInAssignmentForUser(problem.ID, user.ID, true)
+				if err != nil {
+					return err
+				}
+			}
+			if !allowed {
+				return echo.NewHTTPError(http.StatusNotFound, "problem not found")
 			}
 		}
-		if !allowed {
-			return echo.NewHTTPError(http.StatusNotFound, "problem not found")
-		}
 	}
-	if err := api.validateProblemReadyForSubmit(c.Request().Context(), problem); err != nil {
+	if err := validateProblemReadyForSubmit(problem); err != nil {
 		return err
 	}
 	row := models.Submission{
@@ -186,8 +193,8 @@ func (api *API) submit(c echo.Context) error {
 	return c.JSON(http.StatusCreated, contract.CreatedID{ID: row.ID})
 }
 
-func (api *API) validateProblemReadyForSubmit(ctx context.Context, problem models.Problem) error {
-	pkg, err := api.problemPackageCached(ctx, problem.ID)
+func validateProblemReadyForSubmit(problem models.Problem) error {
+	pkg, err := problemPackageView(problem.Package)
 	if err != nil {
 		return err
 	}

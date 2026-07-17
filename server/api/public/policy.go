@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	contract "github.com/doveccl/doj/contract/web"
 	"github.com/doveccl/doj/models"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -40,13 +41,11 @@ func (api *API) requireProblemVisible(c echo.Context, id uint) error {
 }
 
 func (api *API) problemVisibleInDetail(c echo.Context, problem models.Problem) (bool, error) {
-	if api.problemVisibleInList(problem) {
-		return true, nil
+	contests, err := api.problemContestState(problem.ID)
+	if err != nil {
+		return false, err
 	}
-	if api.problemInRunningContest(problem.ID) {
-		return true, nil
-	}
-	if api.problemInEndedContest(problem.ID) {
+	if contests.running || !contests.unfinished && (problem.Visible || contests.ended) {
 		return true, nil
 	}
 	if api.role(c) == "guest" {
@@ -82,57 +81,58 @@ func (api *API) problemInAssignmentForUser(problemID uint, userID uint, endedOnl
 	return false, nil
 }
 
-func (api *API) problemVisibleInList(problem models.Problem) bool {
-	if !problem.Visible {
-		return false
-	}
-	return !api.problemInUnfinishedContest(problem.ID)
-}
-
 func (api *API) applyProblemListVisibility(query *gorm.DB) *gorm.DB {
 	return query.Where(problemListVisibilitySQL, true, time.Now())
 }
 
-func (api *API) problemInUnfinishedContest(problemID uint) bool {
-	var count int64
-	err := api.db.Model(&models.ContestProblem{}).
-		Joins("JOIN contests ON contests.id = contest_problems.contest_id").
-		Where("contest_problems.problem_id = ? AND contests.deleted_at IS NULL AND contests.end_at > ?", problemID, time.Now()).
-		Count(&count).Error
-	return err == nil && count > 0
+type problemContestStatus struct {
+	unfinished bool
+	running    bool
+	ended      bool
 }
 
-func (api *API) problemVisibleForStats(c echo.Context, id uint) (bool, error) {
-	var problem models.Problem
-	if err := api.db.First(&problem, id).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return false, nil
-		}
-		return false, err
+func (api *API) problemContestState(problemID uint) (problemContestStatus, error) {
+	var rows []models.Contest
+	if err := api.db.Model(&models.Contest{}).
+		Select("contests.start_at", "contests.end_at").
+		Joins("JOIN contest_problems ON contest_problems.contest_id = contests.id").
+		Where("contest_problems.problem_id = ?", problemID).
+		Find(&rows).Error; err != nil {
+		return problemContestStatus{}, err
 	}
-	return api.problemVisibleInDetail(c, problem)
-}
-
-func (api *API) problemInRunningContest(problemID uint) bool {
-	var count int64
 	now := time.Now()
-	err := api.db.Model(&models.ContestProblem{}).
-		Joins("JOIN contests ON contests.id = contest_problems.contest_id").
-		Where("contest_problems.problem_id = ? AND contests.deleted_at IS NULL AND contests.start_at <= ? AND contests.end_at > ?", problemID, now, now).
-		Count(&count).Error
-	return err == nil && count > 0
+	status := problemContestStatus{}
+	for _, row := range rows {
+		if !now.Before(row.EndAt) {
+			status.ended = true
+			continue
+		}
+		status.unfinished = true
+		if !now.Before(row.StartAt) {
+			status.running = true
+		}
+	}
+	return status, nil
 }
 
-func (api *API) problemInEndedContest(problemID uint) bool {
-	if api.problemInUnfinishedContest(problemID) {
-		return false
+func (api *API) hideUnfinishedProblemTags(c echo.Context, items []contract.Problem) error {
+	if api.isAdmin(c) || len(items) == 0 {
+		return nil
 	}
-	var count int64
-	err := api.db.Model(&models.ContestProblem{}).
-		Joins("JOIN contests ON contests.id = contest_problems.contest_id").
-		Where("contest_problems.problem_id = ? AND contests.deleted_at IS NULL AND contests.end_at <= ?", problemID, time.Now()).
-		Count(&count).Error
-	return err == nil && count > 0
+	ids := make([]uint, 0, len(items))
+	for _, item := range items {
+		ids = append(ids, item.ID)
+	}
+	unfinished, err := api.unfinishedContestProblemSet(uniqueUint(ids))
+	if err != nil {
+		return err
+	}
+	for index := range items {
+		if unfinished[items[index].ID] {
+			items[index].Tags = []string{}
+		}
+	}
+	return nil
 }
 
 type submissionView struct {

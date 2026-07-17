@@ -1,7 +1,6 @@
 package events
 
 import (
-	"strings"
 	"testing"
 	"time"
 )
@@ -9,11 +8,11 @@ import (
 func TestBrokerDeliversAndUnsubscribes(t *testing.T) {
 	broker := NewBroker()
 	ch, unsubscribe := broker.Subscribe()
-	broker.Publish("submission", map[string]string{"changed": "submission"})
+	broker.Publish("submission")
 
 	select {
 	case event := <-ch:
-		if event.Type != "submission" || string(event.Data) == "" {
+		if event.Type != "submission" {
 			t.Fatalf("bad event: %+v", event)
 		}
 	case <-time.After(time.Second):
@@ -21,7 +20,7 @@ func TestBrokerDeliversAndUnsubscribes(t *testing.T) {
 	}
 
 	unsubscribe()
-	broker.Publish("submission", map[string]string{"changed": "submission"})
+	broker.Publish("submission")
 
 	select {
 	case _, ok := <-ch:
@@ -44,19 +43,14 @@ func TestSubmissionEventsAreLightweight(t *testing.T) {
 
 	SubmissionChanged()
 	got := readEvent(t, ch)
-	if got.Type != "submission" || string(got.Data) != `{"changed":"submission"}` {
-		t.Fatalf("submission event should only invalidate queries: %+v data=%s", got, got.Data)
-	}
-	for _, field := range []string{"status", "score", "timeMs", "memoryKb", "message", "case", "progress", "code"} {
-		if strings.Contains(string(got.Data), field) {
-			t.Fatalf("submission event leaked result field %q: %s", field, got.Data)
-		}
+	if got.Type != "submission" {
+		t.Fatalf("submission event should only invalidate queries: %+v", got)
 	}
 
 	SubmissionProgressChanged()
 	got = readEvent(t, ch)
-	if got.Type != "submission-progress" || string(got.Data) != `{"changed":"submission-progress"}` {
-		t.Fatalf("submission progress event should only invalidate queries: %+v data=%s", got, got.Data)
+	if got.Type != "submission-progress" {
+		t.Fatalf("submission progress event should only invalidate queries: %+v", got)
 	}
 }
 

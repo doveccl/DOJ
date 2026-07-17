@@ -35,7 +35,7 @@ func (api *API) contests(c echo.Context) error {
 	if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
 		return err
 	}
-	if err := query.Session(&gorm.Session{}).Order("start_at desc").Limit(pageSize).Offset(offset).Find(&rows).Error; err != nil {
+	if err := query.Session(&gorm.Session{}).Select("id", "title", "kind", "start_at", "end_at", "freeze_at").Order("start_at desc").Limit(pageSize).Offset(offset).Find(&rows).Error; err != nil {
 		return err
 	}
 	items, err := api.contestViews(rows, api.isAdmin(c))
@@ -268,7 +268,7 @@ func (api *API) rank(c echo.Context) error {
 		return err
 	}
 	var users []models.User
-	if err := api.db.Order("id asc").Find(&users).Error; err != nil {
+	if err := api.db.Select("id", "name", "bio", "avatar").Order("id asc").Find(&users).Error; err != nil {
 		return err
 	}
 	userIDs := make([]uint, 0, len(users))
@@ -413,11 +413,11 @@ func (api *API) contestProblems(c echo.Context, contest models.Contest, links []
 			continue
 		}
 		item := problemView(problem)
-		if !admin && !contestEnded(contest) {
-			item.Tags = []string{}
-		}
 		item.Sort = link.Sort
 		items = append(items, item)
+	}
+	if err := api.hideUnfinishedProblemTags(c, items); err != nil {
+		return nil, err
 	}
 	return items, nil
 }

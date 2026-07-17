@@ -12,6 +12,7 @@ import (
 func (api *API) contestRank(contest models.Contest, problems []contract.Problem, until *time.Time) ([]contract.RankUser, error) {
 	var rows []models.Submission
 	query := api.db.
+		Select("submissions.user_id", "submissions.problem_id", "submissions.status", "submissions.score", "submissions.created_at").
 		Joins("JOIN users ON users.id = submissions.user_id AND users.deleted_at IS NULL").
 		Where("submissions.contest_id = ?", contest.ID).
 		Order("submissions.created_at asc")
@@ -41,7 +42,7 @@ func (api *API) rankUsers(submissions []models.Submission) (map[uint]models.User
 		values = append(values, id)
 	}
 	var rows []models.User
-	if err := api.db.Where("id IN ?", values).Find(&rows).Error; err != nil {
+	if err := api.db.Select("id", "name", "bio", "avatar").Where("id IN ?", values).Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	users := make(map[uint]models.User, len(rows))

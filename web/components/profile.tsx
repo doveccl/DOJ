@@ -1,9 +1,9 @@
 import { CheckCircleOutlined, CodeOutlined, MessageOutlined, UserOutlined } from '@ant-design/icons'
-import { Avatar, Card, Col, Flex, Pagination, Row, Space, Statistic, Table, Timeline, Typography } from 'antd'
+import { Avatar, Card, Col, Flex, Pagination, Row, Space, Statistic, Timeline, Typography } from 'antd'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
-import type { SolvedProblem, SolvedProblemPage, UserActivity, UserProfile } from '../client'
+import type { SolvedProblemPage, UserActivity, UserProfile } from '../client'
 import { useLocale } from '../locale'
 import type { Lang } from '../locale'
 import { formatShortTime, formatTime } from '../utils/format'
@@ -11,7 +11,6 @@ import { ProblemLink } from './entity'
 import { YearHeatmap } from './heatmap'
 import { EmptyBlock } from './state'
 import { SubmissionStatus } from './status'
-import { TagList } from './tags'
 import '../styles/profile.css'
 
 type ProfileOverviewProps = {
@@ -159,25 +158,9 @@ function SolvedCard({ page, onPageChange }: { page: SolvedProblemPage; onPageCha
         <EmptyBlock />
       ) : (
         <Flex vertical gap={12}>
-          <Table<SolvedProblem>
-            size="small"
-            showHeader={false}
-            pagination={false}
-            rowKey="id"
-            dataSource={problems}
-            scroll={{ x: 360 }}
-            columns={[
-              {
-                width: 228,
-                ellipsis: { showTitle: false },
-                render: (_, row) => <ProblemLink id={row.id} title={row.title} />
-              },
-              {
-                align: 'right',
-                render: (_, row) => <TagList tags={row.tags} />
-              }
-            ]}
-          />
+          <Flex vertical gap={8}>
+            {problems.map((problem) => <ProblemLink key={problem.id} id={problem.id} title={problem.title} />)}
+          </Flex>
           {page.total > page.pageSize ? (
             <Flex justify="end">
               <Pagination size="small" current={page.page} pageSize={page.pageSize} total={page.total} showSizeChanger={false} onChange={onPageChange} />

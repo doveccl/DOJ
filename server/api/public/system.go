@@ -76,7 +76,7 @@ func (api *API) events(c echo.Context) error {
 			if !ok {
 				return nil
 			}
-			if err := writeSSE(response.Writer, event.Type, event.Data); err != nil {
+			if err := writeSSE(response.Writer, event.Type, []byte("{}")); err != nil {
 				return nil
 			}
 			flusher.Flush()

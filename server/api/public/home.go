@@ -2,7 +2,6 @@ package public
 
 import (
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/doveccl/doj/contract/limits"
@@ -166,19 +165,10 @@ func (api *API) updateNotice(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
-	if strings.TrimSpace(req.Content) == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "notice content is required")
-	}
 	if err := validateTextBytes(req.Content, limits.MaxMarkdownBytes, "notice content is too large"); err != nil {
 		return err
 	}
-
-	site, err := settings.Get(api.db)
-	if err != nil {
-		return err
-	}
-	site.Notice = req.Content
-	if err := settings.Save(api.db, site); err != nil {
+	if _, err := settings.Update(api.db, settings.Patch{Notice: &req.Content}); err != nil {
 		return err
 	}
 	return api.home(c)

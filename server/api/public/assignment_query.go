@@ -282,7 +282,7 @@ func (api *API) assignmentDoneMap(c echo.Context, ids []uint) (map[uint]int, err
 	return done, nil
 }
 
-func (api *API) assignmentProblems(links []models.AssignmentProblem) ([]contract.Problem, error) {
+func (api *API) assignmentProblems(c echo.Context, links []models.AssignmentProblem) ([]contract.Problem, error) {
 	if len(links) == 0 {
 		return []contract.Problem{}, nil
 	}
@@ -305,6 +305,9 @@ func (api *API) assignmentProblems(links []models.AssignmentProblem) ([]contract
 		item := problemView(problem)
 		item.Sort = link.Sort
 		items = append(items, item)
+	}
+	if err := api.hideUnfinishedProblemTags(c, items); err != nil {
+		return nil, err
 	}
 	return items, nil
 }

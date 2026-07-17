@@ -3,7 +3,6 @@ package public
 import (
 	"archive/zip"
 	"bytes"
-	"context"
 	"fmt"
 	problemdata "github.com/doveccl/doj/server/problem"
 	"github.com/doveccl/doj/server/storage"
@@ -24,7 +23,7 @@ func (api *API) problemPackage(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	pkg, err := api.syncProblemPackage(c, id)
+	pkg, err := api.problemPackageFromDB(c.Request().Context(), id)
 	if err != nil {
 		return err
 	}
@@ -162,24 +161,6 @@ func (api *API) downloadProblemArchive(c echo.Context) error {
 	}
 	if err := writeAssetZipFiles(c.Request().Context(), writer, store, "assets", assets); err != nil {
 		return err
-	}
-	return nil
-}
-
-func (api *API) decorateProblemPackageStats(ctx context.Context, items []contract.Problem) error {
-	if len(items) == 0 {
-		return nil
-	}
-	for index := range items {
-		id := items[index].ID
-		pkg, err := api.problemPackageCached(ctx, id)
-		if err != nil {
-			return err
-		}
-		cases := pkg.Cases
-		dataBytes := pkg.DataBytes
-		items[index].Cases = &cases
-		items[index].DataBytes = &dataBytes
 	}
 	return nil
 }

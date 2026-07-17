@@ -61,13 +61,16 @@ func (api *API) problem(c echo.Context) error {
 	}
 	item := problemView(problem)
 	item.Statement = problemStatement(problem)
-	if !api.isAdmin(c) && api.problemInUnfinishedContest(problem.ID) {
-		item.Tags = []string{}
-	}
 	items := []contract.Problem{item}
-	if err := api.decorateProblemPackageStats(c.Request().Context(), items); err != nil {
+	if err := api.hideUnfinishedProblemTags(c, items); err != nil {
 		return err
 	}
+	pkg, err := problemPackageView(problem.Package)
+	if err != nil {
+		return err
+	}
+	items[0].Cases = &pkg.Cases
+	items[0].DataBytes = &pkg.DataBytes
 	item = items[0]
 	return c.JSON(http.StatusOK, item)
 }

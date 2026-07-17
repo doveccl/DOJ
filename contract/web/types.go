@@ -299,9 +299,8 @@ type UserProfile struct {
 }
 
 type SolvedProblem struct {
-	ID    uint     `json:"id"`
-	Title string   `json:"title"`
-	Tags  []string `json:"tags"`
+	ID    uint   `json:"id"`
+	Title string `json:"title"`
 }
 
 type UserActivity struct {

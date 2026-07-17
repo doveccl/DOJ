@@ -8,9 +8,40 @@ import (
 
 	contract "github.com/doveccl/doj/contract/web"
 	"github.com/doveccl/doj/models"
+	"github.com/doveccl/doj/server/settings"
 	"github.com/labstack/echo/v4"
 	"gorm.io/datatypes"
 )
+
+func TestHomeNoticeCanBeCleared(t *testing.T) {
+	db := testWebDB(t)
+	allowGuest(t, db)
+	admin := models.User{Name: "admin", Mail: "admin@example.com", Auth: "hash", Admin: true}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	enabled := true
+	if _, err := settings.Update(db, settings.Patch{AllowRegistration: &enabled, DefaultSubmissionPublic: &enabled}); err != nil {
+		t.Fatalf("seed settings: %v", err)
+	}
+	e := echo.New()
+	Register(e, db)
+	cookies := databaseSession(t, db, admin.ID)
+	if res := requestJSONWithCookies(e, http.MethodPatch, "/api/home/notice", cookies, `{"content":"notice"}`); res.Code != http.StatusOK {
+		t.Fatalf("set notice got %d body=%s", res.Code, res.Body.String())
+	}
+	res := requestJSONWithCookies(e, http.MethodPatch, "/api/home/notice", cookies, `{"content":""}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("clear notice got %d body=%s", res.Code, res.Body.String())
+	}
+	if home := decodeJSON[contract.Home](t, res); home.Notice != "" {
+		t.Fatalf("notice was not cleared: %q", home.Notice)
+	}
+	site, err := settings.Get(db)
+	if err != nil || !site.AllowRegistration || !site.AllowGuestAccess || !site.DefaultSubmissionPublic {
+		t.Fatalf("notice update changed unrelated settings: %+v err=%v", site, err)
+	}
+}
 
 func TestHomeProblemsUseCompactPayload(t *testing.T) {
 	db := testWebDB(t)

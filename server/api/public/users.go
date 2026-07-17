@@ -250,7 +250,7 @@ func (api *API) solvedProblems(c echo.Context, userID uint, page int, pageSize i
 	if len(problemIDs) == 0 {
 		return contract.Page[contract.SolvedProblem]{Items: []contract.SolvedProblem{}, Page: page, PageSize: pageSize, Total: total}, nil
 	}
-	problemQuery := api.db.Model(&models.Problem{}).Select("id", "title", "tags").Where("id IN ?", problemIDs)
+	problemQuery := api.db.Model(&models.Problem{}).Select("id", "title").Where("id IN ?", problemIDs)
 	var problems []models.Problem
 	if err := problemQuery.Find(&problems).Error; err != nil {
 		return contract.Page[contract.SolvedProblem]{}, err
@@ -265,7 +265,6 @@ func (api *API) solvedProblems(c echo.Context, userID uint, page int, pageSize i
 		items = append(items, contract.SolvedProblem{
 			ID:    problem.ID,
 			Title: problem.Title,
-			Tags:  readTags([]byte(problem.Tags)),
 		})
 	}
 	return contract.Page[contract.SolvedProblem]{Items: items, Page: page, PageSize: pageSize, Total: total}, nil
@@ -283,16 +282,6 @@ func (api *API) userHeatmap(userID uint) ([]contract.HeatCell, error) {
 		counts[row.CreatedAt.Format("2006-01-02")]++
 	}
 	return heatmapFromCounts(counts), nil
-}
-
-func (api *API) userName(id uint) string {
-
-	var user models.User
-	if err := api.db.First(&user, id).Error; err == nil && user.Name != "" {
-		return user.Name
-	}
-
-	return strconv.Itoa(int(id))
 }
 
 func authorName(id uint, users map[uint]models.User) string {
