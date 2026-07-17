@@ -31,6 +31,7 @@ services:
       valkey:
         condition: service_started
     environment:
+      TZ: "Asia/Shanghai"
       DATABASE: "postgres://doj:doj@postgres/doj"
       REDIS: "redis://valkey/0"
       STORAGE: "/storage"
@@ -49,6 +50,8 @@ services:
     image: doveccl/doj:4
     command: ["doj", "judger"]
     restart: unless-stopped
+    environment:
+      TZ: "Asia/Shanghai"
     privileged: true
     pid: host
     cgroup: host

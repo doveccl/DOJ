@@ -1,5 +1,5 @@
 import { CheckCircleOutlined, CodeOutlined, MessageOutlined, UserOutlined } from '@ant-design/icons'
-import { Avatar, Card, Col, Empty, Flex, Pagination, Row, Space, Statistic, Table, Timeline, Typography } from 'antd'
+import { Avatar, Card, Col, Flex, Pagination, Row, Space, Statistic, Table, Timeline, Typography } from 'antd'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -9,6 +9,7 @@ import type { Lang } from '../locale'
 import { formatShortTime, formatTime } from '../utils/format'
 import { ProblemLink } from './entity'
 import { YearHeatmap } from './heatmap'
+import { EmptyBlock } from './state'
 import { SubmissionStatus } from './status'
 import { TagList } from './tags'
 import '../styles/profile.css'
@@ -80,7 +81,7 @@ function ActivityCard({ activities }: { activities: UserActivity[] }) {
   return (
     <Card title={text.user.recent}>
       {activities.length === 0 ? (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        <EmptyBlock />
       ) : (
         <Timeline
           items={activities.map((activity) => ({
@@ -155,7 +156,7 @@ function SolvedCard({ page, onPageChange }: { page: SolvedProblemPage; onPageCha
   return (
     <Card title={text.user.solved}>
       {problems.length === 0 ? (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        <EmptyBlock />
       ) : (
         <Flex vertical gap={12}>
           <Table<SolvedProblem>

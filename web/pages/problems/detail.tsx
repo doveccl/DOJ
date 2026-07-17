@@ -123,6 +123,9 @@ export function ProblemDetailPage() {
       if (!query.data) {
         throw new Error(text.common.emptyResponse)
       }
+      if (!source.trim()) {
+        throw new Error(text.problem.sourceRequired)
+      }
       return apiData(api.POST('/api/submissions', { body: {
         problemId: query.data.id,
         assignmentId: assignmentID,
@@ -454,7 +457,7 @@ export function ProblemDetailPage() {
                   type="primary"
                   icon={<SendOutlined />}
                   loading={submit.isPending}
-                  disabled={source.trim() === '' || lang === ''}
+                  disabled={lang === ''}
                   onClick={() => submit.mutate()}
                 >
                   {text.common.submitCode}

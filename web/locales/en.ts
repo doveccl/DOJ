@@ -140,6 +140,7 @@ export const en: typeof zh = {
     submit: 'Submit',
     language: 'Language',
     noLanguages: 'Configure a language first',
+    sourceRequired: 'Source code is required',
     publicSource: 'Public',
     invalidContext: 'Invalid submission context; reopen the problem from its assignment or contest',
     contextClosed: 'This assignment or contest no longer accepts submissions',

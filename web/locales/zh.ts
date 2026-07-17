@@ -138,6 +138,7 @@ export const zh = {
     submit: '提交',
     language: '语言',
     noLanguages: '请先配置语言',
+    sourceRequired: '请填写源码',
     publicSource: '公开',
     invalidContext: '提交上下文无效，请从对应作业或比赛重新进入题目',
     contextClosed: '当前作业或比赛已不可提交',

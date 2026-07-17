@@ -9,6 +9,8 @@
 ## UI Rules
 
 - Prefer antd native components and documented props over custom CSS.
+- Use antd's default empty state or the shared `EmptyBlock`; add custom empty text only when it explains the cause or next action.
+- Keep submit actions enabled for missing user input and show field or submission validation; disable only while pending or when external state makes the action unavailable.
 - Check `https://ant.design/llms.txt` or the component Markdown docs when using unfamiliar antd APIs.
 - Do not use deprecated antd props.
 - Do not specify component `size` by default. Regular page Card headers use default-size controls; `size="small"` Cards, including dense Cards inside modals, use `small` controls consistently.
