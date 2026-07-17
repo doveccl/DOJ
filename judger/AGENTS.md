@@ -11,6 +11,7 @@
 - Privileged mode with the host cgroup namespace exposes the writable host cgroup hierarchy; do not add an explicit `/sys/fs/cgroup` bind unless a supported Docker engine proves it necessary.
 - Language config comes from the server as a source file name, fixed image, compile command, and run command. User source is written into an isolated source dir; host-side judger compiles in a short-lived container that sees only source and an empty output dir, then runner runs cases in the fixed language container.
 - Server sends resource limits to judger in KB. Judger reports memory in KB.
+- Problem `data/` and `judge/` arrive as one content-addressed ZIP. Verify its SHA-256 before extraction; the expendable LRU cache is `/var/lib/doj/cache/P{id}/{hash}` and is not object storage.
 
 ## Execution Model
 

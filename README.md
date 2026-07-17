@@ -44,6 +44,8 @@ STORAGE=https://access:secret@s3.example.com/bucket?lookup=dns
 
 `lookup=dns` forces virtual-host style bucket URLs. Use it only when your S3-compatible provider requires bucket names in the host.
 
+Problem `data/` and `judge/` files share one content-addressed ZIP at `problems/{id}/packages/{hash}.zip`; its manifest and cases live in the problem row. Public statement assets remain separate under `problems/{id}/assets/`. An omitted case score defaults to 10, and totals are not capped at 100.
+
 When `dist/` exists, the server serves the web app and supports history fallback for frontend routes.
 
 ## Judger
@@ -59,7 +61,7 @@ The judger is Linux-only. It reads:
 
 The default compose judger shares the server container's network namespace, so it connects to `127.0.0.1` and is treated as a local judger. No token is needed for the default compose deployment.
 
-The outer judger container is a deployment wrapper, not a security boundary. It intentionally runs privileged with the host PID and cgroup namespaces and the host Docker socket, which gives it host-root control, so run judgers only on dedicated, disposable machines. With privileged mode and the host cgroup namespace, Docker exposes the host cgroup hierarchy read-write; no explicit `/sys/fs/cgroup` bind is needed. Untrusted source is isolated by the runner language containers and per-case cgroups, not by the outer judger container. Runner binaries live in `/var/lib/doj/bin`, active work in `/var/lib/doj/tasks`, and problem cache in `/var/lib/doj/cache/P{id}`.
+The outer judger container is a deployment wrapper, not a security boundary. It intentionally runs privileged with the host PID and cgroup namespaces and the host Docker socket, which gives it host-root control, so run judgers only on dedicated, disposable machines. With privileged mode and the host cgroup namespace, Docker exposes the host cgroup hierarchy read-write; no explicit `/sys/fs/cgroup` bind is needed. Untrusted source is isolated by the runner language containers and per-case cgroups, not by the outer judger container. Runner binaries live in `/var/lib/doj/bin`, active work in `/var/lib/doj/tasks`, and problem cache in `/var/lib/doj/cache/P{id}/{hash}`.
 
 ## Development
 
@@ -151,6 +153,8 @@ STORAGE=https://access:secret@s3.example.com/bucket?lookup=dns
 
 `lookup=dns` 强制使用 bucket 子域名风格。只有对象存储服务要求 bucket 出现在 host 里时才需要它。
 
+题目的 `data/` 和 `judge/` 文件共用一个内容寻址 ZIP，路径为 `problems/{id}/packages/{hash}.zip`；清单和测试点信息保存在题目行中。题面公开附件独立存放在 `problems/{id}/assets/`。测试点未填写分数时默认 10 分，总分不限制为 100。
+
 存在 `dist/` 时，server 会提供前端静态文件，并支持前端路由的 history fallback。
 
 ## 评测机
@@ -166,7 +170,7 @@ STORAGE=https://access:secret@s3.example.com/bucket?lookup=dns
 
 默认 compose 里的评测机会共享 server 容器的网络命名空间，因此它连接 `127.0.0.1`，会被 server 视为本地评测机。默认 compose 部署不需要 token。
 
-外层评测机容器只是部署包装，不是安全边界。它会以 privileged 模式使用宿主机 PID/cgroup namespace 和 Docker socket，等同拥有宿主机 root 控制权，因此只应运行在专用、可随时重建的机器上。privileged 模式配合宿主机 cgroup namespace 时，Docker 已会以可写方式暴露宿主机 cgroup 层级，无需显式映射 `/sys/fs/cgroup`。不受信源码由 runner 语言容器和逐用例 cgroup 隔离，而不是由外层评测机容器隔离。runner 二进制放在 `/var/lib/doj/bin`，当前评测工作目录放在 `/var/lib/doj/tasks`，题目缓存放在 `/var/lib/doj/cache/P{id}`。
+外层评测机容器只是部署包装，不是安全边界。它会以 privileged 模式使用宿主机 PID/cgroup namespace 和 Docker socket，等同拥有宿主机 root 控制权，因此只应运行在专用、可随时重建的机器上。privileged 模式配合宿主机 cgroup namespace 时，Docker 已会以可写方式暴露宿主机 cgroup 层级，无需显式映射 `/sys/fs/cgroup`。不受信源码由 runner 语言容器和逐用例 cgroup 隔离，而不是由外层评测机容器隔离。runner 二进制放在 `/var/lib/doj/bin`，当前评测工作目录放在 `/var/lib/doj/tasks`，题目缓存放在 `/var/lib/doj/cache/P{id}/{hash}`。
 
 ## 本地开发
 

@@ -14,6 +14,7 @@
 - Do not specify component `size` by default. Regular page Card headers use default-size controls; `size="small"` Cards, including dense Cards inside modals, use `small` controls consistently.
 - Keep `scrollbar-gutter: stable` on the document with `.appLayout` at `100%`; accept that the reserved gutter uses the page background instead of compensating with `100vw` or JavaScript. Keep horizontal overflow clipped.
 - Keep modal geometry stable with `scrollbar-gutter: stable both-edges` on its scroll container; do not replace it with JavaScript width measurement.
+- Route changes focus the main content with `preventScroll`. Reset scroll for non-POP navigation and leave browser back/forward restoration alone; do not maintain a second scroll-history store.
 - Use Tag for row state when table row styling would require custom CSS.
 - When text and Tag share a line, use an explicit center-aligned Flex layout. Remove Tag's default inline-end margin when the parent already supplies a gap.
 - Free-form tags from problem/discussion/user data must render through the shared entity tag component so long tags get antd ellipsis and tooltip behavior consistently.

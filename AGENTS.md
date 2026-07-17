@@ -35,6 +35,8 @@
 - A fresh database intentionally seeds `admin/admin`. The API derives the default-password warning from the password hash, and the UI keeps it visible until the password changes.
 - Assignment and contest descriptions live on their database rows and are edited with the rest of the object through one edit action. Their detail header and optional description share one Card; omit the Card body when the description is empty.
 - Do not store S3/object keys in the database when the key can be derived from a business id.
+- Problem `data/` and `judge/` files share one content-addressed ZIP at `problems/{id}/packages/{hash}.zip`. `problems.package` JSONB is its manifest: ZIP hash/size, file offsets, and cases. Public statement assets stay under `problems/{id}/assets/`.
+- A missing case score means 10; case scores and their total are not capped at 100. Do not eagerly delete replaced package ZIPs because an active lease may still use the old hash; package GC removes unreferenced blobs after its grace period.
 - Deleted rows are not visible to administrators in the product UI; DBA recovery is outside the app.
 
 ## Quality Gate

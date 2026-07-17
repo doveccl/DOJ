@@ -27,6 +27,7 @@
 - `/api/events` only publishes lightweight invalidation signals. Do not put submission status, score, cases, progress, messages, or source in SSE payloads.
 - Assignments are visible only to assigned users/groups and administrators.
 - Context submissions must be written with `assignment_id` / `contest_id`; do not infer context from problem membership.
+- Problem package updates write the new content-addressed ZIP before atomically swapping the JSONB manifest. Keep the compare-and-swap check; failed or replaced blobs are left for package GC rather than deleted in the request path.
 
 ## Judger API Invariants
 
