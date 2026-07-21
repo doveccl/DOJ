@@ -9,6 +9,7 @@ import (
 	"github.com/doveccl/doj/contract/limits"
 	contract "github.com/doveccl/doj/contract/web"
 	"github.com/doveccl/doj/models"
+	"github.com/doveccl/doj/server/events"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
@@ -92,8 +93,19 @@ func (api *API) createDiscussion(c echo.Context) error {
 		UserID:  user.ID,
 		Tags:    rawTags,
 	}
-	if err := api.db.Create(&row).Error; err != nil {
+	notified := false
+	if err := api.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&row).Error; err != nil {
+			return err
+		}
+		var err error
+		notified, err = api.createDiscussionNotifications(tx, user.ID, row, 0, row.Content, "", false)
 		return err
+	}); err != nil {
+		return err
+	}
+	if notified {
+		events.NotificationChanged()
 	}
 	return c.JSON(http.StatusCreated, contract.CreatedID{ID: row.ID})
 }
@@ -113,6 +125,27 @@ func (api *API) discussion(c echo.Context) error {
 		return err
 	}
 	commentsQuery := api.db.Unscoped().Model(&models.Comment{}).Where("discussion_id = ?", row.ID)
+	if value := strings.TrimSpace(c.QueryParam("comment")); value != "" {
+		commentID, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid comment id")
+		}
+		var target models.Comment
+		if err := commentsQuery.Session(&gorm.Session{}).Where("id = ?", commentID).First(&target).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return echo.NewHTTPError(http.StatusNotFound, "comment not found")
+			}
+			return err
+		}
+		var position int64
+		if err := commentsQuery.Session(&gorm.Session{}).
+			Where("(created_at < ? OR (created_at = ? AND id <= ?))", target.CreatedAt, target.CreatedAt, target.ID).
+			Count(&position).Error; err != nil {
+			return err
+		}
+		page = int((position-1)/int64(pageSize)) + 1
+		offset = (page - 1) * pageSize
+	}
 	var total int64
 	if err := commentsQuery.Session(&gorm.Session{}).Count(&total).Error; err != nil {
 		return err
@@ -192,6 +225,11 @@ func (api *API) updateDiscussion(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	actor, err := api.currentUser(c)
+	if err != nil {
+		return err
+	}
+	previousContent := row.Content
 	if req.Title != nil {
 		title := strings.TrimSpace(*req.Title)
 		if title == "" {
@@ -223,8 +261,22 @@ func (api *API) updateDiscussion(c echo.Context) error {
 	if req.Locked != nil {
 		row.Locked = *req.Locked
 	}
-	if err := api.db.Save(&row).Error; err != nil {
+	notified := false
+	if err := api.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(&row).Error; err != nil {
+			return err
+		}
+		if req.Content == nil {
+			return nil
+		}
+		var err error
+		notified, err = api.createDiscussionNotifications(tx, actor.ID, row, 0, row.Content, previousContent, false)
 		return err
+	}); err != nil {
+		return err
+	}
+	if notified {
+		events.NotificationChanged()
 	}
 	return c.JSON(http.StatusOK, contract.CreatedID{ID: row.ID})
 }
@@ -246,8 +298,19 @@ func (api *API) deleteDiscussion(c echo.Context) error {
 	if !user.Admin && row.UserID != user.ID {
 		return echo.NewHTTPError(http.StatusForbidden, "discussion owner required")
 	}
-	if err := api.db.Delete(&row).Error; err != nil {
+	notified := false
+	if err := api.db.Transaction(func(tx *gorm.DB) error {
+		result := tx.Where("discussion_id = ?", row.ID).Delete(&models.Notification{})
+		if result.Error != nil {
+			return result.Error
+		}
+		notified = result.RowsAffected > 0
+		return tx.Delete(&row).Error
+	}); err != nil {
 		return err
+	}
+	if notified {
+		events.NotificationChanged()
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -284,8 +347,19 @@ func (api *API) createComment(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusForbidden, "discussion is locked")
 	}
 	row := models.Comment{DiscussionID: uint(id), UserID: user.ID, Content: req.Content}
-	if err := api.db.Create(&row).Error; err != nil {
+	notified := false
+	if err := api.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&row).Error; err != nil {
+			return err
+		}
+		var err error
+		notified, err = api.createDiscussionNotifications(tx, user.ID, discussion, row.ID, row.Content, "", true)
 		return err
+	}); err != nil {
+		return err
+	}
+	if notified {
+		events.NotificationChanged()
 	}
 	return c.JSON(http.StatusCreated, contract.Comment{ID: row.ID, Author: user.Name, Content: row.Content, CreatedAt: row.CreatedAt})
 }
@@ -316,8 +390,19 @@ func (api *API) deleteComment(c echo.Context) error {
 	if !user.Admin && comment.UserID != user.ID {
 		return echo.NewHTTPError(http.StatusForbidden, "comment owner required")
 	}
-	if err := api.db.Delete(&comment).Error; err != nil {
+	notified := false
+	if err := api.db.Transaction(func(tx *gorm.DB) error {
+		result := tx.Where("discussion_id = ? AND comment_id = ?", discussionID, commentID).Delete(&models.Notification{})
+		if result.Error != nil {
+			return result.Error
+		}
+		notified = result.RowsAffected > 0
+		return tx.Delete(&comment).Error
+	}); err != nil {
 		return err
+	}
+	if notified {
+		events.NotificationChanged()
 	}
 	return c.NoContent(http.StatusNoContent)
 }

@@ -16,6 +16,7 @@ const ContestsPage = lazy(() => import('./pages/contests').then((mod) => ({ defa
 const DiscussionDetailPage = lazy(() => import('./pages/discussions/detail').then((mod) => ({ default: mod.DiscussionDetailPage })))
 const DiscussionsPage = lazy(() => import('./pages/discussions').then((mod) => ({ default: mod.DiscussionsPage })))
 const HomePage = lazy(() => import('./pages/home').then((mod) => ({ default: mod.HomePage })))
+const NotificationsPage = lazy(() => import('./pages/notifications').then((mod) => ({ default: mod.NotificationsPage })))
 const ProblemDetailPage = lazy(() => import('./pages/problems/detail').then((mod) => ({ default: mod.ProblemDetailPage })))
 const ProblemsPage = lazy(() => import('./pages/problems').then((mod) => ({ default: mod.ProblemsPage })))
 const RankPage = lazy(() => import('./pages/rank').then((mod) => ({ default: mod.RankPage })))
@@ -48,6 +49,7 @@ export function AppRoutes() {
             <Route path="contests/:id" element={page(<ContestDetailPage />)} />
             <Route path="discussion" element={page(<DiscussionsPage />)} />
             <Route path="discussion/:id" element={page(<DiscussionDetailPage />)} />
+            <Route path="notifications" element={page(<NotificationsPage />)} />
             <Route path="rank" element={page(<RankPage />)} />
             <Route path="users/:name" element={page(<UserPage />)} />
             <Route path="submissions" element={page(<SubmissionsPage />)} />

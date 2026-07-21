@@ -1,8 +1,8 @@
 import { DeleteOutlined, EditOutlined, LockOutlined, PushpinOutlined, UnlockOutlined } from '@ant-design/icons'
 import { App as AntApp, Button, Card, Divider, Flex, Form, Input, Pagination, Popconfirm, Space, Tag, Tooltip, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { api, apiData, apiEmpty } from '../../client'
 import type { CommentCreate } from '../../client'
@@ -16,6 +16,7 @@ import { useSession } from '../../session'
 import { usePageTitle } from '../../title'
 import { formatTime } from '../../utils/format'
 import { limits } from '../../utils/limits'
+import { discussionDraftKey } from '../../utils/draft'
 
 const commentPageSize = 20
 
@@ -35,20 +36,74 @@ export function DiscussionDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [commentPage, setCommentPage] = useState(1)
   const params = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const id = Number(params.id)
+  const rawCommentID = Number(searchParams.get('comment'))
+  const commentID = Number.isSafeInteger(rawCommentID) && rawCommentID > 0 ? rawCommentID : undefined
+  const rawNotificationID = Number(searchParams.get('notification'))
+  const notificationID = Number.isSafeInteger(rawNotificationID) && rawNotificationID > 0 ? rawNotificationID : undefined
+  const editDraftKey = discussionDraftKey(session.name, 'edit', id)
+  const replyDraftKey = discussionDraftKey(session.name, 'reply', id)
   const query = useQuery({
-    queryKey: ['discussion', id, commentPage, commentPageSize],
-    queryFn: () => apiData(api.GET('/api/discussion/{id}', { params: { path: { id }, query: { page: commentPage, pageSize: commentPageSize } } })),
+    queryKey: ['discussion', id, commentPage, commentPageSize, commentID],
+    queryFn: () => apiData(api.GET('/api/discussion/{id}', { params: { path: { id }, query: { page: commentPage, pageSize: commentPageSize, comment: commentID } } })),
     enabled: Number.isFinite(id)
   })
   usePageTitle(query.data?.discussion.title)
   const showError = (error: unknown) => {
     message.error(error instanceof Error ? error.message : text.common.loadingFailed)
   }
+  const clearCommentTarget = () => {
+    if (!searchParams.has('comment')) {
+      return
+    }
+    const next = new URLSearchParams(searchParams)
+    next.delete('comment')
+    setSearchParams(next, { replace: true })
+  }
+  useEffect(() => {
+    if (!notificationID) {
+      return
+    }
+    void apiEmpty(api.POST('/api/notifications/{id}/read', { params: { path: { id: notificationID } } }))
+      .then(() => client.invalidateQueries({ queryKey: ['notifications'] }))
+      .catch(() => undefined)
+  }, [client, notificationID])
+  useEffect(() => {
+    if (!commentID || !query.data?.comments.items.some((item) => item.id === commentID)) {
+      return
+    }
+    const frame = requestAnimationFrame(() => document.getElementById(`comment-${commentID}`)?.scrollIntoView({ block: 'center' }))
+    return () => cancelAnimationFrame(frame)
+  }, [commentID, query.data])
+  const localMentions = useMemo(() => {
+    if (!query.data) {
+      return []
+    }
+    const names: string[] = []
+    const seen = new Set<string>([session.name.toLowerCase()])
+    const add = (name: string) => {
+      const key = name.toLowerCase()
+      if (!seen.has(key)) {
+        seen.add(key)
+        names.push(name)
+      }
+    }
+    for (let index = query.data.comments.items.length - 1; index >= 0; index--) {
+      const comment = query.data.comments.items[index]
+      if (!comment.deleted) {
+        add(comment.author)
+      }
+    }
+    add(query.data.discussion.author)
+    return names
+  }, [query.data, session.name])
   const reply = useMutation({
     mutationFn: (body: CommentCreate) => apiData(api.POST('/api/discussion/{id}/comments', { params: { path: { id } }, body })),
     onSuccess: () => {
+      window.localStorage.removeItem(replyDraftKey)
       const nextCount = (query.data?.comments.total ?? 0) + 1
+      clearCommentTarget()
       setCommentPage(Math.max(1, Math.ceil(nextCount / commentPageSize)))
       void client.invalidateQueries({ queryKey: ['discussion'] })
       form.resetFields()
@@ -59,6 +114,7 @@ export function DiscussionDetailPage() {
   const edit = useMutation({
     mutationFn: (body: DiscussionForm) => apiData(api.PATCH('/api/discussion/{id}', { params: { path: { id } }, body })),
     onSuccess: (item) => {
+      window.localStorage.removeItem(editDraftKey)
       void client.invalidateQueries({ queryKey: ['discussion'] })
       void client.invalidateQueries({ queryKey: ['discussion', id] })
       setEditOpen(false)
@@ -184,7 +240,7 @@ export function DiscussionDetailPage() {
               <TagSelect kind="discussion" mode="tags" />
             </Form.Item>
             <Form.Item name="content" label={text.discussion.content} rules={[{ required: true, whitespace: true }]}>
-              <MarkdownEditor />
+              <MarkdownEditor mentions={localMentions} draftKey={editDraftKey} />
             </Form.Item>
           </Form>
         ) : (
@@ -194,14 +250,14 @@ export function DiscussionDetailPage() {
               <Typography.Text type="secondary">{formatTime(discussion.createdAt, lang)}</Typography.Text>
               <TagList tags={discussion.tags} linkTo={(tag) => `/discussion?tags=${encodeURIComponent(tag)}`} />
             </Space>
-            <MarkdownPreview value={content} />
+            <MarkdownPreview id={`discussion-${discussion.id}`} value={content} />
           </Flex>
         )}
       </Card>
       <Card title={text.discussion.replies}>
         <Flex vertical gap={16}>
           {pageComments.map((item, index) => (
-            <div key={item.id}>
+            <div key={item.id} id={`comment-${item.id}`}>
               {index > 0 ? <Divider style={{ margin: '0 0 8px' }} /> : null}
               <Flex vertical gap={8} style={{ width: '100%' }}>
                 <Flex align="center" justify="space-between" gap={8}>
@@ -218,19 +274,28 @@ export function DiscussionDetailPage() {
                 </Flex>
                 {item.deleted ? null : (
                   <div className="compactMarkdown">
-                    <MarkdownPreview value={item.content} />
+                    <MarkdownPreview id={`discussion-comment-${item.id}`} value={item.content} />
                   </div>
                 )}
               </Flex>
             </div>
           ))}
           {comments.total > comments.pageSize ? (
-            <Pagination current={comments.page} pageSize={comments.pageSize} total={comments.total} showSizeChanger={false} onChange={setCommentPage} />
+            <Pagination
+              current={comments.page}
+              pageSize={comments.pageSize}
+              total={comments.total}
+              showSizeChanger={false}
+              onChange={(page) => {
+                clearCommentTarget()
+                setCommentPage(page)
+              }}
+            />
           ) : null}
           {!discussion.locked && session.signedIn ? (
             <Form<CommentCreate> form={form} layout="vertical" onFinish={(values) => reply.mutate(values)}>
               <Form.Item name="content" rules={[{ required: true, whitespace: true }]}>
-                <MarkdownEditor />
+                <MarkdownEditor mentions={localMentions} draftKey={replyDraftKey} />
               </Form.Item>
               <Button type="primary" htmlType="submit" loading={reply.isPending}>
                 {text.common.send}

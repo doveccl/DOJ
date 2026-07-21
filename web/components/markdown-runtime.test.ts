@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { configureMarkdownHTML, configurePlainCodeBlocks } from './markdown-runtime'
+import { configureMarkdownHTML, configureMarkdownMentions, configurePlainCodeBlocks } from './markdown-runtime'
 
 describe('markdown runtime', () => {
   afterEach(() => {
@@ -53,7 +53,67 @@ describe('markdown runtime', () => {
     expect(md.options.highlight?.('return 0;', 'C++', 'data-x')).toBe('<em>C++:return 0;:data-x</em>')
     expect(md.options.highlight?.('return 0;', 'cxx', 'data-x')).toBe('<em>cxx:return 0;:data-x</em>')
   })
+
+  it('links standalone discussion mentions without rewriting emails or links', () => {
+    const render = mentionRule()
+
+    expect(runMention(render, '@Alice')).toEqual({ matched: true, position: 6, href: '/users/Alice', text: '@Alice' })
+    expect(runMention(render, 'a@example.com', 1).matched).toBe(false)
+    expect(runMention(render, '@Alice', 0, 1).matched).toBe(false)
+  })
 })
+
+function mentionRule() {
+  let rule: ((state: MentionState, silent: boolean) => boolean) | undefined
+  configureMarkdownMentions({
+    inline: {
+      ruler: {
+        before: (_before, _name, next) => {
+          rule = next
+        }
+      }
+    }
+  })
+  if (!rule) {
+    throw new Error('mention rule was not registered')
+  }
+  return rule
+}
+
+type MentionState = {
+  src: string
+  pos: number
+  posMax: number
+  linkLevel?: number
+  push: (type: string, tag: string, nesting: number) => { attrSet: (name: string, value: string) => void; content: string }
+}
+
+function runMention(render: ReturnType<typeof mentionRule>, source: string, position = 0, linkLevel = 0) {
+  let href = ''
+  let text = ''
+  const state: MentionState = {
+    src: source,
+    pos: position,
+    posMax: source.length,
+    linkLevel,
+    push: (type) => ({
+      attrSet: (name, value) => {
+        if (type === 'link_open' && name === 'href') {
+          href = value
+        }
+      },
+      get content() {
+        return text
+      },
+      set content(value: string) {
+        if (type === 'text') {
+          text = value
+        }
+      }
+    })
+  }
+  return { matched: render(state, false), position: state.pos, href, text }
+}
 
 function runtime() {
   return {

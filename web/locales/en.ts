@@ -293,6 +293,12 @@ export const en: typeof zh = {
     unlock: 'Unlock',
     floor: (value: number) => `#${value}`
   },
+  notification: {
+    title: 'Notifications',
+    readAll: 'Mark all as read',
+    mentioned: (title: string) => `mentioned you in “${title}”`,
+    replied: (title: string) => `replied to your discussion “${title}”`
+  },
   profile: {
     title: 'Profile',
     account: 'Account',

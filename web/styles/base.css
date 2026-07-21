@@ -119,6 +119,14 @@ body {
   white-space: nowrap;
 }
 
+.notificationUnreadDot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--ant-color-primary);
+}
+
 .profileButton {
   height: 40px;
   padding-inline: 8px;

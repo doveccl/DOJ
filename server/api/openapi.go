@@ -139,6 +139,7 @@ type RankUserPage contract.Page[RankUser]
 type SolvedProblemPage contract.Page[contract.SolvedProblem]
 type DiscussionListPage contract.Page[contract.Discussion]
 type CommentPage contract.Page[contract.Comment]
+type NotificationPage contract.NotificationPage
 
 type AdminMembers struct {
 	Users  []AdminUser  `json:"users"`
@@ -293,9 +294,15 @@ type discussionListQuery struct {
 }
 
 type discussionDetailQuery struct {
-	ID       uint `path:"id"`
-	Page     int  `query:"page"`
-	PageSize int  `query:"pageSize"`
+	ID        uint `path:"id"`
+	Page      int  `query:"page"`
+	PageSize  int  `query:"pageSize"`
+	CommentID uint `query:"comment"`
+}
+
+type notificationListQuery struct {
+	Page     int `query:"page" minimum:"1"`
+	PageSize int `query:"pageSize" minimum:"1" maximum:"100"`
 }
 
 type commentPath struct {
@@ -437,6 +444,9 @@ func RegisterOpenAPI(api huma.API) {
 	noContent[idPath](api, http.MethodDelete, "/api/discussion/{id}", "deleteDiscussion", "Discussion deleted")
 	postCreated[idBody[contract.CommentCreate], contract.Comment](api, "/api/discussion/{id}/comments", "createComment", "Comment created")
 	noContent[commentPath](api, http.MethodDelete, "/api/discussion/{id}/comments/{commentId}", "deleteComment", "Comment deleted")
+	getWith[notificationListQuery, NotificationPage](api, "/api/notifications", "listNotifications", "Notification list")
+	noContent[emptyInput](api, http.MethodPost, "/api/notifications/read-all", "readAllNotifications", "All notifications read")
+	noContent[idPath](api, http.MethodPost, "/api/notifications/{id}/read", "readNotification", "Notification read")
 }
 
 type stringIDPath struct {

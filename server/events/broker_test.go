@@ -52,6 +52,12 @@ func TestSubmissionEventsAreLightweight(t *testing.T) {
 	if got.Type != "submission-progress" {
 		t.Fatalf("submission progress event should only invalidate queries: %+v", got)
 	}
+
+	NotificationChanged()
+	got = readEvent(t, ch)
+	if got.Type != "notification" {
+		t.Fatalf("notification event should only invalidate queries: %+v", got)
+	}
 }
 
 func readEvent(t *testing.T, ch <-chan Event) Event {

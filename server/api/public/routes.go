@@ -103,6 +103,10 @@ func Register(e *echo.Echo, db *gorm.DB) {
 	group.DELETE("/discussion/:id", api.deleteDiscussion)
 	group.POST("/discussion/:id/comments", api.createComment, api.rateLimit("comment", 60, time.Minute), echomw.BodyLimit(limits.BodyShortText))
 	group.DELETE("/discussion/:id/comments/:commentId", api.deleteComment)
+
+	group.GET("/notifications", api.notifications)
+	group.POST("/notifications/read-all", api.readAllNotifications)
+	group.POST("/notifications/:id/read", api.readNotification)
 }
 
 func (api *API) requireGuestAccess(next echo.HandlerFunc) echo.HandlerFunc {

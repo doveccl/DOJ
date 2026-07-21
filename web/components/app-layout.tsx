@@ -1,5 +1,6 @@
 import {
   BookOutlined,
+  BellOutlined,
   CodeOutlined,
   ControlOutlined,
   DesktopOutlined,
@@ -16,7 +17,7 @@ import {
   TranslationOutlined,
   UserOutlined
 } from '@ant-design/icons'
-import { Alert, App as AntApp, Avatar, Button, Dropdown, Flex, Form, Input, Layout, Menu, Modal, Result, Space, Tabs, Typography } from 'antd'
+import { Alert, App as AntApp, Avatar, Badge, Button, Dropdown, Flex, Form, Input, Layout, Menu, Modal, Result, Space, Tabs, Typography } from 'antd'
 import type { MenuProps } from 'antd'
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -64,6 +65,11 @@ export function AppLayout() {
   const title = useCurrentPageTitle()
   const [loginOpen, setLoginOpen] = useState(false)
   const site = useQuery({ queryKey: ['site'], queryFn: () => apiData(api.GET('/api/site')) })
+  const notifications = useQuery({
+    queryKey: ['notifications', 'badge'],
+    queryFn: () => apiData(api.GET('/api/notifications', { params: { query: { page: 1, pageSize: 1 } } })),
+    enabled: session.signedIn
+  })
   const items = navItems(text, session.admin)
   const siteName = site.data?.siteName || 'DOJ'
   const registrationOpen = site.data?.allowRegistration ?? false
@@ -137,6 +143,11 @@ export function AppLayout() {
                   icon={color === 'dark' ? <MoonOutlined /> : mode === 'system' ? <DesktopOutlined /> : <SunOutlined />}
                 />
               </Dropdown>
+              {session.signedIn ? (
+                <Badge count={notifications.data?.unread ?? 0} overflowCount={99} size="small">
+                  <Button type="text" aria-label={text.notification.title} icon={<BellOutlined />} onClick={() => navigate('/notifications')} />
+                </Badge>
+              ) : null}
               {session.signedIn ? (
                 <Dropdown
                   trigger={['hover', 'click']}

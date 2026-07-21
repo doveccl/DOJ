@@ -168,6 +168,17 @@ type Comment struct {
 	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
+type Notification struct {
+	ID           uint       `gorm:"primaryKey" json:"id"`
+	UserID       uint       `gorm:"not null;index:idx_notification_unread,priority:1;uniqueIndex:idx_notification_source,priority:1" json:"userId"`
+	ActorID      uint       `gorm:"not null" json:"actorId"`
+	Kind         string     `gorm:"size:16;not null" json:"kind"`
+	DiscussionID uint       `gorm:"not null;index;uniqueIndex:idx_notification_source,priority:2" json:"discussionId"`
+	CommentID    uint       `gorm:"not null;default:0;uniqueIndex:idx_notification_source,priority:3" json:"commentId"`
+	ReadAt       *time.Time `gorm:"index:idx_notification_unread,priority:2" json:"readAt"`
+	CreatedAt    time.Time  `gorm:"index:idx_notification_unread,priority:3,sort:desc" json:"createdAt"`
+}
+
 type Setting struct {
 	Key   string         `gorm:"size:64;primaryKey" json:"key"`
 	Value datatypes.JSON `gorm:"type:jsonb;not null" json:"value"`
@@ -191,6 +202,7 @@ func All() []any {
 		&ContestProblem{},
 		&Discussion{},
 		&Comment{},
+		&Notification{},
 		&Setting{},
 	}
 }

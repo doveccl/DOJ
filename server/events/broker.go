@@ -54,3 +54,7 @@ func SubmissionChanged() {
 func SubmissionProgressChanged() {
 	Default.Publish("submission-progress")
 }
+
+func NotificationChanged() {
+	Default.Publish("notification")
+}

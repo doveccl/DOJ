@@ -10,6 +10,8 @@ type MarkdownEditorProps = {
   upload?: (file: File) => Promise<string>
   variant?: 'editor' | 'preview'
   onChange?: (value: string) => void
+  mentions?: string[]
+  draftKey?: string
 }
 
 const LazyMarkdownEditor = lazy(() => import('./mdeditor').then((mod) => ({ default: mod.MarkdownEditor })))

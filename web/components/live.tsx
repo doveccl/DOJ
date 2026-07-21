@@ -47,6 +47,9 @@ export function LiveEvents() {
     source.addEventListener('submission-progress', () => {
       void client.invalidateQueries({ queryKey: ['submission'] })
     })
+    source.addEventListener('notification', () => {
+      void client.invalidateQueries({ queryKey: ['notifications'] })
+    })
     return () => {
       source.close()
       if (refreshTimer !== undefined) {

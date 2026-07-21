@@ -19,6 +19,7 @@ import { useSession } from '../../session'
 import { formatShortTime, formatTime } from '../../utils/format'
 import { limits } from '../../utils/limits'
 import { pageFromParams, pageSizeFromParams, setPageParams } from '../../utils/pagination'
+import { discussionDraftKey } from '../../utils/draft'
 
 type DiscussionForm = {
   title: string
@@ -44,6 +45,7 @@ export function DiscussionsPage() {
   const create = useMutation({
     mutationFn: (body: DiscussionCreate) => apiData(api.POST('/api/discussion', { body })),
     onSuccess: (item) => {
+      window.localStorage.removeItem(discussionDraftKey(session.name, 'new'))
       void client.invalidateQueries({ queryKey: ['discussion'] })
       message.success(text.discussion.createdTip)
       setOpen(false)
@@ -60,6 +62,9 @@ export function DiscussionsPage() {
       return apiData(api.PATCH('/api/discussion/{id}', { params: { path: { id: editing.id } }, body: values }))
     },
     onSuccess: (item) => {
+      if (editing) {
+        window.localStorage.removeItem(discussionDraftKey(session.name, 'edit', editing.id))
+      }
       void client.invalidateQueries({ queryKey: ['discussion'] })
       void client.invalidateQueries({ queryKey: ['discussion', item.id] })
       message.success(text.common.saved)
@@ -192,6 +197,7 @@ export function DiscussionsPage() {
         <DiscussionModal
           editing={Boolean(editing)}
           initial={draft}
+          draftKey={discussionDraftKey(session.name, editing ? 'edit' : 'new', editing?.id)}
           loading={create.isPending || update.isPending}
           onCancel={closeModal}
           onSave={save}
@@ -204,12 +210,14 @@ export function DiscussionsPage() {
 function DiscussionModal({
   editing,
   initial,
+  draftKey,
   loading,
   onCancel,
   onSave
 }: {
   editing: boolean
   initial: DiscussionForm
+  draftKey: string
   loading: boolean
   onCancel: () => void
   onSave: (values: DiscussionForm) => void
@@ -243,7 +251,7 @@ function DiscussionModal({
           <TagSelect kind="discussion" mode="tags" />
         </Form.Item>
         <Form.Item name="content" label={text.discussion.content} rules={[{ required: true, whitespace: true }]}>
-          <MarkdownEditor key={editorKey} />
+          <MarkdownEditor key={editorKey} mentions={[]} draftKey={draftKey} />
         </Form.Item>
       </Form>
     </Modal>

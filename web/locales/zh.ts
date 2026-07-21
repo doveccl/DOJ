@@ -291,6 +291,12 @@ export const zh = {
     unlock: '解锁',
     floor: (value: number) => `${value} 楼`
   },
+  notification: {
+    title: '通知',
+    readAll: '全部已读',
+    mentioned: (title: string) => `在《${title}》中提到了你`,
+    replied: (title: string) => `回复了你的讨论《${title}》`
+  },
   profile: {
     title: '个人信息',
     account: '资料',

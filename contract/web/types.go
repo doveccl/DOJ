@@ -358,6 +358,26 @@ type CommentCreate struct {
 	Content string `json:"content"`
 }
 
+type Notification struct {
+	ID              uint      `json:"id"`
+	Kind            string    `json:"kind"`
+	Actor           string    `json:"actor"`
+	Avatar          string    `json:"avatar"`
+	DiscussionID    uint      `json:"discussionId"`
+	DiscussionTitle string    `json:"discussionTitle"`
+	CommentID       *uint     `json:"commentId,omitempty"`
+	Read            bool      `json:"read"`
+	CreatedAt       time.Time `json:"createdAt"`
+}
+
+type NotificationPage struct {
+	Items    []Notification `json:"items"`
+	Unread   int64          `json:"unread"`
+	Page     int            `json:"page"`
+	PageSize int            `json:"pageSize"`
+	Total    int64          `json:"total"`
+}
+
 type Problem struct {
 	ID        uint     `json:"id"`
 	Sort      string   `json:"sort,omitempty"`
