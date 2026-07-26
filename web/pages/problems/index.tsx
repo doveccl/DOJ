@@ -47,7 +47,7 @@ export function ProblemsPage() {
   const activeStatus = showStatusFilter && isProblemStatus(status) ? status : ''
   const page = pageFromParams(params)
   const pageSize = pageSizeFromParams(params)
-  const query = useQuery({ queryKey: ['problems', q, tag, activeStatus, page, pageSize], queryFn: () => apiData(api.GET('/api/problems', { params: { query: { q, tag, status: activeStatus || undefined, page, pageSize } } })) })
+  const query = useQuery({ queryKey: ['problems', 'list', q, tag, activeStatus, page, pageSize], queryFn: () => apiData(api.GET('/api/problems', { params: { query: { q, tag, status: activeStatus || undefined, page, pageSize } } })) })
   const problemIds = (query.data?.items ?? []).map((item) => item.id)
   const ids = problemIds.join(',')
   const state = useQuery({
@@ -330,7 +330,7 @@ function isProblemStatus(value: string): value is 'none' | 'pending' | 'tried' |
 }
 
 function replaceProblemInCaches(client: ReturnType<typeof useQueryClient>, item: ProblemListItem) {
-  client.setQueriesData<ProblemListPage>({ queryKey: ['problems'] }, (old) => {
+  client.setQueriesData<ProblemListPage>({ queryKey: ['problems', 'list'] }, (old) => {
     if (!old) {
       return old
     }
